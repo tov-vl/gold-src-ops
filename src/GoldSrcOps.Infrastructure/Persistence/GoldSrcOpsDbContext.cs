@@ -51,6 +51,7 @@ public sealed class GoldSrcOpsDbContext : DbContext
             state.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
             state.Property(x => x.CurrentMap).HasMaxLength(128);
             state.Property(x => x.FailureReason).HasMaxLength(2000);
+            state.Property(x => x.ConsecutiveFailures).IsRequired();
         });
 
         modelBuilder.Entity<PollSnapshot>(snapshot =>
@@ -75,6 +76,7 @@ public sealed class GoldSrcOpsDbContext : DbContext
             incident.Property(x => x.StartReason).HasMaxLength(2000).IsRequired();
             incident.Property(x => x.EndReason).HasMaxLength(2000);
             incident.HasIndex(x => new { x.ServerId, x.ClosedAtUtc });
+            incident.Ignore(x => x.IsOpen);
             incident.HasOne(x => x.Server)
                 .WithMany()
                 .HasForeignKey(x => x.ServerId)

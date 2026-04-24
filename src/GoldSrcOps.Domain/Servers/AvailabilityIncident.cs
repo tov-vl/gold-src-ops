@@ -24,4 +24,48 @@ public sealed class AvailabilityIncident
     public int ConsecutiveFailures { get; private set; }
 
     public Server Server { get; private set; } = null!;
+
+    public bool IsOpen => ClosedAtUtc is null;
+
+    public static AvailabilityIncident Open(
+        Guid serverId,
+        DateTimeOffset openedAtUtc,
+        string startReason,
+        int consecutiveFailures)
+    {
+        return new AvailabilityIncident
+        {
+            Id = Guid.NewGuid(),
+            ServerId = serverId,
+            Type = IncidentType.Unreachable,
+            OpenedAtUtc = openedAtUtc,
+            StartReason = string.IsNullOrWhiteSpace(startReason)
+                ? "Server became unreachable."
+                : startReason.Trim(),
+            ConsecutiveFailures = Math.Max(1, consecutiveFailures)
+        };
+    }
+
+    public void RecordFailure(int consecutiveFailures)
+    {
+        if (!IsOpen)
+        {
+            return;
+        }
+
+        ConsecutiveFailures = Math.Max(ConsecutiveFailures, consecutiveFailures);
+    }
+
+    public void Close(DateTimeOffset closedAtUtc, string endReason)
+    {
+        if (!IsOpen)
+        {
+            return;
+        }
+
+        ClosedAtUtc = closedAtUtc;
+        EndReason = string.IsNullOrWhiteSpace(endReason)
+            ? "Server query recovered."
+            : endReason.Trim();
+    }
 }

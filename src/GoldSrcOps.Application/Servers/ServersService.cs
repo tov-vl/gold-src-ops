@@ -59,7 +59,8 @@ public sealed class ServersService
                 state.CurrentMap,
                 state.Players,
                 state.MaxPlayers,
-                state.FailureReason);
+                state.FailureReason,
+                state.ConsecutiveFailures);
     }
 
     private static ServerDto Map(Server server) =>

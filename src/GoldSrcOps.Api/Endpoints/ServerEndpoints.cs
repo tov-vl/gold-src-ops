@@ -1,4 +1,6 @@
 using GoldSrcOps.Application.Servers;
+using GoldSrcOps.Application.Incidents;
+using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Servers;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -22,6 +24,9 @@ public static class ServerEndpoints
 
         group.MapGet("/{id:guid}/status", GetStatusAsync)
             .WithName("GetServerStatus");
+
+        group.MapGet("/{id:guid}/incidents", ListServerIncidentsAsync)
+            .WithName("ListServerIncidents");
 
         return group;
     }
@@ -75,6 +80,15 @@ public static class ServerEndpoints
     {
         var status = await servers.GetStatusAsync(id, cancellationToken);
         return status is null ? TypedResults.NotFound() : TypedResults.Ok(Map(status));
+    }
+
+    private static async Task<Ok<IReadOnlyList<AvailabilityIncidentResponse>>> ListServerIncidentsAsync(
+        Guid id,
+        IncidentsService incidents,
+        CancellationToken cancellationToken)
+    {
+        var result = await incidents.ListByServerAsync(id, cancellationToken);
+        return TypedResults.Ok<IReadOnlyList<AvailabilityIncidentResponse>>(result.Select(Map).ToArray());
     }
 
     private static Dictionary<string, string[]> Validate(RegisterServerRequest request)
@@ -133,5 +147,17 @@ public static class ServerEndpoints
             status.CurrentMap,
             status.Players,
             status.MaxPlayers,
-            status.FailureReason);
+            status.FailureReason,
+            status.ConsecutiveFailures);
+
+    private static AvailabilityIncidentResponse Map(AvailabilityIncidentDto incident) =>
+        new(
+            incident.Id,
+            incident.ServerId,
+            incident.Type.ToString(),
+            incident.OpenedAtUtc,
+            incident.ClosedAtUtc,
+            incident.StartReason,
+            incident.EndReason,
+            incident.ConsecutiveFailures);
 }

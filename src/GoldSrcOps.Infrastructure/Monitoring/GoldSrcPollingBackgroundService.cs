@@ -63,9 +63,11 @@ internal sealed class GoldSrcPollingBackgroundService : BackgroundService
         if (result.DueServers > 0)
         {
             _logger.LogInformation(
-                "GoldSrc polling pass completed: {SuccessfulPolls} succeeded, {FailedPolls} failed.",
+                "GoldSrc polling pass completed: {SuccessfulPolls} succeeded, {FailedPolls} failed, {OpenedIncidents} incidents opened, {ClosedIncidents} incidents closed.",
                 result.SuccessfulPolls,
-                result.FailedPolls);
+                result.FailedPolls,
+                result.OpenedIncidents,
+                result.ClosedIncidents);
         }
     }
 }

@@ -1,4 +1,5 @@
 using GoldSrcOps.Application.Common;
+using GoldSrcOps.Application.Incidents;
 using GoldSrcOps.Domain.Servers;
 
 namespace GoldSrcOps.Application.Servers;
@@ -6,17 +7,20 @@ namespace GoldSrcOps.Application.Servers;
 public sealed class ServerPollingService
 {
     private readonly IServerRepository _servers;
+    private readonly IIncidentRepository _incidents;
     private readonly IGoldSrcServerQueryClient _queryClient;
     private readonly IClock _clock;
     private readonly ServerPollingSettings _settings;
 
     public ServerPollingService(
         IServerRepository servers,
+        IIncidentRepository incidents,
         IGoldSrcServerQueryClient queryClient,
         IClock clock,
         ServerPollingSettings settings)
     {
         _servers = servers;
+        _incidents = incidents;
         _queryClient = queryClient;
         _clock = clock;
         _settings = settings;
@@ -33,11 +37,13 @@ public sealed class ServerPollingService
 
         var successfulPolls = 0;
         var failedPolls = 0;
+        var openedIncidents = 0;
+        var closedIncidents = 0;
 
         foreach (var server in dueServers)
         {
-            var succeeded = await PollServerAsync(server, cancellationToken);
-            if (succeeded)
+            var outcome = await PollServerAsync(server, cancellationToken);
+            if (outcome.Succeeded)
             {
                 successfulPolls++;
             }
@@ -46,13 +52,28 @@ public sealed class ServerPollingService
                 failedPolls++;
             }
 
+            if (outcome.OpenedIncident)
+            {
+                openedIncidents++;
+            }
+
+            if (outcome.ClosedIncident)
+            {
+                closedIncidents++;
+            }
+
             await _servers.SaveChangesAsync(cancellationToken);
         }
 
-        return new ServerPollingResult(dueServers.Length, successfulPolls, failedPolls);
+        return new ServerPollingResult(
+            dueServers.Length,
+            successfulPolls,
+            failedPolls,
+            openedIncidents,
+            closedIncidents);
     }
 
-    private async Task<bool> PollServerAsync(Server server, CancellationToken cancellationToken)
+    private async Task<ServerPollOutcome> PollServerAsync(Server server, CancellationToken cancellationToken)
     {
         try
         {
@@ -80,25 +101,27 @@ public sealed class ServerPollingService
                 info.MaxPlayers);
 
             await _servers.AddSnapshotAsync(snapshot, cancellationToken);
-            return true;
+            var closedIncident = await CloseOpenIncidentAsync(server.Id, checkedAtUtc, cancellationToken);
+
+            return new ServerPollOutcome(Succeeded: true, OpenedIncident: false, ClosedIncident: closedIncident);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            await MarkFailedAsync(
+            var openedIncident = await MarkFailedAsync(
                 server,
                 $"Query timed out after {_settings.QueryTimeout.TotalMilliseconds:0} ms.",
                 cancellationToken);
 
-            return false;
+            return new ServerPollOutcome(Succeeded: false, openedIncident, ClosedIncident: false);
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
-            await MarkFailedAsync(server, ex.Message, cancellationToken);
-            return false;
+            var openedIncident = await MarkFailedAsync(server, ex.Message, cancellationToken);
+            return new ServerPollOutcome(Succeeded: false, openedIncident, ClosedIncident: false);
         }
     }
 
-    private async Task MarkFailedAsync(
+    private async Task<bool> MarkFailedAsync(
         Server server,
         string failureReason,
         CancellationToken cancellationToken)
@@ -106,8 +129,45 @@ public sealed class ServerPollingService
         var checkedAtUtc = _clock.UtcNow;
         var snapshot = PollSnapshot.Unreachable(server.Id, checkedAtUtc, failureReason);
 
-        server.GetCurrentState(checkedAtUtc).MarkOffline(checkedAtUtc, failureReason);
+        var state = server.GetCurrentState(checkedAtUtc);
+        state.MarkOffline(checkedAtUtc, failureReason);
         await _servers.AddSnapshotAsync(snapshot, cancellationToken);
+
+        if (state.ConsecutiveFailures < _settings.IncidentFailureThreshold)
+        {
+            return false;
+        }
+
+        var openIncident = await _incidents.GetOpenForServerAsync(server.Id, cancellationToken);
+        if (openIncident is not null)
+        {
+            openIncident.RecordFailure(state.ConsecutiveFailures);
+            return false;
+        }
+
+        var incident = AvailabilityIncident.Open(
+            server.Id,
+            checkedAtUtc,
+            failureReason,
+            state.ConsecutiveFailures);
+
+        await _incidents.AddAsync(incident, cancellationToken);
+        return true;
+    }
+
+    private async Task<bool> CloseOpenIncidentAsync(
+        Guid serverId,
+        DateTimeOffset checkedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var openIncident = await _incidents.GetOpenForServerAsync(serverId, cancellationToken);
+        if (openIncident is null)
+        {
+            return false;
+        }
+
+        openIncident.Close(checkedAtUtc, "Server query recovered.");
+        return true;
     }
 
     private static int ToLatencyMs(TimeSpan latency)
@@ -119,4 +179,9 @@ public sealed class ServerPollingService
 
         return Math.Max(0, (int)Math.Round(latency.TotalMilliseconds));
     }
+
+    private sealed record ServerPollOutcome(
+        bool Succeeded,
+        bool OpenedIncident,
+        bool ClosedIncident);
 }

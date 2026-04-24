@@ -22,41 +22,43 @@ Completed:
 - Background polling service added.
 - Successful and failed poll attempts update `ServerCurrentState`.
 - Every poll attempt writes a `PollSnapshot`.
+- Availability incident detection added.
+- `GET /api/incidents/open`, `GET /api/incidents/{id}`, and `GET /api/servers/{id}/incidents` added.
+- Unit tests added for incident open/close transitions.
 
 ## Immediate Next Milestone
 
-Add incident detection on top of polling.
+Expose snapshot history and finish the first monitoring read model.
 
 Definition of done:
 
-- Repeated failed polls increment failure tracking.
-- An `AvailabilityIncident` opens after the configured failure threshold.
-- A successful poll closes any open availability incident.
-- Open incidents are exposed through `GET /api/incidents/open`.
-- Server incidents are exposed through `GET /api/servers/{id}/incidents`.
-- Basic tests cover incident open/close transitions.
+- `GET /api/servers/{id}/snapshots?from=&to=` returns recent snapshot history.
+- Snapshot query supports optional `from`, `to`, and reasonable limit.
+- `GET /api/dashboard/overview` returns server counts, status counts, and open incident count.
+- API returns DTOs only, not EF entities.
+- Basic tests cover snapshot filtering or dashboard aggregation.
 
 ## Next 10 Tasks
 
-1. Add state transition rules for availability incidents.
+1. Add `GET /api/servers/{id}/snapshots?from=&to=`.
 
-2. Open an `AvailabilityIncident` after repeated failures.
+2. Add snapshot query DTOs/contracts.
 
-3. Close an open `AvailabilityIncident` after recovery.
+3. Add repository query for server snapshots.
 
-4. Add `GET /api/incidents/open`.
+4. Add `GET /api/dashboard/overview`.
 
-5. Add `GET /api/servers/{id}/incidents`.
+5. Add dashboard overview service.
 
-6. Add `GET /api/servers/{id}/snapshots?from=&to=`.
+6. Add unit tests for snapshot filtering or dashboard aggregation.
 
-7. Add `GET /api/incidents/{id}`.
+7. Add integration tests for `POST /api/servers` and `GET /api/servers/{id}/status`.
 
 8. Add unit tests for A2S packet parsing with captured byte arrays.
 
 9. Add unit tests for state transition rules.
 
-10. Add integration tests for `POST /api/servers` and `GET /api/servers/{id}/status`.
+10. Add Docker-based end-to-end smoke test notes for polling against a live server.
 
 ## v1 API Scope
 

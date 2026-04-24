@@ -14,6 +14,8 @@ internal sealed class GoldSrcPollingOptions
 
     public int BatchSize { get; init; } = 50;
 
+    public int IncidentFailureThreshold { get; init; } = 3;
+
     public static GoldSrcPollingOptions FromConfiguration(IConfiguration configuration)
     {
         var section = configuration.GetSection(SectionName);
@@ -23,7 +25,8 @@ internal sealed class GoldSrcPollingOptions
             Enabled = ReadBool(section, "Enabled", defaultValue: true),
             LoopDelay = TimeSpan.FromSeconds(ReadPositiveInt(section, "LoopDelaySeconds", defaultValue: 5)),
             QueryTimeout = TimeSpan.FromMilliseconds(ReadPositiveInt(section, "QueryTimeoutMilliseconds", defaultValue: 3000)),
-            BatchSize = ReadPositiveInt(section, "BatchSize", defaultValue: 50)
+            BatchSize = ReadPositiveInt(section, "BatchSize", defaultValue: 50),
+            IncidentFailureThreshold = ReadPositiveInt(section, "IncidentFailureThreshold", defaultValue: 3)
         };
     }
 

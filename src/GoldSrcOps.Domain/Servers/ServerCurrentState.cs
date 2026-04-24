@@ -34,6 +34,8 @@ public sealed class ServerCurrentState
 
     public string? FailureReason { get; private set; }
 
+    public int ConsecutiveFailures { get; private set; }
+
     public Server Server { get; private set; } = null!;
 
     public static ServerCurrentState CreateUnknown(Guid serverId, DateTimeOffset checkedAtUtc) =>
@@ -55,6 +57,7 @@ public sealed class ServerCurrentState
         Players = players;
         MaxPlayers = maxPlayers;
         FailureReason = null;
+        ConsecutiveFailures = 0;
     }
 
     public void MarkOffline(DateTimeOffset checkedAtUtc, string failureReason)
@@ -69,5 +72,8 @@ public sealed class ServerCurrentState
         FailureReason = string.IsNullOrWhiteSpace(failureReason)
             ? "Server query failed."
             : failureReason.Trim();
+        ConsecutiveFailures = ConsecutiveFailures == int.MaxValue
+            ? int.MaxValue
+            : ConsecutiveFailures + 1;
     }
 }

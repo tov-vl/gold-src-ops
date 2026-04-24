@@ -12,4 +12,5 @@ public sealed record ServerStatusDto(
     string? CurrentMap,
     int? Players,
     int? MaxPlayers,
-    string? FailureReason);
+    string? FailureReason,
+    int ConsecutiveFailures);
