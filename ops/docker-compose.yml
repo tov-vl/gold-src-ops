@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: goldsrcops-postgres
+    environment:
+      POSTGRES_DB: goldsrcops
+      POSTGRES_USER: goldsrcops
+      POSTGRES_PASSWORD: goldsrcops
+    ports:
+      - "5432:5432"
+    volumes:
+      - goldsrcops-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goldsrcops -d goldsrcops"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: goldsrcops-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@goldsrcops.local
+      PGADMIN_DEFAULT_PASSWORD: goldsrcops
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  goldsrcops-postgres-data:
