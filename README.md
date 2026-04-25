@@ -21,7 +21,8 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added health endpoints and first server registration/status endpoints.
 - Added an in-process polling service that queries enabled servers, updates current state, and writes poll snapshots.
 - Added availability incident detection with open/close transitions after repeated polling failures.
-- Added focused unit tests for polling incident transitions.
+- Added monitoring read endpoints for snapshot history and dashboard overview.
+- Added focused unit tests for polling incident transitions and monitoring read aggregation.
 
 ## Run Local Infrastructure
 
@@ -61,7 +62,9 @@ Initial endpoints:
 - `GET /api/servers`
 - `GET /api/servers/{id}`
 - `GET /api/servers/{id}/status`
+- `GET /api/servers/{id}/snapshots?from=&to=&limit=`
 - `GET /api/servers/{id}/incidents`
+- `GET /api/dashboard/overview`
 - `GET /api/incidents/open`
 - `GET /api/incidents/{id}`
 
@@ -125,4 +128,4 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Expose snapshot history and finish the first monitoring read model.
+Add integration tests around the API boundary and packet parsing tests around the A2S client.

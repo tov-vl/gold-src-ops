@@ -1,6 +1,8 @@
 using GoldSrcOps.Application.Incidents;
+using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Contracts.Incidents;
+using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -24,6 +26,9 @@ public static class ServerEndpoints
 
         group.MapGet("/{id:guid}/status", GetStatusAsync)
             .WithName("GetServerStatus");
+
+        group.MapGet("/{id:guid}/snapshots", ListSnapshotsAsync)
+            .WithName("ListServerSnapshots");
 
         group.MapGet("/{id:guid}/incidents", ListServerIncidentsAsync)
             .WithName("ListServerIncidents");
@@ -82,6 +87,24 @@ public static class ServerEndpoints
         return status is null ? TypedResults.NotFound() : TypedResults.Ok(Map(status));
     }
 
+    private static async Task<Results<Ok<SnapshotHistoryResponse>, NotFound, ValidationProblem>> ListSnapshotsAsync(
+        Guid id,
+        DateTimeOffset? from,
+        DateTimeOffset? to,
+        int? limit,
+        MonitoringReadService monitoring,
+        CancellationToken cancellationToken)
+    {
+        var errors = ValidateSnapshotQuery(from, to, limit);
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        var result = await monitoring.ListSnapshotsAsync(id, from, to, limit, cancellationToken);
+        return result is null ? TypedResults.NotFound() : TypedResults.Ok(Map(result));
+    }
+
     private static async Task<Ok<IReadOnlyList<AvailabilityIncidentResponse>>> ListServerIncidentsAsync(
         Guid id,
         IncidentsService incidents,
@@ -123,6 +146,26 @@ public static class ServerEndpoints
         return errors;
     }
 
+    private static Dictionary<string, string[]> ValidateSnapshotQuery(
+        DateTimeOffset? from,
+        DateTimeOffset? to,
+        int? limit)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+
+        if (from is not null && to is not null && from > to)
+        {
+            errors["from"] = ["From must be earlier than or equal to To."];
+        }
+
+        if (limit is <= 0 or > MonitoringReadService.MaxSnapshotLimit)
+        {
+            errors["limit"] = [$"Limit must be between 1 and {MonitoringReadService.MaxSnapshotLimit}."];
+        }
+
+        return errors;
+    }
+
     private static ServerResponse Map(ServerDto server) =>
         new(
             server.Id,
@@ -149,6 +192,28 @@ public static class ServerEndpoints
             status.MaxPlayers,
             status.FailureReason,
             status.ConsecutiveFailures);
+
+    private static SnapshotHistoryResponse Map(SnapshotHistoryDto history) =>
+        new(
+            history.ServerId,
+            history.FromUtc,
+            history.ToUtc,
+            history.Limit,
+            history.Items.Select(Map).ToArray());
+
+    private static PollSnapshotResponse Map(PollSnapshotDto snapshot) =>
+        new(
+            snapshot.Id,
+            snapshot.ServerId,
+            snapshot.CheckedAtUtc,
+            snapshot.IsReachable,
+            snapshot.LatencyMs,
+            snapshot.Map,
+            snapshot.Players,
+            snapshot.MaxPlayers,
+            snapshot.Bots,
+            snapshot.RawVersion,
+            snapshot.FailureReason);
 
     private static AvailabilityIncidentResponse Map(AvailabilityIncidentDto incident) =>
         new(

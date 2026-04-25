@@ -25,40 +25,43 @@ Completed:
 - Availability incident detection added.
 - `GET /api/incidents/open`, `GET /api/incidents/{id}`, and `GET /api/servers/{id}/incidents` added.
 - Unit tests added for incident open/close transitions.
+- Code style and static analysis configured through `.editorconfig`, `Directory.Build.props`, and Meziantou.Analyzer.
+- `GET /api/servers/{id}/snapshots?from=&to=&limit=` added.
+- `GET /api/dashboard/overview` added.
+- Unit tests added for monitoring read aggregation and snapshot query defaults.
 
 ## Immediate Next Milestone
 
-Expose snapshot history and finish the first monitoring read model.
+Add the first API boundary and protocol parsing test coverage.
 
 Definition of done:
 
-- `GET /api/servers/{id}/snapshots?from=&to=` returns recent snapshot history.
-- Snapshot query supports optional `from`, `to`, and reasonable limit.
-- `GET /api/dashboard/overview` returns server counts, status counts, and open incident count.
-- API returns DTOs only, not EF entities.
-- Basic tests cover snapshot filtering or dashboard aggregation.
+- Integration tests cover `POST /api/servers` and `GET /api/servers/{id}/status`.
+- Unit tests cover A2S packet parsing with captured byte arrays.
+- Unit tests cover core server state transition rules.
+- Test setup stays lightweight and can later evolve to Testcontainers for PostgreSQL.
 
 ## Next 10 Tasks
 
-1. Add `GET /api/servers/{id}/snapshots?from=&to=`.
+1. Add integration tests for `POST /api/servers` and `GET /api/servers/{id}/status`.
 
-2. Add snapshot query DTOs/contracts.
+2. Add unit tests for A2S packet parsing with captured byte arrays.
 
-3. Add repository query for server snapshots.
+3. Add unit tests for state transition rules.
 
-4. Add `GET /api/dashboard/overview`.
+4. Add Docker-based end-to-end smoke test notes for polling against a live server.
 
-5. Add dashboard overview service.
+5. Add CI workflow for format, build, test, and package vulnerability checks.
 
-6. Add unit tests for snapshot filtering or dashboard aggregation.
+6. Add API integration test coverage for `GET /api/servers/{id}/snapshots`.
 
-7. Add integration tests for `POST /api/servers` and `GET /api/servers/{id}/status`.
+7. Add API integration test coverage for `GET /api/dashboard/overview`.
 
-8. Add unit tests for A2S packet parsing with captured byte arrays.
+8. Add readiness health check that validates database connectivity.
 
-9. Add unit tests for state transition rules.
+9. Add basic metrics endpoint.
 
-10. Add Docker-based end-to-end smoke test notes for polling against a live server.
+10. Add architecture diagram or concise text diagram to README/docs.
 
 ## v1 API Scope
 

@@ -1,6 +1,7 @@
 using System.Text;
 using GoldSrcOps.Application.Common;
 using GoldSrcOps.Application.Incidents;
+using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Infrastructure.A2S;
 using GoldSrcOps.Infrastructure.Monitoring;
@@ -33,6 +34,7 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<IServerRepository, EfServerRepository>();
         services.AddScoped<IIncidentRepository, EfIncidentRepository>();
+        services.AddScoped<IMonitoringReadRepository, EfMonitoringReadRepository>();
         services.AddScoped<ServerPollingService>();
         services.AddSingleton<IGoldSrcServerQueryClient>(_ =>
             new GoldSrcServerQueryClient(Encoding.GetEncoding("windows-1251")));
