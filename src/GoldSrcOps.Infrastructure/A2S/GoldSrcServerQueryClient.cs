@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -205,7 +206,7 @@ internal abstract record A2SPacket
             _ = reader.ReadString();
             _ = reader.ReadString();
             _ = reader.ReadByte();
-            version = reader.ReadInt32().ToString();
+            version = reader.ReadInt32().ToString(CultureInfo.InvariantCulture);
             _ = reader.ReadInt32();
             _ = reader.ReadByte();
             _ = reader.ReadByte();

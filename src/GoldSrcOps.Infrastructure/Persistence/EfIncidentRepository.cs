@@ -16,6 +16,7 @@ internal sealed class EfIncidentRepository : IIncidentRepository
     public async Task<AvailabilityIncident?> GetAsync(Guid id, CancellationToken cancellationToken)
     {
         return await _dbContext.AvailabilityIncidents
+            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
@@ -30,6 +31,7 @@ internal sealed class EfIncidentRepository : IIncidentRepository
     public async Task<IReadOnlyList<AvailabilityIncident>> ListOpenAsync(CancellationToken cancellationToken)
     {
         return await _dbContext.AvailabilityIncidents
+            .AsNoTracking()
             .Where(x => x.ClosedAtUtc == null)
             .OrderByDescending(x => x.OpenedAtUtc)
             .ToListAsync(cancellationToken);
@@ -40,6 +42,7 @@ internal sealed class EfIncidentRepository : IIncidentRepository
         CancellationToken cancellationToken)
     {
         return await _dbContext.AvailabilityIncidents
+            .AsNoTracking()
             .Where(x => x.ServerId == serverId)
             .OrderByDescending(x => x.OpenedAtUtc)
             .ToListAsync(cancellationToken);

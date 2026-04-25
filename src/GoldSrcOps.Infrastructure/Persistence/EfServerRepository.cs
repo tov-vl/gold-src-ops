@@ -21,6 +21,7 @@ internal sealed class EfServerRepository : IServerRepository
     public async Task<Server?> GetAsync(Guid id, CancellationToken cancellationToken)
     {
         return await _dbContext.Servers
+            .AsNoTracking()
             .Include(x => x.CurrentState)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
@@ -28,6 +29,7 @@ internal sealed class EfServerRepository : IServerRepository
     public async Task<IReadOnlyList<Server>> ListAsync(CancellationToken cancellationToken)
     {
         return await _dbContext.Servers
+            .AsNoTracking()
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
     }

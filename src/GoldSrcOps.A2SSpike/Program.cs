@@ -1,11 +1,19 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Infrastructure.A2S;
 
-Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+namespace GoldSrcOps.A2SSpike;
 
-return await ConsoleRunner.RunAsync(args);
+internal static class Program
+{
+    public static async Task<int> Main(string[] args)
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        return await ConsoleRunner.RunAsync(args);
+    }
+}
 
 internal static class ConsoleRunner
 {
@@ -47,13 +55,13 @@ internal static class ConsoleRunner
             Console.WriteLine($"Private:     {info.IsPrivate}");
             Console.WriteLine($"VAC:         {info.HasVac}");
             Console.WriteLine($"Version:     {info.Version ?? "unknown"}");
-            Console.WriteLine($"Latency:     {info.Latency.TotalMilliseconds:0} ms");
+            Console.WriteLine(FormattableString.Invariant($"Latency:     {info.Latency.TotalMilliseconds:0} ms"));
 
             return 0;
         }
         catch (OperationCanceledException)
         {
-            Console.Error.WriteLine($"Timed out after {options.Timeout.TotalMilliseconds:0} ms.");
+            Console.Error.WriteLine(FormattableString.Invariant($"Timed out after {options.Timeout.TotalMilliseconds:0} ms."));
             return 1;
         }
         catch (Exception ex)
@@ -98,7 +106,9 @@ internal sealed record QueryOptions(
 
             if (arg.Equals("--timeout", StringComparison.OrdinalIgnoreCase))
             {
-                if (++i >= args.Length || !int.TryParse(args[i], out var timeoutMs) || timeoutMs <= 0)
+                if (++i >= args.Length ||
+                    !int.TryParse(args[i], NumberStyles.Integer, CultureInfo.InvariantCulture, out var timeoutMs) ||
+                    timeoutMs <= 0)
                 {
                     error = "--timeout expects a positive integer value in milliseconds.";
                     return false;
@@ -145,7 +155,11 @@ internal sealed record QueryOptions(
 
             host = endpoint[..separatorIndex];
 
-            if (!int.TryParse(endpoint[(separatorIndex + 1)..], out port))
+            if (!int.TryParse(
+                    endpoint[(separatorIndex + 1)..],
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out port))
             {
                 error = "queryPort must be an integer.";
                 return false;
@@ -155,7 +169,7 @@ internal sealed record QueryOptions(
         {
             host = positionals[0];
 
-            if (!int.TryParse(positionals[1], out port))
+            if (!int.TryParse(positionals[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out port))
             {
                 error = "queryPort must be an integer.";
                 return false;
@@ -164,7 +178,8 @@ internal sealed record QueryOptions(
 
         if (port is < IPEndPoint.MinPort or > IPEndPoint.MaxPort)
         {
-            error = $"queryPort must be between {IPEndPoint.MinPort} and {IPEndPoint.MaxPort}.";
+            error = FormattableString.Invariant(
+                $"queryPort must be between {IPEndPoint.MinPort} and {IPEndPoint.MaxPort}.");
             return false;
         }
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Configuration;
 
 namespace GoldSrcOps.Infrastructure.Monitoring;
@@ -39,6 +40,8 @@ internal sealed class GoldSrcPollingOptions
     private static int ReadPositiveInt(IConfiguration section, string key, int defaultValue)
     {
         var value = section[key];
-        return int.TryParse(value, out var parsed) && parsed > 0 ? parsed : defaultValue;
+        return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed > 0
+            ? parsed
+            : defaultValue;
     }
 }

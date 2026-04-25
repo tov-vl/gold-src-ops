@@ -74,6 +74,16 @@ After repeated failed polls, the poller opens an availability incident. A later 
 dotnet test
 ```
 
+## Code Quality
+
+The solution uses .NET analyzers, Meziantou.Analyzer, and `.editorconfig` rules through `Directory.Build.props`.
+
+```powershell
+dotnet format GoldSrcOps.sln --verify-no-changes
+dotnet build GoldSrcOps.sln
+dotnet test GoldSrcOps.sln
+```
+
 ## Run The Spike
 
 ```powershell

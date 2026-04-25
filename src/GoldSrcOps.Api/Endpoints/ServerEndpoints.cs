@@ -1,5 +1,5 @@
-using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Application.Incidents;
+using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Servers;
 using GoldSrcOps.Domain.Servers;

@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GoldSrcOps.Infrastructure.Monitoring;
 
-internal sealed class GoldSrcPollingBackgroundService : BackgroundService
+internal sealed partial class GoldSrcPollingBackgroundService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly GoldSrcPollingOptions _options;
@@ -23,10 +23,7 @@ internal sealed class GoldSrcPollingBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation(
-            "GoldSrc polling service started with {LoopDelaySeconds}s loop delay and {QueryTimeoutMilliseconds}ms query timeout.",
-            _options.LoopDelay.TotalSeconds,
-            _options.QueryTimeout.TotalMilliseconds);
+        LogPollingServiceStarted(_logger, _options.LoopDelay, _options.QueryTimeout);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -40,7 +37,7 @@ internal sealed class GoldSrcPollingBackgroundService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "GoldSrc polling pass failed.");
+                LogPollingPassFailed(_logger, ex);
             }
 
             try
@@ -62,12 +59,38 @@ internal sealed class GoldSrcPollingBackgroundService : BackgroundService
 
         if (result.DueServers > 0)
         {
-            _logger.LogInformation(
-                "GoldSrc polling pass completed: {SuccessfulPolls} succeeded, {FailedPolls} failed, {OpenedIncidents} incidents opened, {ClosedIncidents} incidents closed.",
+            LogPollingPassCompleted(
+                _logger,
                 result.SuccessfulPolls,
                 result.FailedPolls,
                 result.OpenedIncidents,
                 result.ClosedIncidents);
         }
     }
+
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Information,
+        Message = "GoldSrc polling service started with {LoopDelay} loop delay and {QueryTimeout} query timeout.")]
+    private static partial void LogPollingServiceStarted(
+        ILogger logger,
+        TimeSpan loopDelay,
+        TimeSpan queryTimeout);
+
+    [LoggerMessage(
+        EventId = 2,
+        Level = LogLevel.Error,
+        Message = "GoldSrc polling pass failed.")]
+    private static partial void LogPollingPassFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(
+        EventId = 3,
+        Level = LogLevel.Information,
+        Message = "GoldSrc polling pass completed: {SuccessfulPolls} succeeded, {FailedPolls} failed, {OpenedIncidents} incidents opened, {ClosedIncidents} incidents closed.")]
+    private static partial void LogPollingPassCompleted(
+        ILogger logger,
+        int successfulPolls,
+        int failedPolls,
+        int openedIncidents,
+        int closedIncidents);
 }
