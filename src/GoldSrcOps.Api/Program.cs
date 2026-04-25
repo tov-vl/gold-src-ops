@@ -30,3 +30,5 @@ app.MapIncidentEndpoints();
 app.MapDashboardEndpoints();
 
 app.Run();
+
+public partial class Program;

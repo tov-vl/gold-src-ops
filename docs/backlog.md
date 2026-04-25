@@ -29,39 +29,42 @@ Completed:
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=` added.
 - `GET /api/dashboard/overview` added.
 - Unit tests added for monitoring read aggregation and snapshot query defaults.
+- Integration tests added for `POST /api/servers` and `GET /api/servers/{id}/status`.
+- Unit tests added for A2S packet parsing with captured byte arrays.
+- Unit tests added for core server state transition rules.
 
 ## Immediate Next Milestone
 
-Add the first API boundary and protocol parsing test coverage.
+Add CI automation and the first operational smoke-test notes.
 
 Definition of done:
 
-- Integration tests cover `POST /api/servers` and `GET /api/servers/{id}/status`.
-- Unit tests cover A2S packet parsing with captured byte arrays.
-- Unit tests cover core server state transition rules.
-- Test setup stays lightweight and can later evolve to Testcontainers for PostgreSQL.
+- GitHub Actions runs `dotnet format --verify-no-changes`, `dotnet build`, and `dotnet test`.
+- CI checks direct and transitive packages for known vulnerabilities.
+- README or docs include Docker-based end-to-end smoke test notes for polling against a live server.
+- Local and CI quality commands stay aligned.
 
 ## Next 10 Tasks
 
-1. Add integration tests for `POST /api/servers` and `GET /api/servers/{id}/status`.
+1. Add CI workflow for format, build, test, and package vulnerability checks.
 
-2. Add unit tests for A2S packet parsing with captured byte arrays.
+2. Add Docker-based end-to-end smoke test notes for polling against a live server.
 
-3. Add unit tests for state transition rules.
+3. Add API integration test coverage for `GET /api/servers/{id}/snapshots`.
 
-4. Add Docker-based end-to-end smoke test notes for polling against a live server.
+4. Add API integration test coverage for `GET /api/dashboard/overview`.
 
-5. Add CI workflow for format, build, test, and package vulnerability checks.
+5. Add readiness health check that validates database connectivity.
 
-6. Add API integration test coverage for `GET /api/servers/{id}/snapshots`.
+6. Add basic metrics endpoint.
 
-7. Add API integration test coverage for `GET /api/dashboard/overview`.
+7. Add architecture diagram or concise text diagram to README/docs.
 
-8. Add readiness health check that validates database connectivity.
+8. Add integration test for incident opening after repeated failures.
 
-9. Add basic metrics endpoint.
+9. Add fake query client wiring for deterministic polling integration tests.
 
-10. Add architecture diagram or concise text diagram to README/docs.
+10. Introduce Testcontainers for PostgreSQL-backed integration tests.
 
 ## v1 API Scope
 
