@@ -86,7 +86,14 @@ The solution uses .NET analyzers, Meziantou.Analyzer, and `.editorconfig` rules 
 dotnet format GoldSrcOps.sln --verify-no-changes
 dotnet build GoldSrcOps.sln
 dotnet test GoldSrcOps.sln
+dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 ```
+
+GitHub Actions runs the same quality gate on every push and pull request.
+
+## Smoke Test
+
+See `docs/smoke-test.md` for a Docker-based local smoke test that applies migrations, runs the API, registers a live GoldSrc server, and checks status, snapshots, dashboard overview, and incidents.
 
 ## Run The Spike
 
@@ -129,4 +136,4 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Add CI automation for format, build, test, and package vulnerability checks.
+Add readiness health checks, metrics, and more API integration coverage.

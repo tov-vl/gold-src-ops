@@ -32,39 +32,41 @@ Completed:
 - Integration tests added for `POST /api/servers` and `GET /api/servers/{id}/status`.
 - Unit tests added for A2S packet parsing with captured byte arrays.
 - Unit tests added for core server state transition rules.
+- GitHub Actions CI added for format, build, test, and package vulnerability checks.
+- Docker-based smoke-test notes added for polling against a live server.
 
 ## Immediate Next Milestone
 
-Add CI automation and the first operational smoke-test notes.
+Add the first production-readiness observability surface.
 
 Definition of done:
 
-- GitHub Actions runs `dotnet format --verify-no-changes`, `dotnet build`, and `dotnet test`.
-- CI checks direct and transitive packages for known vulnerabilities.
-- README or docs include Docker-based end-to-end smoke test notes for polling against a live server.
-- Local and CI quality commands stay aligned.
+- Readiness health check validates database connectivity.
+- `GET /metrics` exposes basic ASP.NET Core and application metrics.
+- API integration tests cover `GET /api/servers/{id}/snapshots` and `GET /api/dashboard/overview`.
+- README describes the health and metrics endpoints.
 
 ## Next 10 Tasks
 
-1. Add CI workflow for format, build, test, and package vulnerability checks.
+1. Add readiness health check that validates database connectivity.
 
-2. Add Docker-based end-to-end smoke test notes for polling against a live server.
+2. Add basic metrics endpoint.
 
 3. Add API integration test coverage for `GET /api/servers/{id}/snapshots`.
 
 4. Add API integration test coverage for `GET /api/dashboard/overview`.
 
-5. Add readiness health check that validates database connectivity.
+5. Add architecture diagram or concise text diagram to README/docs.
 
-6. Add basic metrics endpoint.
+6. Add integration test for incident opening after repeated failures.
 
-7. Add architecture diagram or concise text diagram to README/docs.
+7. Add fake query client wiring for deterministic polling integration tests.
 
-8. Add integration test for incident opening after repeated failures.
+8. Introduce Testcontainers for PostgreSQL-backed integration tests.
 
-9. Add fake query client wiring for deterministic polling integration tests.
+9. Add `PATCH /api/servers/{id}`.
 
-10. Introduce Testcontainers for PostgreSQL-backed integration tests.
+10. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
 
 ## v1 API Scope
 
