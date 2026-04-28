@@ -1,135 +1,114 @@
+using AutoFixture.Xunit2;
+using AwesomeAssertions;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Domain.Servers;
+using GoldSrcOps.UnitTests.Helpers;
+using Moq;
 
 namespace GoldSrcOps.UnitTests.Monitoring;
 
 public sealed class MonitoringReadServiceTests
 {
-    [Fact]
-    public async Task GetDashboardOverviewAsync_counts_server_statuses_and_open_incidents()
+    [Theory]
+    [AutoMoqData]
+    public async Task GetDashboardOverviewAsync_counts_server_statuses_and_open_incidents(
+        [Frozen] Mock<IMonitoringReadRepository> repository,
+        MonitoringReadService sut)
     {
         var now = new DateTimeOffset(2026, 4, 25, 10, 0, 0, TimeSpan.Zero);
-        var repository = new InMemoryMonitoringReadRepository
-        {
-            OpenIncidentCount = 2,
-            DashboardServerStatuses =
-            [
-                new DashboardServerStatusDto(Guid.NewGuid(), IsEnabled: true, ServerStatus.Online, now.AddMinutes(-5)),
-                new DashboardServerStatusDto(Guid.NewGuid(), IsEnabled: true, ServerStatus.Offline, now),
-                new DashboardServerStatusDto(Guid.NewGuid(), IsEnabled: false, ServerStatus.Unknown, null)
-            ]
-        };
-        var sut = new MonitoringReadService(repository);
+        IReadOnlyList<DashboardServerStatusDto> serverStatuses =
+        [
+            TestData.DashboardServerStatus(ServerStatus.Online, lastCheckedAtUtc: now.AddMinutes(-5)),
+            TestData.DashboardServerStatus(ServerStatus.Offline, lastCheckedAtUtc: now),
+            TestData.DashboardServerStatus(ServerStatus.Unknown, isEnabled: false)
+        ];
+        repository
+            .Setup(static x => x.ListDashboardServerStatusesAsync(CancellationToken.None))
+            .ReturnsAsync(serverStatuses);
+        repository
+            .Setup(static x => x.CountOpenIncidentsAsync(CancellationToken.None))
+            .ReturnsAsync(2);
 
         var result = await sut.GetDashboardOverviewAsync(CancellationToken.None);
 
-        Assert.Equal(3, result.TotalServers);
-        Assert.Equal(2, result.EnabledServers);
-        Assert.Equal(1, result.DisabledServers);
-        Assert.Equal(1, result.OnlineServers);
-        Assert.Equal(1, result.OfflineServers);
-        Assert.Equal(1, result.UnknownServers);
-        Assert.Equal(2, result.OpenIncidents);
-        Assert.Equal(now, result.LastCheckedAtUtc);
+        result.Should().BeEquivalentTo(new DashboardOverviewDto(
+            TotalServers: 3,
+            EnabledServers: 2,
+            DisabledServers: 1,
+            OnlineServers: 1,
+            OfflineServers: 1,
+            UnknownServers: 1,
+            OpenIncidents: 2,
+            LastCheckedAtUtc: now));
+        repository.Verify(static x => x.ListDashboardServerStatusesAsync(CancellationToken.None), Times.Once);
+        repository.Verify(static x => x.CountOpenIncidentsAsync(CancellationToken.None), Times.Once);
+        repository.VerifyNoOtherCalls();
     }
 
-    [Fact]
-    public async Task ListSnapshotsAsync_uses_default_limit_for_recent_history()
+    [Theory]
+    [AutoMoqData]
+    public async Task ListSnapshotsAsync_uses_default_limit_for_recent_history(
+        [Frozen] Mock<IMonitoringReadRepository> repository,
+        MonitoringReadService sut)
     {
         var serverId = Guid.NewGuid();
         var fromUtc = new DateTimeOffset(2026, 4, 25, 9, 0, 0, TimeSpan.Zero);
         var toUtc = new DateTimeOffset(2026, 4, 25, 10, 0, 0, TimeSpan.Zero);
-        var snapshot = new PollSnapshotDto(
-            Guid.NewGuid(),
-            serverId,
-            toUtc,
-            IsReachable: true,
-            LatencyMs: 42,
-            Map: "de_dust2",
-            Players: 10,
-            MaxPlayers: 32,
-            Bots: 0,
-            RawVersion: "1.1.2.7/Stdio",
-            FailureReason: null);
-        var repository = new InMemoryMonitoringReadRepository
-        {
-            ExistingServerIds = [serverId],
-            Snapshots = [snapshot]
-        };
-        var sut = new MonitoringReadService(repository);
+        IReadOnlyList<PollSnapshotDto> snapshots =
+        [
+            TestData.PollSnapshot(serverId, toUtc)
+        ];
+        repository
+            .Setup(x => x.ServerExistsAsync(serverId, CancellationToken.None))
+            .ReturnsAsync(true);
+        repository
+            .Setup(x => x.ListSnapshotsAsync(
+                serverId,
+                fromUtc,
+                toUtc,
+                MonitoringReadService.DefaultSnapshotLimit,
+                CancellationToken.None))
+            .ReturnsAsync(snapshots);
 
         var result = await sut.ListSnapshotsAsync(serverId, fromUtc, toUtc, limit: null, CancellationToken.None);
 
-        Assert.NotNull(result);
-        Assert.Equal(serverId, result.ServerId);
-        Assert.Equal(fromUtc, result.FromUtc);
-        Assert.Equal(toUtc, result.ToUtc);
-        Assert.Equal(MonitoringReadService.DefaultSnapshotLimit, result.Limit);
-        Assert.Equal(MonitoringReadService.DefaultSnapshotLimit, repository.CapturedSnapshotLimit);
-        Assert.Equal(fromUtc, repository.CapturedSnapshotFromUtc);
-        Assert.Equal(toUtc, repository.CapturedSnapshotToUtc);
-        Assert.Same(snapshot, Assert.Single(result.Items));
+        result.Should().BeEquivalentTo(new SnapshotHistoryDto(
+            serverId,
+            fromUtc,
+            toUtc,
+            MonitoringReadService.DefaultSnapshotLimit,
+            snapshots));
+        repository.Verify(x => x.ServerExistsAsync(serverId, CancellationToken.None), Times.Once);
+        repository.Verify(x => x.ListSnapshotsAsync(
+            serverId,
+            fromUtc,
+            toUtc,
+            MonitoringReadService.DefaultSnapshotLimit,
+            CancellationToken.None), Times.Once);
+        repository.VerifyNoOtherCalls();
     }
 
-    [Fact]
-    public async Task ListSnapshotsAsync_returns_null_when_server_does_not_exist()
+    [Theory]
+    [AutoMoqData]
+    public async Task ListSnapshotsAsync_returns_null_when_server_does_not_exist(
+        Guid serverId,
+        [Frozen] Mock<IMonitoringReadRepository> repository,
+        MonitoringReadService sut)
     {
-        var repository = new InMemoryMonitoringReadRepository();
-        var sut = new MonitoringReadService(repository);
+        repository
+            .Setup(x => x.ServerExistsAsync(serverId, CancellationToken.None))
+            .ReturnsAsync(false);
 
-        var result = await sut.ListSnapshotsAsync(Guid.NewGuid(), null, null, limit: 10, CancellationToken.None);
+        var result = await sut.ListSnapshotsAsync(serverId, null, null, limit: 10, CancellationToken.None);
 
-        Assert.Null(result);
-        Assert.False(repository.SnapshotsWereQueried);
-    }
-
-    private sealed class InMemoryMonitoringReadRepository : IMonitoringReadRepository
-    {
-        public HashSet<Guid> ExistingServerIds { get; init; } = [];
-
-        public IReadOnlyList<PollSnapshotDto> Snapshots { get; init; } = [];
-
-        public IReadOnlyList<DashboardServerStatusDto> DashboardServerStatuses { get; init; } = [];
-
-        public int OpenIncidentCount { get; init; }
-
-        public bool SnapshotsWereQueried { get; private set; }
-
-        public DateTimeOffset? CapturedSnapshotFromUtc { get; private set; }
-
-        public DateTimeOffset? CapturedSnapshotToUtc { get; private set; }
-
-        public int? CapturedSnapshotLimit { get; private set; }
-
-        public Task<bool> ServerExistsAsync(Guid serverId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(ExistingServerIds.Contains(serverId));
-        }
-
-        public Task<IReadOnlyList<PollSnapshotDto>> ListSnapshotsAsync(
-            Guid serverId,
-            DateTimeOffset? fromUtc,
-            DateTimeOffset? toUtc,
-            int limit,
-            CancellationToken cancellationToken)
-        {
-            SnapshotsWereQueried = true;
-            CapturedSnapshotFromUtc = fromUtc;
-            CapturedSnapshotToUtc = toUtc;
-            CapturedSnapshotLimit = limit;
-
-            return Task.FromResult(Snapshots);
-        }
-
-        public Task<IReadOnlyList<DashboardServerStatusDto>> ListDashboardServerStatusesAsync(
-            CancellationToken cancellationToken)
-        {
-            return Task.FromResult(DashboardServerStatuses);
-        }
-
-        public Task<int> CountOpenIncidentsAsync(CancellationToken cancellationToken)
-        {
-            return Task.FromResult(OpenIncidentCount);
-        }
+        result.Should().BeNull();
+        repository.Verify(x => x.ServerExistsAsync(serverId, CancellationToken.None), Times.Once);
+        repository.Verify(x => x.ListSnapshotsAsync(
+            It.IsAny<Guid>(),
+            It.IsAny<DateTimeOffset?>(),
+            It.IsAny<DateTimeOffset?>(),
+            It.IsAny<int>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+        repository.VerifyNoOtherCalls();
     }
 }
