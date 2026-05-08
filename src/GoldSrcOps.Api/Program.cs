@@ -2,9 +2,12 @@ using GoldSrcOps.Api.Endpoints;
 using GoldSrcOps.Application.Incidents;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Application.Servers;
+using GoldSrcOps.Application.Telemetry;
 using GoldSrcOps.Infrastructure;
 using GoldSrcOps.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +21,13 @@ builder.Services.AddHealthChecks()
     .AddDbContextCheck<GoldSrcOpsDbContext>(
         name: "database",
         tags: ["ready"]);
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(static resource => resource.AddService("GoldSrcOps"))
+    .WithMetrics(static metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddMeter(GoldSrcOpsMetrics.MeterName)
+        .AddPrometheusExporter());
 
 var app = builder.Build();
 
@@ -36,6 +46,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = static healthCheck => healthCheck.Tags.Contains("ready")
 });
+app.MapPrometheusScrapingEndpoint("/metrics");
 app.MapServerEndpoints();
 app.MapIncidentEndpoints();
 app.MapDashboardEndpoints();

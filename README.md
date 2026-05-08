@@ -23,6 +23,7 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added availability incident detection with open/close transitions after repeated polling failures.
 - Added monitoring read endpoints for snapshot history and dashboard overview.
 - Added readiness health checks that validate database connectivity.
+- Added OpenTelemetry metrics export in Prometheus format.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
 - Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
 
@@ -60,6 +61,7 @@ Initial endpoints:
 
 - `GET /health/live` - lightweight liveness probe.
 - `GET /health/ready` - readiness probe that validates database connectivity.
+- `GET /metrics` - Prometheus scrape endpoint backed by OpenTelemetry metrics.
 - `POST /api/servers`
 - `GET /api/servers`
 - `GET /api/servers/{id}`
@@ -72,6 +74,10 @@ Initial endpoints:
 
 After registering a server, the background poller will update `/api/servers/{id}/status` once the next polling pass succeeds.
 After repeated failed polls, the poller opens an availability incident. A later successful poll closes it.
+
+`/metrics` exposes ASP.NET Core, runtime, and GoldSrcOps application metrics in Prometheus format.
+The first application metrics cover polling runs, server poll attempts by result, and incident transitions.
+The Prometheus ASP.NET Core exporter is currently referenced as a prerelease OpenTelemetry package because a stable exporter package is not available yet.
 
 ## Run Tests
 

@@ -36,32 +36,31 @@ Completed:
 - Docker-based smoke-test notes added for polling against a live server.
 - API integration tests added for snapshot history and dashboard overview.
 - Readiness health check validates database connectivity.
+- `GET /metrics` exposes ASP.NET Core, runtime, and application polling metrics in Prometheus format.
 
 ## Immediate Next Milestone
 
-Add the first production-readiness observability surface.
+Document the current architecture and harden deterministic polling integration coverage.
 
 Definition of done:
 
-- Readiness health check validates database connectivity.
-- `GET /metrics` exposes basic ASP.NET Core and application metrics.
-- README describes the health and metrics endpoints.
+- README/docs include a concise architecture diagram or text diagram.
+- Polling integration tests can run deterministically with a fake query client.
+- Integration tests cover incident opening after repeated polling failures.
 
 ## Next Tasks
 
-1. Add basic metrics endpoint.
+1. Add architecture diagram or concise text diagram to README/docs.
 
-2. Add architecture diagram or concise text diagram to README/docs.
+2. Add integration test for incident opening after repeated failures.
 
-3. Add integration test for incident opening after repeated failures.
+3. Add fake query client wiring for deterministic polling integration tests.
 
-4. Add fake query client wiring for deterministic polling integration tests.
+4. Introduce Testcontainers for PostgreSQL-backed integration tests.
 
-5. Introduce Testcontainers for PostgreSQL-backed integration tests.
+5. Add `PATCH /api/servers/{id}`.
 
-6. Add `PATCH /api/servers/{id}`.
-
-7. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
+6. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
 
 ## v1 API Scope
 

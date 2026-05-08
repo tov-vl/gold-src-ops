@@ -1,5 +1,6 @@
 using GoldSrcOps.Application.Common;
 using GoldSrcOps.Application.Incidents;
+using GoldSrcOps.Application.Telemetry;
 using GoldSrcOps.Domain.Servers;
 
 namespace GoldSrcOps.Application.Servers;
@@ -65,12 +66,16 @@ public sealed class ServerPollingService
             await _servers.SaveChangesAsync(cancellationToken);
         }
 
-        return new ServerPollingResult(
+        var result = new ServerPollingResult(
             dueServers.Length,
             successfulPolls,
             failedPolls,
             openedIncidents,
             closedIncidents);
+
+        GoldSrcOpsMetrics.RecordPollingRun(result);
+
+        return result;
     }
 
     private async Task<ServerPollOutcome> PollServerAsync(Server server, CancellationToken cancellationToken)
