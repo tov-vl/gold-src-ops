@@ -22,6 +22,7 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added an in-process polling service that queries enabled servers, updates current state, and writes poll snapshots.
 - Added availability incident detection with open/close transitions after repeated polling failures.
 - Added monitoring read endpoints for snapshot history and dashboard overview.
+- Added readiness health checks that validate database connectivity.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
 - Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
 
@@ -57,8 +58,8 @@ Polling runs inside the API host by default. Configuration lives under `Polling`
 
 Initial endpoints:
 
-- `GET /health/live`
-- `GET /health/ready`
+- `GET /health/live` - lightweight liveness probe.
+- `GET /health/ready` - readiness probe that validates database connectivity.
 - `POST /api/servers`
 - `GET /api/servers`
 - `GET /api/servers/{id}`

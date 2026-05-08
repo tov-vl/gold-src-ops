@@ -35,6 +35,7 @@ Completed:
 - GitHub Actions CI added for format, build, test, and package vulnerability checks.
 - Docker-based smoke-test notes added for polling against a live server.
 - API integration tests added for snapshot history and dashboard overview.
+- Readiness health check validates database connectivity.
 
 ## Immediate Next Milestone
 
@@ -48,21 +49,19 @@ Definition of done:
 
 ## Next Tasks
 
-1. Add readiness health check that validates database connectivity.
+1. Add basic metrics endpoint.
 
-2. Add basic metrics endpoint.
+2. Add architecture diagram or concise text diagram to README/docs.
 
-3. Add architecture diagram or concise text diagram to README/docs.
+3. Add integration test for incident opening after repeated failures.
 
-4. Add integration test for incident opening after repeated failures.
+4. Add fake query client wiring for deterministic polling integration tests.
 
-5. Add fake query client wiring for deterministic polling integration tests.
+5. Introduce Testcontainers for PostgreSQL-backed integration tests.
 
-6. Introduce Testcontainers for PostgreSQL-backed integration tests.
+6. Add `PATCH /api/servers/{id}`.
 
-7. Add `PATCH /api/servers/{id}`.
-
-8. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
+7. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
 
 ## v1 API Scope
 
