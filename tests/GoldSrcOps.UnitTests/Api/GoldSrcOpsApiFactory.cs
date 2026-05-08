@@ -14,6 +14,22 @@ internal sealed class GoldSrcOpsApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _databaseName = $"goldsrcops-tests-{Guid.NewGuid():N}";
 
+    public async Task ExecuteDbContextAsync(Func<GoldSrcOpsDbContext, Task> action)
+    {
+        using var scope = Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<GoldSrcOpsDbContext>();
+
+        await action(dbContext);
+    }
+
+    public async Task<T> ExecuteDbContextAsync<T>(Func<GoldSrcOpsDbContext, Task<T>> action)
+    {
+        using var scope = Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<GoldSrcOpsDbContext>();
+
+        return await action(dbContext);
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");

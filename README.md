@@ -23,7 +23,7 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added availability incident detection with open/close transitions after repeated polling failures.
 - Added monitoring read endpoints for snapshot history and dashboard overview.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
-- Added lightweight API integration tests for server registration and status reads.
+- Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
 
 ## Run Local Infrastructure
 
