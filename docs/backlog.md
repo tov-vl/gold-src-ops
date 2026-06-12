@@ -37,30 +37,26 @@ Completed:
 - API integration tests added for snapshot history and dashboard overview.
 - Readiness health check validates database connectivity.
 - `GET /metrics` exposes ASP.NET Core, runtime, and application polling metrics in Prometheus format.
+- Deterministic polling integration tests added with fake A2S query responses and EF-backed repositories.
+- Integration tests cover incident opening after repeated polling failures.
 
 ## Immediate Next Milestone
 
-Document the current architecture and harden deterministic polling integration coverage.
+Document the current architecture.
 
 Definition of done:
 
 - README/docs include a concise architecture diagram or text diagram.
-- Polling integration tests can run deterministically with a fake query client.
-- Integration tests cover incident opening after repeated polling failures.
 
 ## Next Tasks
 
 1. Add architecture diagram or concise text diagram to README/docs.
 
-2. Add integration test for incident opening after repeated failures.
+2. Introduce Testcontainers for PostgreSQL-backed integration tests.
 
-3. Add fake query client wiring for deterministic polling integration tests.
+3. Add `PATCH /api/servers/{id}`.
 
-4. Introduce Testcontainers for PostgreSQL-backed integration tests.
-
-5. Add `PATCH /api/servers/{id}`.
-
-6. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
+4. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
 
 ## v1 API Scope
 

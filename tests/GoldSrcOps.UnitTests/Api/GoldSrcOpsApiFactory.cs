@@ -12,7 +12,13 @@ namespace GoldSrcOps.UnitTests.Api;
 
 internal sealed class GoldSrcOpsApiFactory : WebApplicationFactory<Program>
 {
+    private readonly Action<IServiceCollection>? _configureTestServices;
     private readonly string _databaseName = $"goldsrcops-tests-{Guid.NewGuid():N}";
+
+    public GoldSrcOpsApiFactory(Action<IServiceCollection>? configureTestServices = null)
+    {
+        _configureTestServices = configureTestServices;
+    }
 
     public async Task ExecuteDbContextAsync(Func<GoldSrcOpsDbContext, Task> action)
     {
@@ -52,6 +58,8 @@ internal sealed class GoldSrcOpsApiFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<GoldSrcOpsDbContext>(options =>
                 options.UseInMemoryDatabase(_databaseName));
+
+            _configureTestServices?.Invoke(services);
         });
     }
 }

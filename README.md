@@ -26,6 +26,7 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added OpenTelemetry metrics export in Prometheus format.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
 - Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
+- Added deterministic polling integration tests with fake A2S query responses and EF-backed repositories.
 
 ## Run Local Infrastructure
 
