@@ -152,4 +152,50 @@ public sealed class ServerEndpointIntegrationTests
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    [Fact]
+    public async Task DisableServer_and_enableServer_update_server_enabled_flag()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var createRequest = new RegisterServerRequest(
+            "Dust2 Public",
+            "127.0.0.1",
+            QueryPort: 27015,
+            RconPort: null,
+            PollIntervalSeconds: 30,
+            Notes: null);
+        var createResponse = await client.PostAsJsonAsync("/api/servers", createRequest);
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        Assert.NotNull(created);
+
+        var disableResponse = await client.PostAsync($"/api/servers/{created.Id}/disable", content: null);
+
+        Assert.Equal(HttpStatusCode.OK, disableResponse.StatusCode);
+        var disabled = await disableResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        Assert.NotNull(disabled);
+        Assert.False(disabled.IsEnabled);
+
+        var enableResponse = await client.PostAsync($"/api/servers/{created.Id}/enable", content: null);
+
+        Assert.Equal(HttpStatusCode.OK, enableResponse.StatusCode);
+        var enabled = await enableResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        Assert.NotNull(enabled);
+        Assert.True(enabled.IsEnabled);
+        Assert.Equal(created.Id, enabled.Id);
+    }
+
+    [Theory]
+    [InlineData("enable")]
+    [InlineData("disable")]
+    public async Task EnableDisableServer_returns_not_found_for_missing_server(string action)
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsync($"/api/servers/{Guid.NewGuid()}/{action}", content: null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

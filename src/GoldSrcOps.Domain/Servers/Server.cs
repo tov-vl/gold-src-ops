@@ -53,6 +53,16 @@ public sealed class Server
 
     public ServerCurrentState? CurrentState { get; private set; }
 
+    public void Enable()
+    {
+        IsEnabled = true;
+    }
+
+    public void Disable()
+    {
+        IsEnabled = false;
+    }
+
     public void UpdateDetails(
         string name,
         ServerEndpoint endpoint,

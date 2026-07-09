@@ -105,6 +105,34 @@ public sealed class ServerPollingIntegrationTests
         });
     }
 
+    [Fact]
+    public async Task PollDueServersAsync_skips_disabled_servers()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 5, 8, 12, 0, 0, TimeSpan.Zero));
+        var queryClient = new FakeGoldSrcServerQueryClient();
+        await using var factory = CreateFactory(clock, queryClient);
+        var serverId = await SeedServerAsync(factory, clock.UtcNow, isEnabled: false);
+
+        var result = await PollOnceAsync(factory);
+
+        result.Should().BeEquivalentTo(new ServerPollingResult(
+            DueServers: 0,
+            SuccessfulPolls: 0,
+            FailedPolls: 0,
+            OpenedIncidents: 0,
+            ClosedIncidents: 0));
+        queryClient.QueryCount.Should().Be(0);
+        await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var server = await dbContext.Servers.SingleAsync(x => x.Id == serverId);
+            server.IsEnabled.Should().BeFalse();
+            var snapshots = await dbContext.PollSnapshots
+                .Where(x => x.ServerId == serverId)
+                .ToListAsync();
+            snapshots.Should().BeEmpty();
+        });
+    }
+
     private static GoldSrcOpsApiFactory CreateFactory(
         TestClock clock,
         FakeGoldSrcServerQueryClient queryClient)
@@ -118,7 +146,10 @@ public sealed class ServerPollingIntegrationTests
         });
     }
 
-    private static async Task<Guid> SeedServerAsync(GoldSrcOpsApiFactory factory, DateTimeOffset createdAtUtc)
+    private static async Task<Guid> SeedServerAsync(
+        GoldSrcOpsApiFactory factory,
+        DateTimeOffset createdAtUtc,
+        bool isEnabled = true)
     {
         return await factory.ExecuteDbContextAsync(async dbContext =>
         {
@@ -129,6 +160,11 @@ public sealed class ServerPollingIntegrationTests
                 pollIntervalSeconds: 1,
                 notes: null,
                 createdAtUtc);
+
+            if (!isEnabled)
+            {
+                server.Disable();
+            }
 
             dbContext.Servers.Add(server);
             await dbContext.SaveChangesAsync();

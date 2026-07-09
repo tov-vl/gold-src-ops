@@ -27,6 +27,12 @@ public static class ServerEndpoints
         group.MapPatch("/{id:guid}", UpdateAsync)
             .WithName("UpdateServer");
 
+        group.MapPost("/{id:guid}/enable", EnableAsync)
+            .WithName("EnableServer");
+
+        group.MapPost("/{id:guid}/disable", DisableAsync)
+            .WithName("DisableServer");
+
         group.MapGet("/{id:guid}/status", GetStatusAsync)
             .WithName("GetServerStatus");
 
@@ -87,6 +93,24 @@ public static class ServerEndpoints
                 request.Notes),
             cancellationToken);
 
+        return server is null ? TypedResults.NotFound() : TypedResults.Ok(Map(server));
+    }
+
+    private static async Task<Results<Ok<ServerResponse>, NotFound>> EnableAsync(
+        Guid id,
+        ServersService servers,
+        CancellationToken cancellationToken)
+    {
+        var server = await servers.EnableAsync(id, cancellationToken);
+        return server is null ? TypedResults.NotFound() : TypedResults.Ok(Map(server));
+    }
+
+    private static async Task<Results<Ok<ServerResponse>, NotFound>> DisableAsync(
+        Guid id,
+        ServersService servers,
+        CancellationToken cancellationToken)
+    {
+        var server = await servers.DisableAsync(id, cancellationToken);
         return server is null ? TypedResults.NotFound() : TypedResults.Ok(Map(server));
     }
 

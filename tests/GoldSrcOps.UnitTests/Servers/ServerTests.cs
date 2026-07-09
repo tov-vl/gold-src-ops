@@ -52,6 +52,23 @@ public sealed class ServerTests
     }
 
     [Fact]
+    public void Enable_and_disable_update_polling_availability()
+    {
+        var nowUtc = new DateTimeOffset(2026, 4, 25, 12, 0, 0, TimeSpan.Zero);
+        var server = CreateServer();
+
+        server.Disable();
+
+        Assert.False(server.IsEnabled);
+        Assert.False(server.IsDueForPolling(nowUtc));
+
+        server.Enable();
+
+        Assert.True(server.IsEnabled);
+        Assert.True(server.IsDueForPolling(nowUtc));
+    }
+
+    [Fact]
     public void UpdateDetails_rejects_invalid_values()
     {
         var server = CreateServer();

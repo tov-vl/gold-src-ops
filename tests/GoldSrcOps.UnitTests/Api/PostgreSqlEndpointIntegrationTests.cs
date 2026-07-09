@@ -129,6 +129,45 @@ public sealed class PostgreSqlEndpointIntegrationTests
 
     [Fact]
     [Trait("Category", "PostgreSqlIntegration")]
+    public async Task DisableServer_and_enableServer_persist_enabled_flag_through_postgresql_provider()
+    {
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync();
+        using var client = factory.CreateClient();
+        var createRequest = new RegisterServerRequest(
+            "Dust2 Public",
+            "127.0.0.1",
+            QueryPort: 27015,
+            RconPort: null,
+            PollIntervalSeconds: 30,
+            Notes: null);
+        var createResponse = await client.PostAsJsonAsync("/api/servers", createRequest);
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        created.Should().NotBeNull();
+
+        var disableResponse = await client.PostAsync($"/api/servers/{created!.Id}/disable", content: null);
+
+        disableResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var disabled = await factory.ExecuteDbContextAsync(async dbContext =>
+            await dbContext.Servers
+                .Where(x => x.Id == created.Id)
+                .Select(x => x.IsEnabled)
+                .SingleAsync());
+        disabled.Should().BeFalse();
+
+        var enableResponse = await client.PostAsync($"/api/servers/{created.Id}/enable", content: null);
+
+        enableResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var enabled = await factory.ExecuteDbContextAsync(async dbContext =>
+            await dbContext.Servers
+                .Where(x => x.Id == created.Id)
+                .Select(x => x.IsEnabled)
+                .SingleAsync());
+        enabled.Should().BeTrue();
+    }
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
     public async Task GetServerSnapshots_filters_snapshots_using_postgresql_provider()
     {
         await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync();

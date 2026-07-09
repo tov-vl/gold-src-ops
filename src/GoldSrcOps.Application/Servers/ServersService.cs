@@ -30,6 +30,16 @@ public sealed class ServersService
         return Map(server);
     }
 
+    public Task<ServerDto?> EnableAsync(Guid id, CancellationToken cancellationToken)
+    {
+        return SetEnabledAsync(id, isEnabled: true, cancellationToken);
+    }
+
+    public Task<ServerDto?> DisableAsync(Guid id, CancellationToken cancellationToken)
+    {
+        return SetEnabledAsync(id, isEnabled: false, cancellationToken);
+    }
+
     public async Task<ServerDto?> UpdateAsync(
         Guid id,
         UpdateServerCommand command,
@@ -83,6 +93,31 @@ public sealed class ServersService
                 state.MaxPlayers,
                 state.FailureReason,
                 state.ConsecutiveFailures);
+    }
+
+    private async Task<ServerDto?> SetEnabledAsync(
+        Guid id,
+        bool isEnabled,
+        CancellationToken cancellationToken)
+    {
+        var server = await _servers.GetForUpdateAsync(id, cancellationToken);
+        if (server is null)
+        {
+            return null;
+        }
+
+        if (isEnabled)
+        {
+            server.Enable();
+        }
+        else
+        {
+            server.Disable();
+        }
+
+        await _servers.SaveChangesAsync(cancellationToken);
+
+        return Map(server);
     }
 
     private static ServerDto Map(Server server) =>

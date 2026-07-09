@@ -75,6 +75,29 @@ public sealed class ServerPollingServiceTests
         Assert.NotNull(incident.ClosedAtUtc);
     }
 
+    [Fact]
+    public async Task PollDueServersAsync_skips_disabled_servers()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 4, 24, 12, 0, 0, TimeSpan.Zero));
+        var server = CreateServer(clock.UtcNow);
+        server.Disable();
+        var servers = new InMemoryServerRepository(server);
+        var incidents = new InMemoryIncidentRepository();
+        var queryClient = new StubGoldSrcServerQueryClient(_ =>
+            throw new InvalidOperationException("Disabled servers must not be queried."));
+        var sut = CreateService(servers, incidents, queryClient, clock);
+
+        var result = await sut.PollDueServersAsync(CancellationToken.None);
+
+        Assert.Equal(0, result.DueServers);
+        Assert.Equal(0, result.SuccessfulPolls);
+        Assert.Equal(0, result.FailedPolls);
+        Assert.Equal(0, result.OpenedIncidents);
+        Assert.Equal(0, result.ClosedIncidents);
+        Assert.Empty(servers.Snapshots);
+        Assert.Empty(incidents.Items);
+    }
+
     private static ServerPollingService CreateService(
         InMemoryServerRepository servers,
         InMemoryIncidentRepository incidents,
