@@ -28,6 +28,14 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
 - Added deterministic polling integration tests with fake A2S query responses and EF-backed repositories.
 
+## Architecture Overview
+
+GoldSrcOps is a modular monolith with separate API, contracts, application, domain, and infrastructure projects.
+The API host exposes HTTP endpoints, health checks, metrics, and the in-process polling worker.
+Application services coordinate use cases, domain entities own state transitions, and infrastructure implements EF Core persistence plus GoldSrc A2S integration.
+
+See [docs/architecture.md](docs/architecture.md) for the component diagram and runtime flows.
+
 ## Run Local Infrastructure
 
 ```powershell
@@ -144,4 +152,4 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Add readiness health checks, metrics, and more API integration coverage.
+Introduce PostgreSQL-backed integration tests with Testcontainers.

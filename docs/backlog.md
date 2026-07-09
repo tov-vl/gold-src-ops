@@ -39,24 +39,25 @@ Completed:
 - `GET /metrics` exposes ASP.NET Core, runtime, and application polling metrics in Prometheus format.
 - Deterministic polling integration tests added with fake A2S query responses and EF-backed repositories.
 - Integration tests cover incident opening after repeated polling failures.
+- Architecture overview and runtime flow diagrams added to `docs/architecture.md`.
 
 ## Immediate Next Milestone
 
-Document the current architecture.
+Introduce PostgreSQL-backed integration tests with Testcontainers.
 
 Definition of done:
 
-- README/docs include a concise architecture diagram or text diagram.
+- Integration tests can run against real PostgreSQL in a container.
+- Test database lifecycle is deterministic and isolated per test run.
+- At least one persistence-sensitive API or polling scenario runs against PostgreSQL.
 
 ## Next Tasks
 
-1. Add architecture diagram or concise text diagram to README/docs.
+1. Introduce Testcontainers for PostgreSQL-backed integration tests.
 
-2. Introduce Testcontainers for PostgreSQL-backed integration tests.
+2. Add `PATCH /api/servers/{id}`.
 
-3. Add `PATCH /api/servers/{id}`.
-
-4. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
+3. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
 
 ## v1 API Scope
 

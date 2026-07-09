@@ -1,0 +1,165 @@
+# GoldSrcOps Architecture
+
+GoldSrcOps is currently a modular monolith. The API host owns HTTP endpoints,
+background polling, persistence wiring, health checks, and metrics export in one
+deployable process. The internal boundaries still separate API contracts,
+application orchestration, domain rules, and infrastructure integrations.
+
+## System Overview
+
+```mermaid
+flowchart LR
+    clients["Operators / API clients"]
+    prometheus["Prometheus"]
+    goldsrc["GoldSrc dedicated servers"]
+    postgres[("PostgreSQL")]
+
+    subgraph api["GoldSrcOps.Api"]
+        endpoints["Server, incident, and dashboard endpoints"]
+        probes["/health/live, /health/ready, /metrics"]
+        openapi["OpenAPI in Development"]
+    end
+
+    subgraph application["GoldSrcOps.Application"]
+        serverService["ServersService"]
+        monitoringService["MonitoringReadService"]
+        incidentService["IncidentsService"]
+        pollingService["ServerPollingService"]
+        telemetry["GoldSrcOpsMetrics"]
+    end
+
+    subgraph domain["GoldSrcOps.Domain"]
+        server["Server"]
+        currentState["ServerCurrentState"]
+        snapshot["PollSnapshot"]
+        incident["AvailabilityIncident"]
+    end
+
+    subgraph infrastructure["GoldSrcOps.Infrastructure"]
+        dbContext["GoldSrcOpsDbContext"]
+        repositories["EF repositories"]
+        a2sClient["GoldSrcServerQueryClient"]
+        backgroundWorker["GoldSrcPollingBackgroundService"]
+    end
+
+    clients --> endpoints
+    prometheus --> probes
+    endpoints --> serverService
+    endpoints --> monitoringService
+    endpoints --> incidentService
+    probes --> dbContext
+
+    backgroundWorker --> pollingService
+    pollingService --> a2sClient
+    pollingService --> repositories
+    pollingService --> telemetry
+
+    serverService --> repositories
+    monitoringService --> repositories
+    incidentService --> repositories
+
+    repositories --> dbContext
+    dbContext --> postgres
+    a2sClient --> goldsrc
+
+    serverService -. uses .-> domain
+    pollingService -. updates .-> domain
+    repositories -. persists .-> domain
+```
+
+## Project Boundaries
+
+- `GoldSrcOps.Api` contains the host, Minimal API endpoint mapping, health
+  endpoints, Prometheus scraping endpoint, and OpenTelemetry configuration.
+- `GoldSrcOps.Contracts` contains HTTP request and response records that define
+  the public API shape.
+- `GoldSrcOps.Application` coordinates use cases such as server registration,
+  monitoring reads, incident reads, and polling. It depends on repository and
+  protocol interfaces, not EF Core or UDP details.
+- `GoldSrcOps.Domain` owns the core server state model and transition rules:
+  server status, poll snapshots, and availability incidents.
+- `GoldSrcOps.Infrastructure` implements EF Core persistence, PostgreSQL
+  configuration, the GoldSrc A2S query client, the system clock, and the
+  background polling worker.
+
+## Runtime Flows
+
+### Register Server
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as GoldSrcOps.Api
+    participant App as ServersService
+    participant Repo as EfServerRepository
+    participant Db as PostgreSQL
+
+    Client->>API: POST /api/servers
+    API->>App: RegisterServerCommand
+    App->>Repo: Add Server aggregate
+    Repo->>Db: Insert server and unknown current state
+    API-->>Client: 201 Created
+```
+
+### Polling Success
+
+```mermaid
+sequenceDiagram
+    participant Worker as GoldSrcPollingBackgroundService
+    participant App as ServerPollingService
+    participant A2S as GoldSrcServerQueryClient
+    participant Domain as Domain model
+    participant Repo as EF repositories
+    participant Db as PostgreSQL
+
+    Worker->>App: PollDueServersAsync
+    App->>Repo: Load enabled due servers
+    App->>A2S: A2S_INFO query
+    A2S-->>App: GameServerInfo
+    App->>Domain: MarkOnline and create reachable PollSnapshot
+    App->>Repo: Add snapshot and close open incident if present
+    Repo->>Db: Save current state, snapshot, incident changes
+```
+
+### Polling Failure And Incident Detection
+
+```mermaid
+sequenceDiagram
+    participant Worker as GoldSrcPollingBackgroundService
+    participant App as ServerPollingService
+    participant A2S as GoldSrcServerQueryClient
+    participant Domain as Domain model
+    participant Repo as EF repositories
+    participant Db as PostgreSQL
+
+    Worker->>App: PollDueServersAsync
+    App->>A2S: A2S_INFO query
+    A2S-->>App: Timeout or query error
+    App->>Domain: MarkOffline and create unreachable PollSnapshot
+    App->>Domain: Open AvailabilityIncident after failure threshold
+    App->>Repo: Persist state, snapshot, and incident
+    Repo->>Db: Save changes
+```
+
+## Observability
+
+- `/health/live` is a lightweight liveness probe and intentionally does not run
+  dependency checks.
+- `/health/ready` runs readiness checks tagged as `ready`, including database
+  connectivity through `GoldSrcOpsDbContext`.
+- `/metrics` exposes ASP.NET Core, runtime, and GoldSrcOps application metrics
+  in Prometheus format through OpenTelemetry.
+- Application metrics currently cover polling runs, server poll attempts by
+  result, and incident transitions.
+
+## Testing Shape
+
+The current test suite keeps the layers visible:
+
+- domain and application unit tests cover state transitions and orchestration
+  rules;
+- API integration tests cover endpoint behavior through `WebApplicationFactory`;
+- deterministic polling integration tests replace the A2S query client and
+  clock while using production DI and EF-backed repositories;
+- PostgreSQL-backed integration tests are the next step once Testcontainers is
+  introduced.
