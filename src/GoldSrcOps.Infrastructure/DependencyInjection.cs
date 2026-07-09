@@ -6,6 +6,7 @@ using GoldSrcOps.Application.Incidents;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Infrastructure.A2S;
+using GoldSrcOps.Infrastructure.Commands;
 using GoldSrcOps.Infrastructure.Monitoring;
 using GoldSrcOps.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IMonitoringReadRepository, EfMonitoringReadRepository>();
         services.AddScoped<IServerCredentialRepository, EfServerCredentialRepository>();
         services.AddScoped<ICommandExecutionRepository, EfCommandExecutionRepository>();
+        services.AddScoped<IRconCommandExecutor, NotConfiguredRconCommandExecutor>();
         services.AddScoped<ServerPollingService>();
         services.AddSingleton<IGoldSrcServerQueryClient>(_ =>
             new GoldSrcServerQueryClient(Encoding.GetEncoding("windows-1251")));

@@ -1,12 +1,16 @@
 using System.Net;
 using System.Net.Http.Json;
 using AwesomeAssertions;
+using GoldSrcOps.Application.Commands;
 using GoldSrcOps.Contracts.Commands;
 using GoldSrcOps.Contracts.Credentials;
 using GoldSrcOps.Contracts.Servers;
 using GoldSrcOps.Domain.Commands;
 using GoldSrcOps.Domain.Servers;
+using GoldSrcOps.UnitTests.Helpers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace GoldSrcOps.UnitTests.Api;
 
@@ -14,9 +18,14 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
 {
     [Fact]
     [Trait("Category", "PostgreSqlIntegration")]
-    public async Task Command_foundation_persists_credentials_and_command_history_through_postgresql_provider()
+    public async Task Command_dispatch_persists_credentials_and_execution_status_through_postgresql_provider()
     {
-        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync();
+        var executor = new CapturingRconCommandExecutor(RconCommandExecutionResult.Succeeded("postgres fake dispatch"));
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync(services =>
+        {
+            services.RemoveAll<IRconCommandExecutor>();
+            services.AddSingleton<IRconCommandExecutor>(executor);
+        });
         using var client = factory.CreateClient();
         var server = await RegisterServerAsync(client);
         var credentialRequest = new SetRconCredentialRequest("dev-secrets://goldsrcops/server-1/rcon");
@@ -31,6 +40,8 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         var command = await response.Content.ReadFromJsonAsync<CommandExecutionResponse>();
         command.Should().NotBeNull();
+        var dispatchResponse = await client.PostAsync($"/api/commands/{command!.Id}/dispatch", content: null);
+        dispatchResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var persisted = await factory.ExecuteDbContextAsync(async dbContext =>
         {
             var credential = await dbContext.ServerCredentials
@@ -48,7 +59,9 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
                 execution.Type,
                 execution.Status,
                 execution.Payload,
-                execution.RequestedBy);
+                execution.RequestedBy,
+                execution.ResultSummary,
+                execution.FailureReason);
         });
 
         persisted.Should().BeEquivalentTo(new PersistedCommandFoundation(
@@ -57,9 +70,21 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
             credentialRequest.SecretReference,
             server.Id,
             ServerCommandType.Say,
-            CommandExecutionStatus.Pending,
+            CommandExecutionStatus.Succeeded,
             commandRequest.Message,
-            commandRequest.RequestedBy));
+            commandRequest.RequestedBy,
+            ResultSummary: "postgres fake dispatch",
+            FailureReason: null));
+        executor.LastRequest.Should().BeEquivalentTo(new
+        {
+            CommandId = command.Id,
+            ServerId = server.Id,
+            Host = "127.0.0.1",
+            Port = 27015,
+            CredentialSecretReference = credentialRequest.SecretReference,
+            Type = ServerCommandType.Say,
+            CommandText = "say hello players"
+        });
     }
 
     private static async Task<ServerResponse> RegisterServerAsync(HttpClient client)
@@ -86,5 +111,7 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
         ServerCommandType Type,
         CommandExecutionStatus Status,
         string? Payload,
-        string? RequestedBy);
+        string? RequestedBy,
+        string? ResultSummary,
+        string? FailureReason);
 }

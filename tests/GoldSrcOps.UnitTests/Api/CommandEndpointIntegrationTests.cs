@@ -1,9 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
 using AwesomeAssertions;
+using GoldSrcOps.Application.Commands;
 using GoldSrcOps.Contracts.Commands;
 using GoldSrcOps.Contracts.Credentials;
 using GoldSrcOps.Contracts.Servers;
+using GoldSrcOps.UnitTests.Helpers;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace GoldSrcOps.UnitTests.Api;
 
@@ -82,6 +86,87 @@ public sealed class CommandEndpointIntegrationTests
         listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var history = await listResponse.Content.ReadFromJsonAsync<CommandExecutionResponse[]>();
         history.Should().ContainSingle().Which.Should().BeEquivalentTo(command);
+    }
+
+    [Fact]
+    public async Task DispatchCommand_executes_pending_command_through_configured_executor()
+    {
+        var executor = new CapturingRconCommandExecutor(RconCommandExecutionResult.Succeeded("fake dispatch accepted"));
+        await using var factory = new GoldSrcOpsApiFactory(services =>
+        {
+            services.RemoveAll<IRconCommandExecutor>();
+            services.AddSingleton<IRconCommandExecutor>(executor);
+        });
+        using var client = factory.CreateClient();
+        var server = await RegisterServerAsync(client);
+        await SetRconCredentialAsync(client, server.Id);
+        var createResponse = await client.PostAsJsonAsync(
+            $"/api/servers/{server.Id}/commands/say",
+            new SayCommandRequest("hello", "admin"));
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<CommandExecutionResponse>();
+        created.Should().NotBeNull();
+
+        var response = await client.PostAsync($"/api/commands/{created!.Id}/dispatch", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        json.Should().NotContain("dev-secrets://goldsrcops/server/rcon");
+        var dispatched = await response.Content.ReadFromJsonAsync<CommandExecutionResponse>();
+        dispatched.Should().NotBeNull();
+        dispatched.Should().BeEquivalentTo(new
+        {
+            created.Id,
+            ServerId = server.Id,
+            Type = "Say",
+            Status = "Succeeded",
+            Payload = "hello",
+            RequestedBy = "admin",
+            ResultSummary = "fake dispatch accepted",
+            FailureReason = (string?)null
+        });
+        dispatched!.StartedAtUtc.Should().NotBeNull();
+        dispatched.CompletedAtUtc.Should().NotBeNull();
+        executor.CallCount.Should().Be(1);
+        executor.LastRequest.Should().BeEquivalentTo(new
+        {
+            CommandId = created.Id,
+            ServerId = server.Id,
+            Host = "127.0.0.1",
+            Port = 27015,
+            CredentialSecretReference = "dev-secrets://goldsrcops/server/rcon",
+            Type = GoldSrcOps.Domain.Commands.ServerCommandType.Say,
+            CommandText = "say hello"
+        });
+
+        var repeatResponse = await client.PostAsync($"/api/commands/{created.Id}/dispatch", content: null);
+
+        repeatResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        executor.CallCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task DispatchCommand_marks_command_failed_when_default_executor_is_not_configured()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var server = await RegisterServerAsync(client);
+        await SetRconCredentialAsync(client, server.Id);
+        var createResponse = await client.PostAsJsonAsync(
+            $"/api/servers/{server.Id}/commands/restart",
+            new RestartServerCommandRequest("admin"));
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<CommandExecutionResponse>();
+        created.Should().NotBeNull();
+
+        var response = await client.PostAsync($"/api/commands/{created!.Id}/dispatch", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dispatched = await response.Content.ReadFromJsonAsync<CommandExecutionResponse>();
+        dispatched.Should().NotBeNull();
+        dispatched!.Status.Should().Be("Failed");
+        dispatched.FailureReason.Should().Be("RCON executor is not configured.");
+        dispatched.ResultSummary.Should().BeNull();
     }
 
     [Fact]

@@ -97,9 +97,10 @@ Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/disable"
 Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable"
 ```
 
-### 7. Queue A Command Without Live Dispatch
+### 7. Queue And Dispatch A Command Safely
 
-Commands are persisted as `Pending` records at this stage. The project does not send RCON traffic yet.
+Commands are persisted first and then dispatched through the configured command executor.
+The default local executor is intentionally not connected to live RCON yet, so dispatch marks the command as `Failed` with `RCON executor is not configured.`
 
 ```powershell
 $credential = @{
@@ -124,6 +125,7 @@ $queued = Invoke-RestMethod `
   -Body $command
 
 $queued
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/commands/$($queued.id)/dispatch"
 Invoke-RestMethod "$baseUrl/api/commands/$($queued.id)"
 Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10"
 ```
@@ -148,7 +150,8 @@ Expected result:
 - `PATCH /api/servers/{id}` updates editable server settings.
 - Disabled servers are skipped by polling, and re-enabled servers can be polled again.
 - Credential responses report metadata only and do not echo `secretReference`.
-- Command endpoints create `Pending` execution records without sending RCON traffic.
+- Command dispatch transitions command status without leaking credential values.
+- The default local command executor reports that live RCON dispatch is not configured yet.
 - `/status` eventually reports `Online` if the live server is reachable.
 - `/snapshots` contains at least one poll attempt.
 - `/dashboard/overview` includes the registered server in its counts.

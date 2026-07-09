@@ -195,5 +195,6 @@ Implementation implication:
 
 - `ServerCredential.SecretReference` stores where to resolve a secret, not the secret itself.
 - Credential response contracts expose metadata only: id, server id, kind, configured flag, and timestamps.
-- `CommandExecution` records are created as `Pending` until a separate executor boundary is introduced.
-- The future RCON executor must resolve credentials inside infrastructure and must not leak credential values to contracts, logs, metrics, or failure messages.
+- `CommandExecution` records are created as `Pending` and dispatched through `IRconCommandExecutor`.
+- The default executor fails safely until a live GoldSrc RCON client is implemented.
+- The future live RCON executor must resolve credentials inside infrastructure and must not leak credential values to contracts, logs, metrics, or failure messages.

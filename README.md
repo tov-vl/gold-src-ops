@@ -25,7 +25,7 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added readiness health checks that validate database connectivity.
 - Added OpenTelemetry metrics export in Prometheus format.
 - Added server edit and enable/disable endpoints.
-- Added the first command execution and server credential foundation without live RCON dispatch.
+- Added the first command execution and server credential foundation with safe dispatch status transitions.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
 - Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
 - Added deterministic polling integration tests with fake A2S query responses and EF-backed repositories.
@@ -114,6 +114,7 @@ Initial endpoints:
 - `POST /api/servers/{id}/commands/raw`
 - `GET /api/servers/{id}/commands?limit=`
 - `GET /api/commands/{commandId}`
+- `POST /api/commands/{commandId}/dispatch`
 - `GET /api/servers/{id}/status`
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=`
 - `GET /api/servers/{id}/incidents`
@@ -199,7 +200,8 @@ Invoke-RestMethod `
   -ContentType "application/json" `
   -Body $command
 
-Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10"
+$commands = Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10"
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/commands/$($commands[0].id)/dispatch"
 
 Start-Sleep -Seconds 10
 
@@ -274,4 +276,4 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-RCON command executor boundary and safe command dispatch.
+Implement the live GoldSrc RCON protocol client behind the command executor.

@@ -43,6 +43,32 @@ internal sealed class EfCommandExecutionRepository : ICommandExecutionRepository
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
+    public async Task<CommandExecutionDispatchContext?> GetDispatchContextAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var command = await _dbContext.CommandExecutions
+            .Include(x => x.Server)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+        if (command is null)
+        {
+            return null;
+        }
+
+        var credentialSecretReference = await _dbContext.ServerCredentials
+            .AsNoTracking()
+            .Where(x => x.ServerId == command.ServerId && x.Kind == ServerCredentialKind.RconPassword)
+            .Select(x => x.SecretReference)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new CommandExecutionDispatchContext(
+            command,
+            command.Server.Endpoint.Host,
+            command.Server.Endpoint.RconPort,
+            credentialSecretReference);
+    }
+
     public async Task<IReadOnlyList<CommandExecution>> ListByServerAsync(
         Guid serverId,
         int limit,

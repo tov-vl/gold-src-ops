@@ -51,24 +51,28 @@ Completed:
 - Command and credential endpoints added for RCON credential metadata, queuing commands, and reading command history.
 - PostgreSQL migration added for `server_credentials` and `command_executions`.
 - Unit, API integration, and PostgreSQL-backed integration tests added for the command foundation.
+- `IRconCommandExecutor` boundary added for safe command dispatch.
+- `POST /api/commands/{commandId}/dispatch` added to transition queued commands through `Running` into `Succeeded` or `Failed`.
+- Default executor fails safely with `RCON executor is not configured` until a live RCON client is implemented.
+- Deterministic tests cover successful fake dispatch, executor failure, timeout, missing RCON port, repeated dispatch conflict, and PostgreSQL status persistence.
 
 ## Immediate Next Milestone
 
-Implement the RCON command executor boundary and safe command dispatch.
+Implement the live GoldSrc RCON protocol client behind the command executor.
 
 Definition of done:
 
-- Add an `IRconCommandExecutor` or equivalent infrastructure boundary.
-- Execute queued commands through a fake executor in deterministic tests before adding live RCON.
-- Transition command status from `Pending` to `Running`, `Succeeded`, or `Failed`.
-- Capture timeout/failure reason without leaking credential values.
-- Keep raw RCON password resolution outside API contracts and response DTOs.
+- Resolve configured `SecretReference` values inside Infrastructure without exposing raw secrets to API contracts.
+- Implement GoldSrc RCON request/response handling with timeout and authentication failure handling.
+- Keep deterministic fake executor tests and add focused protocol/client tests around captured or synthetic packets.
+- Ensure command failure messages remain sanitized and do not include raw credential values.
+- Add at least one guarded local smoke path for a real server only after credentials are provided through local secrets.
 
 ## Next Tasks
 
-1. Add the command executor abstraction and application orchestration.
+1. Implement secret-reference resolution for local development.
 
-2. Implement deterministic command execution tests with a fake executor.
+2. Implement the GoldSrc RCON client behind `IRconCommandExecutor`.
 
 ## v1 API Scope
 
@@ -106,6 +110,7 @@ Commands:
 - `POST /api/servers/{id}/commands/raw`
 - `GET /api/servers/{id}/commands`
 - `GET /api/commands/{commandId}`
+- `POST /api/commands/{commandId}/dispatch`
 
 Health and metrics:
 
@@ -213,7 +218,7 @@ Start focused:
 
 Later:
 
-- RCON command executor with fake and live-path tests.
+- Live GoldSrc RCON protocol client and local secret resolution.
 
 ## Portfolio Readiness Checklist
 

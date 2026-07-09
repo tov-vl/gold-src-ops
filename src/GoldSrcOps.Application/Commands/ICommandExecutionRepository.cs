@@ -16,6 +16,8 @@ public interface ICommandExecutionRepository
 
     Task<CommandExecution?> GetAsync(Guid id, CancellationToken cancellationToken);
 
+    Task<CommandExecutionDispatchContext?> GetDispatchContextAsync(Guid id, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<CommandExecution>> ListByServerAsync(
         Guid serverId,
         int limit,

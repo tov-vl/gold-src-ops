@@ -26,6 +26,7 @@ flowchart LR
         incidentService["IncidentsService"]
         credentialService["ServerCredentialsService"]
         commandService["CommandExecutionService"]
+        commandExecutor["IRconCommandExecutor"]
         pollingService["ServerPollingService"]
         telemetry["GoldSrcOpsMetrics"]
     end
@@ -65,6 +66,7 @@ flowchart LR
     incidentService --> repositories
     credentialService --> repositories
     commandService --> repositories
+    commandService --> commandExecutor
 
     repositories --> dbContext
     dbContext --> postgres
@@ -153,13 +155,14 @@ sequenceDiagram
     Repo->>Db: Save changes
 ```
 
-### Queue Command
+### Queue And Dispatch Command
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant API as GoldSrcOps.Api
     participant App as CommandExecutionService
+    participant Executor as IRconCommandExecutor
     participant Repo as EF repositories
     participant Domain as Domain model
     participant Db as PostgreSQL
@@ -170,11 +173,22 @@ sequenceDiagram
     App->>Domain: Create pending CommandExecution
     Repo->>Db: Insert command execution
     API-->>Client: 201 Created
+
+    Client->>API: POST /api/commands/{commandId}/dispatch
+    API->>App: Dispatch command
+    App->>Repo: Load command, server endpoint, and credential reference
+    App->>Domain: Mark command Running
+    Repo->>Db: Save Running status
+    App->>Executor: Execute RCON command using credential reference
+    Executor-->>App: Succeeded, Failed, or TimedOut
+    App->>Domain: Mark command Succeeded or Failed
+    Repo->>Db: Save final status
+    API-->>Client: 200 OK
 ```
 
-The current command flow intentionally stops at `Pending`. A later executor
-boundary will resolve the credential reference inside Infrastructure and perform
-the actual RCON dispatch.
+The current default executor is intentionally not connected to live RCON. It
+fails safely so status transitions, persistence, and API behavior can be tested
+before the real GoldSrc RCON protocol client is added.
 
 ## Observability
 

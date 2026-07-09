@@ -43,6 +43,10 @@ public static class CommandEndpoints
             .WithTags("Commands")
             .WithName("GetCommandExecution");
 
+        endpoints.MapPost("/api/commands/{commandId:guid}/dispatch", DispatchCommandAsync)
+            .WithTags("Commands")
+            .WithName("DispatchCommandExecution");
+
         return endpoints;
     }
 
@@ -189,6 +193,22 @@ public static class CommandEndpoints
         return command is null ? TypedResults.NotFound() : TypedResults.Ok(Map(command));
     }
 
+    private static async Task<Results<Ok<CommandExecutionResponse>, NotFound, ProblemHttpResult>> DispatchCommandAsync(
+        Guid commandId,
+        CommandExecutionService commands,
+        CancellationToken cancellationToken)
+    {
+        var result = await commands.DispatchAsync(commandId, cancellationToken);
+
+        return result.Kind switch
+        {
+            CommandExecutionDispatchResultKind.Dispatched => TypedResults.Ok(Map(result.Command!)),
+            CommandExecutionDispatchResultKind.CommandNotFound => TypedResults.NotFound(),
+            CommandExecutionDispatchResultKind.NotPending => CommandNotPendingProblem(result.Command!),
+            _ => throw new InvalidOperationException($"Unsupported command dispatch result '{result.Kind}'.")
+        };
+    }
+
     private static Results<Created<CommandExecutionResponse>, NotFound, ValidationProblem, ProblemHttpResult>
         MapCreateResult(CommandExecutionCreateResult result)
     {
@@ -206,6 +226,12 @@ public static class CommandEndpoints
         TypedResults.Problem(
             title: "RCON credential is not configured.",
             detail: "Configure /api/servers/{serverId}/credentials/rcon before queuing server commands.",
+            statusCode: StatusCodes.Status409Conflict);
+
+    private static ProblemHttpResult CommandNotPendingProblem(CommandExecutionDto command) =>
+        TypedResults.Problem(
+            title: "Command is not pending.",
+            detail: $"Command '{command.Id}' is currently '{command.Status}'.",
             statusCode: StatusCodes.Status409Conflict);
 
     private static Dictionary<string, string[]> Validate(SetRconCredentialRequest request)
