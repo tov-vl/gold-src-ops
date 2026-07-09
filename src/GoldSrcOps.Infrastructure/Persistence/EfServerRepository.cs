@@ -26,6 +26,13 @@ internal sealed class EfServerRepository : IServerRepository
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
+    public async Task<Server?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken)
+    {
+        return await _dbContext.Servers
+            .Include(x => x.CurrentState)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Server>> ListAsync(CancellationToken cancellationToken)
     {
         return await _dbContext.Servers

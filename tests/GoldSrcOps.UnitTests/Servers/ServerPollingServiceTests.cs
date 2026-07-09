@@ -153,6 +153,11 @@ public sealed class ServerPollingServiceTests
             return Task.FromResult(_servers.FirstOrDefault(x => x.Id == id));
         }
 
+        public Task<Server?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_servers.FirstOrDefault(x => x.Id == id));
+        }
+
         public Task<IReadOnlyList<Server>> ListAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult<IReadOnlyList<Server>>(_servers);

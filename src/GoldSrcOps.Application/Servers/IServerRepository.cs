@@ -8,6 +8,8 @@ public interface IServerRepository
 
     Task<Server?> GetAsync(Guid id, CancellationToken cancellationToken);
 
+    Task<Server?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<Server>> ListAsync(CancellationToken cancellationToken);
 
     Task<IReadOnlyList<Server>> ListEnabledAsync(CancellationToken cancellationToken);

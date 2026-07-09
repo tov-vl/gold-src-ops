@@ -53,6 +53,26 @@ public sealed class Server
 
     public ServerCurrentState? CurrentState { get; private set; }
 
+    public void UpdateDetails(
+        string name,
+        ServerEndpoint endpoint,
+        int pollIntervalSeconds,
+        string? notes)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(endpoint);
+
+        if (pollIntervalSeconds <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(pollIntervalSeconds), "Poll interval must be positive.");
+        }
+
+        Name = name.Trim();
+        Endpoint = endpoint;
+        PollIntervalSeconds = pollIntervalSeconds;
+        Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+    }
+
     public bool IsDueForPolling(DateTimeOffset nowUtc)
     {
         if (!IsEnabled)

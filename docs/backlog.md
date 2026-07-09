@@ -41,22 +41,23 @@ Completed:
 - Integration tests cover incident opening after repeated polling failures.
 - Architecture overview and runtime flow diagrams added to `docs/architecture.md`.
 - PostgreSQL-backed integration tests added with Testcontainers and EF Core migrations.
+- `PATCH /api/servers/{id}` added for editing server connection details and polling settings.
 
 ## Immediate Next Milestone
 
-Add server editing API.
+Add server enable/disable API.
 
 Definition of done:
 
-- `PATCH /api/servers/{id}` updates editable server fields.
-- Update validation is covered by unit or integration tests.
-- Existing polling/status behavior keeps working after server edits.
+- `POST /api/servers/{id}/enable` enables polling for a server.
+- `POST /api/servers/{id}/disable` disables polling for a server.
+- Disabled servers are skipped by background polling and remain visible in list/status responses.
 
 ## Next Tasks
 
-1. Add `PATCH /api/servers/{id}`.
+1. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
 
-2. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
+2. Add integration coverage for disabled server polling behavior.
 
 ## v1 API Scope
 
@@ -167,10 +168,11 @@ Start focused:
 - Testcontainers for PostgreSQL.
 - Fake query client for deterministic polling tests.
 - Integration test for incident opening after repeated failures.
+- Integration coverage for `PATCH /api/servers/{id}`.
 
 Later:
 
-- Integration coverage for `PATCH /api/servers/{id}`.
+- Integration coverage for enable/disable behavior.
 
 ## Portfolio Readiness Checklist
 

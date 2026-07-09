@@ -30,6 +30,28 @@ public sealed class ServersService
         return Map(server);
     }
 
+    public async Task<ServerDto?> UpdateAsync(
+        Guid id,
+        UpdateServerCommand command,
+        CancellationToken cancellationToken)
+    {
+        var server = await _servers.GetForUpdateAsync(id, cancellationToken);
+        if (server is null)
+        {
+            return null;
+        }
+
+        server.UpdateDetails(
+            command.Name,
+            new ServerEndpoint(command.Host, command.QueryPort, command.RconPort),
+            command.PollIntervalSeconds,
+            command.Notes);
+
+        await _servers.SaveChangesAsync(cancellationToken);
+
+        return Map(server);
+    }
+
     public async Task<IReadOnlyList<ServerDto>> ListAsync(CancellationToken cancellationToken)
     {
         var servers = await _servers.ListAsync(cancellationToken);

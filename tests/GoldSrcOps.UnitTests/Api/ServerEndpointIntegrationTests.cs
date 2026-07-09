@@ -69,4 +69,87 @@ public sealed class ServerEndpointIntegrationTests
         Assert.Null(status.FailureReason);
         Assert.Equal(0, status.ConsecutiveFailures);
     }
+
+    [Fact]
+    public async Task PatchServer_updates_server_and_returns_updated_contract()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var createRequest = new RegisterServerRequest(
+            "Dust2 Public",
+            "127.0.0.1",
+            QueryPort: 27015,
+            RconPort: null,
+            PollIntervalSeconds: 30,
+            Notes: "before");
+        var createResponse = await client.PostAsJsonAsync("/api/servers", createRequest);
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        Assert.NotNull(created);
+        var updateRequest = new UpdateServerRequest(
+            "Inferno Public",
+            "cs.example.local",
+            QueryPort: 27016,
+            RconPort: 27017,
+            PollIntervalSeconds: 45,
+            Notes: "after");
+
+        var response = await client.PatchAsJsonAsync($"/api/servers/{created.Id}", updateRequest);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<ServerResponse>();
+        Assert.NotNull(updated);
+        Assert.Equal(created.Id, updated.Id);
+        Assert.Equal("Inferno Public", updated.Name);
+        Assert.Equal("GoldSrc", updated.Game);
+        Assert.Equal("cs.example.local", updated.Host);
+        Assert.Equal(27016, updated.QueryPort);
+        Assert.Equal(27017, updated.RconPort);
+        Assert.True(updated.IsEnabled);
+        Assert.Equal(45, updated.PollIntervalSeconds);
+        Assert.Equal("after", updated.Notes);
+        Assert.Equal(created.CreatedAtUtc, updated.CreatedAtUtc);
+
+        var getResponse = await client.GetAsync($"/api/servers/{created.Id}");
+        getResponse.EnsureSuccessStatusCode();
+        var persisted = await getResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        Assert.NotNull(persisted);
+        Assert.Equal(updated, persisted);
+    }
+
+    [Fact]
+    public async Task PatchServer_returns_not_found_for_missing_server()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var request = new UpdateServerRequest(
+            "Missing Server",
+            "localhost",
+            QueryPort: 27015,
+            RconPort: null,
+            PollIntervalSeconds: 30,
+            Notes: null);
+
+        var response = await client.PatchAsJsonAsync($"/api/servers/{Guid.NewGuid()}", request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PatchServer_returns_validation_problem_for_invalid_request()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var request = new UpdateServerRequest(
+            " ",
+            "",
+            QueryPort: 0,
+            RconPort: 70000,
+            PollIntervalSeconds: 0,
+            Notes: null);
+
+        var response = await client.PatchAsJsonAsync($"/api/servers/{Guid.NewGuid()}", request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }

@@ -67,6 +67,68 @@ public sealed class PostgreSqlEndpointIntegrationTests
 
     [Fact]
     [Trait("Category", "PostgreSqlIntegration")]
+    public async Task PatchServer_persists_editable_fields_through_postgresql_provider()
+    {
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync();
+        using var client = factory.CreateClient();
+        var createRequest = new RegisterServerRequest(
+            "Dust2 Public",
+            "127.0.0.1",
+            QueryPort: 27015,
+            RconPort: null,
+            PollIntervalSeconds: 30,
+            Notes: "before");
+        var createResponse = await client.PostAsJsonAsync("/api/servers", createRequest);
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        created.Should().NotBeNull();
+        var updateRequest = new UpdateServerRequest(
+            "Inferno Public",
+            "cs.example.local",
+            QueryPort: 27016,
+            RconPort: 27017,
+            PollIntervalSeconds: 45,
+            Notes: "after");
+
+        var response = await client.PatchAsJsonAsync($"/api/servers/{created!.Id}", updateRequest);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var persisted = await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var entity = await dbContext.Servers
+                .Include(x => x.CurrentState)
+                .SingleAsync(x => x.Id == created.Id);
+
+            return new PersistedServer(
+                entity.Id,
+                entity.Name,
+                entity.Game,
+                entity.Endpoint.Host,
+                entity.Endpoint.QueryPort,
+                entity.Endpoint.RconPort,
+                entity.PollIntervalSeconds,
+                entity.Notes,
+                entity.CurrentState?.Status,
+                entity.CurrentState?.IsReachable,
+                entity.CurrentState?.ConsecutiveFailures);
+        });
+
+        persisted.Should().BeEquivalentTo(new PersistedServer(
+            created.Id,
+            "Inferno Public",
+            GameServerKind.GoldSrc,
+            "cs.example.local",
+            QueryPort: 27016,
+            RconPort: 27017,
+            PollIntervalSeconds: 45,
+            Notes: "after",
+            CurrentStatus: ServerStatus.Unknown,
+            IsReachable: false,
+            ConsecutiveFailures: 0));
+    }
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
     public async Task GetServerSnapshots_filters_snapshots_using_postgresql_provider()
     {
         await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync();

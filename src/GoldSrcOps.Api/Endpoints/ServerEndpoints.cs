@@ -24,6 +24,9 @@ public static class ServerEndpoints
         group.MapGet("/{id:guid}", GetAsync)
             .WithName("GetServer");
 
+        group.MapPatch("/{id:guid}", UpdateAsync)
+            .WithName("UpdateServer");
+
         group.MapGet("/{id:guid}/status", GetStatusAsync)
             .WithName("GetServerStatus");
 
@@ -59,6 +62,32 @@ public static class ServerEndpoints
             cancellationToken);
 
         return TypedResults.Created($"/api/servers/{server.Id}", Map(server));
+    }
+
+    private static async Task<Results<Ok<ServerResponse>, NotFound, ValidationProblem>> UpdateAsync(
+        Guid id,
+        UpdateServerRequest request,
+        ServersService servers,
+        CancellationToken cancellationToken)
+    {
+        var errors = Validate(request);
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        var server = await servers.UpdateAsync(
+            id,
+            new UpdateServerCommand(
+                request.Name,
+                request.Host,
+                request.QueryPort,
+                request.RconPort,
+                request.PollIntervalSeconds,
+                request.Notes),
+            cancellationToken);
+
+        return server is null ? TypedResults.NotFound() : TypedResults.Ok(Map(server));
     }
 
     private static async Task<Ok<IReadOnlyList<ServerResponse>>> ListAsync(
@@ -116,31 +145,62 @@ public static class ServerEndpoints
 
     private static Dictionary<string, string[]> Validate(RegisterServerRequest request)
     {
-        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
-
-        if (string.IsNullOrWhiteSpace(request.Name))
-        {
-            errors[nameof(request.Name)] = ["Server name is required."];
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Host))
-        {
-            errors[nameof(request.Host)] = ["Host is required."];
-        }
-
-        if (request.QueryPort is < 1 or > 65535)
-        {
-            errors[nameof(request.QueryPort)] = ["QueryPort must be between 1 and 65535."];
-        }
-
-        if (request.RconPort is < 1 or > 65535)
-        {
-            errors[nameof(request.RconPort)] = ["RconPort must be between 1 and 65535."];
-        }
+        var errors = ValidateServerFields(
+            request.Name,
+            request.Host,
+            request.QueryPort,
+            request.RconPort);
 
         if (request.PollIntervalSeconds is <= 0)
         {
             errors[nameof(request.PollIntervalSeconds)] = ["PollIntervalSeconds must be positive."];
+        }
+
+        return errors;
+    }
+
+    private static Dictionary<string, string[]> Validate(UpdateServerRequest request)
+    {
+        var errors = ValidateServerFields(
+            request.Name,
+            request.Host,
+            request.QueryPort,
+            request.RconPort);
+
+        if (request.PollIntervalSeconds <= 0)
+        {
+            errors[nameof(request.PollIntervalSeconds)] = ["PollIntervalSeconds must be positive."];
+        }
+
+        return errors;
+    }
+
+    private static Dictionary<string, string[]> ValidateServerFields(
+        string name,
+        string host,
+        int queryPort,
+        int? rconPort)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            errors["Name"] = ["Server name is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            errors["Host"] = ["Host is required."];
+        }
+
+        if (queryPort is < 1 or > 65535)
+        {
+            errors["QueryPort"] = ["QueryPort must be between 1 and 65535."];
+        }
+
+        if (rconPort is < 1 or > 65535)
+        {
+            errors["RconPort"] = ["RconPort must be between 1 and 65535."];
         }
 
         return errors;

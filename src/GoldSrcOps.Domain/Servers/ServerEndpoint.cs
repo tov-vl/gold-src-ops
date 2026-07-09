@@ -10,7 +10,16 @@ public sealed class ServerEndpoint
     public ServerEndpoint(string host, int queryPort, int? rconPort)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(queryPort);
+
+        if (queryPort is < 1 or > 65535)
+        {
+            throw new ArgumentOutOfRangeException(nameof(queryPort), "Query port must be between 1 and 65535.");
+        }
+
+        if (rconPort is < 1 or > 65535)
+        {
+            throw new ArgumentOutOfRangeException(nameof(rconPort), "RCON port must be between 1 and 65535.");
+        }
 
         Host = host.Trim();
         QueryPort = queryPort;
