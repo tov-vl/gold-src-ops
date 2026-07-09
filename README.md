@@ -100,6 +100,9 @@ RCON dispatch configuration lives under `Rcon`:
 - `TimeoutMilliseconds`
 - `MaxResponseLength`
 
+See [docs/rcon.md](docs/rcon.md) for secret-reference formats, dispatch flow,
+and current RCON limits.
+
 Initial endpoints:
 
 - `GET /health/live` - lightweight liveness probe.
