@@ -2,6 +2,7 @@ using AutoFixture.Xunit2;
 using AwesomeAssertions;
 using GoldSrcOps.Application.Commands;
 using GoldSrcOps.Application.Common;
+using GoldSrcOps.Application.Telemetry;
 using GoldSrcOps.Domain.Commands;
 using GoldSrcOps.Domain.Servers;
 using GoldSrcOps.UnitTests.Helpers;
@@ -93,6 +94,7 @@ public sealed class CommandExecutionServiceTests
         clock
             .SetupGet(x => x.UtcNow)
             .Returns(now);
+        using var metrics = new MetricsCollector(GoldSrcOpsMetrics.MeterName);
 
         var result = await sut.QueueAsync(
             serverId,
@@ -120,6 +122,10 @@ public sealed class CommandExecutionServiceTests
         repository.Verify(x => x.AddAsync(It.IsAny<CommandExecution>(), CancellationToken.None), Times.Once);
         repository.Verify(x => x.SaveChangesAsync(CancellationToken.None), Times.Once);
         repository.VerifyNoOtherCalls();
+        metrics.Measurements.Should().Contain(metric =>
+            metric.Name == "goldsrcops.commands.queued" &&
+            metric.Value == 1 &&
+            HasTag(metric, "command_type", "ChangeMap"));
     }
 
     [Theory]
@@ -169,6 +175,7 @@ public sealed class CommandExecutionServiceTests
             new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 4, 25, 12, 1, 2, TimeSpan.Zero));
         var sut = new CommandExecutionService(repository, executor, clock);
+        using var metrics = new MetricsCollector(GoldSrcOpsMetrics.MeterName);
 
         var result = await sut.DispatchAsync(command.Id, CancellationToken.None);
 
@@ -197,6 +204,15 @@ public sealed class CommandExecutionServiceTests
             Type = ServerCommandType.Say,
             CommandText = "say hello players"
         });
+        metrics.Measurements.Should().Contain(metric =>
+            metric.Name == "goldsrcops.commands.dispatched" &&
+            metric.Value == 1 &&
+            HasTag(metric, "command_type", "Say"));
+        metrics.Measurements.Should().Contain(metric =>
+            metric.Name == "goldsrcops.commands.completed" &&
+            metric.Value == 1 &&
+            HasTag(metric, "command_type", "Say") &&
+            HasTag(metric, "result", "succeeded"));
     }
 
     [Fact]
@@ -226,6 +242,37 @@ public sealed class CommandExecutionServiceTests
         result.Command.ResultSummary.Should().BeNull();
         executor.LastRequest!.CommandText.Should().Be("amx_kick #42");
         repository.SaveCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_records_auth_failed_metric_when_executor_returns_authentication_failure()
+    {
+        var command = CreateCommand(ServerCommandType.Raw, "status");
+        var repository = new InMemoryCommandExecutionRepository(
+            new CommandExecutionDispatchContext(
+                command,
+                Host: "127.0.0.1",
+                RconPort: 27015,
+                CredentialSecretReference: "dev-secrets://goldsrcops/server/rcon"));
+        var executor = new CapturingRconCommandExecutor(
+            RconCommandExecutionResult.AuthenticationFailed("RCON authentication failed."));
+        var clock = new SequenceClock(
+            new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 4, 25, 12, 1, 2, TimeSpan.Zero));
+        var sut = new CommandExecutionService(repository, executor, clock);
+        using var metrics = new MetricsCollector(GoldSrcOpsMetrics.MeterName);
+
+        var result = await sut.DispatchAsync(command.Id, CancellationToken.None);
+
+        result.Kind.Should().Be(CommandExecutionDispatchResultKind.Dispatched);
+        result.Command.Should().NotBeNull();
+        result.Command!.Status.Should().Be(CommandExecutionStatus.Failed);
+        result.Command.FailureReason.Should().Be("RCON authentication failed.");
+        metrics.Measurements.Should().Contain(metric =>
+            metric.Name == "goldsrcops.commands.completed" &&
+            metric.Value == 1 &&
+            HasTag(metric, "command_type", "Raw") &&
+            HasTag(metric, "result", "auth_failed"));
     }
 
     [Fact]
@@ -311,6 +358,9 @@ public sealed class CommandExecutionServiceTests
             payload,
             requestedBy: "admin",
             new DateTimeOffset(2026, 4, 25, 12, 0, 0, TimeSpan.Zero));
+
+    private static bool HasTag(CollectedMetric metric, string key, object? expected) =>
+        metric.Tags.TryGetValue(key, out var actual) && Equals(actual, expected);
 
     private sealed class InMemoryCommandExecutionRepository : ICommandExecutionRepository
     {

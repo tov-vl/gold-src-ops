@@ -62,7 +62,7 @@ internal sealed partial class GoldSrcRconCommandExecutor : IRconCommandExecutor
         }
         catch (GoldSrcRconAuthenticationException)
         {
-            return RconCommandExecutionResult.Failed("RCON authentication failed.");
+            return RconCommandExecutionResult.AuthenticationFailed("RCON authentication failed.");
         }
         catch (GoldSrcRconProtocolException exception)
         {

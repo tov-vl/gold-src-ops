@@ -1,4 +1,5 @@
 using GoldSrcOps.Application.Common;
+using GoldSrcOps.Application.Telemetry;
 using GoldSrcOps.Domain.Commands;
 using GoldSrcOps.Domain.Servers;
 
@@ -48,6 +49,8 @@ public sealed class CommandExecutionService
         await _commands.AddAsync(execution, cancellationToken);
         await _commands.SaveChangesAsync(cancellationToken);
 
+        GoldSrcOpsMetrics.RecordCommandQueued(execution.Type);
+
         return CommandExecutionCreateResult.Created(Map(execution));
     }
 
@@ -78,6 +81,8 @@ public sealed class CommandExecutionService
             command.MarkFailed(_clock.UtcNow, "RCON port is not configured.");
             await _commands.SaveChangesAsync(cancellationToken);
 
+            GoldSrcOpsMetrics.RecordCommandCompleted(command.Type, CommandDispatchMetricResult.Failed);
+
             return CommandExecutionDispatchResult.Dispatched(Map(command));
         }
 
@@ -86,12 +91,16 @@ public sealed class CommandExecutionService
             command.MarkFailed(_clock.UtcNow, "RCON credential is not configured.");
             await _commands.SaveChangesAsync(cancellationToken);
 
+            GoldSrcOpsMetrics.RecordCommandCompleted(command.Type, CommandDispatchMetricResult.Failed);
+
             return CommandExecutionDispatchResult.Dispatched(Map(command));
         }
 
         command.MarkRunning(_clock.UtcNow);
         await _commands.SaveChangesAsync(cancellationToken);
+        GoldSrcOpsMetrics.RecordCommandDispatched(command.Type);
 
+        var metricResult = CommandDispatchMetricResult.Failed;
         try
         {
             var dispatchResult = await _rconExecutor.ExecuteAsync(
@@ -105,7 +114,7 @@ public sealed class CommandExecutionService
                     BuildCommandText(command)),
                 cancellationToken);
 
-            ApplyDispatchResult(command, dispatchResult, context.CredentialSecretReference);
+            metricResult = ApplyDispatchResult(command, dispatchResult, context.CredentialSecretReference);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -114,13 +123,16 @@ public sealed class CommandExecutionService
         catch (TimeoutException)
         {
             command.MarkFailed(_clock.UtcNow, "RCON command timed out.");
+            metricResult = CommandDispatchMetricResult.TimedOut;
         }
         catch
         {
             command.MarkFailed(_clock.UtcNow, "RCON command failed.");
+            metricResult = CommandDispatchMetricResult.Failed;
         }
 
         await _commands.SaveChangesAsync(cancellationToken);
+        GoldSrcOpsMetrics.RecordCommandCompleted(command.Type, metricResult);
 
         return CommandExecutionDispatchResult.Dispatched(Map(command));
     }
@@ -155,7 +167,7 @@ public sealed class CommandExecutionService
             command.ResultSummary,
             command.FailureReason);
 
-    private void ApplyDispatchResult(
+    private CommandDispatchMetricResult ApplyDispatchResult(
         CommandExecution command,
         RconCommandExecutionResult result,
         string credentialSecretReference)
@@ -169,7 +181,7 @@ public sealed class CommandExecutionService
                         result.ResultSummary,
                         "RCON command completed.",
                         credentialSecretReference));
-                break;
+                return CommandDispatchMetricResult.Succeeded;
             case RconCommandExecutionResultKind.Failed:
                 command.MarkFailed(
                     _clock.UtcNow,
@@ -177,7 +189,7 @@ public sealed class CommandExecutionService
                         result.FailureReason,
                         "RCON command failed.",
                         credentialSecretReference));
-                break;
+                return CommandDispatchMetricResult.Failed;
             case RconCommandExecutionResultKind.TimedOut:
                 command.MarkFailed(
                     _clock.UtcNow,
@@ -185,7 +197,15 @@ public sealed class CommandExecutionService
                         result.FailureReason,
                         "RCON command timed out.",
                         credentialSecretReference));
-                break;
+                return CommandDispatchMetricResult.TimedOut;
+            case RconCommandExecutionResultKind.AuthenticationFailed:
+                command.MarkFailed(
+                    _clock.UtcNow,
+                    SanitizeExecutorText(
+                        result.FailureReason,
+                        "RCON authentication failed.",
+                        credentialSecretReference));
+                return CommandDispatchMetricResult.AuthenticationFailed;
             default:
                 throw new InvalidOperationException($"Unsupported RCON command result '{result.Kind}'.");
         }

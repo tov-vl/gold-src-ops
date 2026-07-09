@@ -26,6 +26,7 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added OpenTelemetry metrics export in Prometheus format.
 - Added server edit and enable/disable endpoints.
 - Added command execution with safe dispatch status transitions, local secret-reference resolution, and a live GoldSrc RCON client.
+- Added command execution metrics for queued, dispatched, and completed command dispatches.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
 - Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
 - Added deterministic polling integration tests with fake A2S query responses and EF-backed repositories.
@@ -134,7 +135,8 @@ After registering a server, the background poller will update `/api/servers/{id}
 After repeated failed polls, the poller opens an availability incident. A later successful poll closes it.
 
 `/metrics` exposes ASP.NET Core, runtime, and GoldSrcOps application metrics in Prometheus format.
-The first application metrics cover polling runs, server poll attempts by result, and incident transitions.
+Application metrics cover polling runs, server poll attempts by result, incident transitions, queued commands,
+dispatched commands, and completed command dispatches by result.
 The Prometheus ASP.NET Core exporter is currently referenced as a prerelease OpenTelemetry package because a stable exporter package is not available yet.
 
 ## Local Smoke Flow
@@ -313,4 +315,4 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Add command dispatch operational hardening: per-server execution serialization, command metrics, and a guarded local smoke script for owned servers.
+Add command dispatch operational hardening: per-server execution serialization, structured command logs, and a guarded local smoke script for owned servers.

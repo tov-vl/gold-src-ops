@@ -212,9 +212,10 @@ is sent.
 - `/metrics` exposes ASP.NET Core, runtime, and GoldSrcOps application metrics
   in Prometheus format through OpenTelemetry.
 - Application metrics currently cover polling runs, server poll attempts by
-  result, and incident transitions.
-- Command execution metrics are not emitted yet; dispatch status is still
-  auditable through `CommandExecution` records.
+  result, incident transitions, queued commands, dispatched commands, and
+  completed command dispatches by result.
+- Command dispatch remains auditable through `CommandExecution` records in
+  addition to the Prometheus metrics.
 
 ## Testing Shape
 
@@ -227,5 +228,6 @@ The current test suite keeps the layers visible:
   clock while using production DI and EF-backed repositories;
 - command execution tests cover fake dispatch orchestration, secret-reference
   resolution, GoldSrc RCON packet handling, and a synthetic UDP RCON flow;
+- telemetry tests cover command metric recording and Prometheus exposure;
 - PostgreSQL-backed integration tests use Testcontainers and apply EF Core
   migrations against a real PostgreSQL provider.

@@ -54,7 +54,7 @@ public sealed class GoldSrcRconCommandExecutorTests
 
         var result = await sut.ExecuteAsync(CreateRequest(), CancellationToken.None);
 
-        result.Kind.Should().Be(RconCommandExecutionResultKind.Failed);
+        result.Kind.Should().Be(RconCommandExecutionResultKind.AuthenticationFailed);
         result.FailureReason.Should().Be("RCON authentication failed.");
         result.FailureReason.Should().NotContain("super-secret");
     }

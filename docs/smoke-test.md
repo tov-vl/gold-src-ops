@@ -160,6 +160,8 @@ Expected result:
 
 - `/health/live` and `/health/ready` return healthy responses.
 - `/metrics` exposes Prometheus metrics.
+- Command metrics are exposed as `goldsrcops_commands_queued`,
+  `goldsrcops_commands_dispatched`, and `goldsrcops_commands_completed`.
 - `PATCH /api/servers/{id}` updates editable server settings.
 - Disabled servers are skipped by polling, and re-enabled servers can be polled again.
 - Credential responses report metadata only and do not echo `secretReference`.

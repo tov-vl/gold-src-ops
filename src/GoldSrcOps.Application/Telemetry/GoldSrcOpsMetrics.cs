@@ -1,7 +1,16 @@
 using System.Diagnostics.Metrics;
 using GoldSrcOps.Application.Servers;
+using GoldSrcOps.Domain.Commands;
 
 namespace GoldSrcOps.Application.Telemetry;
+
+public enum CommandDispatchMetricResult
+{
+    Succeeded = 1,
+    Failed = 2,
+    TimedOut = 3,
+    AuthenticationFailed = 4
+}
 
 public static class GoldSrcOpsMetrics
 {
@@ -21,6 +30,18 @@ public static class GoldSrcOpsMetrics
         "goldsrcops.polling.incident_transitions",
         description: "Number of availability incident transitions observed during polling.");
 
+    private static readonly Counter<int> CommandsQueued = Meter.CreateCounter<int>(
+        "goldsrcops.commands.queued",
+        description: "Number of commands queued by command type.");
+
+    private static readonly Counter<int> CommandsDispatched = Meter.CreateCounter<int>(
+        "goldsrcops.commands.dispatched",
+        description: "Number of commands dispatched to the RCON executor by command type.");
+
+    private static readonly Counter<int> CommandsCompleted = Meter.CreateCounter<int>(
+        "goldsrcops.commands.completed",
+        description: "Number of completed command dispatches by command type and result.");
+
     private static readonly KeyValuePair<string, object?> SuccessResultTag = new("result", "success");
 
     private static readonly KeyValuePair<string, object?> FailureResultTag = new("result", "failure");
@@ -38,6 +59,26 @@ public static class GoldSrcOpsMetrics
         AddIfPositive(IncidentTransitions, result.ClosedIncidents, ClosedTransitionTag);
     }
 
+    public static void RecordCommandQueued(ServerCommandType commandType)
+    {
+        CommandsQueued.Add(1, CommandTypeTag(commandType));
+    }
+
+    public static void RecordCommandDispatched(ServerCommandType commandType)
+    {
+        CommandsDispatched.Add(1, CommandTypeTag(commandType));
+    }
+
+    public static void RecordCommandCompleted(
+        ServerCommandType commandType,
+        CommandDispatchMetricResult result)
+    {
+        CommandsCompleted.Add(
+            1,
+            CommandTypeTag(commandType),
+            CommandDispatchResultTag(result));
+    }
+
     private static void AddIfPositive(
         Counter<int> counter,
         int value,
@@ -47,5 +88,20 @@ public static class GoldSrcOpsMetrics
         {
             counter.Add(value, tag);
         }
+    }
+
+    private static KeyValuePair<string, object?> CommandTypeTag(ServerCommandType commandType) =>
+        new("command_type", commandType.ToString());
+
+    private static KeyValuePair<string, object?> CommandDispatchResultTag(CommandDispatchMetricResult result)
+    {
+        return result switch
+        {
+            CommandDispatchMetricResult.Succeeded => new KeyValuePair<string, object?>("result", "succeeded"),
+            CommandDispatchMetricResult.Failed => new KeyValuePair<string, object?>("result", "failed"),
+            CommandDispatchMetricResult.TimedOut => new KeyValuePair<string, object?>("result", "timed_out"),
+            CommandDispatchMetricResult.AuthenticationFailed => new KeyValuePair<string, object?>("result", "auth_failed"),
+            _ => throw new ArgumentOutOfRangeException(nameof(result), result, "Command dispatch metric result is not supported.")
+        };
     }
 }

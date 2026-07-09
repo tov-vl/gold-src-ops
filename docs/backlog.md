@@ -57,6 +57,7 @@ Completed:
 - Local secret-reference resolution added for `env://`, `config://`, and `dev-secrets://` references.
 - Live GoldSrc RCON client added behind `IRconCommandExecutor` with challenge/command handling, timeout mapping, authentication failure handling, and sanitized result summaries.
 - Focused protocol, client, resolver, and executor tests added for command dispatch.
+- Command execution metrics added for queued, dispatched, completed, succeeded, failed, timed-out, and authentication-failed command dispatch paths.
 
 ## Immediate Next Milestone
 
@@ -65,14 +66,13 @@ Harden command dispatch for operational use.
 Definition of done:
 
 - Serialize command execution per server so two dispatch requests cannot race the same target.
-- Add command execution metrics for queued, dispatched, succeeded, failed, timed out, and authentication-failed commands.
 - Add structured logs that identify command/server ids without logging command secrets.
 - Add a guarded local smoke helper for an owned server with explicit confirmation before real RCON dispatch.
 - Decide whether dispatch should stay explicit-only or gain a background worker for pending commands.
 
 ## Next Tasks
 
-1. Add command execution metrics and logging.
+1. Add structured command execution logs without credential material.
 
 2. Add per-server dispatch serialization and a narrow concurrency test.
 
@@ -220,10 +220,11 @@ Start focused:
 - API integration coverage for command queueing and credential metadata.
 - PostgreSQL-backed integration coverage for the command and credential schema.
 - Unit coverage for secret-reference resolution and GoldSrc RCON protocol/client behavior.
+- Unit and API integration coverage for command execution metrics.
 
 Later:
 
-- Command execution metrics, serialized dispatch, and guarded live smoke automation.
+- Serialized dispatch, structured command logs, and guarded live smoke automation.
 
 ## Portfolio Readiness Checklist
 

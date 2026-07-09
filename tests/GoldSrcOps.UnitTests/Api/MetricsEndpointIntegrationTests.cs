@@ -2,6 +2,7 @@ using System.Net;
 using AwesomeAssertions;
 using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Application.Telemetry;
+using GoldSrcOps.Domain.Commands;
 
 namespace GoldSrcOps.UnitTests.Api;
 
@@ -18,6 +19,9 @@ public sealed class MetricsEndpointIntegrationTests
             FailedPolls: 1,
             OpenedIncidents: 1,
             ClosedIncidents: 0));
+        GoldSrcOpsMetrics.RecordCommandQueued(ServerCommandType.Say);
+        GoldSrcOpsMetrics.RecordCommandDispatched(ServerCommandType.Say);
+        GoldSrcOpsMetrics.RecordCommandCompleted(ServerCommandType.Say, CommandDispatchMetricResult.AuthenticationFailed);
 
         var response = await client.GetAsync("/metrics");
 
@@ -27,5 +31,10 @@ public sealed class MetricsEndpointIntegrationTests
         body.Should().Contain("goldsrcops_polling_server_poll_attempts");
         body.Should().Contain("result=\"success\"");
         body.Should().Contain("result=\"failure\"");
+        body.Should().Contain("goldsrcops_commands_queued");
+        body.Should().Contain("goldsrcops_commands_dispatched");
+        body.Should().Contain("goldsrcops_commands_completed");
+        body.Should().Contain("command_type=\"Say\"");
+        body.Should().Contain("result=\"auth_failed\"");
     }
 }

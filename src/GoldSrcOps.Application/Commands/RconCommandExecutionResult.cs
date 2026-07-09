@@ -4,7 +4,8 @@ public enum RconCommandExecutionResultKind
 {
     Succeeded = 1,
     Failed = 2,
-    TimedOut = 3
+    TimedOut = 3,
+    AuthenticationFailed = 4
 }
 
 public sealed record RconCommandExecutionResult(
@@ -20,4 +21,7 @@ public sealed record RconCommandExecutionResult(
 
     public static RconCommandExecutionResult TimedOut(string? failureReason = null) =>
         new(RconCommandExecutionResultKind.TimedOut, ResultSummary: null, failureReason);
+
+    public static RconCommandExecutionResult AuthenticationFailed(string? failureReason = null) =>
+        new(RconCommandExecutionResultKind.AuthenticationFailed, ResultSummary: null, failureReason);
 }

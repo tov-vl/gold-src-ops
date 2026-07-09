@@ -70,5 +70,5 @@ persisted. Run real RCON dispatch only against servers you own or administer.
 - One command is dispatched per explicit API request.
 - Split or multi-packet RCON responses are not implemented yet.
 - Passwords containing double quotes are rejected by the protocol layer.
-- Command execution metrics and per-server dispatch serialization are planned
-  as the next hardening step.
+- Per-server dispatch serialization and structured command logs are planned as
+  the next hardening step.
