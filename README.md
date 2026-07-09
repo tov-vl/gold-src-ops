@@ -25,7 +25,7 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added readiness health checks that validate database connectivity.
 - Added OpenTelemetry metrics export in Prometheus format.
 - Added server edit and enable/disable endpoints.
-- Added the first command execution and server credential foundation with safe dispatch status transitions.
+- Added command execution with safe dispatch status transitions, local secret-reference resolution, and a live GoldSrc RCON client.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
 - Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
 - Added deterministic polling integration tests with fake A2S query responses and EF-backed repositories.
@@ -94,6 +94,11 @@ Polling runs inside the API host by default. Configuration lives under `Polling`
 - `QueryTimeoutMilliseconds`
 - `BatchSize`
 - `IncidentFailureThreshold`
+
+RCON dispatch configuration lives under `Rcon`:
+
+- `TimeoutMilliseconds`
+- `MaxResponseLength`
 
 Initial endpoints:
 
@@ -178,7 +183,12 @@ Invoke-RestMethod `
 
 Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/disable"
 Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable"
+```
 
+Queue a command without a local secret. Dispatch fails safely until both an RCON
+port and a resolvable secret reference are configured:
+
+```powershell
 $credential = @{
   secretReference = "dev-secrets://goldsrcops/server/rcon"
 } | ConvertTo-Json
@@ -202,7 +212,31 @@ Invoke-RestMethod `
 
 $commands = Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10"
 Invoke-RestMethod -Method Post -Uri "$baseUrl/api/commands/$($commands[0].id)/dispatch"
+```
 
+To execute a real RCON command, use a server you control, set `rconPort`, and
+provide the secret through configuration or an environment variable. For the
+`dev-secrets://goldsrcops/server/rcon` reference, the local configuration key is
+`DevSecrets:goldsrcops:server:rcon`; as an environment variable:
+
+```powershell
+$env:DevSecrets__goldsrcops__server__rcon = "<your-rcon-password>"
+```
+
+The executor also supports `env://VARIABLE_NAME` and `config://Section:Key`
+references.
+
+```powershell
+$credential = @{
+  secretReference = "env://GOLDSRCOPS_RCON_PASSWORD"
+} | ConvertTo-Json
+```
+
+Never run the command dispatch smoke against a public server you do not own.
+
+Continue with monitoring reads:
+
+```powershell
 Start-Sleep -Seconds 10
 
 Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/status"
@@ -276,4 +310,4 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Implement the live GoldSrc RCON protocol client behind the command executor.
+Add command dispatch operational hardening: per-server execution serialization, command metrics, and a guarded local smoke script for owned servers.

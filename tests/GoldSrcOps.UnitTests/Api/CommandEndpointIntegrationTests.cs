@@ -146,7 +146,7 @@ public sealed class CommandEndpointIntegrationTests
     }
 
     [Fact]
-    public async Task DispatchCommand_marks_command_failed_when_default_executor_is_not_configured()
+    public async Task DispatchCommand_marks_command_failed_when_default_secret_reference_is_missing()
     {
         await using var factory = new GoldSrcOpsApiFactory();
         using var client = factory.CreateClient();
@@ -165,7 +165,7 @@ public sealed class CommandEndpointIntegrationTests
         var dispatched = await response.Content.ReadFromJsonAsync<CommandExecutionResponse>();
         dispatched.Should().NotBeNull();
         dispatched!.Status.Should().Be("Failed");
-        dispatched.FailureReason.Should().Be("RCON executor is not configured.");
+        dispatched.FailureReason.Should().Be("RCON credential secret could not be resolved.");
         dispatched.ResultSummary.Should().BeNull();
     }
 

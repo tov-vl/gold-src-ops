@@ -100,7 +100,7 @@ Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable"
 ### 7. Queue And Dispatch A Command Safely
 
 Commands are persisted first and then dispatched through the configured command executor.
-The default local executor is intentionally not connected to live RCON yet, so dispatch marks the command as `Failed` with `RCON executor is not configured.`
+Without a configured RCON port and a resolvable local secret, dispatch fails safely before sending anything to the server.
 
 ```powershell
 $credential = @{
@@ -130,6 +130,19 @@ Invoke-RestMethod "$baseUrl/api/commands/$($queued.id)"
 Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10"
 ```
 
+To execute a real RCON command, use only a server you control. Set `rconPort`
+when registering or patching the server, and provide the password through local
+configuration or an environment variable. The `dev-secrets://goldsrcops/server/rcon`
+reference resolves from the `DevSecrets:goldsrcops:server:rcon` configuration key,
+which can be supplied as:
+
+```powershell
+$env:DevSecrets__goldsrcops__server__rcon = "<your-rcon-password>"
+```
+
+The executor also supports explicit `env://VARIABLE_NAME` and
+`config://Section:Key` references.
+
 ### 8. Check Monitoring Reads
 
 The background poller runs every few seconds. Wait briefly, then query status and history:
@@ -151,7 +164,7 @@ Expected result:
 - Disabled servers are skipped by polling, and re-enabled servers can be polled again.
 - Credential responses report metadata only and do not echo `secretReference`.
 - Command dispatch transitions command status without leaking credential values.
-- The default local command executor reports that live RCON dispatch is not configured yet.
+- Missing local RCON configuration is reported as a safe command failure before network dispatch.
 - `/status` eventually reports `Online` if the live server is reachable.
 - `/snapshots` contains at least one poll attempt.
 - `/dashboard/overview` includes the registered server in its counts.

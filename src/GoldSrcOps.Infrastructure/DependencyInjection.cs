@@ -28,8 +28,10 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly(typeof(GoldSrcOpsDbContext).Assembly.FullName)));
 
         var pollingOptions = GoldSrcPollingOptions.FromConfiguration(configuration);
+        var rconOptions = GoldSrcRconOptions.FromConfiguration(configuration);
 
         services.AddSingleton(pollingOptions);
+        services.AddSingleton(rconOptions);
         services.AddSingleton(new ServerPollingSettings(
             pollingOptions.QueryTimeout,
             pollingOptions.BatchSize,
@@ -40,7 +42,10 @@ public static class DependencyInjection
         services.AddScoped<IMonitoringReadRepository, EfMonitoringReadRepository>();
         services.AddScoped<IServerCredentialRepository, EfServerCredentialRepository>();
         services.AddScoped<ICommandExecutionRepository, EfCommandExecutionRepository>();
-        services.AddScoped<IRconCommandExecutor, NotConfiguredRconCommandExecutor>();
+        services.AddSingleton<ISecretReferenceResolver, ConfigurationSecretReferenceResolver>();
+        services.AddSingleton<IGoldSrcRconClient>(_ =>
+            new GoldSrcRconClient(Encoding.GetEncoding("windows-1251")));
+        services.AddScoped<IRconCommandExecutor, GoldSrcRconCommandExecutor>();
         services.AddScoped<ServerPollingService>();
         services.AddSingleton<IGoldSrcServerQueryClient>(_ =>
             new GoldSrcServerQueryClient(Encoding.GetEncoding("windows-1251")));

@@ -44,6 +44,9 @@ flowchart LR
         dbContext["GoldSrcOpsDbContext"]
         repositories["EF repositories"]
         a2sClient["GoldSrcServerQueryClient"]
+        rconExecutor["GoldSrcRconCommandExecutor"]
+        rconClient["GoldSrcRconClient"]
+        secretResolver["ConfigurationSecretReferenceResolver"]
         backgroundWorker["GoldSrcPollingBackgroundService"]
     end
 
@@ -67,10 +70,14 @@ flowchart LR
     credentialService --> repositories
     commandService --> repositories
     commandService --> commandExecutor
+    commandExecutor --> rconExecutor
+    rconExecutor --> secretResolver
+    rconExecutor --> rconClient
 
     repositories --> dbContext
     dbContext --> postgres
     a2sClient --> goldsrc
+    rconClient --> goldsrc
 
     serverService -. uses .-> domain
     credentialService -. uses .-> domain
@@ -93,8 +100,9 @@ flowchart LR
   server status, poll snapshots, availability incidents, credential references,
   and command execution records.
 - `GoldSrcOps.Infrastructure` implements EF Core persistence, PostgreSQL
-  configuration, the GoldSrc A2S query client, the system clock, and the
-  background polling worker.
+  configuration, the GoldSrc A2S query client, the GoldSrc RCON executor/client,
+  local secret-reference resolution, the system clock, and the background
+  polling worker.
 
 ## Runtime Flows
 
@@ -163,6 +171,8 @@ sequenceDiagram
     participant API as GoldSrcOps.Api
     participant App as CommandExecutionService
     participant Executor as IRconCommandExecutor
+    participant Secrets as Secret resolver
+    participant RCON as GoldSrc RCON
     participant Repo as EF repositories
     participant Domain as Domain model
     participant Db as PostgreSQL
@@ -180,15 +190,18 @@ sequenceDiagram
     App->>Domain: Mark command Running
     Repo->>Db: Save Running status
     App->>Executor: Execute RCON command using credential reference
+    Executor->>Secrets: Resolve SecretReference
+    Executor->>RCON: challenge rcon and rcon command over UDP
     Executor-->>App: Succeeded, Failed, or TimedOut
     App->>Domain: Mark command Succeeded or Failed
     Repo->>Db: Save final status
     API-->>Client: 200 OK
 ```
 
-The current default executor is intentionally not connected to live RCON. It
-fails safely so status transitions, persistence, and API behavior can be tested
-before the real GoldSrc RCON protocol client is added.
+The executor resolves credential references inside Infrastructure. Raw RCON
+passwords are not stored in the database or returned by API contracts. Missing
+or unsupported local secret references fail the command before a network packet
+is sent.
 
 ## Observability
 
@@ -200,8 +213,8 @@ before the real GoldSrc RCON protocol client is added.
   in Prometheus format through OpenTelemetry.
 - Application metrics currently cover polling runs, server poll attempts by
   result, and incident transitions.
-- Command execution metrics are not emitted yet because live dispatch is not
-  implemented.
+- Command execution metrics are not emitted yet; dispatch status is still
+  auditable through `CommandExecution` records.
 
 ## Testing Shape
 
@@ -212,5 +225,7 @@ The current test suite keeps the layers visible:
 - API integration tests cover endpoint behavior through `WebApplicationFactory`;
 - deterministic polling integration tests replace the A2S query client and
   clock while using production DI and EF-backed repositories;
+- command execution tests cover fake dispatch orchestration, secret-reference
+  resolution, GoldSrc RCON packet handling, and a synthetic UDP RCON flow;
 - PostgreSQL-backed integration tests use Testcontainers and apply EF Core
   migrations against a real PostgreSQL provider.

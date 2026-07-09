@@ -53,26 +53,30 @@ Completed:
 - Unit, API integration, and PostgreSQL-backed integration tests added for the command foundation.
 - `IRconCommandExecutor` boundary added for safe command dispatch.
 - `POST /api/commands/{commandId}/dispatch` added to transition queued commands through `Running` into `Succeeded` or `Failed`.
-- Default executor fails safely with `RCON executor is not configured` until a live RCON client is implemented.
 - Deterministic tests cover successful fake dispatch, executor failure, timeout, missing RCON port, repeated dispatch conflict, and PostgreSQL status persistence.
+- Local secret-reference resolution added for `env://`, `config://`, and `dev-secrets://` references.
+- Live GoldSrc RCON client added behind `IRconCommandExecutor` with challenge/command handling, timeout mapping, authentication failure handling, and sanitized result summaries.
+- Focused protocol, client, resolver, and executor tests added for command dispatch.
 
 ## Immediate Next Milestone
 
-Implement the live GoldSrc RCON protocol client behind the command executor.
+Harden command dispatch for operational use.
 
 Definition of done:
 
-- Resolve configured `SecretReference` values inside Infrastructure without exposing raw secrets to API contracts.
-- Implement GoldSrc RCON request/response handling with timeout and authentication failure handling.
-- Keep deterministic fake executor tests and add focused protocol/client tests around captured or synthetic packets.
-- Ensure command failure messages remain sanitized and do not include raw credential values.
-- Add at least one guarded local smoke path for a real server only after credentials are provided through local secrets.
+- Serialize command execution per server so two dispatch requests cannot race the same target.
+- Add command execution metrics for queued, dispatched, succeeded, failed, timed out, and authentication-failed commands.
+- Add structured logs that identify command/server ids without logging command secrets.
+- Add a guarded local smoke helper for an owned server with explicit confirmation before real RCON dispatch.
+- Decide whether dispatch should stay explicit-only or gain a background worker for pending commands.
 
 ## Next Tasks
 
-1. Implement secret-reference resolution for local development.
+1. Add command execution metrics and logging.
 
-2. Implement the GoldSrc RCON client behind `IRconCommandExecutor`.
+2. Add per-server dispatch serialization and a narrow concurrency test.
+
+3. Add an opt-in local RCON smoke helper for owned servers.
 
 ## v1 API Scope
 
@@ -215,10 +219,11 @@ Start focused:
 - Unit coverage for command execution and credential domain rules.
 - API integration coverage for command queueing and credential metadata.
 - PostgreSQL-backed integration coverage for the command and credential schema.
+- Unit coverage for secret-reference resolution and GoldSrc RCON protocol/client behavior.
 
 Later:
 
-- Live GoldSrc RCON protocol client and local secret resolution.
+- Command execution metrics, serialized dispatch, and guarded live smoke automation.
 
 ## Portfolio Readiness Checklist
 

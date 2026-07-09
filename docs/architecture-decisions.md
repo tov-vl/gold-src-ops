@@ -196,5 +196,6 @@ Implementation implication:
 - `ServerCredential.SecretReference` stores where to resolve a secret, not the secret itself.
 - Credential response contracts expose metadata only: id, server id, kind, configured flag, and timestamps.
 - `CommandExecution` records are created as `Pending` and dispatched through `IRconCommandExecutor`.
-- The default executor fails safely until a live GoldSrc RCON client is implemented.
-- The future live RCON executor must resolve credentials inside infrastructure and must not leak credential values to contracts, logs, metrics, or failure messages.
+- `GoldSrcRconCommandExecutor` resolves credentials inside Infrastructure and calls the GoldSrc RCON client over UDP.
+- Local development supports `env://`, `config://`, and `dev-secrets://` references without storing raw secrets in the application database.
+- Missing, unsupported, timed-out, authentication-failed, and protocol-failed dispatch paths return stable failure messages without leaking raw credential values to contracts, logs, metrics, or command history.
