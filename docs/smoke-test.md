@@ -97,7 +97,38 @@ Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/disable"
 Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable"
 ```
 
-### 7. Check Monitoring Reads
+### 7. Queue A Command Without Live Dispatch
+
+Commands are persisted as `Pending` records at this stage. The project does not send RCON traffic yet.
+
+```powershell
+$credential = @{
+  secretReference = "dev-secrets://goldsrcops/server/rcon"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Put `
+  -Uri "$baseUrl/api/servers/$($server.id)/credentials/rcon" `
+  -ContentType "application/json" `
+  -Body $credential
+
+$command = @{
+  message = "hello from GoldSrcOps"
+  requestedBy = "local-smoke"
+} | ConvertTo-Json
+
+$queued = Invoke-RestMethod `
+  -Method Post `
+  -Uri "$baseUrl/api/servers/$($server.id)/commands/say" `
+  -ContentType "application/json" `
+  -Body $command
+
+$queued
+Invoke-RestMethod "$baseUrl/api/commands/$($queued.id)"
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10"
+```
+
+### 8. Check Monitoring Reads
 
 The background poller runs every few seconds. Wait briefly, then query status and history:
 
@@ -116,6 +147,8 @@ Expected result:
 - `/metrics` exposes Prometheus metrics.
 - `PATCH /api/servers/{id}` updates editable server settings.
 - Disabled servers are skipped by polling, and re-enabled servers can be polled again.
+- Credential responses report metadata only and do not echo `secretReference`.
+- Command endpoints create `Pending` execution records without sending RCON traffic.
 - `/status` eventually reports `Online` if the live server is reachable.
 - `/snapshots` contains at least one poll attempt.
 - `/dashboard/overview` includes the registered server in its counts.

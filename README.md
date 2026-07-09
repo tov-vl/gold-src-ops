@@ -25,6 +25,7 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added readiness health checks that validate database connectivity.
 - Added OpenTelemetry metrics export in Prometheus format.
 - Added server edit and enable/disable endpoints.
+- Added the first command execution and server credential foundation without live RCON dispatch.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
 - Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
 - Added deterministic polling integration tests with fake A2S query responses and EF-backed repositories.
@@ -105,6 +106,14 @@ Initial endpoints:
 - `PATCH /api/servers/{id}`
 - `POST /api/servers/{id}/enable`
 - `POST /api/servers/{id}/disable`
+- `PUT /api/servers/{id}/credentials/rcon`
+- `GET /api/servers/{id}/credentials`
+- `POST /api/servers/{id}/commands/change-map`
+- `POST /api/servers/{id}/commands/restart`
+- `POST /api/servers/{id}/commands/say`
+- `POST /api/servers/{id}/commands/raw`
+- `GET /api/servers/{id}/commands?limit=`
+- `GET /api/commands/{commandId}`
 - `GET /api/servers/{id}/status`
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=`
 - `GET /api/servers/{id}/incidents`
@@ -168,6 +177,29 @@ Invoke-RestMethod `
 
 Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/disable"
 Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable"
+
+$credential = @{
+  secretReference = "dev-secrets://goldsrcops/server/rcon"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Put `
+  -Uri "$baseUrl/api/servers/$($server.id)/credentials/rcon" `
+  -ContentType "application/json" `
+  -Body $credential
+
+$command = @{
+  map = "de_dust2"
+  requestedBy = "local-smoke"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "$baseUrl/api/servers/$($server.id)/commands/change-map" `
+  -ContentType "application/json" `
+  -Body $command
+
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10"
 
 Start-Sleep -Seconds 10
 
@@ -242,4 +274,4 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Command execution scope and server credentials.
+RCON command executor boundary and safe command dispatch.

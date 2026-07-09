@@ -46,22 +46,29 @@ Completed:
 - Disabled servers are skipped by background polling and covered by deterministic integration tests.
 - Local startup and migration workflow documented in README and smoke-test docs.
 - `tools/dev/start-local.ps1` added for local PostgreSQL startup, EF migration, and API launch.
+- `ServerCredential` added with external secret references instead of persisted plaintext secrets.
+- `CommandExecution` added with command type, status, payload, requester, and execution timestamps.
+- Command and credential endpoints added for RCON credential metadata, queuing commands, and reading command history.
+- PostgreSQL migration added for `server_credentials` and `command_executions`.
+- Unit, API integration, and PostgreSQL-backed integration tests added for the command foundation.
 
 ## Immediate Next Milestone
 
-Add command execution scope and server credentials.
+Implement the RCON command executor boundary and safe command dispatch.
 
 Definition of done:
 
-- Define how server credentials are stored and protected.
-- Add the initial command execution domain model.
-- Implement one low-risk command flow or document the RCON integration boundary.
+- Add an `IRconCommandExecutor` or equivalent infrastructure boundary.
+- Execute queued commands through a fake executor in deterministic tests before adding live RCON.
+- Transition command status from `Pending` to `Running`, `Succeeded`, or `Failed`.
+- Capture timeout/failure reason without leaking credential values.
+- Keep raw RCON password resolution outside API contracts and response DTOs.
 
 ## Next Tasks
 
-1. Design server credentials and command execution boundaries.
+1. Add the command executor abstraction and application orchestration.
 
-2. Add initial command execution entity and API shape.
+2. Implement deterministic command execution tests with a fake executor.
 
 ## v1 API Scope
 
@@ -73,6 +80,11 @@ Servers:
 - `PATCH /api/servers/{id}`
 - `POST /api/servers/{id}/enable`
 - `POST /api/servers/{id}/disable`
+
+Credentials:
+
+- `PUT /api/servers/{id}/credentials/rcon`
+- `GET /api/servers/{id}/credentials`
 
 Monitoring:
 
@@ -86,7 +98,7 @@ Incidents:
 - `GET /api/servers/{id}/incidents`
 - `GET /api/incidents/{id}`
 
-Later command scope:
+Commands:
 
 - `POST /api/servers/{id}/commands/change-map`
 - `POST /api/servers/{id}/commands/restart`
@@ -154,11 +166,32 @@ Health and metrics:
 - `EndReason`
 - `ConsecutiveFailures`
 
+`ServerCredential`:
+
+- `Id`
+- `ServerId`
+- `Kind`
+- `SecretReference`
+- `CreatedAtUtc`
+- `UpdatedAtUtc`
+
+`CommandExecution`:
+
+- `Id`
+- `ServerId`
+- `Type`
+- `Status`
+- `Payload`
+- `RequestedBy`
+- `RequestedAtUtc`
+- `StartedAtUtc`
+- `CompletedAtUtc`
+- `ResultSummary`
+- `FailureReason`
+
 Future entities:
 
-- `ServerCredential`
 - `PlayerSnapshot`
-- `CommandExecution`
 - `AlertDelivery`
 - `AuditEntry`
 
@@ -174,10 +207,13 @@ Start focused:
 - Integration test for incident opening after repeated failures.
 - Integration coverage for `PATCH /api/servers/{id}`.
 - Integration coverage for enable/disable behavior.
+- Unit coverage for command execution and credential domain rules.
+- API integration coverage for command queueing and credential metadata.
+- PostgreSQL-backed integration coverage for the command and credential schema.
 
 Later:
 
-- Command execution scope and server credentials.
+- RCON command executor with fake and live-path tests.
 
 ## Portfolio Readiness Checklist
 

@@ -1,3 +1,4 @@
+using GoldSrcOps.Domain.Commands;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,6 +18,10 @@ public sealed class GoldSrcOpsDbContext : DbContext
     public DbSet<PollSnapshot> PollSnapshots => Set<PollSnapshot>();
 
     public DbSet<AvailabilityIncident> AvailabilityIncidents => Set<AvailabilityIncident>();
+
+    public DbSet<ServerCredential> ServerCredentials => Set<ServerCredential>();
+
+    public DbSet<CommandExecution> CommandExecutions => Set<CommandExecution>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -78,6 +83,40 @@ public sealed class GoldSrcOpsDbContext : DbContext
             incident.HasIndex(x => new { x.ServerId, x.ClosedAtUtc });
             incident.Ignore(x => x.IsOpen);
             incident.HasOne(x => x.Server)
+                .WithMany()
+                .HasForeignKey(x => x.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ServerCredential>(credential =>
+        {
+            credential.ToTable("server_credentials");
+            credential.HasKey(x => x.Id);
+            credential.Property(x => x.Kind).HasConversion<string>().HasMaxLength(64).IsRequired();
+            credential.Property(x => x.SecretReference)
+                .HasMaxLength(ServerCredential.MaxSecretReferenceLength)
+                .IsRequired();
+            credential.Property(x => x.CreatedAtUtc).IsRequired();
+            credential.HasIndex(x => new { x.ServerId, x.Kind }).IsUnique();
+            credential.Ignore(x => x.IsConfigured);
+            credential.HasOne(x => x.Server)
+                .WithMany()
+                .HasForeignKey(x => x.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CommandExecution>(command =>
+        {
+            command.ToTable("command_executions");
+            command.HasKey(x => x.Id);
+            command.Property(x => x.Type).HasConversion<string>().HasMaxLength(32).IsRequired();
+            command.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            command.Property(x => x.Payload).HasMaxLength(CommandExecution.MaxPayloadLength);
+            command.Property(x => x.RequestedBy).HasMaxLength(CommandExecution.MaxRequestedByLength);
+            command.Property(x => x.ResultSummary).HasMaxLength(CommandExecution.MaxResultLength);
+            command.Property(x => x.FailureReason).HasMaxLength(CommandExecution.MaxResultLength);
+            command.HasIndex(x => new { x.ServerId, x.RequestedAtUtc });
+            command.HasOne(x => x.Server)
                 .WithMany()
                 .HasForeignKey(x => x.ServerId)
                 .OnDelete(DeleteBehavior.Cascade);

@@ -1,4 +1,6 @@
 using GoldSrcOps.Api.Endpoints;
+using GoldSrcOps.Application.Commands;
+using GoldSrcOps.Application.Credentials;
 using GoldSrcOps.Application.Incidents;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Application.Servers;
@@ -16,6 +18,8 @@ builder.Services.AddProblemDetails();
 builder.Services.AddScoped<ServersService>();
 builder.Services.AddScoped<IncidentsService>();
 builder.Services.AddScoped<MonitoringReadService>();
+builder.Services.AddScoped<ServerCredentialsService>();
+builder.Services.AddScoped<CommandExecutionService>();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<GoldSrcOpsDbContext>(
@@ -50,6 +54,7 @@ app.MapPrometheusScrapingEndpoint("/metrics");
 app.MapServerEndpoints();
 app.MapIncidentEndpoints();
 app.MapDashboardEndpoints();
+app.MapCommandEndpoints();
 
 app.Run();
 

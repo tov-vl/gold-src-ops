@@ -1,5 +1,7 @@
 using System.Text;
+using GoldSrcOps.Application.Commands;
 using GoldSrcOps.Application.Common;
+using GoldSrcOps.Application.Credentials;
 using GoldSrcOps.Application.Incidents;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Application.Servers;
@@ -35,6 +37,8 @@ public static class DependencyInjection
         services.AddScoped<IServerRepository, EfServerRepository>();
         services.AddScoped<IIncidentRepository, EfIncidentRepository>();
         services.AddScoped<IMonitoringReadRepository, EfMonitoringReadRepository>();
+        services.AddScoped<IServerCredentialRepository, EfServerCredentialRepository>();
+        services.AddScoped<ICommandExecutionRepository, EfCommandExecutionRepository>();
         services.AddScoped<ServerPollingService>();
         services.AddSingleton<IGoldSrcServerQueryClient>(_ =>
             new GoldSrcServerQueryClient(Encoding.GetEncoding("windows-1251")));

@@ -15,7 +15,7 @@ flowchart LR
     postgres[("PostgreSQL")]
 
     subgraph api["GoldSrcOps.Api"]
-        endpoints["Server, incident, and dashboard endpoints"]
+        endpoints["Server, command, credential, incident, and dashboard endpoints"]
         probes["/health/live, /health/ready, /metrics"]
         openapi["OpenAPI in Development"]
     end
@@ -24,6 +24,8 @@ flowchart LR
         serverService["ServersService"]
         monitoringService["MonitoringReadService"]
         incidentService["IncidentsService"]
+        credentialService["ServerCredentialsService"]
+        commandService["CommandExecutionService"]
         pollingService["ServerPollingService"]
         telemetry["GoldSrcOpsMetrics"]
     end
@@ -33,6 +35,8 @@ flowchart LR
         currentState["ServerCurrentState"]
         snapshot["PollSnapshot"]
         incident["AvailabilityIncident"]
+        credential["ServerCredential"]
+        command["CommandExecution"]
     end
 
     subgraph infrastructure["GoldSrcOps.Infrastructure"]
@@ -47,6 +51,8 @@ flowchart LR
     endpoints --> serverService
     endpoints --> monitoringService
     endpoints --> incidentService
+    endpoints --> credentialService
+    endpoints --> commandService
     probes --> dbContext
 
     backgroundWorker --> pollingService
@@ -57,12 +63,16 @@ flowchart LR
     serverService --> repositories
     monitoringService --> repositories
     incidentService --> repositories
+    credentialService --> repositories
+    commandService --> repositories
 
     repositories --> dbContext
     dbContext --> postgres
     a2sClient --> goldsrc
 
     serverService -. uses .-> domain
+    credentialService -. uses .-> domain
+    commandService -. creates .-> domain
     pollingService -. updates .-> domain
     repositories -. persists .-> domain
 ```
@@ -74,10 +84,12 @@ flowchart LR
 - `GoldSrcOps.Contracts` contains HTTP request and response records that define
   the public API shape.
 - `GoldSrcOps.Application` coordinates use cases such as server registration,
-  monitoring reads, incident reads, and polling. It depends on repository and
-  protocol interfaces, not EF Core or UDP details.
+  credential metadata, command queueing, monitoring reads, incident reads, and
+  polling. It depends on repository and protocol interfaces, not EF Core or UDP
+  details.
 - `GoldSrcOps.Domain` owns the core server state model and transition rules:
-  server status, poll snapshots, and availability incidents.
+  server status, poll snapshots, availability incidents, credential references,
+  and command execution records.
 - `GoldSrcOps.Infrastructure` implements EF Core persistence, PostgreSQL
   configuration, the GoldSrc A2S query client, the system clock, and the
   background polling worker.
@@ -141,6 +153,29 @@ sequenceDiagram
     Repo->>Db: Save changes
 ```
 
+### Queue Command
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as GoldSrcOps.Api
+    participant App as CommandExecutionService
+    participant Repo as EF repositories
+    participant Domain as Domain model
+    participant Db as PostgreSQL
+
+    Client->>API: POST /api/servers/{id}/commands/say
+    API->>App: CreateCommandExecutionCommand
+    App->>Repo: Check server and RCON credential metadata
+    App->>Domain: Create pending CommandExecution
+    Repo->>Db: Insert command execution
+    API-->>Client: 201 Created
+```
+
+The current command flow intentionally stops at `Pending`. A later executor
+boundary will resolve the credential reference inside Infrastructure and perform
+the actual RCON dispatch.
+
 ## Observability
 
 - `/health/live` is a lightweight liveness probe and intentionally does not run
@@ -151,6 +186,8 @@ sequenceDiagram
   in Prometheus format through OpenTelemetry.
 - Application metrics currently cover polling runs, server poll attempts by
   result, and incident transitions.
+- Command execution metrics are not emitted yet because live dispatch is not
+  implemented.
 
 ## Testing Shape
 
@@ -161,5 +198,5 @@ The current test suite keeps the layers visible:
 - API integration tests cover endpoint behavior through `WebApplicationFactory`;
 - deterministic polling integration tests replace the A2S query client and
   clock while using production DI and EF-backed repositories;
-- PostgreSQL-backed integration tests are the next step once Testcontainers is
-  introduced.
+- PostgreSQL-backed integration tests use Testcontainers and apply EF Core
+  migrations against a real PostgreSQL provider.

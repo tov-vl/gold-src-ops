@@ -178,3 +178,22 @@ Current result:
 
 The repository already contains the A2S spike under `src/GoldSrcOps.A2SSpike`.
 
+## Decision 8: Store Credential References, Not RCON Passwords
+
+Decision:
+
+Persist server credentials as references to an external secret source instead of storing raw RCON passwords in the application database.
+
+Reasoning:
+
+- The API and read models should never echo secret values.
+- Local development can use a stable reference such as `dev-secrets://goldsrcops/server/rcon`.
+- Production can later resolve the same reference through a stronger secret store.
+- Command execution should be auditable without mixing command history and credential material.
+
+Implementation implication:
+
+- `ServerCredential.SecretReference` stores where to resolve a secret, not the secret itself.
+- Credential response contracts expose metadata only: id, server id, kind, configured flag, and timestamps.
+- `CommandExecution` records are created as `Pending` until a separate executor boundary is introduced.
+- The future RCON executor must resolve credentials inside infrastructure and must not leak credential values to contracts, logs, metrics, or failure messages.
