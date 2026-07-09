@@ -40,24 +40,23 @@ Completed:
 - Deterministic polling integration tests added with fake A2S query responses and EF-backed repositories.
 - Integration tests cover incident opening after repeated polling failures.
 - Architecture overview and runtime flow diagrams added to `docs/architecture.md`.
+- PostgreSQL-backed integration tests added with Testcontainers and EF Core migrations.
 
 ## Immediate Next Milestone
 
-Introduce PostgreSQL-backed integration tests with Testcontainers.
+Add server editing API.
 
 Definition of done:
 
-- Integration tests can run against real PostgreSQL in a container.
-- Test database lifecycle is deterministic and isolated per test run.
-- At least one persistence-sensitive API or polling scenario runs against PostgreSQL.
+- `PATCH /api/servers/{id}` updates editable server fields.
+- Update validation is covered by unit or integration tests.
+- Existing polling/status behavior keeps working after server edits.
 
 ## Next Tasks
 
-1. Introduce Testcontainers for PostgreSQL-backed integration tests.
+1. Add `PATCH /api/servers/{id}`.
 
-2. Add `PATCH /api/servers/{id}`.
-
-3. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
+2. Add `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable`.
 
 ## v1 API Scope
 
@@ -165,12 +164,13 @@ Start focused:
 - Unit tests for A2S packet parsing with captured byte arrays.
 - Unit tests for state transition rules.
 - Integration tests for `POST /api/servers` and `GET /api/servers/{id}/status`.
-
-Later:
-
 - Testcontainers for PostgreSQL.
 - Fake query client for deterministic polling tests.
 - Integration test for incident opening after repeated failures.
+
+Later:
+
+- Integration coverage for `PATCH /api/servers/{id}`.
 
 ## Portfolio Readiness Checklist
 
