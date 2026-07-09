@@ -44,22 +44,24 @@ Completed:
 - `PATCH /api/servers/{id}` added for editing server connection details and polling settings.
 - `POST /api/servers/{id}/enable` and `POST /api/servers/{id}/disable` added.
 - Disabled servers are skipped by background polling and covered by deterministic integration tests.
+- Local startup and migration workflow documented in README and smoke-test docs.
+- `tools/dev/start-local.ps1` added for local PostgreSQL startup, EF migration, and API launch.
 
 ## Immediate Next Milestone
 
-Improve local startup and migration workflow.
+Add command execution scope and server credentials.
 
 Definition of done:
 
-- Local startup path is documented as a short, repeatable sequence.
-- Database migrations can be applied with a documented command.
-- README or smoke-test docs explain how to verify health, metrics, and one sample server flow locally.
+- Define how server credentials are stored and protected.
+- Add the initial command execution domain model.
+- Implement one low-risk command flow or document the RCON integration boundary.
 
 ## Next Tasks
 
-1. Document one-command or short-command local startup.
+1. Design server credentials and command execution boundaries.
 
-2. Add a local migration/startup script if documentation alone feels too manual.
+2. Add initial command execution entity and API shape.
 
 ## v1 API Scope
 

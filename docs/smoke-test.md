@@ -2,7 +2,17 @@
 
 This smoke test exercises the local PostgreSQL-backed API against a live GoldSrc server.
 
-## 1. Start Local Infrastructure
+## Fast Path
+
+```powershell
+.\tools\dev\start-local.ps1
+```
+
+The script starts PostgreSQL, waits for readiness, applies EF Core migrations, and runs the API on `http://localhost:5142`.
+
+## Manual Path
+
+### 1. Start Local Infrastructure
 
 ```powershell
 docker compose -f .\ops\docker-compose.yml up -d postgres
@@ -10,14 +20,17 @@ docker compose -f .\ops\docker-compose.yml up -d postgres
 
 PostgreSQL listens on `localhost:5432` with database/user/password `goldsrcops`.
 
-## 2. Apply Migrations
+### 2. Apply Migrations
 
 ```powershell
 dotnet tool restore
-dotnet tool run dotnet-ef database update --project .\src\GoldSrcOps.Infrastructure --startup-project .\src\GoldSrcOps.Api
+dotnet tool run dotnet-ef database update `
+  --project .\src\GoldSrcOps.Infrastructure `
+  --startup-project .\src\GoldSrcOps.Api `
+  -- --environment Development
 ```
 
-## 3. Run The API
+### 3. Run The API
 
 ```powershell
 dotnet run --project .\src\GoldSrcOps.Api --launch-profile http
@@ -25,13 +38,23 @@ dotnet run --project .\src\GoldSrcOps.Api --launch-profile http
 
 The HTTP profile listens on `http://localhost:5142`.
 
-## 4. Register A Live Server
+### 4. Check Health And Metrics
 
 Open a second terminal:
 
 ```powershell
 $baseUrl = "http://localhost:5142"
 
+Invoke-RestMethod "$baseUrl/health/live"
+Invoke-RestMethod "$baseUrl/health/ready"
+((Invoke-WebRequest "$baseUrl/metrics").Content -split "`n") | Select-Object -First 10
+```
+
+### 5. Register A Live Server
+
+In the same second terminal:
+
+```powershell
 $body = @{
   name = "CSOMOD Zombie Server"
   host = "server.csomod.com"
@@ -50,7 +73,31 @@ $server = Invoke-RestMethod `
 $server
 ```
 
-## 5. Check Monitoring Reads
+### 6. Exercise Server Management
+
+```powershell
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)"
+
+$patch = @{
+  name = "CSOMOD Zombie Server"
+  host = "server.csomod.com"
+  queryPort = 27015
+  rconPort = $null
+  pollIntervalSeconds = 45
+  notes = "Updated smoke test target"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Patch `
+  -Uri "$baseUrl/api/servers/$($server.id)" `
+  -ContentType "application/json" `
+  -Body $patch
+
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/disable"
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable"
+```
+
+### 7. Check Monitoring Reads
 
 The background poller runs every few seconds. Wait briefly, then query status and history:
 
@@ -65,6 +112,10 @@ Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/incidents"
 
 Expected result:
 
+- `/health/live` and `/health/ready` return healthy responses.
+- `/metrics` exposes Prometheus metrics.
+- `PATCH /api/servers/{id}` updates editable server settings.
+- Disabled servers are skipped by polling, and re-enabled servers can be polled again.
 - `/status` eventually reports `Online` if the live server is reachable.
 - `/snapshots` contains at least one poll attempt.
 - `/dashboard/overview` includes the registered server in its counts.

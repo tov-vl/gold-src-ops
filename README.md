@@ -24,9 +24,11 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added monitoring read endpoints for snapshot history and dashboard overview.
 - Added readiness health checks that validate database connectivity.
 - Added OpenTelemetry metrics export in Prometheus format.
+- Added server edit and enable/disable endpoints.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
 - Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
 - Added deterministic polling integration tests with fake A2S query responses and EF-backed repositories.
+- Added PostgreSQL-backed integration tests with Testcontainers.
 
 ## Architecture Overview
 
@@ -36,28 +38,54 @@ Application services coordinate use cases, domain entities own state transitions
 
 See [docs/architecture.md](docs/architecture.md) for the component diagram and runtime flows.
 
-## Run Local Infrastructure
+## Quick Local Start
 
 ```powershell
-docker compose -f .\ops\docker-compose.yml up -d
+.\tools\dev\start-local.ps1
+```
+
+The script starts PostgreSQL, waits for the container healthcheck, restores local .NET tools, applies EF Core migrations, and runs the API on `http://localhost:5142`.
+It prefers the repository-local SDK under `.\.dotnet\dotnet.exe` when present.
+
+Useful variants:
+
+```powershell
+.\tools\dev\start-local.ps1 -NoRun
+.\tools\dev\start-local.ps1 -SkipDocker -SkipToolRestore -SkipMigrations
+```
+
+Use `-NoRun` to prepare local dependencies and migrations without starting the API.
+Use the skip flags when Docker, tools, or migrations are already prepared.
+
+## Manual Local Start
+
+### 1. Start Local Infrastructure
+
+```powershell
+docker compose -f .\ops\docker-compose.yml up -d postgres
 ```
 
 PostgreSQL listens on `localhost:5432` with database/user/password `goldsrcops`.
-pgAdmin is available on `http://localhost:5050`.
+If you also want pgAdmin, run `docker compose -f .\ops\docker-compose.yml up -d pgadmin`.
+pgAdmin is then available on `http://localhost:5050`.
 
-## Apply Database Migrations
+### 2. Apply Database Migrations
 
 ```powershell
 dotnet tool restore
-dotnet tool run dotnet-ef database update --project .\src\GoldSrcOps.Infrastructure --startup-project .\src\GoldSrcOps.Api
+dotnet tool run dotnet-ef database update `
+  --project .\src\GoldSrcOps.Infrastructure `
+  --startup-project .\src\GoldSrcOps.Api `
+  -- --environment Development
 ```
 
-## Run The API
+### 3. Run The API
 
 ```powershell
-dotnet run --project .\src\GoldSrcOps.Api
+dotnet run --project .\src\GoldSrcOps.Api --launch-profile http
 ```
 
+The HTTP launch profile listens on `http://localhost:5142`.
 Polling runs inside the API host by default. Configuration lives under `Polling` in `appsettings.json`:
 
 - `Enabled`
@@ -74,6 +102,9 @@ Initial endpoints:
 - `POST /api/servers`
 - `GET /api/servers`
 - `GET /api/servers/{id}`
+- `PATCH /api/servers/{id}`
+- `POST /api/servers/{id}/enable`
+- `POST /api/servers/{id}/disable`
 - `GET /api/servers/{id}/status`
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=`
 - `GET /api/servers/{id}/incidents`
@@ -88,6 +119,64 @@ After repeated failed polls, the poller opens an availability incident. A later 
 The first application metrics cover polling runs, server poll attempts by result, and incident transitions.
 The Prometheus ASP.NET Core exporter is currently referenced as a prerelease OpenTelemetry package because a stable exporter package is not available yet.
 
+## Local Smoke Flow
+
+After the API is running:
+
+```powershell
+$baseUrl = "http://localhost:5142"
+
+Invoke-RestMethod "$baseUrl/health/live"
+Invoke-RestMethod "$baseUrl/health/ready"
+((Invoke-WebRequest "$baseUrl/metrics").Content -split "`n") | Select-Object -First 10
+```
+
+Register a live server:
+
+```powershell
+$body = @{
+  name = "CSOMOD Zombie Server"
+  host = "server.csomod.com"
+  queryPort = 27015
+  rconPort = $null
+  pollIntervalSeconds = 30
+  notes = "Live smoke test target"
+} | ConvertTo-Json
+
+$server = Invoke-RestMethod `
+  -Method Post `
+  -Uri "$baseUrl/api/servers" `
+  -ContentType "application/json" `
+  -Body $body
+
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)"
+
+$patch = @{
+  name = "CSOMOD Zombie Server"
+  host = "server.csomod.com"
+  queryPort = 27015
+  rconPort = $null
+  pollIntervalSeconds = 45
+  notes = "Updated smoke test target"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Patch `
+  -Uri "$baseUrl/api/servers/$($server.id)" `
+  -ContentType "application/json" `
+  -Body $patch
+
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/disable"
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable"
+
+Start-Sleep -Seconds 10
+
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/status"
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/snapshots?limit=10"
+Invoke-RestMethod "$baseUrl/api/dashboard/overview"
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/incidents"
+```
+
 ## Run Tests
 
 ```powershell
@@ -99,6 +188,7 @@ dotnet test
 The solution uses .NET analyzers, Meziantou.Analyzer, and `.editorconfig` rules through `Directory.Build.props`.
 
 ```powershell
+dotnet restore GoldSrcOps.sln -p:AuditPipeline=true
 dotnet format GoldSrcOps.sln --verify-no-changes
 dotnet build GoldSrcOps.sln
 dotnet test GoldSrcOps.sln
@@ -152,4 +242,4 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Introduce PostgreSQL-backed integration tests with Testcontainers.
+Command execution scope and server credentials.
