@@ -24,15 +24,16 @@ public sealed class ServerCredentialsService
             return null;
         }
 
+        var secretReference = RconSecretReference.Create(command.SecretAlias);
         var credential = await _credentials.GetAsync(serverId, command.Kind, cancellationToken);
         if (credential is null)
         {
-            credential = new ServerCredential(serverId, command.Kind, command.SecretReference, _clock.UtcNow);
+            credential = new ServerCredential(serverId, command.Kind, secretReference, _clock.UtcNow);
             await _credentials.AddAsync(credential, cancellationToken);
         }
         else
         {
-            credential.UpdateSecretReference(command.SecretReference, _clock.UtcNow);
+            credential.UpdateSecretReference(secretReference, _clock.UtcNow);
         }
 
         await _credentials.SaveChangesAsync(cancellationToken);

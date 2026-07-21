@@ -54,29 +54,33 @@ Completed:
 - `IRconCommandExecutor` boundary added for safe command dispatch.
 - `POST /api/commands/{commandId}/dispatch` added to transition queued commands through `Running` into `Succeeded` or `Failed`.
 - Deterministic tests cover successful fake dispatch, executor failure, timeout, missing RCON port, repeated dispatch conflict, and PostgreSQL status persistence.
-- Local secret-reference resolution added for `env://`, `config://`, and `dev-secrets://` references.
+- RCON credentials now use validated aliases stored as canonical `rcon-secret://<alias>` references.
+- Secret resolution is restricted to the dedicated `RconSecrets:<alias>` namespace; arbitrary environment and configuration keys are rejected.
 - Live GoldSrc RCON client added behind `IRconCommandExecutor` with challenge/command handling, timeout mapping, authentication failure handling, and sanitized result summaries.
 - Focused protocol, client, resolver, and executor tests added for command dispatch.
 - Command execution metrics added for queued, dispatched, completed, succeeded, failed, timed-out, and authentication-failed command dispatch paths.
 
 ## Immediate Next Milestone
 
-Harden command dispatch for operational use.
+Establish the control-plane trust boundary and make command dispatch durable.
 
 Definition of done:
 
-- Serialize command execution per server so two dispatch requests cannot race the same target.
+- Add authentication and policy-based authorization for read and operator actions.
+- Derive command requester identity from the authenticated principal.
+- Atomically claim and serialize command execution per server, with recovery for interrupted commands.
 - Add structured logs that identify command/server ids without logging command secrets.
 - Add a guarded local smoke helper for an owned server with explicit confirmation before real RCON dispatch.
-- Decide whether dispatch should stay explicit-only or gain a background worker for pending commands.
 
 ## Next Tasks
 
-1. Add structured command execution logs without credential material.
+1. Add authentication, authorization policies, and authenticated requester identity.
 
-2. Add per-server dispatch serialization and a narrow concurrency test.
+2. Move pending-command execution to a background dispatcher with atomic per-server claiming and recovery tests.
 
-3. Add an opt-in local RCON smoke helper for owned servers.
+3. Add structured command execution logs without credential material.
+
+4. Add an opt-in local RCON smoke helper for owned servers.
 
 ## v1 API Scope
 
@@ -180,7 +184,7 @@ Health and metrics:
 - `Id`
 - `ServerId`
 - `Kind`
-- `SecretReference`
+- `SecretReference` (canonical `rcon-secret://<alias>` value)
 - `CreatedAtUtc`
 - `UpdatedAtUtc`
 

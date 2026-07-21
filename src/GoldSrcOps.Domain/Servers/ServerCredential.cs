@@ -56,9 +56,7 @@ public sealed class ServerCredential
 
     private static string NormalizeSecretReference(string secretReference)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(secretReference);
-
-        var normalized = secretReference.Trim();
+        var normalized = RconSecretReference.Normalize(secretReference);
         if (normalized.Length > MaxSecretReferenceLength)
         {
             throw new ArgumentException(

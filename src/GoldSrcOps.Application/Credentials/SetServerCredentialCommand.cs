@@ -4,4 +4,4 @@ namespace GoldSrcOps.Application.Credentials;
 
 public sealed record SetServerCredentialCommand(
     ServerCredentialKind Kind,
-    string SecretReference);
+    string SecretAlias);

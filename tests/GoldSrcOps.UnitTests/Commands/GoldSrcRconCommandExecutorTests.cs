@@ -74,7 +74,7 @@ public sealed class GoldSrcRconCommandExecutorTests
             Guid.NewGuid(),
             "127.0.0.1",
             27015,
-            "dev-secrets://goldsrcops/server/rcon",
+            "rcon-secret://server_rcon",
             ServerCommandType.Say,
             "say hello");
 

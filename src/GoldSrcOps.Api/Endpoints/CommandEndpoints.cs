@@ -64,7 +64,7 @@ public static class CommandEndpoints
 
         var credential = await credentials.SetAsync(
             serverId,
-            new SetServerCredentialCommand(ServerCredentialKind.RconPassword, request.SecretReference),
+            new SetServerCredentialCommand(ServerCredentialKind.RconPassword, request.SecretAlias),
             cancellationToken);
 
         return credential is null ? TypedResults.NotFound() : TypedResults.Ok(Map(credential));
@@ -238,14 +238,14 @@ public static class CommandEndpoints
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
 
-        if (string.IsNullOrWhiteSpace(request.SecretReference))
+        if (string.IsNullOrWhiteSpace(request.SecretAlias))
         {
-            errors[nameof(request.SecretReference)] = ["SecretReference is required."];
+            errors[nameof(request.SecretAlias)] = ["SecretAlias is required."];
         }
-        else if (request.SecretReference.Trim().Length > ServerCredential.MaxSecretReferenceLength)
+        else if (!RconSecretReference.IsValidAlias(request.SecretAlias))
         {
-            errors[nameof(request.SecretReference)] =
-                [$"SecretReference must not exceed {ServerCredential.MaxSecretReferenceLength} characters."];
+            errors[nameof(request.SecretAlias)] =
+                [$"SecretAlias must be at most {RconSecretReference.MaxAliasLength} characters, use ASCII letters, digits, '.', '_', or '-', and start and end with a letter or digit."];
         }
 
         return errors;

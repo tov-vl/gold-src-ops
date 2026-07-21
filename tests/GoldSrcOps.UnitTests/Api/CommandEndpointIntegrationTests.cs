@@ -14,18 +14,18 @@ namespace GoldSrcOps.UnitTests.Api;
 public sealed class CommandEndpointIntegrationTests
 {
     [Fact]
-    public async Task SetRconCredential_returns_metadata_without_secret_reference()
+    public async Task SetRconCredential_returns_metadata_without_secret_alias()
     {
         await using var factory = new GoldSrcOpsApiFactory();
         using var client = factory.CreateClient();
         var server = await RegisterServerAsync(client);
-        var request = new SetRconCredentialRequest("dev-secrets://goldsrcops/server-1/rcon");
+        var request = new SetRconCredentialRequest("server_1_rcon");
 
         var response = await client.PutAsJsonAsync($"/api/servers/{server.Id}/credentials/rcon", request);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
-        json.Should().NotContain(request.SecretReference);
+        json.Should().NotContain(request.SecretAlias);
         var credential = await response.Content.ReadFromJsonAsync<ServerCredentialResponse>();
         credential.Should().NotBeNull();
         credential.Should().BeEquivalentTo(new
@@ -35,6 +35,23 @@ public sealed class CommandEndpointIntegrationTests
             IsConfigured = true,
             UpdatedAtUtc = (DateTimeOffset?)null
         });
+    }
+
+    [Theory]
+    [InlineData("ConnectionStrings:GoldSrcOps")]
+    [InlineData("nested/alias")]
+    [InlineData("-starts-with-symbol")]
+    public async Task SetRconCredential_rejects_unsafe_secret_alias(string secretAlias)
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var server = await RegisterServerAsync(client);
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/servers/{server.Id}/credentials/rcon",
+            new SetRconCredentialRequest(secretAlias));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -111,7 +128,7 @@ public sealed class CommandEndpointIntegrationTests
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
-        json.Should().NotContain("dev-secrets://goldsrcops/server/rcon");
+        json.Should().NotContain("rcon-secret://server_rcon");
         var dispatched = await response.Content.ReadFromJsonAsync<CommandExecutionResponse>();
         dispatched.Should().NotBeNull();
         dispatched.Should().BeEquivalentTo(new
@@ -134,7 +151,7 @@ public sealed class CommandEndpointIntegrationTests
             ServerId = server.Id,
             Host = "127.0.0.1",
             Port = 27015,
-            CredentialSecretReference = "dev-secrets://goldsrcops/server/rcon",
+            CredentialSecretReference = "rcon-secret://server_rcon",
             Type = GoldSrcOps.Domain.Commands.ServerCommandType.Say,
             CommandText = "say hello"
         });
@@ -203,7 +220,7 @@ public sealed class CommandEndpointIntegrationTests
     {
         var response = await client.PutAsJsonAsync(
             $"/api/servers/{serverId}/credentials/rcon",
-            new SetRconCredentialRequest("dev-secrets://goldsrcops/server/rcon"));
+            new SetRconCredentialRequest("server_rcon"));
         response.EnsureSuccessStatusCode();
     }
 }

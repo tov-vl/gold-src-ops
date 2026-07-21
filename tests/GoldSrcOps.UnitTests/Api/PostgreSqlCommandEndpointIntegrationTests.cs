@@ -28,7 +28,8 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
         });
         using var client = factory.CreateClient();
         var server = await RegisterServerAsync(client);
-        var credentialRequest = new SetRconCredentialRequest("dev-secrets://goldsrcops/server-1/rcon");
+        var credentialRequest = new SetRconCredentialRequest("server_1_rcon");
+        var secretReference = RconSecretReference.Create(credentialRequest.SecretAlias);
         var credentialResponse = await client.PutAsJsonAsync(
             $"/api/servers/{server.Id}/credentials/rcon",
             credentialRequest);
@@ -67,7 +68,7 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
         persisted.Should().BeEquivalentTo(new PersistedCommandFoundation(
             server.Id,
             ServerCredentialKind.RconPassword,
-            credentialRequest.SecretReference,
+            secretReference,
             server.Id,
             ServerCommandType.Say,
             CommandExecutionStatus.Succeeded,
@@ -81,7 +82,7 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
             ServerId = server.Id,
             Host = "127.0.0.1",
             Port = 27015,
-            CredentialSecretReference = credentialRequest.SecretReference,
+            CredentialSecretReference = secretReference,
             Type = ServerCommandType.Say,
             CommandText = "say hello players"
         });

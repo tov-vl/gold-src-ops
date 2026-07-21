@@ -195,7 +195,7 @@ port and a resolvable secret reference are configured:
 
 ```powershell
 $credential = @{
-  secretReference = "dev-secrets://goldsrcops/server/rcon"
+  secretAlias = "server_rcon"
 } | ConvertTo-Json
 
 Invoke-RestMethod `
@@ -220,22 +220,23 @@ Invoke-RestMethod -Method Post -Uri "$baseUrl/api/commands/$($commands[0].id)/di
 ```
 
 To execute a real RCON command, use a server you control, set `rconPort`, and
-provide the secret through configuration or an environment variable. For the
-`dev-secrets://goldsrcops/server/rcon` reference, the local configuration key is
-`DevSecrets:goldsrcops:server:rcon`; as an environment variable:
+store its password under the dedicated `RconSecrets:server_rcon` configuration
+key. With Secret Manager:
 
 ```powershell
-$env:DevSecrets__goldsrcops__server__rcon = "<your-rcon-password>"
+dotnet user-secrets set "RconSecrets:server_rcon" "<your-rcon-password>" `
+  --project .\src\GoldSrcOps.Api
 ```
 
-The executor also supports `env://VARIABLE_NAME` and `config://Section:Key`
-references.
+Or set the equivalent environment variable before starting the API:
 
 ```powershell
-$credential = @{
-  secretReference = "env://GOLDSRCOPS_RCON_PASSWORD"
-} | ConvertTo-Json
+$env:RconSecrets__server_rcon = "<your-rcon-password>"
 ```
+
+Both sources resolve the API alias `server_rcon` to the internal canonical
+reference `rcon-secret://server_rcon`. Arbitrary `env://`, `config://`, and
+`dev-secrets://` references are intentionally rejected.
 
 Never run the command dispatch smoke against a public server you do not own.
 

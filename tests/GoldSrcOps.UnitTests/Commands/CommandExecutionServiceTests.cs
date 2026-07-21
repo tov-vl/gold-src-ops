@@ -169,7 +169,7 @@ public sealed class CommandExecutionServiceTests
                 command,
                 Host: "127.0.0.1",
                 RconPort: 27015,
-                CredentialSecretReference: "dev-secrets://goldsrcops/server/rcon"));
+                CredentialSecretReference: "rcon-secret://server_rcon"));
         var executor = new CapturingRconCommandExecutor(RconCommandExecutionResult.Succeeded("accepted"));
         var clock = new SequenceClock(
             new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero),
@@ -200,7 +200,7 @@ public sealed class CommandExecutionServiceTests
             command.ServerId,
             Host = "127.0.0.1",
             Port = 27015,
-            CredentialSecretReference = "dev-secrets://goldsrcops/server/rcon",
+            CredentialSecretReference = "rcon-secret://server_rcon",
             Type = ServerCommandType.Say,
             CommandText = "say hello players"
         });
@@ -224,9 +224,9 @@ public sealed class CommandExecutionServiceTests
                 command,
                 Host: "127.0.0.1",
                 RconPort: 27015,
-                CredentialSecretReference: "dev-secrets://goldsrcops/server/rcon"));
+                CredentialSecretReference: "rcon-secret://server_rcon"));
         var executor = new CapturingRconCommandExecutor(
-            RconCommandExecutionResult.Failed("RCON command rejected for dev-secrets://goldsrcops/server/rcon."));
+            RconCommandExecutionResult.Failed("RCON command rejected for rcon-secret://server_rcon."));
         var clock = new SequenceClock(
             new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 4, 25, 12, 1, 2, TimeSpan.Zero));
@@ -238,7 +238,7 @@ public sealed class CommandExecutionServiceTests
         result.Command.Should().NotBeNull();
         result.Command!.Status.Should().Be(CommandExecutionStatus.Failed);
         result.Command.FailureReason.Should().Be("RCON command rejected for [credential].");
-        result.Command.FailureReason.Should().NotContain("dev-secrets://goldsrcops/server/rcon");
+        result.Command.FailureReason.Should().NotContain("rcon-secret://server_rcon");
         result.Command.ResultSummary.Should().BeNull();
         executor.LastRequest!.CommandText.Should().Be("amx_kick #42");
         repository.SaveCount.Should().Be(2);
@@ -253,7 +253,7 @@ public sealed class CommandExecutionServiceTests
                 command,
                 Host: "127.0.0.1",
                 RconPort: 27015,
-                CredentialSecretReference: "dev-secrets://goldsrcops/server/rcon"));
+                CredentialSecretReference: "rcon-secret://server_rcon"));
         var executor = new CapturingRconCommandExecutor(
             RconCommandExecutionResult.AuthenticationFailed("RCON authentication failed."));
         var clock = new SequenceClock(
@@ -284,7 +284,7 @@ public sealed class CommandExecutionServiceTests
                 command,
                 Host: "127.0.0.1",
                 RconPort: 27015,
-                CredentialSecretReference: "dev-secrets://goldsrcops/server/rcon"));
+                CredentialSecretReference: "rcon-secret://server_rcon"));
         var executor = new CapturingRconCommandExecutor((_, _) =>
             throw new TimeoutException("timeout while using super-secret-rcon-password"));
         var clock = new SequenceClock(
@@ -312,7 +312,7 @@ public sealed class CommandExecutionServiceTests
                 command,
                 Host: "127.0.0.1",
                 RconPort: null,
-                CredentialSecretReference: "dev-secrets://goldsrcops/server/rcon"));
+                CredentialSecretReference: "rcon-secret://server_rcon"));
         var executor = new CapturingRconCommandExecutor(RconCommandExecutionResult.Succeeded("should not execute"));
         var clock = new SequenceClock(new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero));
         var sut = new CommandExecutionService(repository, executor, clock);
@@ -337,7 +337,7 @@ public sealed class CommandExecutionServiceTests
                 command,
                 Host: "127.0.0.1",
                 RconPort: 27015,
-                CredentialSecretReference: "dev-secrets://goldsrcops/server/rcon"));
+                CredentialSecretReference: "rcon-secret://server_rcon"));
         var executor = new CapturingRconCommandExecutor(RconCommandExecutionResult.Succeeded("should not execute"));
         var clock = new SequenceClock(new DateTimeOffset(2026, 4, 25, 12, 2, 0, TimeSpan.Zero));
         var sut = new CommandExecutionService(repository, executor, clock);

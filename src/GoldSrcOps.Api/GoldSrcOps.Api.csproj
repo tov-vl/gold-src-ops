@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>GoldSrcOps.Api-6ed3c926-1f67-4daa-bcf5-73ecb89e4bf1</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

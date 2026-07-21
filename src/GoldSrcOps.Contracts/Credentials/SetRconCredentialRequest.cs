@@ -1,3 +1,3 @@
 namespace GoldSrcOps.Contracts.Credentials;
 
-public sealed record SetRconCredentialRequest(string SecretReference);
+public sealed record SetRconCredentialRequest(string SecretAlias);

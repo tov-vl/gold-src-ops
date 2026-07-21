@@ -182,20 +182,24 @@ The repository already contains the A2S spike under `src/GoldSrcOps.A2SSpike`.
 
 Decision:
 
-Persist server credentials as references to an external secret source instead of storing raw RCON passwords in the application database.
+Persist RCON credentials as canonical `rcon-secret://<alias>` references instead of storing raw passwords or caller-selected configuration paths.
 
 Reasoning:
 
 - The API and read models should never echo secret values.
-- Local development can use a stable reference such as `dev-secrets://goldsrcops/server/rcon`.
-- Production can later resolve the same reference through a stronger secret store.
+- Allowing arbitrary `env://` or `config://` paths would let an API caller select unrelated application secrets and send them to a configured RCON endpoint.
+- A dedicated `RconSecrets:<alias>` namespace limits resolution to secrets owned by the RCON integration.
+- Local development can populate that namespace through Secret Manager or environment variables.
+- Production can later resolve the same aliases through a stronger secret store.
 - Command execution should be auditable without mixing command history and credential material.
 
 Implementation implication:
 
-- `ServerCredential.SecretReference` stores where to resolve a secret, not the secret itself.
+- The credential API accepts a validated `secretAlias`, not a secret value or configuration key.
+- `ServerCredential.SecretReference` stores a canonical `rcon-secret://<alias>` value.
+- Aliases use a constrained ASCII format that cannot contain configuration-section separators.
 - Credential response contracts expose metadata only: id, server id, kind, configured flag, and timestamps.
 - `CommandExecution` records are created as `Pending` and dispatched through `IRconCommandExecutor`.
 - `GoldSrcRconCommandExecutor` resolves credentials inside Infrastructure and calls the GoldSrc RCON client over UDP.
-- Local development supports `env://`, `config://`, and `dev-secrets://` references without storing raw secrets in the application database.
+- `ConfigurationSecretReferenceResolver` reads only `RconSecrets:<alias>`; legacy `env://`, `config://`, and `dev-secrets://` references are unsupported and must be replaced.
 - Missing, unsupported, timed-out, authentication-failed, and protocol-failed dispatch paths return stable failure messages without leaking raw credential values to contracts, logs, metrics, or command history.

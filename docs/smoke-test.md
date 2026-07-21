@@ -104,7 +104,7 @@ Without a configured RCON port and a resolvable local secret, dispatch fails saf
 
 ```powershell
 $credential = @{
-  secretReference = "dev-secrets://goldsrcops/server/rcon"
+  secretAlias = "server_rcon"
 } | ConvertTo-Json
 
 Invoke-RestMethod `
@@ -131,17 +131,26 @@ Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10"
 ```
 
 To execute a real RCON command, use only a server you control. Set `rconPort`
-when registering or patching the server, and provide the password through local
-configuration or an environment variable. The `dev-secrets://goldsrcops/server/rcon`
-reference resolves from the `DevSecrets:goldsrcops:server:rcon` configuration key,
-which can be supplied as:
+when registering or patching the server, and store the password under the
+dedicated `RconSecrets:server_rcon` configuration key.
+
+Configure it with Secret Manager:
 
 ```powershell
-$env:DevSecrets__goldsrcops__server__rcon = "<your-rcon-password>"
+dotnet user-secrets set "RconSecrets:server_rcon" "<your-rcon-password>" `
+  --project .\src\GoldSrcOps.Api
 ```
 
-The executor also supports explicit `env://VARIABLE_NAME` and
-`config://Section:Key` references.
+Or set the equivalent environment variable before starting the API process:
+
+```powershell
+$env:RconSecrets__server_rcon = "<your-rcon-password>"
+```
+
+Restart the API after changing its local secret source, then queue a new command
+for dispatch. The selected alias is stored internally as
+`rcon-secret://server_rcon`. Arbitrary `env://`, `config://`, and
+`dev-secrets://` references are unsupported.
 
 ### 8. Check Monitoring Reads
 
@@ -164,7 +173,7 @@ Expected result:
   `goldsrcops_commands_dispatched`, and `goldsrcops_commands_completed`.
 - `PATCH /api/servers/{id}` updates editable server settings.
 - Disabled servers are skipped by polling, and re-enabled servers can be polled again.
-- Credential responses report metadata only and do not echo `secretReference`.
+- Credential responses report metadata only and do not echo the secret alias or canonical reference.
 - Command dispatch transitions command status without leaking credential values.
 - Missing local RCON configuration is reported as a safe command failure before network dispatch.
 - `/status` eventually reports `Online` if the live server is reachable.

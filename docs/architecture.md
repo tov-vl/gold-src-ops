@@ -190,7 +190,7 @@ sequenceDiagram
     App->>Domain: Mark command Running
     Repo->>Db: Save Running status
     App->>Executor: Execute RCON command using credential reference
-    Executor->>Secrets: Resolve SecretReference
+    Executor->>Secrets: Resolve RconSecrets alias
     Executor->>RCON: challenge rcon and rcon command over UDP
     Executor-->>App: Succeeded, Failed, or TimedOut
     App->>Domain: Mark command Succeeded or Failed
@@ -198,10 +198,12 @@ sequenceDiagram
     API-->>Client: 200 OK
 ```
 
-The executor resolves credential references inside Infrastructure. Raw RCON
-passwords are not stored in the database or returned by API contracts. Missing
-or unsupported local secret references fail the command before a network packet
-is sent.
+The credential API accepts a validated alias. Application stores it as a
+canonical `rcon-secret://<alias>` reference, and Infrastructure resolves only
+the matching `RconSecrets:<alias>` configuration key. Raw RCON passwords are not
+stored in the database or returned by API contracts. Arbitrary environment or
+configuration paths cannot be selected through the API. Missing, legacy, or
+unsupported references fail the command before a network packet is sent.
 
 ## Observability
 
