@@ -59,6 +59,7 @@ Completed:
 - Live GoldSrc RCON client added behind `IRconCommandExecutor` with challenge/command handling, timeout mapping, authentication failure handling, and sanitized result summaries.
 - Focused protocol, client, resolver, and executor tests added for command dispatch.
 - Command execution metrics added for queued, dispatched, completed, succeeded, failed, timed-out, and authentication-failed command dispatch paths.
+- Target authentication, authorization, endpoint policy, and audit-identity model documented in `docs/security.md` and Architecture Decision 9.
 
 ## Immediate Next Milestone
 
@@ -74,7 +75,7 @@ Definition of done:
 
 ## Next Tasks
 
-1. Add authentication, authorization policies, and authenticated requester identity.
+1. Implement JWT bearer validation, `Reader`/`Operator` policies, authenticated requester identity, and the security integration tests defined in `docs/security.md`.
 
 2. Move pending-command execution to a background dispatcher with atomic per-server claiming and recovery tests.
 
@@ -83,6 +84,9 @@ Definition of done:
 4. Add an opt-in local RCON smoke helper for owned servers.
 
 ## v1 API Scope
+
+Target access policies for these endpoints are defined in `docs/security.md`.
+They are not implemented yet.
 
 Servers:
 
@@ -195,7 +199,7 @@ Health and metrics:
 - `Type`
 - `Status`
 - `Payload`
-- `RequestedBy`
+- `RequestedBy` (derived from the authenticated token subject; never supplied by the command request)
 - `RequestedAtUtc`
 - `StartedAtUtc`
 - `CompletedAtUtc`
@@ -225,6 +229,8 @@ Start focused:
 - PostgreSQL-backed integration coverage for the command and credential schema.
 - Unit coverage for secret-reference resolution and GoldSrc RCON protocol/client behavior.
 - Unit and API integration coverage for command execution metrics.
+- API integration coverage for anonymous, Reader, and Operator access across the endpoint policy matrix.
+- API integration coverage proving command requester identity comes from the authenticated token subject.
 
 Later:
 

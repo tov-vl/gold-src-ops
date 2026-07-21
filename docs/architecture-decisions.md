@@ -203,3 +203,49 @@ Implementation implication:
 - `GoldSrcRconCommandExecutor` resolves credentials inside Infrastructure and calls the GoldSrc RCON client over UDP.
 - `ConfigurationSecretReferenceResolver` reads only `RconSecrets:<alias>`; legacy `env://`, `config://`, and `dev-secrets://` references are unsupported and must be replaced.
 - Missing, unsupported, timed-out, authentication-failed, and protocol-failed dispatch paths return stable failure messages without leaking raw credential values to contracts, logs, metrics, or command history.
+
+## Decision 9: Validate External JWT Access Tokens
+
+Decision:
+
+Run GoldSrcOps as an OAuth 2.0 / OpenID Connect resource server. Validate JWT
+bearer access tokens issued by an external identity provider, authorize requests
+through `Reader` and `Operator` policies, and use `dotnet user-jwts` only for
+local development.
+
+Reasoning:
+
+- GoldSrcOps is a control plane that can change server configuration and send
+  RCON commands, so network reachability alone is not an adequate trust boundary.
+- OAuth 2.0 / OpenID Connect access tokens provide standard issuer, audience,
+  signature, and expiration validation semantics and can carry application roles
+  without adding user or token management to this service.
+- GoldSrcOps should validate tokens, not issue production tokens or accept a
+  bespoke username/password exchange.
+- A custom API-key handler would introduce application-specific authentication,
+  long-lived shared credentials, and weaker per-operator audit identity without
+  solving a requirement unique to this project.
+- `dotnet user-jwts` provides isolated local tokens without weakening the
+  production authentication path.
+
+Implementation implication:
+
+- Add ASP.NET Core JWT bearer authentication and validate issuer, audience,
+  signature, and lifetime in every non-test environment.
+- Require a stable `sub` claim and use it as `CommandExecution.RequestedBy`.
+- Remove `RequestedBy` from command request contracts while retaining it in
+  responses and persistence; no database migration is required.
+- Define `Reader` to accept `Reader` or `Operator` application roles and define
+  `Operator` to accept only the `Operator` role.
+- Use `Operator` as the fallback policy, apply `Reader` explicitly to reads and
+  metrics, and allow anonymous access only to bounded liveness/readiness probes.
+- Return `401` for failed authentication and `403` for an authenticated principal
+  that does not satisfy the endpoint policy.
+- Keep authentication replacement strictly inside the integration-test host;
+  do not add a production runtime bypass.
+- Follow the endpoint matrix and verification requirements in `docs/security.md`.
+
+Implementation status:
+
+Planned. Until this decision is implemented, expose the API only to trusted
+clients on a trusted network.

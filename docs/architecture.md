@@ -104,6 +104,48 @@ flowchart LR
   local secret-reference resolution, the system clock, and the background
   polling worker.
 
+## Target Security Boundary
+
+The next implementation slice adds the control-plane security boundary defined
+in `docs/security.md`. This is a target design, not current runtime behavior.
+
+```mermaid
+flowchart LR
+    client["Operator / API client"]
+    identity["External OAuth 2.0 / OIDC provider"]
+    authentication["JWT bearer authentication"]
+    reader["Reader policy"]
+    operatorPolicy["Operator policy"]
+    reads["Read endpoints and /metrics"]
+    writes["Server, credential, and command mutations"]
+    platform["Container / platform probe"]
+    health["Anonymous health probes"]
+
+    client -->|"OAuth/OIDC flow"| identity
+    identity -->|"JWT access token"| client
+    client -->|"Authorization: Bearer token"| authentication
+    authentication --> reader
+    authentication --> operatorPolicy
+    reader --> reads
+    operatorPolicy --> reads
+    operatorPolicy --> writes
+    platform --> health
+```
+
+GoldSrcOps remains a resource server and does not issue production tokens or
+store user accounts. Production token issuance belongs to an external identity
+provider. Local development uses project-specific tokens from
+`dotnet user-jwts` only.
+
+The `Reader` policy permits read endpoints and metrics. The `Operator` policy
+permits all reads plus server, credential, and command mutations. The fallback
+policy is `Operator`, so a new endpoint is not exposed to readers by accident.
+Only bounded liveness and readiness probes remain anonymous.
+
+Command audit identity comes from the authenticated token subject. Callers can
+no longer supply `RequestedBy` in command request bodies. The endpoint matrix,
+HTTP behavior, and required security tests are specified in `docs/security.md`.
+
 ## Runtime Flows
 
 ### Register Server

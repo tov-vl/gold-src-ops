@@ -78,12 +78,14 @@ Build a modular ASP.NET Core backend that can:
 - Store historical polling snapshots.
 - Detect offline incidents.
 - Expose status and history through REST endpoints.
-- Later execute safe RCON commands.
+- Authenticate API callers and authorize reader and operator capabilities.
+- Execute auditable RCON commands as authenticated operators.
 - Expose health checks and metrics.
 
 ## Non-goals For v1
 
 - Full frontend UI.
+- First-party identity provider or user-management UI.
 - Kubernetes.
 - Microservices.
 - Kafka.
@@ -96,6 +98,8 @@ Build a modular ASP.NET Core backend that can:
 
 - .NET 10 LTS for the current local setup.
 - ASP.NET Core Web API.
+- JWT bearer validation against an external OAuth 2.0 / OpenID Connect provider,
+  with `dotnet user-jwts` for local development only.
 - PostgreSQL.
 - EF Core for write model and persistence.
 - Dapper may be introduced later for read-heavy dashboard queries.
