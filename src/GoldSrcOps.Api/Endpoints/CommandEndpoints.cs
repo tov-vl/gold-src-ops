@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using GoldSrcOps.Api.Security;
 using GoldSrcOps.Application.Commands;
 using GoldSrcOps.Application.Credentials;
 using GoldSrcOps.Contracts.Commands;
@@ -19,33 +21,42 @@ public static class CommandEndpoints
             .WithTags("Commands");
 
         serverGroup.MapPut("/credentials/rcon", SetRconCredentialAsync)
-            .WithName("SetServerRconCredential");
+            .WithName("SetServerRconCredential")
+            .RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy);
 
         serverGroup.MapGet("/credentials", ListCredentialsAsync)
-            .WithName("ListServerCredentials");
+            .WithName("ListServerCredentials")
+            .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 
         serverGroup.MapPost("/commands/change-map", QueueChangeMapAsync)
-            .WithName("QueueChangeMapCommand");
+            .WithName("QueueChangeMapCommand")
+            .RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy);
 
         serverGroup.MapPost("/commands/restart", QueueRestartAsync)
-            .WithName("QueueRestartCommand");
+            .WithName("QueueRestartCommand")
+            .RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy);
 
         serverGroup.MapPost("/commands/say", QueueSayAsync)
-            .WithName("QueueSayCommand");
+            .WithName("QueueSayCommand")
+            .RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy);
 
         serverGroup.MapPost("/commands/raw", QueueRawAsync)
-            .WithName("QueueRawCommand");
+            .WithName("QueueRawCommand")
+            .RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy);
 
         serverGroup.MapGet("/commands", ListServerCommandsAsync)
-            .WithName("ListServerCommands");
+            .WithName("ListServerCommands")
+            .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 
         endpoints.MapGet("/api/commands/{commandId:guid}", GetCommandAsync)
             .WithTags("Commands")
-            .WithName("GetCommandExecution");
+            .WithName("GetCommandExecution")
+            .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 
         endpoints.MapPost("/api/commands/{commandId:guid}/dispatch", DispatchCommandAsync)
             .WithTags("Commands")
-            .WithName("DispatchCommandExecution");
+            .WithName("DispatchCommandExecution")
+            .RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy);
 
         return endpoints;
     }
@@ -85,6 +96,7 @@ public static class CommandEndpoints
         QueueChangeMapAsync(
             Guid serverId,
             ChangeMapCommandRequest request,
+            ClaimsPrincipal principal,
             CommandExecutionService commands,
             CancellationToken cancellationToken)
     {
@@ -96,7 +108,10 @@ public static class CommandEndpoints
 
         var result = await commands.QueueAsync(
             serverId,
-            new CreateCommandExecutionCommand(ServerCommandType.ChangeMap, request.Map, request.RequestedBy),
+            new CreateCommandExecutionCommand(
+                ServerCommandType.ChangeMap,
+                request.Map,
+                GoldSrcOpsSecurity.GetRequiredSubject(principal)),
             cancellationToken);
 
         return MapCreateResult(result);
@@ -105,19 +120,16 @@ public static class CommandEndpoints
     private static async Task<Results<Created<CommandExecutionResponse>, NotFound, ValidationProblem, ProblemHttpResult>>
         QueueRestartAsync(
             Guid serverId,
-            RestartServerCommandRequest request,
+            ClaimsPrincipal principal,
             CommandExecutionService commands,
             CancellationToken cancellationToken)
     {
-        var errors = ValidateRequestedBy(request.RequestedBy);
-        if (errors.Count > 0)
-        {
-            return TypedResults.ValidationProblem(errors);
-        }
-
         var result = await commands.QueueAsync(
             serverId,
-            new CreateCommandExecutionCommand(ServerCommandType.Restart, Payload: null, request.RequestedBy),
+            new CreateCommandExecutionCommand(
+                ServerCommandType.Restart,
+                Payload: null,
+                GoldSrcOpsSecurity.GetRequiredSubject(principal)),
             cancellationToken);
 
         return MapCreateResult(result);
@@ -127,6 +139,7 @@ public static class CommandEndpoints
         QueueSayAsync(
             Guid serverId,
             SayCommandRequest request,
+            ClaimsPrincipal principal,
             CommandExecutionService commands,
             CancellationToken cancellationToken)
     {
@@ -138,7 +151,10 @@ public static class CommandEndpoints
 
         var result = await commands.QueueAsync(
             serverId,
-            new CreateCommandExecutionCommand(ServerCommandType.Say, request.Message, request.RequestedBy),
+            new CreateCommandExecutionCommand(
+                ServerCommandType.Say,
+                request.Message,
+                GoldSrcOpsSecurity.GetRequiredSubject(principal)),
             cancellationToken);
 
         return MapCreateResult(result);
@@ -148,6 +164,7 @@ public static class CommandEndpoints
         QueueRawAsync(
             Guid serverId,
             RawCommandRequest request,
+            ClaimsPrincipal principal,
             CommandExecutionService commands,
             CancellationToken cancellationToken)
     {
@@ -159,7 +176,10 @@ public static class CommandEndpoints
 
         var result = await commands.QueueAsync(
             serverId,
-            new CreateCommandExecutionCommand(ServerCommandType.Raw, request.CommandText, request.RequestedBy),
+            new CreateCommandExecutionCommand(
+                ServerCommandType.Raw,
+                request.CommandText,
+                GoldSrcOpsSecurity.GetRequiredSubject(principal)),
             cancellationToken);
 
         return MapCreateResult(result);
@@ -253,7 +273,7 @@ public static class CommandEndpoints
 
     private static Dictionary<string, string[]> Validate(ChangeMapCommandRequest request)
     {
-        var errors = ValidateRequestedBy(request.RequestedBy);
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
         ValidateRequiredText(errors, nameof(request.Map), request.Map, MaxMapNameLength);
 
         return errors;
@@ -261,7 +281,7 @@ public static class CommandEndpoints
 
     private static Dictionary<string, string[]> Validate(SayCommandRequest request)
     {
-        var errors = ValidateRequestedBy(request.RequestedBy);
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
         ValidateRequiredText(errors, nameof(request.Message), request.Message, MaxSayMessageLength);
 
         return errors;
@@ -269,21 +289,8 @@ public static class CommandEndpoints
 
     private static Dictionary<string, string[]> Validate(RawCommandRequest request)
     {
-        var errors = ValidateRequestedBy(request.RequestedBy);
-        ValidateRequiredText(errors, nameof(request.CommandText), request.CommandText, CommandExecution.MaxPayloadLength);
-
-        return errors;
-    }
-
-    private static Dictionary<string, string[]> ValidateRequestedBy(string? requestedBy)
-    {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
-
-        if (requestedBy is not null && requestedBy.Trim().Length > CommandExecution.MaxRequestedByLength)
-        {
-            errors[nameof(requestedBy)] =
-                [$"RequestedBy must not exceed {CommandExecution.MaxRequestedByLength} characters."];
-        }
+        ValidateRequiredText(errors, nameof(request.CommandText), request.CommandText, CommandExecution.MaxPayloadLength);
 
         return errors;
     }

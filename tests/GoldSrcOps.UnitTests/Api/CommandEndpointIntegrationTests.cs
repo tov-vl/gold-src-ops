@@ -60,7 +60,7 @@ public sealed class CommandEndpointIntegrationTests
         await using var factory = new GoldSrcOpsApiFactory();
         using var client = factory.CreateClient();
         var server = await RegisterServerAsync(client);
-        var request = new SayCommandRequest("hello", "admin");
+        var request = new SayCommandRequest("hello");
 
         var response = await client.PostAsJsonAsync($"/api/servers/{server.Id}/commands/say", request);
 
@@ -74,7 +74,7 @@ public sealed class CommandEndpointIntegrationTests
         using var client = factory.CreateClient();
         var server = await RegisterServerAsync(client);
         await SetRconCredentialAsync(client, server.Id);
-        var request = new ChangeMapCommandRequest("de_dust2", "admin");
+        var request = new ChangeMapCommandRequest("de_dust2");
 
         var response = await client.PostAsJsonAsync($"/api/servers/{server.Id}/commands/change-map", request);
 
@@ -119,7 +119,7 @@ public sealed class CommandEndpointIntegrationTests
         await SetRconCredentialAsync(client, server.Id);
         var createResponse = await client.PostAsJsonAsync(
             $"/api/servers/{server.Id}/commands/say",
-            new SayCommandRequest("hello", "admin"));
+            new SayCommandRequest("hello"));
         createResponse.EnsureSuccessStatusCode();
         var created = await createResponse.Content.ReadFromJsonAsync<CommandExecutionResponse>();
         created.Should().NotBeNull();
@@ -169,9 +169,9 @@ public sealed class CommandEndpointIntegrationTests
         using var client = factory.CreateClient();
         var server = await RegisterServerAsync(client);
         await SetRconCredentialAsync(client, server.Id);
-        var createResponse = await client.PostAsJsonAsync(
+        var createResponse = await client.PostAsync(
             $"/api/servers/{server.Id}/commands/restart",
-            new RestartServerCommandRequest("admin"));
+            content: null);
         createResponse.EnsureSuccessStatusCode();
         var created = await createResponse.Content.ReadFromJsonAsync<CommandExecutionResponse>();
         created.Should().NotBeNull();
@@ -193,7 +193,7 @@ public sealed class CommandEndpointIntegrationTests
         using var client = factory.CreateClient();
         var server = await RegisterServerAsync(client);
         await SetRconCredentialAsync(client, server.Id);
-        var request = new RawCommandRequest(" ", "admin");
+        var request = new RawCommandRequest(" ");
 
         var response = await client.PostAsJsonAsync($"/api/servers/{server.Id}/commands/raw", request);
 

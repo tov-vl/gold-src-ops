@@ -1,3 +1,4 @@
+using GoldSrcOps.Api.Security;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Contracts.Monitoring;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -8,7 +9,9 @@ public static class DashboardEndpoints
 {
     public static RouteGroupBuilder MapDashboardEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/dashboard").WithTags("Dashboard");
+        var group = endpoints.MapGroup("/api/dashboard")
+            .WithTags("Dashboard")
+            .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 
         group.MapGet("/overview", GetOverviewAsync)
             .WithName("GetDashboardOverview");

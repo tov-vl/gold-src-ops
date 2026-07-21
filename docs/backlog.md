@@ -59,34 +59,33 @@ Completed:
 - Live GoldSrc RCON client added behind `IRconCommandExecutor` with challenge/command handling, timeout mapping, authentication failure handling, and sanitized result summaries.
 - Focused protocol, client, resolver, and executor tests added for command dispatch.
 - Command execution metrics added for queued, dispatched, completed, succeeded, failed, timed-out, and authentication-failed command dispatch paths.
-- Target authentication, authorization, endpoint policy, and audit-identity model documented in `docs/security.md` and Architecture Decision 9.
+- Authentication, authorization, endpoint policy, and audit-identity model documented in `docs/security.md` and Architecture Decision 9.
+- JWT bearer validation and `Reader`/`Operator` policies applied to API, metrics, OpenAPI, and anonymous health probes.
+- Command request contracts no longer accept `RequestedBy`; audit identity is derived from the authenticated token subject.
+- Unit and API integration tests cover subject validation, the endpoint policy matrix, and requester spoofing protection.
 
 ## Immediate Next Milestone
 
-Establish the control-plane trust boundary and make command dispatch durable.
+Make command dispatch durable and operationally hardened.
 
 Definition of done:
 
-- Add authentication and policy-based authorization for read and operator actions.
-- Derive command requester identity from the authenticated principal.
 - Atomically claim and serialize command execution per server, with recovery for interrupted commands.
 - Add structured logs that identify command/server ids without logging command secrets.
 - Add a guarded local smoke helper for an owned server with explicit confirmation before real RCON dispatch.
 
 ## Next Tasks
 
-1. Implement JWT bearer validation, `Reader`/`Operator` policies, authenticated requester identity, and the security integration tests defined in `docs/security.md`.
+1. Move pending-command execution to a background dispatcher with atomic per-server claiming and recovery tests.
 
-2. Move pending-command execution to a background dispatcher with atomic per-server claiming and recovery tests.
+2. Add structured command execution logs without credential material.
 
-3. Add structured command execution logs without credential material.
-
-4. Add an opt-in local RCON smoke helper for owned servers.
+3. Add an opt-in local RCON smoke helper for owned servers.
 
 ## v1 API Scope
 
-Target access policies for these endpoints are defined in `docs/security.md`.
-They are not implemented yet.
+Access policies for these endpoints are implemented as defined in
+`docs/security.md`.
 
 Servers:
 

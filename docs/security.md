@@ -1,9 +1,7 @@
 # GoldSrcOps Security Model
 
-This document defines the target security boundary for the v1 control plane.
-Authentication and authorization are not implemented yet. Until the next
-implementation slice is complete, expose the API only to trusted clients on a
-trusted network.
+This document defines the implemented security boundary for the v1 control
+plane.
 
 ## Trust Model
 
@@ -21,20 +19,36 @@ trusted network.
 
 ## Authentication
 
-GoldSrcOps will use ASP.NET Core JWT bearer authentication. The API must validate
+GoldSrcOps uses ASP.NET Core JWT bearer authentication. The API validates
 the token signature, issuer, audience, and lifetime before creating an
 authenticated principal. Production tokens must be issued through a standards-
 based OAuth 2.0 or OpenID Connect flow; GoldSrcOps must not expose a token-issuing
 endpoint or create production JWTs itself.
 
-For local development only, `dotnet user-jwts` will create project-specific
-tokens and keep the signing key in the developer's User Secrets store. Local
+For local development only, `dotnet user-jwts` creates project-specific
+tokens and keeps the signing key in the developer's User Secrets store. Local
 tokens must never be accepted by a production deployment.
 
-The implementation must fail closed when production authentication settings are
-missing or invalid. There must be no runtime `Authentication:Disabled` switch.
-Tests may replace authentication only inside the test host created by
-`WebApplicationFactory`.
+Startup validation requires issuer and audience configuration. Metadata retrieval
+must use HTTPS outside Development. There is no runtime
+`Authentication:Disabled` switch, and tests replace authentication only inside
+the test host created by `WebApplicationFactory`.
+
+### Configuration
+
+The bearer scheme uses the standard `Authentication:Schemes:Bearer` section.
+Production configuration supplies `Authority` and `Audience`, or equivalent
+valid issuer and audience settings, for the external identity provider.
+
+Create a short-lived local Operator token before starting the Development host:
+
+```powershell
+dotnet user-jwts create `
+  --project .\src\GoldSrcOps.Api `
+  --name local-operator `
+  --role Operator `
+  --valid-for 1d
+```
 
 ## Principal Identity
 
@@ -44,9 +58,9 @@ OAuth/OpenID Connect `sub` claim is the v1 audit identity and must fit within
 blank, or oversized subject before the principal can access any protected
 endpoint.
 
-Command request contracts will no longer accept `requestedBy`. Command creation
-will derive `CommandExecution.RequestedBy` from the authenticated principal's
-subject. Responses continue to expose `RequestedBy` as audit metadata. The
+Command request contracts do not accept `requestedBy`. Command creation derives
+`CommandExecution.RequestedBy` from the authenticated principal's subject.
+Responses continue to expose `RequestedBy` as audit metadata. The
 existing database column remains valid, so this contract change does not require
 a schema migration.
 
@@ -113,9 +127,9 @@ a Reader token when scraping `/metrics`.
 - Authorization failures must not reveal token contents, expected secrets, or
   protected resource details.
 
-## Required Verification
+## Verification
 
-The implementation slice is complete only when integration tests prove that:
+Unit and API integration tests prove that:
 
 - anonymous requests receive `401` from Reader and Operator endpoints;
 - a Reader can call read endpoints but receives `403` from every mutation;

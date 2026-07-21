@@ -14,10 +14,14 @@ internal sealed class GoldSrcOpsApiFactory : WebApplicationFactory<Program>
 {
     private readonly Action<IServiceCollection>? _configureTestServices;
     private readonly string _databaseName = $"goldsrcops-tests-{Guid.NewGuid():N}";
+    private readonly TestApiPrincipal _principal;
 
-    public GoldSrcOpsApiFactory(Action<IServiceCollection>? configureTestServices = null)
+    public GoldSrcOpsApiFactory(
+        Action<IServiceCollection>? configureTestServices = null,
+        TestApiPrincipal? principal = null)
     {
         _configureTestServices = configureTestServices;
+        _principal = principal ?? TestApiPrincipal.Operator();
     }
 
     public async Task ExecuteDbContextAsync(Func<GoldSrcOpsDbContext, Task> action)
@@ -43,6 +47,8 @@ internal sealed class GoldSrcOpsApiFactory : WebApplicationFactory<Program>
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)
             {
+                ["Authentication:Schemes:Bearer:ValidAudiences:0"] = "goldsrcops-tests",
+                ["Authentication:Schemes:Bearer:ValidIssuer"] = "goldsrcops-tests",
                 ["ConnectionStrings:GoldSrcOps"] = "Host=localhost;Database=goldsrcops_tests;Username=test;Password=test",
                 ["Polling:Enabled"] = "false"
             });
@@ -60,6 +66,7 @@ internal sealed class GoldSrcOpsApiFactory : WebApplicationFactory<Program>
                 options.UseInMemoryDatabase(_databaseName));
 
             _configureTestServices?.Invoke(services);
+            services.AddGoldSrcOpsTestAuthentication(_principal);
         });
     }
 }

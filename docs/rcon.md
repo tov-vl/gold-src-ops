@@ -1,7 +1,9 @@
 # GoldSrc RCON
 
 GoldSrcOps executes operator commands through GoldSrc RCON after a command has
-already been persisted as a `CommandExecution`. Dispatch is explicit today:
+already been persisted as a `CommandExecution`. Credential changes, command
+queueing, and command dispatch require the `Operator` policy; the command audit
+identity comes from the authenticated token subject. Dispatch is explicit today:
 `POST /api/commands/{commandId}/dispatch` loads the queued command, marks it
 `Running`, calls the infrastructure executor, and then stores `Succeeded` or
 `Failed`.
@@ -71,8 +73,6 @@ persisted. Run real RCON dispatch only against servers you own or administer.
 
 ## Current Limits
 
-- Authentication and authorization are not implemented yet; expose the API only
-  to trusted clients.
 - IPv4 endpoints only, matching the current A2S client.
 - One command is dispatched per explicit API request.
 - Split or multi-packet RCON responses are not implemented yet.

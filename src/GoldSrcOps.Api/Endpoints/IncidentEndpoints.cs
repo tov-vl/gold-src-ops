@@ -1,3 +1,4 @@
+using GoldSrcOps.Api.Security;
 using GoldSrcOps.Application.Incidents;
 using GoldSrcOps.Contracts.Incidents;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -8,7 +9,9 @@ public static class IncidentEndpoints
 {
     public static RouteGroupBuilder MapIncidentEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/incidents").WithTags("Incidents");
+        var group = endpoints.MapGroup("/api/incidents")
+            .WithTags("Incidents")
+            .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 
         group.MapGet("/open", ListOpenAsync)
             .WithName("ListOpenIncidents");

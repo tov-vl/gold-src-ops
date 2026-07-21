@@ -5,8 +5,17 @@ This smoke test exercises the local PostgreSQL-backed API against a live GoldSrc
 ## Fast Path
 
 ```powershell
+dotnet user-jwts create `
+  --project .\src\GoldSrcOps.Api `
+  --name local-operator `
+  --role Operator `
+  --valid-for 1d
+
 .\tools\dev\start-local.ps1
 ```
+
+Keep the emitted token for the authenticated requests in the second terminal.
+The token is for Development only and must not be committed.
 
 The script starts PostgreSQL, waits for readiness, applies EF Core migrations, and runs the API on `http://localhost:5142`.
 
@@ -30,7 +39,19 @@ dotnet tool run dotnet-ef database update `
   -- --environment Development
 ```
 
-### 3. Run The API
+### 3. Create A Local Operator Token
+
+```powershell
+dotnet user-jwts create `
+  --project .\src\GoldSrcOps.Api `
+  --name local-operator `
+  --role Operator `
+  --valid-for 1d
+```
+
+Keep the emitted token for the authenticated requests in the second terminal.
+
+### 4. Run The API
 
 ```powershell
 dotnet run --project .\src\GoldSrcOps.Api --launch-profile http
@@ -38,19 +59,22 @@ dotnet run --project .\src\GoldSrcOps.Api --launch-profile http
 
 The HTTP profile listens on `http://localhost:5142`.
 
-### 4. Check Health And Metrics
+### 5. Check Health And Metrics
 
 Open a second terminal:
 
 ```powershell
 $baseUrl = "http://localhost:5142"
+$token = "<token emitted by dotnet user-jwts>"
+$headers = @{ Authorization = "Bearer $token" }
 
 Invoke-RestMethod "$baseUrl/health/live"
 Invoke-RestMethod "$baseUrl/health/ready"
-((Invoke-WebRequest "$baseUrl/metrics").Content -split "`n") | Select-Object -First 10
+((Invoke-WebRequest "$baseUrl/metrics" -Headers $headers).Content -split "`n") |
+  Select-Object -First 10
 ```
 
-### 5. Register A Live Server
+### 6. Register A Live Server
 
 In the same second terminal:
 
@@ -68,15 +92,16 @@ $server = Invoke-RestMethod `
   -Method Post `
   -Uri "$baseUrl/api/servers" `
   -ContentType "application/json" `
+  -Headers $headers `
   -Body $body
 
 $server
 ```
 
-### 6. Exercise Server Management
+### 7. Exercise Server Management
 
 ```powershell
-Invoke-RestMethod "$baseUrl/api/servers/$($server.id)"
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)" -Headers $headers
 
 $patch = @{
   name = "CSOMOD Zombie Server"
@@ -91,13 +116,16 @@ Invoke-RestMethod `
   -Method Patch `
   -Uri "$baseUrl/api/servers/$($server.id)" `
   -ContentType "application/json" `
+  -Headers $headers `
   -Body $patch
 
-Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/disable"
-Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable"
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/disable" `
+  -Headers $headers
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable" `
+  -Headers $headers
 ```
 
-### 7. Queue And Dispatch A Command Safely
+### 8. Queue And Dispatch A Command Safely
 
 Commands are persisted first and then dispatched through the configured command executor.
 Without a configured RCON port and a resolvable local secret, dispatch fails safely before sending anything to the server.
@@ -111,23 +139,24 @@ Invoke-RestMethod `
   -Method Put `
   -Uri "$baseUrl/api/servers/$($server.id)/credentials/rcon" `
   -ContentType "application/json" `
+  -Headers $headers `
   -Body $credential
 
 $command = @{
   message = "hello from GoldSrcOps"
-  requestedBy = "local-smoke"
 } | ConvertTo-Json
 
 $queued = Invoke-RestMethod `
   -Method Post `
   -Uri "$baseUrl/api/servers/$($server.id)/commands/say" `
   -ContentType "application/json" `
+  -Headers $headers `
   -Body $command
 
 $queued
-Invoke-RestMethod -Method Post -Uri "$baseUrl/api/commands/$($queued.id)/dispatch"
-Invoke-RestMethod "$baseUrl/api/commands/$($queued.id)"
-Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10"
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/commands/$($queued.id)/dispatch" -Headers $headers
+Invoke-RestMethod "$baseUrl/api/commands/$($queued.id)" -Headers $headers
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10" -Headers $headers
 ```
 
 To execute a real RCON command, use only a server you control. Set `rconPort`
@@ -152,17 +181,17 @@ for dispatch. The selected alias is stored internally as
 `rcon-secret://server_rcon`. Arbitrary `env://`, `config://`, and
 `dev-secrets://` references are unsupported.
 
-### 8. Check Monitoring Reads
+### 9. Check Monitoring Reads
 
 The background poller runs every few seconds. Wait briefly, then query status and history:
 
 ```powershell
 Start-Sleep -Seconds 10
 
-Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/status"
-Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/snapshots?limit=10"
-Invoke-RestMethod "$baseUrl/api/dashboard/overview"
-Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/incidents"
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/status" -Headers $headers
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/snapshots?limit=10" -Headers $headers
+Invoke-RestMethod "$baseUrl/api/dashboard/overview" -Headers $headers
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/incidents" -Headers $headers
 ```
 
 Expected result:
@@ -174,6 +203,7 @@ Expected result:
 - `PATCH /api/servers/{id}` updates editable server settings.
 - Disabled servers are skipped by polling, and re-enabled servers can be polled again.
 - Credential responses report metadata only and do not echo the secret alias or canonical reference.
+- Command responses derive `RequestedBy` from the authenticated token subject.
 - Command dispatch transitions command status without leaking credential values.
 - Missing local RCON configuration is reported as a safe command failure before network dispatch.
 - `/status` eventually reports `Online` if the live server is reachable.

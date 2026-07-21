@@ -1,3 +1,4 @@
+using GoldSrcOps.Api.Security;
 using GoldSrcOps.Application.Incidents;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Application.Servers;
@@ -16,31 +17,40 @@ public static class ServerEndpoints
         var group = endpoints.MapGroup("/api/servers").WithTags("Servers");
 
         group.MapPost("/", RegisterAsync)
-            .WithName("RegisterServer");
+            .WithName("RegisterServer")
+            .RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy);
 
         group.MapGet("/", ListAsync)
-            .WithName("ListServers");
+            .WithName("ListServers")
+            .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 
         group.MapGet("/{id:guid}", GetAsync)
-            .WithName("GetServer");
+            .WithName("GetServer")
+            .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 
         group.MapPatch("/{id:guid}", UpdateAsync)
-            .WithName("UpdateServer");
+            .WithName("UpdateServer")
+            .RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy);
 
         group.MapPost("/{id:guid}/enable", EnableAsync)
-            .WithName("EnableServer");
+            .WithName("EnableServer")
+            .RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy);
 
         group.MapPost("/{id:guid}/disable", DisableAsync)
-            .WithName("DisableServer");
+            .WithName("DisableServer")
+            .RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy);
 
         group.MapGet("/{id:guid}/status", GetStatusAsync)
-            .WithName("GetServerStatus");
+            .WithName("GetServerStatus")
+            .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 
         group.MapGet("/{id:guid}/snapshots", ListSnapshotsAsync)
-            .WithName("ListServerSnapshots");
+            .WithName("ListServerSnapshots")
+            .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 
         group.MapGet("/{id:guid}/incidents", ListServerIncidentsAsync)
-            .WithName("ListServerIncidents");
+            .WithName("ListServerIncidents")
+            .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 
         return group;
     }

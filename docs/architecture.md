@@ -88,7 +88,8 @@ flowchart LR
 
 ## Project Boundaries
 
-- `GoldSrcOps.Api` contains the host, Minimal API endpoint mapping, health
+- `GoldSrcOps.Api` contains the host, JWT bearer authentication, endpoint
+  authorization policies, Minimal API endpoint mapping, health
   endpoints, Prometheus scraping endpoint, and OpenTelemetry configuration.
 - `GoldSrcOps.Contracts` contains HTTP request and response records that define
   the public API shape.
@@ -104,10 +105,10 @@ flowchart LR
   local secret-reference resolution, the system clock, and the background
   polling worker.
 
-## Target Security Boundary
+## Security Boundary
 
-The next implementation slice adds the control-plane security boundary defined
-in `docs/security.md`. This is a target design, not current runtime behavior.
+The API enforces the control-plane security boundary defined in
+`docs/security.md`.
 
 ```mermaid
 flowchart LR
@@ -219,8 +220,8 @@ sequenceDiagram
     participant Domain as Domain model
     participant Db as PostgreSQL
 
-    Client->>API: POST /api/servers/{id}/commands/say
-    API->>App: CreateCommandExecutionCommand
+    Client->>API: POST /api/servers/{id}/commands/say (Operator token)
+    API->>App: CreateCommandExecutionCommand with token subject
     App->>Repo: Check server and RCON credential metadata
     App->>Domain: Create pending CommandExecution
     Repo->>Db: Insert command execution

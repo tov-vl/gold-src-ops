@@ -247,5 +247,5 @@ Implementation implication:
 
 Implementation status:
 
-Planned. Until this decision is implemented, expose the API only to trusted
-clients on a trusted network.
+Implemented. JWT bearer validation, endpoint policies, subject-derived command
+audit identity, and integration-test authentication overrides are in place.

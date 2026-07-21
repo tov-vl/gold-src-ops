@@ -15,10 +15,14 @@ internal sealed class PostgreSqlGoldSrcOpsApiFactory : WebApplicationFactory<Pro
 {
     private readonly Action<IServiceCollection>? _configureTestServices;
     private readonly PostgreSqlContainer _database;
+    private readonly TestApiPrincipal _principal;
 
-    private PostgreSqlGoldSrcOpsApiFactory(Action<IServiceCollection>? configureTestServices)
+    private PostgreSqlGoldSrcOpsApiFactory(
+        Action<IServiceCollection>? configureTestServices,
+        TestApiPrincipal? principal)
     {
         _configureTestServices = configureTestServices;
+        _principal = principal ?? TestApiPrincipal.Operator();
         _database = new PostgreSqlBuilder("postgres:16-alpine")
             .WithDatabase("goldsrcops_tests")
             .WithUsername("goldsrcops")
@@ -27,9 +31,10 @@ internal sealed class PostgreSqlGoldSrcOpsApiFactory : WebApplicationFactory<Pro
     }
 
     public static async Task<PostgreSqlGoldSrcOpsApiFactory> CreateAsync(
-        Action<IServiceCollection>? configureTestServices = null)
+        Action<IServiceCollection>? configureTestServices = null,
+        TestApiPrincipal? principal = null)
     {
-        var factory = new PostgreSqlGoldSrcOpsApiFactory(configureTestServices);
+        var factory = new PostgreSqlGoldSrcOpsApiFactory(configureTestServices, principal);
 
         try
         {
@@ -72,6 +77,8 @@ internal sealed class PostgreSqlGoldSrcOpsApiFactory : WebApplicationFactory<Pro
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)
             {
+                ["Authentication:Schemes:Bearer:ValidAudiences:0"] = "goldsrcops-tests",
+                ["Authentication:Schemes:Bearer:ValidIssuer"] = "goldsrcops-tests",
                 ["ConnectionStrings:GoldSrcOps"] = _database.GetConnectionString(),
                 ["Polling:Enabled"] = "false"
             });
@@ -91,6 +98,7 @@ internal sealed class PostgreSqlGoldSrcOpsApiFactory : WebApplicationFactory<Pro
                     npgsql => npgsql.MigrationsAssembly(typeof(GoldSrcOpsDbContext).Assembly.FullName)));
 
             _configureTestServices?.Invoke(services);
+            services.AddGoldSrcOpsTestAuthentication(_principal);
         });
     }
 

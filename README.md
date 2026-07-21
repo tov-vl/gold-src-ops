@@ -27,6 +27,7 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added server edit and enable/disable endpoints.
 - Added command execution with safe dispatch status transitions, local secret-reference resolution, and a live GoldSrc RCON client.
 - Added command execution metrics for queued, dispatched, and completed command dispatches.
+- Added JWT bearer authentication with `Reader` and `Operator` authorization policies and token-derived command audit identity.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
 - Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
 - Added deterministic polling integration tests with fake A2S query responses and EF-backed repositories.
@@ -43,8 +44,18 @@ See [docs/architecture.md](docs/architecture.md) for the component diagram and r
 ## Quick Local Start
 
 ```powershell
+dotnet user-jwts create `
+  --project .\src\GoldSrcOps.Api `
+  --name local-operator `
+  --role Operator `
+  --valid-for 1d
+
 .\tools\dev\start-local.ps1
 ```
+
+The first command configures the Development bearer scheme and prints a local
+Operator token. Keep the token for the smoke flow, but do not store it in the
+repository.
 
 The script starts PostgreSQL, waits for the container healthcheck, restores local .NET tools, applies EF Core migrations, and runs the API on `http://localhost:5142`.
 It prefers the repository-local SDK under `.\.dotnet\dotnet.exe` when present.
@@ -81,7 +92,21 @@ dotnet tool run dotnet-ef database update `
   -- --environment Development
 ```
 
-### 3. Run The API
+### 3. Create A Local Operator Token
+
+```powershell
+dotnet user-jwts create `
+  --project .\src\GoldSrcOps.Api `
+  --name local-operator `
+  --role Operator `
+  --valid-for 1d
+```
+
+Keep the emitted token for authenticated local requests. This command is for
+Development only; production deployments must use an external OAuth 2.0 or
+OpenID Connect provider.
+
+### 4. Run The API
 
 ```powershell
 dotnet run --project .\src\GoldSrcOps.Api --launch-profile http
@@ -103,6 +128,12 @@ RCON dispatch configuration lives under `Rcon`:
 
 See [docs/rcon.md](docs/rcon.md) for secret-reference formats, dispatch flow,
 and current RCON limits.
+
+All control-plane API endpoints require an authenticated bearer token. Read
+endpoints and `/metrics` accept `Reader` or `Operator`; mutations require
+`Operator`. Liveness and readiness remain anonymous. See
+[docs/security.md](docs/security.md) for the complete policy matrix and
+production configuration requirements.
 
 Initial endpoints:
 
@@ -145,10 +176,13 @@ After the API is running:
 
 ```powershell
 $baseUrl = "http://localhost:5142"
+$token = "<token emitted by dotnet user-jwts>"
+$headers = @{ Authorization = "Bearer $token" }
 
 Invoke-RestMethod "$baseUrl/health/live"
 Invoke-RestMethod "$baseUrl/health/ready"
-((Invoke-WebRequest "$baseUrl/metrics").Content -split "`n") | Select-Object -First 10
+((Invoke-WebRequest "$baseUrl/metrics" -Headers $headers).Content -split "`n") |
+  Select-Object -First 10
 ```
 
 Register a live server:
@@ -167,9 +201,10 @@ $server = Invoke-RestMethod `
   -Method Post `
   -Uri "$baseUrl/api/servers" `
   -ContentType "application/json" `
+  -Headers $headers `
   -Body $body
 
-Invoke-RestMethod "$baseUrl/api/servers/$($server.id)"
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)" -Headers $headers
 
 $patch = @{
   name = "CSOMOD Zombie Server"
@@ -184,10 +219,13 @@ Invoke-RestMethod `
   -Method Patch `
   -Uri "$baseUrl/api/servers/$($server.id)" `
   -ContentType "application/json" `
+  -Headers $headers `
   -Body $patch
 
-Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/disable"
-Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable"
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/disable" `
+  -Headers $headers
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable" `
+  -Headers $headers
 ```
 
 Queue a command without a local secret. Dispatch fails safely until both an RCON
@@ -202,21 +240,24 @@ Invoke-RestMethod `
   -Method Put `
   -Uri "$baseUrl/api/servers/$($server.id)/credentials/rcon" `
   -ContentType "application/json" `
+  -Headers $headers `
   -Body $credential
 
 $command = @{
   map = "de_dust2"
-  requestedBy = "local-smoke"
 } | ConvertTo-Json
 
 Invoke-RestMethod `
   -Method Post `
   -Uri "$baseUrl/api/servers/$($server.id)/commands/change-map" `
   -ContentType "application/json" `
+  -Headers $headers `
   -Body $command
 
-$commands = Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10"
-Invoke-RestMethod -Method Post -Uri "$baseUrl/api/commands/$($commands[0].id)/dispatch"
+$commands = Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10" `
+  -Headers $headers
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/commands/$($commands[0].id)/dispatch" `
+  -Headers $headers
 ```
 
 To execute a real RCON command, use a server you control, set `rconPort`, and
@@ -245,10 +286,10 @@ Continue with monitoring reads:
 ```powershell
 Start-Sleep -Seconds 10
 
-Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/status"
-Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/snapshots?limit=10"
-Invoke-RestMethod "$baseUrl/api/dashboard/overview"
-Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/incidents"
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/status" -Headers $headers
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/snapshots?limit=10" -Headers $headers
+Invoke-RestMethod "$baseUrl/api/dashboard/overview" -Headers $headers
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/incidents" -Headers $headers
 ```
 
 ## Run Tests

@@ -34,7 +34,7 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
             $"/api/servers/{server.Id}/credentials/rcon",
             credentialRequest);
         credentialResponse.EnsureSuccessStatusCode();
-        var commandRequest = new SayCommandRequest("hello players", "admin");
+        var commandRequest = new SayCommandRequest("hello players");
 
         var response = await client.PostAsJsonAsync($"/api/servers/{server.Id}/commands/say", commandRequest);
 
@@ -73,7 +73,7 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
             ServerCommandType.Say,
             CommandExecutionStatus.Succeeded,
             commandRequest.Message,
-            commandRequest.RequestedBy,
+            RequestedBy: "admin",
             ResultSummary: "postgres fake dispatch",
             FailureReason: null));
         executor.LastRequest.Should().BeEquivalentTo(new
