@@ -2,25 +2,32 @@
 
 GoldSrcOps executes operator commands through GoldSrc RCON after a command has
 already been persisted as a `CommandExecution`. Credential changes, command
-queueing, and command dispatch require the `Operator` policy; the command audit
-identity comes from the authenticated token subject. Dispatch is explicit today:
-`POST /api/commands/{commandId}/dispatch` loads the queued command, marks it
-`Running`, calls the infrastructure executor, and then stores `Succeeded` or
-`Failed`.
+queueing requires the `Operator` policy, and the command audit identity comes
+from the authenticated token subject. A background dispatcher automatically
+claims queued commands, calls the infrastructure executor, and stores
+`Succeeded` or `Failed`.
 
 ## Execution Flow
 
-1. `CommandExecutionService` builds the final command text:
+1. `CommandExecutionService` validates the server and credential metadata and
+   persists a `Pending` command.
+2. `CommandDispatchBackgroundService` starts up to `MaxConcurrency` dispatch
+   attempts per pass.
+3. PostgreSQL atomically claims the oldest eligible command, marks it `Running`,
+   and prevents another worker from claiming the same server.
+4. `CommandDispatcher` builds the final command text:
    - `ChangeMap` -> `changelevel <map>`
    - `Restart` -> `_restart`
    - `Say` -> `say <message>`
    - `Raw` -> raw operator-provided text
-2. `GoldSrcRconCommandExecutor` resolves the stored canonical RCON secret alias
+5. `GoldSrcRconCommandExecutor` resolves the stored canonical RCON secret alias
    inside Infrastructure.
-3. `GoldSrcRconClient` sends UDP `challenge rcon`.
-4. The server returns a challenge token.
-5. The client sends `rcon <challenge> "<password>" <command>`.
-6. The executor maps the response to a sanitized command result.
+6. `GoldSrcRconClient` sends UDP `challenge rcon`.
+7. The server returns a challenge token.
+8. The client sends `rcon <challenge> "<password>" <command>`.
+9. The executor maps the response to a sanitized command result.
+10. The dispatcher conditionally stores the final status only while the same
+    claim is still `Running`.
 
 Raw RCON passwords are not stored in PostgreSQL, returned by API contracts, or
 written into command history.
@@ -53,11 +60,11 @@ Both configuration providers produce the same dedicated key. Arbitrary
 `env://`, `config://`, and `dev-secrets://` references are unsupported, so an
 API caller cannot select unrelated application configuration such as a database
 connection string. Existing credentials using the old schemes must be updated
-through the credential endpoint before dispatch.
+through the credential endpoint before a queued command can execute.
 
 ## Safe Failures
 
-Dispatch fails before sending any UDP packet when the server has no RCON port,
+Execution fails before sending any UDP packet when the server has no RCON port,
 the credential reference is missing, or the reference cannot be resolved.
 
 The executor returns stable failure messages for:
@@ -71,11 +78,35 @@ The executor returns stable failure messages for:
 Failure messages and result summaries are sanitized so raw secrets are not
 persisted. Run real RCON dispatch only against servers you own or administer.
 
+## Serialization And Recovery
+
+The claim query locks a registered server row with `FOR UPDATE SKIP LOCKED`,
+marks one pending command `Running`, and returns the command id in the same
+PostgreSQL statement. Multiple workers or API replicas can therefore execute
+different servers concurrently while preserving one active command per server.
+
+A command that remains `Running` longer than `InterruptedAfterSeconds` is marked
+`Failed` with a stable interruption reason. It is not automatically requeued:
+RCON has no idempotency key, so retrying after an unknown transport outcome could
+repeat a restart, map change, or arbitrary raw command. An operator can inspect
+the audit record and explicitly queue a new command when appropriate. A late
+worker cannot overwrite the recovered status because completion checks both the
+`Running` state and original claim timestamp.
+
+Dispatcher settings live under `CommandDispatcher`:
+
+- `Enabled` enables the hosted worker;
+- `LoopDelayMilliseconds` controls the idle delay;
+- `MaxConcurrency` bounds commands executed across different servers;
+- `InterruptedAfterSeconds` defines the stale `Running` threshold;
+- `RecoveryIntervalSeconds` controls stale-command scans.
+
+`InterruptedAfterSeconds` must be greater than the configured RCON timeout or
+the application rejects the configuration during startup.
+
 ## Current Limits
 
 - IPv4 endpoints only, matching the current A2S client.
-- One command is dispatched per explicit API request.
 - Split or multi-packet RCON responses are not implemented yet.
 - Passwords containing double quotes are rejected by the protocol layer.
-- Per-server dispatch serialization and structured command logs are planned as
-  the next hardening step.
+- Comprehensive structured command lifecycle logs are the next hardening step.

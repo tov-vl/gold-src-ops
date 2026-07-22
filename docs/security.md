@@ -76,7 +76,7 @@ handlers.
 | Policy | Accepted application role | Purpose |
 | --- | --- | --- |
 | `Reader` | `Reader` or `Operator` | Inspect server state, history, incidents, command history, credential metadata, and metrics. |
-| `Operator` | `Operator` | Register or modify servers, configure RCON credentials, queue commands, and dispatch commands. |
+| `Operator` | `Operator` | Register or modify servers, configure RCON credentials, and queue commands. |
 
 `Operator` includes read access through the `Reader` policy. ASP.NET Core does
 not provide implicit role inheritance, so the `Reader` policy must explicitly
@@ -105,13 +105,16 @@ operation.
 | `PUT /api/servers/{id}/credentials/rcon` | `Operator` |
 | `GET /api/servers/{id}/credentials` | `Reader` |
 | `POST /api/servers/{id}/commands/...` | `Operator` |
-| `POST /api/commands/{id}/dispatch` | `Operator` |
 | `GET /api/servers/{id}/commands` | `Reader` |
 | `GET /api/commands/{id}` | `Reader` |
 | `GET /metrics` | `Reader` |
 | `GET /openapi/{documentName}.json` in Development | `Reader` |
 | `GET /health/live` | Anonymous |
 | `GET /health/ready` | Anonymous |
+
+The background dispatcher acts only on commands that were already queued through
+an `Operator` endpoint. The persisted token subject remains the audit identity;
+there is no separate public dispatch operation.
 
 Health probes remain anonymous so container and platform probes do not need an
 operator token. They must continue returning only bounded health status, without

@@ -106,14 +106,16 @@ public sealed class CommandEndpointIntegrationTests
     }
 
     [Fact]
-    public async Task DispatchCommand_executes_pending_command_through_configured_executor()
+    public async Task Background_dispatcher_executes_pending_command_through_configured_executor()
     {
         var executor = new CapturingRconCommandExecutor(RconCommandExecutionResult.Succeeded("fake dispatch accepted"));
-        await using var factory = new GoldSrcOpsApiFactory(services =>
-        {
-            services.RemoveAll<IRconCommandExecutor>();
-            services.AddSingleton<IRconCommandExecutor>(executor);
-        });
+        await using var factory = new GoldSrcOpsApiFactory(
+            services =>
+            {
+                services.RemoveAll<IRconCommandExecutor>();
+                services.AddSingleton<IRconCommandExecutor>(executor);
+            },
+            commandDispatcherEnabled: true);
         using var client = factory.CreateClient();
         var server = await RegisterServerAsync(client);
         await SetRconCredentialAsync(client, server.Id);
@@ -124,13 +126,8 @@ public sealed class CommandEndpointIntegrationTests
         var created = await createResponse.Content.ReadFromJsonAsync<CommandExecutionResponse>();
         created.Should().NotBeNull();
 
-        var response = await client.PostAsync($"/api/commands/{created!.Id}/dispatch", content: null);
+        var dispatched = await WaitForTerminalCommandAsync(client, created!.Id);
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadAsStringAsync();
-        json.Should().NotContain("rcon-secret://server_rcon");
-        var dispatched = await response.Content.ReadFromJsonAsync<CommandExecutionResponse>();
-        dispatched.Should().NotBeNull();
         dispatched.Should().BeEquivalentTo(new
         {
             created.Id,
@@ -142,7 +139,7 @@ public sealed class CommandEndpointIntegrationTests
             ResultSummary = "fake dispatch accepted",
             FailureReason = (string?)null
         });
-        dispatched!.StartedAtUtc.Should().NotBeNull();
+        dispatched.StartedAtUtc.Should().NotBeNull();
         dispatched.CompletedAtUtc.Should().NotBeNull();
         executor.CallCount.Should().Be(1);
         executor.LastRequest.Should().BeEquivalentTo(new
@@ -156,16 +153,14 @@ public sealed class CommandEndpointIntegrationTests
             CommandText = "say hello"
         });
 
-        var repeatResponse = await client.PostAsync($"/api/commands/{created.Id}/dispatch", content: null);
-
-        repeatResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        executor.CallCount.Should().Be(1);
+        var json = await client.GetStringAsync($"/api/commands/{created.Id}");
+        json.Should().NotContain("rcon-secret://server_rcon");
     }
 
     [Fact]
-    public async Task DispatchCommand_marks_command_failed_when_default_secret_reference_is_missing()
+    public async Task Background_dispatcher_marks_command_failed_when_default_secret_reference_is_missing()
     {
-        await using var factory = new GoldSrcOpsApiFactory();
+        await using var factory = new GoldSrcOpsApiFactory(commandDispatcherEnabled: true);
         using var client = factory.CreateClient();
         var server = await RegisterServerAsync(client);
         await SetRconCredentialAsync(client, server.Id);
@@ -176,12 +171,9 @@ public sealed class CommandEndpointIntegrationTests
         var created = await createResponse.Content.ReadFromJsonAsync<CommandExecutionResponse>();
         created.Should().NotBeNull();
 
-        var response = await client.PostAsync($"/api/commands/{created!.Id}/dispatch", content: null);
+        var dispatched = await WaitForTerminalCommandAsync(client, created!.Id);
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var dispatched = await response.Content.ReadFromJsonAsync<CommandExecutionResponse>();
-        dispatched.Should().NotBeNull();
-        dispatched!.Status.Should().Be("Failed");
+        dispatched.Status.Should().Be("Failed");
         dispatched.FailureReason.Should().Be("RCON credential secret could not be resolved.");
         dispatched.ResultSummary.Should().BeNull();
     }
@@ -198,6 +190,28 @@ public sealed class CommandEndpointIntegrationTests
         var response = await client.PostAsJsonAsync($"/api/servers/{server.Id}/commands/raw", request);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    private static async Task<CommandExecutionResponse> WaitForTerminalCommandAsync(
+        HttpClient client,
+        Guid commandId)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        while (true)
+        {
+            var command = await client.GetFromJsonAsync<CommandExecutionResponse>(
+                $"/api/commands/{commandId}",
+                timeout.Token);
+            command.Should().NotBeNull();
+
+            if (command!.Status is "Succeeded" or "Failed")
+            {
+                return command;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(20), timeout.Token);
+        }
     }
 
     private static async Task<ServerResponse> RegisterServerAsync(HttpClient client)

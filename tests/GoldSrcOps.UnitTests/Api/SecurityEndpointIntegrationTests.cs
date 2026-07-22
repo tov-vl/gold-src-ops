@@ -22,7 +22,6 @@ public sealed class SecurityEndpointIntegrationTests
     [InlineData("POST", $"/api/servers/{ExistingId}/commands/restart")]
     [InlineData("POST", $"/api/servers/{ExistingId}/commands/say")]
     [InlineData("POST", $"/api/servers/{ExistingId}/commands/raw")]
-    [InlineData("POST", $"/api/commands/{ExistingId}/dispatch")]
     public async Task Reader_cannot_call_mutation_endpoints(string method, string path)
     {
         await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Reader());

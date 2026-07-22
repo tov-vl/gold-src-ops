@@ -52,35 +52,34 @@ Completed:
 - PostgreSQL migration added for `server_credentials` and `command_executions`.
 - Unit, API integration, and PostgreSQL-backed integration tests added for the command foundation.
 - `IRconCommandExecutor` boundary added for safe command dispatch.
-- `POST /api/commands/{commandId}/dispatch` added to transition queued commands through `Running` into `Succeeded` or `Failed`.
-- Deterministic tests cover successful fake dispatch, executor failure, timeout, missing RCON port, repeated dispatch conflict, and PostgreSQL status persistence.
+- Pending commands are executed by a background dispatcher that transitions them through `Running` into `Succeeded` or `Failed`.
+- Deterministic tests cover successful fake dispatch, executor failure, timeout, missing RCON port, lost completion claims, and PostgreSQL status persistence.
 - RCON credentials now use validated aliases stored as canonical `rcon-secret://<alias>` references.
 - Secret resolution is restricted to the dedicated `RconSecrets:<alias>` namespace; arbitrary environment and configuration keys are rejected.
 - Live GoldSrc RCON client added behind `IRconCommandExecutor` with challenge/command handling, timeout mapping, authentication failure handling, and sanitized result summaries.
 - Focused protocol, client, resolver, and executor tests added for command dispatch.
-- Command execution metrics added for queued, dispatched, completed, succeeded, failed, timed-out, and authentication-failed command dispatch paths.
+- Command execution metrics added for queued, dispatched, completed, recovered, succeeded, failed, timed-out, and authentication-failed command dispatch paths.
 - Authentication, authorization, endpoint policy, and audit-identity model documented in `docs/security.md` and Architecture Decision 9.
 - JWT bearer validation and `Reader`/`Operator` policies applied to API, metrics, OpenAPI, and anonymous health probes.
 - Command request contracts no longer accept `RequestedBy`; audit identity is derived from the authenticated token subject.
 - Unit and API integration tests cover subject validation, the endpoint policy matrix, and requester spoofing protection.
+- PostgreSQL atomically claims pending commands, serializes execution per server across workers, and conditionally persists completion for the active claim.
+- Interrupted `Running` commands are recovered as `Failed` without automatic RCON retry, and PostgreSQL integration tests cover concurrent claims and recovery.
 
 ## Immediate Next Milestone
 
-Make command dispatch durable and operationally hardened.
+Complete the operational hardening of durable command dispatch.
 
 Definition of done:
 
-- Atomically claim and serialize command execution per server, with recovery for interrupted commands.
 - Add structured logs that identify command/server ids without logging command secrets.
 - Add a guarded local smoke helper for an owned server with explicit confirmation before real RCON dispatch.
 
 ## Next Tasks
 
-1. Move pending-command execution to a background dispatcher with atomic per-server claiming and recovery tests.
+1. Add structured command execution logs without credential material.
 
-2. Add structured command execution logs without credential material.
-
-3. Add an opt-in local RCON smoke helper for owned servers.
+2. Add an opt-in local RCON smoke helper for owned servers.
 
 ## v1 API Scope
 
@@ -121,7 +120,6 @@ Commands:
 - `POST /api/servers/{id}/commands/raw`
 - `GET /api/servers/{id}/commands`
 - `GET /api/commands/{commandId}`
-- `POST /api/commands/{commandId}/dispatch`
 
 Health and metrics:
 
@@ -228,12 +226,13 @@ Start focused:
 - PostgreSQL-backed integration coverage for the command and credential schema.
 - Unit coverage for secret-reference resolution and GoldSrc RCON protocol/client behavior.
 - Unit and API integration coverage for command execution metrics.
+- Unit and PostgreSQL integration coverage for background dispatch, atomic per-server claiming, and interrupted-command recovery.
 - API integration coverage for anonymous, Reader, and Operator access across the endpoint policy matrix.
 - API integration coverage proving command requester identity comes from the authenticated token subject.
 
 Later:
 
-- Serialized dispatch, structured command logs, and guarded live smoke automation.
+- Structured command logs and guarded live smoke automation.
 
 ## Portfolio Readiness Checklist
 

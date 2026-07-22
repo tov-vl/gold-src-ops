@@ -25,8 +25,9 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added readiness health checks that validate database connectivity.
 - Added OpenTelemetry metrics export in Prometheus format.
 - Added server edit and enable/disable endpoints.
-- Added command execution with safe dispatch status transitions, local secret-reference resolution, and a live GoldSrc RCON client.
-- Added command execution metrics for queued, dispatched, and completed command dispatches.
+- Added durable background command execution with atomic per-server claiming, interrupted-command recovery, local secret-reference resolution, and a live GoldSrc RCON client.
+- Added command execution metrics for queued, dispatched, completed, and recovered command dispatches.
+- Added PostgreSQL integration coverage for concurrent command claims and interrupted-command recovery.
 - Added JWT bearer authentication with `Reader` and `Operator` authorization policies and token-derived command audit identity.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
 - Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
@@ -121,6 +122,15 @@ Polling runs inside the API host by default. Configuration lives under `Polling`
 - `BatchSize`
 - `IncidentFailureThreshold`
 
+Pending commands are executed by a background worker. Configuration lives under
+`CommandDispatcher`:
+
+- `Enabled`
+- `LoopDelayMilliseconds`
+- `MaxConcurrency`
+- `InterruptedAfterSeconds`
+- `RecoveryIntervalSeconds`
+
 RCON dispatch configuration lives under `Rcon`:
 
 - `TimeoutMilliseconds`
@@ -154,7 +164,6 @@ Initial endpoints:
 - `POST /api/servers/{id}/commands/raw`
 - `GET /api/servers/{id}/commands?limit=`
 - `GET /api/commands/{commandId}`
-- `POST /api/commands/{commandId}/dispatch`
 - `GET /api/servers/{id}/status`
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=`
 - `GET /api/servers/{id}/incidents`
@@ -164,10 +173,14 @@ Initial endpoints:
 
 After registering a server, the background poller will update `/api/servers/{id}/status` once the next polling pass succeeds.
 After repeated failed polls, the poller opens an availability incident. A later successful poll closes it.
+Queued commands are claimed and executed automatically. Workers may process
+different servers in parallel, but PostgreSQL serialization permits only one
+`Running` command per server. Interrupted commands are failed without an
+automatic retry because RCON commands are not idempotent.
 
 `/metrics` exposes ASP.NET Core, runtime, and GoldSrcOps application metrics in Prometheus format.
 Application metrics cover polling runs, server poll attempts by result, incident transitions, queued commands,
-dispatched commands, and completed command dispatches by result.
+dispatched commands, completed command dispatches by result, and recovered interrupted commands.
 The Prometheus ASP.NET Core exporter is currently referenced as a prerelease OpenTelemetry package because a stable exporter package is not available yet.
 
 ## Local Smoke Flow
@@ -228,8 +241,8 @@ Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable" 
   -Headers $headers
 ```
 
-Queue a command without a local secret. Dispatch fails safely until both an RCON
-port and a resolvable secret reference are configured:
+Queue a command without a local secret. The background dispatcher fails it
+safely unless both an RCON port and a resolvable secret reference are configured:
 
 ```powershell
 $credential = @{
@@ -244,20 +257,24 @@ Invoke-RestMethod `
   -Body $credential
 
 $command = @{
-  map = "de_dust2"
+  message = "hello from GoldSrcOps"
 } | ConvertTo-Json
 
-Invoke-RestMethod `
+$queued = Invoke-RestMethod `
   -Method Post `
-  -Uri "$baseUrl/api/servers/$($server.id)/commands/change-map" `
+  -Uri "$baseUrl/api/servers/$($server.id)/commands/say" `
   -ContentType "application/json" `
   -Headers $headers `
   -Body $command
 
-$commands = Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10" `
-  -Headers $headers
-Invoke-RestMethod -Method Post -Uri "$baseUrl/api/commands/$($commands[0].id)/dispatch" `
-  -Headers $headers
+$deadline = (Get-Date).AddSeconds(10)
+do {
+  Start-Sleep -Milliseconds 500
+  $execution = Invoke-RestMethod "$baseUrl/api/commands/$($queued.id)" -Headers $headers
+} while ($execution.status -in @("Pending", "Running") -and (Get-Date) -lt $deadline)
+
+$execution
+Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10" -Headers $headers
 ```
 
 To execute a real RCON command, use a server you control, set `rconPort`, and

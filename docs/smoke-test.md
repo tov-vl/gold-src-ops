@@ -125,10 +125,11 @@ Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable" 
   -Headers $headers
 ```
 
-### 8. Queue And Dispatch A Command Safely
+### 8. Queue And Observe A Command Safely
 
-Commands are persisted first and then dispatched through the configured command executor.
-Without a configured RCON port and a resolvable local secret, dispatch fails safely before sending anything to the server.
+Commands are persisted first and then claimed automatically by the background
+dispatcher. Without a configured RCON port and a resolvable local secret,
+execution fails safely before sending anything to the server.
 
 ```powershell
 $credential = @{
@@ -153,9 +154,13 @@ $queued = Invoke-RestMethod `
   -Headers $headers `
   -Body $command
 
-$queued
-Invoke-RestMethod -Method Post -Uri "$baseUrl/api/commands/$($queued.id)/dispatch" -Headers $headers
-Invoke-RestMethod "$baseUrl/api/commands/$($queued.id)" -Headers $headers
+$deadline = (Get-Date).AddSeconds(10)
+do {
+  Start-Sleep -Milliseconds 500
+  $execution = Invoke-RestMethod "$baseUrl/api/commands/$($queued.id)" -Headers $headers
+} while ($execution.status -in @("Pending", "Running") -and (Get-Date) -lt $deadline)
+
+$execution
 Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/commands?limit=10" -Headers $headers
 ```
 
@@ -199,13 +204,14 @@ Expected result:
 - `/health/live` and `/health/ready` return healthy responses.
 - `/metrics` exposes Prometheus metrics.
 - Command metrics are exposed as `goldsrcops_commands_queued`,
-  `goldsrcops_commands_dispatched`, and `goldsrcops_commands_completed`.
+  `goldsrcops_commands_dispatched`, `goldsrcops_commands_completed`, and
+  `goldsrcops_commands_recovered`.
 - `PATCH /api/servers/{id}` updates editable server settings.
 - Disabled servers are skipped by polling, and re-enabled servers can be polled again.
 - Credential responses report metadata only and do not echo the secret alias or canonical reference.
 - Command responses derive `RequestedBy` from the authenticated token subject.
-- Command dispatch transitions command status without leaking credential values.
-- Missing local RCON configuration is reported as a safe command failure before network dispatch.
+- Background dispatch transitions command status without leaking credential values.
+- Missing local RCON configuration is reported as a safe command failure before network execution.
 - `/status` eventually reports `Online` if the live server is reachable.
 - `/snapshots` contains at least one poll attempt.
 - `/dashboard/overview` includes the registered server in its counts.

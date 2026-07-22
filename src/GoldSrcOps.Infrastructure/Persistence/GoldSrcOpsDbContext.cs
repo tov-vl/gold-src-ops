@@ -115,7 +115,8 @@ public sealed class GoldSrcOpsDbContext : DbContext
             command.Property(x => x.RequestedBy).HasMaxLength(CommandExecution.MaxRequestedByLength);
             command.Property(x => x.ResultSummary).HasMaxLength(CommandExecution.MaxResultLength);
             command.Property(x => x.FailureReason).HasMaxLength(CommandExecution.MaxResultLength);
-            command.HasIndex(x => new { x.ServerId, x.RequestedAtUtc });
+            command.HasIndex(x => new { x.ServerId, x.Status, x.RequestedAtUtc });
+            command.HasIndex(x => new { x.Status, x.StartedAtUtc });
             command.HasOne(x => x.Server)
                 .WithMany()
                 .HasForeignKey(x => x.ServerId)

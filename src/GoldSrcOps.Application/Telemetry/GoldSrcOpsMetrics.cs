@@ -42,6 +42,10 @@ public static class GoldSrcOpsMetrics
         "goldsrcops.commands.completed",
         description: "Number of completed command dispatches by command type and result.");
 
+    private static readonly Counter<int> CommandsRecovered = Meter.CreateCounter<int>(
+        "goldsrcops.commands.recovered",
+        description: "Number of interrupted command executions recovered as failed.");
+
     private static readonly KeyValuePair<string, object?> SuccessResultTag = new("result", "success");
 
     private static readonly KeyValuePair<string, object?> FailureResultTag = new("result", "failure");
@@ -77,6 +81,14 @@ public static class GoldSrcOpsMetrics
             1,
             CommandTypeTag(commandType),
             CommandDispatchResultTag(result));
+    }
+
+    public static void RecordCommandsRecovered(int recoveredCount)
+    {
+        if (recoveredCount > 0)
+        {
+            CommandsRecovered.Add(recoveredCount);
+        }
     }
 
     private static void AddIfPositive(

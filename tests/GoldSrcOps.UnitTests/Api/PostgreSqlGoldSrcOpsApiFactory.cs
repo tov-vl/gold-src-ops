@@ -80,6 +80,7 @@ internal sealed class PostgreSqlGoldSrcOpsApiFactory : WebApplicationFactory<Pro
                 ["Authentication:Schemes:Bearer:ValidAudiences:0"] = "goldsrcops-tests",
                 ["Authentication:Schemes:Bearer:ValidIssuer"] = "goldsrcops-tests",
                 ["ConnectionStrings:GoldSrcOps"] = _database.GetConnectionString(),
+                ["CommandDispatcher:Enabled"] = "false",
                 ["Polling:Enabled"] = "false"
             });
         });

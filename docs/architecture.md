@@ -26,6 +26,7 @@ flowchart LR
         incidentService["IncidentsService"]
         credentialService["ServerCredentialsService"]
         commandService["CommandExecutionService"]
+        commandDispatcher["CommandDispatcher"]
         commandExecutor["IRconCommandExecutor"]
         pollingService["ServerPollingService"]
         telemetry["GoldSrcOpsMetrics"]
@@ -48,6 +49,7 @@ flowchart LR
         rconClient["GoldSrcRconClient"]
         secretResolver["ConfigurationSecretReferenceResolver"]
         backgroundWorker["GoldSrcPollingBackgroundService"]
+        commandWorker["CommandDispatchBackgroundService"]
     end
 
     clients --> endpoints
@@ -63,13 +65,15 @@ flowchart LR
     pollingService --> a2sClient
     pollingService --> repositories
     pollingService --> telemetry
+    commandWorker --> commandDispatcher
 
     serverService --> repositories
     monitoringService --> repositories
     incidentService --> repositories
     credentialService --> repositories
     commandService --> repositories
-    commandService --> commandExecutor
+    commandDispatcher --> repositories
+    commandDispatcher --> commandExecutor
     commandExecutor --> rconExecutor
     rconExecutor --> secretResolver
     rconExecutor --> rconClient
@@ -82,6 +86,7 @@ flowchart LR
     serverService -. uses .-> domain
     credentialService -. uses .-> domain
     commandService -. creates .-> domain
+    commandDispatcher -. updates .-> domain
     pollingService -. updates .-> domain
     repositories -. persists .-> domain
 ```
@@ -102,8 +107,8 @@ flowchart LR
   and command execution records.
 - `GoldSrcOps.Infrastructure` implements EF Core persistence, PostgreSQL
   configuration, the GoldSrc A2S query client, the GoldSrc RCON executor/client,
-  local secret-reference resolution, the system clock, and the background
-  polling worker.
+  local secret-reference resolution, the system clock, and the polling and
+  command-dispatch background workers.
 
 ## Security Boundary
 
@@ -206,13 +211,15 @@ sequenceDiagram
     Repo->>Db: Save changes
 ```
 
-### Queue And Dispatch Command
+### Queue And Execute Command
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant API as GoldSrcOps.Api
     participant App as CommandExecutionService
+    participant Worker as CommandDispatchBackgroundService
+    participant Dispatcher as CommandDispatcher
     participant Executor as IRconCommandExecutor
     participant Secrets as Secret resolver
     participant RCON as GoldSrc RCON
@@ -227,19 +234,25 @@ sequenceDiagram
     Repo->>Db: Insert command execution
     API-->>Client: 201 Created
 
-    Client->>API: POST /api/commands/{commandId}/dispatch
-    API->>App: Dispatch command
-    App->>Repo: Load command, server endpoint, and credential reference
-    App->>Domain: Mark command Running
-    Repo->>Db: Save Running status
-    App->>Executor: Execute RCON command using credential reference
+    Worker->>Dispatcher: DispatchNextAsync
+    Dispatcher->>Repo: Atomically claim oldest eligible Pending command
+    Repo->>Db: Lock server row and mark command Running
+    Repo-->>Dispatcher: Command, endpoint, and credential reference
+    Dispatcher->>Executor: Execute RCON command using credential reference
     Executor->>Secrets: Resolve RconSecrets alias
     Executor->>RCON: challenge rcon and rcon command over UDP
-    Executor-->>App: Succeeded, Failed, or TimedOut
-    App->>Domain: Mark command Succeeded or Failed
+    Executor-->>Dispatcher: Succeeded, Failed, or TimedOut
+    Dispatcher->>Domain: Mark command Succeeded or Failed
+    Dispatcher->>Repo: Conditionally complete the same Running claim
     Repo->>Db: Save final status
-    API-->>Client: 200 OK
 ```
+
+The PostgreSQL claim locks the server row with `FOR UPDATE SKIP LOCKED`. This
+allows workers and API replicas to execute commands for different servers in
+parallel while serializing each server queue. A stale `Running` command is
+marked `Failed` rather than retried automatically because RCON does not provide
+an idempotency key; conditional completion prevents a late worker from
+overwriting that recovery result.
 
 The credential API accepts a validated alias. Application stores it as a
 canonical `rcon-secret://<alias>` reference, and Infrastructure resolves only
@@ -257,8 +270,8 @@ unsupported references fail the command before a network packet is sent.
 - `/metrics` exposes ASP.NET Core, runtime, and GoldSrcOps application metrics
   in Prometheus format through OpenTelemetry.
 - Application metrics currently cover polling runs, server poll attempts by
-  result, incident transitions, queued commands, dispatched commands, and
-  completed command dispatches by result.
+  result, incident transitions, queued commands, dispatched commands, completed
+  command dispatches by result, and recovered interrupted commands.
 - Command dispatch remains auditable through `CommandExecution` records in
   addition to the Prometheus metrics.
 
@@ -271,8 +284,9 @@ The current test suite keeps the layers visible:
 - API integration tests cover endpoint behavior through `WebApplicationFactory`;
 - deterministic polling integration tests replace the A2S query client and
   clock while using production DI and EF-backed repositories;
-- command execution tests cover fake dispatch orchestration, secret-reference
+- command execution tests cover background dispatch orchestration, secret-reference
   resolution, GoldSrc RCON packet handling, and a synthetic UDP RCON flow;
 - telemetry tests cover command metric recording and Prometheus exposure;
 - PostgreSQL-backed integration tests use Testcontainers and apply EF Core
-  migrations against a real PostgreSQL provider.
+  migrations against a real PostgreSQL provider, including concurrent
+  per-server claims and interrupted-command recovery.

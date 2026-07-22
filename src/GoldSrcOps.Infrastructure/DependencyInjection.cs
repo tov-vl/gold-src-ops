@@ -29,9 +29,17 @@ public static class DependencyInjection
 
         var pollingOptions = GoldSrcPollingOptions.FromConfiguration(configuration);
         var rconOptions = GoldSrcRconOptions.FromConfiguration(configuration);
+        var dispatcherOptions = CommandDispatcherOptions.FromConfiguration(configuration);
+
+        if (dispatcherOptions.Enabled && dispatcherOptions.InterruptedAfter <= rconOptions.Timeout)
+        {
+            throw new InvalidOperationException(
+                "CommandDispatcher:InterruptedAfterSeconds must exceed the configured RCON timeout.");
+        }
 
         services.AddSingleton(pollingOptions);
         services.AddSingleton(rconOptions);
+        services.AddSingleton(dispatcherOptions);
         services.AddSingleton(new ServerPollingSettings(
             pollingOptions.QueryTimeout,
             pollingOptions.BatchSize,
@@ -46,6 +54,7 @@ public static class DependencyInjection
         services.AddSingleton<IGoldSrcRconClient>(_ =>
             new GoldSrcRconClient(Encoding.GetEncoding("windows-1251")));
         services.AddScoped<IRconCommandExecutor, GoldSrcRconCommandExecutor>();
+        services.AddScoped<CommandDispatcher>();
         services.AddScoped<ServerPollingService>();
         services.AddSingleton<IGoldSrcServerQueryClient>(_ =>
             new GoldSrcServerQueryClient(Encoding.GetEncoding("windows-1251")));
@@ -53,6 +62,11 @@ public static class DependencyInjection
         if (pollingOptions.Enabled)
         {
             services.AddHostedService<GoldSrcPollingBackgroundService>();
+        }
+
+        if (dispatcherOptions.Enabled)
+        {
+            services.AddHostedService<CommandDispatchBackgroundService>();
         }
 
         return services;
