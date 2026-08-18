@@ -5,6 +5,8 @@ using GoldSrcOps.Application.Telemetry;
 using GoldSrcOps.Domain.Commands;
 using GoldSrcOps.Domain.Servers;
 using GoldSrcOps.UnitTests.Helpers;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GoldSrcOps.UnitTests.Commands;
 
@@ -19,7 +21,7 @@ public sealed class CommandDispatcherTests
         var clock = new SequenceClock(
             new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 4, 25, 12, 1, 2, TimeSpan.Zero));
-        var sut = new CommandDispatcher(repository, executor, clock);
+        var sut = CreateDispatcher(repository, executor, clock);
         using var metrics = new MetricsCollector(GoldSrcOpsMetrics.MeterName);
 
         var result = await sut.DispatchNextAsync(CancellationToken.None);
@@ -63,6 +65,51 @@ public sealed class CommandDispatcherTests
     }
 
     [Fact]
+    public async Task DispatchNextAsync_writes_safe_structured_lifecycle_logs()
+    {
+        const string payload = "private-payload-49f7";
+        const string credentialSecretReference = "rcon-secret://private-secret-alias-49f7";
+        var command = CreateCommand(ServerCommandType.Raw, payload);
+        var repository = CreateRepository(
+            command,
+            credentialSecretReference: credentialSecretReference);
+        var executor = new CapturingRconCommandExecutor(RconCommandExecutionResult.Succeeded());
+        var clock = new SequenceClock(
+            new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 4, 25, 12, 1, 2, TimeSpan.Zero));
+        var logger = new CapturingLogger<CommandDispatcher>();
+        var sut = CreateDispatcher(repository, executor, clock, logger);
+
+        await sut.DispatchNextAsync(CancellationToken.None);
+
+        logger.Entries.Should().HaveCount(2);
+        var started = logger.Entries.Single(entry => entry.EventId.Id == 2001);
+        started.Level.Should().Be(LogLevel.Information);
+        started.EventId.Name.Should().Be("RconCommandDispatchStarted");
+        started.Properties["CommandId"].Should().Be(command.Id);
+        started.Properties["ServerId"].Should().Be(command.ServerId);
+        started.Properties["CommandType"].Should().Be(ServerCommandType.Raw);
+        started.Properties["CommandStatus"].Should().Be(CommandExecutionStatus.Running);
+
+        var completed = logger.Entries.Single(entry => entry.EventId.Id == 2002);
+        completed.Level.Should().Be(LogLevel.Information);
+        completed.EventId.Name.Should().Be("RconCommandDispatchCompleted");
+        completed.Properties["CommandId"].Should().Be(command.Id);
+        completed.Properties["ServerId"].Should().Be(command.ServerId);
+        completed.Properties["CommandType"].Should().Be(ServerCommandType.Raw);
+        completed.Properties["CommandStatus"].Should().Be(CommandExecutionStatus.Succeeded);
+        completed.Properties["DispatchResult"].Should().Be(CommandDispatchMetricResult.Succeeded);
+        ((double)completed.Properties["DurationMs"]!).Should().BeGreaterThanOrEqualTo(0);
+
+        var exposedText = string.Join(
+            Environment.NewLine,
+            logger.Entries.Select(entry =>
+                $"{entry.Message} {string.Join(' ', entry.Properties.Select(property => $"{property.Key}={property.Value}"))}"));
+        exposedText.Should().NotContain(payload);
+        exposedText.Should().NotContain(credentialSecretReference);
+    }
+
+    [Fact]
     public async Task DispatchNextAsync_marks_command_failed_when_executor_returns_failure()
     {
         var command = CreateCommand(ServerCommandType.Raw, "amx_kick #42");
@@ -72,7 +119,8 @@ public sealed class CommandDispatcherTests
         var clock = new SequenceClock(
             new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 4, 25, 12, 1, 2, TimeSpan.Zero));
-        var sut = new CommandDispatcher(repository, executor, clock);
+        var logger = new CapturingLogger<CommandDispatcher>();
+        var sut = CreateDispatcher(repository, executor, clock, logger);
 
         var result = await sut.DispatchNextAsync(CancellationToken.None);
 
@@ -81,6 +129,14 @@ public sealed class CommandDispatcherTests
         command.FailureReason.Should().Be("Rejected for [credential].");
         command.ResultSummary.Should().BeNull();
         repository.CompleteCount.Should().Be(1);
+        var completed = logger.Entries.Single(entry => entry.EventId.Id == 2002);
+        completed.Level.Should().Be(LogLevel.Warning);
+        completed.Properties["CommandStatus"].Should().Be(CommandExecutionStatus.Failed);
+        completed.Properties["DispatchResult"].Should().Be(CommandDispatchMetricResult.Failed);
+        completed.Message.Should().NotContain("Rejected for");
+        completed.Message.Should().NotContain("rcon-secret://server_rcon");
+        string.Join(' ', completed.Properties.Select(property => $"{property.Key}={property.Value}"))
+            .Should().NotContain("rcon-secret://server_rcon");
     }
 
     [Fact]
@@ -93,7 +149,7 @@ public sealed class CommandDispatcherTests
         var clock = new SequenceClock(
             new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 4, 25, 12, 1, 2, TimeSpan.Zero));
-        var sut = new CommandDispatcher(repository, executor, clock);
+        var sut = CreateDispatcher(repository, executor, clock);
         using var metrics = new MetricsCollector(GoldSrcOpsMetrics.MeterName);
 
         var result = await sut.DispatchNextAsync(CancellationToken.None);
@@ -116,7 +172,7 @@ public sealed class CommandDispatcherTests
         var clock = new SequenceClock(
             new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 4, 25, 12, 1, 2, TimeSpan.Zero));
-        var sut = new CommandDispatcher(repository, executor, clock);
+        var sut = CreateDispatcher(repository, executor, clock);
 
         var result = await sut.DispatchNextAsync(CancellationToken.None);
 
@@ -135,7 +191,7 @@ public sealed class CommandDispatcherTests
         var clock = new SequenceClock(
             new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 4, 25, 12, 1, 2, TimeSpan.Zero));
-        var sut = new CommandDispatcher(repository, executor, clock);
+        var sut = CreateDispatcher(repository, executor, clock);
 
         var result = await sut.DispatchNextAsync(CancellationToken.None);
 
@@ -154,7 +210,8 @@ public sealed class CommandDispatcherTests
         var clock = new SequenceClock(
             new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 4, 25, 12, 1, 2, TimeSpan.Zero));
-        var sut = new CommandDispatcher(repository, executor, clock);
+        var logger = new CapturingLogger<CommandDispatcher>();
+        var sut = CreateDispatcher(repository, executor, clock, logger);
         using var metrics = new MetricsCollector(GoldSrcOpsMetrics.MeterName);
 
         var result = await sut.DispatchNextAsync(CancellationToken.None);
@@ -162,6 +219,15 @@ public sealed class CommandDispatcherTests
         result.Kind.Should().Be(CommandDispatchAttemptResultKind.CompletionLost);
         metrics.Measurements.Should().NotContain(metric =>
             metric.Name == "goldsrcops.commands.completed");
+        var completionLost = logger.Entries.Single(entry => entry.EventId.Id == 2003);
+        completionLost.Level.Should().Be(LogLevel.Warning);
+        completionLost.EventId.Name.Should().Be("RconCommandDispatchCompletionLost");
+        completionLost.Properties["CommandId"].Should().Be(command.Id);
+        completionLost.Properties["ServerId"].Should().Be(command.ServerId);
+        completionLost.Properties["CommandType"].Should().Be(ServerCommandType.Say);
+        completionLost.Properties["CommandStatus"].Should().Be(CommandExecutionStatus.Succeeded);
+        completionLost.Properties["DispatchResult"].Should().Be(CommandDispatchMetricResult.Succeeded);
+        ((double)completionLost.Properties["DurationMs"]!).Should().BeGreaterThanOrEqualTo(0);
     }
 
     [Fact]
@@ -169,7 +235,7 @@ public sealed class CommandDispatcherTests
     {
         var repository = new InMemoryCommandExecutionRepository(dispatchContext: null);
         var executor = new CapturingRconCommandExecutor(RconCommandExecutionResult.Succeeded());
-        var sut = new CommandDispatcher(
+        var sut = CreateDispatcher(
             repository,
             executor,
             new SequenceClock(new DateTimeOffset(2026, 4, 25, 12, 1, 0, TimeSpan.Zero)));
@@ -191,7 +257,7 @@ public sealed class CommandDispatcherTests
             InterruptedCount = 2
         };
         var executor = new CapturingRconCommandExecutor(RconCommandExecutionResult.Succeeded());
-        var sut = new CommandDispatcher(repository, executor, new SequenceClock(now));
+        var sut = CreateDispatcher(repository, executor, new SequenceClock(now));
         using var metrics = new MetricsCollector(GoldSrcOpsMetrics.MeterName);
 
         var result = await sut.RecoverInterruptedAsync(TimeSpan.FromSeconds(30), CancellationToken.None);
@@ -210,14 +276,26 @@ public sealed class CommandDispatcherTests
     private static InMemoryCommandExecutionRepository CreateRepository(
         CommandExecution command,
         int? rconPort = 27015,
-        bool completeSuccessfully = true) =>
+        bool completeSuccessfully = true,
+        string? credentialSecretReference = "rcon-secret://server_rcon") =>
         new(
             new CommandExecutionDispatchContext(
                 command,
                 Host: "127.0.0.1",
                 RconPort: rconPort,
-                CredentialSecretReference: "rcon-secret://server_rcon"),
+                CredentialSecretReference: credentialSecretReference),
             completeSuccessfully);
+
+    private static CommandDispatcher CreateDispatcher(
+        ICommandExecutionRepository repository,
+        IRconCommandExecutor executor,
+        IClock clock,
+        ILogger<CommandDispatcher>? logger = null) =>
+        new(
+            repository,
+            executor,
+            clock,
+            logger ?? NullLogger<CommandDispatcher>.Instance);
 
     private static CommandExecution CreateCommand(ServerCommandType type, string? payload)
     {

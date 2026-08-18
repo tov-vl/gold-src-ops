@@ -27,6 +27,7 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added server edit and enable/disable endpoints.
 - Added durable background command execution with atomic per-server claiming, interrupted-command recovery, local secret-reference resolution, and a live GoldSrc RCON client.
 - Added command execution metrics for queued, dispatched, completed, and recovered command dispatches.
+- Added safe structured RCON lifecycle logs with command/server correlation and dispatch duration.
 - Added PostgreSQL integration coverage for concurrent command claims and interrupted-command recovery.
 - Added JWT bearer authentication with `Reader` and `Operator` authorization policies and token-derived command audit identity.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
@@ -379,6 +380,6 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Complete command dispatch operational hardening with structured lifecycle logs
-and a guarded local smoke script for owned servers. Snapshot retention is the
-following operational milestone.
+Complete command dispatch operational hardening with a guarded local smoke
+script for owned servers. Snapshot retention is the following operational
+milestone.

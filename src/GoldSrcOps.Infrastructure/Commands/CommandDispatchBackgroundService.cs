@@ -90,12 +90,6 @@ internal sealed partial class CommandDispatchBackgroundService : BackgroundServi
             .Select(_ => DispatchOneAsync(cancellationToken));
         var results = await Task.WhenAll(tasks);
 
-        foreach (var result in results.Where(static result =>
-                     result.Kind == CommandDispatchAttemptResultKind.CompletionLost))
-        {
-            LogCommandCompletionLost(_logger, result.CommandId, result.ServerId);
-        }
-
         return results.Count(static result => result.Kind != CommandDispatchAttemptResultKind.NoCommand);
     }
 
@@ -128,12 +122,4 @@ internal sealed partial class CommandDispatchBackgroundService : BackgroundServi
         Message = "Command dispatcher pass failed.")]
     private static partial void LogDispatcherPassFailed(ILogger logger, Exception exception);
 
-    [LoggerMessage(
-        EventId = 4,
-        Level = LogLevel.Warning,
-        Message = "Command {CommandId} for server {ServerId} lost its completion claim.")]
-    private static partial void LogCommandCompletionLost(
-        ILogger logger,
-        Guid? commandId,
-        Guid? serverId);
 }

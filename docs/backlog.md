@@ -67,6 +67,8 @@ Completed:
 - Interrupted `Running` commands are recovered as `Failed` without automatic RCON retry, and PostgreSQL integration tests cover concurrent claims and recovery.
 - Polling metadata and failure reasons are bounded by domain invariants that match the EF Core column limits.
 - The v1 singleton-poller deployment constraint and the trigger for distributed polling leases are documented.
+- Structured RCON lifecycle logs identify command and server ids, command type,
+  status, result, and duration without payload or credential material.
 
 ## Immediate Next Milestone
 
@@ -74,14 +76,11 @@ Complete the operational hardening of durable command dispatch.
 
 Definition of done:
 
-- Add structured logs that identify command/server ids without logging command secrets.
 - Add a guarded local smoke helper for an owned server with explicit confirmation before real RCON dispatch.
 
 ## Next Tasks
 
-1. Add structured command execution logs without credential material.
-
-2. Add an opt-in local RCON smoke helper for owned servers.
+1. Add an opt-in local RCON smoke helper for owned servers.
 
 ## Following Milestone
 

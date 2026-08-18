@@ -291,6 +291,9 @@ unsupported references fail the command before a network packet is sent.
 - Application metrics currently cover polling runs, server poll attempts by
   result, incident transitions, queued commands, dispatched commands, completed
   command dispatches by result, and recovered interrupted commands.
+- Structured RCON lifecycle events expose safe command and server identifiers,
+  type, status, result, and duration while excluding payloads, secret references,
+  passwords, and executor response text.
 - Command dispatch remains auditable through `CommandExecution` records in
   addition to the Prometheus metrics.
 
@@ -304,7 +307,8 @@ The current test suite keeps the layers visible:
 - deterministic polling integration tests replace the A2S query client and
   clock while using production DI and EF-backed repositories;
 - command execution tests cover background dispatch orchestration, secret-reference
-  resolution, GoldSrc RCON packet handling, and a synthetic UDP RCON flow;
+  resolution, structured-log safety, GoldSrc RCON packet handling, and a
+  synthetic UDP RCON flow;
 - telemetry tests cover command metric recording and Prometheus exposure;
 - PostgreSQL-backed integration tests use Testcontainers and apply EF Core
   migrations against a real PostgreSQL provider, including concurrent

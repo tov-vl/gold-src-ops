@@ -1,10 +1,12 @@
+using System.Diagnostics;
 using GoldSrcOps.Application.Common;
 using GoldSrcOps.Application.Telemetry;
 using GoldSrcOps.Domain.Commands;
+using Microsoft.Extensions.Logging;
 
 namespace GoldSrcOps.Application.Commands;
 
-public sealed class CommandDispatcher
+public sealed partial class CommandDispatcher
 {
     public const string InterruptedFailureReason =
         "Command execution was interrupted before completion.";
@@ -12,15 +14,18 @@ public sealed class CommandDispatcher
     private readonly ICommandExecutionRepository _commands;
     private readonly IRconCommandExecutor _rconExecutor;
     private readonly IClock _clock;
+    private readonly ILogger<CommandDispatcher> _logger;
 
     public CommandDispatcher(
         ICommandExecutionRepository commands,
         IRconCommandExecutor rconExecutor,
-        IClock clock)
+        IClock clock,
+        ILogger<CommandDispatcher> logger)
     {
         _commands = commands;
         _rconExecutor = rconExecutor;
         _clock = clock;
+        _logger = logger;
     }
 
     public async Task<int> RecoverInterruptedAsync(
@@ -60,32 +65,74 @@ public sealed class CommandDispatcher
             throw new InvalidOperationException("A claimed command must be running and have a start time.");
         }
 
-        var metricResult = CommandDispatchMetricResult.Failed;
-        if (context.RconPort is null)
-        {
-            command.MarkFailed(_clock.UtcNow, "RCON port is not configured.");
-        }
-        else if (string.IsNullOrWhiteSpace(context.CredentialSecretReference))
-        {
-            command.MarkFailed(_clock.UtcNow, "RCON credential is not configured.");
-        }
-        else
-        {
-            GoldSrcOpsMetrics.RecordCommandDispatched(command.Type);
-            metricResult = await ExecuteAsync(context, cancellationToken);
-        }
+        var dispatchStartedTimestamp = Stopwatch.GetTimestamp();
+        LogCommandDispatchStarted(
+            _logger,
+            command.Id,
+            command.ServerId,
+            command.Type,
+            command.Status);
 
-        var completed = await _commands.CompleteClaimedAsync(
-            command,
-            command.StartedAtUtc.Value,
-            cancellationToken);
-        if (!completed)
+        try
         {
-            return CommandDispatchAttemptResult.CompletionLost(command);
-        }
+            var metricResult = CommandDispatchMetricResult.Failed;
+            if (context.RconPort is null)
+            {
+                command.MarkFailed(_clock.UtcNow, "RCON port is not configured.");
+            }
+            else if (string.IsNullOrWhiteSpace(context.CredentialSecretReference))
+            {
+                command.MarkFailed(_clock.UtcNow, "RCON credential is not configured.");
+            }
+            else
+            {
+                GoldSrcOpsMetrics.RecordCommandDispatched(command.Type);
+                metricResult = await ExecuteAsync(context, cancellationToken);
+            }
 
-        GoldSrcOpsMetrics.RecordCommandCompleted(command.Type, metricResult);
-        return CommandDispatchAttemptResult.Completed(command);
+            var completed = await _commands.CompleteClaimedAsync(
+                command,
+                command.StartedAtUtc.Value,
+                cancellationToken);
+            var durationMs = Stopwatch.GetElapsedTime(dispatchStartedTimestamp).TotalMilliseconds;
+            if (!completed)
+            {
+                LogCommandDispatchCompletionLost(
+                    _logger,
+                    command.Id,
+                    command.ServerId,
+                    command.Type,
+                    command.Status,
+                    metricResult,
+                    durationMs);
+                return CommandDispatchAttemptResult.CompletionLost(command);
+            }
+
+            GoldSrcOpsMetrics.RecordCommandCompleted(command.Type, metricResult);
+            LogCommandDispatchCompleted(
+                _logger,
+                command.Status == CommandExecutionStatus.Succeeded
+                    ? LogLevel.Information
+                    : LogLevel.Warning,
+                command.Id,
+                command.ServerId,
+                command.Type,
+                command.Status,
+                metricResult,
+                durationMs);
+            return CommandDispatchAttemptResult.Completed(command);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            LogCommandDispatchInterrupted(
+                _logger,
+                command.Id,
+                command.ServerId,
+                command.Type,
+                command.Status,
+                Stopwatch.GetElapsedTime(dispatchStartedTimestamp).TotalMilliseconds);
+            throw;
+        }
     }
 
     private async Task<CommandDispatchMetricResult> ExecuteAsync(
@@ -197,4 +244,57 @@ public sealed class CommandDispatcher
             "[credential]",
             StringComparison.OrdinalIgnoreCase);
     }
+
+    [LoggerMessage(
+        EventId = 2001,
+        EventName = "RconCommandDispatchStarted",
+        Level = LogLevel.Information,
+        Message = "RCON command dispatch started for command {CommandId} on server {ServerId} with type {CommandType} and status {CommandStatus}.")]
+    private static partial void LogCommandDispatchStarted(
+        ILogger logger,
+        Guid commandId,
+        Guid serverId,
+        ServerCommandType commandType,
+        CommandExecutionStatus commandStatus);
+
+    [LoggerMessage(
+        EventId = 2002,
+        EventName = "RconCommandDispatchCompleted",
+        Message = "RCON command dispatch completed for command {CommandId} on server {ServerId} with type {CommandType}, status {CommandStatus}, result {DispatchResult}, and duration {DurationMs} ms.")]
+    private static partial void LogCommandDispatchCompleted(
+        ILogger logger,
+        LogLevel level,
+        Guid commandId,
+        Guid serverId,
+        ServerCommandType commandType,
+        CommandExecutionStatus commandStatus,
+        CommandDispatchMetricResult dispatchResult,
+        double durationMs);
+
+    [LoggerMessage(
+        EventId = 2003,
+        EventName = "RconCommandDispatchCompletionLost",
+        Level = LogLevel.Warning,
+        Message = "RCON command dispatch lost its completion claim for command {CommandId} on server {ServerId} with type {CommandType}, local status {CommandStatus}, result {DispatchResult}, and duration {DurationMs} ms.")]
+    private static partial void LogCommandDispatchCompletionLost(
+        ILogger logger,
+        Guid commandId,
+        Guid serverId,
+        ServerCommandType commandType,
+        CommandExecutionStatus commandStatus,
+        CommandDispatchMetricResult dispatchResult,
+        double durationMs);
+
+    [LoggerMessage(
+        EventId = 2004,
+        EventName = "RconCommandDispatchInterrupted",
+        Level = LogLevel.Warning,
+        Message = "RCON command dispatch was interrupted for command {CommandId} on server {ServerId} with type {CommandType}, local status {CommandStatus}, and duration {DurationMs} ms.")]
+    private static partial void LogCommandDispatchInterrupted(
+        ILogger logger,
+        Guid commandId,
+        Guid serverId,
+        ServerCommandType commandType,
+        CommandExecutionStatus commandStatus,
+        double durationMs);
 }

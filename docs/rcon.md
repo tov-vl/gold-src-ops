@@ -104,9 +104,21 @@ Dispatcher settings live under `CommandDispatcher`:
 `InterruptedAfterSeconds` must be greater than the configured RCON timeout or
 the application rejects the configuration during startup.
 
+## Lifecycle Logs
+
+Each claimed command emits structured lifecycle events for dispatch start and
+one terminal local outcome: completed, completion claim lost, or interrupted.
+The events include `CommandId`, `ServerId`, `CommandType`, and `CommandStatus`;
+terminal events also include `DurationMs`, and completed or lost-completion
+events include `DispatchResult`.
+
+The log contract intentionally excludes the command payload, rendered RCON
+command text, requester, credential secret reference, password, and executor
+response or failure text. Operators can correlate the safe identifiers with the
+persisted `CommandExecution` audit record when details are needed.
+
 ## Current Limits
 
 - IPv4 endpoints only, matching the current A2S client.
 - Split or multi-packet RCON responses are not implemented yet.
 - Passwords containing double quotes are rejected by the protocol layer.
-- Comprehensive structured command lifecycle logs are the next hardening step.
