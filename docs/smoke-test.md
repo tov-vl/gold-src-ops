@@ -186,6 +186,31 @@ for dispatch. The selected alias is stored internally as
 `rcon-secret://server_rcon`. Arbitrary `env://`, `config://`, and
 `dev-secrets://` references are unsupported.
 
+For real dispatch, prefer the guarded helper over manually posting a command.
+First run its authenticated preflight:
+
+```powershell
+.\tools\smoke\rcon-live.ps1 `
+  -ServerId $server.id `
+  -AcknowledgeOwnedServer `
+  -WhatIf
+```
+
+After verifying the displayed server name, host, RCON port, and generated
+`say` command, remove `-WhatIf`. The helper requires the server id to be typed
+again before it queues anything:
+
+```powershell
+.\tools\smoke\rcon-live.ps1 `
+  -ServerId $server.id `
+  -AcknowledgeOwnedServer
+```
+
+The helper prompts for the Operator JWT without echoing it and never reads the
+RCON password. It polls the persisted command until completion and prints only
+its identifiers, status, and elapsed time. If the helper times out, inspect the
+command record before retrying because RCON execution is not idempotent.
+
 ### 9. Check Monitoring Reads
 
 The background poller runs every few seconds. Wait briefly, then query status and history:

@@ -28,6 +28,7 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added durable background command execution with atomic per-server claiming, interrupted-command recovery, local secret-reference resolution, and a live GoldSrc RCON client.
 - Added command execution metrics for queued, dispatched, completed, and recovered command dispatches.
 - Added safe structured RCON lifecycle logs with command/server correlation and dispatch duration.
+- Added a guarded live RCON smoke helper with authenticated preflight and explicit owned-server confirmation.
 - Added PostgreSQL integration coverage for concurrent command claims and interrupted-command recovery.
 - Added JWT bearer authentication with `Reader` and `Operator` authorization policies and token-derived command audit identity.
 - Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
@@ -302,6 +303,15 @@ Both sources resolve the API alias `server_rcon` to the internal canonical
 reference `rcon-secret://server_rcon`. Arbitrary `env://`, `config://`, and
 `dev-secrets://` references are intentionally rejected.
 
+For real dispatch, use the guarded helper and run `-WhatIf` before removing it:
+
+```powershell
+.\tools\smoke\rcon-live.ps1 `
+  -ServerId $server.id `
+  -AcknowledgeOwnedServer `
+  -WhatIf
+```
+
 Never run the command dispatch smoke against a public server you do not own.
 
 Continue with monitoring reads:
@@ -380,6 +390,5 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Complete command dispatch operational hardening with a guarded local smoke
-script for owned servers. Snapshot retention is the following operational
-milestone.
+Add configurable snapshot retention with bounded cleanup batches, operational
+metrics, and PostgreSQL-backed batching coverage.

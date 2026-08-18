@@ -69,24 +69,34 @@ Completed:
 - The v1 singleton-poller deployment constraint and the trigger for distributed polling leases are documented.
 - Structured RCON lifecycle logs identify command and server ids, command type,
   status, result, and duration without payload or credential material.
+- Guarded local RCON smoke helper added with owned-server acknowledgement,
+  authenticated preflight, `-WhatIf`, exact server-id confirmation, and a
+  generated `say` command only.
 
 ## Immediate Next Milestone
 
-Complete the operational hardening of durable command dispatch.
+Add configurable snapshot retention with bounded cleanup batches and
+operational metrics.
 
 Definition of done:
 
-- Add a guarded local smoke helper for an owned server with explicit confirmation before real RCON dispatch.
+- Retention and cleanup cadence are validated configuration options.
+- Old snapshots are deleted in bounded batches without affecting current state
+  or incident history.
+- Cleanup runs expose completion, deletion, failure, and duration signals.
+- Unit and PostgreSQL-backed integration tests cover cutoff and batching rules.
 
 ## Next Tasks
 
-1. Add an opt-in local RCON smoke helper for owned servers.
+1. Define snapshot-retention options and the application cleanup boundary.
+2. Add bounded PostgreSQL deletion and a background cleanup worker.
+3. Add cleanup metrics, tests, and operational documentation.
 
 ## Following Milestone
 
-Add configurable snapshot retention with bounded cleanup batches and operational
-metrics. A distributed polling claim or lease remains deferred until multiple
-active poller instances are required.
+Review v1 portfolio readiness after retention is implemented. A distributed
+polling claim or lease remains deferred until multiple active poller instances
+are required.
 
 ## v1 API Scope
 
@@ -239,7 +249,7 @@ Start focused:
 
 Later:
 
-- Structured command logs and guarded live smoke automation.
+- Snapshot-retention cleanup, metrics, and PostgreSQL batching coverage.
 
 ## Portfolio Readiness Checklist
 

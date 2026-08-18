@@ -117,6 +117,44 @@ command text, requester, credential secret reference, password, and executor
 response or failure text. Operators can correlate the safe identifiers with the
 persisted `CommandExecution` audit record when details are needed.
 
+## Guarded Live Smoke
+
+Use `tools/smoke/rcon-live.ps1` for an end-to-end check against a server you own
+or administer. The helper calls the authenticated API rather than the RCON
+client directly, so it covers server and credential metadata, command queueing,
+background dispatch, secret resolution, and terminal status persistence.
+
+Run a preflight first:
+
+```powershell
+.\tools\smoke\rcon-live.ps1 `
+  -ServerId "<registered-server-id>" `
+  -AcknowledgeOwnedServer `
+  -WhatIf
+```
+
+The script prompts for an Operator JWT without echoing it. Preflight reads the
+registered server and credential metadata, verifies that the server is enabled
+and has an RCON port, and prints the generated `say` command. `-WhatIf` prevents
+the command POST.
+
+Remove `-WhatIf` only after checking the target:
+
+```powershell
+.\tools\smoke\rcon-live.ps1 `
+  -ServerId "<registered-server-id>" `
+  -AcknowledgeOwnedServer
+```
+
+Live dispatch requires typing the same server id again. The helper only sends a
+generated `say GoldSrcOps smoke <timestamp> <nonce>` command; it cannot send raw,
+restart, or map-change commands. It reports only command id, server id, status,
+and elapsed time. It never reads the RCON password or prints the JWT, credential
+reference, response text, or failure text.
+
+A local timeout does not prove that RCON execution did not happen. Inspect the
+persisted command by id before deciding whether to queue another command.
+
 ## Current Limits
 
 - IPv4 endpoints only, matching the current A2S client.
