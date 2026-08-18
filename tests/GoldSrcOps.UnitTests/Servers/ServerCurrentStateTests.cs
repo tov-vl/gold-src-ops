@@ -1,3 +1,4 @@
+using AwesomeAssertions;
 using GoldSrcOps.Domain.Servers;
 
 namespace GoldSrcOps.UnitTests.Servers;
@@ -71,5 +72,26 @@ public sealed class ServerCurrentStateTests
         Assert.Equal(32, state.MaxPlayers);
         Assert.Null(state.FailureReason);
         Assert.Equal(0, state.ConsecutiveFailures);
+    }
+
+    [Fact]
+    public void Monitoring_text_is_bounded_to_persistence_limits()
+    {
+        var state = ServerCurrentState.CreateUnknown(Guid.NewGuid(), DateTimeOffset.UtcNow);
+        var map = new string('m', ServerCurrentState.MaxMapLength + 1);
+        var failureReason = new string('f', ServerCurrentState.MaxFailureReasonLength + 1);
+
+        state.MarkOnline(
+            DateTimeOffset.UtcNow,
+            latencyMs: 25,
+            map: map,
+            players: 1,
+            maxPlayers: 32);
+
+        state.CurrentMap.Should().Be(map[..ServerCurrentState.MaxMapLength]);
+
+        state.MarkOffline(DateTimeOffset.UtcNow, failureReason);
+
+        state.FailureReason.Should().Be(failureReason[..ServerCurrentState.MaxFailureReasonLength]);
     }
 }

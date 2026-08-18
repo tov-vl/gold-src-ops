@@ -2,6 +2,9 @@ namespace GoldSrcOps.Domain.Servers;
 
 public sealed class ServerCurrentState
 {
+    public const int MaxMapLength = 128;
+    public const int MaxFailureReasonLength = 2000;
+
     private ServerCurrentState()
     {
     }
@@ -53,7 +56,7 @@ public sealed class ServerCurrentState
         LastCheckedAtUtc = checkedAtUtc;
         LastSuccessAtUtc = checkedAtUtc;
         LatencyMs = latencyMs;
-        CurrentMap = string.IsNullOrWhiteSpace(map) ? null : map.Trim();
+        CurrentMap = MonitoringText.NormalizeOptional(map, MaxMapLength);
         Players = players;
         MaxPlayers = maxPlayers;
         FailureReason = null;
@@ -69,9 +72,10 @@ public sealed class ServerCurrentState
         CurrentMap = null;
         Players = null;
         MaxPlayers = null;
-        FailureReason = string.IsNullOrWhiteSpace(failureReason)
-            ? "Server query failed."
-            : failureReason.Trim();
+        FailureReason = MonitoringText.NormalizeRequired(
+            failureReason,
+            "Server query failed.",
+            MaxFailureReasonLength);
         ConsecutiveFailures = ConsecutiveFailures == int.MaxValue
             ? int.MaxValue
             : ConsecutiveFailures + 1;

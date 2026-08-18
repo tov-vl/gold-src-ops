@@ -2,6 +2,10 @@ namespace GoldSrcOps.Domain.Servers;
 
 public sealed class PollSnapshot
 {
+    public const int MaxMapLength = 128;
+    public const int MaxRawVersionLength = 128;
+    public const int MaxFailureReasonLength = 2000;
+
     private PollSnapshot()
     {
     }
@@ -47,11 +51,11 @@ public sealed class PollSnapshot
             CheckedAtUtc = checkedAtUtc,
             IsReachable = true,
             LatencyMs = latencyMs,
-            Map = string.IsNullOrWhiteSpace(map) ? null : map.Trim(),
+            Map = MonitoringText.NormalizeOptional(map, MaxMapLength),
             Players = players,
             MaxPlayers = maxPlayers,
             Bots = bots,
-            RawVersion = string.IsNullOrWhiteSpace(rawVersion) ? null : rawVersion.Trim(),
+            RawVersion = MonitoringText.NormalizeOptional(rawVersion, MaxRawVersionLength),
             FailureReason = null
         };
     }
@@ -67,9 +71,10 @@ public sealed class PollSnapshot
             ServerId = serverId,
             CheckedAtUtc = checkedAtUtc,
             IsReachable = false,
-            FailureReason = string.IsNullOrWhiteSpace(failureReason)
-                ? "Server query failed."
-                : failureReason.Trim()
+            FailureReason = MonitoringText.NormalizeRequired(
+                failureReason,
+                "Server query failed.",
+                MaxFailureReasonLength)
         };
     }
 }

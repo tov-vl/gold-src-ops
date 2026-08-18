@@ -2,6 +2,8 @@ namespace GoldSrcOps.Domain.Servers;
 
 public sealed class AvailabilityIncident
 {
+    public const int MaxReasonLength = 2000;
+
     private AvailabilityIncident()
     {
         StartReason = string.Empty;
@@ -39,9 +41,10 @@ public sealed class AvailabilityIncident
             ServerId = serverId,
             Type = IncidentType.Unreachable,
             OpenedAtUtc = openedAtUtc,
-            StartReason = string.IsNullOrWhiteSpace(startReason)
-                ? "Server became unreachable."
-                : startReason.Trim(),
+            StartReason = MonitoringText.NormalizeRequired(
+                startReason,
+                "Server became unreachable.",
+                MaxReasonLength),
             ConsecutiveFailures = Math.Max(1, consecutiveFailures)
         };
     }
@@ -64,8 +67,9 @@ public sealed class AvailabilityIncident
         }
 
         ClosedAtUtc = closedAtUtc;
-        EndReason = string.IsNullOrWhiteSpace(endReason)
-            ? "Server query recovered."
-            : endReason.Trim();
+        EndReason = MonitoringText.NormalizeRequired(
+            endReason,
+            "Server query recovered.",
+            MaxReasonLength);
     }
 }

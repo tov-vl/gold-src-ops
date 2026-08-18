@@ -56,6 +56,54 @@ public sealed class ServerPollingIntegrationTests
     }
 
     [Fact]
+    public async Task PollDueServersAsync_bounds_external_text_before_persistence()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 5, 8, 12, 0, 0, TimeSpan.Zero));
+        var map = new string('m', PollSnapshot.MaxMapLength + 1);
+        var rawVersion = new string('v', PollSnapshot.MaxRawVersionLength + 1);
+        var queryClient = new FakeGoldSrcServerQueryClient();
+        queryClient.EnqueueSuccess(CreateServerInfo(map, rawVersion));
+        await using var factory = CreateFactory(clock, queryClient);
+        var serverId = await SeedServerAsync(factory, clock.UtcNow);
+
+        var result = await PollOnceAsync(factory);
+
+        result.SuccessfulPolls.Should().Be(1);
+        await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var state = await dbContext.ServerCurrentStates.SingleAsync(x => x.ServerId == serverId);
+            state.CurrentMap.Should().Be(map[..ServerCurrentState.MaxMapLength]);
+
+            var snapshot = await dbContext.PollSnapshots.SingleAsync(x => x.ServerId == serverId);
+            snapshot.Map.Should().Be(map[..PollSnapshot.MaxMapLength]);
+            snapshot.RawVersion.Should().Be(rawVersion[..PollSnapshot.MaxRawVersionLength]);
+        });
+    }
+
+    [Fact]
+    public async Task PollDueServersAsync_bounds_failure_reason_before_persistence()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 5, 8, 12, 0, 0, TimeSpan.Zero));
+        var failureReason = new string('f', PollSnapshot.MaxFailureReasonLength + 1);
+        var queryClient = new FakeGoldSrcServerQueryClient();
+        queryClient.EnqueueFailure(new InvalidOperationException(failureReason));
+        await using var factory = CreateFactory(clock, queryClient);
+        var serverId = await SeedServerAsync(factory, clock.UtcNow);
+
+        var result = await PollOnceAsync(factory);
+
+        result.FailedPolls.Should().Be(1);
+        await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var state = await dbContext.ServerCurrentStates.SingleAsync(x => x.ServerId == serverId);
+            state.FailureReason.Should().Be(failureReason[..ServerCurrentState.MaxFailureReasonLength]);
+
+            var snapshot = await dbContext.PollSnapshots.SingleAsync(x => x.ServerId == serverId);
+            snapshot.FailureReason.Should().Be(failureReason[..PollSnapshot.MaxFailureReasonLength]);
+        });
+    }
+
+    [Fact]
     public async Task PollDueServersAsync_opens_incident_after_repeated_failed_queries()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 5, 8, 12, 0, 0, TimeSpan.Zero));
@@ -181,12 +229,14 @@ public sealed class ServerPollingIntegrationTests
         return await polling.PollDueServersAsync(CancellationToken.None);
     }
 
-    private static GameServerInfo CreateServerInfo()
+    private static GameServerInfo CreateServerInfo(
+        string map = "de_dust2",
+        string version = "1.1.2.7/Stdio")
     {
         return new GameServerInfo(
             ResponseFormat: "Source",
             Name: "CS 1.6 Test",
-            Map: "de_dust2",
+            Map: map,
             Folder: "cstrike",
             Game: "Counter-Strike",
             Protocol: 48,
@@ -197,7 +247,7 @@ public sealed class ServerPollingIntegrationTests
             Environment: 'l',
             IsPrivate: false,
             HasVac: false,
-            Version: "1.1.2.7/Stdio",
+            Version: version,
             Latency: TimeSpan.FromMilliseconds(42));
     }
 
