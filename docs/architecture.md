@@ -152,6 +152,20 @@ Command audit identity comes from the authenticated token subject. Callers can
 no longer supply `RequestedBy` in command request bodies. The endpoint matrix,
 HTTP behavior, and required security tests are specified in `docs/security.md`.
 
+## Deployment Model
+
+The v1 deployment runs exactly one active polling worker. If multiple API
+instances are deployed, only one may use `Polling:Enabled=true`; HTTP-only
+instances must set `Polling__Enabled=false`. The current polling scheduler does
+not use a distributed claim, so running multiple active pollers could duplicate
+snapshots and incident transitions.
+
+This constraint does not apply to command dispatch. PostgreSQL atomically
+claims commands and serializes each server queue, so multiple command workers
+or API instances may dispatch commands concurrently. Horizontal polling will
+require an expiring database claim or lease before this singleton constraint can
+be removed.
+
 ## Runtime Flows
 
 ### Register Server
@@ -190,6 +204,11 @@ sequenceDiagram
     App->>Repo: Add snapshot and close open incident if present
     Repo->>Db: Save current state, snapshot, incident changes
 ```
+
+Map, version, and failure text from the external server are normalized and
+bounded by Domain before persistence. The EF Core model uses the same limits so
+a malformed response cannot exceed the current-state, snapshot, or incident
+columns.
 
 ### Polling Failure And Incident Detection
 

@@ -18,19 +18,24 @@ Implemented:
 - Basic typed output for name, map, players, max players, bots, protocol, game, version, and latency.
 - Configurable server-name encoding.
 
-Not implemented yet:
+Intentionally outside the spike:
 
 - `A2S_PLAYER`.
 - `A2S_RULES`.
 - Split packet reassembly.
-- RCON.
-- Persistence.
-- Background polling.
+
+After the spike validated the protocol, the A2S client moved into
+`GoldSrcOps.Infrastructure`. The main application now provides PostgreSQL
+persistence, scheduled background polling, incident detection, and a separate
+RCON integration. The console project remains useful for isolated protocol
+diagnostics.
 
 ## Decision Notes
 
-This lives in a console app for now because it lets us test the protocol independently from API, database, and hosting concerns.
-Once the behavior is stable, the client can move into `GoldSrcOps.Infrastructure` behind an application-level interface.
+The spike lives in a console app because it lets us test the protocol
+independently from API, database, and hosting concerns. Production polling uses
+the Infrastructure implementation behind the application-level
+`IGoldSrcServerQueryClient` interface.
 
 ## Example
 

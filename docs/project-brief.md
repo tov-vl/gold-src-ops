@@ -47,26 +47,23 @@ D:\source\repos\personal\gold-src-ops
 
 Current implementation:
 
-- Git repository initialized.
-- `GoldSrcOps.sln` created.
-- `src/GoldSrcOps.A2SSpike` created as a .NET 10 console app.
-- A2S `A2S_INFO` spike implemented.
-- Live query verified against `server.csomod.com:27015`.
+- .NET 10 modular monolith with API, Contracts, Application, Domain, and
+  Infrastructure projects.
+- PostgreSQL persistence through EF Core migrations.
+- Scheduled A2S polling with current state, snapshot history, and availability
+  incident transitions.
+- Authenticated server administration through JWT bearer `Reader` and
+  `Operator` policies.
+- Auditable RCON command queue with PostgreSQL-backed claiming, per-server
+  serialization, interrupted-command recovery, and external secret references.
+- Health checks and Prometheus metrics through OpenTelemetry.
+- Unit, API integration, deterministic polling, protocol, and PostgreSQL
+  Testcontainers coverage.
+- GitHub Actions quality gate for formatting, build, tests, and NuGet audit.
 
-Current command:
-
-```powershell
-dotnet run --project .\src\GoldSrcOps.A2SSpike -- server.csomod.com:27015 --timeout 5000 --encoding windows-1251
-```
-
-Verified example result:
-
-```text
-Server:      [ZOMBIES]+[CSO MOD] [#1] CSOMOD.COM [since 2012]
-Map:         zm_csdark_cinder
-Players:     28/32 (2 bots)
-Latency:     ~140-170 ms
-```
+The original `A2S_INFO` console spike remains available as a protocol diagnostic
+tool, and its live query was verified against a public GoldSrc server. See the
+README for current startup commands and `docs/backlog.md` for active work.
 
 ## MVP Goal
 

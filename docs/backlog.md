@@ -65,6 +65,8 @@ Completed:
 - Unit and API integration tests cover subject validation, the endpoint policy matrix, and requester spoofing protection.
 - PostgreSQL atomically claims pending commands, serializes execution per server across workers, and conditionally persists completion for the active claim.
 - Interrupted `Running` commands are recovered as `Failed` without automatic RCON retry, and PostgreSQL integration tests cover concurrent claims and recovery.
+- Polling metadata and failure reasons are bounded by domain invariants that match the EF Core column limits.
+- The v1 singleton-poller deployment constraint and the trigger for distributed polling leases are documented.
 
 ## Immediate Next Milestone
 
@@ -80,6 +82,12 @@ Definition of done:
 1. Add structured command execution logs without credential material.
 
 2. Add an opt-in local RCON smoke helper for owned servers.
+
+## Following Milestone
+
+Add configurable snapshot retention with bounded cleanup batches and operational
+metrics. A distributed polling claim or lease remains deferred until multiple
+active poller instances are required.
 
 ## v1 API Scope
 

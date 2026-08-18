@@ -122,6 +122,11 @@ Polling runs inside the API host by default. Configuration lives under `Polling`
 - `BatchSize`
 - `IncidentFailureThreshold`
 
+v1 requires exactly one process with `Polling:Enabled=true`. When running
+multiple API instances, set `Polling__Enabled=false` on every HTTP-only replica.
+Command dispatch does not share this restriction because PostgreSQL coordinates
+its claims independently.
+
 Pending commands are executed by a background worker. Configuration lives under
 `CommandDispatcher`:
 
@@ -374,4 +379,6 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Add command dispatch operational hardening: per-server execution serialization, structured command logs, and a guarded local smoke script for owned servers.
+Complete command dispatch operational hardening with structured lifecycle logs
+and a guarded local smoke script for owned servers. Snapshot retention is the
+following operational milestone.

@@ -249,3 +249,36 @@ Implementation status:
 
 Implemented. JWT bearer validation, endpoint policies, subject-derived command
 audit identity, and integration-test authentication overrides are in place.
+
+## Decision 10: Keep The Polling Worker Singleton In v1
+
+Decision:
+
+Run exactly one active `GoldSrcPollingBackgroundService` instance in a v1
+deployment. Additional API instances must set `Polling:Enabled` to `false`.
+
+Reasoning:
+
+- Polling currently selects due servers from persisted current state without a
+  distributed claim or lease.
+- Multiple active pollers could query the same server concurrently and produce
+  duplicate snapshots or competing incident transitions.
+- Horizontal worker scaling is not a v1 requirement, and a singleton poller is
+  the simplest deployment model that preserves current semantics.
+- The command dispatcher has a separate PostgreSQL claim protocol and remains
+  safe to run with multiple workers or API instances.
+
+Implementation implication:
+
+- Enable polling on exactly one process through `Polling:Enabled=true`.
+- Disable polling on HTTP-only replicas through `Polling__Enabled=false`.
+- Do not infer multi-replica polling safety from the command dispatcher's
+  PostgreSQL serialization.
+- Before scaling polling horizontally, add an expiring PostgreSQL claim or
+  lease with conditional completion. Do not hold a database transaction open
+  while waiting for an A2S UDP response.
+
+Implementation status:
+
+Documented as a v1 deployment constraint. Distributed polling claims are
+deferred until horizontal polling becomes a real requirement.
