@@ -86,6 +86,9 @@ Completed:
   configuration clean.
 - The v1 readiness matrix and runtime evidence were recorded in
   `docs/v1-readiness.md`; no unresolved v1 blocker remains.
+- A five-to-ten-minute presenter guide now demonstrates auth, live A2S polling,
+  deterministic incident creation, durable command audit, and observability
+  without sending RCON traffic to a third-party server.
 
 ## Immediate Next Milestone
 
@@ -104,10 +107,9 @@ Definition of done:
 
 ## Next Tasks
 
-1. Add a compact five-to-ten-minute demo guide based on the verified smoke path.
-2. Draft v1 release notes with architecture, reliability trade-offs, and test
+1. Draft v1 release notes with architecture, reliability trade-offs, and test
    evidence.
-3. Review repository presentation and create the signed v1 tag only when the
+2. Review repository presentation and create the signed v1 tag only when the
    publication point is chosen.
 
 ## Following Milestone

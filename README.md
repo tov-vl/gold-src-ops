@@ -49,7 +49,8 @@ Application services coordinate use cases, domain entities own state transitions
 
 See [docs/architecture.md](docs/architecture.md) for the component diagram and
 runtime flows. The MVP evidence and accepted deferrals are recorded in
-[docs/v1-readiness.md](docs/v1-readiness.md).
+[docs/v1-readiness.md](docs/v1-readiness.md). A presenter-oriented walkthrough
+is available in [docs/demo.md](docs/demo.md).
 
 ## Quick Local Start
 
@@ -378,6 +379,8 @@ GitHub Actions runs the same quality gate on every push and pull request.
 
 See `docs/smoke-test.md` for a Docker-based local smoke test that applies migrations, runs the API, registers a live GoldSrc server, and checks status, snapshots, dashboard overview, and incidents.
 
+For a concise five-to-ten-minute portfolio walkthrough, use `docs/demo.md`.
+
 ## Run The Spike
 
 ```powershell
@@ -419,6 +422,6 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Package the verified v1 as a concise portfolio release: add a short demo guide,
-prepare release notes, and make the architecture and reliability trade-offs easy
-to present without expanding the runtime scope.
+Prepare v1 release notes that summarize the verified scope, architecture and
+reliability decisions, quality evidence, and intentionally deferred work without
+expanding the runtime scope.
