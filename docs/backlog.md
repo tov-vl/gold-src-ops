@@ -100,6 +100,15 @@ Completed:
   and test fixtures.
 - The public repository license is MIT, with the canonical text and copyright
   notice stored in the root `LICENSE` file.
+- The public GitHub repository is published at `tov-vl/gold-src-ops` with
+  `main` as its default branch and the release-facing description and topics.
+- Private vulnerability reporting, the dependency graph, Dependabot alerts and
+  security updates, Secret Protection, and push protection are enabled.
+- The active `Protect main` ruleset has no bypasses and requires signed commits,
+  linear history, and the GitHub Actions `Quality Gate`; it also blocks branch
+  deletion and force pushes.
+- The initial publication commit was pushed and passed the GitHub Actions
+  `Quality Gate`.
 
 ## Immediate Next Milestone
 
@@ -113,23 +122,27 @@ Definition of done:
   and intentionally deferred work.
 - Repository-facing documentation tells one consistent portfolio story without
   claiming alert delivery, horizontal polling, or production identity hosting.
-- A signed v1 tag can be created after the repository is published and the
-  release commit is selected.
+- Repository metadata, security settings, and the protected `main` workflow are
+  configured for the public project.
+- A signed `v1.0.0` tag identifies a final `main` commit that passed both the
+  local and GitHub quality gates.
 
 ## Next Tasks
 
-1. Create the GitHub repository, use `main` as its default branch, and configure
-   the description, topics, private vulnerability reporting, dependency alerts,
-   and branch protection.
-2. Push the publication commit, verify GitHub Actions, rerun the local quality
-   gate against the same commit, and create a signed `v1.0.0` tag.
+1. Push this documentation branch, let the GitHub Actions `Quality Gate` pass,
+   and update `main` through a linear pull request merge.
+2. Rerun the local quality gate against the resulting `main` commit, verify that
+   GitHub Actions passed for the same commit, and create and push a signed
+   `v1.0.0` tag.
 
-Suggested GitHub description:
+Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
+
+Configured GitHub description:
 
 > Production-minded .NET 10 control plane for monitoring and administering
 > GoldSrc servers through A2S and RCON.
 
-Suggested topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
+Configured topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
 `goldsrc`, `counter-strike`, `a2s`, `rcon`, and `testcontainers`.
 
 ## Following Milestone

@@ -6,9 +6,10 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** v1.0.0 release candidate. The verified readiness run passed all 141
+**Status:** Public v1.0.0 release candidate. The published `main` commit passed
+the GitHub Actions `Quality Gate`; the verified readiness run passed all 141
 tests with zero build warnings and no known vulnerable NuGet packages. The
-publication tag has not been created yet.
+signed release tag has not been created yet.
 
 ## Highlights
 
@@ -385,6 +386,12 @@ dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 
 GitHub Actions runs the same quality gate on every push and pull request.
 
+The active `main` ruleset requires signed commits, linear history, and the
+`Quality Gate`, and blocks branch deletion and force pushes. Candidate commits
+must first be pushed to another branch so CI can report the required check
+before `main` is updated. Pull requests are the intended workflow, although the
+ruleset does not currently require one.
+
 ## Smoke Test
 
 See `docs/smoke-test.md` for a Docker-based local smoke test that applies migrations, runs the API, registers a live GoldSrc server, and checks status, snapshots, dashboard overview, and incidents.
@@ -432,9 +439,12 @@ The spike follows Valve's documented A2S server query format:
 
 ## Release Status
 
-The v1.0.0 implementation and documentation are ready for publication review.
-The remaining steps are configuring the GitHub repository, rerunning the quality
-gate against the publication commit, and creating its signed tag. See
+The v1.0.0 implementation and documentation are published in the
+[public GitHub repository](https://github.com/tov-vl/gold-src-ops). Repository
+metadata, private vulnerability reporting, Dependabot security updates, and the
+protected `main` workflow are configured. The remaining release step is to
+select the final `main` commit, verify both local and GitHub quality gates for
+that commit, and create its signed `v1.0.0` tag. See
 [docs/backlog.md](docs/backlog.md) for the active checklist.
 
 ## License
