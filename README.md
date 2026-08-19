@@ -50,7 +50,8 @@ Application services coordinate use cases, domain entities own state transitions
 See [docs/architecture.md](docs/architecture.md) for the component diagram and
 runtime flows. The MVP evidence and accepted deferrals are recorded in
 [docs/v1-readiness.md](docs/v1-readiness.md). A presenter-oriented walkthrough
-is available in [docs/demo.md](docs/demo.md).
+is available in [docs/demo.md](docs/demo.md), and the release-facing summary is
+in [docs/release-notes-v1.md](docs/release-notes-v1.md).
 
 ## Quick Local Start
 
@@ -422,6 +423,5 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Prepare v1 release notes that summarize the verified scope, architecture and
-reliability decisions, quality evidence, and intentionally deferred work without
-expanding the runtime scope.
+Review the repository presentation, select the publication commit, rerun the
+quality gate against that exact commit, and create the signed `v1.0.0` tag.

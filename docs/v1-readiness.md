@@ -3,9 +3,10 @@
 Review date: 2026-08-19.
 
 Outcome: the implemented scope satisfies the MVP in `docs/project-brief.md`.
-No unresolved v1 blocker remains after the fixes recorded below. The next step
-is packaging the verified behavior into a concise release and portfolio demo,
-not expanding the runtime scope.
+No unresolved v1 blocker remains after the fixes recorded below. The verified
+behavior is packaged in `docs/demo.md` and `docs/release-notes-v1.md`; the
+remaining release action is selecting the publication commit and creating its
+signed release tag, not expanding the runtime scope.
 
 ## MVP Evidence Matrix
 

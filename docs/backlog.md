@@ -89,6 +89,9 @@ Completed:
 - A five-to-ten-minute presenter guide now demonstrates auth, live A2S polling,
   deterministic incident creation, durable command audit, and observability
   without sending RCON traffic to a third-party server.
+- Draft v1.0.0 release notes now summarize delivered scope, reliability and
+  security decisions, verification evidence, operational limits, and deferred
+  work without claiming that a tag has already been published.
 
 ## Immediate Next Milestone
 
@@ -107,10 +110,10 @@ Definition of done:
 
 ## Next Tasks
 
-1. Draft v1 release notes with architecture, reliability trade-offs, and test
-   evidence.
-2. Review repository presentation and create the signed v1 tag only when the
-   publication point is chosen.
+1. Review repository presentation for public release and correct any remaining
+   discoverability or consistency gaps.
+2. Select the publication commit, rerun its quality gate, and create a signed
+   `v1.0.0` tag.
 
 ## Following Milestone
 
