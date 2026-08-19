@@ -1,44 +1,29 @@
 # GoldSrcOps
 
-GoldSrcOps is a backend control plane experiment for Counter-Strike 1.6 / GoldSrc dedicated servers.
-The project now has a small A2S query spike plus the first ASP.NET Core backend skeleton around the production path.
+GoldSrcOps is a production-minded .NET backend control plane for monitoring and
+administering Counter-Strike 1.6 and other GoldSrc dedicated servers. It polls
+servers through A2S, records availability history and incidents, executes
+auditable operator actions through RCON, and exposes health and telemetry for
+operations.
 
-## Current Status
+**Status:** v1.0.0 release candidate. The verified readiness run passed all 141
+tests with zero build warnings and no known vulnerable NuGet packages. The
+publication tag has not been created yet.
 
-- Created .NET solution under `D:\source\repos\personal\gold-src-ops`.
-- Targeting .NET 10 LTS.
-- Added `GoldSrcOps.A2SSpike`, a console app for `A2S_INFO` queries.
-- Supports regular A2S info responses, challenge responses, Source-style responses, and GoldSrc-style responses.
-- Supports configurable text encoding for legacy server names, for example `windows-1251`.
-- Added the initial modular backend projects:
-  - `GoldSrcOps.Api`
-  - `GoldSrcOps.Contracts`
-  - `GoldSrcOps.Application`
-  - `GoldSrcOps.Domain`
-  - `GoldSrcOps.Infrastructure`
-- Added PostgreSQL Docker Compose setup under `ops/docker-compose.yml`.
-- Added EF Core persistence and the initial migration.
-- Added health endpoints and first server registration/status endpoints.
-- Added an in-process polling service that queries enabled servers, updates current state, and writes poll snapshots.
-- Added availability incident detection with open/close transitions after repeated polling failures.
-- Added monitoring read endpoints for snapshot history and dashboard overview.
-- Added readiness health checks that validate database connectivity.
-- Added OpenTelemetry metrics export in Prometheus format.
-- Added server edit and enable/disable endpoints.
-- Added durable background command execution with atomic per-server claiming, interrupted-command recovery, local secret-reference resolution, and a live GoldSrc RCON client.
-- Added command execution metrics for queued, dispatched, completed, and recovered command dispatches.
-- Added safe structured RCON lifecycle logs with command/server correlation and dispatch duration.
-- Added a guarded live RCON smoke helper with authenticated preflight and explicit owned-server confirmation.
-- Added PostgreSQL integration coverage for concurrent command claims and interrupted-command recovery.
-- Added JWT bearer authentication with `Reader` and `Operator` authorization policies and token-derived command audit identity.
-- Added focused unit tests for polling incident transitions, monitoring read aggregation, A2S packet parsing, and server state transitions.
-- Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
-- Added deterministic polling integration tests with fake A2S query responses and EF-backed repositories.
-- Added PostgreSQL-backed integration tests with Testcontainers.
-- Added configurable poll-snapshot retention with bounded PostgreSQL cleanup,
-  startup validation, and OpenTelemetry metrics.
-- Completed the v1 readiness review with a verified one-command startup and
-  authenticated PostgreSQL-backed smoke flow.
+## Highlights
+
+- Scheduled `A2S_INFO` polling with challenge handling and legacy
+  `windows-1251` text support.
+- PostgreSQL-backed current state, immutable snapshots, and availability
+  incident transitions.
+- JWT bearer authentication with explicit `Reader` and `Operator` policies.
+- Durable RCON command queue with per-server serialization, interrupted-command
+  recovery, external secret references, and payload-safe lifecycle logs.
+- Liveness, database readiness, structured logging, and OpenTelemetry
+  Prometheus metrics.
+- Bounded snapshot retention with PostgreSQL integration and concurrency tests.
+- Repeatable Docker-based local startup, authenticated smoke test, and guarded
+  owned-server RCON verification.
 
 ## Architecture Overview
 
@@ -52,6 +37,27 @@ runtime flows. The MVP evidence and accepted deferrals are recorded in
 [docs/v1-readiness.md](docs/v1-readiness.md). A presenter-oriented walkthrough
 is available in [docs/demo.md](docs/demo.md), and the release-facing summary is
 in [docs/release-notes-v1.md](docs/release-notes-v1.md).
+
+## Documentation
+
+| Topic | Document |
+| --- | --- |
+| Five-to-ten-minute walkthrough | [Demo guide](docs/demo.md) |
+| Delivered scope and release limits | [v1 release notes](docs/release-notes-v1.md) |
+| Components and runtime flows | [Architecture](docs/architecture.md) |
+| Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
+| Authentication and endpoint policies | [Security](docs/security.md) |
+| Vulnerability reporting | [Security policy](.github/SECURITY.md) |
+| RCON safety and recovery | [RCON operations](docs/rcon.md) |
+| Full local verification | [Smoke test](docs/smoke-test.md) |
+| MVP evidence | [v1 readiness](docs/v1-readiness.md) |
+
+## Prerequisites
+
+- .NET 10 SDK compatible with the repository `global.json`.
+- Docker Desktop or another Docker Engine with Compose support.
+- PowerShell 7 or Windows PowerShell 5.1 for the local helper scripts.
+- Network access to a GoldSrc server only when running a live A2S demo.
 
 ## Quick Local Start
 
@@ -92,6 +98,9 @@ docker compose -f .\ops\docker-compose.yml up -d postgres
 PostgreSQL listens on `localhost:5432` with database/user/password `goldsrcops`.
 If you also want pgAdmin, run `docker compose -f .\ops\docker-compose.yml up -d pgadmin`.
 pgAdmin is then available on `http://localhost:5050`.
+
+These credentials are intentionally weak local Development defaults. Never
+reuse them outside the disposable Docker environment.
 
 The matching connection string exists only in `appsettings.Development.json`.
 Every non-Development deployment must provide `ConnectionStrings__GoldSrcOps`
@@ -175,7 +184,7 @@ endpoints and `/metrics` accept `Reader` or `Operator`; mutations require
 [docs/security.md](docs/security.md) for the complete policy matrix and
 production configuration requirements.
 
-Initial endpoints:
+API endpoints:
 
 - `GET /health/live` - lightweight liveness probe.
 - `GET /health/ready` - readiness probe that validates database connectivity.
@@ -421,7 +430,10 @@ The spike follows Valve's documented A2S server query format:
 
 - https://developer.valvesoftware.com/wiki/Server_queries?uselang=en
 
-## Next Milestone
+## Release Status
 
-Review the repository presentation, select the publication commit, rerun the
-quality gate against that exact commit, and create the signed `v1.0.0` tag.
+The v1.0.0 implementation and documentation are ready for publication review.
+The remaining steps are choosing a repository license, configuring the GitHub
+repository, rerunning the quality gate against the publication commit, and
+creating its signed tag. See [docs/backlog.md](docs/backlog.md) for the active
+checklist.

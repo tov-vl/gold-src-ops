@@ -126,6 +126,7 @@ Use [docs/demo.md](demo.md) for a five-to-ten-minute walkthrough and
 - Architecture: [docs/architecture.md](architecture.md)
 - Architecture decisions: [docs/architecture-decisions.md](architecture-decisions.md)
 - Security model: [docs/security.md](security.md)
+- Vulnerability reporting: [.github/SECURITY.md](../.github/SECURITY.md)
 - RCON operations: [docs/rcon.md](rcon.md)
 - Snapshot retention: [docs/snapshot-retention.md](snapshot-retention.md)
 - Demo: [docs/demo.md](demo.md)
@@ -134,6 +135,7 @@ Use [docs/demo.md](demo.md) for a five-to-ten-minute walkthrough and
 
 ## Publication Status
 
-The release tag has not been created yet. After the repository presentation is
-reviewed and a publication point is selected, rerun the quality gate against
-that exact commit and create a signed `v1.0.0` tag.
+The release tag has not been created yet. A root repository license must be
+selected before publication. After the repository presentation is reviewed and
+a publication point is selected, rerun the quality gate against that exact
+commit and create a signed `v1.0.0` tag.

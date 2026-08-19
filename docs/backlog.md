@@ -7,8 +7,7 @@ release steps.
 
 Completed:
 
-- Repository created at `D:\source\repos\personal\gold-src-ops`.
-- Solution created.
+- Repository and solution initialized.
 - A2S spike implemented in `src/GoldSrcOps.A2SSpike`.
 - `A2S_INFO` live query verified.
 - README and spike documentation added.
@@ -92,6 +91,13 @@ Completed:
 - Draft v1.0.0 release notes now summarize delivered scope, reliability and
   security decisions, verification evidence, operational limits, and deferred
   work without claiming that a tag has already been published.
+- Public-release hygiene removed local workspace paths and internal process
+  wording, replaced the development-log README opening with a release-facing
+  summary, and added a documentation map and explicit prerequisites.
+- All existing commits have valid SSH signatures, and a high-signal scan of the
+  complete Git history found no private-key, JWT, or common provider-token
+  patterns. Tracked passwords are limited to documented local Docker defaults
+  and test fixtures.
 
 ## Immediate Next Milestone
 
@@ -110,10 +116,21 @@ Definition of done:
 
 ## Next Tasks
 
-1. Review repository presentation for public release and correct any remaining
-   discoverability or consistency gaps.
-2. Select the publication commit, rerun its quality gate, and create a signed
-   `v1.0.0` tag.
+1. Choose the public repository license and add the corresponding root
+   `LICENSE` file.
+2. Create the GitHub repository, use `main` as its default branch, and configure
+   the description, topics, private vulnerability reporting, dependency alerts,
+   and branch protection.
+3. Push the publication commit, verify GitHub Actions, rerun the local quality
+   gate against the same commit, and create a signed `v1.0.0` tag.
+
+Suggested GitHub description:
+
+> Production-minded .NET 10 control plane for monitoring and administering
+> GoldSrc servers through A2S and RCON.
+
+Suggested topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
+`goldsrc`, `counter-strike`, `a2s`, `rcon`, and `testcontainers`.
 
 ## Following Milestone
 

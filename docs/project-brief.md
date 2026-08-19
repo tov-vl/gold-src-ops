@@ -39,12 +39,6 @@ Avoid positioning it as:
 
 ## Current Repository State
 
-Location:
-
-```text
-D:\source\repos\personal\gold-src-ops
-```
-
 Current implementation:
 
 - .NET 10 modular monolith with API, Contracts, Application, Domain, and
