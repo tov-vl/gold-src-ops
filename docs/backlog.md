@@ -98,6 +98,8 @@ Completed:
   complete Git history found no private-key, JWT, or common provider-token
   patterns. Tracked passwords are limited to documented local Docker defaults
   and test fixtures.
+- The public repository license is MIT, with the canonical text and copyright
+  notice stored in the root `LICENSE` file.
 
 ## Immediate Next Milestone
 
@@ -116,12 +118,10 @@ Definition of done:
 
 ## Next Tasks
 
-1. Choose the public repository license and add the corresponding root
-   `LICENSE` file.
-2. Create the GitHub repository, use `main` as its default branch, and configure
+1. Create the GitHub repository, use `main` as its default branch, and configure
    the description, topics, private vulnerability reporting, dependency alerts,
    and branch protection.
-3. Push the publication commit, verify GitHub Actions, rerun the local quality
+2. Push the publication commit, verify GitHub Actions, rerun the local quality
    gate against the same commit, and create a signed `v1.0.0` tag.
 
 Suggested GitHub description:

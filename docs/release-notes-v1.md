@@ -132,10 +132,10 @@ Use [docs/demo.md](demo.md) for a five-to-ten-minute walkthrough and
 - Demo: [docs/demo.md](demo.md)
 - Full smoke test: [docs/smoke-test.md](smoke-test.md)
 - Readiness evidence: [docs/v1-readiness.md](v1-readiness.md)
+- License: [MIT](../LICENSE)
 
 ## Publication Status
 
-The release tag has not been created yet. A root repository license must be
-selected before publication. After the repository presentation is reviewed and
-a publication point is selected, rerun the quality gate against that exact
-commit and create a signed `v1.0.0` tag.
+The release tag has not been created yet. After the repository presentation is
+reviewed and a publication point is selected, rerun the quality gate against
+that exact commit and create a signed `v1.0.0` tag.

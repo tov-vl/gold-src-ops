@@ -433,7 +433,10 @@ The spike follows Valve's documented A2S server query format:
 ## Release Status
 
 The v1.0.0 implementation and documentation are ready for publication review.
-The remaining steps are choosing a repository license, configuring the GitHub
-repository, rerunning the quality gate against the publication commit, and
-creating its signed tag. See [docs/backlog.md](docs/backlog.md) for the active
-checklist.
+The remaining steps are configuring the GitHub repository, rerunning the quality
+gate against the publication commit, and creating its signed tag. See
+[docs/backlog.md](docs/backlog.md) for the active checklist.
+
+## License
+
+GoldSrcOps is licensed under the [MIT License](LICENSE).
