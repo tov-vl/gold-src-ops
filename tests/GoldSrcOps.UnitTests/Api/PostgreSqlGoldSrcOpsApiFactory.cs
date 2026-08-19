@@ -73,6 +73,7 @@ internal sealed class PostgreSqlGoldSrcOpsApiFactory : WebApplicationFactory<Pro
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseSetting("ConnectionStrings:GoldSrcOps", _database.GetConnectionString());
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)
@@ -97,7 +98,7 @@ internal sealed class PostgreSqlGoldSrcOpsApiFactory : WebApplicationFactory<Pro
             services.AddDbContext<GoldSrcOpsDbContext>(options =>
                 options.UseNpgsql(
                     _database.GetConnectionString(),
-                    npgsql => npgsql.MigrationsAssembly(typeof(GoldSrcOpsDbContext).Assembly.FullName)));
+                    GoldSrcOpsNpgsqlOptions.Configure));
 
             _configureTestServices?.Invoke(services);
             services.AddGoldSrcOpsTestAuthentication(_principal);

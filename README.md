@@ -37,6 +37,8 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added PostgreSQL-backed integration tests with Testcontainers.
 - Added configurable poll-snapshot retention with bounded PostgreSQL cleanup,
   startup validation, and OpenTelemetry metrics.
+- Completed the v1 readiness review with a verified one-command startup and
+  authenticated PostgreSQL-backed smoke flow.
 
 ## Architecture Overview
 
@@ -45,36 +47,37 @@ The API host exposes HTTP endpoints, health checks, metrics, and the in-process
 polling, command-dispatch, and snapshot-retention workers.
 Application services coordinate use cases, domain entities own state transitions, and infrastructure implements EF Core persistence plus GoldSrc A2S integration.
 
-See [docs/architecture.md](docs/architecture.md) for the component diagram and runtime flows.
+See [docs/architecture.md](docs/architecture.md) for the component diagram and
+runtime flows. The MVP evidence and accepted deferrals are recorded in
+[docs/v1-readiness.md](docs/v1-readiness.md).
 
 ## Quick Local Start
 
 ```powershell
-dotnet user-jwts create `
-  --project .\src\GoldSrcOps.Api `
-  --name local-operator `
-  --role Operator `
-  --valid-for 1d
-
+.\tools\dev\new-local-jwt.ps1
 .\tools\dev\start-local.ps1
 ```
 
 The first command configures the Development bearer scheme and prints a local
 Operator token. Keep the token for the smoke flow, but do not store it in the
-repository.
+repository. Local Bearer issuer/audience settings are written to ignored
+`appsettings.Local.json`; the signing key remains in the project's User Secrets
+store.
 
-The script starts PostgreSQL, waits for the container healthcheck, restores local .NET tools, applies EF Core migrations, and runs the API on `http://localhost:5142`.
+The script starts PostgreSQL, waits for the container healthcheck, restores
+solution packages and local .NET tools, applies EF Core migrations, and runs the
+API on `http://localhost:5142`.
 It prefers the repository-local SDK under `.\.dotnet\dotnet.exe` when present.
 
 Useful variants:
 
 ```powershell
 .\tools\dev\start-local.ps1 -NoRun
-.\tools\dev\start-local.ps1 -SkipDocker -SkipToolRestore -SkipMigrations
+.\tools\dev\start-local.ps1 -SkipDocker -SkipRestore -SkipToolRestore -SkipMigrations
 ```
 
 Use `-NoRun` to prepare local dependencies and migrations without starting the API.
-Use the skip flags when Docker, tools, or migrations are already prepared.
+Use the skip flags when Docker, solution packages, tools, or migrations are already prepared.
 
 ## Manual Local Start
 
@@ -88,11 +91,15 @@ PostgreSQL listens on `localhost:5432` with database/user/password `goldsrcops`.
 If you also want pgAdmin, run `docker compose -f .\ops\docker-compose.yml up -d pgadmin`.
 pgAdmin is then available on `http://localhost:5050`.
 
+The matching connection string exists only in `appsettings.Development.json`.
+Every non-Development deployment must provide `ConnectionStrings__GoldSrcOps`
+through its deployment configuration or secret store.
+
 ### 2. Apply Database Migrations
 
 ```powershell
 dotnet tool restore
-dotnet tool run dotnet-ef database update `
+dotnet tool run dotnet-ef -- database update `
   --project .\src\GoldSrcOps.Infrastructure `
   --startup-project .\src\GoldSrcOps.Api `
   -- --environment Development
@@ -101,11 +108,10 @@ dotnet tool run dotnet-ef database update `
 ### 3. Create A Local Operator Token
 
 ```powershell
-dotnet user-jwts create `
-  --project .\src\GoldSrcOps.Api `
-  --name local-operator `
-  --role Operator `
-  --valid-for 1d
+.\tools\dev\new-local-jwt.ps1 `
+  -Name local-operator `
+  -Role Operator `
+  -ValidFor 1d
 ```
 
 Keep the emitted token for authenticated local requests. This command is for
@@ -347,6 +353,13 @@ Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/incidents" -Headers $heade
 dotnet test
 ```
 
+The full suite includes PostgreSQL Testcontainers tests and requires a running
+Docker engine. Without Docker, run the non-PostgreSQL subset with:
+
+```powershell
+dotnet test --filter "Category!=PostgreSqlIntegration"
+```
+
 ## Code Quality
 
 The solution uses .NET analyzers, Meziantou.Analyzer, and `.editorconfig` rules through `Directory.Build.props`.
@@ -406,6 +419,6 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Run a v1 portfolio-readiness review against `docs/project-brief.md`, exercise
-the documented local startup and smoke paths, and close only the gaps that block
-a coherent v1 release.
+Package the verified v1 as a concise portfolio release: add a short demo guide,
+prepare release notes, and make the architecture and reliability trade-offs easy
+to present without expanding the runtime scope.

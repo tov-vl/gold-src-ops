@@ -46,6 +46,9 @@ internal sealed class GoldSrcOpsApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseSetting(
+            "ConnectionStrings:GoldSrcOps",
+            "Host=localhost;Database=goldsrcops_tests;Username=test;Password=test");
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)

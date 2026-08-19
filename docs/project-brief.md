@@ -29,7 +29,7 @@ Start narrow and do it well:
 
 Preferred framing for portfolio and interviews:
 
-> GoldSrcOps is a backend control plane for GoldSrc dedicated servers. It polls game servers via A2S, executes operator actions through RCON, stores availability history, and exposes health, metrics, and alerts for operational visibility.
+> GoldSrcOps is a backend control plane for GoldSrc dedicated servers. It polls game servers via A2S, executes operator actions through RCON, stores availability history, and exposes health, metrics, and incidents for operational visibility.
 
 Avoid positioning it as:
 
@@ -62,6 +62,9 @@ Current implementation:
 - Unit, API integration, deterministic polling, protocol, and PostgreSQL
   Testcontainers coverage.
 - GitHub Actions quality gate for formatting, build, tests, and NuGet audit.
+- A completed v1 readiness review with startup, migration, live polling,
+  authenticated API, safe command, and metrics evidence in
+  `docs/v1-readiness.md`.
 
 The original `A2S_INFO` console spike remains available as a protocol diagnostic
 tool, and its live query was verified against a public GoldSrc server. See the

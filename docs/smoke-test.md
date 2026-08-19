@@ -5,19 +5,19 @@ This smoke test exercises the local PostgreSQL-backed API against a live GoldSrc
 ## Fast Path
 
 ```powershell
-dotnet user-jwts create `
-  --project .\src\GoldSrcOps.Api `
-  --name local-operator `
-  --role Operator `
-  --valid-for 1d
-
+.\tools\dev\new-local-jwt.ps1
 .\tools\dev\start-local.ps1
 ```
 
 Keep the emitted token for the authenticated requests in the second terminal.
-The token is for Development only and must not be committed.
+The token is for Development only and must not be committed. The command writes
+local Bearer issuer/audience settings to ignored `appsettings.Local.json` and
+keeps the signing key in User Secrets, so token creation does not modify tracked
+configuration.
 
-The script starts PostgreSQL, waits for readiness, applies EF Core migrations, and runs the API on `http://localhost:5142`.
+The script starts PostgreSQL, waits for readiness, restores solution packages
+and local tools, applies EF Core migrations, and runs the API on
+`http://localhost:5142`.
 
 ## Manual Path
 
@@ -33,7 +33,7 @@ PostgreSQL listens on `localhost:5432` with database/user/password `goldsrcops`.
 
 ```powershell
 dotnet tool restore
-dotnet tool run dotnet-ef database update `
+dotnet tool run dotnet-ef -- database update `
   --project .\src\GoldSrcOps.Infrastructure `
   --startup-project .\src\GoldSrcOps.Api `
   -- --environment Development
@@ -42,11 +42,10 @@ dotnet tool run dotnet-ef database update `
 ### 3. Create A Local Operator Token
 
 ```powershell
-dotnet user-jwts create `
-  --project .\src\GoldSrcOps.Api `
-  --name local-operator `
-  --role Operator `
-  --valid-for 1d
+.\tools\dev\new-local-jwt.ps1 `
+  -Name local-operator `
+  -Role Operator `
+  -ValidFor 1d
 ```
 
 Keep the emitted token for the authenticated requests in the second terminal.
@@ -228,9 +227,10 @@ Expected result:
 
 - `/health/live` and `/health/ready` return healthy responses.
 - `/metrics` exposes Prometheus metrics.
-- Command metrics are exposed as `goldsrcops_commands_queued`,
-  `goldsrcops_commands_dispatched`, `goldsrcops_commands_completed`, and
-  `goldsrcops_commands_recovered`.
+- The safe command flow emits `goldsrcops_commands_queued` and
+  `goldsrcops_commands_completed`. `goldsrcops_commands_dispatched` appears only
+  when a command reaches the RCON executor; `goldsrcops_commands_recovered`
+  appears only after interrupted-command recovery.
 - `PATCH /api/servers/{id}` updates editable server settings.
 - Disabled servers are skipped by polling, and re-enabled servers can be polled again.
 - Credential responses report metadata only and do not echo the secret alias or canonical reference.

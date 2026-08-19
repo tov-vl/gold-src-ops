@@ -5,6 +5,7 @@
 
 # dotenv files
 .env
+src/GoldSrcOps.Api/appsettings.Local.json
 
 # User-specific files
 *.rsuser

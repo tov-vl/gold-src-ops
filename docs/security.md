@@ -43,12 +43,15 @@ valid issuer and audience settings, for the external identity provider.
 Create a short-lived local Operator token before starting the Development host:
 
 ```powershell
-dotnet user-jwts create `
-  --project .\src\GoldSrcOps.Api `
-  --name local-operator `
-  --role Operator `
-  --valid-for 1d
+.\tools\dev\new-local-jwt.ps1 `
+  -Name local-operator `
+  -Role Operator `
+  -ValidFor 1d
 ```
+
+The ignored `appsettings.Local.json` file is loaded only by the Development
+host. The JWT signing key remains in User Secrets; neither artifact belongs in
+source control.
 
 ## Principal Identity
 

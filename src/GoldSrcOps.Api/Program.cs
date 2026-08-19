@@ -14,6 +14,14 @@ using OpenTelemetry.Resources;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddJsonFile(
+        "appsettings.Local.json",
+        optional: true,
+        reloadOnChange: true);
+}
+
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddGoldSrcOpsSecurity(builder.Environment);

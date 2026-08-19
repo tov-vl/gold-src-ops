@@ -79,36 +79,42 @@ Completed:
 - Retention completion, deletion, failure, and duration metrics added with unit,
   Prometheus endpoint, and PostgreSQL Testcontainers coverage.
 - A concurrent `(CheckedAtUtc, Id)` index and operational retention guide added.
+- The one-command Development startup was verified and repaired to restore with
+  its selected SDK and forward EF application arguments correctly.
+- Local Bearer issuer/audience settings moved to ignored
+  `appsettings.Local.json` through a dedicated helper, leaving tracked
+  configuration clean.
+- The v1 readiness matrix and runtime evidence were recorded in
+  `docs/v1-readiness.md`; no unresolved v1 blocker remains.
 
 ## Immediate Next Milestone
 
-Review v1 portfolio readiness and close evidence-backed release gaps.
+Package the verified v1 release and portfolio narrative.
 
 Definition of done:
 
-- Every MVP goal in `docs/project-brief.md` maps to current code, tests, or an
-  explicit documented trade-off.
-- The one-command local startup and authenticated smoke paths are exercised
-  against the migrated PostgreSQL schema.
-- README, architecture documents, backlog, and OpenAPI behavior describe the
-  same v1 boundary.
-- Remaining findings are classified as v1 blockers or intentionally deferred
-  follow-up work.
+- A short demo guide presents the primary A2S, incident, auth, command, and
+  observability flows in a repeatable order.
+- Release notes summarize the v1 scope, reliability decisions, verification,
+  and intentionally deferred work.
+- Repository-facing documentation tells one consistent portfolio story without
+  claiming alert delivery, horizontal polling, or production identity hosting.
+- A signed v1 tag can be created after the repository is published and the
+  release commit is selected.
 
 ## Next Tasks
 
-1. Build a concise readiness matrix from the project brief to implementation
-   and verification evidence.
-2. Run the documented local startup and non-destructive authenticated smoke
-   flow, recording only reproducible gaps.
-3. Fix v1 blockers, then prepare a release/demo checklist and defer optional
-   scope explicitly.
+1. Add a compact five-to-ten-minute demo guide based on the verified smoke path.
+2. Draft v1 release notes with architecture, reliability trade-offs, and test
+   evidence.
+3. Review repository presentation and create the signed v1 tag only when the
+   publication point is chosen.
 
 ## Following Milestone
 
-Package the verified v1 release and portfolio narrative. Alert delivery and an
-outbox remain candidates for v2; a distributed polling claim or lease remains
-deferred until multiple active poller instances are required.
+Design alert delivery around an outbox as the first v2 capability. A distributed
+polling claim or lease remains deferred until multiple active poller instances
+are required.
 
 ## v1 API Scope
 

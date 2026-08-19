@@ -1,6 +1,35 @@
-@GoldSrcOps.Api_HostAddress = http://localhost:5142
+@host = http://localhost:5142
+@token = paste-development-jwt-here
 
-GET {{GoldSrcOps.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+GET {{host}}/health/live
+
+###
+
+GET {{host}}/health/ready
+
+###
+
+GET {{host}}/api/servers
+Authorization: Bearer {{token}}
+
+###
+
+GET {{host}}/metrics
+Authorization: Bearer {{token}}
+
+###
+
+POST {{host}}/api/servers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Local GoldSrc server",
+  "host": "127.0.0.1",
+  "queryPort": 27015,
+  "rconPort": null,
+  "pollIntervalSeconds": 30,
+  "notes": "Created from GoldSrcOps.Api.http"
+}
 
 ###

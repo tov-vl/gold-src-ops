@@ -178,6 +178,12 @@ multi-replica v1 deployment should therefore enable `SnapshotRetention` on one
 worker process only. This is an efficiency constraint rather than a data
 correctness boundary.
 
+EF Core stores `__EFMigrationsHistory` explicitly in `public`. PostgreSQL's
+default `$user, public` search path would otherwise start resolving an
+unqualified history table into the `goldsrcops` application schema after that
+schema is created, because the development role has the same name. Pinning the
+history schema keeps repeated migration runs idempotent.
+
 ## Runtime Flows
 
 ### Register Server
@@ -350,4 +356,5 @@ The current test suite keeps the layers visible:
 - PostgreSQL-backed integration tests use Testcontainers and apply EF Core
   migrations against a real PostgreSQL provider, including concurrent
   per-server claims, interrupted-command recovery, and bounded snapshot
-  retention with strict cutoff behavior.
+  retention with strict cutoff behavior. They also repeat migration application
+  when the database role and application schema share a name.

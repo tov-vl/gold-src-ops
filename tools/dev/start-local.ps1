@@ -3,6 +3,7 @@
 [CmdletBinding()]
 param(
     [switch]$SkipDocker,
+    [switch]$SkipRestore,
     [switch]$SkipToolRestore,
     [switch]$SkipMigrations,
     [switch]$NoRun,
@@ -13,6 +14,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
+$solution = Join-Path $repoRoot "GoldSrcOps.sln"
 $composeFile = Join-Path $repoRoot "ops\docker-compose.yml"
 $apiProject = Join-Path $repoRoot "src\GoldSrcOps.Api"
 $infrastructureProject = Join-Path $repoRoot "src\GoldSrcOps.Infrastructure"
@@ -76,6 +78,14 @@ try {
         Write-Host "Skipping Docker startup."
     }
 
+    if (-not $SkipRestore) {
+        Write-Step "Restore solution packages"
+        Invoke-External -FilePath $dotnet -Arguments @("restore", $solution)
+    }
+    else {
+        Write-Host "Skipping solution restore."
+    }
+
     if (-not $SkipToolRestore) {
         Write-Step "Restore .NET local tools"
         Invoke-External -FilePath $dotnet -Arguments @("tool", "restore")
@@ -90,6 +100,7 @@ try {
             "tool",
             "run",
             "dotnet-ef",
+            "--",
             "database",
             "update",
             "--project",

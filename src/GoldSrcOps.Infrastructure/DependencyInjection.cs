@@ -25,7 +25,7 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("Connection string 'GoldSrcOps' is not configured.");
 
         services.AddDbContext<GoldSrcOpsDbContext>(options =>
-            options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly(typeof(GoldSrcOpsDbContext).Assembly.FullName)));
+            options.UseNpgsql(connectionString, GoldSrcOpsNpgsqlOptions.Configure));
 
         var pollingOptions = GoldSrcPollingOptions.FromConfiguration(configuration);
         var rconOptions = GoldSrcRconOptions.FromConfiguration(configuration);
