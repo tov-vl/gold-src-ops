@@ -57,7 +57,8 @@ internal sealed class GoldSrcOpsApiFactory : WebApplicationFactory<Program>
                 ["CommandDispatcher:MaxConcurrency"] = "1",
                 ["CommandDispatcher:RecoveryIntervalSeconds"] = "1",
                 ["ConnectionStrings:GoldSrcOps"] = "Host=localhost;Database=goldsrcops_tests;Username=test;Password=test",
-                ["Polling:Enabled"] = "false"
+                ["Polling:Enabled"] = "false",
+                ["SnapshotRetention:Enabled"] = "false"
             });
         });
 

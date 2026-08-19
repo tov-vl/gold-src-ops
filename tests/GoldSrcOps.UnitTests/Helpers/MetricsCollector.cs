@@ -18,6 +18,7 @@ internal sealed class MetricsCollector : IDisposable
             }
         };
         _listener.SetMeasurementEventCallback<int>(RecordMeasurement);
+        _listener.SetMeasurementEventCallback<double>(RecordMeasurement);
         _listener.Start();
     }
 
@@ -34,6 +35,15 @@ internal sealed class MetricsCollector : IDisposable
         ReadOnlySpan<KeyValuePair<string, object?>> tags,
         object? state)
     {
+        RecordMeasurement(instrument, (double)measurement, tags, state);
+    }
+
+    private void RecordMeasurement(
+        Instrument instrument,
+        double measurement,
+        ReadOnlySpan<KeyValuePair<string, object?>> tags,
+        object? state)
+    {
         var tagDictionary = tags
             .ToArray()
             .ToDictionary(
@@ -47,5 +57,5 @@ internal sealed class MetricsCollector : IDisposable
 
 internal sealed record CollectedMetric(
     string Name,
-    int Value,
+    double Value,
     IReadOnlyDictionary<string, object?> Tags);

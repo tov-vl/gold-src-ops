@@ -22,6 +22,7 @@ public sealed class MetricsEndpointIntegrationTests
         GoldSrcOpsMetrics.RecordCommandQueued(ServerCommandType.Say);
         GoldSrcOpsMetrics.RecordCommandDispatched(ServerCommandType.Say);
         GoldSrcOpsMetrics.RecordCommandCompleted(ServerCommandType.Say, CommandDispatchMetricResult.AuthenticationFailed);
+        GoldSrcOpsMetrics.RecordSnapshotRetentionCompleted(2, TimeSpan.FromMilliseconds(25));
 
         var response = await client.GetAsync("/metrics");
 
@@ -36,5 +37,8 @@ public sealed class MetricsEndpointIntegrationTests
         body.Should().Contain("goldsrcops_commands_completed");
         body.Should().Contain("command_type=\"Say\"");
         body.Should().Contain("result=\"auth_failed\"");
+        body.Should().Contain("goldsrcops_snapshot_retention_runs");
+        body.Should().Contain("goldsrcops_snapshot_retention_snapshots_deleted");
+        body.Should().Contain("goldsrcops_snapshot_retention_duration");
     }
 }

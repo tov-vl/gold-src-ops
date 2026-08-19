@@ -67,6 +67,8 @@ public sealed class GoldSrcOpsDbContext : DbContext
             snapshot.Property(x => x.RawVersion).HasMaxLength(PollSnapshot.MaxRawVersionLength);
             snapshot.Property(x => x.FailureReason).HasMaxLength(PollSnapshot.MaxFailureReasonLength);
             snapshot.HasIndex(x => new { x.ServerId, x.CheckedAtUtc });
+            snapshot.HasIndex(x => new { x.CheckedAtUtc, x.Id })
+                .IsCreatedConcurrently();
             snapshot.HasOne(x => x.Server)
                 .WithMany()
                 .HasForeignKey(x => x.ServerId)

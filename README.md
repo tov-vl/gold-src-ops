@@ -35,11 +35,14 @@ The project now has a small A2S query spike plus the first ASP.NET Core backend 
 - Added lightweight API integration tests for server registration, status reads, snapshot history, and dashboard overview.
 - Added deterministic polling integration tests with fake A2S query responses and EF-backed repositories.
 - Added PostgreSQL-backed integration tests with Testcontainers.
+- Added configurable poll-snapshot retention with bounded PostgreSQL cleanup,
+  startup validation, and OpenTelemetry metrics.
 
 ## Architecture Overview
 
 GoldSrcOps is a modular monolith with separate API, contracts, application, domain, and infrastructure projects.
-The API host exposes HTTP endpoints, health checks, metrics, and the in-process polling worker.
+The API host exposes HTTP endpoints, health checks, metrics, and the in-process
+polling, command-dispatch, and snapshot-retention workers.
 Application services coordinate use cases, domain entities own state transitions, and infrastructure implements EF Core persistence plus GoldSrc A2S integration.
 
 See [docs/architecture.md](docs/architecture.md) for the component diagram and runtime flows.
@@ -138,6 +141,18 @@ Pending commands are executed by a background worker. Configuration lives under
 - `InterruptedAfterSeconds`
 - `RecoveryIntervalSeconds`
 
+Expired poll snapshots are removed by a separate bounded background worker.
+Configuration lives under `SnapshotRetention`:
+
+- `Enabled`
+- `RetentionDays`
+- `CleanupIntervalSeconds`
+- `BatchSize`
+
+Each pass deletes at most one batch and never modifies current server state or
+incident history. See [docs/snapshot-retention.md](docs/snapshot-retention.md)
+for validated ranges, cutoff semantics, metrics, and deployment guidance.
+
 RCON dispatch configuration lives under `Rcon`:
 
 - `TimeoutMilliseconds`
@@ -187,7 +202,8 @@ automatic retry because RCON commands are not idempotent.
 
 `/metrics` exposes ASP.NET Core, runtime, and GoldSrcOps application metrics in Prometheus format.
 Application metrics cover polling runs, server poll attempts by result, incident transitions, queued commands,
-dispatched commands, completed command dispatches by result, and recovered interrupted commands.
+dispatched commands, completed command dispatches by result, recovered interrupted commands, and snapshot-retention
+runs, deletion counts, failures, and duration.
 The Prometheus ASP.NET Core exporter is currently referenced as a prerelease OpenTelemetry package because a stable exporter package is not available yet.
 
 ## Local Smoke Flow
@@ -390,5 +406,6 @@ The spike follows Valve's documented A2S server query format:
 
 ## Next Milestone
 
-Add configurable snapshot retention with bounded cleanup batches, operational
-metrics, and PostgreSQL-backed batching coverage.
+Run a v1 portfolio-readiness review against `docs/project-brief.md`, exercise
+the documented local startup and smoke paths, and close only the gaps that block
+a coherent v1 release.

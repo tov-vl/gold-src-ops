@@ -282,3 +282,42 @@ Implementation status:
 
 Documented as a v1 deployment constraint. Distributed polling claims are
 deferred until horizontal polling becomes a real requirement.
+
+## Decision 11: Delete Expired Snapshots In One Bounded Batch Per Pass
+
+Decision:
+
+Run snapshot retention as a separate background use case. Each pass deletes the
+oldest snapshots strictly before the retention cutoff in one PostgreSQL
+statement, limited to one configured batch.
+
+Reasoning:
+
+- Snapshot history grows continuously and needs an explicit storage bound.
+- Loading entities through the EF Core change tracker would add avoidable memory
+  and round trips for a set-based operation.
+- Draining every expired row in one pass would make database work and worker
+  duration unbounded after downtime or a retention-policy change.
+- One batch per pass gives operators a predictable cleanup rate and keeps
+  completion, failure, deletion, and duration metrics unambiguous.
+- Current state and incident history have different operational value and must
+  not inherit the snapshot retention policy.
+
+Implementation implication:
+
+- Validate retention period, cleanup interval, and batch size at startup.
+- Calculate a strict `CheckedAtUtc < cutoff` boundary so a row exactly on the
+  cutoff remains available.
+- Order candidates by `CheckedAtUtc` and `Id`, then use EF Core
+  `ExecuteDeleteAsync` for at most one batch.
+- Create the `(CheckedAtUtc, Id)` index concurrently to avoid blocking snapshot
+  writes while the index is built.
+- Use later scheduled passes to drain a backlog; tune cadence and batch size
+  from observed cleanup metrics.
+- Prefer one active retention worker per deployment to avoid redundant work,
+  even though deleting the same eligible row is idempotent.
+
+Implementation status:
+
+Implemented with unit, Prometheus endpoint, and PostgreSQL Testcontainers
+coverage. Operational details are documented in `docs/snapshot-retention.md`.

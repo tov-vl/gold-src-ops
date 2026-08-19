@@ -30,6 +30,7 @@ public static class DependencyInjection
         var pollingOptions = GoldSrcPollingOptions.FromConfiguration(configuration);
         var rconOptions = GoldSrcRconOptions.FromConfiguration(configuration);
         var dispatcherOptions = CommandDispatcherOptions.FromConfiguration(configuration);
+        var snapshotRetentionOptions = SnapshotRetentionOptions.FromConfiguration(configuration);
 
         if (dispatcherOptions.Enabled && dispatcherOptions.InterruptedAfter <= rconOptions.Timeout)
         {
@@ -40,14 +41,19 @@ public static class DependencyInjection
         services.AddSingleton(pollingOptions);
         services.AddSingleton(rconOptions);
         services.AddSingleton(dispatcherOptions);
+        services.AddSingleton(snapshotRetentionOptions);
         services.AddSingleton(new ServerPollingSettings(
             pollingOptions.QueryTimeout,
             pollingOptions.BatchSize,
             pollingOptions.IncidentFailureThreshold));
+        services.AddSingleton(new SnapshotRetentionSettings(
+            snapshotRetentionOptions.RetentionPeriod,
+            snapshotRetentionOptions.BatchSize));
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<IServerRepository, EfServerRepository>();
         services.AddScoped<IIncidentRepository, EfIncidentRepository>();
         services.AddScoped<IMonitoringReadRepository, EfMonitoringReadRepository>();
+        services.AddScoped<IPollSnapshotRetentionRepository, EfPollSnapshotRetentionRepository>();
         services.AddScoped<IServerCredentialRepository, EfServerCredentialRepository>();
         services.AddScoped<ICommandExecutionRepository, EfCommandExecutionRepository>();
         services.AddSingleton<ISecretReferenceResolver, ConfigurationSecretReferenceResolver>();
@@ -56,6 +62,7 @@ public static class DependencyInjection
         services.AddScoped<IRconCommandExecutor, GoldSrcRconCommandExecutor>();
         services.AddScoped<CommandDispatcher>();
         services.AddScoped<ServerPollingService>();
+        services.AddScoped<SnapshotRetentionService>();
         services.AddSingleton<IGoldSrcServerQueryClient>(_ =>
             new GoldSrcServerQueryClient(Encoding.GetEncoding("windows-1251")));
 
@@ -67,6 +74,11 @@ public static class DependencyInjection
         if (dispatcherOptions.Enabled)
         {
             services.AddHostedService<CommandDispatchBackgroundService>();
+        }
+
+        if (snapshotRetentionOptions.Enabled)
+        {
+            services.AddHostedService<SnapshotRetentionBackgroundService>();
         }
 
         return services;

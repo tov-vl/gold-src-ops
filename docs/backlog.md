@@ -72,31 +72,43 @@ Completed:
 - Guarded local RCON smoke helper added with owned-server acknowledgement,
   authenticated preflight, `-WhatIf`, exact server-id confirmation, and a
   generated `say` command only.
+- Configurable poll-snapshot retention added with fail-fast bounds for retention,
+  cadence, and batch size.
+- A background cleanup worker deletes one oldest PostgreSQL batch per pass while
+  preserving snapshots at the cutoff, current server state, and incident history.
+- Retention completion, deletion, failure, and duration metrics added with unit,
+  Prometheus endpoint, and PostgreSQL Testcontainers coverage.
+- A concurrent `(CheckedAtUtc, Id)` index and operational retention guide added.
 
 ## Immediate Next Milestone
 
-Add configurable snapshot retention with bounded cleanup batches and
-operational metrics.
+Review v1 portfolio readiness and close evidence-backed release gaps.
 
 Definition of done:
 
-- Retention and cleanup cadence are validated configuration options.
-- Old snapshots are deleted in bounded batches without affecting current state
-  or incident history.
-- Cleanup runs expose completion, deletion, failure, and duration signals.
-- Unit and PostgreSQL-backed integration tests cover cutoff and batching rules.
+- Every MVP goal in `docs/project-brief.md` maps to current code, tests, or an
+  explicit documented trade-off.
+- The one-command local startup and authenticated smoke paths are exercised
+  against the migrated PostgreSQL schema.
+- README, architecture documents, backlog, and OpenAPI behavior describe the
+  same v1 boundary.
+- Remaining findings are classified as v1 blockers or intentionally deferred
+  follow-up work.
 
 ## Next Tasks
 
-1. Define snapshot-retention options and the application cleanup boundary.
-2. Add bounded PostgreSQL deletion and a background cleanup worker.
-3. Add cleanup metrics, tests, and operational documentation.
+1. Build a concise readiness matrix from the project brief to implementation
+   and verification evidence.
+2. Run the documented local startup and non-destructive authenticated smoke
+   flow, recording only reproducible gaps.
+3. Fix v1 blockers, then prepare a release/demo checklist and defer optional
+   scope explicitly.
 
 ## Following Milestone
 
-Review v1 portfolio readiness after retention is implemented. A distributed
-polling claim or lease remains deferred until multiple active poller instances
-are required.
+Package the verified v1 release and portfolio narrative. Alert delivery and an
+outbox remain candidates for v2; a distributed polling claim or lease remains
+deferred until multiple active poller instances are required.
 
 ## v1 API Scope
 
@@ -246,10 +258,12 @@ Start focused:
 - Unit and PostgreSQL integration coverage for background dispatch, atomic per-server claiming, and interrupted-command recovery.
 - API integration coverage for anonymous, Reader, and Operator access across the endpoint policy matrix.
 - API integration coverage proving command requester identity comes from the authenticated token subject.
+- Unit and PostgreSQL integration coverage for snapshot-retention cutoff,
+  bounded batching, metrics, and preservation of non-snapshot monitoring data.
 
 Later:
 
-- Snapshot-retention cleanup, metrics, and PostgreSQL batching coverage.
+- End-to-end release smoke coverage for the final deployment shape.
 
 ## Portfolio Readiness Checklist
 

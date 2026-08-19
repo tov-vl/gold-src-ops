@@ -46,6 +46,19 @@ public static class GoldSrcOpsMetrics
         "goldsrcops.commands.recovered",
         description: "Number of interrupted command executions recovered as failed.");
 
+    private static readonly Counter<int> SnapshotRetentionRuns = Meter.CreateCounter<int>(
+        "goldsrcops.snapshot_retention.runs",
+        description: "Number of snapshot retention cleanup runs by result.");
+
+    private static readonly Counter<int> SnapshotsDeleted = Meter.CreateCounter<int>(
+        "goldsrcops.snapshot_retention.snapshots_deleted",
+        description: "Number of expired poll snapshots deleted.");
+
+    private static readonly Histogram<double> SnapshotRetentionDuration = Meter.CreateHistogram<double>(
+        "goldsrcops.snapshot_retention.duration",
+        unit: "s",
+        description: "Duration of snapshot retention cleanup runs by result.");
+
     private static readonly KeyValuePair<string, object?> SuccessResultTag = new("result", "success");
 
     private static readonly KeyValuePair<string, object?> FailureResultTag = new("result", "failure");
@@ -91,6 +104,19 @@ public static class GoldSrcOpsMetrics
         }
     }
 
+    public static void RecordSnapshotRetentionCompleted(int deletedSnapshots, TimeSpan duration)
+    {
+        SnapshotRetentionRuns.Add(1, SuccessResultTag);
+        AddIfPositive(SnapshotsDeleted, deletedSnapshots);
+        SnapshotRetentionDuration.Record(duration.TotalSeconds, SuccessResultTag);
+    }
+
+    public static void RecordSnapshotRetentionFailed(TimeSpan duration)
+    {
+        SnapshotRetentionRuns.Add(1, FailureResultTag);
+        SnapshotRetentionDuration.Record(duration.TotalSeconds, FailureResultTag);
+    }
+
     private static void AddIfPositive(
         Counter<int> counter,
         int value,
@@ -99,6 +125,14 @@ public static class GoldSrcOpsMetrics
         if (value > 0)
         {
             counter.Add(value, tag);
+        }
+    }
+
+    private static void AddIfPositive(Counter<int> counter, int value)
+    {
+        if (value > 0)
+        {
+            counter.Add(value);
         }
     }
 

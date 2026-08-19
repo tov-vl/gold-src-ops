@@ -1,9 +1,10 @@
 # GoldSrcOps Architecture
 
 GoldSrcOps is currently a modular monolith. The API host owns HTTP endpoints,
-background polling, persistence wiring, health checks, and metrics export in one
-deployable process. The internal boundaries still separate API contracts,
-application orchestration, domain rules, and infrastructure integrations.
+background polling, command dispatch, snapshot retention, persistence wiring,
+health checks, and metrics export in one deployable process. The internal
+boundaries still separate API contracts, application orchestration, domain
+rules, and infrastructure integrations.
 
 ## System Overview
 
@@ -29,6 +30,7 @@ flowchart LR
         commandDispatcher["CommandDispatcher"]
         commandExecutor["IRconCommandExecutor"]
         pollingService["ServerPollingService"]
+        retentionService["SnapshotRetentionService"]
         telemetry["GoldSrcOpsMetrics"]
     end
 
@@ -50,6 +52,7 @@ flowchart LR
         secretResolver["ConfigurationSecretReferenceResolver"]
         backgroundWorker["GoldSrcPollingBackgroundService"]
         commandWorker["CommandDispatchBackgroundService"]
+        retentionWorker["SnapshotRetentionBackgroundService"]
     end
 
     clients --> endpoints
@@ -66,6 +69,9 @@ flowchart LR
     pollingService --> repositories
     pollingService --> telemetry
     commandWorker --> commandDispatcher
+    retentionWorker --> retentionService
+    retentionService --> repositories
+    retentionService --> telemetry
 
     serverService --> repositories
     monitoringService --> repositories
@@ -100,15 +106,15 @@ flowchart LR
   the public API shape.
 - `GoldSrcOps.Application` coordinates use cases such as server registration,
   credential metadata, command queueing, monitoring reads, incident reads, and
-  polling. It depends on repository and protocol interfaces, not EF Core or UDP
-  details.
+  polling and snapshot retention. It depends on repository and protocol
+  interfaces, not EF Core or UDP details.
 - `GoldSrcOps.Domain` owns the core server state model and transition rules:
   server status, poll snapshots, availability incidents, credential references,
   and command execution records.
 - `GoldSrcOps.Infrastructure` implements EF Core persistence, PostgreSQL
   configuration, the GoldSrc A2S query client, the GoldSrc RCON executor/client,
   local secret-reference resolution, the system clock, and the polling and
-  command-dispatch background workers.
+  command-dispatch and snapshot-retention background workers.
 
 ## Security Boundary
 
@@ -165,6 +171,12 @@ claims commands and serializes each server queue, so multiple command workers
 or API instances may dispatch commands concurrently. Horizontal polling will
 require an expiring database claim or lease before this singleton constraint can
 be removed.
+
+Snapshot cleanup is row-level idempotent, but multiple active retention workers
+would perform redundant selection and can contend on the same oldest rows. A
+multi-replica v1 deployment should therefore enable `SnapshotRetention` on one
+worker process only. This is an efficiency constraint rather than a data
+correctness boundary.
 
 ## Runtime Flows
 
@@ -280,6 +292,30 @@ stored in the database or returned by API contracts. Arbitrary environment or
 configuration paths cannot be selected through the API. Missing, legacy, or
 unsupported references fail the command before a network packet is sent.
 
+### Snapshot Retention
+
+```mermaid
+sequenceDiagram
+    participant Worker as SnapshotRetentionBackgroundService
+    participant App as SnapshotRetentionService
+    participant Repo as EfPollSnapshotRetentionRepository
+    participant Db as PostgreSQL
+
+    Worker->>App: CleanupAsync
+    App->>App: cutoff = UtcNow - RetentionPeriod
+    App->>Repo: DeleteBatchOlderThanAsync(cutoff, batchSize)
+    Repo->>Db: Delete oldest rows where CheckedAtUtc < cutoff
+    Db-->>Repo: Deleted row count (at most batchSize)
+    Repo-->>App: Deleted row count
+    App-->>Worker: Cutoff, count, and batch-limit signal
+```
+
+Each pass executes one bounded delete. Ordering by `CheckedAtUtc` and `Id`
+makes backlog draining deterministic, and the strict cutoff retains a snapshot
+whose timestamp equals the boundary. Current state and availability incidents
+are stored separately and are not part of the delete. See
+`docs/snapshot-retention.md` for configuration and capacity guidance.
+
 ## Observability
 
 - `/health/live` is a lightweight liveness probe and intentionally does not run
@@ -290,7 +326,8 @@ unsupported references fail the command before a network packet is sent.
   in Prometheus format through OpenTelemetry.
 - Application metrics currently cover polling runs, server poll attempts by
   result, incident transitions, queued commands, dispatched commands, completed
-  command dispatches by result, and recovered interrupted commands.
+  command dispatches by result, recovered interrupted commands, and
+  snapshot-retention runs, deletions, failures, and duration.
 - Structured RCON lifecycle events expose safe command and server identifiers,
   type, status, result, and duration while excluding payloads, secret references,
   passwords, and executor response text.
@@ -312,4 +349,5 @@ The current test suite keeps the layers visible:
 - telemetry tests cover command metric recording and Prometheus exposure;
 - PostgreSQL-backed integration tests use Testcontainers and apply EF Core
   migrations against a real PostgreSQL provider, including concurrent
-  per-server claims and interrupted-command recovery.
+  per-server claims, interrupted-command recovery, and bounded snapshot
+  retention with strict cutoff behavior.

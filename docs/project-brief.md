@@ -57,6 +57,8 @@ Current implementation:
 - Auditable RCON command queue with PostgreSQL-backed claiming, per-server
   serialization, interrupted-command recovery, and external secret references.
 - Health checks and Prometheus metrics through OpenTelemetry.
+- Bounded PostgreSQL retention for historical poll snapshots with validated
+  configuration and operational metrics.
 - Unit, API integration, deterministic polling, protocol, and PostgreSQL
   Testcontainers coverage.
 - GitHub Actions quality gate for formatting, build, tests, and NuGet audit.
