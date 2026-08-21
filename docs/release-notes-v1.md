@@ -118,9 +118,9 @@ Use [docs/demo.md](demo.md) for a five-to-ten-minute walkthrough and
   microservices, Kafka, event sourcing, and Orleans are outside the v1 scope.
 - Distributed tracing and a packaged Grafana dashboard are deferred; v1 exposes
   logs, health checks, application/runtime metrics, and Prometheus output.
-- `OpenTelemetry.Exporter.Prometheus.AspNetCore` is currently referenced as
-  `1.15.3-beta.1`. Its endpoint is integration-tested, but the dependency should
-  be reevaluated for a later production-oriented release.
+- The v1.0.0 source references `OpenTelemetry.Exporter.Prometheus.AspNetCore`
+  `1.15.3-beta.1`. Its endpoint is integration-tested, and later releases must
+  reevaluate the prerelease dependency rather than treating it as stable.
 
 ## Release References
 

@@ -101,6 +101,12 @@ reject or redirect public plaintext traffic before forwarding requests and its
 scheme/host forwarding must be verified in the target environment. Production
 bearer tokens must never cross an unencrypted public connection.
 
+v1.1 pins the OpenTelemetry SDK and instrumentations to `1.17.0` and the direct
+Prometheus exporter to `1.17.0-beta.1`. The endpoint remains prerelease but is
+kept for v1 compatibility; Architecture Decision 12 documents the safeguards
+and the conditions for replacing it with stable OTLP export through a
+collector.
+
 ## Configuration
 
 Set `ASPNETCORE_ENVIRONMENT=Production`. `appsettings.Local.json` is loaded only

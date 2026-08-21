@@ -220,11 +220,16 @@ different servers in parallel, but PostgreSQL serialization permits only one
 `Running` command per server. Interrupted commands are failed without an
 automatic retry because RCON commands are not idempotent.
 
-`/metrics` exposes ASP.NET Core, runtime, and GoldSrcOps application metrics in Prometheus format.
-Application metrics cover polling runs, server poll attempts by result, incident transitions, queued commands,
-dispatched commands, completed command dispatches by result, recovered interrupted commands, and snapshot-retention
-runs, deletion counts, failures, and duration.
-The Prometheus ASP.NET Core exporter is currently referenced as a prerelease OpenTelemetry package because a stable exporter package is not available yet.
+`/metrics` exposes ASP.NET Core, runtime, and GoldSrcOps application metrics in
+Prometheus format. Application metrics cover polling runs, server poll attempts
+by result, incident transitions, queued, dispatched, completed, and recovered
+commands, plus snapshot-retention runs, deletions, failures, and duration.
+
+The OpenTelemetry packages are aligned on `1.17.0`; the direct ASP.NET Core
+Prometheus exporter remains `1.17.0-beta.1` because no stable release exists.
+v1.1 retains the authenticated, integration-tested `/metrics` contract instead
+of adding an OpenTelemetry Collector deployment. The accepted prerelease risk
+and the later OTLP migration trigger are recorded in Architecture Decision 12.
 
 ## Local Smoke Flow
 

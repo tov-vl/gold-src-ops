@@ -321,3 +321,57 @@ Implementation status:
 
 Implemented with unit, Prometheus endpoint, and PostgreSQL Testcontainers
 coverage. Operational details are documented in `docs/snapshot-retention.md`.
+
+## Decision 12: Keep The Direct Prometheus Exporter In v1.1
+
+Decision:
+
+Upgrade the OpenTelemetry SDK and instrumentations to stable `1.17.0`, upgrade
+`OpenTelemetry.Exporter.Prometheus.AspNetCore` to `1.17.0-beta.1`, and retain
+the authenticated `/metrics` endpoint for v1.1. Do not add an OTLP exporter or
+OpenTelemetry Collector to the v1.1 deployment shape.
+
+Decision date: 2026-08-21.
+
+Reasoning:
+
+- NuGet has no stable release of the direct ASP.NET Core Prometheus exporter.
+  Its official documentation keeps the component prerelease because it depends
+  on the experimental Prometheus/OpenMetrics compatibility specification and
+  recommends considering stable OTLP export for production.
+- `1.17.0-beta.1` is the latest available exporter release. Relative to the
+  previously pinned `1.15.3-beta.1`, the `1.16` and `1.17` releases include
+  scrape serialization, content negotiation, timeout, response-size, and
+  under-load stack-overflow fixes.
+- `/metrics` is an implemented v1 operational contract. It requires `Reader` or
+  `Operator`, and API integration tests cover both output and authorization.
+- Introducing a collector only to remove the prerelease package would add a
+  service, configuration, rollout, and failure boundary to the focused v1.1
+  operability release.
+
+Trade-offs and safeguards:
+
+- Pin the exact exporter version; never float to an unreviewed prerelease.
+- Keep the stable SDK, hosting, ASP.NET Core instrumentation, and runtime
+  instrumentation packages on the same `1.17.0` line as the exporter core
+  dependency.
+- Treat every exporter update as potentially breaking. Review its changelog and
+  rerun the authenticated Prometheus endpoint integration tests, full quality
+  gate, and production container smoke test.
+- Keep `/metrics` behind the `Reader` policy and a private deployment boundary.
+- Reevaluate the decision before each production-oriented release. Replace the
+  direct exporter when a stable version is available, or when GoldSrcOps adopts
+  an OpenTelemetry Collector for OTLP metrics as an intentional deployment
+  architecture change.
+
+Implementation status:
+
+Implemented for the v1.1 candidate. Package status and changes were checked
+against the NuGet package page and the upstream OpenTelemetry .NET exporter
+documentation and changelog on the decision date.
+
+References:
+
+- [NuGet package](https://www.nuget.org/packages/OpenTelemetry.Exporter.Prometheus.AspNetCore/1.17.0-beta.1)
+- [Exporter documentation](https://github.com/open-telemetry/opentelemetry-dotnet/blob/coreunstable-1.17.0-beta.1/src/OpenTelemetry.Exporter.Prometheus.AspNetCore/README.md)
+- [Exporter changelog](https://github.com/open-telemetry/opentelemetry-dotnet/blob/coreunstable-1.17.0-beta.1/src/OpenTelemetry.Exporter.Prometheus.AspNetCore/CHANGELOG.md)

@@ -132,6 +132,12 @@ Completed:
 - The v1.1 deployment guide defines immutable image versioning, the runtime and
   configuration contract, singleton-worker topology, separate EF migrations,
   health probes, rollout order, and application/database rollback boundaries.
+- OpenTelemetry SDK and instrumentation packages are aligned on stable `1.17.0`,
+  and the direct Prometheus exporter is upgraded to the latest available
+  `1.17.0-beta.1` with endpoint integration coverage retained.
+- Architecture Decision 12 records why v1.1 keeps the authenticated direct
+  exporter despite its prerelease status and when to replace it with stable
+  OTLP export through an OpenTelemetry Collector.
 
 ## Immediate Next Milestone
 
@@ -152,8 +158,7 @@ Definition of done:
 
 ## Next Tasks
 
-1. Reassess `OpenTelemetry.Exporter.Prometheus.AspNetCore` against the package
-   versions available when v1.1 is prepared.
+1. Prepare the v1.1 release candidate and record final readiness evidence.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
 
