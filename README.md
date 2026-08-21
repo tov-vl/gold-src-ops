@@ -50,6 +50,7 @@ in [docs/release-notes-v1.md](docs/release-notes-v1.md).
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Authentication and endpoint policies | [Security](docs/security.md) |
 | Vulnerability reporting | [Security policy](.github/SECURITY.md) |
+| Container rollout, migrations, and rollback | [Deployment](docs/deployment.md) |
 | RCON safety and recovery | [RCON operations](docs/rcon.md) |
 | Full local verification | [Smoke test](docs/smoke-test.md) |
 | MVP evidence | [v1 readiness](docs/v1-readiness.md) |
@@ -400,6 +401,8 @@ intended workflow, although the ruleset does not currently require one.
 Run `pwsh -NoProfile -File .\tools\smoke\container.ps1` to build and verify the
 production container against an isolated PostgreSQL instance. See
 `docs/smoke-test.md` for details and for the longer live GoldSrc server flow.
+Use `docs/deployment.md` for image versioning, production configuration,
+migrations, probes, and rollback.
 
 For a concise five-to-ten-minute portfolio walkthrough, use `docs/demo.md`.
 

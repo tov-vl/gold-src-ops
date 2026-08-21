@@ -53,6 +53,8 @@ Current implementation:
 - Health checks and Prometheus metrics through OpenTelemetry.
 - Bounded PostgreSQL retention for historical poll snapshots with validated
   configuration and operational metrics.
+- A production-oriented .NET 10 container image with non-root execution,
+  separate EF migrations, and isolated PostgreSQL-backed CI smoke coverage.
 - Unit, API integration, deterministic polling, protocol, and PostgreSQL
   Testcontainers coverage.
 - GitHub Actions quality gate for formatting, build, tests, and NuGet audit.

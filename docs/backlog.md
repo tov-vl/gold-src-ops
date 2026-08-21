@@ -129,6 +129,9 @@ Completed:
 - The active `main` ruleset requires both `Quality Gate` and `Container Smoke`
   while retaining signed commits, linear history, deletion protection, and
   force-push protection.
+- The v1.1 deployment guide defines immutable image versioning, the runtime and
+  configuration contract, singleton-worker topology, separate EF migrations,
+  health probes, rollout order, and application/database rollback boundaries.
 
 ## Immediate Next Milestone
 
@@ -149,8 +152,7 @@ Definition of done:
 
 ## Next Tasks
 
-1. Document the v1.1 container deployment and migration workflow.
-2. Reassess `OpenTelemetry.Exporter.Prometheus.AspNetCore` against the package
+1. Reassess `OpenTelemetry.Exporter.Prometheus.AspNetCore` against the package
    versions available when v1.1 is prepared.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
