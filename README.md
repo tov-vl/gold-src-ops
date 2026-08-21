@@ -389,11 +389,11 @@ GitHub Actions runs the same quality gate on every push and pull request. After
 it succeeds, a dependent `Container Smoke` job builds the production image,
 applies migrations to isolated PostgreSQL, and checks its runtime contract.
 
-The active `main` ruleset requires signed commits, linear history, and the
-`Quality Gate`, and blocks branch deletion and force pushes. Candidate commits
-must first be pushed to another branch so CI can report the required check
-before `main` is updated. Pull requests are the intended workflow, although the
-ruleset does not currently require one.
+The active `main` ruleset requires signed commits, linear history, the
+`Quality Gate`, and `Container Smoke`, and blocks branch deletion and force
+pushes. Candidate commits must first be pushed to another branch so CI can
+report the required checks before `main` is updated. Pull requests are the
+intended workflow, although the ruleset does not currently require one.
 
 ## Smoke Test
 

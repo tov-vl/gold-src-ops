@@ -126,6 +126,9 @@ Completed:
   PostgreSQL-backed readiness with finally-based Docker resource cleanup.
 - GitHub Actions runs the container smoke script in a dedicated job after the
   regular code quality gate succeeds.
+- The active `main` ruleset requires both `Quality Gate` and `Container Smoke`
+  while retaining signed commits, linear history, deletion protection, and
+  force-push protection.
 
 ## Immediate Next Milestone
 
