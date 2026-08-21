@@ -88,9 +88,9 @@ Completed:
 - A five-to-ten-minute presenter guide now demonstrates auth, live A2S polling,
   deterministic incident creation, durable command audit, and observability
   without sending RCON traffic to a third-party server.
-- Draft v1.0.0 release notes now summarize delivered scope, reliability and
+- Published v1.0.0 release notes summarize delivered scope, reliability and
   security decisions, verification evidence, operational limits, and deferred
-  work without claiming that a tag has already been published.
+  work.
 - Public-release hygiene removed local workspace paths and internal process
   wording, replaced the development-log README opening with a release-facing
   summary, and added a documentation map and explicit prerequisites.
@@ -111,31 +111,40 @@ Completed:
   `Quality Gate`.
 - Release documentation was integrated into `main` through a signed linear
   commit, and the required `Quality Gate` passed for the resulting revision.
+- The final release checklist was integrated into `main` through a signed
+  linear commit, and its required `Quality Gate` passed.
+- The signed annotated `v1.0.0` tag identifies the verified release revision,
+  and its tag-triggered `Quality Gate` passed.
+- The
+  [GoldSrcOps v1.0.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0)
+  is published as the latest stable release.
 
 ## Immediate Next Milestone
 
-Package the verified v1 release and portfolio narrative.
+Prepare a focused v1.1 operability release without changing the v1 API
+contract or pulling the deferred v2 outbox work forward.
 
 Definition of done:
 
-- A short demo guide presents the primary A2S, incident, auth, command, and
-  observability flows in a repeatable order.
-- Release notes summarize the v1 scope, reliability decisions, verification,
-  and intentionally deferred work.
-- Repository-facing documentation tells one consistent portfolio story without
-  claiming alert delivery, horizontal polling, or production identity hosting.
-- Repository metadata, security settings, and the protected `main` workflow are
-  configured for the public project.
-- A signed `v1.0.0` tag identifies a final `main` commit that passed both the
-  local and GitHub quality gates.
+- A production-oriented container image packages the API with a non-root
+  runtime and leaves EF migration execution as a separate deployment action.
+- CI builds the image and smoke-tests it against PostgreSQL using the documented
+  configuration contract.
+- Deployment documentation covers image versioning, health probes,
+  configuration, migrations, and rollback expectations.
+- The prerelease Prometheus exporter dependency is reevaluated before v1.1 and
+  either upgraded or retained with an explicit current rationale.
+- The public API and v1 reliability semantics remain backward compatible.
 
 ## Next Tasks
 
-1. Run the complete local quality gate with Docker against the final release
-   candidate commit.
-2. Confirm that the GitHub Actions `Quality Gate` passed for the same SHA on
-   `main`.
-3. Create and push a signed `v1.0.0` tag for that commit.
+1. Add a multi-stage production `Dockerfile` and a focused `.dockerignore`.
+2. Add a container smoke test that starts the API against PostgreSQL and checks
+   liveness, readiness, and fail-fast configuration behavior.
+3. Extend CI to build the image after the existing code quality gate succeeds.
+4. Document the v1.1 container deployment and migration workflow.
+5. Reassess `OpenTelemetry.Exporter.Prometheus.AspNetCore` against the package
+   versions available when v1.1 is prepared.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
 
@@ -149,9 +158,9 @@ Configured topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
 
 ## Following Milestone
 
-Design alert delivery around an outbox as the first v2 capability. A distributed
-polling claim or lease remains deferred until multiple active poller instances
-are required.
+After v1.1, design alert delivery around an outbox as the first v2 capability.
+A distributed polling claim or lease remains deferred until multiple active
+poller instances are required.
 
 ## v1 API Scope
 
@@ -304,13 +313,13 @@ Start focused:
 - Unit and PostgreSQL integration coverage for snapshot-retention cutoff,
   bounded batching, metrics, and preservation of non-snapshot monitoring data.
 
-Later:
+For v1.1:
 
-- End-to-end release smoke coverage for the final deployment shape.
+- Container-image smoke coverage for the documented deployment shape.
 
-## Portfolio Readiness Checklist
+## v1 Portfolio Readiness
 
-Before calling v1 done:
+The released v1 baseline includes:
 
 - One-command local startup.
 - Clear README.

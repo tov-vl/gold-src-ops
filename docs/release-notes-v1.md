@@ -1,6 +1,7 @@
 # GoldSrcOps v1.0.0 Release Notes
 
-Prepared: 2026-08-19. Status: release candidate. Publication tag: pending.
+Prepared: 2026-08-19. Published: 2026-08-21. Status: released. Tag:
+[`v1.0.0`](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0).
 
 ## Overview
 
@@ -136,6 +137,8 @@ Use [docs/demo.md](demo.md) for a five-to-ten-minute walkthrough and
 
 ## Publication Status
 
-The release tag has not been created yet. After the repository presentation is
-reviewed and a publication point is selected, rerun the quality gate against
-that exact commit and create a signed `v1.0.0` tag.
+Published on 2026-08-21 as the
+[GoldSrcOps v1.0.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0).
+The signed annotated tag identifies the published release revision. The GitHub
+Actions `Quality Gate` passed for the same revision on `main` and for the
+`v1.0.0` tag.

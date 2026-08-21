@@ -6,10 +6,11 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** Public v1.0.0 release candidate. The published `main` commit passed
-the GitHub Actions `Quality Gate`; the verified readiness run passed all 141
-tests with zero build warnings and no known vulnerable NuGet packages. The
-signed release tag has not been created yet.
+**Status:** [v1.0.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0)
+is the current public release. Its signed tag identifies a verified revision
+that passed the complete local quality gate and GitHub Actions `Quality Gate`
+on both `main` and the tag. All 141 tests passed with zero build warnings and
+no known vulnerable NuGet packages.
 
 ## Highlights
 
@@ -440,12 +441,13 @@ The spike follows Valve's documented A2S server query format:
 ## Release Status
 
 The v1.0.0 implementation and documentation are published in the
-[public GitHub repository](https://github.com/tov-vl/gold-src-ops). Repository
-metadata, private vulnerability reporting, Dependabot security updates, and the
-protected `main` workflow are configured. The remaining release step is to
-select the final `main` commit, verify both local and GitHub quality gates for
-that commit, and create its signed `v1.0.0` tag. See
-[docs/backlog.md](docs/backlog.md) for the active checklist.
+[public GitHub repository](https://github.com/tov-vl/gold-src-ops) and packaged
+as the
+[GoldSrcOps v1.0.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0)
+from a signed tag. Repository metadata, private vulnerability reporting,
+Dependabot security updates, and the protected `main` workflow are configured.
+The next milestone focuses on v1.1 deployment packaging and operability
+hardening; see [docs/backlog.md](docs/backlog.md) for the active checklist.
 
 ## License
 

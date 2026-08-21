@@ -1,12 +1,13 @@
 # GoldSrcOps v1 Readiness
 
-Review date: 2026-08-19.
+Review date: 2026-08-19. Publication date: 2026-08-21.
 
 Outcome: the implemented scope satisfies the MVP in `docs/project-brief.md`.
 No unresolved v1 blocker remains after the fixes recorded below. The verified
-behavior is packaged in `docs/demo.md` and `docs/release-notes-v1.md`; the
-remaining release action is selecting the publication commit and creating its
-signed release tag, not expanding the runtime scope.
+behavior is packaged in `docs/demo.md` and `docs/release-notes-v1.md` and was
+published as the
+[GoldSrcOps v1.0.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0)
+from a signed tag on 2026-08-21.
 
 ## MVP Evidence Matrix
 
