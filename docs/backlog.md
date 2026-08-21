@@ -124,6 +124,8 @@ Completed:
 - An isolated container smoke script verifies image contents, production
   configuration fail-fast behavior, separate EF migrations, liveness, and
   PostgreSQL-backed readiness with finally-based Docker resource cleanup.
+- GitHub Actions runs the container smoke script in a dedicated job after the
+  regular code quality gate succeeds.
 
 ## Immediate Next Milestone
 
@@ -144,9 +146,8 @@ Definition of done:
 
 ## Next Tasks
 
-1. Extend CI to build the image after the existing code quality gate succeeds.
-2. Document the v1.1 container deployment and migration workflow.
-3. Reassess `OpenTelemetry.Exporter.Prometheus.AspNetCore` against the package
+1. Document the v1.1 container deployment and migration workflow.
+2. Reassess `OpenTelemetry.Exporter.Prometheus.AspNetCore` against the package
    versions available when v1.1 is prepared.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)

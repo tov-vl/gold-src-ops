@@ -44,3 +44,23 @@ jobs:
 
       - name: Report vulnerable packages
         run: dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
+
+  container-smoke:
+    name: Container Smoke
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DOCKER_BUILDKIT: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Run container smoke test
+        run: pwsh -NoProfile -File ./tools/smoke/container.ps1

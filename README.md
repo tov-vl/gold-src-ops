@@ -385,7 +385,9 @@ dotnet test GoldSrcOps.sln
 dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 ```
 
-GitHub Actions runs the same quality gate on every push and pull request.
+GitHub Actions runs the same quality gate on every push and pull request. After
+it succeeds, a dependent `Container Smoke` job builds the production image,
+applies migrations to isolated PostgreSQL, and checks its runtime contract.
 
 The active `main` ruleset requires signed commits, linear history, and the
 `Quality Gate`, and blocks branch deletion and force pushes. Candidate commits

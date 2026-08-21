@@ -23,6 +23,9 @@ All temporary containers and the dedicated Docker network are removed in a
 `finally` block. The temporary image tag is also removed by default; pass
 `-KeepImage` only when it is needed for local troubleshooting.
 
+GitHub Actions runs the same command in the dependent `Container Smoke` job
+after the regular `Quality Gate` succeeds.
+
 ## Fast Path
 
 ```powershell
