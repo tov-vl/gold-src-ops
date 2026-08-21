@@ -118,6 +118,9 @@ Completed:
 - The
   [GoldSrcOps v1.0.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0)
   is published as the latest stable release.
+- The v1.1 container baseline now uses a multi-stage .NET 10 image, runs the
+  API as a non-root user on port `8080`, excludes local configuration, and
+  keeps EF migration execution outside application startup.
 
 ## Immediate Next Milestone
 
@@ -138,12 +141,11 @@ Definition of done:
 
 ## Next Tasks
 
-1. Add a multi-stage production `Dockerfile` and a focused `.dockerignore`.
-2. Add a container smoke test that starts the API against PostgreSQL and checks
+1. Add a container smoke test that starts the API against PostgreSQL and checks
    liveness, readiness, and fail-fast configuration behavior.
-3. Extend CI to build the image after the existing code quality gate succeeds.
-4. Document the v1.1 container deployment and migration workflow.
-5. Reassess `OpenTelemetry.Exporter.Prometheus.AspNetCore` against the package
+2. Extend CI to build the image after the existing code quality gate succeeds.
+3. Document the v1.1 container deployment and migration workflow.
+4. Reassess `OpenTelemetry.Exporter.Prometheus.AspNetCore` against the package
    versions available when v1.1 is prepared.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
