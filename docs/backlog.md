@@ -109,6 +109,8 @@ Completed:
   deletion and force pushes.
 - The initial publication commit was pushed and passed the GitHub Actions
   `Quality Gate`.
+- Release documentation was integrated into `main` through a signed linear
+  commit, and the required `Quality Gate` passed for the resulting revision.
 
 ## Immediate Next Milestone
 
@@ -129,11 +131,11 @@ Definition of done:
 
 ## Next Tasks
 
-1. Push this documentation branch, let the GitHub Actions `Quality Gate` pass,
-   and update `main` through a linear pull request merge.
-2. Rerun the local quality gate against the resulting `main` commit, verify that
-   GitHub Actions passed for the same commit, and create and push a signed
-   `v1.0.0` tag.
+1. Run the complete local quality gate with Docker against the final release
+   candidate commit.
+2. Confirm that the GitHub Actions `Quality Gate` passed for the same SHA on
+   `main`.
+3. Create and push a signed `v1.0.0` tag for that commit.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
 
