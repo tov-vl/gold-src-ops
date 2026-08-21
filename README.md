@@ -395,7 +395,9 @@ ruleset does not currently require one.
 
 ## Smoke Test
 
-See `docs/smoke-test.md` for a Docker-based local smoke test that applies migrations, runs the API, registers a live GoldSrc server, and checks status, snapshots, dashboard overview, and incidents.
+Run `pwsh -NoProfile -File .\tools\smoke\container.ps1` to build and verify the
+production container against an isolated PostgreSQL instance. See
+`docs/smoke-test.md` for details and for the longer live GoldSrc server flow.
 
 For a concise five-to-ten-minute portfolio walkthrough, use `docs/demo.md`.
 

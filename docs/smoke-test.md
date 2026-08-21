@@ -1,6 +1,27 @@
 # GoldSrcOps Smoke Test
 
-This smoke test exercises the local PostgreSQL-backed API against a live GoldSrc server.
+GoldSrcOps provides an isolated container-image smoke test and a longer local
+workflow that exercises the PostgreSQL-backed API against a live GoldSrc
+server.
+
+## Container Image
+
+Run the production image check from the repository root with PowerShell 7:
+
+```powershell
+pwsh -NoProfile -File .\tools\smoke\container.ps1
+```
+
+The script builds a uniquely tagged image, verifies its non-root runtime and
+publish contents, checks that missing production configuration fails fast,
+starts an isolated PostgreSQL container, and applies EF Core migrations as a
+separate host-side action. It then starts the API with a read-only filesystem,
+dropped Linux capabilities, and no-new-privileges before requiring both
+`/health/live` and `/health/ready` to return `200 Healthy`.
+
+All temporary containers and the dedicated Docker network are removed in a
+`finally` block. The temporary image tag is also removed by default; pass
+`-KeepImage` only when it is needed for local troubleshooting.
 
 ## Fast Path
 

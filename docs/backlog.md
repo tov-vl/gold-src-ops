@@ -121,6 +121,9 @@ Completed:
 - The v1.1 container baseline now uses a multi-stage .NET 10 image, runs the
   API as a non-root user on port `8080`, excludes local configuration, and
   keeps EF migration execution outside application startup.
+- An isolated container smoke script verifies image contents, production
+  configuration fail-fast behavior, separate EF migrations, liveness, and
+  PostgreSQL-backed readiness with finally-based Docker resource cleanup.
 
 ## Immediate Next Milestone
 
@@ -141,11 +144,9 @@ Definition of done:
 
 ## Next Tasks
 
-1. Add a container smoke test that starts the API against PostgreSQL and checks
-   liveness, readiness, and fail-fast configuration behavior.
-2. Extend CI to build the image after the existing code quality gate succeeds.
-3. Document the v1.1 container deployment and migration workflow.
-4. Reassess `OpenTelemetry.Exporter.Prometheus.AspNetCore` against the package
+1. Extend CI to build the image after the existing code quality gate succeeds.
+2. Document the v1.1 container deployment and migration workflow.
+3. Reassess `OpenTelemetry.Exporter.Prometheus.AspNetCore` against the package
    versions available when v1.1 is prepared.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
