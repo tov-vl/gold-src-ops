@@ -61,6 +61,9 @@ Current implementation:
 - A completed v1 readiness review with startup, migration, live polling,
   authenticated API, safe command, and metrics evidence in
   `docs/v1-readiness.md`.
+- A focused v1.1 release-candidate review covering the production container,
+  deployment contract, required container smoke gate, compatibility, and
+  current OpenTelemetry decision in `docs/v1.1-readiness.md`.
 
 The original `A2S_INFO` console spike remains available as a protocol diagnostic
 tool, and its live query was verified against a public GoldSrc server. See the

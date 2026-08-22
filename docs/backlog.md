@@ -132,17 +132,26 @@ Completed:
 - The v1.1 deployment guide defines immutable image versioning, the runtime and
   configuration contract, singleton-worker topology, separate EF migrations,
   health probes, rollout order, and application/database rollback boundaries.
-- OpenTelemetry SDK and instrumentation packages are aligned on stable `1.17.0`,
+- OpenTelemetry SDK and instrumentation packages are aligned on stable `1.18.0`,
   and the direct Prometheus exporter is upgraded to the latest available
-  `1.17.0-beta.1` with endpoint integration coverage retained.
+  `1.18.0-beta.1` with endpoint integration coverage retained.
 - Architecture Decision 12 records why v1.1 keeps the authenticated direct
   exporter despite its prerelease status and when to replace it with stable
   OTLP export through an OpenTelemetry Collector.
+- The v1.1 readiness matrix records the compatibility review, final local
+  quality gate, production container smoke evidence, accepted deployment
+  boundaries, and publication prerequisites.
+- Candidate release notes describe the focused operability delta from v1.0.0
+  without claiming an API or database-schema change.
 
 ## Immediate Next Milestone
 
 Prepare a focused v1.1 operability release without changing the v1 API
 contract or pulling the deferred v2 outbox work forward.
+
+Candidate status: implementation and local readiness evidence are complete.
+Publication remains gated on the final candidate PR checks, signed tag, and
+tag-triggered CI.
 
 Definition of done:
 
@@ -158,7 +167,12 @@ Definition of done:
 
 ## Next Tasks
 
-1. Prepare the v1.1 release candidate and record final readiness evidence.
+1. Push the v1.1 candidate branch, open a pull request, and verify the required
+   `Quality Gate` and `Container Smoke` on the final candidate SHA.
+2. Integrate the candidate through the protected `main` workflow and verify the
+   post-merge CI run.
+3. Create and push the signed annotated `v1.1.0` tag, verify tag-triggered CI,
+   and publish the GitHub Release from `docs/release-notes-v1.1.md`.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
 

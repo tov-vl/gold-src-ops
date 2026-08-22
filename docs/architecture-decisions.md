@@ -326,12 +326,12 @@ coverage. Operational details are documented in `docs/snapshot-retention.md`.
 
 Decision:
 
-Upgrade the OpenTelemetry SDK and instrumentations to stable `1.17.0`, upgrade
-`OpenTelemetry.Exporter.Prometheus.AspNetCore` to `1.17.0-beta.1`, and retain
+Upgrade the OpenTelemetry SDK and instrumentations to stable `1.18.0`, upgrade
+`OpenTelemetry.Exporter.Prometheus.AspNetCore` to `1.18.0-beta.1`, and retain
 the authenticated `/metrics` endpoint for v1.1. Do not add an OTLP exporter or
 OpenTelemetry Collector to the v1.1 deployment shape.
 
-Decision date: 2026-08-21.
+Decision date: 2026-08-21. Revalidated for the release candidate on 2026-08-22.
 
 Reasoning:
 
@@ -339,10 +339,13 @@ Reasoning:
   Its official documentation keeps the component prerelease because it depends
   on the experimental Prometheus/OpenMetrics compatibility specification and
   recommends considering stable OTLP export for production.
-- `1.17.0-beta.1` is the latest available exporter release. Relative to the
-  previously pinned `1.15.3-beta.1`, the `1.16` and `1.17` releases include
-  scrape serialization, content negotiation, timeout, response-size, and
-  under-load stack-overflow fixes.
+- `1.18.0-beta.1` is the latest available exporter release. Relative to the
+  previously pinned `1.15.3-beta.1`, the `1.16` through `1.18` releases include
+  scrape serialization, content negotiation, timeout, response-size,
+  concurrency, and under-load stack-overflow fixes.
+- The stable `1.18.0` breaking change affects the OTLP export request-size
+  default. GoldSrcOps does not reference the OTLP exporter, and the direct
+  Prometheus exporter changelog contains no `1.18.0-beta.1` breaking change.
 - `/metrics` is an implemented v1 operational contract. It requires `Reader` or
   `Operator`, and API integration tests cover both output and authorization.
 - Introducing a collector only to remove the prerelease package would add a
@@ -353,7 +356,7 @@ Trade-offs and safeguards:
 
 - Pin the exact exporter version; never float to an unreviewed prerelease.
 - Keep the stable SDK, hosting, ASP.NET Core instrumentation, and runtime
-  instrumentation packages on the same `1.17.0` line as the exporter core
+  instrumentation packages on the same `1.18.0` line as the exporter core
   dependency.
 - Treat every exporter update as potentially breaking. Review its changelog and
   rerun the authenticated Prometheus endpoint integration tests, full quality
@@ -366,12 +369,13 @@ Trade-offs and safeguards:
 
 Implementation status:
 
-Implemented for the v1.1 candidate. Package status and changes were checked
-against the NuGet package page and the upstream OpenTelemetry .NET exporter
-documentation and changelog on the decision date.
+Implemented for the v1.1 candidate. Package status and changes were rechecked
+against NuGet and the upstream OpenTelemetry .NET release notes, exporter
+documentation, and changelog on 2026-08-22.
 
 References:
 
-- [NuGet package](https://www.nuget.org/packages/OpenTelemetry.Exporter.Prometheus.AspNetCore/1.17.0-beta.1)
-- [Exporter documentation](https://github.com/open-telemetry/opentelemetry-dotnet/blob/coreunstable-1.17.0-beta.1/src/OpenTelemetry.Exporter.Prometheus.AspNetCore/README.md)
-- [Exporter changelog](https://github.com/open-telemetry/opentelemetry-dotnet/blob/coreunstable-1.17.0-beta.1/src/OpenTelemetry.Exporter.Prometheus.AspNetCore/CHANGELOG.md)
+- [OpenTelemetry 1.18 release notes](https://github.com/open-telemetry/opentelemetry-dotnet/blob/core-1.18.0/RELEASENOTES.md)
+- [NuGet package](https://www.nuget.org/packages/OpenTelemetry.Exporter.Prometheus.AspNetCore/1.18.0-beta.1)
+- [Exporter documentation](https://github.com/open-telemetry/opentelemetry-dotnet/blob/coreunstable-1.18.0-beta.1/src/OpenTelemetry.Exporter.Prometheus.AspNetCore/README.md)
+- [Exporter changelog](https://github.com/open-telemetry/opentelemetry-dotnet/blob/coreunstable-1.18.0-beta.1/src/OpenTelemetry.Exporter.Prometheus.AspNetCore/CHANGELOG.md)

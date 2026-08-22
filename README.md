@@ -10,7 +10,11 @@ operations.
 is the current public release. Its signed tag identifies a verified revision
 that passed the complete local quality gate and GitHub Actions `Quality Gate`
 on both `main` and the tag. All 141 tests passed with zero build warnings and
-no known vulnerable NuGet packages.
+no known vulnerable NuGet packages. The focused v1.1.0
+operability release candidate is documented in
+[docs/release-notes-v1.1.md](docs/release-notes-v1.1.md), with readiness
+evidence in [docs/v1.1-readiness.md](docs/v1.1-readiness.md); it is not yet
+tagged or published.
 
 ## Highlights
 
@@ -38,7 +42,9 @@ See [docs/architecture.md](docs/architecture.md) for the component diagram and
 runtime flows. The MVP evidence and accepted deferrals are recorded in
 [docs/v1-readiness.md](docs/v1-readiness.md). A presenter-oriented walkthrough
 is available in [docs/demo.md](docs/demo.md), and the release-facing summary is
-in [docs/release-notes-v1.md](docs/release-notes-v1.md).
+in [docs/release-notes-v1.md](docs/release-notes-v1.md). The focused v1.1
+operability delta is covered by
+[docs/v1.1-readiness.md](docs/v1.1-readiness.md).
 
 ## Documentation
 
@@ -46,6 +52,7 @@ in [docs/release-notes-v1.md](docs/release-notes-v1.md).
 | --- | --- |
 | Five-to-ten-minute walkthrough | [Demo guide](docs/demo.md) |
 | Delivered scope and release limits | [v1 release notes](docs/release-notes-v1.md) |
+| v1.1 operability release candidate | [v1.1 release notes](docs/release-notes-v1.1.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Authentication and endpoint policies | [Security](docs/security.md) |
@@ -54,6 +61,7 @@ in [docs/release-notes-v1.md](docs/release-notes-v1.md).
 | RCON safety and recovery | [RCON operations](docs/rcon.md) |
 | Full local verification | [Smoke test](docs/smoke-test.md) |
 | MVP evidence | [v1 readiness](docs/v1-readiness.md) |
+| v1.1 release evidence | [v1.1 readiness](docs/v1.1-readiness.md) |
 
 ## Prerequisites
 
@@ -225,8 +233,8 @@ Prometheus format. Application metrics cover polling runs, server poll attempts
 by result, incident transitions, queued, dispatched, completed, and recovered
 commands, plus snapshot-retention runs, deletions, failures, and duration.
 
-The OpenTelemetry packages are aligned on `1.17.0`; the direct ASP.NET Core
-Prometheus exporter remains `1.17.0-beta.1` because no stable release exists.
+The OpenTelemetry packages are aligned on `1.18.0`; the direct ASP.NET Core
+Prometheus exporter remains `1.18.0-beta.1` because no stable release exists.
 v1.1 retains the authenticated, integration-tested `/metrics` contract instead
 of adding an OpenTelemetry Collector deployment. The accepted prerelease risk
 and the later OTLP migration trigger are recorded in Architecture Decision 12.
@@ -458,8 +466,11 @@ as the
 [GoldSrcOps v1.0.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0)
 from a signed tag. Repository metadata, private vulnerability reporting,
 Dependabot security updates, and the protected `main` workflow are configured.
-The next milestone focuses on v1.1 deployment packaging and operability
-hardening; see [docs/backlog.md](docs/backlog.md) for the active checklist.
+The v1.1.0 release candidate adds deployment packaging and operability
+hardening without changing the v1 API or database schema. Its evidence and
+remaining publication steps are tracked in
+[docs/v1.1-readiness.md](docs/v1.1-readiness.md) and
+[docs/backlog.md](docs/backlog.md).
 
 ## License
 
