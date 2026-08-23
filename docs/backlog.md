@@ -117,7 +117,7 @@ Completed:
   and its tag-triggered `Quality Gate` passed.
 - The
   [GoldSrcOps v1.0.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0)
-  is published as the latest stable release.
+  is published as the initial stable release.
 - The v1.1 container baseline now uses a multi-stage .NET 10 image, runs the
   API as a non-root user on port `8080`, excludes local configuration, and
   keeps EF migration execution outside application startup.
@@ -141,19 +141,24 @@ Completed:
 - The v1.1 readiness matrix records the compatibility review, final local
   quality gate, production container smoke evidence, accepted deployment
   boundaries, and publication prerequisites.
-- Candidate release notes describe the focused operability delta from v1.0.0
-  without claiming an API or database-schema change.
+- Published v1.1.0 release notes describe the focused operability delta from
+  v1.0.0 without claiming an API or database-schema change.
+- The final v1.1 pull request, post-merge `main` run, and signed-tag run passed
+  both required GitHub Actions jobs on revision `eb0f02e`.
+- The signed annotated `v1.1.0` tag identifies that verified revision, and the
+  [GoldSrcOps v1.1.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.1.0)
+  is published as the latest stable release.
 
-## Immediate Next Milestone
+## Completed v1.1 Milestone
 
-Prepare a focused v1.1 operability release without changing the v1 API
-contract or pulling the deferred v2 outbox work forward.
+GoldSrcOps v1.1.0 was published on 2026-08-23 as a focused operability release
+without changing the v1 API contract or pulling the deferred v2 outbox work
+forward.
 
-Candidate status: implementation and local readiness evidence are complete.
-Publication remains gated on the final candidate PR checks, signed tag, and
-tag-triggered CI.
+Release status: implementation, local readiness evidence, required remote
+checks, signed tag, and GitHub Release publication are complete.
 
-Definition of done:
+Completed definition of done:
 
 - A production-oriented container image packages the API with a non-root
   runtime and leaves EF migration execution as a separate deployment action.
@@ -167,12 +172,14 @@ Definition of done:
 
 ## Next Tasks
 
-1. Push the v1.1 candidate branch, open a pull request, and verify the required
-   `Quality Gate` and `Container Smoke` on the final candidate SHA.
-2. Integrate the candidate through the protected `main` workflow and verify the
-   post-merge CI run.
-3. Create and push the signed annotated `v1.1.0` tag, verify tag-triggered CI,
-   and publish the GitHub Release from `docs/release-notes-v1.1.md`.
+1. Define the alert-delivery use cases, ownership boundaries, and delivery
+   guarantees for the first v2 capability.
+2. Design the transactional outbox schema and the transaction boundary between
+   incident transitions and outgoing alert records.
+3. Document retry, idempotency, retention, observability, and recovery behavior
+   before committing to an implementation slice.
+4. Turn the reviewed design into focused persistence, dispatcher, and
+   integration-test tasks.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
 
@@ -186,7 +193,7 @@ Configured topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
 
 ## Following Milestone
 
-After v1.1, design alert delivery around an outbox as the first v2 capability.
+Implement the reviewed alert-delivery outbox design as the first v2 capability.
 A distributed polling claim or lease remains deferred until multiple active
 poller instances are required.
 

@@ -1,7 +1,6 @@
 # GoldSrcOps v1.1.0 Release Notes
 
-Prepared: 2026-08-22. Status: release candidate; tag and GitHub Release not yet
-published.
+Prepared: 2026-08-22. Published: 2026-08-23. Status: released.
 
 ## Overview
 
@@ -40,7 +39,7 @@ pull the deferred v2 outbox work forward.
 - The direct `/metrics` endpoint remains authenticated and retains its v1
   contract.
 
-## Verified Candidate Baseline
+## Verified Release Baseline
 
 The 2026-08-22 local release-candidate gate completed with:
 
@@ -53,7 +52,10 @@ The 2026-08-22 local release-candidate gate completed with:
 - `200 Healthy` liveness and database-backed readiness from the hardened API
   container.
 
-Detailed evidence and the remaining publication checklist are recorded in
+The final candidate pull request, post-merge `main` run, and signed-tag run also
+passed GitHub Actions `Quality Gate` and `Container Smoke` on `eb0f02e`.
+
+Detailed evidence is recorded in
 [docs/v1.1-readiness.md](v1.1-readiness.md).
 
 ## Deployment Notes
@@ -92,6 +94,8 @@ contract and [docs/smoke-test.md](smoke-test.md) for repository verification.
 
 ## Publication Status
 
-The `v1.1.0` tag and GitHub Release are intentionally pending. Publish only
-after the final candidate pull request, post-merge `main` run, and signed-tag CI
-all pass both `Quality Gate` and `Container Smoke`.
+Published on 2026-08-23 as the
+[GoldSrcOps v1.1.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.1.0)
+from the signed annotated `v1.1.0` tag. The final candidate pull request,
+post-merge `main` run, and signed-tag run all passed both `Quality Gate` and
+`Container Smoke` on `eb0f02e`.
