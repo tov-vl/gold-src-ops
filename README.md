@@ -6,15 +6,14 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v1.0.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0)
-is the current public release. Its signed tag identifies a verified revision
-that passed the complete local quality gate and GitHub Actions `Quality Gate`
-on both `main` and the tag. All 141 tests passed with zero build warnings and
-no known vulnerable NuGet packages. The focused v1.1.0
-operability release candidate is documented in
-[docs/release-notes-v1.1.md](docs/release-notes-v1.1.md), with readiness
-evidence in [docs/v1.1-readiness.md](docs/v1.1-readiness.md); it is not yet
-tagged or published.
+**Status:** [v1.1.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.1.0)
+is the current public release. Its signed annotated tag identifies revision
+`eb0f02e`; the final pull request, post-merge `main` run, and signed-tag run all
+passed GitHub Actions `Quality Gate` and `Container Smoke`. The local release
+gate passed all 141 tests with zero build warnings and no known vulnerable
+NuGet packages. Release notes and detailed evidence are available in
+[docs/release-notes-v1.1.md](docs/release-notes-v1.1.md) and
+[docs/v1.1-readiness.md](docs/v1.1-readiness.md).
 
 ## Highlights
 
@@ -52,7 +51,7 @@ operability delta is covered by
 | --- | --- |
 | Five-to-ten-minute walkthrough | [Demo guide](docs/demo.md) |
 | Delivered scope and release limits | [v1 release notes](docs/release-notes-v1.md) |
-| v1.1 operability release candidate | [v1.1 release notes](docs/release-notes-v1.1.md) |
+| v1.1 operability release | [v1.1 release notes](docs/release-notes-v1.1.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Authentication and endpoint policies | [Security](docs/security.md) |
@@ -460,17 +459,15 @@ The spike follows Valve's documented A2S server query format:
 
 ## Release Status
 
-The v1.0.0 implementation and documentation are published in the
-[public GitHub repository](https://github.com/tov-vl/gold-src-ops) and packaged
-as the
-[GoldSrcOps v1.0.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0)
-from a signed tag. Repository metadata, private vulnerability reporting,
-Dependabot security updates, and the protected `main` workflow are configured.
-The v1.1.0 release candidate adds deployment packaging and operability
-hardening without changing the v1 API or database schema. Its evidence and
-remaining publication steps are tracked in
-[docs/v1.1-readiness.md](docs/v1.1-readiness.md) and
-[docs/backlog.md](docs/backlog.md).
+The public repository is configured with private vulnerability reporting,
+Dependabot security updates, and a protected `main` workflow. The
+[GoldSrcOps v1.1.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.1.0)
+adds deployment packaging and operability hardening without changing the v1 API
+or database schema. It was published from a signed annotated tag after the
+required pull-request, post-merge, and tag-triggered checks passed. Detailed
+evidence is recorded in [docs/v1.1-readiness.md](docs/v1.1-readiness.md), while
+[v1.0.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0) remains the
+preceding stable release.
 
 ## License
 
