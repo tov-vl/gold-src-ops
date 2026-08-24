@@ -153,6 +153,9 @@ Reasoning:
 - Makes retries and side effects explicit.
 - Creates a clean path to RabbitMQ later.
 
+Decision 13 and `docs/v2-alert-outbox.md` refine this target into the accepted
+first v2 design.
+
 ## Decision 6: First Service Extraction Candidates
 
 If the project reaches v3, consider extracting:
@@ -331,7 +334,7 @@ Upgrade the OpenTelemetry SDK and instrumentations to stable `1.18.0`, upgrade
 the authenticated `/metrics` endpoint for v1.1. Do not add an OTLP exporter or
 OpenTelemetry Collector to the v1.1 deployment shape.
 
-Decision date: 2026-08-21. Revalidated for the release candidate on 2026-08-22.
+Decision date: 2026-08-21. Revalidated for the v1.1.0 release on 2026-08-22.
 
 Reasoning:
 
@@ -369,7 +372,7 @@ Trade-offs and safeguards:
 
 Implementation status:
 
-Implemented for the v1.1 candidate. Package status and changes were rechecked
+Implemented in v1.1.0. Package status and changes were rechecked
 against NuGet and the upstream OpenTelemetry .NET release notes, exporter
 documentation, and changelog on 2026-08-22.
 
@@ -379,3 +382,65 @@ References:
 - [NuGet package](https://www.nuget.org/packages/OpenTelemetry.Exporter.Prometheus.AspNetCore/1.18.0-beta.1)
 - [Exporter documentation](https://github.com/open-telemetry/opentelemetry-dotnet/blob/coreunstable-1.18.0-beta.1/src/OpenTelemetry.Exporter.Prometheus.AspNetCore/README.md)
 - [Exporter changelog](https://github.com/open-telemetry/opentelemetry-dotnet/blob/coreunstable-1.18.0-beta.1/src/OpenTelemetry.Exporter.Prometheus.AspNetCore/CHANGELOG.md)
+
+## Decision 13: Use A Transactional PostgreSQL Outbox For Incident Alerts
+
+Decision:
+
+Deliver the first v2 incident alerts through a transactional PostgreSQL outbox
+and one deployment-configured HTTP webhook. Commit the outbox message in the
+same EF Core transaction as the incident transition, then deliver it
+asynchronously with an atomic claim and expiring lease.
+
+Decision date: 2026-08-24.
+
+Reasoning:
+
+- Alert delivery is the first external side effect that must survive process
+  failure after an incident transition commits.
+- A second commit can lose an alert between the incident commit and outbox
+  insert; sending inside the polling request can instead delay polling and
+  cannot make the database and remote HTTP endpoint atomic.
+- PostgreSQL is already the system of record and supports atomic claims with
+  `FOR UPDATE SKIP LOCKED`, so a broker would add infrastructure before the
+  workload requires it.
+- A stable event ID and at-least-once contract make unavoidable ambiguous HTTP
+  outcomes explicit and give receivers a practical deduplication mechanism.
+- An explicit writer and unit of work keep the transaction visible without
+  save interceptors or reflection-based event dispatch.
+
+Implementation implications:
+
+- Create unavailable and recovered events only when the corresponding incident
+  opens or closes; repeated poll failures do not enqueue duplicate events.
+- Persist immutable, versioned JSON payloads without CLR type names or secrets.
+- Enforce one event of each type per incident with a database uniqueness
+  constraint.
+- Claim work atomically, call the webhook outside the database transaction, and
+  condition completion on the active claim token.
+- Use at-least-once delivery, stable `Idempotency-Key` values, bounded retry
+  with jitter, dead-letter handling, stale-claim recovery, and bounded
+  processed-message retention.
+- Preserve ordering per incident, not globally, while older messages are
+  pending or processing.
+- Keep webhook failures out of liveness and readiness; expose backlog, retry,
+  dead-letter, recovery, and duration telemetry instead.
+- Keep the dispatcher multi-worker and multi-instance safe. The separate
+  singleton polling constraint from Decision 10 remains unchanged.
+
+Alternatives considered:
+
+- Send the webhook synchronously from polling. Rejected because remote latency
+  and availability would enter the polling path without solving atomicity.
+- Insert the alert after the incident commit. Rejected because a process crash
+  can permanently lose the notification.
+- Introduce RabbitMQ immediately. Deferred until independent scaling, routing,
+  or additional consumers justify another operational dependency.
+- Use an EF Core save interceptor for event discovery. Rejected for the first
+  slice because an explicit transaction boundary is easier to trace and test.
+
+Implementation status:
+
+Accepted for v2 design; not yet implemented. The schema, processing protocol,
+rollout, and verification slices are specified in
+`docs/v2-alert-outbox.md`.
