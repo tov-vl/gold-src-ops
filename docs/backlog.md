@@ -172,14 +172,26 @@ Completed definition of done:
 
 ## Next Tasks
 
-1. Define the alert-delivery use cases, ownership boundaries, and delivery
-   guarantees for the first v2 capability.
-2. Design the transactional outbox schema and the transaction boundary between
-   incident transitions and outgoing alert records.
-3. Document retry, idempotency, retention, observability, and recovery behavior
-   before committing to an implementation slice.
-4. Turn the reviewed design into focused persistence, dispatcher, and
-   integration-test tasks.
+The first v2 capability is now defined by Decision 13 and
+`docs/v2-alert-outbox.md`. Implement it in these reviewable slices:
+
+1. Add versioned incident-alert contracts, the EF Core outbox model and
+   configuration, an additive migration, database constraints, and a
+   PostgreSQL migration test.
+2. Add the explicit outbox writer and unit of work, then enqueue unavailable
+   and recovered events inside the existing incident transaction. Cover commit,
+   rollback, and duplicate prevention through polling and PostgreSQL tests.
+3. Add the PostgreSQL claim protocol, conditional completion, expiring-claim
+   recovery, retry scheduling, per-incident ordering, and concurrent-dispatcher
+   integration tests.
+4. Add the generic HTTP webhook adapter and synthetic-server tests for
+   idempotency headers, status classification, timeouts, bounded responses, and
+   one request per application attempt.
+5. Add the hosted dispatcher, validated configuration, OpenTelemetry metrics,
+   sanitized structured logs, dead-letter behavior, and bounded processed-row
+   retention.
+6. Complete rollout and operations documentation, then run the full local
+   quality gate and production container smoke test.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
 
@@ -193,9 +205,10 @@ Configured topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
 
 ## Following Milestone
 
-Implement the reviewed alert-delivery outbox design as the first v2 capability.
-A distributed polling claim or lease remains deferred until multiple active
-poller instances are required.
+After the alert-delivery outbox is operational, decide whether a second delivery
+channel or operator-facing dead-letter replay provides the next highest value.
+A broker, service extraction, and a distributed polling claim remain deferred
+until their scaling or ownership requirements become concrete.
 
 ## v1 API Scope
 

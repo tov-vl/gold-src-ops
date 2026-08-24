@@ -54,6 +54,7 @@ operability delta is covered by
 | v1.1 operability release | [v1.1 release notes](docs/release-notes-v1.1.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
+| v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
 | Authentication and endpoint policies | [Security](docs/security.md) |
 | Vulnerability reporting | [Security policy](.github/SECURITY.md) |
 | Container rollout, migrations, and rollback | [Deployment](docs/deployment.md) |
