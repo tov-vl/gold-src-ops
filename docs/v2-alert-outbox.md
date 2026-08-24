@@ -110,6 +110,9 @@ Required constraints and indexes:
 
 - unique `(EventType, AggregateId)` to prevent duplicate unavailable or
   recovered events for one incident;
+- an active-ordering index on
+  `(AggregateType, AggregateId, OccurredAtUtc, Id)`, filtered to pending and
+  processing rows, so per-incident ordering does not require a table scan;
 - a claim index starting with `(Status, NextAttemptAtUtc, OccurredAtUtc, Id)`,
   preferably filtered to pending rows;
 - a recovery index on `(Status, ClaimedAtUtc)`, filtered to processing rows;
