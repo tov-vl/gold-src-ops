@@ -1,5 +1,6 @@
 using GoldSrcOps.Domain.Commands;
 using GoldSrcOps.Domain.Servers;
+using GoldSrcOps.Infrastructure.Persistence.Outbox;
 using Microsoft.EntityFrameworkCore;
 
 namespace GoldSrcOps.Infrastructure.Persistence;
@@ -23,9 +24,12 @@ public sealed class GoldSrcOpsDbContext : DbContext
 
     public DbSet<CommandExecution> CommandExecutions => Set<CommandExecution>();
 
+    internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("goldsrcops");
+        modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
 
         modelBuilder.Entity<Server>(server =>
         {
