@@ -1,4 +1,5 @@
 using System.Text;
+using GoldSrcOps.Application.Alerts;
 using GoldSrcOps.Application.Commands;
 using GoldSrcOps.Application.Common;
 using GoldSrcOps.Application.Credentials;
@@ -9,6 +10,7 @@ using GoldSrcOps.Infrastructure.A2S;
 using GoldSrcOps.Infrastructure.Commands;
 using GoldSrcOps.Infrastructure.Monitoring;
 using GoldSrcOps.Infrastructure.Persistence;
+using GoldSrcOps.Infrastructure.Persistence.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +52,8 @@ public static class DependencyInjection
             snapshotRetentionOptions.RetentionPeriod,
             snapshotRetentionOptions.BatchSize));
         services.AddSingleton<IClock, SystemClock>();
+        services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+        services.AddScoped<IOutboxWriter, EfOutboxWriter>();
         services.AddScoped<IServerRepository, EfServerRepository>();
         services.AddScoped<IIncidentRepository, EfIncidentRepository>();
         services.AddScoped<IMonitoringReadRepository, EfMonitoringReadRepository>();

@@ -148,6 +148,11 @@ Completed:
 - The signed annotated `v1.1.0` tag identifies that verified revision, and the
   [GoldSrcOps v1.1.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.1.0)
   is published as the latest stable release.
+- Versioned incident-alert contracts, the EF Core outbox model, an additive
+  migration, database invariants, and PostgreSQL migration coverage are added.
+- Polling transactionally enqueues unavailable and recovered alerts through an
+  explicit outbox writer and unit of work. Deterministic and PostgreSQL tests
+  cover commit, rollback, and duplicate prevention.
 
 ## Completed v1.1 Milestone
 
@@ -172,8 +177,10 @@ Completed definition of done:
 
 ## Next Tasks
 
-The first v2 capability is now defined by Decision 13 and
-`docs/v2-alert-outbox.md`. Implement it in these reviewable slices:
+The first v2 capability is defined by Decision 13 and
+`docs/v2-alert-outbox.md`.
+
+Completed slices:
 
 1. Add versioned incident-alert contracts, the EF Core outbox model and
    configuration, an additive migration, database constraints, and a
@@ -181,6 +188,9 @@ The first v2 capability is now defined by Decision 13 and
 2. Add the explicit outbox writer and unit of work, then enqueue unavailable
    and recovered events inside the existing incident transaction. Cover commit,
    rollback, and duplicate prevention through polling and PostgreSQL tests.
+
+Remaining slices:
+
 3. Add the PostgreSQL claim protocol, conditional completion, expiring-claim
    recovery, retry scheduling, per-incident ordering, and concurrent-dispatcher
    integration tests.

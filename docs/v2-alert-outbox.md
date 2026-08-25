@@ -1,8 +1,8 @@
 # GoldSrcOps v2 Alert Delivery And Transactional Outbox
 
-Status: accepted design baseline for the first v2 capability. This document
-defines implementation boundaries; it does not describe functionality present
-in v1.1.0.
+Status: accepted design baseline for the first v2 capability. The outbox schema
+and transactional incident-alert enqueueing are implemented; dispatch and HTTP
+delivery remain disabled until the following slices are complete.
 
 ## Scope
 
