@@ -153,6 +153,9 @@ Completed:
 - Polling transactionally enqueues unavailable and recovered alerts through an
   explicit outbox writer and unit of work. Deterministic and PostgreSQL tests
   cover commit, rollback, and duplicate prevention.
+- PostgreSQL atomically claims due outbox messages, conditionally completes or
+  reschedules the active claim, recovers expired claims, and preserves ordering
+  per incident. Concurrent PostgreSQL tests cover the claim state machine.
 
 ## Completed v1.1 Milestone
 
@@ -188,12 +191,12 @@ Completed slices:
 2. Add the explicit outbox writer and unit of work, then enqueue unavailable
    and recovered events inside the existing incident transaction. Cover commit,
    rollback, and duplicate prevention through polling and PostgreSQL tests.
-
-Remaining slices:
-
 3. Add the PostgreSQL claim protocol, conditional completion, expiring-claim
    recovery, retry scheduling, per-incident ordering, and concurrent-dispatcher
    integration tests.
+
+Remaining slices:
+
 4. Add the generic HTTP webhook adapter and synthetic-server tests for
    idempotency headers, status classification, timeouts, bounded responses, and
    one request per application attempt.
