@@ -30,6 +30,10 @@ public static class GoldSrcOpsMetrics
         "goldsrcops.polling.incident_transitions",
         description: "Number of availability incident transitions observed during polling.");
 
+    private static readonly Counter<int> AlertEventsEnqueued = Meter.CreateCounter<int>(
+        "goldsrcops.alerts.enqueued",
+        description: "Number of incident alert events committed to the outbox.");
+
     private static readonly Counter<int> CommandsQueued = Meter.CreateCounter<int>(
         "goldsrcops.commands.queued",
         description: "Number of commands queued by command type.");
@@ -79,6 +83,11 @@ public static class GoldSrcOpsMetrics
     public static void RecordCommandQueued(ServerCommandType commandType)
     {
         CommandsQueued.Add(1, CommandTypeTag(commandType));
+    }
+
+    public static void RecordAlertEnqueued(string eventType)
+    {
+        AlertEventsEnqueued.Add(1, new KeyValuePair<string, object?>("event_type", eventType));
     }
 
     public static void RecordCommandDispatched(ServerCommandType commandType)

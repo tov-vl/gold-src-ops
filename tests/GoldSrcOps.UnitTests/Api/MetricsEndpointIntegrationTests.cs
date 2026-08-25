@@ -1,5 +1,6 @@
 using System.Net;
 using AwesomeAssertions;
+using GoldSrcOps.Application.Alerts;
 using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Application.Telemetry;
 using GoldSrcOps.Domain.Commands;
@@ -19,6 +20,7 @@ public sealed class MetricsEndpointIntegrationTests
             FailedPolls: 1,
             OpenedIncidents: 1,
             ClosedIncidents: 0));
+        GoldSrcOpsMetrics.RecordAlertEnqueued(IncidentAlertEvents.ServerUnavailable);
         GoldSrcOpsMetrics.RecordCommandQueued(ServerCommandType.Say);
         GoldSrcOpsMetrics.RecordCommandDispatched(ServerCommandType.Say);
         GoldSrcOpsMetrics.RecordCommandCompleted(ServerCommandType.Say, CommandDispatchMetricResult.AuthenticationFailed);
@@ -32,6 +34,8 @@ public sealed class MetricsEndpointIntegrationTests
         body.Should().Contain("goldsrcops_polling_server_poll_attempts");
         body.Should().Contain("result=\"success\"");
         body.Should().Contain("result=\"failure\"");
+        body.Should().Contain("goldsrcops_alerts_enqueued");
+        body.Should().Contain($"event_type=\"{IncidentAlertEvents.ServerUnavailable}\"");
         body.Should().Contain("goldsrcops_commands_queued");
         body.Should().Contain("goldsrcops_commands_dispatched");
         body.Should().Contain("goldsrcops_commands_completed");
