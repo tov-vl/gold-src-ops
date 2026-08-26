@@ -1,5 +1,6 @@
 using GoldSrcOps.Api.Endpoints;
 using GoldSrcOps.Api.Security;
+using GoldSrcOps.Application.Alerts;
 using GoldSrcOps.Application.Commands;
 using GoldSrcOps.Application.Credentials;
 using GoldSrcOps.Application.Incidents;
@@ -25,6 +26,7 @@ if (builder.Environment.IsDevelopment())
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddGoldSrcOpsSecurity(builder.Environment);
+builder.Services.AddScoped<AlertDeliveryReadService>();
 builder.Services.AddScoped<ServersService>();
 builder.Services.AddScoped<IncidentsService>();
 builder.Services.AddScoped<MonitoringReadService>();
@@ -67,6 +69,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     .AllowAnonymous();
 app.MapPrometheusScrapingEndpoint("/metrics")
     .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
+app.MapAlertDeliveryEndpoints();
 app.MapServerEndpoints();
 app.MapIncidentEndpoints();
 app.MapDashboardEndpoints();

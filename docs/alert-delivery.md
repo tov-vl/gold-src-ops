@@ -113,12 +113,13 @@ response bodies, webhook URLs, authorization values, and exception messages.
 ## Recovery And Rollback
 
 The accepted operator-facing inspection and replay design is documented in
-`docs/dead-letter-replay.md`. Its additive persistence foundation is
-implemented, but the Reader and Operator APIs are not. Until those endpoints
-exist, stop or disable dispatch for the affected messages before any
-database-assisted recovery. Preserve the original event ID and immutable
-payload, and review whether the receiver may already have applied the event. Do
-not create a replacement ID or reset attempts blindly.
+`docs/dead-letter-replay.md`. Its persistence foundation and Reader inspection
+API are implemented, so operators can review current dead letters and ordering
+warnings without database access. The Operator replay endpoint is not yet
+implemented. Until it exists, stop or disable dispatch for the affected
+messages before any database-assisted mutation. Preserve the original event ID
+and immutable payload, and review whether the receiver may already have applied
+the event. Do not create a replacement ID or reset attempts blindly.
 
 Disabling `AlertDelivery__Enabled` stops new claims without deleting queued or
 dead-letter messages. Application rollback to v1.1 leaves the additive outbox

@@ -78,8 +78,8 @@ README for current startup commands and `docs/backlog.md` for active work.
 
 The accepted next-milestone design covers operator-facing dead-letter
 inspection and replay in `docs/dead-letter-replay.md`. Its additive replay
-metadata and append-only audit persistence are implemented; the Reader and
-Operator APIs remain planned.
+metadata, append-only audit persistence, and bounded Reader inspection API are
+implemented; the Operator replay API remains planned.
 
 ## MVP Goal
 

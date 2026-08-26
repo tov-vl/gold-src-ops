@@ -1,9 +1,10 @@
 # Dead-Letter Inspection And Replay Design
 
 Status: implementation in progress. Replay metadata, append-only audit
-persistence, and the additive migration are implemented. The Reader and
-Operator APIs are not implemented yet, so database-assisted recovery remains
-the only available procedure until the endpoint slices are complete.
+persistence, the additive migrations, and the bounded `Reader` inspection API
+are implemented. The `Operator` replay and replay-record endpoints remain
+planned, so inspection no longer requires database access while mutation still
+uses the database-assisted recovery procedure.
 
 Decision date: 2026-08-26.
 
@@ -71,6 +72,9 @@ The first implementation adds an `Alert Delivery` endpoint group.
 | `GET /api/alert-delivery/dead-letters/{eventId}` | `Reader` | Inspect one current dead letter and its immutable payload. |
 | `POST /api/alert-delivery/dead-letters/{eventId}/replay` | `Operator` | Requeue one current dead letter. |
 | `GET /api/alert-delivery/replays/{requestId}` | `Reader` | Read the durable result of an accepted replay request. |
+
+The two dead-letter `GET` endpoints are implemented. The replay request and
+replay-record endpoints remain part of the next implementation slice.
 
 The list uses opaque cursor pagination ordered by `DeadLetteredAtUtc` descending,
 then `OccurredAtUtc` descending, then `Id` descending. A missing legacy
@@ -205,12 +209,15 @@ remain attributable by its stable event ID. Replay audit rows are not included
 in the existing 30-day processed-message cleanup; a separate retention policy
 can be introduced when an operational or regulatory requirement exists.
 
-The generated migration runs in one transaction and builds the partial
-dead-letter index normally. PostgreSQL can block writes to `outbox_messages`
-while it builds that index and validates the new check constraints. Inspect the
-table size and apply the migration during a low-traffic rollout. If the table
-becomes large, add a later rollout migration using concurrent index creation
-and staged constraint validation; do not edit this migration after deployment.
+The persistence migration runs in one transaction and builds the initial
+partial dead-letter index normally. A follow-up additive migration recreates
+that index with the complete list order: `DeadLetteredAtUtc`, `OccurredAtUtc`,
+then `Id`, all descending with nulls last. PostgreSQL can block writes to
+`outbox_messages` while either normal index build runs and while the initial
+constraints are validated. Inspect the table size and apply both migrations
+during a low-traffic rollout. If the table becomes large, add a later rollout
+migration using concurrent index creation and staged constraint validation; do
+not edit either applied migration.
 
 ## Atomic State Transition
 
@@ -284,12 +291,14 @@ logs, is the source for who requested the mutation and why.
 
 Implementation is split into reviewable slices:
 
-1. Add the schema fields, constraints, indexes, audit table, and migration.
+1. Completed: add the schema fields, constraints, indexes, audit table, and
+   migrations.
    Verify clean migration, legacy nullable timestamps, and processed cleanup
    that leaves replay audit intact against PostgreSQL.
-2. Add bounded read models and `Reader` endpoints. Verify cursor stability,
-   payload omission from lists, detail projection, newer-event warning, auth,
-   and response bounds through API and PostgreSQL integration tests.
+2. Completed: add bounded read models and `Reader` endpoints. Verify cursor
+   stability, payload omission from lists, detail projection, newer-event
+   warning, auth, and response bounds through API and PostgreSQL integration
+   tests.
 3. Add the transactional replay service and `Operator` endpoint. Verify atomic
    audit/state commit, rollback, attempt reset, immutable event fields,
    same-key retries, key reuse conflicts, distinct-key races, multi-instance
