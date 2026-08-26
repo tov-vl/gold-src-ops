@@ -1,8 +1,9 @@
 # GoldSrcOps v2 Alert Delivery And Transactional Outbox
 
-Status: accepted design baseline for the first v2 capability. The outbox schema
-and transactional incident-alert enqueueing are implemented; dispatch and HTTP
-delivery remain disabled until the following slices are complete.
+Status: accepted design baseline for the first v2 capability. The outbox schema,
+transactional incident-alert enqueueing, and PostgreSQL claim state machine are
+implemented; hosted dispatch and HTTP delivery remain disabled until the
+following slices are complete.
 
 ## Scope
 
@@ -49,6 +50,8 @@ same change set before the commit.
 The first implementation introduces:
 
 - `IOutboxWriter` in Application for appending immutable event envelopes;
+- `IOutboxStore` in Application for claim, completion, retry, and lease-recovery
+  transitions;
 - an explicit application `IUnitOfWork` for the cross-repository commit;
 - EF Core outbox persistence in Infrastructure;
 - an outbox dispatcher and an `IAlertDeliveryChannel` application boundary;
