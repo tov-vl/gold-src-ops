@@ -78,7 +78,7 @@ handlers.
 
 | Policy | Accepted application role | Purpose |
 | --- | --- | --- |
-| `Reader` | `Reader` or `Operator` | Inspect server state, history, incidents, command history, credential metadata, and metrics. |
+| `Reader` | `Reader` or `Operator` | Inspect server state, history, incidents, dead letters, command history, credential metadata, and metrics. |
 | `Operator` | `Operator` | Register or modify servers, configure RCON credentials, and queue commands. |
 
 `Operator` includes read access through the `Reader` policy. ASP.NET Core does
@@ -105,6 +105,8 @@ operation.
 | `GET /api/servers...` | `Reader` |
 | `GET /api/incidents...` | `Reader` |
 | `GET /api/dashboard/overview` | `Reader` |
+| `GET /api/alert-delivery/dead-letters` | `Reader` |
+| `GET /api/alert-delivery/dead-letters/{eventId}` | `Reader` |
 | `PUT /api/servers/{id}/credentials/rcon` | `Operator` |
 | `GET /api/servers/{id}/credentials` | `Reader` |
 | `POST /api/servers/{id}/commands/...` | `Operator` |
@@ -140,6 +142,7 @@ Unit and API integration tests prove that:
 - anonymous requests receive `401` from Reader and Operator endpoints;
 - a Reader can call read endpoints but receives `403` from every mutation;
 - an Operator can call both read and mutation endpoints;
+- dead-letter list and detail endpoints require Reader access;
 - liveness and readiness remain anonymous while metrics require Reader access;
 - command requests cannot spoof `RequestedBy`;
 - persisted `RequestedBy` comes from the authenticated `sub` claim;

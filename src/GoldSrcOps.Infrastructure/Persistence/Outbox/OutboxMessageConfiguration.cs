@@ -92,10 +92,13 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
         message.HasIndex(x => new { x.ProcessedAtUtc, x.Id })
             .HasDatabaseName("IX_outbox_messages_processed_cleanup")
             .HasFilter("\"Status\" = 'Processed'");
-        message.HasIndex(x => new { x.DeadLetteredAtUtc, x.Id })
+        message.HasIndex(x => new { x.DeadLetteredAtUtc, x.OccurredAtUtc, x.Id })
             .HasDatabaseName("IX_outbox_messages_dead_letter_list")
             .HasFilter("\"Status\" = 'DeadLetter'")
             .IsDescending()
-            .HasNullSortOrder(NullSortOrder.NullsLast, NullSortOrder.NullsLast);
+            .HasNullSortOrder(
+                NullSortOrder.NullsLast,
+                NullSortOrder.NullsLast,
+                NullSortOrder.NullsLast);
     }
 }

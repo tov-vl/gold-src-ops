@@ -63,6 +63,7 @@ public static class DependencyInjection
             snapshotRetentionOptions.BatchSize));
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+        services.AddScoped<IAlertDeliveryReadRepository, EfAlertDeliveryReadRepository>();
         services.AddScoped<IOutboxStore, EfOutboxStore>();
         services.AddScoped<IOutboxWriter, EfOutboxWriter>();
         services.AddScoped<IServerRepository, EfServerRepository>();

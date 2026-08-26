@@ -115,7 +115,10 @@ public sealed class PostgreSqlMigrationIntegrationTests
         schema.Indexes["IX_outbox_messages_processed_cleanup"].Should().Contain("Processed");
         schema.Indexes["IX_outbox_messages_processing_recovery"].Should().Contain("Processing");
         schema.Indexes["IX_outbox_messages_dead_letter_list"].Should().Contain("DeadLetter");
-        schema.Indexes["IX_outbox_messages_dead_letter_list"].Should().Contain("DESC NULLS LAST");
+        schema.Indexes["IX_outbox_messages_dead_letter_list"].Should().Contain(
+            "\"DeadLetteredAtUtc\" DESC NULLS LAST, " +
+            "\"OccurredAtUtc\" DESC NULLS LAST, " +
+            "\"Id\" DESC NULLS LAST");
         Assert.Contains("CK_outbox_messages_AttemptCount", schema.Constraints.Keys);
         Assert.Contains("CK_outbox_messages_DeadLetteredAtUtc", schema.Constraints.Keys);
         Assert.Contains("CK_outbox_messages_PayloadVersion", schema.Constraints.Keys);

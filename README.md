@@ -24,6 +24,8 @@ available in
   incident transitions.
 - Transactional incident-alert outbox with at-least-once HTTPS webhook
   delivery, bounded retries, dead letters, and backlog telemetry.
+- Reader API for bounded dead-letter inspection with opaque cursor pagination
+  and newer-event ordering warnings.
 - JWT bearer authentication with explicit `Reader` and `Operator` policies.
 - Durable RCON command queue with per-server serialization, interrupted-command
   recovery, external secret references, and payload-safe lifecycle logs.
@@ -62,7 +64,7 @@ is summarized in
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
 | Alert delivery configuration and recovery | [Alert delivery operations](docs/alert-delivery.md) |
-| Dead-letter replay design and persistence foundation | [Dead-letter replay design](docs/dead-letter-replay.md) |
+| Dead-letter inspection, replay design, and implementation status | [Dead-letter replay design](docs/dead-letter-replay.md) |
 | Authentication and endpoint policies | [Security](docs/security.md) |
 | Vulnerability reporting | [Security policy](.github/SECURITY.md) |
 | Container rollout, migrations, and rollback | [Deployment](docs/deployment.md) |

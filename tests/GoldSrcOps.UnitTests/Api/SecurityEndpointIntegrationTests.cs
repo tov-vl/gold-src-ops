@@ -46,6 +46,7 @@ public sealed class SecurityEndpointIntegrationTests
             client.GetAsync("/api/servers"),
             client.GetAsync("/api/incidents/open"),
             client.GetAsync("/api/dashboard/overview"),
+            client.GetAsync("/api/alert-delivery/dead-letters"),
             client.GetAsync("/metrics"));
 
         responses.Should().OnlyContain(static response => response.StatusCode == HttpStatusCode.OK);
@@ -60,12 +61,17 @@ public sealed class SecurityEndpointIntegrationTests
         var live = await client.GetAsync("/health/live");
         var ready = await client.GetAsync("/health/ready");
         var read = await client.GetAsync("/api/servers");
+        var alertDeliveryRead = await client.GetAsync("/api/alert-delivery/dead-letters");
+        var alertDeliveryDetail = await client.GetAsync(
+            $"/api/alert-delivery/dead-letters/{ExistingId}");
         var mutation = await client.PostAsJsonAsync("/api/servers", new { });
         var metrics = await client.GetAsync("/metrics");
 
         live.StatusCode.Should().Be(HttpStatusCode.OK);
         ready.StatusCode.Should().Be(HttpStatusCode.OK);
         read.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        alertDeliveryRead.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        alertDeliveryDetail.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         mutation.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         metrics.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -103,9 +109,11 @@ public sealed class SecurityEndpointIntegrationTests
 
         var register = await client.PostAsJsonAsync("/api/servers", CreateServerRequest());
         var read = await client.GetAsync("/api/servers");
+        var alertDeliveryRead = await client.GetAsync("/api/alert-delivery/dead-letters");
 
         register.StatusCode.Should().Be(HttpStatusCode.Created);
         read.StatusCode.Should().Be(HttpStatusCode.OK);
+        alertDeliveryRead.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
