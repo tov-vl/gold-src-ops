@@ -156,6 +156,11 @@ Completed:
 - PostgreSQL atomically claims due outbox messages, conditionally completes or
   reschedules the active claim, recovers expired claims, and preserves ordering
   per incident. Concurrent PostgreSQL tests cover the claim state machine.
+- The generic HTTP webhook adapter sends one POST per application attempt with
+  a stable idempotency key, classifies retryable and permanent outcomes, honors
+  bounded `Retry-After`, applies a request timeout, rejects implicit redirects,
+  and never reads response bodies. Synthetic Kestrel tests cover the network
+  boundary. The hosted dispatcher remains disabled until the next slice.
 
 ## Completed v1.1 Milestone
 
@@ -194,12 +199,12 @@ Completed slices:
 3. Add the PostgreSQL claim protocol, conditional completion, expiring-claim
    recovery, retry scheduling, per-incident ordering, and concurrent-dispatcher
    integration tests.
-
-Remaining slices:
-
 4. Add the generic HTTP webhook adapter and synthetic-server tests for
    idempotency headers, status classification, timeouts, bounded responses, and
    one request per application attempt.
+
+Remaining slices:
+
 5. Add the hosted dispatcher, validated configuration, OpenTelemetry metrics,
    sanitized structured logs, dead-letter behavior, and bounded processed-row
    retention.

@@ -167,6 +167,11 @@ The adapter must use a bounded request timeout and bounded response-body read,
 must not follow redirects implicitly, and must not log request or response
 bodies. Production configuration requires an HTTPS webhook URL.
 
+The generic adapter classifies responses from the status and `Retry-After`
+header only. It uses `ResponseHeadersRead` and does not consume the response
+body, making the body-read bound zero bytes and preventing remote content from
+being buffered in application memory.
+
 ## Configuration
 
 The webhook endpoint and optional authorization value are deployment
@@ -233,6 +238,10 @@ from persisted state.
 ## Verification Strategy
 
 Implementation work is split into reviewable slices:
+
+Slices 1 through 4 are implemented. The webhook adapter is intentionally not
+registered or invoked yet; slice 5 adds validated deployment configuration and
+the hosted dispatcher that owns retry accounting.
 
 1. Add event contracts, EF Core mapping, migration, constraints, and a
    PostgreSQL migration test.
