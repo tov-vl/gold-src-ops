@@ -513,7 +513,8 @@ Alternatives considered:
 
 Implementation status:
 
-Design accepted. Replay metadata, append-only audit persistence, additive
-migrations, bounded Reader inspection, and PostgreSQL verification are
-implemented. The Operator replay and replay-record APIs remain planned in
-`docs/dead-letter-replay.md`.
+Implemented through the transactional replay slice. Replay metadata,
+append-only audit persistence, additive migrations, bounded Reader inspection,
+Operator replay, replay-record reads, and PostgreSQL concurrency verification
+are in place. Replay-specific telemetry, sanitized lifecycle logs, and final
+release-gate verification remain in `docs/dead-letter-replay.md`.

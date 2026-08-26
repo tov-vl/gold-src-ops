@@ -88,6 +88,24 @@ internal sealed class OutboxMessage
 
     public int ReplayCount { get; private set; }
 
+    public void Replay(DateTimeOffset nextAttemptAtUtc)
+    {
+        if (Status != OutboxMessageStatus.DeadLetter)
+        {
+            throw new InvalidOperationException("Only a dead-letter message can be replayed.");
+        }
+
+        Status = OutboxMessageStatus.Pending;
+        AttemptCount = 0;
+        ReplayCount = checked(ReplayCount + 1);
+        NextAttemptAtUtc = nextAttemptAtUtc.ToUniversalTime();
+        ClaimId = null;
+        ClaimedAtUtc = null;
+        ProcessedAtUtc = null;
+        LastError = null;
+        DeadLetteredAtUtc = null;
+    }
+
     private static string NormalizeRequiredText(
         string? value,
         int maxLength,

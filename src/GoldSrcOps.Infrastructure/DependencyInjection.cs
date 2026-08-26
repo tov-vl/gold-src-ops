@@ -64,6 +64,7 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IAlertDeliveryReadRepository, EfAlertDeliveryReadRepository>();
+        services.AddScoped<IAlertDeliveryReplayRepository, EfAlertDeliveryReplayRepository>();
         services.AddScoped<IOutboxStore, EfOutboxStore>();
         services.AddScoped<IOutboxWriter, EfOutboxWriter>();
         services.AddScoped<IServerRepository, EfServerRepository>();

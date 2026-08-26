@@ -22,6 +22,7 @@ public sealed class SecurityEndpointIntegrationTests
     [InlineData("POST", $"/api/servers/{ExistingId}/commands/restart")]
     [InlineData("POST", $"/api/servers/{ExistingId}/commands/say")]
     [InlineData("POST", $"/api/servers/{ExistingId}/commands/raw")]
+    [InlineData("POST", $"/api/alert-delivery/dead-letters/{ExistingId}/replay")]
     public async Task Reader_cannot_call_mutation_endpoints(string method, string path)
     {
         await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Reader());
@@ -48,8 +49,10 @@ public sealed class SecurityEndpointIntegrationTests
             client.GetAsync("/api/dashboard/overview"),
             client.GetAsync("/api/alert-delivery/dead-letters"),
             client.GetAsync("/metrics"));
+        var replay = await client.GetAsync($"/api/alert-delivery/replays/{ExistingId}");
 
         responses.Should().OnlyContain(static response => response.StatusCode == HttpStatusCode.OK);
+        replay.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -64,7 +67,12 @@ public sealed class SecurityEndpointIntegrationTests
         var alertDeliveryRead = await client.GetAsync("/api/alert-delivery/dead-letters");
         var alertDeliveryDetail = await client.GetAsync(
             $"/api/alert-delivery/dead-letters/{ExistingId}");
+        var alertDeliveryReplay = await client.GetAsync(
+            $"/api/alert-delivery/replays/{ExistingId}");
         var mutation = await client.PostAsJsonAsync("/api/servers", new { });
+        var replayMutation = await client.PostAsJsonAsync(
+            $"/api/alert-delivery/dead-letters/{ExistingId}/replay",
+            new { reason = "endpoint restored" });
         var metrics = await client.GetAsync("/metrics");
 
         live.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -72,7 +80,9 @@ public sealed class SecurityEndpointIntegrationTests
         read.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryRead.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryDetail.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        alertDeliveryReplay.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         mutation.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        replayMutation.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         metrics.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
@@ -110,10 +120,16 @@ public sealed class SecurityEndpointIntegrationTests
         var register = await client.PostAsJsonAsync("/api/servers", CreateServerRequest());
         var read = await client.GetAsync("/api/servers");
         var alertDeliveryRead = await client.GetAsync("/api/alert-delivery/dead-letters");
+        var replayRead = await client.GetAsync($"/api/alert-delivery/replays/{ExistingId}");
+        var replayMutation = await client.PostAsJsonAsync(
+            $"/api/alert-delivery/dead-letters/{ExistingId}/replay",
+            new { reason = "endpoint restored" });
 
         register.StatusCode.Should().Be(HttpStatusCode.Created);
         read.StatusCode.Should().Be(HttpStatusCode.OK);
         alertDeliveryRead.StatusCode.Should().Be(HttpStatusCode.OK);
+        replayRead.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        replayMutation.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]

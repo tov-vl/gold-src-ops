@@ -257,8 +257,8 @@ Configured topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
 
 Operator-facing dead-letter inspection and replay is selected as the next
 reviewable capability. Its accepted design is documented in
-`docs/dead-letter-replay.md`. Persistence and bounded Reader inspection are
-complete; replay mutation is not available until the remaining API slices land.
+`docs/dead-letter-replay.md`. Persistence, bounded Reader inspection,
+transactional Operator replay, and durable replay-record reads are complete.
 
 Completed slices:
 
@@ -266,19 +266,19 @@ Completed slices:
    and a new additive PostgreSQL migration.
 2. Add bounded `Reader` inspection endpoints with cursor pagination and a
    newer-event ordering warning.
-
-Remaining slices:
-
 3. Add the single-message `Operator` replay endpoint with stable event identity,
    explicit idempotency, atomic audit, and concurrent-request protection.
-4. Add telemetry, policy-matrix coverage, PostgreSQL concurrency tests,
-   operations guidance, and full release-gate verification.
+
+Remaining slice:
+
+4. Add replay outcome metrics and sanitized lifecycle logs, complete final
+   operations guidance, and run the full release-gate verification.
 
 A second delivery channel, broker, service extraction, bulk replay, and a
 distributed polling claim remain deferred until their scaling, receiver, or
 ownership requirements become concrete.
 
-## v1 API Scope
+## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
 `docs/security.md`.
@@ -317,6 +317,13 @@ Commands:
 - `POST /api/servers/{id}/commands/raw`
 - `GET /api/servers/{id}/commands`
 - `GET /api/commands/{commandId}`
+
+Alert delivery:
+
+- `GET /api/alert-delivery/dead-letters`
+- `GET /api/alert-delivery/dead-letters/{eventId}`
+- `POST /api/alert-delivery/dead-letters/{eventId}/replay`
+- `GET /api/alert-delivery/replays/{requestId}`
 
 Health and metrics:
 
@@ -403,8 +410,9 @@ Health and metrics:
 Future entities:
 
 - `PlayerSnapshot`
-- `AlertDelivery`
-- `AuditEntry`
+
+Alert delivery state and replay audit are intentionally Infrastructure
+persistence models, not future Domain entities.
 
 ## Testing Plan
 
@@ -428,6 +436,9 @@ Start focused:
 - API integration coverage proving command requester identity comes from the authenticated token subject.
 - Unit and PostgreSQL integration coverage for snapshot-retention cutoff,
   bounded batching, metrics, and preservation of non-snapshot monitoring data.
+- API and PostgreSQL integration coverage for bounded dead-letter inspection,
+  audited replay, idempotency, rollback, aggregate ordering, and concurrent
+  requests.
 
 For v1.1:
 

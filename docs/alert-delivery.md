@@ -113,13 +113,24 @@ response bodies, webhook URLs, authorization values, and exception messages.
 ## Recovery And Rollback
 
 The accepted operator-facing inspection and replay design is documented in
-`docs/dead-letter-replay.md`. Its persistence foundation and Reader inspection
-API are implemented, so operators can review current dead letters and ordering
-warnings without database access. The Operator replay endpoint is not yet
-implemented. Until it exists, stop or disable dispatch for the affected
-messages before any database-assisted mutation. Preserve the original event ID
-and immutable payload, and review whether the receiver may already have applied
-the event. Do not create a replacement ID or reset attempts blindly.
+`docs/dead-letter-replay.md`. Reader inspection, transactional Operator replay,
+and durable replay-record endpoints are implemented, so normal recovery does
+not require direct database mutation.
+
+For one reviewed dead letter:
+
+1. Read its detail record and newer-event warning with a Reader token.
+2. Correct and verify the receiver condition that caused the failure.
+3. Submit one replay with an Operator token, a fresh UUID
+   `Idempotency-Key`, and a concise non-secret reason.
+4. If the HTTP result is ambiguous, repeat the exact request with the same key.
+5. Follow the returned replay-record `Location` and observe delivery telemetry.
+
+`202 Accepted` means the existing event was safely requeued; it does not mean
+the receiver has already accepted it. Do not generate a new key for an
+ambiguous retry, create a replacement event ID, edit the payload, or reset
+outbox fields through routine SQL. A new replay cycle after another dead-letter
+transition requires a new review, reason, and key.
 
 Disabling `AlertDelivery__Enabled` stops new claims without deleting queued or
 dead-letter messages. Application rollback to v1.1 leaves the additive outbox
@@ -141,5 +152,5 @@ state machine are covered by synthetic-server and PostgreSQL tests:
 
 ```powershell
 dotnet test .\tests\GoldSrcOps.UnitTests\GoldSrcOps.UnitTests.csproj `
-  --filter "FullyQualifiedName~HttpWebhookAlertDeliveryChannelTests|FullyQualifiedName~AlertDispatcherTests|FullyQualifiedName~PostgreSqlOutboxStoreIntegrationTests"
+  --filter "FullyQualifiedName~HttpWebhookAlertDeliveryChannelTests|FullyQualifiedName~AlertDispatcherTests|FullyQualifiedName~PostgreSqlOutboxStoreIntegrationTests|FullyQualifiedName~PostgreSqlDeadLetterReplayEndpointIntegrationTests"
 ```

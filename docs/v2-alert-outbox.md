@@ -223,11 +223,11 @@ Processed messages are retained for a configurable default of 30 days and
 deleted in bounded batches. Dead-letter messages are not deleted automatically
 in the first slice.
 
-The persistence foundation and bounded Reader inspection API for
-operator-facing dead-letter replay are implemented. The accepted contract is
-documented in `docs/dead-letter-replay.md`. Until the Operator replay endpoint
-exists, recovery mutation remains an explicit database-assisted operational
-procedure that must preserve the original event ID and payload.
+The persistence foundation, bounded Reader inspection API, transactional
+Operator replay, and durable replay-record reads are implemented after v2.0.
+The accepted contract and remaining observability work are documented in
+`docs/dead-letter-replay.md`. Routine recovery preserves the existing event ID
+and payload through the API instead of direct database mutation.
 
 ## Rollout
 
@@ -280,6 +280,7 @@ local capability gate. Exact evidence and remaining publication steps are in
 - Public subscription or notification-preference APIs.
 - Multi-tenant routing.
 - An alert-management UI.
-- Implementation of the accepted dead-letter replay design in
-  `docs/dead-letter-replay.md` remains outside the v2.0 release.
+- The dead-letter replay capability remains outside the published v2.0 release;
+  its post-v2 implementation status is tracked in
+  `docs/dead-letter-replay.md`.
 - Distributed polling claims; the singleton polling constraint remains.

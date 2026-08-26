@@ -56,6 +56,9 @@ Current implementation:
 - Reliable incident-alert delivery through a transactional PostgreSQL outbox,
   an at-least-once HTTPS webhook dispatcher, bounded retries, dead letters,
   processed-row retention, and OpenTelemetry backlog metrics.
+- Bounded dead-letter inspection and audited single-message replay with
+  Operator authorization, durable idempotency, and PostgreSQL concurrency
+  protection.
 - A production-oriented .NET 10 container image with non-root execution,
   separate EF migrations, and isolated PostgreSQL-backed CI smoke coverage.
 - Unit, API integration, deterministic polling, protocol, and PostgreSQL
@@ -78,8 +81,10 @@ README for current startup commands and `docs/backlog.md` for active work.
 
 The accepted next-milestone design covers operator-facing dead-letter
 inspection and replay in `docs/dead-letter-replay.md`. Its additive replay
-metadata, append-only audit persistence, and bounded Reader inspection API are
-implemented; the Operator replay API remains planned.
+metadata, append-only audit persistence, bounded Reader inspection,
+transactional Operator replay, and durable replay-record API are implemented.
+Replay-specific telemetry, sanitized lifecycle logs, and final release-gate
+verification remain.
 
 ## MVP Goal
 
