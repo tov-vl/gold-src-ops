@@ -112,11 +112,12 @@ response bodies, webhook URLs, authorization values, and exception messages.
 
 ## Recovery And Rollback
 
-Dead-letter replay is intentionally not automated yet. Before any database-
-assisted recovery, stop or disable dispatch for the affected messages, preserve
-the original event ID and immutable payload, and review whether the receiver
-may already have applied the event. Do not create a replacement ID or reset
-attempts blindly.
+The accepted operator-facing inspection and replay design is documented in
+`docs/dead-letter-replay.md`, but its API and schema changes are not implemented
+yet. Until they exist, stop or disable dispatch for the affected messages before
+any database-assisted recovery. Preserve the original event ID and immutable
+payload, and review whether the receiver may already have applied the event. Do
+not create a replacement ID or reset attempts blindly.
 
 Disabling `AlertDelivery__Enabled` stops new claims without deleting queued or
 dead-letter messages. Application rollback to v1.1 leaves the additive outbox

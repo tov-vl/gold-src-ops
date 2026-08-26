@@ -255,10 +255,24 @@ Configured topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
 
 ## Next Milestone
 
-After the alert-delivery outbox is operational, decide whether a second delivery
-channel or operator-facing dead-letter replay provides the next highest value.
-A broker, service extraction, and a distributed polling claim remain deferred
-until their scaling or ownership requirements become concrete.
+Operator-facing dead-letter inspection and replay is selected as the next
+reviewable capability. Its accepted design is documented in
+`docs/dead-letter-replay.md`; implementation has not started.
+
+Planned slices:
+
+1. Add replay metadata, append-only audit persistence, constraints, indexes,
+   and a new additive PostgreSQL migration.
+2. Add bounded `Reader` inspection endpoints with cursor pagination and a
+   newer-event ordering warning.
+3. Add the single-message `Operator` replay endpoint with stable event identity,
+   explicit idempotency, atomic audit, and concurrent-request protection.
+4. Add telemetry, policy-matrix coverage, PostgreSQL concurrency tests,
+   operations guidance, and full release-gate verification.
+
+A second delivery channel, broker, service extraction, bulk replay, and a
+distributed polling claim remain deferred until their scaling, receiver, or
+ownership requirements become concrete.
 
 ## v1 API Scope
 
