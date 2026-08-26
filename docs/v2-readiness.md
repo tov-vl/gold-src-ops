@@ -1,15 +1,13 @@
 # GoldSrcOps v2 Alert Delivery Readiness
 
-Review date: 2026-08-26. Status: `v2.0.0` release candidate; signed tag and
-GitHub Release not yet published.
+Review date: 2026-08-26. Status: released as `v2.0.0`.
 
 Outcome: all six implementation slices for transactional incident-alert
 delivery are complete. The local and remote quality gates and production
 container smoke pass. Pull request #8 was squash-merged into protected `main`
 as a verified commit, and local `main` is synchronized. Version selection,
-candidate release notes, and integration evidence are complete. Signed tagging,
-tag-triggered verification, and GitHub Release publication remain separate
-actions.
+release notes, signed tagging, tag-triggered verification, and GitHub Release
+publication are complete.
 
 ## Capability Evidence
 
@@ -70,6 +68,17 @@ Results:
   and merged as verified commit `3d1b04f`; its post-merge workflow also passed.
 - Local `main` was fast-forwarded to `3d1b04f`, and the merged local and remote
   implementation and documentation branches were deleted.
+- Final candidate pull request
+  [#10](https://github.com/tov-vl/gold-src-ops/pull/10) passed both required jobs
+  and merged as verified release revision `9d7176f`; its
+  [post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/32962056966)
+  also passed.
+- Signed annotated tag `v2.0.0` identifies `9d7176f`, and its
+  [tag-triggered workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/32962599218)
+  passed both required jobs.
+- The stable
+  [GoldSrcOps v2.0.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0)
+  was published from that tag.
 
 ## Accepted Boundaries
 
@@ -96,8 +105,8 @@ Results:
 - [x] Merge through protected `main` and verify post-merge checks.
 - [x] Fast-forward local `main` and verify the GitHub signature.
 - [x] Select `v2.0.0` and prepare candidate release notes.
-- [ ] Integrate the final release candidate through protected `main` and verify
+- [x] Integrate the final release candidate through protected `main` and verify
   post-merge checks.
-- [ ] Create and push the signed annotated `v2.0.0` tag, then verify
+- [x] Create and push the signed annotated `v2.0.0` tag, then verify
   tag-triggered checks.
-- [ ] Publish the GitHub Release and record final publication status.
+- [x] Publish the GitHub Release and record final publication status.

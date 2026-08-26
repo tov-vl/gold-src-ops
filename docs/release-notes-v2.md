@@ -1,7 +1,6 @@
 # GoldSrcOps v2.0.0 Release Notes
 
-Prepared: 2026-08-26. Status: release candidate; signed tag and GitHub Release
-not yet published.
+Prepared: 2026-08-26. Published: 2026-08-26. Status: released.
 
 ## Overview
 
@@ -61,7 +60,7 @@ production configuration, and an asynchronous operational workflow.
 - The existing v1.1 production container and health-probe contracts remain in
   effect.
 
-## Verified Candidate Baseline
+## Verified Release Baseline
 
 The 2026-08-26 local candidate gate completed with .NET SDK `10.0.400`, Docker
 Engine `29.7.2`, and PostgreSQL `16-alpine`:
@@ -75,10 +74,9 @@ Engine `29.7.2`, and PostgreSQL `16-alpine`:
 - the production container smoke passed hardening, fail-fast configuration,
   liveness, readiness, migration, and alert-dispatch registration checks.
 
-Implementation pull request #8 and documentation pull request #9 passed the
-required `Quality Gate` and `Container Smoke` checks before merge and again on
-`main`. The final release-candidate pull request, post-merge `main` run, and
-signed-tag run must pass the same jobs before publication.
+Implementation pull request #8, documentation pull request #9, final candidate
+pull request #10, the post-merge `main` run, and the signed-tag run all passed
+`Quality Gate` and `Container Smoke`. The signed release revision is `9d7176f`.
 
 Detailed evidence and accepted boundaries are recorded in
 [docs/v2-readiness.md](v2-readiness.md).
@@ -122,6 +120,8 @@ complete rollout and recovery runbook.
 
 ## Publication Status
 
-The signed annotated `v2.0.0` tag and GitHub Release are intentionally pending.
-Publish only after the final candidate pull request, post-merge `main` run, and
-tag-triggered run all pass `Quality Gate` and `Container Smoke`.
+Published on 2026-08-26 as the
+[GoldSrcOps v2.0.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0)
+from signed annotated tag `v2.0.0`. Final candidate pull request #10, the
+post-merge `main` run, and the tag-triggered run all passed `Quality Gate` and
+`Container Smoke` on release revision `9d7176f`.
