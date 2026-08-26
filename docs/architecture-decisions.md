@@ -441,6 +441,8 @@ Alternatives considered:
 
 Implementation status:
 
-Accepted for v2 design; not yet implemented. The schema, processing protocol,
-rollout, and verification slices are specified in
-`docs/v2-alert-outbox.md`.
+Implemented across the six reviewable v2 slices. The schema, transactional
+writer, PostgreSQL claim protocol, HTTP adapter, hosted dispatcher, retry and
+dead-letter policy, telemetry, retention, rollout, operations, and verification
+contract are documented in `docs/v2-alert-outbox.md` and
+`docs/alert-delivery.md`.

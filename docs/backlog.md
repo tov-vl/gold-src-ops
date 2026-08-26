@@ -168,6 +168,10 @@ Completed:
   safe structured logs, OpenTelemetry counters, duration metrics, and backlog
   gauges are covered by unit, Prometheus, and PostgreSQL tests. Delivery remains
   disabled by default until deployment configuration is supplied.
+- Alert-delivery rollout, topology, secret injection, telemetry, recovery, and
+  rollback are documented. The production container smoke verifies HTTPS
+  configuration fail-fast, enabled-dispatcher startup, endpoint/authorization
+  log safety, separate migrations, hardening, and health probes.
 
 ## Completed v1.1 Milestone
 
@@ -212,11 +216,13 @@ Completed slices:
 5. Add the hosted dispatcher, validated configuration, OpenTelemetry metrics,
    sanitized structured logs, dead-letter behavior, and bounded processed-row
    retention.
-
-Remaining slice:
-
 6. Complete rollout and operations documentation, then run the full local
    quality gate and production container smoke test.
+
+All six local implementation slices are complete. The remaining publication
+workflow is to push the candidate branch, pass the required GitHub checks, and
+merge through protected `main`. Local evidence and accepted boundaries are
+recorded in `docs/v2-readiness.md`.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
 
@@ -389,6 +395,16 @@ Start focused:
 For v1.1:
 
 - Container-image smoke coverage for the documented deployment shape.
+
+For v2 alert delivery:
+
+- Unit and PostgreSQL integration coverage for transactional enqueueing,
+  claiming, ordering, retry, dead-letter, stale-claim recovery, metrics, log
+  safety, and bounded retention.
+- Synthetic HTTP-server coverage for one POST per attempt, idempotency headers,
+  status classification, timeout, `Retry-After`, redirect, and response bounds.
+- Production container smoke coverage for HTTPS startup validation, enabled
+  dispatcher registration, and endpoint/authorization log safety.
 
 ## v1 Portfolio Readiness
 

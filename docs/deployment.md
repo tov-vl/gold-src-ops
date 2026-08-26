@@ -1,9 +1,11 @@
 # Container Deployment
 
-This document defines the current v1.1 container deployment contract. It is
+This document defines the current container deployment contract. It is
 platform-neutral: the repository does not yet publish an image automatically or
 ship provider-specific Docker Compose, systemd, or Kubernetes production
-manifests.
+manifests. GoldSrcOps v1.1.0 remains the latest public release; the current v2
+candidate adds transactional incident-alert delivery without changing the
+container shape.
 
 ## Supported Shape
 
@@ -14,8 +16,12 @@ The supported baseline consists of:
 - an external OAuth 2.0 or OpenID Connect provider for bearer tokens;
 - an external TLS-terminating reverse proxy or ingress;
 - a deployment secret store for the database connection string and RCON
-  passwords;
+  passwords, plus optional webhook authorization;
+- one deployment-configured HTTPS webhook receiver when alert delivery is
+  enabled;
 - one active polling worker and one active snapshot-retention worker;
+- zero or more active alert-dispatch workers, enabled only after the outbox
+  migration and receiver are ready;
 - a separate, serialized EF Core migration action before application rollout.
 
 The image serves HTTP on container port `8080`, runs as the non-root .NET image
@@ -31,7 +37,7 @@ reference.
 
 ```powershell
 $revision = (git rev-parse HEAD).Trim()
-$image = "<registry>/gold-src-ops:v1.1.0-rc.1"
+$image = "<registry>/gold-src-ops:<version>"
 
 docker build --pull `
   --label "org.opencontainers.image.revision=$revision" `
@@ -50,7 +56,7 @@ rebuild an old tag.
 
 The current CI verifies the image but does not publish it. Registry login,
 provenance, signing, and retention policy remain responsibilities of the
-release pipeline that will publish v1.1.
+release pipeline that publishes a release.
 
 ## Runtime Contract
 
@@ -91,6 +97,9 @@ docker run --detach `
   --env ConnectionStrings__GoldSrcOps `
   --env Authentication__Schemes__Bearer__Authority `
   --env Authentication__Schemes__Bearer__Audience `
+  --env AlertDelivery__Enabled `
+  --env AlertDelivery__WebhookUrl `
+  --env AlertDelivery__Authorization `
   $image
 ```
 
@@ -101,7 +110,7 @@ reject or redirect public plaintext traffic before forwarding requests and its
 scheme/host forwarding must be verified in the target environment. Production
 bearer tokens must never cross an unencrypted public connection.
 
-v1.1 pins the OpenTelemetry SDK and instrumentations to `1.18.0` and the direct
+The current source pins the OpenTelemetry SDK and instrumentations to `1.18.0` and the direct
 Prometheus exporter to `1.18.0-beta.1`. The endpoint remains prerelease but is
 kept for v1 compatibility; Architecture Decision 12 documents the safeguards
 and the conditions for replacing it with stable OTLP export through a
@@ -130,6 +139,12 @@ for a server credential. They must come from the deployment secret store and
 must not be stored in PostgreSQL, image layers, tracked settings, or logs. See
 `docs/rcon.md` for the complete secret-reference and retry rules.
 
+Alert delivery is disabled by default. Enabling it requires
+`AlertDelivery__WebhookUrl` with an absolute HTTPS URL in Production. Optional
+`AlertDelivery__Authorization` contains the complete authorization header value
+and must come from the deployment secret store. See `docs/alert-delivery.md`
+for the full configuration, retry, telemetry, and recovery contract.
+
 The tracked `appsettings.json` supplies worker defaults. Override only values
 that are part of an intentional capacity or topology decision:
 
@@ -139,11 +154,15 @@ that are part of an intentional capacity or topology decision:
 | `CommandDispatcher__Enabled` | `true` | May be enabled on multiple replicas because PostgreSQL owns command claims and per-server serialization. |
 | `SnapshotRetention__Enabled` | `true` | `true` on one process; `false` on other replicas to avoid redundant cleanup contention. |
 | `SnapshotRetention__RetentionDays` | `30` | Tune with the validated limits and metrics in `docs/snapshot-retention.md`. |
+| `AlertDelivery__Enabled` | `false` | Enable after the additive outbox migration and receiver readiness are verified; multiple replicas are supported. |
+| `AlertDelivery__MaxConcurrency` | `4` | Per-process concurrency; size total concurrency across every enabled replica. |
 
 During a rolling deployment, do not overlap the old and new active polling
 workers. Start new HTTP-only replicas with polling and retention disabled,
 replace the designated worker, then verify that exactly one process owns each
-singleton responsibility.
+singleton responsibility. Alert delivery uses PostgreSQL claims and may overlap
+across compatible v2 replicas, but should first be enabled on one instance at
+default concurrency while backlog and receiver behavior are observed.
 
 ## Apply Migrations
 
@@ -172,6 +191,7 @@ $env:ASPNETCORE_ENVIRONMENT = "Production"
 $env:Polling__Enabled = "false"
 $env:CommandDispatcher__Enabled = "false"
 $env:SnapshotRetention__Enabled = "false"
+$env:AlertDelivery__Enabled = "false"
 
 dotnet restore GoldSrcOps.sln -p:AuditPipeline=true
 dotnet tool restore
@@ -187,10 +207,11 @@ EF migration history is stored in `public`; application tables use the
 concurrently. Let EF execute that migration outside its normal transaction and
 do not wrap the whole migration command in an external database transaction.
 
-The initial v1.1 container baseline does not add a schema migration. This step
-still confirms that a target database is at the migration level expected by the
-image. Any later schema-changing release must preserve rolling compatibility or
-replace the rollout order with an explicitly reviewed maintenance procedure.
+The v2 alert candidate adds the `AddAlertOutboxPersistence` migration. It is
+additive and must be applied before the new application starts, with alert
+delivery disabled. GoldSrcOps v1.1 ignores the new table, so an application
+rollback can leave it in place. Do not down-migrate while queued or dead-letter
+messages may still be required.
 
 Run the same command a second time in a staging or disposable environment to
 confirm that the migration set is already up to date. The container smoke test
@@ -206,8 +227,11 @@ Use this order for a normal release:
    for the intended topology.
 4. Wait for liveness and readiness before routing traffic.
 5. Verify authentication, logs, and the authenticated metrics scrape.
-6. Replace remaining HTTP-only replicas, keeping polling and retention disabled
-   on them.
+6. Configure the HTTPS webhook and its optional authorization secret, then
+   enable alert delivery on one instance and verify backlog telemetry.
+7. Replace remaining HTTP-only replicas, keeping polling and retention disabled
+   on them. Enable additional alert dispatchers only when receiver capacity
+   requires them.
 
 Configure platform probes externally because the image does not bundle an HTTP
 client:
@@ -235,6 +259,9 @@ Application rollback and database rollback are separate decisions.
    traffic.
 5. Inspect persisted `Running` or recently failed RCON commands before any
    manual retry; an interrupted remote command can have an unknown outcome.
+6. Preserve pending and dead-letter outbox rows. Disabling alert delivery stops
+   claims without deleting messages, and a compatible v2 deployment resumes
+   from persisted state.
 
 Do not automatically run `dotnet ef database update <old-migration>` during an
 application rollback. A down migration can remove data or conflict with writes
@@ -252,7 +279,9 @@ pwsh -NoProfile -File .\tools\smoke\container.ps1
 ```
 
 The protected `main` workflow also requires both `Quality Gate` and
-`Container Smoke`. A production deployment still needs target-environment
-evidence for TLS, identity-provider metadata, database TLS, secret injection,
-probe routing, and backup restoration; the repository smoke test cannot prove
-those external integrations.
+`Container Smoke`. The smoke flow also verifies Production webhook HTTPS
+validation, enabled alert-dispatch startup, and that endpoint and authorization
+values are absent from application logs. A production deployment still needs
+target-environment evidence for TLS, identity-provider metadata, database TLS,
+secret injection, webhook reachability, probe routing, and backup restoration;
+the repository smoke test cannot prove those external integrations.
