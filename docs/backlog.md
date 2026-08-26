@@ -172,6 +172,10 @@ Completed:
   rollback are documented. The production container smoke verifies HTTPS
   configuration fail-fast, enabled-dispatcher startup, endpoint/authorization
   log safety, separate migrations, hardening, and health probes.
+- The complete v2 alert-delivery capability was integrated through pull request
+  #8 into protected `main` as verified squash commit `2f17aa8`. Required
+  `Quality Gate` and `Container Smoke` checks passed before and after merge,
+  local `main` was synchronized, and the merged feature branch was removed.
 
 ## Completed v1.1 Milestone
 
@@ -219,10 +223,12 @@ Completed slices:
 6. Complete rollout and operations documentation, then run the full local
    quality gate and production container smoke test.
 
-All six local implementation slices are complete. The remaining publication
-workflow is to push the candidate branch, pass the required GitHub checks, and
-merge through protected `main`. Local evidence and accepted boundaries are
-recorded in `docs/v2-readiness.md`.
+All six implementation slices and the protected-main integration workflow are
+complete. Pull request #8 passed the required checks and was squash-merged as
+verified commit `2f17aa8`; the post-merge `main` workflow also passed. Version
+selection, signed tagging, release notes, and GitHub Release publication remain
+an explicit later decision. Evidence and accepted boundaries are recorded in
+`docs/v2-readiness.md`.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
 
