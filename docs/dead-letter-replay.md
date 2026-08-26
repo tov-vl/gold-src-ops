@@ -1,10 +1,10 @@
 # Dead-Letter Inspection And Replay Design
 
 Status: implementation in progress. Replay metadata, append-only audit
-persistence, the additive migrations, and the bounded `Reader` inspection API
-are implemented. The `Operator` replay and replay-record endpoints remain
-planned, so inspection no longer requires database access while mutation still
-uses the database-assisted recovery procedure.
+persistence, the additive migrations, bounded `Reader` inspection, the
+transactional `Operator` replay endpoint, and durable replay-record reads are
+implemented. Replay-specific telemetry, sanitized lifecycle logs, and final
+release-gate verification remain.
 
 Decision date: 2026-08-26.
 
@@ -73,8 +73,8 @@ The first implementation adds an `Alert Delivery` endpoint group.
 | `POST /api/alert-delivery/dead-letters/{eventId}/replay` | `Operator` | Requeue one current dead letter. |
 | `GET /api/alert-delivery/replays/{requestId}` | `Reader` | Read the durable result of an accepted replay request. |
 
-The two dead-letter `GET` endpoints are implemented. The replay request and
-replay-record endpoints remain part of the next implementation slice.
+All four endpoints are implemented. Replay-specific telemetry and final
+operational verification remain part of the next implementation slice.
 
 The list uses opaque cursor pagination ordered by `DeadLetteredAtUtc` descending,
 then `OccurredAtUtc` descending, then `Id` descending. A missing legacy
@@ -128,16 +128,18 @@ Repeating the same request ID for the same event, principal, and normalized
 reason returns the original accepted result without changing the message again.
 Reusing the key for different intent returns `409 Conflict`.
 
-| Outcome | HTTP response |
-| --- | --- |
-| Replay accepted or an identical request repeated | `202 Accepted` |
-| Missing or invalid idempotency key or reason | `400 Bad Request` |
-| Missing or invalid token | `401 Unauthorized` |
-| Reader attempts replay | `403 Forbidden` |
-| Event does not exist or is no longer retained | `404 Not Found` |
-| Event exists but is not `DeadLetter` | `409 Conflict` |
-| A newer event for the aggregate is already `Processing` | `409 Conflict` |
-| Idempotency key was used for different intent | `409 Conflict` |
+| Outcome | HTTP response | Problem code |
+| --- | --- | --- |
+| Replay accepted or an identical request repeated | `202 Accepted` | none |
+| Missing or invalid idempotency key or reason | `400 Bad Request` | `alert_delivery.replay_invalid` |
+| Missing or invalid token | `401 Unauthorized` | bearer authentication response |
+| Reader attempts replay | `403 Forbidden` | authorization response |
+| Event does not exist or is no longer retained | `404 Not Found` | `alert_delivery.event_not_found` |
+| Replay record does not exist | `404 Not Found` | `alert_delivery.replay_not_found` |
+| Event exists but is not `DeadLetter` | `409 Conflict` | `alert_delivery.event_not_dead_letter` |
+| A newer event for the aggregate is already `Processing` | `409 Conflict` | `alert_delivery.newer_event_processing` |
+| Idempotency key was used for different intent | `409 Conflict` | `alert_delivery.idempotency_conflict` |
+| Event has no supported source serialization boundary | `409 Conflict` | `alert_delivery.event_not_replayable` |
 
 Problem responses use stable machine-readable codes and do not echo payloads,
 reasons, exception messages, authorization values, or webhook configuration.
@@ -230,7 +232,7 @@ The transition changes only these mutable delivery fields:
 - `Status`: `DeadLetter` to `Pending`;
 - `AttemptCount`: reset to zero for one new bounded retry cycle;
 - `ReplayCount`: increment by one;
-- `NextAttemptAtUtc`: set from the server `TimeProvider`;
+- `NextAttemptAtUtc`: set from the server UTC clock;
 - `DeadLetteredAtUtc`, `LastError`, `ClaimId`, `ClaimedAtUtc`, and
   `ProcessedAtUtc`: cleared.
 
@@ -299,13 +301,14 @@ Implementation is split into reviewable slices:
    stability, payload omission from lists, detail projection, newer-event
    warning, auth, and response bounds through API and PostgreSQL integration
    tests.
-3. Add the transactional replay service and `Operator` endpoint. Verify atomic
-   audit/state commit, rollback, attempt reset, immutable event fields,
-   same-key retries, key reuse conflicts, distinct-key races, multi-instance
-   behavior, concurrent incident close, concurrent claim versus replay,
-   aggregate ordering, and dispatcher pickup against PostgreSQL.
-4. Add metrics, sanitized logs, operations guidance, and the endpoint policy
-   matrix. Run the full quality gate and production container smoke.
+3. Completed: add the transactional replay service, `Operator` endpoint, and
+   durable replay-record endpoint. PostgreSQL tests verify atomic audit/state
+   commit, rollback, attempt reset, immutable event fields, same-key retries,
+   key reuse conflicts across events, distinct-key races, a newer processing
+   event, concurrent incident close, aggregate ordering, and dispatcher pickup.
+   API tests verify the `Reader`/`Operator` policy boundary.
+4. Add replay outcome metrics, sanitized lifecycle logs, and final operations
+   guidance. Run the full quality gate and production container smoke.
 
 No implementation slice may edit the already-applied v2 outbox migration. The
 schema change requires a new additive migration whose generated SQL is reviewed

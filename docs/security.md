@@ -1,7 +1,7 @@
 # GoldSrcOps Security Model
 
-This document defines the implemented security boundary for the v1 control
-plane.
+This document defines the implemented security boundary for the GoldSrcOps
+control plane.
 
 ## Trust Model
 
@@ -9,9 +9,9 @@ plane.
   user accounts, login flows, passwords, refresh tokens, or token issuance.
 - A production deployment uses an external OAuth 2.0 / OpenID Connect identity
   provider to issue JWT access tokens.
-- The v1 deployment has one administrative domain. Authenticated operators can
-  act on every registered server; tenant and per-server access control are out
-  of scope.
+- The current deployment has one administrative domain. Authenticated
+  operators can act on every registered server; tenant and per-server access
+  control are out of scope.
 - HTTPS is required outside local development because bearer tokens grant access
   to the API while they are valid.
 - RCON passwords remain outside PostgreSQL and API contracts as described in
@@ -56,16 +56,15 @@ source control.
 ## Principal Identity
 
 Every accepted access token must contain a stable subject identifier. The
-OAuth/OpenID Connect `sub` claim is the v1 audit identity and must fit within
-`CommandExecution.MaxRequestedByLength`. Token validation rejects a missing,
-blank, or oversized subject before the principal can access any protected
-endpoint.
+OAuth/OpenID Connect `sub` claim is the application audit identity and must fit
+within `CommandExecution.MaxRequestedByLength`. Token validation rejects a
+missing, blank, or oversized subject before the principal can access any
+protected endpoint.
 
-Command request contracts do not accept `requestedBy`. Command creation derives
-`CommandExecution.RequestedBy` from the authenticated principal's subject.
-Responses continue to expose `RequestedBy` as audit metadata. The
-existing database column remains valid, so this contract change does not require
-a schema migration.
+Command and dead-letter replay request contracts do not accept `requestedBy`.
+Both use cases derive their persisted audit identity from the authenticated
+principal's subject. Responses expose `RequestedBy` only as audit metadata; a
+client-supplied JSON property cannot override it.
 
 Display names are not used as audit identity because they can change and need
 not be unique. Access tokens, raw claims collections, and authorization headers
@@ -78,8 +77,8 @@ handlers.
 
 | Policy | Accepted application role | Purpose |
 | --- | --- | --- |
-| `Reader` | `Reader` or `Operator` | Inspect server state, history, incidents, dead letters, command history, credential metadata, and metrics. |
-| `Operator` | `Operator` | Register or modify servers, configure RCON credentials, and queue commands. |
+| `Reader` | `Reader` or `Operator` | Inspect server state, history, incidents, dead letters, replay records, command history, credential metadata, and metrics. |
+| `Operator` | `Operator` | Register or modify servers, configure RCON credentials, queue commands, and replay reviewed dead letters. |
 
 `Operator` includes read access through the `Reader` policy. ASP.NET Core does
 not provide implicit role inheritance, so the `Reader` policy must explicitly
@@ -107,6 +106,8 @@ operation.
 | `GET /api/dashboard/overview` | `Reader` |
 | `GET /api/alert-delivery/dead-letters` | `Reader` |
 | `GET /api/alert-delivery/dead-letters/{eventId}` | `Reader` |
+| `POST /api/alert-delivery/dead-letters/{eventId}/replay` | `Operator` |
+| `GET /api/alert-delivery/replays/{requestId}` | `Reader` |
 | `PUT /api/servers/{id}/credentials/rcon` | `Operator` |
 | `GET /api/servers/{id}/credentials` | `Reader` |
 | `POST /api/servers/{id}/commands/...` | `Operator` |
@@ -142,7 +143,9 @@ Unit and API integration tests prove that:
 - anonymous requests receive `401` from Reader and Operator endpoints;
 - a Reader can call read endpoints but receives `403` from every mutation;
 - an Operator can call both read and mutation endpoints;
-- dead-letter list and detail endpoints require Reader access;
+- dead-letter list, detail, and replay-record endpoints require Reader access;
+- dead-letter replay requires Operator access and derives its audit identity
+  from the authenticated subject;
 - liveness and readiness remain anonymous while metrics require Reader access;
 - command requests cannot spoof `RequestedBy`;
 - persisted `RequestedBy` comes from the authenticated `sub` claim;

@@ -27,6 +27,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddGoldSrcOpsSecurity(builder.Environment);
 builder.Services.AddScoped<AlertDeliveryReadService>();
+builder.Services.AddScoped<AlertDeliveryReplayService>();
 builder.Services.AddScoped<ServersService>();
 builder.Services.AddScoped<IncidentsService>();
 builder.Services.AddScoped<MonitoringReadService>();
