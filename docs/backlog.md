@@ -198,7 +198,7 @@ Completed definition of done:
   either upgraded or retained with an explicit current rationale.
 - The public API and v1 reliability semantics remain backward compatible.
 
-## Next Tasks
+## v2.0.0 Release Candidate
 
 The first v2 capability is defined by Decision 13 and
 `docs/v2-alert-outbox.md`.
@@ -226,9 +226,19 @@ Completed slices:
 All six implementation slices and the protected-main integration workflow are
 complete. Pull request #8 passed the required checks and was squash-merged as
 verified commit `2f17aa8`; the post-merge `main` workflow also passed. Version
-selection, signed tagging, release notes, and GitHub Release publication remain
-an explicit later decision. Evidence and accepted boundaries are recorded in
-`docs/v2-readiness.md`.
+`v2.0.0` is selected for the first supported alert-delivery capability and its
+additive database migration. Candidate release notes are prepared in
+`docs/release-notes-v2.md`, and evidence plus accepted boundaries are recorded
+in `docs/v2-readiness.md`.
+
+Remaining publication steps:
+
+1. Integrate the release candidate through protected `main` and verify the
+   required pull-request and post-merge checks.
+2. Create and push the signed annotated `v2.0.0` tag, then verify its
+   tag-triggered `Quality Gate` and `Container Smoke`.
+3. Publish the GitHub Release from the candidate notes and record final release
+   status in the repository documentation.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
 
