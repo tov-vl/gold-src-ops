@@ -446,3 +446,73 @@ writer, PostgreSQL claim protocol, HTTP adapter, hosted dispatcher, retry and
 dead-letter policy, telemetry, retention, rollout, operations, and verification
 contract are documented in `docs/v2-alert-outbox.md` and
 `docs/alert-delivery.md`.
+
+## Decision 14: Replay Dead Letters Through An Audited State Transition
+
+Decision:
+
+Provide operator-facing dead-letter inspection and single-message replay inside
+the modular monolith. Replay the existing outbox row through an atomic
+`DeadLetter` to `Pending` transition, preserving the immutable event identity
+and payload. Persist an append-only audit record in the same PostgreSQL
+transaction and use a client-supplied UUID idempotency key for ambiguous HTTP
+retries.
+
+Decision date: 2026-08-26.
+
+Reasoning:
+
+- A dead letter is intentionally terminal for automatic dispatch, but it can
+  leave a delivery gap that requires an explicit operational decision.
+- Routine SQL recovery bypasses application authorization, validation,
+  idempotency, concurrency protection, and durable audit.
+- Creating a replacement event would change the idempotency key and represent
+  one incident transition as multiple events.
+- Resetting the bounded attempt count is required for a new delivery cycle, but
+  the previous count, failure, and dead-letter time must be retained before the
+  reset.
+- PostgreSQL already owns outbox state and multi-instance claims, so the replay
+  mutation belongs in the same persistence boundary rather than in a new
+  service or broker.
+
+Implementation implications:
+
+- `Reader` can list and inspect dead letters; only `Operator` can request replay.
+- `RequestedBy` comes from the validated JWT `sub` claim and cannot be supplied
+  by the request body.
+- Each replay requires a UUID `Idempotency-Key` and a bounded operator reason.
+- Repeated identical requests return the stored accepted result; key reuse for
+  different intent fails with `409 Conflict`.
+- A conditional state transition and database uniqueness constraints ensure
+  that only one of several concurrent requests requeues the message.
+- The event ID, contract version, aggregate identity, occurrence time, and JSON
+  payload remain unchanged. Only delivery state and the new retry budget change.
+- Replay audit survives normal processed-outbox cleanup and contains metadata,
+  not payloads or secrets.
+- Operators are warned when a newer event exists for the same aggregate because
+  dead-letter replay cannot restore arrival order at a remote receiver.
+- Replay locks the source availability incident to serialize with creation of a
+  concurrent recovered event.
+- Replay locks newer active aggregate rows during the transition and refuses to
+  race a newer event that is already `Processing`.
+- Metrics and logs use bounded outcomes and identifiers; the persisted audit
+  record is the source for principal and reason.
+
+Alternatives considered:
+
+- Continue with manual SQL. Retained only as the temporary recovery path until
+  the API exists; rejected as the normal operating model.
+- Insert a new outbox event. Rejected because it weakens receiver deduplication
+  and changes event identity.
+- Replay every dead letter automatically. Rejected because permanent failures
+  can create an unbounded retry loop and repeat external side effects.
+- Start with bulk replay. Deferred until single-message safety is proven and
+  operational volume demonstrates the need.
+- Add a second delivery channel first. Deferred until concrete routing and
+  receiver requirements outweigh recovery through the existing channel.
+
+Implementation status:
+
+Design accepted. The API, persistence changes, migration, and tests are not yet
+implemented. The contract and reviewable delivery slices are defined in
+`docs/dead-letter-replay.md`.

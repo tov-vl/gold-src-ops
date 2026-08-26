@@ -76,6 +76,10 @@ The original `A2S_INFO` console spike remains available as a protocol diagnostic
 tool, and its live query was verified against a public GoldSrc server. See the
 README for current startup commands and `docs/backlog.md` for active work.
 
+The accepted next-milestone design covers operator-facing dead-letter
+inspection and replay in `docs/dead-letter-replay.md`; implementation has not
+started.
+
 ## MVP Goal
 
 Build a modular ASP.NET Core backend that can:

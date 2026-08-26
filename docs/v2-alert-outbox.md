@@ -223,8 +223,9 @@ Processed messages are retained for a configurable default of 30 days and
 deleted in bounded batches. Dead-letter messages are not deleted automatically
 in the first slice.
 
-Manual dead-letter replay and an administrative replay API are deferred. Until
-they exist, recovery is an explicit database-assisted operational procedure
+Operator-facing dead-letter replay remains unimplemented. Its accepted future
+contract is documented in `docs/dead-letter-replay.md`. Until that contract is
+implemented, recovery is an explicit database-assisted operational procedure
 that must preserve the original event ID and payload.
 
 ## Rollout
@@ -278,5 +279,6 @@ local capability gate. Exact evidence and remaining publication steps are in
 - Public subscription or notification-preference APIs.
 - Multi-tenant routing.
 - An alert-management UI.
-- A dead-letter replay API.
+- Implementation of the accepted dead-letter replay design in
+  `docs/dead-letter-replay.md` remains outside the v2.0 release.
 - Distributed polling claims; the singleton polling constraint remains.
