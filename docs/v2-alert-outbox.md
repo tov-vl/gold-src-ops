@@ -1,9 +1,10 @@
 # GoldSrcOps v2 Alert Delivery And Transactional Outbox
 
 Status: accepted design baseline for the first v2 capability. The outbox schema,
-transactional incident-alert enqueueing, and PostgreSQL claim state machine are
-implemented; hosted dispatch and HTTP delivery remain disabled until the
-following slices are complete.
+transactional incident-alert enqueueing, PostgreSQL claim state machine, HTTP
+adapter, hosted dispatch, retry/dead-letter policy, telemetry, and processed-row
+retention are implemented. Delivery remains disabled by default until an
+operator supplies deployment configuration.
 
 ## Scope
 
@@ -192,6 +193,11 @@ The worker validates configuration at startup and exposes at least:
 Each delivery attempt runs in its own dependency-injection scope, matching the
 command dispatcher's scoped processing model.
 
+The implementation uses the `AlertDelivery` configuration section. `Enabled`
+defaults to `false`; enabling it requires `WebhookUrl`, and non-Development
+environments require an HTTPS URL. `Authorization` remains deployment-only and
+neither its value nor the configured URL is written to logs.
+
 ## Observability And Health
 
 OpenTelemetry metrics cover:
@@ -239,9 +245,10 @@ from persisted state.
 
 Implementation work is split into reviewable slices:
 
-Slices 1 through 4 are implemented. The webhook adapter is intentionally not
-registered or invoked yet; slice 5 adds validated deployment configuration and
-the hosted dispatcher that owns retry accounting.
+Slices 1 through 5 are implemented. The dispatcher is registered only when
+alert delivery is enabled and owns retry accounting, expired-claim recovery,
+backlog metrics, dead-letter transitions, and processed-row retention. Slice 6
+completes deployment and operations guidance and final readiness verification.
 
 1. Add event contracts, EF Core mapping, migration, constraints, and a
    PostgreSQL migration test.

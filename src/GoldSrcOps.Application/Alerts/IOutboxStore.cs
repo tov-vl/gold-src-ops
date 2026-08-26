@@ -19,9 +19,24 @@ public interface IOutboxStore
         string lastError,
         CancellationToken cancellationToken);
 
-    Task<int> RecoverExpiredClaimsAsync(
-        DateTimeOffset expiredBeforeUtc,
-        DateTimeOffset nextAttemptAtUtc,
+    Task<bool> MarkDeadLetterAsync(
+        Guid messageId,
+        Guid claimId,
         string lastError,
         CancellationToken cancellationToken);
+
+    Task<OutboxClaimRecoveryResult> RecoverExpiredClaimsAsync(
+        DateTimeOffset expiredBeforeUtc,
+        DateTimeOffset nextAttemptAtUtc,
+        int maxAttempts,
+        string retryError,
+        string exhaustedError,
+        CancellationToken cancellationToken);
+
+    Task<int> DeleteProcessedBatchOlderThanAsync(
+        DateTimeOffset cutoffUtc,
+        int batchSize,
+        CancellationToken cancellationToken);
+
+    Task<OutboxStatistics> GetStatisticsAsync(CancellationToken cancellationToken);
 }

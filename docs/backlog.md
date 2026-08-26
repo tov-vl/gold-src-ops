@@ -160,7 +160,14 @@ Completed:
   a stable idempotency key, classifies retryable and permanent outcomes, honors
   bounded `Retry-After`, applies a request timeout, rejects implicit redirects,
   and never reads response bodies. Synthetic Kestrel tests cover the network
-  boundary. The hosted dispatcher remains disabled until the next slice.
+  boundary.
+- The hosted alert dispatcher runs each attempt in its own scope, owns bounded
+  exponential retry scheduling, dead-letters permanent and exhausted messages,
+  recovers expired claims without exceeding the attempt limit, and deletes one
+  bounded batch of expired processed rows per cleanup pass. Startup validation,
+  safe structured logs, OpenTelemetry counters, duration metrics, and backlog
+  gauges are covered by unit, Prometheus, and PostgreSQL tests. Delivery remains
+  disabled by default until deployment configuration is supplied.
 
 ## Completed v1.1 Milestone
 
@@ -202,12 +209,12 @@ Completed slices:
 4. Add the generic HTTP webhook adapter and synthetic-server tests for
    idempotency headers, status classification, timeouts, bounded responses, and
    one request per application attempt.
-
-Remaining slices:
-
 5. Add the hosted dispatcher, validated configuration, OpenTelemetry metrics,
    sanitized structured logs, dead-letter behavior, and bounded processed-row
    retention.
+
+Remaining slice:
+
 6. Complete rollout and operations documentation, then run the full local
    quality gate and production container smoke test.
 

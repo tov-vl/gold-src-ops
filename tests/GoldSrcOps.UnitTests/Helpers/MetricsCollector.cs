@@ -24,6 +24,8 @@ internal sealed class MetricsCollector : IDisposable
 
     public IReadOnlyCollection<CollectedMetric> Measurements => _measurements.ToArray();
 
+    public void CollectObservableMetrics() => _listener.RecordObservableInstruments();
+
     public void Dispose()
     {
         _listener.Dispose();

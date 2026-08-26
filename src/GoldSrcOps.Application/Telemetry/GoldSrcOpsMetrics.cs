@@ -12,6 +12,16 @@ public enum CommandDispatchMetricResult
     AuthenticationFailed = 4
 }
 
+public enum AlertDeliveryMetricResult
+{
+    Delivered = 1,
+    RetryScheduled = 2,
+    DeadLettered = 3,
+    ClaimLost = 4,
+    Interrupted = 5,
+    Faulted = 6
+}
+
 public static class GoldSrcOpsMetrics
 {
     public const string MeterName = "GoldSrcOps";
@@ -33,6 +43,35 @@ public static class GoldSrcOpsMetrics
     private static readonly Counter<int> AlertEventsEnqueued = Meter.CreateCounter<int>(
         "goldsrcops.alerts.enqueued",
         description: "Number of incident alert events committed to the outbox.");
+
+    private static readonly Counter<int> AlertDeliveryAttempts = Meter.CreateCounter<int>(
+        "goldsrcops.alerts.delivery_attempts",
+        description: "Number of completed alert delivery attempts by result.");
+
+    private static readonly Counter<int> AlertsDelivered = Meter.CreateCounter<int>(
+        "goldsrcops.alerts.delivered",
+        description: "Number of alert messages successfully delivered and marked processed.");
+
+    private static readonly Counter<int> AlertRetriesScheduled = Meter.CreateCounter<int>(
+        "goldsrcops.alerts.retries_scheduled",
+        description: "Number of alert delivery retries scheduled.");
+
+    private static readonly Counter<int> AlertDeadLetters = Meter.CreateCounter<int>(
+        "goldsrcops.alerts.dead_letters",
+        description: "Number of alert messages moved to dead letter.");
+
+    private static readonly Counter<int> AlertClaimsRecovered = Meter.CreateCounter<int>(
+        "goldsrcops.alerts.claims_recovered",
+        description: "Number of expired alert delivery claims recovered.");
+
+    private static readonly Counter<int> AlertProcessedMessagesDeleted = Meter.CreateCounter<int>(
+        "goldsrcops.alerts.processed_deleted",
+        description: "Number of processed alert messages deleted by retention.");
+
+    private static readonly Histogram<double> AlertDeliveryDuration = Meter.CreateHistogram<double>(
+        "goldsrcops.alerts.delivery_duration",
+        unit: "s",
+        description: "Duration of alert delivery attempts by result.");
 
     private static readonly Counter<int> CommandsQueued = Meter.CreateCounter<int>(
         "goldsrcops.commands.queued",
@@ -63,6 +102,12 @@ public static class GoldSrcOpsMetrics
         unit: "s",
         description: "Duration of snapshot retention cleanup runs by result.");
 
+    private static double _alertPendingCount;
+
+    private static double _alertOldestPendingAgeSeconds;
+
+    private static double _alertDeadLetterCount;
+
     private static readonly KeyValuePair<string, object?> SuccessResultTag = new("result", "success");
 
     private static readonly KeyValuePair<string, object?> FailureResultTag = new("result", "failure");
@@ -70,6 +115,23 @@ public static class GoldSrcOpsMetrics
     private static readonly KeyValuePair<string, object?> OpenedTransitionTag = new("transition", "opened");
 
     private static readonly KeyValuePair<string, object?> ClosedTransitionTag = new("transition", "closed");
+
+    static GoldSrcOpsMetrics()
+    {
+        Meter.CreateObservableGauge(
+            "goldsrcops.alerts.pending",
+            () => Volatile.Read(ref _alertPendingCount),
+            description: "Current number of pending alert outbox messages.");
+        Meter.CreateObservableGauge(
+            "goldsrcops.alerts.oldest_pending_age",
+            () => Volatile.Read(ref _alertOldestPendingAgeSeconds),
+            unit: "s",
+            description: "Age of the oldest pending alert outbox message.");
+        Meter.CreateObservableGauge(
+            "goldsrcops.alerts.dead_letter_count",
+            () => Volatile.Read(ref _alertDeadLetterCount),
+            description: "Current number of dead-letter alert outbox messages.");
+    }
 
     public static void RecordPollingRun(ServerPollingResult result)
     {
@@ -88,6 +150,67 @@ public static class GoldSrcOpsMetrics
     public static void RecordAlertEnqueued(string eventType)
     {
         AlertEventsEnqueued.Add(1, new KeyValuePair<string, object?>("event_type", eventType));
+    }
+
+    public static void RecordAlertDeliveryAttempt(
+        AlertDeliveryMetricResult result,
+        TimeSpan duration)
+    {
+        var resultTag = AlertDeliveryResultTag(result);
+        AlertDeliveryAttempts.Add(1, resultTag);
+        AlertDeliveryDuration.Record(duration.TotalSeconds, resultTag);
+
+        switch (result)
+        {
+            case AlertDeliveryMetricResult.Delivered:
+                AlertsDelivered.Add(1);
+                break;
+            case AlertDeliveryMetricResult.RetryScheduled:
+                AlertRetriesScheduled.Add(1);
+                break;
+            case AlertDeliveryMetricResult.DeadLettered:
+                RecordAlertDeadLetters(1);
+                break;
+            case AlertDeliveryMetricResult.ClaimLost:
+            case AlertDeliveryMetricResult.Interrupted:
+            case AlertDeliveryMetricResult.Faulted:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(result),
+                    result,
+                    "Alert delivery metric result is not supported.");
+        }
+    }
+
+    public static void RecordAlertClaimsRecovered(int recoveredCount)
+    {
+        AddIfPositive(AlertClaimsRecovered, recoveredCount);
+    }
+
+    public static void RecordAlertDeadLetters(int deadLetterCount)
+    {
+        AddIfPositive(AlertDeadLetters, deadLetterCount);
+    }
+
+    public static void RecordAlertProcessedMessagesDeleted(int deletedCount)
+    {
+        AddIfPositive(AlertProcessedMessagesDeleted, deletedCount);
+    }
+
+    public static void UpdateAlertOutboxStatistics(
+        long pendingCount,
+        TimeSpan? oldestPendingAge,
+        long deadLetterCount)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(pendingCount);
+        ArgumentOutOfRangeException.ThrowIfNegative(deadLetterCount);
+
+        Volatile.Write(ref _alertPendingCount, pendingCount);
+        Volatile.Write(
+            ref _alertOldestPendingAgeSeconds,
+            Math.Max(0, oldestPendingAge?.TotalSeconds ?? 0));
+        Volatile.Write(ref _alertDeadLetterCount, deadLetterCount);
     }
 
     public static void RecordCommandDispatched(ServerCommandType commandType)
@@ -157,6 +280,23 @@ public static class GoldSrcOpsMetrics
             CommandDispatchMetricResult.TimedOut => new KeyValuePair<string, object?>("result", "timed_out"),
             CommandDispatchMetricResult.AuthenticationFailed => new KeyValuePair<string, object?>("result", "auth_failed"),
             _ => throw new ArgumentOutOfRangeException(nameof(result), result, "Command dispatch metric result is not supported.")
+        };
+    }
+
+    private static KeyValuePair<string, object?> AlertDeliveryResultTag(AlertDeliveryMetricResult result)
+    {
+        return result switch
+        {
+            AlertDeliveryMetricResult.Delivered => new KeyValuePair<string, object?>("result", "delivered"),
+            AlertDeliveryMetricResult.RetryScheduled => new KeyValuePair<string, object?>("result", "retry_scheduled"),
+            AlertDeliveryMetricResult.DeadLettered => new KeyValuePair<string, object?>("result", "dead_lettered"),
+            AlertDeliveryMetricResult.ClaimLost => new KeyValuePair<string, object?>("result", "claim_lost"),
+            AlertDeliveryMetricResult.Interrupted => new KeyValuePair<string, object?>("result", "interrupted"),
+            AlertDeliveryMetricResult.Faulted => new KeyValuePair<string, object?>("result", "faulted"),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(result),
+                result,
+                "Alert delivery metric result is not supported.")
         };
     }
 }
