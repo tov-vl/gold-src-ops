@@ -1,11 +1,13 @@
 # GoldSrcOps v2 Alert Delivery Readiness
 
-Review date: 2026-08-26. Status: locally ready for review; not published.
+Review date: 2026-08-26. Status: integrated into protected `main`; release
+version not yet selected.
 
 Outcome: all six implementation slices for transactional incident-alert
-delivery are complete. The local quality gate and production container smoke
-pass. Remote pull-request checks, protected-main merge, and release publication
-remain separate actions.
+delivery are complete. The local and remote quality gates and production
+container smoke pass. Pull request #8 was squash-merged into protected `main`
+as a verified commit, and local `main` is synchronized. Version selection,
+signed tagging, and GitHub Release publication remain separate actions.
 
 ## Capability Evidence
 
@@ -51,6 +53,19 @@ Results:
 - temporary containers, the dedicated network, and the smoke image were
   removed.
 
+## Publication Evidence
+
+- Pull request [#8](https://github.com/tov-vl/gold-src-ops/pull/8) integrated
+  the complete alert-delivery capability into protected `main`.
+- The required `Quality Gate` and `Container Smoke` checks passed on candidate
+  revision `8877da6` before merge.
+- GitHub created verified squash commit `2f17aa8` with a valid signature.
+- The post-merge
+  [CI run](https://github.com/tov-vl/gold-src-ops/actions/runs/32956963549)
+  passed both required jobs on `main`.
+- Local `main` was fast-forwarded to `2f17aa8`, and the merged local and remote
+  feature branches were deleted.
+
 ## Accepted Boundaries
 
 - Delivery is at least once. The receiver must deduplicate by the stable event
@@ -70,9 +85,10 @@ Results:
 
 ## Publication Checklist
 
-- [ ] Push `feature/v2-alert-dispatcher` and open a pull request into `main`.
-- [ ] Pass required `Quality Gate` and `Container Smoke` checks on the final SHA.
-- [ ] Merge through protected `main` and verify post-merge checks.
-- [ ] Fast-forward local `main` and verify the GitHub signature.
+- [x] Push `feature/v2-alert-dispatcher` and open pull request #8 into `main`.
+- [x] Pass required `Quality Gate` and `Container Smoke` checks on the final
+  candidate SHA.
+- [x] Merge through protected `main` and verify post-merge checks.
+- [x] Fast-forward local `main` and verify the GitHub signature.
 - [ ] Decide the release version, then create a signed tag and release notes in
   a separate release step.
