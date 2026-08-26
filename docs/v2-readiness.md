@@ -1,13 +1,15 @@
 # GoldSrcOps v2 Alert Delivery Readiness
 
-Review date: 2026-08-26. Status: integrated into protected `main`; release
-version not yet selected.
+Review date: 2026-08-26. Status: `v2.0.0` release candidate; signed tag and
+GitHub Release not yet published.
 
 Outcome: all six implementation slices for transactional incident-alert
 delivery are complete. The local and remote quality gates and production
 container smoke pass. Pull request #8 was squash-merged into protected `main`
 as a verified commit, and local `main` is synchronized. Version selection,
-signed tagging, and GitHub Release publication remain separate actions.
+candidate release notes, and integration evidence are complete. Signed tagging,
+tag-triggered verification, and GitHub Release publication remain separate
+actions.
 
 ## Capability Evidence
 
@@ -63,8 +65,11 @@ Results:
 - The post-merge
   [CI run](https://github.com/tov-vl/gold-src-ops/actions/runs/32956963549)
   passed both required jobs on `main`.
-- Local `main` was fast-forwarded to `2f17aa8`, and the merged local and remote
-  feature branches were deleted.
+- Documentation closeout pull request
+  [#9](https://github.com/tov-vl/gold-src-ops/pull/9) passed both required jobs
+  and merged as verified commit `3d1b04f`; its post-merge workflow also passed.
+- Local `main` was fast-forwarded to `3d1b04f`, and the merged local and remote
+  implementation and documentation branches were deleted.
 
 ## Accepted Boundaries
 
@@ -90,5 +95,9 @@ Results:
   candidate SHA.
 - [x] Merge through protected `main` and verify post-merge checks.
 - [x] Fast-forward local `main` and verify the GitHub signature.
-- [ ] Decide the release version, then create a signed tag and release notes in
-  a separate release step.
+- [x] Select `v2.0.0` and prepare candidate release notes.
+- [ ] Integrate the final release candidate through protected `main` and verify
+  post-merge checks.
+- [ ] Create and push the signed annotated `v2.0.0` tag, then verify
+  tag-triggered checks.
+- [ ] Publish the GitHub Release and record final publication status.

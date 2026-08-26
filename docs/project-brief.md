@@ -67,10 +67,11 @@ Current implementation:
 - Published v1.1.0 release evidence covering the production container,
   deployment contract, required container smoke gate, compatibility, and
   current OpenTelemetry decision in `docs/v1.1-readiness.md`.
-- The first v2 capability is implemented and locally release-ready: reliable
-  incident-alert delivery through a transactional PostgreSQL outbox and a
-  generic HTTP webhook, documented in `docs/v2-alert-outbox.md` and
-  `docs/alert-delivery.md`, with local evidence in `docs/v2-readiness.md`.
+- The first v2 capability is integrated and prepared as the `v2.0.0` release
+  candidate: reliable incident-alert delivery through a transactional
+  PostgreSQL outbox and a generic HTTP webhook, documented in
+  `docs/release-notes-v2.md`, `docs/v2-alert-outbox.md`, and
+  `docs/alert-delivery.md`, with evidence in `docs/v2-readiness.md`.
 
 The original `A2S_INFO` console spike remains available as a protocol diagnostic
 tool, and its live query was verified against a public GoldSrc server. See the
