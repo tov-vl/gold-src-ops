@@ -1,8 +1,9 @@
 # Dead-Letter Inspection And Replay Design
 
-Status: accepted design. The API, persistence changes, and migration described
-here are not implemented yet. Database-assisted recovery remains the only
-available procedure until the implementation slices are complete.
+Status: implementation in progress. Replay metadata, append-only audit
+persistence, and the additive migration are implemented. The Reader and
+Operator APIs are not implemented yet, so database-assisted recovery remains
+the only available procedure until the endpoint slices are complete.
 
 Decision date: 2026-08-26.
 
@@ -203,6 +204,13 @@ outbox cleanup may eventually delete the event, while the audit record must
 remain attributable by its stable event ID. Replay audit rows are not included
 in the existing 30-day processed-message cleanup; a separate retention policy
 can be introduced when an operational or regulatory requirement exists.
+
+The generated migration runs in one transaction and builds the partial
+dead-letter index normally. PostgreSQL can block writes to `outbox_messages`
+while it builds that index and validates the new check constraints. Inspect the
+table size and apply the migration during a low-traffic rollout. If the table
+becomes large, add a later rollout migration using concurrent index creation
+and staged constraint validation; do not edit this migration after deployment.
 
 ## Atomic State Transition
 

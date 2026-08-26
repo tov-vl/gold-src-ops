@@ -257,12 +257,16 @@ Configured topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
 
 Operator-facing dead-letter inspection and replay is selected as the next
 reviewable capability. Its accepted design is documented in
-`docs/dead-letter-replay.md`; implementation has not started.
+`docs/dead-letter-replay.md`. The additive persistence foundation is complete;
+the operator workflow is not available until the remaining API slices land.
 
-Planned slices:
+Completed slices:
 
 1. Add replay metadata, append-only audit persistence, constraints, indexes,
    and a new additive PostgreSQL migration.
+
+Remaining slices:
+
 2. Add bounded `Reader` inspection endpoints with cursor pagination and a
    newer-event ordering warning.
 3. Add the single-message `Operator` replay endpoint with stable event identity,

@@ -186,6 +186,7 @@ public sealed class AlertDispatcherTests
             .Setup(x => x.MarkDeadLetterAsync(
                 message.Id,
                 message.ClaimId,
+                claimedAtUtc.AddSeconds(1),
                 "Webhook request timed out.",
                 CancellationToken.None))
             .ReturnsAsync(true);
@@ -229,6 +230,7 @@ public sealed class AlertDispatcherTests
             .Setup(x => x.MarkDeadLetterAsync(
                 message.Id,
                 message.ClaimId,
+                claimedAtUtc.AddSeconds(1),
                 "Webhook returned HTTP status 400.",
                 CancellationToken.None))
             .ReturnsAsync(true);

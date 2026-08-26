@@ -195,6 +195,7 @@ public sealed partial class AlertDispatcher
                 AlertDeliveryAttemptResultKind.PermanentFailure => await MarkDeadLetterAsync(
                     message,
                     serverId,
+                    completedAtUtc,
                     deliveryResult,
                     startedTimestamp,
                     cancellationToken),
@@ -261,6 +262,7 @@ public sealed partial class AlertDispatcher
     private async Task<AlertDispatchAttemptResult> MarkDeadLetterAsync(
         ClaimedOutboxMessage message,
         Guid? serverId,
+        DateTimeOffset deadLetteredAtUtc,
         AlertDeliveryAttemptResult deliveryResult,
         long startedTimestamp,
         CancellationToken cancellationToken)
@@ -268,6 +270,7 @@ public sealed partial class AlertDispatcher
         var updated = await _outbox.MarkDeadLetterAsync(
             message.Id,
             message.ClaimId,
+            deadLetteredAtUtc,
             BuildFailureSummary(deliveryResult),
             cancellationToken);
 

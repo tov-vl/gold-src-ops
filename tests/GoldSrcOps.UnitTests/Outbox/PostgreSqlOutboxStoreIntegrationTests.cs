@@ -229,6 +229,7 @@ public sealed class PostgreSqlOutboxStoreIntegrationTests
         persisted.ClaimId.Should().BeNull();
         persisted.ClaimedAtUtc.Should().BeNull();
         persisted.ProcessedAtUtc.Should().BeNull();
+        persisted.DeadLetteredAtUtc.Should().Be(claimedAtUtc.AddMinutes(1));
         persisted.LastError.Should().Be("attempt limit exhausted");
         (await ClaimAsync(factory, claimedAtUtc.AddMinutes(2))).Should().BeNull();
     }
@@ -258,11 +259,13 @@ public sealed class PostgreSqlOutboxStoreIntegrationTests
             factory,
             unavailable.Id,
             Guid.NewGuid(),
+            now,
             "stale claim")).Should().BeFalse();
         (await MarkDeadLetterAsync(
             factory,
             unavailable.Id,
             claim!.ClaimId,
+            now.AddSeconds(1),
             "  permanent HTTP 400 response  ")).Should().BeTrue();
 
         var deadLetter = await GetMessageAsync(factory, unavailable.Id);
@@ -270,6 +273,7 @@ public sealed class PostgreSqlOutboxStoreIntegrationTests
         deadLetter.ClaimId.Should().BeNull();
         deadLetter.ClaimedAtUtc.Should().BeNull();
         deadLetter.ProcessedAtUtc.Should().BeNull();
+        deadLetter.DeadLetteredAtUtc.Should().Be(now.AddSeconds(1));
         deadLetter.LastError.Should().Be("permanent HTTP 400 response");
 
         var nextClaim = await ClaimAsync(factory, now.AddSeconds(1));
@@ -279,7 +283,7 @@ public sealed class PostgreSqlOutboxStoreIntegrationTests
 
     [Fact]
     [Trait("Category", "PostgreSqlIntegration")]
-    public async Task Statistics_and_retention_cover_pending_and_dead_letters_but_delete_only_one_processed_batch()
+    public async Task Statistics_and_retention_preserve_replay_audit_and_delete_only_processed_batches()
     {
         await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync();
         var now = new DateTimeOffset(2026, 8, 26, 10, 0, 0, TimeSpan.Zero);
@@ -306,6 +310,19 @@ public sealed class PostgreSqlOutboxStoreIntegrationTests
                 processedAtUtc)).Should().BeTrue();
         }
 
+        var replayRequest = new OutboxReplayRequest(
+            Guid.NewGuid(),
+            oldProcessed,
+            "operator@example.test",
+            now.AddDays(-48),
+            "downstream endpoint was corrected",
+            now.AddDays(-48));
+        await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            dbContext.OutboxReplayRequests.Add(replayRequest);
+            await dbContext.SaveChangesAsync();
+        });
+
         var deadLetter = CreateMessage(Guid.NewGuid(), Guid.NewGuid(), now.AddMinutes(-20));
         var pending = CreateMessage(Guid.NewGuid(), Guid.NewGuid(), now.AddMinutes(-10));
         await SeedAsync(factory, deadLetter, pending);
@@ -316,6 +333,7 @@ public sealed class PostgreSqlOutboxStoreIntegrationTests
             factory,
             deadLetter.Id,
             deadLetterClaim.ClaimId,
+            now,
             "permanent failure")).Should().BeTrue();
 
         var statistics = await GetStatisticsAsync(factory);
@@ -328,6 +346,10 @@ public sealed class PostgreSqlOutboxStoreIntegrationTests
         (await DeleteProcessedBatchOlderThanAsync(factory, cutoffUtc, batchSize: 1)).Should().Be(1);
         (await GetMessageOrDefaultAsync(factory, oldProcessed.Id)).Should().BeNull();
         (await GetMessageOrDefaultAsync(factory, secondOldProcessed.Id)).Should().NotBeNull();
+        (await factory.ExecuteDbContextAsync(dbContext =>
+            dbContext.OutboxReplayRequests
+                .AsNoTracking()
+                .AnyAsync(request => request.Id == replayRequest.Id))).Should().BeTrue();
 
         (await DeleteProcessedBatchOlderThanAsync(factory, cutoffUtc, batchSize: 1)).Should().Be(1);
         (await DeleteProcessedBatchOlderThanAsync(factory, cutoffUtc, batchSize: 1)).Should().Be(0);
@@ -433,6 +455,7 @@ public sealed class PostgreSqlOutboxStoreIntegrationTests
         PostgreSqlGoldSrcOpsApiFactory factory,
         Guid messageId,
         Guid claimId,
+        DateTimeOffset deadLetteredAtUtc,
         string lastError)
     {
         await using var scope = factory.Services.CreateAsyncScope();
@@ -440,6 +463,7 @@ public sealed class PostgreSqlOutboxStoreIntegrationTests
         return await store.MarkDeadLetterAsync(
             messageId,
             claimId,
+            deadLetteredAtUtc,
             lastError,
             CancellationToken.None);
     }

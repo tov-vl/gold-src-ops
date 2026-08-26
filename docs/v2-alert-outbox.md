@@ -223,10 +223,11 @@ Processed messages are retained for a configurable default of 30 days and
 deleted in bounded batches. Dead-letter messages are not deleted automatically
 in the first slice.
 
-Operator-facing dead-letter replay remains unimplemented. Its accepted future
-contract is documented in `docs/dead-letter-replay.md`. Until that contract is
-implemented, recovery is an explicit database-assisted operational procedure
-that must preserve the original event ID and payload.
+The persistence foundation for operator-facing dead-letter replay is
+implemented, while its Reader and Operator APIs remain planned. The accepted
+contract is documented in `docs/dead-letter-replay.md`. Until those endpoints
+exist, recovery is an explicit database-assisted operational procedure that
+must preserve the original event ID and payload.
 
 ## Rollout
 

@@ -143,12 +143,14 @@ internal sealed class EfOutboxStore(GoldSrcOpsDbContext dbContext) : IOutboxStor
     public async Task<bool> MarkDeadLetterAsync(
         Guid messageId,
         Guid claimId,
+        DateTimeOffset deadLetteredAtUtc,
         string lastError,
         CancellationToken cancellationToken)
     {
         EnsurePostgreSqlProvider();
         ValidateIdentifier(messageId, nameof(messageId));
         ValidateIdentifier(claimId, nameof(claimId));
+        var normalizedDeadLetteredAtUtc = deadLetteredAtUtc.ToUniversalTime();
         var normalizedError = NormalizeError(lastError);
 
         var updated = await dbContext.OutboxMessages
@@ -162,6 +164,7 @@ internal sealed class EfOutboxStore(GoldSrcOpsDbContext dbContext) : IOutboxStor
                     .SetProperty(message => message.ClaimId, (Guid?)null)
                     .SetProperty(message => message.ClaimedAtUtc, (DateTimeOffset?)null)
                     .SetProperty(message => message.ProcessedAtUtc, (DateTimeOffset?)null)
+                    .SetProperty(message => message.DeadLetteredAtUtc, normalizedDeadLetteredAtUtc)
                     .SetProperty(message => message.LastError, normalizedError),
                 cancellationToken);
 
@@ -194,6 +197,7 @@ internal sealed class EfOutboxStore(GoldSrcOpsDbContext dbContext) : IOutboxStor
                     .SetProperty(message => message.ClaimId, (Guid?)null)
                     .SetProperty(message => message.ClaimedAtUtc, (DateTimeOffset?)null)
                     .SetProperty(message => message.ProcessedAtUtc, (DateTimeOffset?)null)
+                    .SetProperty(message => message.DeadLetteredAtUtc, normalizedNextAttemptAtUtc)
                     .SetProperty(message => message.LastError, normalizedExhaustedError),
                 cancellationToken);
 
@@ -209,6 +213,7 @@ internal sealed class EfOutboxStore(GoldSrcOpsDbContext dbContext) : IOutboxStor
                     .SetProperty(message => message.ClaimId, (Guid?)null)
                     .SetProperty(message => message.ClaimedAtUtc, (DateTimeOffset?)null)
                     .SetProperty(message => message.ProcessedAtUtc, (DateTimeOffset?)null)
+                    .SetProperty(message => message.DeadLetteredAtUtc, (DateTimeOffset?)null)
                     .SetProperty(message => message.LastError, normalizedRetryError),
                 cancellationToken);
 
