@@ -22,6 +22,7 @@ public interface IOutboxStore
     Task<bool> MarkDeadLetterAsync(
         Guid messageId,
         Guid claimId,
+        DateTimeOffset deadLetteredAtUtc,
         string lastError,
         CancellationToken cancellationToken);
 

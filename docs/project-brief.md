@@ -77,8 +77,9 @@ tool, and its live query was verified against a public GoldSrc server. See the
 README for current startup commands and `docs/backlog.md` for active work.
 
 The accepted next-milestone design covers operator-facing dead-letter
-inspection and replay in `docs/dead-letter-replay.md`; implementation has not
-started.
+inspection and replay in `docs/dead-letter-replay.md`. Its additive replay
+metadata and append-only audit persistence are implemented; the Reader and
+Operator APIs remain planned.
 
 ## MVP Goal
 

@@ -26,10 +26,13 @@ public sealed class GoldSrcOpsDbContext : DbContext
 
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
+    internal DbSet<OutboxReplayRequest> OutboxReplayRequests => Set<OutboxReplayRequest>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("goldsrcops");
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new OutboxReplayRequestConfiguration());
 
         modelBuilder.Entity<Server>(server =>
         {

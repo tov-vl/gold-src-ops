@@ -84,6 +84,10 @@ internal sealed class OutboxMessage
 
     public string? LastError { get; private set; }
 
+    public DateTimeOffset? DeadLetteredAtUtc { get; private set; }
+
+    public int ReplayCount { get; private set; }
+
     private static string NormalizeRequiredText(
         string? value,
         int maxLength,

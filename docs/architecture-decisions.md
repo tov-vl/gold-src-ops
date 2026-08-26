@@ -513,6 +513,6 @@ Alternatives considered:
 
 Implementation status:
 
-Design accepted. The API, persistence changes, migration, and tests are not yet
-implemented. The contract and reviewable delivery slices are defined in
-`docs/dead-letter-replay.md`.
+Design accepted. Replay metadata, append-only audit persistence, the additive
+migration, and PostgreSQL verification are implemented. Reader inspection and
+Operator replay APIs remain planned in `docs/dead-letter-replay.md`.

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace GoldSrcOps.Infrastructure.Persistence.Outbox;
 
@@ -15,6 +16,12 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
             table.HasCheckConstraint(
                 "CK_outbox_messages_AttemptCount",
                 "\"AttemptCount\" >= 0");
+            table.HasCheckConstraint(
+                "CK_outbox_messages_ReplayCount",
+                "\"ReplayCount\" >= 0");
+            table.HasCheckConstraint(
+                "CK_outbox_messages_DeadLetteredAtUtc",
+                "\"DeadLetteredAtUtc\" IS NULL OR \"Status\" = 'DeadLetter'");
             table.HasCheckConstraint(
                 "CK_outbox_messages_StatusFields",
                 """
@@ -56,6 +63,7 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
         message.Property(x => x.AttemptCount).IsRequired();
         message.Property(x => x.NextAttemptAtUtc).IsRequired();
         message.Property(x => x.LastError).HasMaxLength(OutboxMessage.MaxErrorLength);
+        message.Property(x => x.ReplayCount).HasDefaultValue(0).IsRequired();
 
         message.HasIndex(x => new { x.EventType, x.AggregateId })
             .HasDatabaseName("UX_outbox_messages_EventType_AggregateId")
@@ -84,5 +92,10 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
         message.HasIndex(x => new { x.ProcessedAtUtc, x.Id })
             .HasDatabaseName("IX_outbox_messages_processed_cleanup")
             .HasFilter("\"Status\" = 'Processed'");
+        message.HasIndex(x => new { x.DeadLetteredAtUtc, x.Id })
+            .HasDatabaseName("IX_outbox_messages_dead_letter_list")
+            .HasFilter("\"Status\" = 'DeadLetter'")
+            .IsDescending()
+            .HasNullSortOrder(NullSortOrder.NullsLast, NullSortOrder.NullsLast);
     }
 }

@@ -113,9 +113,10 @@ response bodies, webhook URLs, authorization values, and exception messages.
 ## Recovery And Rollback
 
 The accepted operator-facing inspection and replay design is documented in
-`docs/dead-letter-replay.md`, but its API and schema changes are not implemented
-yet. Until they exist, stop or disable dispatch for the affected messages before
-any database-assisted recovery. Preserve the original event ID and immutable
+`docs/dead-letter-replay.md`. Its additive persistence foundation is
+implemented, but the Reader and Operator APIs are not. Until those endpoints
+exist, stop or disable dispatch for the affected messages before any
+database-assisted recovery. Preserve the original event ID and immutable
 payload, and review whether the receiver may already have applied the event. Do
 not create a replacement ID or reset attempts blindly.
 

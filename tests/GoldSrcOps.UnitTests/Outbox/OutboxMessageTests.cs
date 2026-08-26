@@ -35,6 +35,8 @@ public sealed class OutboxMessageTests
         Assert.Null(message.ClaimedAtUtc);
         Assert.Null(message.ProcessedAtUtc);
         Assert.Null(message.LastError);
+        Assert.Null(message.DeadLetteredAtUtc);
+        Assert.Equal(0, message.ReplayCount);
     }
 
     [Fact]
