@@ -6,18 +6,13 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v1.1.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.1.0)
+**Status:** [v2.0.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0)
 is the current public release. Its signed annotated tag identifies revision
-`eb0f02e`; the final pull request, post-merge `main` run, and signed-tag run all
-passed GitHub Actions `Quality Gate` and `Container Smoke`. The local release
-gate passed all 141 tests with zero build warnings and no known vulnerable
-NuGet packages. Release notes and detailed evidence are available in
-[docs/release-notes-v1.1.md](docs/release-notes-v1.1.md) and
-[docs/v1.1-readiness.md](docs/v1.1-readiness.md).
-
-`v2.0.0` is prepared as a release candidate for transactional incident-alert
-delivery. It is not yet tagged or published. Candidate notes and readiness
-evidence are available in
+`9d7176f`; final candidate pull request #10, the post-merge `main` run, and the
+signed-tag run all passed GitHub Actions `Quality Gate` and `Container Smoke`.
+The local release gate passed all 199 tests with zero build warnings and no
+known vulnerable NuGet packages. Release notes and detailed evidence are
+available in
 [docs/release-notes-v2.md](docs/release-notes-v2.md) and
 [docs/v2-readiness.md](docs/v2-readiness.md).
 
@@ -27,9 +22,8 @@ evidence are available in
   `windows-1251` text support.
 - PostgreSQL-backed current state, immutable snapshots, and availability
   incident transitions.
-- v2.0.0 release candidate: transactional incident-alert outbox with
-  at-least-once HTTPS webhook delivery, bounded retries, dead letters, and
-  backlog telemetry.
+- Transactional incident-alert outbox with at-least-once HTTPS webhook
+  delivery, bounded retries, dead letters, and backlog telemetry.
 - JWT bearer authentication with explicit `Reader` and `Operator` policies.
 - Durable RCON command queue with per-server serialization, interrupted-command
   recovery, external secret references, and payload-safe lifecycle logs.
@@ -53,7 +47,7 @@ is available in [docs/demo.md](docs/demo.md), and the release-facing summary is
 in [docs/release-notes-v1.md](docs/release-notes-v1.md). The focused v1.1
 operability delta is covered by
 [docs/v1.1-readiness.md](docs/v1.1-readiness.md). The v2 alert-delivery release
-candidate is summarized in
+is summarized in
 [docs/release-notes-v2.md](docs/release-notes-v2.md).
 
 ## Documentation
@@ -63,7 +57,7 @@ candidate is summarized in
 | Five-to-ten-minute walkthrough | [Demo guide](docs/demo.md) |
 | Delivered scope and release limits | [v1 release notes](docs/release-notes-v1.md) |
 | v1.1 operability release | [v1.1 release notes](docs/release-notes-v1.1.md) |
-| v2 alert-delivery release candidate | [v2 release notes](docs/release-notes-v2.md) |
+| v2 alert-delivery release | [v2 release notes](docs/release-notes-v2.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
@@ -478,19 +472,14 @@ The spike follows Valve's documented A2S server query format:
 
 The public repository is configured with private vulnerability reporting,
 Dependabot security updates, and a protected `main` workflow. The
-[GoldSrcOps v1.1.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.1.0)
-adds deployment packaging and operability hardening without changing the v1 API
-or database schema. It was published from a signed annotated tag after the
-required pull-request, post-merge, and tag-triggered checks passed. Detailed
-evidence is recorded in [docs/v1.1-readiness.md](docs/v1.1-readiness.md), while
-[v1.0.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.0.0) remains the
+[GoldSrcOps v2.0.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0)
+adds transactional incident-alert delivery and an additive outbox migration
+while retaining the existing v1 HTTP contract. It was published from a signed
+annotated tag after the required pull-request, post-merge, and tag-triggered
+checks passed. Detailed evidence is recorded in
+[docs/v2-readiness.md](docs/v2-readiness.md), while
+[v1.1.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.1.0) remains the
 preceding stable release.
-
-The `v2.0.0` release candidate adds transactional incident-alert delivery and
-an additive outbox migration while retaining the existing v1 HTTP contract.
-Its [release notes](docs/release-notes-v2.md), readiness evidence, signed tag,
-and GitHub Release remain gated by the final candidate, post-merge, and
-tag-triggered checks.
 
 ## License
 

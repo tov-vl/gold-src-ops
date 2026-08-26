@@ -147,7 +147,7 @@ Completed:
   both required GitHub Actions jobs on revision `eb0f02e`.
 - The signed annotated `v1.1.0` tag identifies that verified revision, and the
   [GoldSrcOps v1.1.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.1.0)
-  is published as the latest stable release.
+  is published as the preceding stable release.
 - Versioned incident-alert contracts, the EF Core outbox model, an additive
   migration, database invariants, and PostgreSQL migration coverage are added.
 - Polling transactionally enqueues unavailable and recovered alerts through an
@@ -176,6 +176,13 @@ Completed:
   #8 into protected `main` as verified squash commit `2f17aa8`. Required
   `Quality Gate` and `Container Smoke` checks passed before and after merge,
   local `main` was synchronized, and the merged feature branch was removed.
+- Published v2.0.0 release notes record delivery semantics, compatibility,
+  migration, deployment, verification evidence, and intentional limits.
+- Final candidate pull request #10, its post-merge `main` run, and the signed-tag
+  run passed `Quality Gate` and `Container Smoke` on revision `9d7176f`.
+- The signed annotated `v2.0.0` tag identifies that verified revision, and the
+  [GoldSrcOps v2.0.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0)
+  is published as the latest stable release.
 
 ## Completed v1.1 Milestone
 
@@ -198,10 +205,16 @@ Completed definition of done:
   either upgraded or retained with an explicit current rationale.
 - The public API and v1 reliability semantics remain backward compatible.
 
-## v2.0.0 Release Candidate
+## Completed v2.0.0 Milestone
 
 The first v2 capability is defined by Decision 13 and
 `docs/v2-alert-outbox.md`.
+
+GoldSrcOps v2.0.0 was published on 2026-08-26 as the first supported
+incident-alert delivery release.
+
+Release status: implementation, local readiness evidence, required remote
+checks, signed tag, and GitHub Release publication are complete.
 
 Completed slices:
 
@@ -224,21 +237,11 @@ Completed slices:
    quality gate and production container smoke test.
 
 All six implementation slices and the protected-main integration workflow are
-complete. Pull request #8 passed the required checks and was squash-merged as
-verified commit `2f17aa8`; the post-merge `main` workflow also passed. Version
-`v2.0.0` is selected for the first supported alert-delivery capability and its
-additive database migration. Candidate release notes are prepared in
-`docs/release-notes-v2.md`, and evidence plus accepted boundaries are recorded
-in `docs/v2-readiness.md`.
-
-Remaining publication steps:
-
-1. Integrate the release candidate through protected `main` and verify the
-   required pull-request and post-merge checks.
-2. Create and push the signed annotated `v2.0.0` tag, then verify its
-   tag-triggered `Quality Gate` and `Container Smoke`.
-3. Publish the GitHub Release from the candidate notes and record final release
-   status in the repository documentation.
+complete. Pull request #8 integrated the capability, pull request #9 recorded
+its readiness, and final candidate pull request #10 integrated the release
+notes. The post-merge `main` and signed-tag workflows passed on `9d7176f`, and
+the stable GitHub Release is published. Evidence and accepted boundaries are
+recorded in `docs/v2-readiness.md`.
 
 Published repository: [tov-vl/gold-src-ops](https://github.com/tov-vl/gold-src-ops)
 
@@ -250,7 +253,7 @@ Configured GitHub description:
 Configured topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
 `goldsrc`, `counter-strike`, `a2s`, `rcon`, and `testcontainers`.
 
-## Following Milestone
+## Next Milestone
 
 After the alert-delivery outbox is operational, decide whether a second delivery
 channel or operator-facing dead-letter replay provides the next highest value.
