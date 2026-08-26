@@ -140,28 +140,125 @@ internal sealed class EfOutboxStore(GoldSrcOpsDbContext dbContext) : IOutboxStor
         return updated == 1;
     }
 
-    public async Task<int> RecoverExpiredClaimsAsync(
-        DateTimeOffset expiredBeforeUtc,
-        DateTimeOffset nextAttemptAtUtc,
+    public async Task<bool> MarkDeadLetterAsync(
+        Guid messageId,
+        Guid claimId,
         string lastError,
         CancellationToken cancellationToken)
     {
         EnsurePostgreSqlProvider();
+        ValidateIdentifier(messageId, nameof(messageId));
+        ValidateIdentifier(claimId, nameof(claimId));
         var normalizedError = NormalizeError(lastError);
 
-        return await dbContext.OutboxMessages
+        var updated = await dbContext.OutboxMessages
             .Where(message =>
+                message.Id == messageId &&
                 message.Status == OutboxMessageStatus.Processing &&
-                message.ClaimedAtUtc <= expiredBeforeUtc.ToUniversalTime())
+                message.ClaimId == claimId)
             .ExecuteUpdateAsync(
                 setters => setters
-                    .SetProperty(message => message.Status, OutboxMessageStatus.Pending)
-                    .SetProperty(message => message.NextAttemptAtUtc, nextAttemptAtUtc.ToUniversalTime())
+                    .SetProperty(message => message.Status, OutboxMessageStatus.DeadLetter)
                     .SetProperty(message => message.ClaimId, (Guid?)null)
                     .SetProperty(message => message.ClaimedAtUtc, (DateTimeOffset?)null)
                     .SetProperty(message => message.ProcessedAtUtc, (DateTimeOffset?)null)
                     .SetProperty(message => message.LastError, normalizedError),
                 cancellationToken);
+
+        return updated == 1;
+    }
+
+    public async Task<OutboxClaimRecoveryResult> RecoverExpiredClaimsAsync(
+        DateTimeOffset expiredBeforeUtc,
+        DateTimeOffset nextAttemptAtUtc,
+        int maxAttempts,
+        string retryError,
+        string exhaustedError,
+        CancellationToken cancellationToken)
+    {
+        EnsurePostgreSqlProvider();
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxAttempts);
+        var normalizedExpiredBeforeUtc = expiredBeforeUtc.ToUniversalTime();
+        var normalizedNextAttemptAtUtc = nextAttemptAtUtc.ToUniversalTime();
+        var normalizedRetryError = NormalizeError(retryError);
+        var normalizedExhaustedError = NormalizeError(exhaustedError);
+
+        var deadLettered = await dbContext.OutboxMessages
+            .Where(message =>
+                message.Status == OutboxMessageStatus.Processing &&
+                message.ClaimedAtUtc <= normalizedExpiredBeforeUtc &&
+                message.AttemptCount >= maxAttempts)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(message => message.Status, OutboxMessageStatus.DeadLetter)
+                    .SetProperty(message => message.ClaimId, (Guid?)null)
+                    .SetProperty(message => message.ClaimedAtUtc, (DateTimeOffset?)null)
+                    .SetProperty(message => message.ProcessedAtUtc, (DateTimeOffset?)null)
+                    .SetProperty(message => message.LastError, normalizedExhaustedError),
+                cancellationToken);
+
+        var retryScheduled = await dbContext.OutboxMessages
+            .Where(message =>
+                message.Status == OutboxMessageStatus.Processing &&
+                message.ClaimedAtUtc <= normalizedExpiredBeforeUtc &&
+                message.AttemptCount < maxAttempts)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(message => message.Status, OutboxMessageStatus.Pending)
+                    .SetProperty(message => message.NextAttemptAtUtc, normalizedNextAttemptAtUtc)
+                    .SetProperty(message => message.ClaimId, (Guid?)null)
+                    .SetProperty(message => message.ClaimedAtUtc, (DateTimeOffset?)null)
+                    .SetProperty(message => message.ProcessedAtUtc, (DateTimeOffset?)null)
+                    .SetProperty(message => message.LastError, normalizedRetryError),
+                cancellationToken);
+
+        return new OutboxClaimRecoveryResult(retryScheduled, deadLettered);
+    }
+
+    public async Task<int> DeleteProcessedBatchOlderThanAsync(
+        DateTimeOffset cutoffUtc,
+        int batchSize,
+        CancellationToken cancellationToken)
+    {
+        EnsurePostgreSqlProvider();
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
+
+        var messageIds = dbContext.OutboxMessages
+            .Where(message =>
+                message.Status == OutboxMessageStatus.Processed &&
+                message.ProcessedAtUtc < cutoffUtc.ToUniversalTime())
+            .OrderBy(message => message.ProcessedAtUtc)
+            .ThenBy(message => message.Id)
+            .Take(batchSize)
+            .Select(message => message.Id);
+
+        return await dbContext.OutboxMessages
+            .Where(message => messageIds.Contains(message.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
+    public async Task<OutboxStatistics> GetStatisticsAsync(CancellationToken cancellationToken)
+    {
+        EnsurePostgreSqlProvider();
+
+        var pending = await dbContext.OutboxMessages
+            .Where(message => message.Status == OutboxMessageStatus.Pending)
+            .GroupBy(static _ => 1)
+            .Select(group => new
+            {
+                Count = group.LongCount(),
+                OldestOccurredAtUtc = group.Min(message => message.OccurredAtUtc)
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+        var deadLetterCount = await dbContext.OutboxMessages
+            .LongCountAsync(
+                message => message.Status == OutboxMessageStatus.DeadLetter,
+                cancellationToken);
+
+        return new OutboxStatistics(
+            pending?.Count ?? 0,
+            pending?.OldestOccurredAtUtc,
+            deadLetterCount);
     }
 
     private async Task<Guid?> ClaimNextPostgreSqlAsync(

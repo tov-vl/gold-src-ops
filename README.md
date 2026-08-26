@@ -21,6 +21,8 @@ NuGet packages. Release notes and detailed evidence are available in
   `windows-1251` text support.
 - PostgreSQL-backed current state, immutable snapshots, and availability
   incident transitions.
+- Current v2 candidate: transactional incident-alert outbox with at-least-once
+  HTTPS webhook delivery, bounded retries, dead letters, and backlog telemetry.
 - JWT bearer authentication with explicit `Reader` and `Operator` policies.
 - Durable RCON command queue with per-server serialization, interrupted-command
   recovery, external secret references, and payload-safe lifecycle logs.
@@ -34,7 +36,7 @@ NuGet packages. Release notes and detailed evidence are available in
 
 GoldSrcOps is a modular monolith with separate API, contracts, application, domain, and infrastructure projects.
 The API host exposes HTTP endpoints, health checks, metrics, and the in-process
-polling, command-dispatch, and snapshot-retention workers.
+polling, command-dispatch, alert-dispatch, and snapshot-retention workers.
 Application services coordinate use cases, domain entities own state transitions, and infrastructure implements EF Core persistence plus GoldSrc A2S integration.
 
 See [docs/architecture.md](docs/architecture.md) for the component diagram and
@@ -55,6 +57,7 @@ operability delta is covered by
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
+| Alert delivery configuration and recovery | [Alert delivery operations](docs/alert-delivery.md) |
 | Authentication and endpoint policies | [Security](docs/security.md) |
 | Vulnerability reporting | [Security policy](.github/SECURITY.md) |
 | Container rollout, migrations, and rollback | [Deployment](docs/deployment.md) |
@@ -62,6 +65,7 @@ operability delta is covered by
 | Full local verification | [Smoke test](docs/smoke-test.md) |
 | MVP evidence | [v1 readiness](docs/v1-readiness.md) |
 | v1.1 release evidence | [v1.1 readiness](docs/v1.1-readiness.md) |
+| v2 alert delivery evidence | [v2 readiness](docs/v2-readiness.md) |
 
 ## Prerequisites
 
@@ -401,7 +405,8 @@ dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 
 GitHub Actions runs the same quality gate on every push and pull request. After
 it succeeds, a dependent `Container Smoke` job builds the production image,
-applies migrations to isolated PostgreSQL, and checks its runtime contract.
+applies migrations to isolated PostgreSQL, and checks its runtime, alert
+configuration, log-safety, and health contracts.
 
 The active `main` ruleset requires signed commits, linear history, the
 `Quality Gate`, and `Container Smoke`, and blocks branch deletion and force
@@ -415,7 +420,8 @@ Run `pwsh -NoProfile -File .\tools\smoke\container.ps1` to build and verify the
 production container against an isolated PostgreSQL instance. See
 `docs/smoke-test.md` for details and for the longer live GoldSrc server flow.
 Use `docs/deployment.md` for image versioning, production configuration,
-migrations, probes, and rollback.
+migrations, probes, and rollback. Alert-specific rollout and recovery guidance
+is in `docs/alert-delivery.md`.
 
 For a concise five-to-ten-minute portfolio walkthrough, use `docs/demo.md`.
 

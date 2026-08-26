@@ -14,10 +14,17 @@ pwsh -NoProfile -File .\tools\smoke\container.ps1
 
 The script builds a uniquely tagged image, verifies its non-root runtime and
 publish contents, checks that missing production configuration fails fast,
-starts an isolated PostgreSQL container, and applies EF Core migrations as a
-separate host-side action. It then starts the API with a read-only filesystem,
-dropped Linux capabilities, and no-new-privileges before requiring both
-`/health/live` and `/health/ready` to return `200 Healthy`.
+and proves that Production rejects an HTTP alert webhook. It starts an isolated
+PostgreSQL container and applies EF Core migrations as a separate host-side
+action. It then starts the API with alert delivery enabled, a read-only
+filesystem, dropped Linux capabilities, and no-new-privileges before requiring
+both `/health/live` and `/health/ready` to return `200 Healthy`. Finally, it
+checks that the hosted alert dispatcher started and that its HTTPS endpoint and
+synthetic authorization marker are absent from container logs.
+
+The container smoke does not send an alert to an external endpoint. Synthetic
+Kestrel tests cover the HTTP delivery boundary, while PostgreSQL integration
+tests cover claiming, ordering, retry, dead-letter, recovery, and retention.
 
 All temporary containers and the dedicated Docker network are removed in a
 `finally` block. The temporary image tag is also removed by default; pass

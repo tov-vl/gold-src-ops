@@ -11,7 +11,8 @@ public enum AlertDeliveryFailureCategory
 {
     Transport,
     Timeout,
-    RemoteResponse
+    RemoteResponse,
+    Unexpected
 }
 
 public sealed record AlertDeliveryAttemptResult(

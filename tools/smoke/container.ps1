@@ -7,8 +7,9 @@ Builds and smoke-tests the production GoldSrcOps container image.
 .DESCRIPTION
 Creates isolated Docker resources, verifies the runtime image and fail-fast
 configuration behavior, applies EF Core migrations as a separate action, and
-checks the API liveness and PostgreSQL-backed readiness endpoints. Temporary
-containers, network, and image tag are removed even when the test fails.
+checks alert-delivery startup, log safety, API liveness, and PostgreSQL-backed
+readiness. Temporary containers, network, and image tag are removed even when
+the test fails.
 
 .PARAMETER StartupTimeoutSeconds
 How long to wait for PostgreSQL and the API health endpoints.
@@ -55,10 +56,13 @@ $networkName = "goldsrcops-smoke-$runId"
 $postgresContainer = "goldsrcops-smoke-postgres-$runId"
 $apiContainer = "goldsrcops-smoke-api-$runId"
 $failFastContainer = "goldsrcops-smoke-failfast-$runId"
+$alertFailFastContainer = "goldsrcops-smoke-alert-failfast-$runId"
 $databaseName = "goldsrcops"
 $databaseUser = "goldsrcops"
 $databasePassword = "goldsrcops-smoke"
 $testIssuer = "goldsrcops-container-smoke"
+$alertWebhookUrl = "https://alerts.example.invalid/goldsrcops"
+$alertAuthorizationMarker = "Bearer goldsrcops-smoke-secret-$runId"
 $imageBuilt = $false
 $succeeded = $false
 
@@ -337,6 +341,38 @@ try {
 
     Write-Host "Missing connection string produced the expected non-zero exit."
 
+    Write-Step "Verify Production webhook HTTPS validation"
+    $alertFailFastOutput = @(& docker run `
+        --rm `
+        --name $alertFailFastContainer `
+        --read-only `
+        --network none `
+        --env "ASPNETCORE_ENVIRONMENT=Production" `
+        --env "ConnectionStrings__GoldSrcOps=Host=localhost;Database=$databaseName;Username=$databaseUser;Password=$databasePassword" `
+        --env "Authentication__Schemes__Bearer__ValidIssuer=$testIssuer" `
+        --env "Authentication__Schemes__Bearer__ValidAudiences__0=$testIssuer" `
+        --env "Polling__Enabled=false" `
+        --env "CommandDispatcher__Enabled=false" `
+        --env "SnapshotRetention__Enabled=false" `
+        --env "AlertDelivery__Enabled=true" `
+        --env "AlertDelivery__WebhookUrl=http://alerts.example.invalid/goldsrcops" `
+        $imageTag 2>&1)
+    $alertFailFastExitCode = $LASTEXITCODE
+    $alertFailFastText =
+        ($alertFailFastOutput | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+
+    if ($alertFailFastExitCode -eq 0) {
+        throw "API container unexpectedly accepted an HTTP webhook in Production."
+    }
+
+    if (-not $alertFailFastText.Contains(
+        "Configuration value 'AlertDelivery:WebhookUrl' must be an absolute HTTPS URL without user information.",
+        [StringComparison]::Ordinal)) {
+        throw "API container failed for an unexpected reason when an HTTP webhook was configured in Production."
+    }
+
+    Write-Host "Production rejected the HTTP webhook with the expected non-zero exit."
+
     Write-Step "Start isolated PostgreSQL"
     Invoke-External -FilePath "docker" -Arguments @("network", "create", $networkName)
     Invoke-External -FilePath "docker" -Arguments @(
@@ -423,6 +459,8 @@ try {
         "--security-opt",
         "no-new-privileges",
         "--env",
+        "ASPNETCORE_ENVIRONMENT=Production",
+        "--env",
         "ConnectionStrings__GoldSrcOps=$containerConnectionString",
         "--env",
         "Authentication__Schemes__Bearer__ValidIssuer=$testIssuer",
@@ -434,6 +472,12 @@ try {
         "CommandDispatcher__Enabled=false",
         "--env",
         "SnapshotRetention__Enabled=false",
+        "--env",
+        "AlertDelivery__Enabled=true",
+        "--env",
+        "AlertDelivery__WebhookUrl=$alertWebhookUrl",
+        "--env",
+        "AlertDelivery__Authorization=$alertAuthorizationMarker",
         $imageTag)
 
     $apiHostPort = Get-PublishedPort -ContainerName $apiContainer -ContainerPort 8080
@@ -453,6 +497,25 @@ try {
         -TimeoutSeconds $StartupTimeoutSeconds
     Write-Host "Readiness: 200 Healthy"
 
+    Write-Step "Verify alert delivery startup and log safety"
+    $apiLogs = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
+        "logs",
+        $apiContainer)
+
+    if (-not $apiLogs.Contains(
+        "Alert delivery service started",
+        [StringComparison]::Ordinal)) {
+        throw "API container did not start the enabled alert delivery service."
+    }
+
+    foreach ($forbiddenValue in @($alertWebhookUrl, $alertAuthorizationMarker)) {
+        if ($apiLogs.Contains($forbiddenValue, [StringComparison]::Ordinal)) {
+            throw "API container logs exposed alert delivery configuration."
+        }
+    }
+
+    Write-Host "Alert delivery started without logging its endpoint or authorization value."
+
     $succeeded = $true
     Write-Step "Container smoke test passed"
 }
@@ -468,6 +531,7 @@ finally {
 
     Remove-ContainerIfPresent -ContainerName $apiContainer
     Remove-ContainerIfPresent -ContainerName $failFastContainer
+    Remove-ContainerIfPresent -ContainerName $alertFailFastContainer
     Remove-ContainerIfPresent -ContainerName $postgresContainer
     Remove-NetworkIfPresent -Name $networkName
 

@@ -30,7 +30,7 @@ builder.Services.AddScoped<IncidentsService>();
 builder.Services.AddScoped<MonitoringReadService>();
 builder.Services.AddScoped<ServerCredentialsService>();
 builder.Services.AddScoped<CommandExecutionService>();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<GoldSrcOpsDbContext>(
         name: "database",
