@@ -196,6 +196,14 @@ Completed:
   verification, a zero-warning solution build, all 239 tests, a transitive
   vulnerability report with no findings, and the production container smoke
   against isolated PostgreSQL.
+- Pull request #16 integrated replay observability and final operations guidance
+  into protected `main` as verified squash commit `bd000b7`. Its required
+  pull-request and genuine post-merge `Quality Gate` and `Container Smoke`
+  checks passed, local `main` was synchronized, and the merged feature branch
+  was removed.
+- The `v2.1.0` release candidate records the additive inspection and replay API,
+  database compatibility, operator workflow, accepted boundaries, and final
+  verification evidence without rewriting the published v2.0.0 history.
 
 ## Completed v1.1 Milestone
 
@@ -266,11 +274,17 @@ Configured GitHub description:
 Configured topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
 `goldsrc`, `counter-strike`, `a2s`, `rcon`, and `testcontainers`.
 
-## Current Milestone
+## v2.1.0 Release Candidate
 
 Operator-facing dead-letter inspection and replay is implementation-complete.
 Its accepted contract and operational boundaries are documented in
 `docs/dead-letter-replay.md` and `docs/alert-delivery.md`.
+
+The compatible minor version `v2.1.0` is selected for this additive recovery
+capability. Candidate release notes are prepared in
+`docs/release-notes-v2.1.md`, and evidence plus accepted boundaries are recorded
+in `docs/v2.1-readiness.md`. The published `v2.0.0` release remains the current
+stable release until the candidate is tagged and published.
 
 Completed slices:
 
@@ -283,15 +297,14 @@ Completed slices:
 4. Add replay outcome metrics and sanitized lifecycle logs, complete final
    operations guidance, and run the full release-gate verification.
 
-Next release steps:
+Remaining publication steps:
 
-1. Integrate the completed telemetry slice through protected `main` with the
-   required `Quality Gate` and `Container Smoke` checks.
-2. Verify the genuine post-merge `main` run, synchronize the local checkout,
-   and remove the merged feature branch.
-3. Prepare a v2.1.0 release candidate that records the additive dead-letter
-   inspection and replay API, database compatibility, operational workflow,
-   and final verification evidence.
+1. Integrate the final release candidate through protected `main` and verify
+   the required pull-request and genuine post-merge checks.
+2. Create and push the signed annotated `v2.1.0` tag, then verify its
+   tag-triggered `Quality Gate` and `Container Smoke`.
+3. Publish the GitHub Release from the candidate notes and record final release
+   status in the repository documentation.
 
 A second delivery channel, broker, service extraction, bulk replay, and a
 distributed polling claim remain deferred until their scaling, receiver, or

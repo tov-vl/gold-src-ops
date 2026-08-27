@@ -16,6 +16,13 @@ available in
 [docs/release-notes-v2.md](docs/release-notes-v2.md) and
 [docs/v2-readiness.md](docs/v2-readiness.md).
 
+`v2.1.0` is prepared as a release candidate for bounded dead-letter inspection
+and audited single-message replay. It is not yet tagged or published. The local
+candidate gate passed all 239 tests with zero build warnings and no known
+vulnerable NuGet packages. Candidate notes and readiness evidence are available
+in [docs/release-notes-v2.1.md](docs/release-notes-v2.1.md) and
+[docs/v2.1-readiness.md](docs/v2.1-readiness.md).
+
 ## Highlights
 
 - Scheduled `A2S_INFO` polling with challenge handling and legacy
@@ -50,7 +57,9 @@ in [docs/release-notes-v1.md](docs/release-notes-v1.md). The focused v1.1
 operability delta is covered by
 [docs/v1.1-readiness.md](docs/v1.1-readiness.md). The v2 alert-delivery release
 is summarized in
-[docs/release-notes-v2.md](docs/release-notes-v2.md).
+[docs/release-notes-v2.md](docs/release-notes-v2.md). The compatible v2.1
+dead-letter recovery candidate is summarized in
+[docs/release-notes-v2.1.md](docs/release-notes-v2.1.md).
 
 ## Documentation
 
@@ -60,6 +69,7 @@ is summarized in
 | Delivered scope and release limits | [v1 release notes](docs/release-notes-v1.md) |
 | v1.1 operability release | [v1.1 release notes](docs/release-notes-v1.1.md) |
 | v2 alert-delivery release | [v2 release notes](docs/release-notes-v2.md) |
+| v2.1 dead-letter recovery candidate | [v2.1 release notes](docs/release-notes-v2.1.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
@@ -73,6 +83,7 @@ is summarized in
 | MVP evidence | [v1 readiness](docs/v1-readiness.md) |
 | v1.1 release evidence | [v1.1 readiness](docs/v1.1-readiness.md) |
 | v2 alert delivery evidence | [v2 readiness](docs/v2-readiness.md) |
+| v2.1 dead-letter recovery evidence | [v2.1 readiness](docs/v2.1-readiness.md) |
 
 ## Prerequisites
 
@@ -487,6 +498,13 @@ checks passed. Detailed evidence is recorded in
 [docs/v2-readiness.md](docs/v2-readiness.md), while
 [v1.1.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.1.0) remains the
 preceding stable release.
+
+The `v2.1.0` release candidate adds Reader dead-letter inspection, audited and
+idempotent Operator replay, durable replay lookup, additive replay persistence,
+and low-cardinality replay telemetry without changing existing endpoint or
+delivery contracts. Its signed tag and GitHub Release remain gated by the final
+candidate, post-merge, and tag-triggered checks. Detailed evidence is recorded
+in [docs/v2.1-readiness.md](docs/v2.1-readiness.md).
 
 ## License
 
