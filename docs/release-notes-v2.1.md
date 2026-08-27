@@ -1,7 +1,6 @@
 # GoldSrcOps v2.1.0 Release Notes
 
-Prepared: 2026-08-27. Status: release candidate; signed tag and GitHub Release
-not yet published.
+Prepared: 2026-08-27. Published: 2026-08-27. Status: released.
 
 ## Overview
 
@@ -85,7 +84,7 @@ errors, principal claims, webhook URLs, authorization values, and exception
 messages. Durable replay storage remains the source for who requested the
 mutation and why.
 
-## Verified Candidate Baseline
+## Verified Release Baseline
 
 The 2026-08-27 local candidate gate completed with .NET SDK `10.0.400`, Docker
 Engine `29.7.2`, and PostgreSQL `16-alpine`:
@@ -101,9 +100,9 @@ Engine `29.7.2`, and PostgreSQL `16-alpine`:
 
 Design pull request #12 and implementation pull requests #13 through #16 passed
 the required `Quality Gate` and `Container Smoke` checks. Their protected-main
-merge commits and genuine post-merge runs also passed. The final
-release-candidate pull request, post-merge `main` run, and signed-tag run must
-pass the same jobs before publication.
+merge commits and genuine post-merge runs also passed. Final release-candidate
+pull request #17, post-merge `main` run #57, and signed-tag run #58 passed the
+same jobs before publication. The signed release revision is `af7c2f4`.
 
 Detailed evidence and accepted boundaries are recorded in
 [docs/v2.1-readiness.md](v2.1-readiness.md).
@@ -152,6 +151,10 @@ payload, or reset outbox fields through routine SQL.
 
 ## Publication Status
 
-The signed annotated `v2.1.0` tag and GitHub Release are intentionally pending.
-Publish only after the final candidate pull request, post-merge `main` run, and
-tag-triggered run all pass `Quality Gate` and `Container Smoke`.
+Published on 2026-08-27 as the
+[GoldSrcOps v2.1.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.1.0)
+from signed annotated tag `v2.1.0`. Final candidate pull request #17, the
+[post-merge `main` run](https://github.com/tov-vl/gold-src-ops/actions/runs/33107854017),
+and the
+[tag-triggered run](https://github.com/tov-vl/gold-src-ops/actions/runs/33110060679)
+all passed `Quality Gate` and `Container Smoke` on release revision `af7c2f4`.

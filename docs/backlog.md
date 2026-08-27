@@ -182,7 +182,7 @@ Completed:
   run passed `Quality Gate` and `Container Smoke` on revision `9d7176f`.
 - The signed annotated `v2.0.0` tag identifies that verified revision, and the
   [GoldSrcOps v2.0.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0)
-  is published as the latest stable release.
+  is published as the preceding stable release.
 - Bounded Reader dead-letter inspection, transactional Operator replay, durable
   audit reads, idempotency, and concurrent-request protection were integrated
   through pull request #15 as verified squash commit `6a8b486`; its required
@@ -201,9 +201,14 @@ Completed:
   pull-request and genuine post-merge `Quality Gate` and `Container Smoke`
   checks passed, local `main` was synchronized, and the merged feature branch
   was removed.
-- The `v2.1.0` release candidate records the additive inspection and replay API,
+- Published v2.1.0 release notes record the additive inspection and replay API,
   database compatibility, operator workflow, accepted boundaries, and final
   verification evidence without rewriting the published v2.0.0 history.
+- Final candidate pull request #17, its post-merge `main` run, and the signed-tag
+  run passed `Quality Gate` and `Container Smoke` on revision `af7c2f4`.
+- The signed annotated `v2.1.0` tag identifies that verified revision, and the
+  [GoldSrcOps v2.1.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.1.0)
+  is published as the latest stable release.
 
 ## Completed v1.1 Milestone
 
@@ -274,17 +279,14 @@ Configured GitHub description:
 Configured topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
 `goldsrc`, `counter-strike`, `a2s`, `rcon`, and `testcontainers`.
 
-## v2.1.0 Release Candidate
+## Completed v2.1.0 Milestone
 
-Operator-facing dead-letter inspection and replay is implementation-complete.
-Its accepted contract and operational boundaries are documented in
-`docs/dead-letter-replay.md` and `docs/alert-delivery.md`.
+GoldSrcOps v2.1.0 was published on 2026-08-27 as a backward-compatible
+dead-letter recovery release. Its accepted contract and operational boundaries
+are documented in `docs/dead-letter-replay.md` and `docs/alert-delivery.md`.
 
-The compatible minor version `v2.1.0` is selected for this additive recovery
-capability. Candidate release notes are prepared in
-`docs/release-notes-v2.1.md`, and evidence plus accepted boundaries are recorded
-in `docs/v2.1-readiness.md`. The published `v2.0.0` release remains the current
-stable release until the candidate is tagged and published.
+Release status: implementation, local readiness evidence, required remote
+checks, signed tag, and GitHub Release publication are complete.
 
 Completed slices:
 
@@ -297,14 +299,13 @@ Completed slices:
 4. Add replay outcome metrics and sanitized lifecycle logs, complete final
    operations guidance, and run the full release-gate verification.
 
-Remaining publication steps:
-
-1. Integrate the final release candidate through protected `main` and verify
-   the required pull-request and genuine post-merge checks.
-2. Create and push the signed annotated `v2.1.0` tag, then verify its
-   tag-triggered `Quality Gate` and `Container Smoke`.
-3. Publish the GitHub Release from the candidate notes and record final release
-   status in the repository documentation.
+All four implementation slices and the protected-main integration workflow are
+complete. Pull request #15 integrated the audited replay capability, pull
+request #16 completed observability and operations guidance, and final candidate
+pull request #17 integrated the release notes. The post-merge `main` and
+signed-tag workflows passed on `af7c2f4`, and the stable GitHub Release is
+published. Evidence and accepted boundaries are recorded in
+`docs/v2.1-readiness.md`.
 
 A second delivery channel, broker, service extraction, bulk replay, and a
 distributed polling claim remain deferred until their scaling, receiver, or
