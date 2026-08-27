@@ -1,10 +1,11 @@
 # Dead-Letter Inspection And Replay Design
 
-Status: implementation in progress. Replay metadata, append-only audit
-persistence, the additive migrations, bounded `Reader` inspection, the
-transactional `Operator` replay endpoint, and durable replay-record reads are
-implemented. Replay-specific telemetry, sanitized lifecycle logs, and final
-release-gate verification remain.
+Status: implementation and local release-gate verification complete. Replay
+metadata, append-only audit persistence, the additive migrations, bounded
+`Reader` inspection, transactional `Operator` replay, durable replay-record
+reads, replay telemetry, sanitized lifecycle logs, and operations guidance are
+implemented. Protected-main integration and release publication remain separate
+steps.
 
 Decision date: 2026-08-26.
 
@@ -280,12 +281,17 @@ remains an explicit operator decision.
 
 ## Observability
 
-Add a low-cardinality counter for replay requests with `accepted`,
-`idempotent`, `conflict`, and `invalid` results. Existing pending and dead-letter
-gauges reflect the state transition without additional per-event instruments.
+The low-cardinality `goldsrcops.alerts.replay_requests` counter records
+`accepted`, `idempotent`, `conflict`, and `invalid` results. Existing pending and
+dead-letter gauges reflect the state transition without additional per-event
+instruments. Request IDs, event IDs, subjects, reasons, and failure details are
+not metric dimensions.
 
-Structured logs include replay request ID, event ID, replay number, and outcome.
-They exclude payloads, reasons, previous errors, principal claims, exception
+Structured lifecycle logs include replay request ID, event ID, nullable replay
+number, bounded outcome, and duration where applicable. Completed results use
+`accepted`, `idempotent`, `conflict`, or `invalid`; cancellation is logged as
+`ambiguous` because commit status may be unknown to the caller. Logs exclude
+payloads, reasons, subjects, previous errors, principal claims, exception
 messages, webhook URLs, and authorization values. The durable audit table, not
 logs, is the source for who requested the mutation and why.
 
@@ -307,8 +313,14 @@ Implementation is split into reviewable slices:
    key reuse conflicts across events, distinct-key races, a newer processing
    event, concurrent incident close, aggregate ordering, and dispatcher pickup.
    API tests verify the `Reader`/`Operator` policy boundary.
-4. Add replay outcome metrics, sanitized lifecycle logs, and final operations
-   guidance. Run the full quality gate and production container smoke.
+4. Completed: add replay outcome metrics, sanitized lifecycle logs, Prometheus
+   and log-safety tests, and final operations guidance. The slice passed the
+   full local quality gate and production container smoke before
+   protected-main integration.
+
+The 2026-08-27 local release gate passed audit restore, format verification, a
+zero-warning solution build, all 239 tests, the transitive vulnerability report,
+and the production container smoke against isolated PostgreSQL.
 
 No implementation slice may edit the already-applied v2 outbox migration. The
 schema change requires a new additive migration whose generated SQL is reviewed

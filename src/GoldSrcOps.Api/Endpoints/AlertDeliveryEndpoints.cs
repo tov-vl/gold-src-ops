@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using GoldSrcOps.Api.Security;
 using GoldSrcOps.Application.Alerts;
+using GoldSrcOps.Application.Telemetry;
 using GoldSrcOps.Contracts.Alerts;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -109,6 +110,7 @@ public static class AlertDeliveryEndpoints
 
         if (errors.Count > 0)
         {
+            GoldSrcOpsMetrics.RecordAlertReplayRequest(AlertReplayMetricResult.Invalid);
             return TypedResults.ValidationProblem(
                 errors,
                 extensions: ProblemCode(InvalidReplayCode));
