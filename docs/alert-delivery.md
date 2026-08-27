@@ -100,15 +100,29 @@ The authenticated `/metrics` endpoint exports these OpenTelemetry instruments:
 - `goldsrcops.alerts.claims_recovered`;
 - `goldsrcops.alerts.pending` and
   `goldsrcops.alerts.oldest_pending_age`;
+- `goldsrcops.alerts.replay_requests` by `accepted`, `idempotent`, `conflict`,
+  and `invalid` result;
 - `goldsrcops.alerts.processed_deleted`.
 
 Alert on a non-zero dead-letter count, sustained backlog growth, oldest pending
 age beyond the delivery objective, or repeated claim recovery. Thresholds must
 reflect the configured retry horizon and the receiver's service objective.
+Sustained replay `conflict` or `invalid` growth indicates stale operator context,
+idempotency-key misuse, or an unsafe event state. An `idempotent` result is
+expected when an operator repeats an ambiguous request with the original key.
+No replay metric contains a request ID, event ID, subject, reason, or failure
+detail.
 
 Structured delivery logs include event, event type, server, incident, attempt,
 claim, outcome, sanitized status/category, and duration. They exclude payloads,
 response bodies, webhook URLs, authorization values, and exception messages.
+Replay lifecycle events `AlertReplayStarted`, `AlertReplayCompleted`,
+`AlertReplayInterrupted`, and `AlertReplayFaulted` use event IDs 3101 through
+3104. They include replay request ID, event ID, nullable replay number, bounded
+outcome, and duration where applicable. They exclude the operator subject,
+reason, payload, previous delivery error, principal claims, webhook URL,
+authorization value, and exception message. The durable replay record remains
+the source for who requested the mutation and why.
 
 ## Recovery And Rollback
 
@@ -123,14 +137,31 @@ For one reviewed dead letter:
 2. Correct and verify the receiver condition that caused the failure.
 3. Submit one replay with an Operator token, a fresh UUID
    `Idempotency-Key`, and a concise non-secret reason.
-4. If the HTTP result is ambiguous, repeat the exact request with the same key.
-5. Follow the returned replay-record `Location` and observe delivery telemetry.
+4. If the HTTP result is ambiguous, read
+   `/api/alert-delivery/replays/{requestId}` and repeat the exact request with
+   the same key when no record is visible.
+5. Follow the returned replay-record `Location`, verify the replay number, and
+   observe delivery telemetry until the event reaches its next terminal state.
 
 `202 Accepted` means the existing event was safely requeued; it does not mean
 the receiver has already accepted it. Do not generate a new key for an
 ambiguous retry, create a replacement event ID, edit the payload, or reset
 outbox fields through routine SQL. A new replay cycle after another dead-letter
 transition requires a new review, reason, and key.
+
+Interpret replay outcomes before taking another action:
+
+- `accepted` means the existing event became eligible for delivery and a durable
+  audit record was committed atomically;
+- `idempotent` returns the durable result for an earlier identical request and
+  must not trigger another replay cycle;
+- `conflict` means either the key belongs to different intent or a newer event
+  is processing, so inspect the response problem code and current event state;
+- `invalid` means the request or target state is not replayable, so correct the
+  request or re-read the dead-letter detail instead of generating keys
+  repeatedly;
+- lifecycle outcome `ambiguous` or `faulted` does not prove rollback, so query
+  the durable record and retry only with the original key.
 
 Disabling `AlertDelivery__Enabled` stops new claims without deleting queued or
 dead-letter messages. Application rollback to v1.1 leaves the additive outbox
@@ -152,5 +183,9 @@ state machine are covered by synthetic-server and PostgreSQL tests:
 
 ```powershell
 dotnet test .\tests\GoldSrcOps.UnitTests\GoldSrcOps.UnitTests.csproj `
-  --filter "FullyQualifiedName~HttpWebhookAlertDeliveryChannelTests|FullyQualifiedName~AlertDispatcherTests|FullyQualifiedName~PostgreSqlOutboxStoreIntegrationTests|FullyQualifiedName~PostgreSqlDeadLetterReplayEndpointIntegrationTests"
+  --filter "FullyQualifiedName~HttpWebhookAlertDeliveryChannelTests|FullyQualifiedName~AlertDispatcherTests|FullyQualifiedName~AlertDeliveryReplayServiceTests|FullyQualifiedName~MetricsEndpointIntegrationTests|FullyQualifiedName~PostgreSqlOutboxStoreIntegrationTests|FullyQualifiedName~PostgreSqlDeadLetterReplayEndpointIntegrationTests"
 ```
+
+The focused replay tests verify low-cardinality outcome mapping, Prometheus
+export, HTTP-validation accounting, safe structured fields, cancellation, and
+fault redaction. The full quality gate remains authoritative before release.

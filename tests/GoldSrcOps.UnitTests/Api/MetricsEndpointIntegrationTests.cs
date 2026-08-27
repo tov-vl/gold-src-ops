@@ -1,9 +1,12 @@
 using System.Net;
+using System.Net.Http.Json;
 using AwesomeAssertions;
 using GoldSrcOps.Application.Alerts;
 using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Application.Telemetry;
+using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Domain.Commands;
+using GoldSrcOps.UnitTests.Helpers;
 
 namespace GoldSrcOps.UnitTests.Api;
 
@@ -27,6 +30,7 @@ public sealed class MetricsEndpointIntegrationTests
         GoldSrcOpsMetrics.RecordAlertClaimsRecovered(2);
         GoldSrcOpsMetrics.RecordAlertDeadLetters(1);
         GoldSrcOpsMetrics.RecordAlertProcessedMessagesDeleted(3);
+        GoldSrcOpsMetrics.RecordAlertReplayRequest(AlertReplayMetricResult.Accepted);
         GoldSrcOpsMetrics.UpdateAlertOutboxStatistics(
             pendingCount: 4,
             oldestPendingAge: TimeSpan.FromMinutes(2),
@@ -55,6 +59,8 @@ public sealed class MetricsEndpointIntegrationTests
         body.Should().Contain("goldsrcops_alerts_pending");
         body.Should().Contain("goldsrcops_alerts_oldest_pending_age");
         body.Should().Contain("goldsrcops_alerts_dead_letter_count");
+        body.Should().Contain("goldsrcops_alerts_replay_requests");
+        body.Should().Contain("result=\"accepted\"");
         body.Should().Contain("goldsrcops_commands_queued");
         body.Should().Contain("goldsrcops_commands_dispatched");
         body.Should().Contain("goldsrcops_commands_completed");
@@ -64,4 +70,31 @@ public sealed class MetricsEndpointIntegrationTests
         body.Should().Contain("goldsrcops_snapshot_retention_snapshots_deleted");
         body.Should().Contain("goldsrcops_snapshot_retention_duration");
     }
+
+    [Fact]
+    public async Task Invalid_replay_request_records_invalid_outcome()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(
+            principal: TestApiPrincipal.Operator("operator-42"));
+        using var client = factory.CreateClient();
+        using var metrics = new MetricsCollector(GoldSrcOpsMetrics.MeterName);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/alert-delivery/dead-letters/{Guid.NewGuid():D}/replay")
+        {
+            Content = JsonContent.Create(new ReplayDeadLetterRequest("receiver restored"))
+        };
+        request.Headers.Add("Idempotency-Key", "not-a-uuid");
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        metrics.Measurements.Should().Contain(metric =>
+            metric.Name == "goldsrcops.alerts.replay_requests" &&
+            metric.Value == 1 &&
+            HasTag(metric, "result", "invalid"));
+    }
+
+    private static bool HasTag(CollectedMetric metric, string key, object? expected) =>
+        metric.Tags.TryGetValue(key, out var actual) && Equals(actual, expected);
 }

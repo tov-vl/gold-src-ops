@@ -183,6 +183,19 @@ Completed:
 - The signed annotated `v2.0.0` tag identifies that verified revision, and the
   [GoldSrcOps v2.0.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0)
   is published as the latest stable release.
+- Bounded Reader dead-letter inspection, transactional Operator replay, durable
+  audit reads, idempotency, and concurrent-request protection were integrated
+  through pull request #15 as verified squash commit `6a8b486`; its required
+  pull-request and post-merge checks passed.
+- Replay outcome telemetry now exposes only `accepted`, `idempotent`,
+  `conflict`, and `invalid` labels. Source-generated lifecycle logs and focused
+  unit, API, Prometheus, cancellation, and log-safety tests cover the operator
+  recovery path without recording subjects, reasons, payloads, or failure
+  details.
+- The final local dead-letter replay gate passed audit restore, format
+  verification, a zero-warning solution build, all 239 tests, a transitive
+  vulnerability report with no findings, and the production container smoke
+  against isolated PostgreSQL.
 
 ## Completed v1.1 Milestone
 
@@ -253,12 +266,11 @@ Configured GitHub description:
 Configured topics: `dotnet`, `aspnet-core`, `postgresql`, `opentelemetry`,
 `goldsrc`, `counter-strike`, `a2s`, `rcon`, and `testcontainers`.
 
-## Next Milestone
+## Current Milestone
 
-Operator-facing dead-letter inspection and replay is selected as the next
-reviewable capability. Its accepted design is documented in
-`docs/dead-letter-replay.md`. Persistence, bounded Reader inspection,
-transactional Operator replay, and durable replay-record reads are complete.
+Operator-facing dead-letter inspection and replay is implementation-complete.
+Its accepted contract and operational boundaries are documented in
+`docs/dead-letter-replay.md` and `docs/alert-delivery.md`.
 
 Completed slices:
 
@@ -268,11 +280,18 @@ Completed slices:
    newer-event ordering warning.
 3. Add the single-message `Operator` replay endpoint with stable event identity,
    explicit idempotency, atomic audit, and concurrent-request protection.
-
-Remaining slice:
-
 4. Add replay outcome metrics and sanitized lifecycle logs, complete final
    operations guidance, and run the full release-gate verification.
+
+Next release steps:
+
+1. Integrate the completed telemetry slice through protected `main` with the
+   required `Quality Gate` and `Container Smoke` checks.
+2. Verify the genuine post-merge `main` run, synchronize the local checkout,
+   and remove the merged feature branch.
+3. Prepare a v2.1.0 release candidate that records the additive dead-letter
+   inspection and replay API, database compatibility, operational workflow,
+   and final verification evidence.
 
 A second delivery channel, broker, service extraction, bulk replay, and a
 distributed polling claim remain deferred until their scaling, receiver, or
@@ -439,6 +458,9 @@ Start focused:
 - API and PostgreSQL integration coverage for bounded dead-letter inspection,
   audited replay, idempotency, rollback, aggregate ordering, and concurrent
   requests.
+- Unit and API integration coverage for replay outcome metrics, Prometheus
+  export, HTTP-validation accounting, sanitized lifecycle logs, cancellation,
+  and fault redaction.
 
 For v1.1:
 

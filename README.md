@@ -241,8 +241,12 @@ automatic retry because RCON commands are not idempotent.
 
 `/metrics` exposes ASP.NET Core, runtime, and GoldSrcOps application metrics in
 Prometheus format. Application metrics cover polling runs, server poll attempts
-by result, incident transitions, queued, dispatched, completed, and recovered
+by result, incident transitions, alert enqueueing, delivery, retry, dead-letter,
+backlog, and replay outcomes, queued, dispatched, completed, and recovered
 commands, plus snapshot-retention runs, deletions, failures, and duration.
+Dead-letter replay uses only the bounded `accepted`, `idempotent`, `conflict`,
+and `invalid` result labels; request IDs, event IDs, subjects, and reasons never
+become metric dimensions.
 
 The OpenTelemetry packages are aligned on `1.18.0`; the direct ASP.NET Core
 Prometheus exporter remains `1.18.0-beta.1` because no stable release exists.
@@ -404,9 +408,9 @@ The solution uses .NET analyzers, Meziantou.Analyzer, and `.editorconfig` rules 
 
 ```powershell
 dotnet restore GoldSrcOps.sln -p:AuditPipeline=true
-dotnet format GoldSrcOps.sln --verify-no-changes
-dotnet build GoldSrcOps.sln
-dotnet test GoldSrcOps.sln
+dotnet format GoldSrcOps.sln --verify-no-changes --no-restore
+dotnet build GoldSrcOps.sln --no-restore
+dotnet test GoldSrcOps.sln --no-build
 dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 ```
 

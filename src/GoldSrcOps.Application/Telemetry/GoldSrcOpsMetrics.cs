@@ -22,6 +22,14 @@ public enum AlertDeliveryMetricResult
     Faulted = 6
 }
 
+public enum AlertReplayMetricResult
+{
+    Accepted = 1,
+    Idempotent = 2,
+    Conflict = 3,
+    Invalid = 4
+}
+
 public static class GoldSrcOpsMetrics
 {
     public const string MeterName = "GoldSrcOps";
@@ -72,6 +80,10 @@ public static class GoldSrcOpsMetrics
         "goldsrcops.alerts.delivery_duration",
         unit: "s",
         description: "Duration of alert delivery attempts by result.");
+
+    private static readonly Counter<int> AlertReplayRequests = Meter.CreateCounter<int>(
+        "goldsrcops.alerts.replay_requests",
+        description: "Number of completed dead-letter replay requests by result.");
 
     private static readonly Counter<int> CommandsQueued = Meter.CreateCounter<int>(
         "goldsrcops.commands.queued",
@@ -198,6 +210,11 @@ public static class GoldSrcOpsMetrics
         AddIfPositive(AlertProcessedMessagesDeleted, deletedCount);
     }
 
+    public static void RecordAlertReplayRequest(AlertReplayMetricResult result)
+    {
+        AlertReplayRequests.Add(1, AlertReplayResultTag(result));
+    }
+
     public static void UpdateAlertOutboxStatistics(
         long pendingCount,
         TimeSpan? oldestPendingAge,
@@ -297,6 +314,21 @@ public static class GoldSrcOpsMetrics
                 nameof(result),
                 result,
                 "Alert delivery metric result is not supported.")
+        };
+    }
+
+    private static KeyValuePair<string, object?> AlertReplayResultTag(AlertReplayMetricResult result)
+    {
+        return result switch
+        {
+            AlertReplayMetricResult.Accepted => new KeyValuePair<string, object?>("result", "accepted"),
+            AlertReplayMetricResult.Idempotent => new KeyValuePair<string, object?>("result", "idempotent"),
+            AlertReplayMetricResult.Conflict => new KeyValuePair<string, object?>("result", "conflict"),
+            AlertReplayMetricResult.Invalid => new KeyValuePair<string, object?>("result", "invalid"),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(result),
+                result,
+                "Alert replay metric result is not supported.")
         };
     }
 }
