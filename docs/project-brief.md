@@ -74,17 +74,23 @@ Current implementation:
   through a transactional PostgreSQL outbox and a generic HTTP webhook,
   documented in `docs/release-notes-v2.md`, `docs/v2-alert-outbox.md`, and
   `docs/alert-delivery.md`, with evidence in `docs/v2-readiness.md`.
+- Prepared v2.1.0 release-candidate evidence covering bounded dead-letter
+  inspection, audited single-message replay, additive replay persistence, and
+  replay observability in `docs/release-notes-v2.1.md` and
+  `docs/v2.1-readiness.md`.
 
 The original `A2S_INFO` console spike remains available as a protocol diagnostic
 tool, and its live query was verified against a public GoldSrc server. See the
 README for current startup commands and `docs/backlog.md` for active work.
 
-The accepted next-milestone design covers operator-facing dead-letter
-inspection and replay in `docs/dead-letter-replay.md`. Its additive replay
-metadata, append-only audit persistence, bounded Reader inspection,
-transactional Operator replay, and durable replay-record API are implemented.
-Replay-specific telemetry, sanitized lifecycle logs, and final release-gate
-verification remain.
+The accepted follow-up milestone covers operator-facing dead-letter inspection
+and replay in `docs/dead-letter-replay.md`. Its additive replay metadata,
+append-only audit persistence, bounded Reader inspection, transactional
+Operator replay, durable replay-record API, replay telemetry, sanitized
+lifecycle logs, and release-gate verification are implemented and integrated
+through protected `main`. Candidate integration, signed tagging,
+tag-triggered verification, and GitHub Release publication remain separate
+release actions.
 
 ## MVP Goal
 

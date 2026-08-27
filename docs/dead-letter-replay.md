@@ -1,10 +1,11 @@
 # Dead-Letter Inspection And Replay Design
 
-Status: implementation and local release-gate verification complete. Replay
-metadata, append-only audit persistence, the additive migrations, bounded
-`Reader` inspection, transactional `Operator` replay, durable replay-record
-reads, replay telemetry, sanitized lifecycle logs, and operations guidance are
-implemented. Protected-main integration and release publication remain separate
+Status: implementation, protected-main integration, and local release-gate
+verification complete. Replay metadata, append-only audit persistence, the
+additive migrations, bounded `Reader` inspection, transactional `Operator`
+replay, durable replay-record reads, replay telemetry, sanitized lifecycle logs,
+and operations guidance are implemented. The v2.1 candidate integration,
+signed tag, tag-triggered verification, and release publication remain separate
 steps.
 
 Decision date: 2026-08-26.
@@ -74,8 +75,8 @@ The first implementation adds an `Alert Delivery` endpoint group.
 | `POST /api/alert-delivery/dead-letters/{eventId}/replay` | `Operator` | Requeue one current dead letter. |
 | `GET /api/alert-delivery/replays/{requestId}` | `Reader` | Read the durable result of an accepted replay request. |
 
-All four endpoints are implemented. Replay-specific telemetry and final
-operational verification remain part of the next implementation slice.
+All four endpoints, replay-specific telemetry, sanitized lifecycle logs, and
+final operational verification are implemented.
 
 The list uses opaque cursor pagination ordered by `DeadLetteredAtUtc` descending,
 then `OccurredAtUtc` descending, then `Id` descending. A missing legacy
@@ -315,8 +316,8 @@ Implementation is split into reviewable slices:
    API tests verify the `Reader`/`Operator` policy boundary.
 4. Completed: add replay outcome metrics, sanitized lifecycle logs, Prometheus
    and log-safety tests, and final operations guidance. The slice passed the
-   full local quality gate and production container smoke before
-   protected-main integration.
+   full local quality gate and production container smoke, then integrated
+   through pull request #16 with successful required and post-merge checks.
 
 The 2026-08-27 local release gate passed audit restore, format verification, a
 zero-warning solution build, all 239 tests, the transitive vulnerability report,
