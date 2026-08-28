@@ -218,6 +218,9 @@ Completed:
 - The signed annotated `v2.2.0` tag identifies that verified revision, and the
   [GoldSrcOps v2.2.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.2.0)
   is published as the latest stable release.
+- Post-release documentation pull request #24 synchronized the published v2.2
+  status across the repository. Its required checks and genuine post-merge CI
+  run #80 passed on protected `main` revision `947d54c`.
 
 ## Completed v1.1 Milestone
 
@@ -368,8 +371,9 @@ Pull request #20 integrated the implementation, pull request #22 corrected the
 timing-sensitive test exposed by the first candidate post-merge run, and pull
 request #23 integrated the final release documentation. Post-merge run #76 and
 signed-tag run #77 passed on `9e02f07`, and the stable GitHub Release is
-published. Evidence and accepted boundaries are recorded in
-`docs/v2.2-readiness.md`.
+published. Post-release pull request #24 recorded that publication and passed
+post-merge CI run #80 on `947d54c`. Evidence and accepted boundaries are
+recorded in `docs/v2.2-readiness.md`.
 
 Definition of done:
 
@@ -382,6 +386,83 @@ Definition of done:
 - Public API, authorization, and database contracts remain unchanged.
 - The unavoidable UDP loss, ordering, and quiet-window limitations remain
   explicit in the RCON operations guide.
+
+## Active v2.3 Milestone: Reference Production Deployment
+
+The next milestone moves GoldSrcOps from a production-oriented container
+contract to a continuously running reference environment across a real external
+network boundary. The accepted topology and telemetry direction are defined by
+Architecture Decisions 16 and 17; the reviewable delivery plan is recorded in
+`docs/v2.3-production-deployment.md`.
+
+Milestone status: architecture and delivery plan accepted; implementation and
+target-environment evidence are not yet complete.
+
+Why this work is selected:
+
+- The released backend already demonstrates protocol integration, durable
+  workflows, security, observability, and recovery, but it is not yet operated
+  as a persistent public environment.
+- A remote game server and a separate control-plane host exercise the real
+  A2S/RCON network, identity, TLS, secret, backup, and rollback boundaries that
+  local and CI environments cannot prove.
+- Stable OTLP metrics through an OpenTelemetry Collector make observability an
+  explicit deployment component while preserving the existing authenticated
+  `/metrics` contract during the v2 compatibility window.
+- Real operational data should guide the later public dashboard and Operator UI
+  instead of designing those views around synthetic assumptions.
+
+Planned reviewable slices:
+
+1. Record the provider-independent production topology, OTLP transition, threat
+   boundaries, delivery sequence, and evidence contract.
+2. Publish an immutable application image from a verified release revision and
+   deploy it by registry digest with a documented rollback digest.
+3. Provision one controlled ReHLDS and ReGameDLL_CS server outside the
+   control-plane host. Establish baseline polling and guarded RCON before adding
+   YaPB as explicitly identified synthetic load.
+4. Deploy the single-node reference control plane with PostgreSQL, TLS reverse
+   proxy, external OIDC integration, secret injection, serialized migrations,
+   and off-host backup and restore evidence.
+5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
+   Grafana, and health coverage for the private telemetry pipeline.
+6. Complete external A2S and guarded RCON verification, controlled
+   failure/recovery, alert delivery, process restart, backup/restore, rollback,
+   and soak evidence.
+
+Definition of done:
+
+- The deployed application and every supporting image are pinned by immutable
+  version or digest; deployment metadata identifies the source revision.
+- Public HTTP traffic terminates at HTTPS, production bearer tokens come from an
+  external identity provider, and no production credential is stored in Git,
+  image layers, logs, or public telemetry.
+- A2S polling and one guarded `say` RCON command succeed against the controlled
+  remote server. RCON uses an approved private path or, when the selected host
+  cannot provide one, a source-IP allowlist with the residual lack of transport
+  confidentiality explicitly accepted.
+- YaPB load, when enabled, is visibly separated from real-player counts and is
+  never presented as organic usage.
+- Production metrics travel over a private OTLP path through the Collector and
+  can be queried in Prometheus and Grafana without exposing Collector receivers
+  publicly.
+- Stopping and restoring the game server opens and closes an availability
+  incident, and the configured alert path records the expected durable state.
+- PostgreSQL backup restoration, application restart recovery, and image
+  rollback are rehearsed and recorded without automatic RCON replay.
+- The deployment completes a documented soak period with initial service-level
+  indicators and known single-node limitations.
+
+Non-goals for v2.3:
+
+- High availability, Kubernetes, multi-region deployment, or zero-downtime
+  database failover.
+- A public dashboard or authenticated operator web UI.
+- Automatic provisioning or lifecycle management through a hosting-provider
+  control-panel API.
+- AMX Mod X/ReAPI agent ingestion, durable gameplay inboxes, VIP entitlements,
+  or payment processing.
+- Service extraction, a message broker, or multiple active polling workers.
 
 ## Current API Scope
 
@@ -436,7 +517,7 @@ Health and metrics:
 - `GET /health/ready`
 - `GET /metrics`
 
-## Initial Entities
+## Current Core Domain Entities
 
 `Server`:
 
@@ -512,16 +593,18 @@ Health and metrics:
 - `ResultSummary`
 - `FailureReason`
 
-Future entities:
+Future entity candidates:
 
 - `PlayerSnapshot`
+- Versioned gameplay-event and durable-inbox models, only after the later
+  AMX Mod X/ReAPI agent boundary has its own accepted design.
 
 Alert delivery state and replay audit are intentionally Infrastructure
 persistence models, not future Domain entities.
 
-## Testing Plan
+## Verification Plan
 
-Start focused:
+Released automated baseline:
 
 - Unit tests for A2S packet parsing with captured byte arrays.
 - Unit tests for state transition rules.
@@ -562,7 +645,18 @@ For v2 alert delivery:
 - Production container smoke coverage for HTTPS startup validation, enabled
   dispatcher registration, and endpoint/authorization log safety.
 
-## v1 Portfolio Readiness
+For the active v2.3 deployment milestone:
+
+- Configuration and integration coverage for optional OTLP export without
+  changing metric names, bounded labels, or API readiness semantics.
+- Container-level coverage for the Collector configuration and private
+  application-to-Collector metric path.
+- Target-environment evidence for TLS, OIDC metadata, secret injection,
+  external A2S/RCON traffic, backup restoration, and immutable rollback.
+- A controlled stop/recovery scenario that verifies incidents and durable alert
+  state without treating YaPB sessions as real-player adoption.
+
+## Portfolio Baseline And Remaining Gaps
 
 The released v1 baseline includes:
 
@@ -576,3 +670,21 @@ The released v1 baseline includes:
 - Metrics.
 - A few meaningful tests.
 - A short section explaining trade-offs.
+
+Remaining portfolio gaps, in priority order:
+
+- A continuously running reference deployment across a real external A2S/RCON
+  boundary.
+- Production OTLP export through a Collector with Prometheus and Grafana.
+- A compact public read-only dashboard backed by a deliberately sanitized
+  projection.
+- An authenticated Reader/Operator web workflow for servers, incidents,
+  commands, dead letters, and replay.
+- Recorded uptime, initial SLOs, a controlled failure/recovery demonstration, a
+  concise video walkthrough, and a small evidence-based postmortem.
+- A later versioned AMX Mod X/ReAPI event agent with a durable inbox, only after
+  the production control plane and UI are established.
+
+VIP entitlements and payment integration remain a separate, later milestone.
+The first entitlement experiment must stay sandbox-only and must not process
+real money.

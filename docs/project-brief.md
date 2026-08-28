@@ -26,6 +26,9 @@ Start narrow and do it well:
 
 - v1 focuses on GoldSrc / CS 1.6 servers.
 - Future versions may support other game server engines through adapters.
+- Deployment integrations should remain provider-independent. GoldSrcOps owns
+  monitoring and operator workflows across the A2S/RCON boundary; it does not
+  reproduce a managed game host's billing or control-panel capabilities.
 
 Preferred framing for portfolio and interviews:
 
@@ -107,6 +110,15 @@ GitHub Release publication are complete; the design and residual UDP limits are
 recorded in
 `docs/v2.2-rcon-response-reliability.md`.
 
+The current release is production-oriented but is not yet claimed as a
+continuously operated production environment. The repository does not yet
+publish application images automatically, ship a reference VPS topology,
+export production metrics through an OpenTelemetry Collector, or include a web
+operator experience. These are delivery gaps rather than missing v2.2 release
+requirements. The active v2.3 plan closes the deployment and observability gaps
+before frontend or gameplay-agent work begins; see
+`docs/v2.3-production-deployment.md`.
+
 ## MVP Goal
 
 Build a modular ASP.NET Core backend that can:
@@ -152,8 +164,20 @@ Build a modular ASP.NET Core backend that can:
 
 The project should evolve in stages:
 
-- v1: Modular monolith.
-- v2: Modular monolith with outbox and async side effects.
-- v3: Optional extraction of collector or notification service if real complexity appears.
+- v1: released modular-monolith monitoring and administration baseline.
+- v2.0 through v2.2: released transactional alert delivery, audited recovery,
+  and bounded RCON response reliability.
+- v2.3: provider-independent reference production deployment, real external
+  ReHLDS boundary, immutable delivery, and production OTLP metrics through an
+  OpenTelemetry Collector.
+- A following milestone: compact Blazor Web App with a sanitized public
+  dashboard and an authenticated Reader/Operator area.
+- A later portfolio milestone: uptime and SLO evidence, a controlled
+  failure/recovery demonstration, a short video, and a small postmortem.
+- A later product experiment: versioned AMX Mod X/ReAPI gameplay events through
+  a durable inbox. Sandbox entitlements may follow; real payments remain
+  explicitly out of scope until then.
+- Optional service extraction or a broker only if observed scaling, ownership,
+  or failure-isolation pressure makes the modular monolith insufficient.
 
 See `docs/architecture-decisions.md` for reasoning.

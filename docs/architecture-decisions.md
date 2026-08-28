@@ -565,3 +565,158 @@ post-merge checks. Final release-documentation pull request #23, post-merge run
 and GitHub Release publication are complete. Detailed bounds and residual UDP
 limitations are recorded in `docs/v2.2-rcon-response-reliability.md`,
 `docs/v2.2-readiness.md`, and `docs/rcon.md`.
+
+## Decision 16: Adopt A Provider-Independent Reference Production Topology
+
+Decision:
+
+Operate the first persistent GoldSrcOps environment across two independent
+boundaries: one controlled Counter-Strike 1.6 server running ReHLDS and
+ReGameDLL_CS, and one single-node VPS control plane. The VPS hosts the immutable
+GoldSrcOps application image, PostgreSQL, a TLS reverse proxy, and the
+observability components defined by Decision 17. Production identity remains
+external. Docker Compose is the reference orchestration mechanism for this
+single-host baseline.
+
+The game-server host may be managed or self-operated, but application behavior
+must depend only on documented A2S and RCON endpoints. Provider billing,
+provisioning, restart, file-management, and panel APIs remain outside the
+GoldSrcOps core contract.
+
+Decision date: 2026-08-28.
+
+Reasoning:
+
+- Running the game server and control plane on separate hosts exercises the
+  actual DNS, UDP, firewall, latency, timeout, and partial-failure boundaries
+  that loopback and CI cannot reproduce.
+- A single VPS is affordable and operationally understandable for the first
+  portfolio deployment. It demonstrates rollout, migration, backup,
+  observability, and recovery without claiming high availability.
+- The modular monolith still has one deployment lifecycle and no observed load
+  that justifies Kubernetes, service extraction, or a broker.
+- A provider-independent protocol boundary keeps GoldSrcOps positioned as a
+  fleet control plane rather than a replacement for one hosting company's
+  panel.
+- A real environment should exist before the public dashboard and Operator UI
+  so those workflows are shaped by observed incidents and operations data.
+
+Trust and operational implications:
+
+- Terminate public HTTPS at the reverse proxy. The API container, PostgreSQL,
+  Collector receivers, Prometheus, and administrative Grafana endpoints stay on
+  private container or host networks unless a later decision exposes them.
+- Use an external OAuth 2.0 or OpenID Connect provider. The deployment must not
+  introduce a production token-issuing shortcut into GoldSrcOps.
+- Prefer a private tunnel between the control plane and game server for RCON.
+  If a managed host cannot provide one, restrict RCON to the VPS source address
+  and document the residual lack of transport confidentiality before accepting
+  that target. A2S may remain publicly queryable.
+- Deploy application images by immutable registry digest and retain the previous
+  known-good digest for rollback. Serialize EF Core migrations before rollout.
+- Keep exactly one polling worker and one snapshot-retention worker. Existing
+  PostgreSQL claim protocols continue to protect command and alert dispatch.
+- Treat the VPS, its local PostgreSQL volume, and its observability data as one
+  failure domain. Store encrypted database backups outside that host and rehearse
+  restoration before calling the milestone complete.
+- Establish ReHLDS and ReGameDLL_CS baseline behavior before adding YaPB. Bot
+  sessions are synthetic load and must remain distinguishable from real-player
+  usage in evidence and later UI projections.
+
+Alternatives considered:
+
+- Run the game server and GoldSrcOps on one host. Rejected for the reference
+  environment because it hides the external network and ownership boundary.
+- Adopt Kubernetes immediately. Rejected because a single application instance
+  and a few supporting containers do not justify its operational cost.
+- Couple the application to a managed-hosting API. Deferred until more than one
+  provider and a concrete lifecycle workflow justify a separate adapter.
+- Require a managed PostgreSQL service. Kept compatible but not required for the
+  first baseline; off-host backup and restore evidence are mandatory either way.
+
+Implementation status:
+
+Accepted for v2.3. No provider, paid service, production host, or continuously
+running environment is implied by this documentation change. The delivery and
+evidence sequence is defined in `docs/v2.3-production-deployment.md`.
+
+## Decision 17: Export Production Metrics Through OTLP And A Collector
+
+Decision:
+
+Add stable OTLP metric export from GoldSrcOps to a private OpenTelemetry
+Collector and make that pipeline the production-default v2.3 path. The
+Collector acts as the local telemetry gateway and exposes a private Prometheus
+target for the reference Prometheus and Grafana stack.
+
+Preserve the authenticated application `/metrics` endpoint throughout the v2
+compatibility window. It remains available for local development, existing
+integrations, and rollback, but it is not the primary production collection
+path. Removing the direct prerelease exporter and endpoint requires a separate
+compatibility decision, normally for a major release.
+
+Decision date: 2026-08-28.
+
+Reasoning:
+
+- Decision 12 explicitly identifies an intentional Collector deployment as the
+  trigger for moving the production path away from the prerelease direct
+  ASP.NET Core Prometheus exporter.
+- OTLP keeps application instrumentation independent from the selected metrics
+  backend and lets the Collector own routing, batching, filtering, and backend
+  adaptation.
+- A private push path avoids giving Prometheus a bearer token for the
+  application endpoint and removes `/metrics` from the production scrape path.
+- Preserving `/metrics` avoids an unnecessary v2 operational-contract break and
+  provides a known rollback path while the new pipeline gains evidence.
+- GoldSrcOps currently instruments metrics only. Adding traces or exporting
+  application logs in the first deployment slice would enlarge scope without a
+  demonstrated diagnostic requirement.
+
+Implementation implications:
+
+- Add `OpenTelemetry.Exporter.OpenTelemetryProtocol` on the same reviewed SDK
+  version line and support the standard OTLP endpoint and protocol settings.
+- Production startup enables OTLP explicitly. Development and tests must remain
+  deterministic when no Collector is configured.
+- Bind OTLP receivers, the Collector's Prometheus exporter endpoint, and
+  Collector administration endpoints to private networks. Do not publish ports
+  `4317`, `4318`, or the Prometheus scrape target to the Internet.
+- Preserve existing instrument names, units, bounded attributes, and dashboard
+  semantics. Add integration coverage that observes representative GoldSrcOps
+  metrics after the Collector boundary.
+- Pin the Collector distribution and every observability image by reviewed
+  version or digest. Validate configuration before rollout and expose Collector
+  health and internal telemetry to the private operations stack.
+- Collector or Prometheus failure must not make the GoldSrcOps API unready or
+  stop A2S polling, RCON dispatch, alert persistence, or replay. Telemetry loss
+  is an operational incident, not an application transaction failure.
+- Document the period during which direct and OTLP readers coexist. Do not infer
+  duplicate business events by adding the measurements from both paths.
+
+Alternatives considered:
+
+- Keep direct Prometheus scraping as the only production path. Rejected because
+  it preserves the prerelease component as the production boundary and couples
+  application authorization to metrics collection.
+- Remove `/metrics` immediately. Rejected because it breaks an authenticated and
+  integration-tested v2 operational contract without necessity.
+- Export directly from the application to a hosted observability vendor.
+  Rejected for the reference environment because it introduces provider lock-in
+  before a backend requirement exists.
+- Add traces and logs in the same slice. Deferred until production evidence
+  identifies concrete investigations that metrics and structured application
+  logs cannot answer.
+
+Implementation status:
+
+Accepted for v2.3 and not yet implemented. The existing source continues to use
+the direct exporter until the OTLP package, configuration, Collector stack,
+compatibility tests, and target-environment evidence are integrated.
+
+References:
+
+- [OpenTelemetry Collector overview](https://opentelemetry.io/docs/collector/)
+- [OpenTelemetry Collector deployment patterns](https://opentelemetry.io/docs/collector/deploy/)
+- [OTLP exporter configuration](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/)
+- [OpenTelemetry .NET Prometheus exporter status](https://github.com/open-telemetry/opentelemetry-dotnet/blob/main/src/OpenTelemetry.Exporter.Prometheus.AspNetCore/README.md)
