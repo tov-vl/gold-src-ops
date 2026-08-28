@@ -1,17 +1,18 @@
 # Container Deployment
 
 This document defines the current container deployment contract. It is
-platform-neutral: the repository does not yet publish an image automatically or
-ship provider-specific Docker Compose, systemd, or Kubernetes production
-manifests. GoldSrcOps v2.2.0 is the latest public release. Transactional
+platform-neutral: release tags publish the production image to GitHub Container
+Registry (GHCR), but the repository does not ship provider-specific Docker
+Compose, systemd, or Kubernetes production manifests. GoldSrcOps v2.2.0 is the
+latest public release. Transactional
 incident-alert delivery, audited dead-letter replay, and bounded RCON response
 collection extend the application without changing the supported container
 shape.
 
 The accepted v2.3 reference-deployment direction is documented in
-`docs/v2.3-production-deployment.md`. It remains planned work: this document
-continues to describe the currently implemented and verified container contract
-until each v2.3 slice is integrated with target-environment evidence.
+`docs/v2.3-production-deployment.md`. Immutable image publication is its first
+implemented delivery slice. The remaining control-plane and target-environment
+work stays planned until each slice is integrated with evidence.
 
 ## Supported Shape
 
@@ -35,34 +36,70 @@ user, and contains only the published ASP.NET Core application. It does not
 contain the .NET SDK, `dotnet-ef`, Development configuration, or a built-in
 Docker `HEALTHCHECK`.
 
-## Build And Version The Image
+## Publish And Version The Image
 
-Build from a reviewed, signed commit or release tag. Use an immutable release or
-commit tag and deploy the registry digest; do not use `latest` as a deployment
-reference.
+The `Publish Image` CI job runs only for an exact `v<major>.<minor>.<patch>` tag
+after `Quality Gate` and `Container Smoke` succeed for the same revision. It
+rejects lightweight tags, revisions that are not reachable from the default
+branch, and release or revision image tags that already exist. The release
+procedure must still create a signed annotated Git tag and verify its signature
+before pushing it.
+
+The job publishes one `linux/amd64` image under both immutable references:
+
+```text
+ghcr.io/tov-vl/gold-src-ops:v<major>.<minor>.<patch>
+ghcr.io/tov-vl/gold-src-ops:sha-<full-git-revision>
+```
+
+It does not publish `latest`, moving major tags, or moving minor tags. Registry
+write permission is scoped to this job. A separate `Verify Published Image` job
+has only package-read permission and runs repository smoke code against the
+published digest. OCI labels record the HTTPS source URL, full Git revision,
+release version, and MIT license. The workflow summaries record the canonical
+deployment reference:
+
+```text
+ghcr.io/tov-vl/gold-src-ops@sha256:<digest>
+```
+
+Deploy only that digest. Tags are discovery metadata, not deployment identity.
+Workflow checks prevent accidental replacement through this release path, but a
+registry administrator can still mutate or delete package versions. Treat any
+such manual operation as an audited exception; publish a new patch version
+instead of replacing a released tag.
+
+For a local pre-release build, apply the same minimum labels:
 
 ```powershell
 $revision = (git rev-parse HEAD).Trim()
-$image = "<registry>/gold-src-ops:<version>"
+$image = "goldsrcops:local-candidate"
 
 docker build --pull `
+  --label "org.opencontainers.image.source=https://github.com/tov-vl/gold-src-ops" `
   --label "org.opencontainers.image.revision=$revision" `
+  --label "org.opencontainers.image.version=local-candidate" `
+  --label "org.opencontainers.image.licenses=MIT" `
   --tag $image `
   .
-
-docker push $image
-docker inspect --format '{{index .RepoDigests 0}}' $image
 ```
 
-Record the resulting `<registry>/gold-src-ops@sha256:<digest>` with the
-deployment. The Dockerfile currently tracks the servicing `10.0` SDK and
-ASP.NET runtime image tags, so rebuilding the same source later can produce a
-different image. Rollback must reuse a previously published digest rather than
-rebuild an old tag.
+The Dockerfile tracks the servicing `10.0` SDK and ASP.NET runtime image tags,
+so rebuilding the same source later can produce a different image. Release and
+rollback records must therefore retain the published digest rather than rely on
+source revision alone.
 
-The current CI verifies the image but does not publish it. Registry login,
-provenance, signing, and retention policy remain responsibilities of the
-release pipeline that publishes a release.
+Retain at least the digest currently deployed and the immediately preceding
+known-good digest. Do not remove either image version while a rollout or rollback
+window is open. Longer retention may follow the registry storage policy, but it
+must never delete those two protected deployment records automatically.
+
+Build provenance and SBOM attestations are deliberately deferred from this
+minimal slice. They need a separately reviewed verification, identity, and
+retention policy; merely emitting unsigned or unconsumed metadata would not
+create a meaningful supply-chain control. Until that slice is implemented, the
+signed Git history, protected CI, OCI labels, registry digest, and digest smoke
+test are the evidence boundary.
 
 ## Runtime Contract
 
@@ -269,14 +306,24 @@ Application rollback and database rollback are separate decisions.
 
 1. Stop the rollout and retain the failing image digest, logs, and deployment
    metadata for diagnosis.
-2. If the previous application is compatible with the migrated schema, redeploy
-   its previously published digest. Do not rebuild the old source.
-3. Preserve the singleton polling and retention topology during rollback.
-4. Verify liveness, readiness, authentication, and metrics before restoring
+2. Smoke-test the recorded previous known-good digest against the current
+   migration set. This pulls the registry artifact and does not rebuild old
+   source:
+
+   ```powershell
+   $rollbackImage = "ghcr.io/tov-vl/gold-src-ops@sha256:<previous-digest>"
+   pwsh -NoProfile -File .\tools\smoke\container.ps1 `
+     -ImageReference $rollbackImage
+   ```
+
+3. If the previous application is compatible with the migrated schema, redeploy
+   that exact digest.
+4. Preserve the singleton polling and retention topology during rollback.
+5. Verify liveness, readiness, authentication, and metrics before restoring
    traffic.
-5. Inspect persisted `Running` or recently failed RCON commands before any
+6. Inspect persisted `Running` or recently failed RCON commands before any
    manual retry; an interrupted remote command can have an unknown outcome.
-6. Preserve pending and dead-letter outbox rows. Disabling alert delivery stops
+7. Preserve pending and dead-letter outbox rows. Disabling alert delivery stops
    claims without deleting messages, and a compatible v2 deployment resumes
    from persisted state.
 
@@ -298,7 +345,10 @@ pwsh -NoProfile -File .\tools\smoke\container.ps1
 The protected `main` workflow also requires both `Quality Gate` and
 `Container Smoke`. The smoke flow also verifies Production webhook HTTPS
 validation, enabled alert-dispatch startup, and that endpoint and authorization
-values are absent from application logs. A production deployment still needs
+values are absent from application logs. On a release tag,
+`Verify Published Image` then pulls the newly published artifact by digest and
+reruns the same smoke flow with exact OCI-label expectations. A production
+deployment still needs
 target-environment evidence for TLS, identity-provider metadata, database TLS,
 secret injection, webhook reachability, probe routing, and backup restoration;
 the repository smoke test cannot prove those external integrations.

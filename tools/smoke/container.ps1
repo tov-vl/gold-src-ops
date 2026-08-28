@@ -16,6 +16,19 @@ How long to wait for PostgreSQL and the API health endpoints.
 
 .PARAMETER KeepImage
 Keeps the uniquely tagged API image after cleanup for troubleshooting.
+
+.PARAMETER ImageReference
+Pulls and tests an existing production image instead of building one. The
+reference must use an immutable sha256 digest.
+
+.PARAMETER ExpectedImageSource
+Expected org.opencontainers.image.source label for an existing image.
+
+.PARAMETER ExpectedImageRevision
+Expected org.opencontainers.image.revision label for an existing image.
+
+.PARAMETER ExpectedImageVersion
+Expected org.opencontainers.image.version label for an existing image.
 #>
 
 [CmdletBinding()]
@@ -23,7 +36,15 @@ param(
     [ValidateRange(10, 300)]
     [int]$StartupTimeoutSeconds = 60,
 
-    [switch]$KeepImage
+    [switch]$KeepImage,
+
+    [string]$ImageReference,
+
+    [string]$ExpectedImageSource,
+
+    [string]$ExpectedImageRevision,
+
+    [string]$ExpectedImageVersion
 )
 
 Set-StrictMode -Version Latest
@@ -51,7 +72,8 @@ else {
 }
 
 $runId = [Guid]::NewGuid().ToString("N").Substring(0, 12)
-$imageTag = "goldsrcops:smoke-$runId"
+$buildImageLocally = [string]::IsNullOrWhiteSpace($ImageReference)
+$imageTag = if ($buildImageLocally) { "goldsrcops:smoke-$runId" } else { $ImageReference }
 $networkName = "goldsrcops-smoke-$runId"
 $postgresContainer = "goldsrcops-smoke-postgres-$runId"
 $apiContainer = "goldsrcops-smoke-api-$runId"
@@ -65,6 +87,11 @@ $alertWebhookUrl = "https://alerts.example.invalid/goldsrcops"
 $alertAuthorizationMarker = "Bearer goldsrcops-smoke-secret-$runId"
 $imageBuilt = $false
 $succeeded = $false
+
+if (-not $buildImageLocally -and
+    $ImageReference -notmatch '\A[^@\s]+@sha256:[0-9a-f]{64}\z') {
+    throw "ImageReference must use an immutable sha256 digest."
+}
 
 function Write-Step {
     param([string]$Name)
@@ -280,14 +307,55 @@ try {
         "{{.ServerVersion}}")
     Write-Host "Docker server: $dockerVersion"
 
-    Write-Step "Build production image"
-    Invoke-External -FilePath "docker" -Arguments @(
-        "build",
-        "--progress=plain",
-        "--tag",
-        $imageTag,
-        $repoRoot)
-    $imageBuilt = $true
+    if ($buildImageLocally) {
+        Write-Step "Build production image"
+        $localImageSource = "https://github.com/tov-vl/gold-src-ops"
+        $localImageRevision = Invoke-ExternalCapture -FilePath "git" -Arguments @(
+            "rev-parse",
+            "HEAD")
+        $localImageVersion = "smoke-$runId"
+
+        Invoke-External -FilePath "docker" -Arguments @(
+            "build",
+            "--progress=plain",
+            "--label",
+            "org.opencontainers.image.source=$localImageSource",
+            "--label",
+            "org.opencontainers.image.revision=$localImageRevision",
+            "--label",
+            "org.opencontainers.image.version=$localImageVersion",
+            "--label",
+            "org.opencontainers.image.licenses=MIT",
+            "--tag",
+            $imageTag,
+            $repoRoot)
+        $imageBuilt = $true
+        $ExpectedImageSource = $localImageSource
+        $ExpectedImageRevision = $localImageRevision
+        $ExpectedImageVersion = $localImageVersion
+    }
+    else {
+        Write-Step "Pull production image by digest"
+        Invoke-External -FilePath "docker" -Arguments @(
+            "pull",
+            $imageTag)
+
+        $repoDigestsJson = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
+            "image",
+            "inspect",
+            "--format",
+            "{{json .RepoDigests}}",
+            $imageTag)
+        $repoDigests = @($repoDigestsJson | ConvertFrom-Json)
+        $expectedDigest = ($ImageReference -split "@", 2)[1]
+        $matchingDigest = $repoDigests | Where-Object {
+            $_.EndsWith("@$expectedDigest", [StringComparison]::Ordinal)
+        }
+
+        if ($null -eq $matchingDigest) {
+            throw "Docker did not retain the requested image digest after pull."
+        }
+    }
 
     Write-Step "Verify runtime image"
     $runtimeUser = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
@@ -301,11 +369,69 @@ try {
         throw "Runtime image must configure a non-root user."
     }
 
+    $labelsJson = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
+        "image",
+        "inspect",
+        "--format",
+        "{{json .Config.Labels}}",
+        $imageTag)
+    $labels = $labelsJson | ConvertFrom-Json -AsHashtable
+
+    if ($null -eq $labels) {
+        throw "Runtime image does not contain OCI labels."
+    }
+
+    $requiredLabels = @(
+        "org.opencontainers.image.source",
+        "org.opencontainers.image.revision",
+        "org.opencontainers.image.version",
+        "org.opencontainers.image.licenses")
+
+    foreach ($labelName in $requiredLabels) {
+        if (-not $labels.ContainsKey($labelName) -or
+            [string]::IsNullOrWhiteSpace([string]$labels[$labelName])) {
+            throw "Runtime image is missing required OCI label '$labelName'."
+        }
+    }
+
+    $sourceUri = $null
+    if (-not [Uri]::TryCreate(
+        [string]$labels["org.opencontainers.image.source"],
+        [UriKind]::Absolute,
+        [ref]$sourceUri) -or
+        $sourceUri.Scheme -ne [Uri]::UriSchemeHttps) {
+        throw "OCI source label must be an absolute HTTPS URL."
+    }
+
+    if ([string]$labels["org.opencontainers.image.revision"] -notmatch '\A[0-9a-f]{40}\z') {
+        throw "OCI revision label must contain a full Git commit SHA."
+    }
+
+    if ([string]$labels["org.opencontainers.image.licenses"] -ne "MIT") {
+        throw "OCI license label must be 'MIT'."
+    }
+
+    $expectedLabels = @{
+        "org.opencontainers.image.source" = $ExpectedImageSource
+        "org.opencontainers.image.revision" = $ExpectedImageRevision
+        "org.opencontainers.image.version" = $ExpectedImageVersion
+    }
+
+    foreach ($entry in $expectedLabels.GetEnumerator()) {
+        if (-not [string]::IsNullOrWhiteSpace([string]$entry.Value) -and
+            [string]$labels[$entry.Key] -cne [string]$entry.Value) {
+            throw "OCI label '$($entry.Key)' does not match the expected value."
+        }
+    }
+
     $runtimeCheck = 'test "$(id -u)" -ne 0 && ' +
         'test ! -d /usr/share/dotnet/sdk && ' +
         'test -f /app/appsettings.json && ' +
         'test ! -e /app/appsettings.Development.json && ' +
-        'test ! -e /app/appsettings.Local.json'
+        'test ! -e /app/appsettings.Local.json && ' +
+        'test ! -e /app/.env && ' +
+        'test ! -e /app/.git && ' +
+        'test ! -e /.git'
     Invoke-External -FilePath "docker" -Arguments @(
         "run",
         "--rm",
@@ -317,7 +443,7 @@ try {
         $imageTag,
         "-c",
         $runtimeCheck)
-    Write-Host "Runtime user: $runtimeUser; SDK and local configuration are absent."
+    Write-Host "Runtime user: $runtimeUser; OCI metadata is valid; SDK, repository metadata, and local configuration are absent."
 
     Write-Step "Verify missing-configuration fail-fast"
     $failFastOutput = @(& docker run `

@@ -395,8 +395,9 @@ network boundary. The accepted topology and telemetry direction are defined by
 Architecture Decisions 16 and 17; the reviewable delivery plan is recorded in
 `docs/v2.3-production-deployment.md`.
 
-Milestone status: architecture and delivery plan accepted; implementation and
-target-environment evidence are not yet complete.
+Milestone status: architecture and delivery plan accepted; immutable GHCR image
+publication is implemented, while its first release digest and all
+target-environment evidence remain incomplete.
 
 Why this work is selected:
 
@@ -414,10 +415,11 @@ Why this work is selected:
 
 Planned reviewable slices:
 
-1. Record the provider-independent production topology, OTLP transition, threat
-   boundaries, delivery sequence, and evidence contract.
-2. Publish an immutable application image from a verified release revision and
-   deploy it by registry digest with a documented rollback digest.
+1. Completed: record the provider-independent production topology, OTLP
+   transition, threat boundaries, delivery sequence, and evidence contract.
+2. Implemented: publish an immutable application image from a verified release
+   revision and deploy it by registry digest with a documented rollback digest.
+   The first GHCR publication and digest evidence await the next release tag.
 3. Provision one controlled ReHLDS and ReGameDLL_CS server outside the
    control-plane host. Establish baseline polling and guarded RCON before adding
    YaPB as explicitly identified synthetic load.
