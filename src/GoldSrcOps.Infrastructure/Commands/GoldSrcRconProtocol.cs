@@ -9,6 +9,7 @@ internal static class GoldSrcRconProtocol
     private const string ChallengeRequestText = "challenge rcon\n";
     private const string ChallengeResponsePrefix = "challenge rcon ";
     private const string BadPasswordText = "Bad rcon_password";
+    private const char ResponseType = 'l';
 
     public static byte[] BuildChallengeRequest(Encoding encoding) =>
         BuildDatagram(ChallengeRequestText, encoding);
@@ -24,7 +25,8 @@ internal static class GoldSrcRconProtocol
         var challenge = payload[ChallengeResponsePrefix.Length..].Trim();
         if (string.IsNullOrWhiteSpace(challenge))
         {
-            throw new GoldSrcRconProtocolException("GoldSrc RCON challenge response did not include a challenge.");
+            throw new GoldSrcRconProtocolException(
+                "GoldSrc RCON challenge response did not include a challenge.");
         }
 
         return challenge;
@@ -42,24 +44,38 @@ internal static class GoldSrcRconProtocol
 
         if (password.Contains('"', StringComparison.Ordinal))
         {
-            throw new GoldSrcRconProtocolException("GoldSrc RCON passwords containing double quotes are not supported.");
+            throw new GoldSrcRconProtocolException(
+                "GoldSrc RCON passwords containing double quotes are not supported.");
         }
 
         var payload = $"rcon {challenge} \"{password}\" {commandText}\n";
         return BuildDatagram(payload, encoding);
     }
 
-    public static string ParseCommandResponse(byte[] datagram, Encoding encoding)
+    public static string ParseCommandResponse(byte[] datagram, Encoding encoding) =>
+        NormalizeCommandResponse(ParseCommandResponseChunk(datagram, encoding));
+
+    public static string ParseCommandResponseChunk(byte[] datagram, Encoding encoding)
     {
-        var payload = ReadPayload(datagram, encoding).Trim();
+        var payload = ReadPayload(datagram, encoding);
         if (payload.Contains(BadPasswordText, StringComparison.OrdinalIgnoreCase))
         {
             throw new GoldSrcRconAuthenticationException();
         }
 
-        return payload.Length > 0 && payload[0] == 'l'
-            ? payload[1..].Trim()
-            : payload;
+        if (payload.Length == 0 || payload[0] != ResponseType)
+        {
+            throw new GoldSrcRconProtocolException(
+                "Unexpected GoldSrc RCON command response type.");
+        }
+
+        return payload[1..];
+    }
+
+    public static string NormalizeCommandResponse(string response)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        return response.Trim();
     }
 
     private static byte[] BuildDatagram(string payload, Encoding encoding)
@@ -93,7 +109,8 @@ internal static class GoldSrcRconProtocol
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value, parameterName);
 
-        if (value.Contains('\r', StringComparison.Ordinal) || value.Contains('\n', StringComparison.Ordinal))
+        if (value.Contains('\r', StringComparison.Ordinal) ||
+            value.Contains('\n', StringComparison.Ordinal))
         {
             throw new GoldSrcRconProtocolException("GoldSrc RCON values must be single-line text.");
         }

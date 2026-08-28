@@ -25,8 +25,10 @@ claims queued commands, calls the infrastructure executor, and stores
 6. `GoldSrcRconClient` sends UDP `challenge rcon`.
 7. The server returns a challenge token.
 8. The client sends `rcon <challenge> "<password>" <command>`.
-9. The executor maps the response to a sanitized command result.
-10. The dispatcher conditionally stores the final status only while the same
+9. The client requires one valid `A2A_PRINT` response, then drains additional
+   response datagrams until the configured quiet interval elapses.
+10. The executor maps the assembled response to a sanitized command result.
+11. The dispatcher conditionally stores the final status only while the same
     claim is still `Running`.
 
 Raw RCON passwords are not stored in PostgreSQL, returned by API contracts, or
@@ -77,6 +79,45 @@ The executor returns stable failure messages for:
 
 Failure messages and result summaries are sanitized so raw secrets are not
 persisted. Run real RCON dispatch only against servers you own or administer.
+
+## Response Collection
+
+The RCON client uses one end-to-end deadline beginning before DNS resolution and
+ending only after the command response becomes quiet. Its UDP socket is
+connected to the resolved IPv4 endpoint, so the operating system discards
+datagrams from other addresses or ports during both the challenge and command
+response phases.
+
+Each valid command-response datagram must contain the GoldSrc connectionless
+header followed by the `A2A_PRINT` response type. The client preserves each
+chunk boundary, concatenates chunks in receive order, and trims the assembled
+text only once. After the first response, each accepted datagram starts a new
+quiet interval. No command is retried automatically.
+
+Configuration lives under `Rcon`:
+
+| Setting | Default | Valid range | Purpose |
+| --- | ---: | ---: | --- |
+| `TimeoutMilliseconds` | `3000` | positive integer | One deadline for resolution, challenge, command send, first response, and draining. |
+| `MaxResponseLength` | `2000` | positive integer, capped at `2000` | Post-sanitization character limit persisted in command history. |
+| `ResponseDrainMilliseconds` | `100` | `10` to `1000` | Quiet period used to infer the end of a legacy response. |
+| `MaxResponseDatagrams` | `32` | `1` to `256` | Maximum datagrams accepted for one command response. |
+| `MaxResponseBytes` | `65536` | `5` to `1048576` | Aggregate wire-byte ceiling, including each four-byte connectionless header. |
+
+Invalid values for the three response-collection settings fail application
+startup. Reaching either response ceiling, or reaching the overall deadline
+while response datagrams keep arriving, produces a protocol failure instead of
+persisting a known partial success.
+
+The quiet interval is necessarily heuristic: legacy RCON responses carry no
+response id, fragment count, sequence number, or completion marker. UDP loss,
+reordering, duplication, or a final datagram delayed beyond the quiet interval
+cannot be detected. The defaults are covered by synthetic timing tests; an
+isolated local ReHLDS 3.14.0.857 capture produced 12 command-response
+datagrams, 16,549 aggregate wire bytes, and an 8.206 ms maximum inter-datagram
+gap for the read-only `cvarlist` command. The 100 ms default quiet interval is
+retained. This single controlled capture does not remove the protocol limits
+or guarantee equivalent timing under packet loss or production load.
 
 ## Serialization And Recovery
 
@@ -158,8 +199,7 @@ persisted command by id before deciding whether to queue another command.
 ## Current Limits
 
 - IPv4 endpoints only, matching the current A2S client.
-- v2.1 reads one RCON command-response datagram. Bounded collection of ordinary
-  multi-datagram `A2A_PRINT` responses is planned for v2.2 in
-  `docs/v2.2-rcon-response-reliability.md`; the legacy protocol still cannot
-  prove completeness after UDP loss, reordering, or a delayed final datagram.
+- Bounded collection supports one or more ordinary `A2A_PRINT` datagrams, but
+  the legacy protocol still cannot prove completeness after UDP loss,
+  reordering, duplication, or a final datagram delayed beyond the quiet window.
 - Passwords containing double quotes are rejected by the protocol layer.

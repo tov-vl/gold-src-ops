@@ -72,7 +72,7 @@ dead-letter recovery release is summarized in
 | Vulnerability reporting | [Security policy](.github/SECURITY.md) |
 | Container rollout, migrations, and rollback | [Deployment](docs/deployment.md) |
 | RCON safety and recovery | [RCON operations](docs/rcon.md) |
-| Planned v2.2 RCON response reliability | [RCON response design](docs/v2.2-rcon-response-reliability.md) |
+| Active v2.2 RCON response reliability | [RCON response design](docs/v2.2-rcon-response-reliability.md) |
 | Full local verification | [Smoke test](docs/smoke-test.md) |
 | MVP evidence | [v1 readiness](docs/v1-readiness.md) |
 | v1.1 release evidence | [v1.1 readiness](docs/v1.1-readiness.md) |
@@ -201,9 +201,12 @@ RCON dispatch configuration lives under `Rcon`:
 
 - `TimeoutMilliseconds`
 - `MaxResponseLength`
+- `ResponseDrainMilliseconds`
+- `MaxResponseDatagrams`
+- `MaxResponseBytes`
 
 See [docs/rcon.md](docs/rcon.md) for secret-reference formats, dispatch flow,
-and current RCON limits.
+validated receive bounds, and current RCON limits.
 
 All control-plane API endpoints require an authenticated bearer token. Read
 endpoints and `/metrics` accept `Reader` or `Operator`; mutations require

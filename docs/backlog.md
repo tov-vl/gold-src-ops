@@ -311,7 +311,7 @@ A second delivery channel, broker, service extraction, bulk replay, and a
 distributed polling claim remain deferred until their scaling, receiver, or
 ownership requirements become concrete.
 
-## Planned v2.2.0 Milestone
+## Active v2.2.0 Milestone
 
 GoldSrcOps v2.2.0 is planned as a backward-compatible RCON reliability release.
 The design and accepted protocol limits are documented in
@@ -319,27 +319,39 @@ The design and accepted protocol limits are documented in
 
 Why this work is next:
 
-- The current RCON client reads exactly one command-response datagram even
-  though a server can flush longer console output through several ordinary
+- The pre-v2.2 RCON client read exactly one command-response datagram even though
+  a server can flush longer console output through several ordinary
   `A2A_PRINT` datagrams.
-- This can produce a successful but incomplete persisted result for an existing
-  supported operator workflow.
+- The active reliability slice prevents this known partial-success path within
+  documented receive bounds.
 - The fix stays inside the current modular-monolith and RCON boundaries. It
   requires no public API or database-schema change.
 - Deferred broker, second-channel, bulk-replay, service-extraction, and
   distributed-polling work still lacks a concrete scaling or ownership need.
 
-Next reviewable implementation slice:
+Implemented in the current reviewable slice:
 
-1. Add captured and synthetic protocol fixtures for single and multi-datagram
-   RCON responses.
-2. Add a bounded response collector, an end-to-end deadline, and endpoint-bound
-   UDP receives without automatic command retry.
-3. Cover quiet completion, cancellation, malformed responses, response
-   ceilings, continuous response flow, and endpoint isolation with synthetic
-   UDP tests.
-4. Verify the behavior against an owned GoldSrc server, update operations
-   guidance, and run the full quality gate and production container smoke.
+1. Preserve `A2A_PRINT` chunk boundaries until final normalization and assemble
+   single or multi-datagram responses in receive order.
+2. Add a bounded response collector, one end-to-end deadline, and a connected
+   UDP socket without automatic command retry.
+3. Validate the quiet interval, datagram ceiling, and aggregate wire-byte
+   ceiling while retaining compatible defaults when the settings are omitted.
+4. Cover quiet completion, cancellation, malformed responses, response
+   ceilings, continuous response flow, first-response timeout, and endpoint
+   isolation with synthetic UDP tests.
+5. Update tracked defaults, deployment guidance, and RCON operations guidance.
+6. Verify guarded `say` dispatch plus multi-datagram timing and framing with a
+   read-only `cvarlist` command against an isolated local ReHLDS 3.14.0.857
+   instance.
+
+Remaining release gates:
+
+1. Local quality, production container smoke, and owned-server verification are
+   green. Run the required
+   remote checks and integrate through protected `main`.
+2. Prepare release-readiness evidence, a signed tag, and the v2.2.0 GitHub
+   Release only after the implementation and live verification are accepted.
 
 Definition of done:
 

@@ -519,3 +519,46 @@ replay-record reads, PostgreSQL concurrency verification, replay-specific
 telemetry, sanitized lifecycle logs, and release-gate verification are in
 place. The final contract and operational evidence are recorded in
 `docs/dead-letter-replay.md` and `docs/v2.1-readiness.md`.
+
+## Decision 15: Complete Legacy RCON Responses With A Bounded Quiet Drain
+
+Decision:
+
+Collect one or more ordinary GoldSrc `A2A_PRINT` command-response datagrams on a
+UDP socket connected to the resolved server endpoint. Require the first response
+inside one end-to-end deadline, then infer completion after a bounded quiet
+interval. Reject known partial responses when the deadline, datagram ceiling, or
+aggregate wire-byte ceiling is reached.
+
+Decision date: 2026-08-28.
+
+Reasoning:
+
+- ReHLDS can flush redirected console output through several ordinary response
+  datagrams without split-packet metadata or an explicit completion marker.
+- Returning after one datagram can persist an incomplete response as success.
+- A connected UDP socket discards datagrams from unrelated addresses or ports.
+- One deadline covers DNS resolution, challenge, command send, and response
+  collection without adding unsafe automatic command retry.
+- Independent network ceilings bound work before the smaller sanitized result
+  summary is persisted.
+
+Alternatives considered:
+
+- Reuse the A2S split-packet parser. Rejected because RCON response chunks have
+  no indexed split envelope.
+- Return immediately after the first datagram. Rejected because it preserves the
+  known partial-success path.
+- Wait only for the overall timeout. Rejected because every successful command
+  would consume the full timeout.
+- Retry after timeout. Rejected because an RCON command may already have run and
+  has no idempotency key.
+
+Implementation status:
+
+The collector, endpoint isolation, validated defaults, protocol parsing, and
+synthetic UDP coverage are implemented for v2.2.0. Timing and framing were
+verified against an isolated local ReHLDS instance; protected-main integration
+and release evidence remain. Detailed bounds and residual UDP limitations are
+recorded in
+`docs/v2.2-rcon-response-reliability.md` and `docs/rcon.md`.
