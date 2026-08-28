@@ -82,6 +82,18 @@ revision `f6baf40`, and its genuine
 [post-merge `main` run](https://github.com/tov-vl/gold-src-ops/actions/runs/33166531803)
 passed both jobs on that exact SHA.
 
+Final candidate pull request
+[#21](https://github.com/tov-vl/gold-src-ops/pull/21) passed both required jobs
+and merged as revision `93dc591`. Its first
+[post-merge run](https://github.com/tov-vl/gold-src-ops/actions/runs/33170221043)
+exposed a timing-sensitive RCON overall-deadline test, so no tag was created.
+Corrective pull request
+[#22](https://github.com/tov-vl/gold-src-ops/pull/22) stabilized that test without
+changing production behavior, passed all four branch and pull-request check
+runs, and merged as revision `b2ce798`. The final
+[post-merge `main` run](https://github.com/tov-vl/gold-src-ops/actions/runs/33172215220)
+passed `Quality Gate` and `Container Smoke` on that exact SHA.
+
 Detailed evidence and accepted boundaries are recorded in
 [docs/v2.2-readiness.md](v2.2-readiness.md).
 
@@ -135,6 +147,6 @@ manual retry.
 
 ## Publication Status
 
-`v2.2.0` is a prepared release candidate. Final candidate integration through
-protected `main`, signed annotated tagging, tag-triggered verification, GitHub
-Release publication, and the post-release documentation update remain.
+`v2.2.0` is a prepared release candidate integrated through protected `main`.
+Signed annotated tagging, tag-triggered verification, GitHub Release
+publication, and the post-release documentation update remain.
