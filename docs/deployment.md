@@ -3,9 +3,15 @@
 This document defines the current container deployment contract. It is
 platform-neutral: the repository does not yet publish an image automatically or
 ship provider-specific Docker Compose, systemd, or Kubernetes production
-manifests. GoldSrcOps v2.1.0 is the latest public release. Transactional
-incident-alert delivery and audited dead-letter replay extend the API and
-persistence contracts without changing the supported container shape.
+manifests. GoldSrcOps v2.2.0 is the latest public release. Transactional
+incident-alert delivery, audited dead-letter replay, and bounded RCON response
+collection extend the application without changing the supported container
+shape.
+
+The accepted v2.3 reference-deployment direction is documented in
+`docs/v2.3-production-deployment.md`. It remains planned work: this document
+continues to describe the currently implemented and verified container contract
+until each v2.3 slice is integrated with target-environment evidence.
 
 ## Supported Shape
 
@@ -113,8 +119,11 @@ bearer tokens must never cross an unencrypted public connection.
 The current source pins the OpenTelemetry SDK and instrumentations to `1.18.0` and the direct
 Prometheus exporter to `1.18.0-beta.1`. The endpoint remains prerelease but is
 kept for v1 compatibility; Architecture Decision 12 documents the safeguards
-and the conditions for replacing it with stable OTLP export through a
-collector.
+and the original migration trigger. Architecture Decision 17 accepts OTLP
+metrics through a private OpenTelemetry Collector as the production-default
+v2.3 path while preserving authenticated `/metrics` during the v2 compatibility
+window. That transition is not part of the current container contract until its
+implementation and compatibility checks pass.
 
 ## Configuration
 

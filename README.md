@@ -70,6 +70,7 @@ reliability release is summarized in
 | v2.2 RCON reliability release | [v2.2 release notes](docs/release-notes-v2.2.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
+| Active v2.3 reference deployment plan | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
 | Alert delivery configuration and recovery | [Alert delivery operations](docs/alert-delivery.md) |
 | Dead-letter inspection and replay contract | [Dead-letter replay design](docs/dead-letter-replay.md) |
