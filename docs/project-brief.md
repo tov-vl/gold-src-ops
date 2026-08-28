@@ -64,6 +64,8 @@ Current implementation:
   protection.
 - A production-oriented .NET 10 container image with non-root execution,
   separate EF migrations, and isolated PostgreSQL-backed CI smoke coverage.
+- Tag-gated immutable GHCR image publication with OCI metadata, write-once
+  release and revision tags, digest recording, and digest-based smoke coverage.
 - Unit, API integration, deterministic polling, protocol, and PostgreSQL
   Testcontainers coverage.
 - GitHub Actions quality gate for formatting, build, tests, and NuGet audit.
@@ -111,13 +113,16 @@ recorded in
 `docs/v2.2-rcon-response-reliability.md`.
 
 The current release is production-oriented but is not yet claimed as a
-continuously operated production environment. The repository does not yet
-publish application images automatically, ship a reference VPS topology,
-export production metrics through an OpenTelemetry Collector, or include a web
-operator experience. These are delivery gaps rather than missing v2.2 release
-requirements. The active v2.3 plan closes the deployment and observability gaps
-before frontend or gameplay-agent work begins; see
-`docs/v2.3-production-deployment.md`.
+continuously operated production environment. Release-tag image publication is
+implemented, but its first registry digest remains future release evidence.
+The repository does not yet operate the controlled external game server, ship a
+reference VPS topology, export production metrics through an OpenTelemetry
+Collector, or include a web operator experience. These are delivery gaps rather
+than missing v2.2 release requirements. The active v2.3 plan closes the
+deployment and observability gaps before frontend or gameplay-agent work
+begins. Slice 2 starts with the provider-independent controlled game-server
+contract in `docs/v2.3-controlled-gameserver-baseline.md`; the full sequence is
+recorded in `docs/v2.3-production-deployment.md`.
 
 ## MVP Goal
 
