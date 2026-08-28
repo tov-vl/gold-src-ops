@@ -6,21 +6,14 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.0.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0)
+**Status:** [v2.1.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.1.0)
 is the current public release. Its signed annotated tag identifies revision
-`9d7176f`; final candidate pull request #10, the post-merge `main` run, and the
+`af7c2f4`; final candidate pull request #17, the post-merge `main` run, and the
 signed-tag run all passed GitHub Actions `Quality Gate` and `Container Smoke`.
-The local release gate passed all 199 tests with zero build warnings and no
+The local release gate passed all 239 tests with zero build warnings and no
 known vulnerable NuGet packages. Release notes and detailed evidence are
 available in
-[docs/release-notes-v2.md](docs/release-notes-v2.md) and
-[docs/v2-readiness.md](docs/v2-readiness.md).
-
-`v2.1.0` is prepared as a release candidate for bounded dead-letter inspection
-and audited single-message replay. It is not yet tagged or published. The local
-candidate gate passed all 239 tests with zero build warnings and no known
-vulnerable NuGet packages. Candidate notes and readiness evidence are available
-in [docs/release-notes-v2.1.md](docs/release-notes-v2.1.md) and
+[docs/release-notes-v2.1.md](docs/release-notes-v2.1.md) and
 [docs/v2.1-readiness.md](docs/v2.1-readiness.md).
 
 ## Highlights
@@ -58,7 +51,7 @@ operability delta is covered by
 [docs/v1.1-readiness.md](docs/v1.1-readiness.md). The v2 alert-delivery release
 is summarized in
 [docs/release-notes-v2.md](docs/release-notes-v2.md). The compatible v2.1
-dead-letter recovery candidate is summarized in
+dead-letter recovery release is summarized in
 [docs/release-notes-v2.1.md](docs/release-notes-v2.1.md).
 
 ## Documentation
@@ -69,7 +62,7 @@ dead-letter recovery candidate is summarized in
 | Delivered scope and release limits | [v1 release notes](docs/release-notes-v1.md) |
 | v1.1 operability release | [v1.1 release notes](docs/release-notes-v1.1.md) |
 | v2 alert-delivery release | [v2 release notes](docs/release-notes-v2.md) |
-| v2.1 dead-letter recovery candidate | [v2.1 release notes](docs/release-notes-v2.1.md) |
+| v2.1 dead-letter recovery release | [v2.1 release notes](docs/release-notes-v2.1.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
@@ -490,21 +483,15 @@ The spike follows Valve's documented A2S server query format:
 
 The public repository is configured with private vulnerability reporting,
 Dependabot security updates, and a protected `main` workflow. The
-[GoldSrcOps v2.0.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0)
-adds transactional incident-alert delivery and an additive outbox migration
-while retaining the existing v1 HTTP contract. It was published from a signed
-annotated tag after the required pull-request, post-merge, and tag-triggered
-checks passed. Detailed evidence is recorded in
-[docs/v2-readiness.md](docs/v2-readiness.md), while
-[v1.1.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v1.1.0) remains the
-preceding stable release.
-
-The `v2.1.0` release candidate adds Reader dead-letter inspection, audited and
+[GoldSrcOps v2.1.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.1.0)
+adds Reader dead-letter inspection, audited and
 idempotent Operator replay, durable replay lookup, additive replay persistence,
 and low-cardinality replay telemetry without changing existing endpoint or
-delivery contracts. Its signed tag and GitHub Release remain gated by the final
-candidate, post-merge, and tag-triggered checks. Detailed evidence is recorded
-in [docs/v2.1-readiness.md](docs/v2.1-readiness.md).
+delivery contracts. It was published from a signed annotated tag after the
+required pull-request, post-merge, and tag-triggered checks passed. Detailed
+evidence is recorded in [docs/v2.1-readiness.md](docs/v2.1-readiness.md), while
+[v2.0.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0) remains the
+preceding stable release.
 
 ## License
 
