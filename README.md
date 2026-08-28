@@ -18,8 +18,10 @@ available in
 
 `v2.2.0` is prepared as a release candidate for bounded multi-datagram RCON
 responses. It is not yet tagged or published. The implementation, isolated
-owned-server verification, protected-main integration, and post-merge checks
-are complete. Candidate notes and readiness evidence are available in
+owned-server verification, and final candidate integration are complete on
+protected `main` revision `b2ce798`; the corresponding post-merge
+`Quality Gate` and `Container Smoke` passed. Candidate notes and readiness
+evidence are available in
 [docs/release-notes-v2.2.md](docs/release-notes-v2.2.md) and
 [docs/v2.2-readiness.md](docs/v2.2-readiness.md).
 
@@ -511,10 +513,10 @@ preceding stable release.
 
 The `v2.2.0` release candidate adds bounded multi-datagram RCON response
 collection, endpoint isolation, one end-to-end deadline, explicit receive
-ceilings, and failure instead of known partial success. The implementation and
-owned-server verification are integrated into protected `main`; final candidate
-integration, signed tagging, tag-triggered checks, and GitHub Release
-publication remain. See
+ceilings, and failure instead of known partial success. The implementation,
+owned-server verification, final candidate integration, and corrective RCON
+deadline-test verification are complete on protected `main`; signed tagging,
+tag-triggered checks, and GitHub Release publication remain. See
 [docs/v2.2-readiness.md](docs/v2.2-readiness.md).
 
 ## License
