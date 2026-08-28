@@ -91,6 +91,12 @@ lifecycle logs, and release-gate verification are implemented and integrated
 through protected `main`. Final candidate integration, signed tagging,
 tag-triggered verification, and GitHub Release publication are complete.
 
+The next planned v2.2 slice hardens the existing GoldSrc RCON integration by
+collecting bounded multi-datagram command responses under one end-to-end
+deadline. It intentionally leaves the HTTP and database contracts unchanged;
+the design and residual UDP limits are recorded in
+`docs/v2.2-rcon-response-reliability.md`.
+
 ## MVP Goal
 
 Build a modular ASP.NET Core backend that can:

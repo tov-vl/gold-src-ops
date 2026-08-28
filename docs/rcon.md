@@ -158,5 +158,8 @@ persisted command by id before deciding whether to queue another command.
 ## Current Limits
 
 - IPv4 endpoints only, matching the current A2S client.
-- Split or multi-packet RCON responses are not implemented yet.
+- v2.1 reads one RCON command-response datagram. Bounded collection of ordinary
+  multi-datagram `A2A_PRINT` responses is planned for v2.2 in
+  `docs/v2.2-rcon-response-reliability.md`; the legacy protocol still cannot
+  prove completeness after UDP loss, reordering, or a delayed final datagram.
 - Passwords containing double quotes are rejected by the protocol layer.

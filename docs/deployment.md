@@ -3,9 +3,9 @@
 This document defines the current container deployment contract. It is
 platform-neutral: the repository does not yet publish an image automatically or
 ship provider-specific Docker Compose, systemd, or Kubernetes production
-manifests. GoldSrcOps v1.1.0 remains the latest public release; the current v2
-candidate adds transactional incident-alert delivery without changing the
-container shape.
+manifests. GoldSrcOps v2.1.0 is the latest public release. Transactional
+incident-alert delivery and audited dead-letter replay extend the API and
+persistence contracts without changing the supported container shape.
 
 ## Supported Shape
 
@@ -207,11 +207,16 @@ EF migration history is stored in `public`; application tables use the
 concurrently. Let EF execute that migration outside its normal transaction and
 do not wrap the whole migration command in an external database transaction.
 
-The v2 alert candidate adds the `AddAlertOutboxPersistence` migration. It is
-additive and must be applied before the new application starts, with alert
-delivery disabled. GoldSrcOps v1.1 ignores the new table, so an application
-rollback can leave it in place. Do not down-migrate while queued or dead-letter
-messages may still be required.
+v2.0 introduced the additive `AddAlertOutboxPersistence` migration. v2.1 adds
+`AddOutboxReplayPersistence` and `AlignDeadLetterListIndex` for replay metadata,
+append-only audit, and the dead-letter list order. Apply the complete migration
+set before the new application starts, with alert delivery disabled. The v2.1
+index migrations use normal PostgreSQL index builds and can block writes to
+`outbox_messages`; inspect table size and use a low-traffic rollout. A v2.0
+application ignores the additive replay schema, while v1.1 ignores the outbox
+tables. Application rollback can therefore leave these migrations in place.
+Do not down-migrate while queued, dead-letter, or replay-audit records may still
+be required.
 
 Run the same command a second time in a staging or disposable environment to
 confirm that the migration set is already up to date. The container smoke test

@@ -72,6 +72,7 @@ dead-letter recovery release is summarized in
 | Vulnerability reporting | [Security policy](.github/SECURITY.md) |
 | Container rollout, migrations, and rollback | [Deployment](docs/deployment.md) |
 | RCON safety and recovery | [RCON operations](docs/rcon.md) |
+| Planned v2.2 RCON response reliability | [RCON response design](docs/v2.2-rcon-response-reliability.md) |
 | Full local verification | [Smoke test](docs/smoke-test.md) |
 | MVP evidence | [v1 readiness](docs/v1-readiness.md) |
 | v1.1 release evidence | [v1.1 readiness](docs/v1.1-readiness.md) |
