@@ -11,8 +11,9 @@ shape.
 
 The accepted v2.3 reference-deployment direction is documented in
 `docs/v2.3-production-deployment.md`. Immutable image publication is its first
-implemented delivery slice. The remaining control-plane and target-environment
-work stays planned until each slice is integrated with evidence.
+implemented delivery slice. The controlled external game-server contract is in
+`docs/v2.3-controlled-gameserver-baseline.md`; provider selection and all
+target-environment work remain pending until integrated with evidence.
 
 ## Supported Shape
 

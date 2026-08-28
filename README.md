@@ -34,6 +34,8 @@ available in
 - Liveness, database readiness, structured logging, and OpenTelemetry
   Prometheus metrics.
 - Bounded snapshot retention with PostgreSQL integration and concurrency tests.
+- Tag-gated immutable GHCR image publication with OCI metadata and
+  digest-based container verification.
 - Repeatable Docker-based local startup, authenticated smoke test, and guarded
   owned-server RCON verification.
 
@@ -71,6 +73,7 @@ reliability release is summarized in
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Active v2.3 reference deployment plan | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
+| Active v2.3 game-server baseline | [Controlled game-server baseline](docs/v2.3-controlled-gameserver-baseline.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
 | Alert delivery configuration and recovery | [Alert delivery operations](docs/alert-delivery.md) |
 | Dead-letter inspection and replay contract | [Dead-letter replay design](docs/dead-letter-replay.md) |
