@@ -311,6 +311,48 @@ A second delivery channel, broker, service extraction, bulk replay, and a
 distributed polling claim remain deferred until their scaling, receiver, or
 ownership requirements become concrete.
 
+## Planned v2.2.0 Milestone
+
+GoldSrcOps v2.2.0 is planned as a backward-compatible RCON reliability release.
+The design and accepted protocol limits are documented in
+`docs/v2.2-rcon-response-reliability.md`.
+
+Why this work is next:
+
+- The current RCON client reads exactly one command-response datagram even
+  though a server can flush longer console output through several ordinary
+  `A2A_PRINT` datagrams.
+- This can produce a successful but incomplete persisted result for an existing
+  supported operator workflow.
+- The fix stays inside the current modular-monolith and RCON boundaries. It
+  requires no public API or database-schema change.
+- Deferred broker, second-channel, bulk-replay, service-extraction, and
+  distributed-polling work still lacks a concrete scaling or ownership need.
+
+Next reviewable implementation slice:
+
+1. Add captured and synthetic protocol fixtures for single and multi-datagram
+   RCON responses.
+2. Add a bounded response collector, an end-to-end deadline, and endpoint-bound
+   UDP receives without automatic command retry.
+3. Cover quiet completion, cancellation, malformed responses, response
+   ceilings, continuous response flow, and endpoint isolation with synthetic
+   UDP tests.
+4. Verify the behavior against an owned GoldSrc server, update operations
+   guidance, and run the full quality gate and production container smoke.
+
+Definition of done:
+
+- Existing single-datagram command behavior remains backward compatible.
+- Multi-datagram text is assembled in receive order within documented bounds.
+- Known partial responses fail explicitly instead of being persisted as a
+  successful truncated result.
+- Response text, command payloads, and credentials remain absent from logs and
+  metric dimensions.
+- Public API, authorization, and database contracts remain unchanged.
+- The unavoidable UDP loss, ordering, and quiet-window limitations remain
+  explicit in the RCON operations guide.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -333,7 +375,7 @@ Credentials:
 Monitoring:
 
 - `GET /api/servers/{id}/status`
-- `GET /api/servers/{id}/snapshots?from=&to=`
+- `GET /api/servers/{id}/snapshots?from=&to=&limit=`
 - `GET /api/dashboard/overview`
 
 Incidents:
