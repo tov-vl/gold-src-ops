@@ -182,7 +182,7 @@ Completed:
   run passed `Quality Gate` and `Container Smoke` on revision `9d7176f`.
 - The signed annotated `v2.0.0` tag identifies that verified revision, and the
   [GoldSrcOps v2.0.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0)
-  is published as the preceding stable release.
+  is published as an earlier stable release.
 - Bounded Reader dead-letter inspection, transactional Operator replay, durable
   audit reads, idempotency, and concurrent-request protection were integrated
   through pull request #15 as verified squash commit `6a8b486`; its required
@@ -208,6 +208,15 @@ Completed:
   run passed `Quality Gate` and `Container Smoke` on revision `af7c2f4`.
 - The signed annotated `v2.1.0` tag identifies that verified revision, and the
   [GoldSrcOps v2.1.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.1.0)
+  is published as the preceding stable release.
+- Published v2.2.0 release notes record bounded multi-datagram RCON response
+  collection, endpoint isolation, validated receive ceilings, compatibility,
+  owned-server evidence, and residual UDP limits.
+- Final release-documentation pull request #23, post-merge run #76, and
+  signed-tag run #77 passed `Quality Gate` and `Container Smoke` on revision
+  `9e02f07`.
+- The signed annotated `v2.2.0` tag identifies that verified revision, and the
+  [GoldSrcOps v2.2.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.2.0)
   is published as the latest stable release.
 
 ## Completed v1.1 Milestone
@@ -311,14 +320,17 @@ A second delivery channel, broker, service extraction, bulk replay, and a
 distributed polling claim remain deferred until their scaling, receiver, or
 ownership requirements become concrete.
 
-## v2.2.0 Release Candidate
+## Completed v2.2.0 Milestone
 
-GoldSrcOps v2.2.0 is prepared as a backward-compatible RCON reliability release
-candidate. The design and accepted protocol limits are documented in
-`docs/v2.2-rcon-response-reliability.md`; candidate notes and evidence are in
+GoldSrcOps v2.2.0 was published on 2026-08-28 as a backward-compatible RCON
+reliability release. The design and accepted protocol limits are documented in
+`docs/v2.2-rcon-response-reliability.md`; release notes and evidence are in
 `docs/release-notes-v2.2.md` and `docs/v2.2-readiness.md`. Published `v2.1.0`
-remains the current stable release until this candidate is tagged and
-published.
+is the preceding stable release.
+
+Release status: implementation, owned-server evidence, local readiness gates,
+required remote checks, signed tag, and GitHub Release publication are
+complete.
 
 Why this work was selected:
 
@@ -351,14 +363,13 @@ Completed and integrated slices:
    and pass its required pull-request and genuine post-merge checks on
    `f6baf40`.
 
-Remaining publication steps:
-
-1. Integrate this final release candidate through protected `main` and verify
-   its required pull-request and genuine post-merge checks.
-2. Create and push the signed annotated `v2.2.0` tag, then verify its
-   tag-triggered `Quality Gate` and `Container Smoke`.
-3. Publish the v2.2.0 GitHub Release from the candidate notes and record final
-   publication status in repository documentation.
+All seven implementation and owned-server verification slices are complete.
+Pull request #20 integrated the implementation, pull request #22 corrected the
+timing-sensitive test exposed by the first candidate post-merge run, and pull
+request #23 integrated the final release documentation. Post-merge run #76 and
+signed-tag run #77 passed on `9e02f07`, and the stable GitHub Release is
+published. Evidence and accepted boundaries are recorded in
+`docs/v2.2-readiness.md`.
 
 Definition of done:
 

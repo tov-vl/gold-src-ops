@@ -1,6 +1,6 @@
 # GoldSrcOps v2.2.0 Release Notes
 
-Prepared: 2026-08-28. Status: release candidate; not yet tagged or published.
+Prepared: 2026-08-28. Published: 2026-08-28. Status: released.
 
 ## Overview
 
@@ -62,7 +62,7 @@ for the result summary persisted in command history.
 - Rolling back to v2.1.0 restores the one-datagram limitation without changing
   persisted data or configuration requirements.
 
-## Verified Candidate Baseline
+## Verified Release Baseline
 
 The 2026-08-28 local candidate gate completed with .NET SDK `10.0.400`, Docker
 Engine `29.7.2`, and PostgreSQL `16-alpine`:
@@ -93,6 +93,14 @@ changing production behavior, passed all four branch and pull-request check
 runs, and merged as revision `b2ce798`. The final
 [post-merge `main` run](https://github.com/tov-vl/gold-src-ops/actions/runs/33172215220)
 passed `Quality Gate` and `Container Smoke` on that exact SHA.
+
+Final release-documentation pull request
+[#23](https://github.com/tov-vl/gold-src-ops/pull/23) passed all four branch and
+pull-request check runs and merged as release revision `9e02f07`. Its
+[post-merge `main` run](https://github.com/tov-vl/gold-src-ops/actions/runs/33173553995)
+and the
+[tag-triggered run](https://github.com/tov-vl/gold-src-ops/actions/runs/33173962278)
+both passed `Quality Gate` and `Container Smoke` on that exact revision.
 
 Detailed evidence and accepted boundaries are recorded in
 [docs/v2.2-readiness.md](v2.2-readiness.md).
@@ -147,6 +155,11 @@ manual retry.
 
 ## Publication Status
 
-`v2.2.0` is a prepared release candidate integrated through protected `main`.
-Signed annotated tagging, tag-triggered verification, GitHub Release
-publication, and the post-release documentation update remain.
+Published on 2026-08-28 as the
+[GoldSrcOps v2.2.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.2.0)
+from signed annotated tag `v2.2.0`. Final release-documentation pull request
+#23, the
+[post-merge `main` run](https://github.com/tov-vl/gold-src-ops/actions/runs/33173553995),
+and the
+[tag-triggered run](https://github.com/tov-vl/gold-src-ops/actions/runs/33173962278)
+all passed `Quality Gate` and `Container Smoke` on release revision `9e02f07`.

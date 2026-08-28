@@ -6,22 +6,14 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.1.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.1.0)
+**Status:** [v2.2.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.2.0)
 is the current public release. Its signed annotated tag identifies revision
-`af7c2f4`; final candidate pull request #17, the post-merge `main` run, and the
-signed-tag run all passed GitHub Actions `Quality Gate` and `Container Smoke`.
-The local release gate passed all 239 tests with zero build warnings and no
-known vulnerable NuGet packages. Release notes and detailed evidence are
+`9e02f07`; final release-documentation pull request #23, post-merge run #76,
+and signed-tag run #77 all passed GitHub Actions `Quality Gate` and
+`Container Smoke`. The local release gate passed all 259 tests with zero build
+warnings and no known vulnerable NuGet packages. Release notes and detailed
+evidence are
 available in
-[docs/release-notes-v2.1.md](docs/release-notes-v2.1.md) and
-[docs/v2.1-readiness.md](docs/v2.1-readiness.md).
-
-`v2.2.0` is prepared as a release candidate for bounded multi-datagram RCON
-responses. It is not yet tagged or published. The implementation, isolated
-owned-server verification, and final candidate integration are complete on
-protected `main` revision `b2ce798`; the corresponding post-merge
-`Quality Gate` and `Container Smoke` passed. Candidate notes and readiness
-evidence are available in
 [docs/release-notes-v2.2.md](docs/release-notes-v2.2.md) and
 [docs/v2.2-readiness.md](docs/v2.2-readiness.md).
 
@@ -63,7 +55,7 @@ is summarized in
 [docs/release-notes-v2.md](docs/release-notes-v2.md). The compatible v2.1
 dead-letter recovery release is summarized in
 [docs/release-notes-v2.1.md](docs/release-notes-v2.1.md). The v2.2 RCON
-reliability candidate is summarized in
+reliability release is summarized in
 [docs/release-notes-v2.2.md](docs/release-notes-v2.2.md).
 
 ## Documentation
@@ -75,7 +67,7 @@ reliability candidate is summarized in
 | v1.1 operability release | [v1.1 release notes](docs/release-notes-v1.1.md) |
 | v2 alert-delivery release | [v2 release notes](docs/release-notes-v2.md) |
 | v2.1 dead-letter recovery release | [v2.1 release notes](docs/release-notes-v2.1.md) |
-| v2.2 RCON reliability candidate | [v2.2 release notes](docs/release-notes-v2.2.md) |
+| v2.2 RCON reliability release | [v2.2 release notes](docs/release-notes-v2.2.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
@@ -501,23 +493,17 @@ The spike follows Valve's documented A2S server query format:
 
 The public repository is configured with private vulnerability reporting,
 Dependabot security updates, and a protected `main` workflow. The
-[GoldSrcOps v2.1.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.1.0)
-adds Reader dead-letter inspection, audited and
-idempotent Operator replay, durable replay lookup, additive replay persistence,
-and low-cardinality replay telemetry without changing existing endpoint or
-delivery contracts. It was published from a signed annotated tag after the
-required pull-request, post-merge, and tag-triggered checks passed. Detailed
-evidence is recorded in [docs/v2.1-readiness.md](docs/v2.1-readiness.md), while
-[v2.0.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0) remains the
-preceding stable release.
-
-The `v2.2.0` release candidate adds bounded multi-datagram RCON response
+[GoldSrcOps v2.2.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.2.0)
+adds bounded multi-datagram RCON response
 collection, endpoint isolation, one end-to-end deadline, explicit receive
 ceilings, and failure instead of known partial success. The implementation,
-owned-server verification, final candidate integration, and corrective RCON
-deadline-test verification are complete on protected `main`; signed tagging,
-tag-triggered checks, and GitHub Release publication remain. See
-[docs/v2.2-readiness.md](docs/v2.2-readiness.md).
+owned-server verification, corrective RCON deadline-test verification, and
+release workflow are complete. It was published from a signed annotated tag
+after the required pull-request, post-merge, and tag-triggered checks passed.
+Detailed evidence is recorded in
+[docs/v2.2-readiness.md](docs/v2.2-readiness.md), while
+[v2.1.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.1.0) remains the
+preceding stable release.
 
 ## License
 
