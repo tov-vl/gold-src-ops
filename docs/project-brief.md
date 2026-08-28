@@ -78,6 +78,9 @@ Current implementation:
   inspection, audited single-message replay, additive replay persistence, and
   replay observability in `docs/release-notes-v2.1.md` and
   `docs/v2.1-readiness.md`.
+- A prepared v2.2.0 release candidate covering bounded multi-datagram RCON
+  responses, endpoint isolation, validated receive limits, and owned-server
+  evidence in `docs/release-notes-v2.2.md` and `docs/v2.2-readiness.md`.
 
 The original `A2S_INFO` console spike remains available as a protocol diagnostic
 tool, and its live query was verified against a public GoldSrc server. See the
@@ -91,13 +94,15 @@ lifecycle logs, and release-gate verification are implemented and integrated
 through protected `main`. Final candidate integration, signed tagging,
 tag-triggered verification, and GitHub Release publication are complete.
 
-The active v2.2 slice hardens the existing GoldSrc RCON integration by
+The v2.2 slice hardens the existing GoldSrc RCON integration by
 collecting bounded multi-datagram command responses under one end-to-end
 deadline. The collector, receive limits, endpoint isolation, and synthetic UDP
 coverage are implemented without changing the HTTP or database contracts.
 Owned-server verification is complete against an isolated local ReHLDS
-instance. Protected-main integration and release evidence remain before
-v2.2.0; the design and residual UDP limits are recorded in
+instance. Pull request #20 integrated the implementation through protected
+`main`, and its post-merge checks passed. Final candidate integration, signed
+tagging, tag-triggered verification, and GitHub Release publication remain; the
+design and residual UDP limits are recorded in
 `docs/v2.2-rcon-response-reliability.md`.
 
 ## MVP Goal

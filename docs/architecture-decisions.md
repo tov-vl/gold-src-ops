@@ -558,7 +558,9 @@ Implementation status:
 
 The collector, endpoint isolation, validated defaults, protocol parsing, and
 synthetic UDP coverage are implemented for v2.2.0. Timing and framing were
-verified against an isolated local ReHLDS instance; protected-main integration
-and release evidence remain. Detailed bounds and residual UDP limitations are
-recorded in
-`docs/v2.2-rcon-response-reliability.md` and `docs/rcon.md`.
+verified against an isolated local ReHLDS instance, and pull request #20
+integrated the implementation through protected `main` with successful
+post-merge checks. Final candidate integration, signed tagging, tag-triggered
+verification, and release publication remain. Detailed bounds and residual UDP
+limitations are recorded in `docs/v2.2-rcon-response-reliability.md`,
+`docs/v2.2-readiness.md`, and `docs/rcon.md`.

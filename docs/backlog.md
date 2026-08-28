@@ -311,25 +311,28 @@ A second delivery channel, broker, service extraction, bulk replay, and a
 distributed polling claim remain deferred until their scaling, receiver, or
 ownership requirements become concrete.
 
-## Active v2.2.0 Milestone
+## v2.2.0 Release Candidate
 
-GoldSrcOps v2.2.0 is planned as a backward-compatible RCON reliability release.
-The design and accepted protocol limits are documented in
-`docs/v2.2-rcon-response-reliability.md`.
+GoldSrcOps v2.2.0 is prepared as a backward-compatible RCON reliability release
+candidate. The design and accepted protocol limits are documented in
+`docs/v2.2-rcon-response-reliability.md`; candidate notes and evidence are in
+`docs/release-notes-v2.2.md` and `docs/v2.2-readiness.md`. Published `v2.1.0`
+remains the current stable release until this candidate is tagged and
+published.
 
-Why this work is next:
+Why this work was selected:
 
 - The pre-v2.2 RCON client read exactly one command-response datagram even though
   a server can flush longer console output through several ordinary
   `A2A_PRINT` datagrams.
-- The active reliability slice prevents this known partial-success path within
+- The reliability slice prevents this known partial-success path within
   documented receive bounds.
 - The fix stays inside the current modular-monolith and RCON boundaries. It
   requires no public API or database-schema change.
 - Deferred broker, second-channel, bulk-replay, service-extraction, and
   distributed-polling work still lacks a concrete scaling or ownership need.
 
-Implemented in the current reviewable slice:
+Completed and integrated slices:
 
 1. Preserve `A2A_PRINT` chunk boundaries until final normalization and assemble
    single or multi-datagram responses in receive order.
@@ -344,14 +347,18 @@ Implemented in the current reviewable slice:
 6. Verify guarded `say` dispatch plus multi-datagram timing and framing with a
    read-only `cvarlist` command against an isolated local ReHLDS 3.14.0.857
    instance.
+7. Integrate the implementation through protected `main` in pull request #20
+   and pass its required pull-request and genuine post-merge checks on
+   `f6baf40`.
 
-Remaining release gates:
+Remaining publication steps:
 
-1. Local quality, production container smoke, and owned-server verification are
-   green. Run the required
-   remote checks and integrate through protected `main`.
-2. Prepare release-readiness evidence, a signed tag, and the v2.2.0 GitHub
-   Release only after the implementation and live verification are accepted.
+1. Integrate this final release candidate through protected `main` and verify
+   its required pull-request and genuine post-merge checks.
+2. Create and push the signed annotated `v2.2.0` tag, then verify its
+   tag-triggered `Quality Gate` and `Container Smoke`.
+3. Publish the v2.2.0 GitHub Release from the candidate notes and record final
+   publication status in repository documentation.
 
 Definition of done:
 
