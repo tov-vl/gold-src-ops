@@ -557,7 +557,8 @@ Alternatives considered:
 Implementation status:
 
 The collector, endpoint isolation, validated defaults, protocol parsing, and
-synthetic UDP coverage are implemented for v2.2.0. Owned-server timing capture,
-protected-main integration, and release evidence remain. Detailed bounds and
-residual UDP limitations are recorded in
+synthetic UDP coverage are implemented for v2.2.0. Timing and framing were
+verified against an isolated local ReHLDS instance; protected-main integration
+and release evidence remain. Detailed bounds and residual UDP limitations are
+recorded in
 `docs/v2.2-rcon-response-reliability.md` and `docs/rcon.md`.

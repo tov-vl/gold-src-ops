@@ -341,14 +341,16 @@ Implemented in the current reviewable slice:
    ceilings, continuous response flow, first-response timeout, and endpoint
    isolation with synthetic UDP tests.
 5. Update tracked defaults, deployment guidance, and RCON operations guidance.
+6. Verify guarded `say` dispatch plus multi-datagram timing and framing with a
+   read-only `cvarlist` command against an isolated local ReHLDS 3.14.0.857
+   instance.
 
 Remaining release gates:
 
-1. Verify timing and framing against an owned GoldSrc server with the guarded
-   live-smoke workflow and a safe output-producing command.
-2. Local quality and production container smoke are green. Run the required
+1. Local quality, production container smoke, and owned-server verification are
+   green. Run the required
    remote checks and integrate through protected `main`.
-3. Prepare release-readiness evidence, a signed tag, and the v2.2.0 GitHub
+2. Prepare release-readiness evidence, a signed tag, and the v2.2.0 GitHub
    Release only after the implementation and live verification are accepted.
 
 Definition of done:

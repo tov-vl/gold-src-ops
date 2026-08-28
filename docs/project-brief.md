@@ -95,8 +95,9 @@ The active v2.2 slice hardens the existing GoldSrc RCON integration by
 collecting bounded multi-datagram command responses under one end-to-end
 deadline. The collector, receive limits, endpoint isolation, and synthetic UDP
 coverage are implemented without changing the HTTP or database contracts.
-Owned-server verification and release evidence remain before v2.2.0; the design
-and residual UDP limits are recorded in
+Owned-server verification is complete against an isolated local ReHLDS
+instance. Protected-main integration and release evidence remain before
+v2.2.0; the design and residual UDP limits are recorded in
 `docs/v2.2-rcon-response-reliability.md`.
 
 ## MVP Goal

@@ -113,8 +113,11 @@ The quiet interval is necessarily heuristic: legacy RCON responses carry no
 response id, fragment count, sequence number, or completion marker. UDP loss,
 reordering, duplication, or a final datagram delayed beyond the quiet interval
 cannot be detected. The defaults are covered by synthetic timing tests; an
-owned-server capture remains a v2.2.0 release gate and may justify tuning the
-quiet interval before publication.
+isolated local ReHLDS 3.14.0.857 capture produced 12 command-response
+datagrams, 16,549 aggregate wire bytes, and an 8.206 ms maximum inter-datagram
+gap for the read-only `cvarlist` command. The 100 ms default quiet interval is
+retained. This single controlled capture does not remove the protocol limits
+or guarantee equivalent timing under packet loss or production load.
 
 ## Serialization And Recovery
 
