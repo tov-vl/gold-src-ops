@@ -152,7 +152,9 @@ public sealed class GoldSrcRconClientTests
         var serverEndpoint = GetLocalEndpoint(server);
         using var serverCts = new CancellationTokenSource();
         var serverTask = RunContinuousRconServerAsync(server, serverCts.Token);
-        var sut = CreateSut(maxResponseDatagrams: 128);
+        var sut = CreateSut(
+            maxResponseDatagrams: 128,
+            responseDrainInterval: TimeSpan.FromSeconds(1));
 
         var act = () => sut.ExecuteAsync(
             Request(serverEndpoint, timeout: TimeSpan.FromMilliseconds(250)),
@@ -189,12 +191,13 @@ public sealed class GoldSrcRconClientTests
 
     private static GoldSrcRconClient CreateSut(
         int maxResponseDatagrams = 32,
-        int maxResponseBytes = 64 * 1_024) =>
+        int maxResponseBytes = 64 * 1_024,
+        TimeSpan? responseDrainInterval = null) =>
         new(
             Encoding,
             new GoldSrcRconOptions
             {
-                ResponseDrainInterval = TestDrainInterval,
+                ResponseDrainInterval = responseDrainInterval ?? TestDrainInterval,
                 MaxResponseDatagrams = maxResponseDatagrams,
                 MaxResponseBytes = maxResponseBytes
             });
