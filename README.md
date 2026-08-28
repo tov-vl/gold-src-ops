@@ -16,6 +16,13 @@ available in
 [docs/release-notes-v2.1.md](docs/release-notes-v2.1.md) and
 [docs/v2.1-readiness.md](docs/v2.1-readiness.md).
 
+`v2.2.0` is prepared as a release candidate for bounded multi-datagram RCON
+responses. It is not yet tagged or published. The implementation, isolated
+owned-server verification, protected-main integration, and post-merge checks
+are complete. Candidate notes and readiness evidence are available in
+[docs/release-notes-v2.2.md](docs/release-notes-v2.2.md) and
+[docs/v2.2-readiness.md](docs/v2.2-readiness.md).
+
 ## Highlights
 
 - Scheduled `A2S_INFO` polling with challenge handling and legacy
@@ -28,7 +35,8 @@ available in
   single-message replay restricted to Operators.
 - JWT bearer authentication with explicit `Reader` and `Operator` policies.
 - Durable RCON command queue with per-server serialization, interrupted-command
-  recovery, external secret references, and payload-safe lifecycle logs.
+  recovery, bounded multi-datagram responses, external secret references, and
+  payload-safe lifecycle logs.
 - Liveness, database readiness, structured logging, and OpenTelemetry
   Prometheus metrics.
 - Bounded snapshot retention with PostgreSQL integration and concurrency tests.
@@ -52,7 +60,9 @@ operability delta is covered by
 is summarized in
 [docs/release-notes-v2.md](docs/release-notes-v2.md). The compatible v2.1
 dead-letter recovery release is summarized in
-[docs/release-notes-v2.1.md](docs/release-notes-v2.1.md).
+[docs/release-notes-v2.1.md](docs/release-notes-v2.1.md). The v2.2 RCON
+reliability candidate is summarized in
+[docs/release-notes-v2.2.md](docs/release-notes-v2.2.md).
 
 ## Documentation
 
@@ -63,6 +73,7 @@ dead-letter recovery release is summarized in
 | v1.1 operability release | [v1.1 release notes](docs/release-notes-v1.1.md) |
 | v2 alert-delivery release | [v2 release notes](docs/release-notes-v2.md) |
 | v2.1 dead-letter recovery release | [v2.1 release notes](docs/release-notes-v2.1.md) |
+| v2.2 RCON reliability candidate | [v2.2 release notes](docs/release-notes-v2.2.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
@@ -72,12 +83,13 @@ dead-letter recovery release is summarized in
 | Vulnerability reporting | [Security policy](.github/SECURITY.md) |
 | Container rollout, migrations, and rollback | [Deployment](docs/deployment.md) |
 | RCON safety and recovery | [RCON operations](docs/rcon.md) |
-| Active v2.2 RCON response reliability | [RCON response design](docs/v2.2-rcon-response-reliability.md) |
+| v2.2 RCON response reliability | [RCON response design](docs/v2.2-rcon-response-reliability.md) |
 | Full local verification | [Smoke test](docs/smoke-test.md) |
 | MVP evidence | [v1 readiness](docs/v1-readiness.md) |
 | v1.1 release evidence | [v1.1 readiness](docs/v1.1-readiness.md) |
 | v2 alert delivery evidence | [v2 readiness](docs/v2-readiness.md) |
 | v2.1 dead-letter recovery evidence | [v2.1 readiness](docs/v2.1-readiness.md) |
+| v2.2 RCON reliability evidence | [v2.2 readiness](docs/v2.2-readiness.md) |
 
 ## Prerequisites
 
@@ -496,6 +508,14 @@ required pull-request, post-merge, and tag-triggered checks passed. Detailed
 evidence is recorded in [docs/v2.1-readiness.md](docs/v2.1-readiness.md), while
 [v2.0.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.0.0) remains the
 preceding stable release.
+
+The `v2.2.0` release candidate adds bounded multi-datagram RCON response
+collection, endpoint isolation, one end-to-end deadline, explicit receive
+ceilings, and failure instead of known partial success. The implementation and
+owned-server verification are integrated into protected `main`; final candidate
+integration, signed tagging, tag-triggered checks, and GitHub Release
+publication remain. See
+[docs/v2.2-readiness.md](docs/v2.2-readiness.md).
 
 ## License
 
