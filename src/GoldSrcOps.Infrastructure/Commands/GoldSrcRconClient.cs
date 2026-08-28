@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -7,41 +6,70 @@ namespace GoldSrcOps.Infrastructure.Commands;
 
 internal sealed class GoldSrcRconClient : IGoldSrcRconClient
 {
-    private readonly Encoding _textEncoding;
+    private const string TimeoutMessage = "GoldSrc RCON response timed out.";
 
-    public GoldSrcRconClient(Encoding textEncoding)
+    private readonly Encoding _textEncoding;
+    private readonly GoldSrcRconOptions _options;
+
+    public GoldSrcRconClient(Encoding textEncoding, GoldSrcRconOptions options)
     {
+        ArgumentNullException.ThrowIfNull(textEncoding);
+        ArgumentNullException.ThrowIfNull(options);
+
         _textEncoding = textEncoding;
+        _options = options;
     }
 
     public async Task<string> ExecuteAsync(GoldSrcRconRequest request, CancellationToken cancellationToken)
     {
-        var endpoint = await ResolveEndpointAsync(request.Host, request.Port, cancellationToken);
+        using var deadlineCts = new CancellationTokenSource(request.Timeout);
+        using var operationCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            deadlineCts.Token);
 
-        using var udp = new UdpClient(AddressFamily.InterNetwork);
+        try
+        {
+            var endpoint = await ResolveEndpointAsync(request.Host, request.Port, operationCts.Token);
 
-        var stopwatch = Stopwatch.StartNew();
+            using var udp = new UdpClient(AddressFamily.InterNetwork);
+            udp.Connect(endpoint);
 
-        await udp.SendAsync(GoldSrcRconProtocol.BuildChallengeRequest(_textEncoding), endpoint, cancellationToken);
-        var challengeResponse = await ReceiveAsync(udp, request.Timeout, cancellationToken);
-        var challenge = GoldSrcRconProtocol.ParseChallengeResponse(challengeResponse.Buffer, _textEncoding);
+            await udp.SendAsync(
+                GoldSrcRconProtocol.BuildChallengeRequest(_textEncoding),
+                operationCts.Token);
 
-        var commandRequest = GoldSrcRconProtocol.BuildCommandRequest(
-            challenge,
-            request.Password,
-            request.CommandText,
-            _textEncoding);
+            var challengeResponse = await udp.ReceiveAsync(operationCts.Token);
+            var challenge = GoldSrcRconProtocol.ParseChallengeResponse(
+                challengeResponse.Buffer,
+                _textEncoding);
 
-        await udp.SendAsync(commandRequest, endpoint, cancellationToken);
-        var commandResponse = await ReceiveAsync(
-            udp,
-            RemainingTimeout(request.Timeout, stopwatch.Elapsed),
-            cancellationToken);
+            var commandRequest = GoldSrcRconProtocol.BuildCommandRequest(
+                challenge,
+                request.Password,
+                request.CommandText,
+                _textEncoding);
 
-        return GoldSrcRconProtocol.ParseCommandResponse(commandResponse.Buffer, _textEncoding);
+            await udp.SendAsync(commandRequest, operationCts.Token);
+            var firstCommandResponse = await udp.ReceiveAsync(operationCts.Token);
+
+            return await ReceiveCommandResponseAsync(
+                udp,
+                firstCommandResponse.Buffer,
+                deadlineCts,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (
+            deadlineCts.IsCancellationRequested &&
+            !cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException(TimeoutMessage);
+        }
     }
 
-    private static async Task<IPEndPoint> ResolveEndpointAsync(string host, int port, CancellationToken cancellationToken)
+    private static async Task<IPEndPoint> ResolveEndpointAsync(
+        string host,
+        int port,
+        CancellationToken cancellationToken)
     {
         if (IPAddress.TryParse(host, out var parsedAddress))
         {
@@ -53,34 +81,81 @@ internal sealed class GoldSrcRconClient : IGoldSrcRconClient
             return new IPEndPoint(parsedAddress, port);
         }
 
-        var addresses = await Dns.GetHostAddressesAsync(host, AddressFamily.InterNetwork, cancellationToken);
+        var addresses = await Dns.GetHostAddressesAsync(
+            host,
+            AddressFamily.InterNetwork,
+            cancellationToken);
         var address = addresses.FirstOrDefault()
             ?? throw new InvalidOperationException($"Host '{host}' did not resolve to an IPv4 address.");
 
         return new IPEndPoint(address, port);
     }
 
-    private static async Task<UdpReceiveResult> ReceiveAsync(
+    private async Task<string> ReceiveCommandResponseAsync(
         UdpClient udp,
-        TimeSpan timeout,
+        byte[] firstDatagram,
+        CancellationTokenSource deadlineCts,
         CancellationToken cancellationToken)
     {
-        using var timeoutCts = new CancellationTokenSource(timeout);
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+        var response = new StringBuilder();
+        var datagramCount = 0;
+        var responseBytes = 0;
 
-        try
+        AppendResponseChunk(firstDatagram, response, ref datagramCount, ref responseBytes);
+
+        while (true)
         {
-            return await udp.ReceiveAsync(linkedCts.Token);
-        }
-        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-        {
-            throw new TimeoutException("GoldSrc RCON response timed out.");
+            using var drainCts = new CancellationTokenSource(_options.ResponseDrainInterval);
+            using var receiveCts = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                deadlineCts.Token,
+                drainCts.Token);
+
+            try
+            {
+                var commandResponse = await udp.ReceiveAsync(receiveCts.Token);
+                AppendResponseChunk(
+                    commandResponse.Buffer,
+                    response,
+                    ref datagramCount,
+                    ref responseBytes);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (OperationCanceledException) when (deadlineCts.IsCancellationRequested)
+            {
+                throw new GoldSrcRconProtocolException(
+                    "GoldSrc RCON response did not become quiet before the command deadline expired.");
+            }
+            catch (OperationCanceledException) when (drainCts.IsCancellationRequested)
+            {
+                return GoldSrcRconProtocol.NormalizeCommandResponse(response.ToString());
+            }
         }
     }
 
-    private static TimeSpan RemainingTimeout(TimeSpan timeout, TimeSpan elapsed)
+    private void AppendResponseChunk(
+        byte[] datagram,
+        StringBuilder response,
+        ref int datagramCount,
+        ref int responseBytes)
     {
-        var remaining = timeout - elapsed;
-        return remaining > TimeSpan.Zero ? remaining : TimeSpan.FromMilliseconds(1);
+        if (datagramCount >= _options.MaxResponseDatagrams)
+        {
+            throw new GoldSrcRconProtocolException(
+                "GoldSrc RCON response exceeded the configured datagram limit.");
+        }
+
+        if (datagram.Length > _options.MaxResponseBytes - responseBytes)
+        {
+            throw new GoldSrcRconProtocolException(
+                "GoldSrc RCON response exceeded the configured byte limit.");
+        }
+
+        response.Append(GoldSrcRconProtocol.ParseCommandResponseChunk(datagram, _textEncoding));
+        datagramCount++;
+        responseBytes += datagram.Length;
     }
 }

@@ -152,6 +152,9 @@ that are part of an intentional capacity or topology decision:
 | --- | ---: | --- |
 | `Polling__Enabled` | `true` | `true` on exactly one v1 process; `false` on every HTTP-only replica. |
 | `CommandDispatcher__Enabled` | `true` | May be enabled on multiple replicas because PostgreSQL owns command claims and per-server serialization. |
+| `Rcon__ResponseDrainMilliseconds` | `100` | Tune only from owned-server timing evidence; accepted range is `10` to `1000`. |
+| `Rcon__MaxResponseDatagrams` | `32` | Bounds response chunks accepted for one command; accepted range is `1` to `256`. |
+| `Rcon__MaxResponseBytes` | `65536` | Bounds aggregate wire bytes, including connectionless headers; accepted range is `5` to `1048576`. |
 | `SnapshotRetention__Enabled` | `true` | `true` on one process; `false` on other replicas to avoid redundant cleanup contention. |
 | `SnapshotRetention__RetentionDays` | `30` | Tune with the validated limits and metrics in `docs/snapshot-retention.md`. |
 | `AlertDelivery__Enabled` | `false` | Enable after the additive outbox migration and receiver readiness are verified; multiple replicas are supported. |

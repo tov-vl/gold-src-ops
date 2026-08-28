@@ -75,7 +75,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandExecutionRepository, EfCommandExecutionRepository>();
         services.AddSingleton<ISecretReferenceResolver, ConfigurationSecretReferenceResolver>();
         services.AddSingleton<IGoldSrcRconClient>(_ =>
-            new GoldSrcRconClient(Encoding.GetEncoding("windows-1251")));
+            new GoldSrcRconClient(Encoding.GetEncoding("windows-1251"), rconOptions));
         services.AddScoped<IRconCommandExecutor, GoldSrcRconCommandExecutor>();
         services.AddScoped<CommandDispatcher>();
         services.AddScoped<ServerPollingService>();

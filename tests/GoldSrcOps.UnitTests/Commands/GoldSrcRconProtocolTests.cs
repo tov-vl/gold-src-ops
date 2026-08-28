@@ -49,13 +49,42 @@ public sealed class GoldSrcRconProtocolTests
     }
 
     [Fact]
-    public void ParseCommandResponse_detects_bad_password_response()
+    public void ParseCommandResponseChunk_preserves_chunk_boundaries_until_final_normalization()
+    {
+        var firstChunk = GoldSrcRconProtocol.ParseCommandResponseChunk(
+            Packet("l first "),
+            Encoding);
+        var secondChunk = GoldSrcRconProtocol.ParseCommandResponseChunk(
+            Packet("lsecond\n "),
+            Encoding);
+
+        firstChunk.Should().Be(" first ");
+        secondChunk.Should().Be("second\n ");
+        GoldSrcRconProtocol.NormalizeCommandResponse(firstChunk + secondChunk)
+            .Should().Be("first second");
+    }
+
+    [Theory]
+    [InlineData("Bad rcon_password.\n")]
+    [InlineData("lBad rcon_password.\n")]
+    public void ParseCommandResponse_detects_bad_password_response(string payload)
     {
         var act = () => GoldSrcRconProtocol.ParseCommandResponse(
-            Packet("Bad rcon_password.\n"),
+            Packet(payload),
             Encoding);
 
         act.Should().Throw<GoldSrcRconAuthenticationException>();
+    }
+
+    [Fact]
+    public void ParseCommandResponse_rejects_non_print_response()
+    {
+        var act = () => GoldSrcRconProtocol.ParseCommandResponse(
+            Packet("unexpected response\n"),
+            Encoding);
+
+        act.Should().Throw<GoldSrcRconProtocolException>()
+            .WithMessage("*response type*");
     }
 
     private static byte[] Packet(string payload)
