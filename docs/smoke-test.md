@@ -13,7 +13,8 @@ pwsh -NoProfile -File .\tools\smoke\container.ps1
 ```
 
 The script builds a uniquely tagged image, verifies its non-root runtime and
-publish contents, checks that missing production configuration fails fast,
+OCI metadata, verifies that the SDK, repository metadata, and local settings
+are absent, checks that missing production configuration fails fast,
 and proves that Production rejects an HTTP alert webhook. It starts an isolated
 PostgreSQL container and applies EF Core migrations as a separate host-side
 action. It then starts the API with alert delivery enabled, a read-only
@@ -30,8 +31,24 @@ All temporary containers and the dedicated Docker network are removed in a
 `finally` block. The temporary image tag is also removed by default; pass
 `-KeepImage` only when it is needed for local troubleshooting.
 
+To verify a published release or a rollback candidate, pass an immutable digest
+instead of rebuilding source:
+
+```powershell
+$image = "ghcr.io/tov-vl/gold-src-ops@sha256:<digest>"
+pwsh -NoProfile -File .\tools\smoke\container.ps1 `
+  -ImageReference $image
+```
+
+The release workflow also supplies the expected source, revision, and version
+labels so a registry artifact cannot silently point at different release
+metadata. Registry authentication, when required by package visibility, must be
+completed before running the command.
+
 GitHub Actions runs the same command in the dependent `Container Smoke` job
-after the regular `Quality Gate` succeeds.
+after the regular `Quality Gate` succeeds. For a release tag,
+`Verify Published Image` reruns it against the newly published digest using
+package-read permission.
 
 ## Fast Path
 
