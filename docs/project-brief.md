@@ -78,7 +78,7 @@ Current implementation:
   inspection, audited single-message replay, additive replay persistence, and
   replay observability in `docs/release-notes-v2.1.md` and
   `docs/v2.1-readiness.md`.
-- A prepared v2.2.0 release candidate covering bounded multi-datagram RCON
+- Published v2.2.0 release evidence covering bounded multi-datagram RCON
   responses, endpoint isolation, validated receive limits, and owned-server
   evidence in `docs/release-notes-v2.2.md` and `docs/v2.2-readiness.md`.
 
@@ -100,9 +100,11 @@ deadline. The collector, receive limits, endpoint isolation, and synthetic UDP
 coverage are implemented without changing the HTTP or database contracts.
 Owned-server verification is complete against an isolated local ReHLDS
 instance. Pull request #20 integrated the implementation through protected
-`main`, and its post-merge checks passed. Final candidate integration, signed
-tagging, tag-triggered verification, and GitHub Release publication remain; the
-design and residual UDP limits are recorded in
+`main`, and pull request #23 integrated the final release documentation.
+Post-merge run #76 and signed-tag run #77 passed on release revision `9e02f07`.
+Final candidate integration, signed tagging, tag-triggered verification, and
+GitHub Release publication are complete; the design and residual UDP limits are
+recorded in
 `docs/v2.2-rcon-response-reliability.md`.
 
 ## MVP Goal
