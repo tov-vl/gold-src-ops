@@ -74,6 +74,7 @@ reliability release is summarized in
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Active v2.3 reference deployment plan | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
 | Active v2.3 game-server baseline | [Controlled game-server baseline](docs/v2.3-controlled-gameserver-baseline.md) |
+| Active v2.3 game-server provider decision | [Game-server provider decision](docs/v2.3-gameserver-provider-decision.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
 | Alert delivery configuration and recovery | [Alert delivery operations](docs/alert-delivery.md) |
 | Dead-letter inspection and replay contract | [Dead-letter replay design](docs/dead-letter-replay.md) |

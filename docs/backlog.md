@@ -397,8 +397,10 @@ Architecture Decisions 16 and 17; the reviewable delivery plan is recorded in
 
 Milestone status: architecture and delivery plan accepted; immutable GHCR image
 publication is integrated, and the controlled game-server baseline contract is
-defined. Its first release digest, provider selection, external server
-provisioning, and target-environment evidence remain incomplete.
+defined. A self-operated MyArena game VDS is conditionally selected, with
+purchase-time checks and Timeweb Cloud fallback documented. The first release
+digest, infrastructure purchase, external server provisioning, and
+target-environment evidence remain incomplete.
 
 Why this work is selected:
 
@@ -421,10 +423,12 @@ Planned reviewable slices:
 2. Implemented: publish an immutable application image from a verified release
    revision and deploy it by registry digest with a documented rollback digest.
    The first GHCR publication and digest evidence await the next release tag.
-3. In progress: use `docs/v2.3-controlled-gameserver-baseline.md` to select and
-   provision one controlled ReHLDS and ReGameDLL_CS server outside the
-   control-plane host. Provider selection, provisioning, external baseline
-   polling, guarded RCON, restart/restore, and no-bot evidence remain pending.
+3. In progress: use `docs/v2.3-controlled-gameserver-baseline.md` to provision
+   one controlled ReHLDS and ReGameDLL_CS server outside the control-plane
+   host. The conditional provider decision is recorded in
+   `docs/v2.3-gameserver-provider-decision.md`; pre-purchase checks,
+   provisioning, external baseline polling, guarded RCON, restart/restore, and
+   no-bot evidence remain pending.
 4. Deploy the single-node reference control plane with PostgreSQL, TLS reverse
    proxy, external OIDC integration, secret injection, serialized migrations,
    and off-host backup and restore evidence.

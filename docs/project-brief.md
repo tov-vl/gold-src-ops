@@ -121,8 +121,11 @@ Collector, or include a web operator experience. These are delivery gaps rather
 than missing v2.2 release requirements. The active v2.3 plan closes the
 deployment and observability gaps before frontend or gameplay-agent work
 begins. Slice 2 starts with the provider-independent controlled game-server
-contract in `docs/v2.3-controlled-gameserver-baseline.md`; the full sequence is
-recorded in `docs/v2.3-production-deployment.md`.
+contract in `docs/v2.3-controlled-gameserver-baseline.md`. Its conditional
+game-host selection and pre-purchase gate are recorded in
+`docs/v2.3-gameserver-provider-decision.md`; no external server has been
+purchased or provisioned. The full sequence is recorded in
+`docs/v2.3-production-deployment.md`.
 
 ## MVP Goal
 
