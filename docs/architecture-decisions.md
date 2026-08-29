@@ -720,3 +720,90 @@ References:
 - [OpenTelemetry Collector deployment patterns](https://opentelemetry.io/docs/collector/deploy/)
 - [OTLP exporter configuration](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/)
 - [OpenTelemetry .NET Prometheus exporter status](https://github.com/open-telemetry/opentelemetry-dotnet/blob/main/src/OpenTelemetry.Exporter.Prometheus.AspNetCore/README.md)
+
+## Decision 18: Use Encrypted Logical Backups With Verified Restore Rehearsals
+
+Decision:
+
+Use PostgreSQL custom-format logical dumps streamed directly into a
+client-side encrypted restic repository outside the control-plane host. The
+first production backend is S3-compatible object storage over HTTPS. Do not
+write a plaintext dump to host storage.
+
+A snapshot starts as pending and becomes eligible for restore only after both
+`pg_dump` and restic return zero and restic validates repository structure.
+Repository data checks and a network-isolated restore rehearsal are separate
+mandatory operations. The rehearsal restores through `pg_restore`, applies the
+migration bundle from the exact configured API image, and verifies migration
+history and required application tables before deleting its disposable volumes.
+
+Decision date: 2026-08-29.
+
+Reasoning:
+
+- The first deployment has one small PostgreSQL database and no demonstrated
+  point-in-time recovery requirement. A portable logical backup is easier to
+  inspect and rehearse than a provider-specific physical snapshot.
+- Streaming keeps plaintext database contents off the host filesystem while
+  restic provides client-side encryption, integrity metadata, and off-host
+  backend support.
+- Checking both sides of the stdin pipeline avoids accepting a restic snapshot
+  when `pg_dump` failed or produced an incomplete stream.
+- A repository check alone does not prove application recovery. Restoring into
+  disposable PostgreSQL and running the same-image migration bundle exercises
+  the database, schema, and deployable artifact together.
+- One exclusive host lock serializes backup, repository checks, and rehearsals;
+  restic's repository lock protects the shared backend independently.
+- Sanitized evidence can record the exact snapshot and image digests without
+  exposing database or object-storage credentials.
+
+Security and operational implications:
+
+- Pin PostgreSQL, restic, and API images by reviewed SHA-256 digest in the
+  target environment.
+- Keep the restic password and repository-scoped S3 credential in separate
+  root-owned files outside Git. Retain the encryption password in an independent
+  recovery escrow.
+- Treat root and Docker-daemon administration as privileged access to mounted
+  secrets and backend environment values.
+- Run a backup immediately before migration, scheduled backups at least daily
+  for the initial target, sampled data checks routinely, and a full data check
+  plus restore rehearsal before the first rollout.
+- Record measured backup and recovery durations before adopting a recovery-time
+  objective. Daily scheduling initially implies up to approximately 24 hours of
+  schedule-derived data loss.
+- Define snapshot expiration before enabling destructive automated pruning.
+  The first implementation deliberately does not run `forget --prune`.
+
+Alternatives considered:
+
+- Store dumps on the control-plane VPS. Rejected because the database and its
+  backup would share one failure domain.
+- Rely only on provider volume snapshots. Rejected as the baseline because
+  portability, application-level restore verification, and provider independence
+  would be weaker. Provider snapshots may be an additional layer.
+- Add continuous WAL archiving and point-in-time recovery immediately. Deferred
+  until the measured write rate, recovery objectives, or incident evidence
+  justify the additional lifecycle and restoration complexity.
+- Use managed PostgreSQL backups only. Kept compatible, but they do not replace
+  target evidence that the GoldSrcOps schema and application artifact can be
+  restored together.
+- Automatically restore after a failed rollout. Rejected because restoration
+  overwrites database state and requires an explicit downtime and data-loss
+  decision.
+
+Implementation status:
+
+Implemented for v2.3 in `ops/production/postgres-backup.ps1`,
+`ops/production/postgres-restore-rehearsal.ps1`, and the container smoke flow.
+Local evidence covers an encrypted backup, full repository data check, eight
+migrations, required tables, and a restored control record. The selected remote
+repository, target-host scheduling, retention policy, recovery duration, and
+off-host restore evidence remain deployment gates.
+
+References:
+
+- [restic repository preparation](https://restic.readthedocs.io/en/stable/030_preparing_a_new_repo.html)
+- [restic backup from stdin](https://restic.readthedocs.io/en/stable/040_backup.html#reading-data-from-stdin)
+- [restic integrity checks](https://restic.readthedocs.io/en/stable/045_working_with_repos.html#checking-integrity-and-consistency)
+- [restic dump](https://restic.readthedocs.io/en/stable/050_restore.html#printing-files-to-stdout)

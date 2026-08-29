@@ -124,7 +124,10 @@ begins. Slice 2 starts with the provider-independent controlled game-server
 contract in `docs/v2.3-controlled-gameserver-baseline.md`. Its conditional
 game-host selection and pre-purchase gate are recorded in
 `docs/v2.3-gameserver-provider-decision.md`; no external server has been
-purchased or provisioned. The full sequence is recorded in
+purchased or provisioned. Slice 3 now includes a provider-independent Compose
+contract, same-image migration action, and encrypted off-host PostgreSQL backup
+and isolated restore-rehearsal automation. Target-host recovery evidence remains
+pending. The full sequence is recorded in
 `docs/v2.3-production-deployment.md`.
 
 ## MVP Goal

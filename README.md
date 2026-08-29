@@ -74,6 +74,7 @@ reliability release is summarized in
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Active v2.3 reference deployment plan | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
 | Active v2.3 production Compose contract | [Reference production Compose](ops/production/README.md) |
+| PostgreSQL off-host backup and restore | [PostgreSQL backup](docs/postgresql-backup.md) |
 | Active v2.3 game-server baseline | [Controlled game-server baseline](docs/v2.3-controlled-gameserver-baseline.md) |
 | Active v2.3 game-server provider decision | [Game-server provider decision](docs/v2.3-gameserver-provider-decision.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
@@ -437,7 +438,8 @@ dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 GitHub Actions runs the same quality gate on every push and pull request. After
 it succeeds, a dependent `Container Smoke` job builds the production image,
 applies its embedded migration bundle twice to isolated PostgreSQL, and checks
-runtime hardening, alert configuration, log-safety, and health contracts. An
+runtime hardening, alert configuration, log-safety, health contracts, and an
+encrypted backup, full repository data check, and isolated restore rehearsal. An
 exact annotated
 `v<major>.<minor>.<patch>` tag adds `Publish Image` and
 `Verify Published Image`: they publish immutable release and full-revision tags
@@ -456,8 +458,9 @@ Run `pwsh -NoProfile -File .\tools\smoke\container.ps1` to build and verify the
 production container against an isolated PostgreSQL instance. See
 `docs/smoke-test.md` for details and for the longer live GoldSrc server flow.
 Use `docs/deployment.md` for image versioning, production configuration,
-migrations, probes, and rollback. Alert-specific rollout and recovery guidance
-is in `docs/alert-delivery.md`.
+migrations, probes, and rollback. PostgreSQL recovery operations are in
+`docs/postgresql-backup.md`; alert-specific rollout and recovery guidance is in
+`docs/alert-delivery.md`.
 
 For a concise five-to-ten-minute portfolio walkthrough, use `docs/demo.md`.
 
