@@ -9,8 +9,9 @@ and does not make the v2.3 milestone complete.
 
 The `runtime` profile must not be enabled on a target until preflight succeeds,
 a restorable backup exists, and the one-shot migration action has successfully
-migrated that database. Backup/restore, external identity, public HTTPS,
-firewall, and recovery evidence remain pending.
+migrated that database. Backup and restore automation is implemented, but its
+off-host target evidence, external identity, public HTTPS, firewall, and broader
+recovery evidence remain pending.
 
 ## Topology
 
@@ -55,6 +56,8 @@ Create these separate secret files outside the repository:
 | `GOLDSRCOPS_POSTGRES_PASSWORD_FILE` | PostgreSQL role password used during database initialization. |
 | `GOLDSRCOPS_DATABASE_CONNECTION_FILE` | Complete single-line Npgsql connection string using the shared Unix socket. |
 | `GOLDSRCOPS_RCON_PASSWORD_FILE` | Single-line RCON password for `GOLDSRCOPS_RCON_SECRET_ALIAS`. |
+| `GOLDSRCOPS_RESTIC_PASSWORD_FILE` | Independent password for client-side backup encryption. |
+| `GOLDSRCOPS_RESTIC_ENVIRONMENT_FILE` | Repository-scoped S3-compatible backend credentials. |
 
 Docker Compose implements file-backed secrets as bind mounts and cannot remap
 their ownership. On Linux, create the PostgreSQL password file with owner UID
@@ -86,11 +89,45 @@ Unix-socket boundaries, verifies the trusted proxy address, and checks secret
 file location and permissions without printing secret contents. It also uses the
 configured digest-pinned Caddy image to validate the tracked Caddyfile. Full
 deployment mode pulls the API image, verifies its non-root UID, and requires the
-image-contained secret-loading entrypoint and migration bundle.
+image-contained secret-loading entrypoint and migration bundle. It also pulls
+the digest-pinned restic image and validates the off-host HTTPS repository and
+backup secret boundaries.
 
 CI validates the tracked template with `-ContractOnly`. That mode deliberately
 accepts placeholder digests and does not prove target-host files, DNS, firewall,
 TLS issuance, identity metadata, migrations, or persistence.
+
+## Backup And Restore
+
+`postgres-backup.ps1` initializes, creates, and checks client-side encrypted
+off-host backups. `postgres-restore-rehearsal.ps1` restores a recoverable
+snapshot into disposable network-isolated PostgreSQL, runs the migration bundle
+from the configured API image, verifies required tables and migration history,
+and removes all decrypted volumes.
+
+The scripts share one exclusive host lock and write optional sanitized evidence
+only to an operator-selected path outside the repository. Configure and verify
+the complete workflow before enabling `runtime`:
+
+```powershell
+pwsh -NoProfile -File ./ops/production/postgres-backup.ps1 `
+  -Action Create `
+  -EnvironmentFile /etc/goldsrcops/deployment.env `
+  -EvidenceFile /var/lib/goldsrcops/evidence/postgres-backup.json
+
+pwsh -NoProfile -File ./ops/production/postgres-backup.ps1 `
+  -Action Check `
+  -EnvironmentFile /etc/goldsrcops/deployment.env `
+  -ReadDataSubset 100%
+
+pwsh -NoProfile -File ./ops/production/postgres-restore-rehearsal.ps1 `
+  -EnvironmentFile /etc/goldsrcops/deployment.env `
+  -EvidenceFile /var/lib/goldsrcops/evidence/postgres-restore.json
+```
+
+Initialization, secret ownership, cadence, failure handling, and residual
+logical-backup limits are documented in
+[`docs/postgresql-backup.md`](../../docs/postgresql-backup.md).
 
 ## Migration Action
 
@@ -124,7 +161,8 @@ does this automatically. The bundle has no down-migration mode in this workflow.
 
 ## Remaining Slice 3 Work
 
-1. Add encrypted off-host PostgreSQL backup and restore procedures.
+1. Run encrypted backup, full repository check, and restore rehearsal against
+   the selected off-host repository and retain sanitized target evidence.
 2. Validate Caddy certificate issuance, forwarded scheme, AllowedHosts, and
    anonymous liveness plus PostgreSQL-backed readiness through public HTTPS.
 3. Validate Reader, Operator, expired-token, wrong-issuer, and wrong-audience

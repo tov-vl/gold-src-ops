@@ -22,14 +22,19 @@ with alert delivery enabled, a read-only filesystem, dropped Linux capabilities,
 and no-new-privileges before requiring
 both `/health/live` and `/health/ready` to return `200 Healthy`. Finally, it
 checks that the hosted alert dispatcher started and that its HTTPS endpoint and
-synthetic authorization marker are absent from container logs.
+synthetic authorization marker are absent from container logs. The final stage
+streams a custom-format dump into a temporary encrypted restic repository,
+checks every stored data pack, restores the snapshot into a second isolated
+PostgreSQL instance, reapplies the image-contained migration bundle, and proves
+that a control record and all required tables survived the round trip.
 
 The container smoke does not send an alert to an external endpoint. Synthetic
 Kestrel tests cover the HTTP delivery boundary, while PostgreSQL integration
 tests cover claiming, ordering, retry, dead-letter, recovery, and retention.
 
-All temporary containers and the dedicated Docker network are removed in a
-`finally` block. The temporary image tag is also removed by default; pass
+All temporary containers, volumes, secret files, backup data, and the dedicated
+Docker network are removed in a `finally` block. The temporary image tag is also
+removed by default; pass
 `-KeepImage` only when it is needed for local troubleshooting.
 
 To verify a published release or a rollback candidate, pass an immutable digest

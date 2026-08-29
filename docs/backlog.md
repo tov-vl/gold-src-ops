@@ -392,7 +392,7 @@ Definition of done:
 The next milestone moves GoldSrcOps from a production-oriented container
 contract to a continuously running reference environment across a real external
 network boundary. The accepted topology and telemetry direction are defined by
-Architecture Decisions 16 and 17; the reviewable delivery plan is recorded in
+Architecture Decisions 16 through 18; the reviewable delivery plan is recorded in
 `docs/v2.3-production-deployment.md`.
 
 Milestone status: architecture and delivery plan accepted; immutable GHCR image
@@ -407,7 +407,9 @@ verified artifacts, A2S, and guarded RCON. The provider-independent Slice 3
 Compose, preflight, and one-shot migration contracts are now defined under
 `ops/production`, with only Caddy publishing host ports, PostgreSQL isolated
 behind a Unix-domain socket, and the same API image carrying the serialized EF
-Core migration bundle. The first release digest, backup and restore actions,
+Core migration bundle. Encrypted off-host backup, repository checking, and
+isolated restore-rehearsal automation are implemented and covered by the
+container smoke flow. The first release digest, selected off-host repository,
 infrastructure purchase, external server provisioning, and target-environment
 evidence remain incomplete.
 
@@ -444,8 +446,10 @@ Planned reviewable slices:
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent
    Compose topology, bounded forwarded-header trust, file-based secret boundary,
-   contract preflight, and same-image one-shot migration bundle are implemented.
-   The runtime profile remains blocked on backup/restore and target-host
+   contract preflight, same-image one-shot migration bundle, client-side
+   encrypted backup, repository check, and isolated restore rehearsal are
+   implemented. The runtime profile remains blocked on successful execution
+   against the selected off-host repository and the rest of the target-host
    evidence.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
    Grafana, and health coverage for the private telemetry pipeline.

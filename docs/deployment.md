@@ -240,7 +240,8 @@ do not let every application replica run one.
 Before applying a migration:
 
 1. Confirm the source revision matches the image revision label.
-2. Take a provider-appropriate backup and verify its restore procedure.
+2. Create an encrypted off-host backup and verify its restore procedure as
+   defined in `docs/postgresql-backup.md`.
 3. Review generated SQL and application/schema compatibility.
 4. Ensure no other migration job is running.
 
@@ -362,8 +363,9 @@ pwsh -NoProfile -File .\tools\smoke\container.ps1
 
 The protected `main` workflow also requires both `Quality Gate` and
 `Container Smoke`. The smoke flow also verifies Production webhook HTTPS
-validation, enabled alert-dispatch startup, and that endpoint and authorization
-values are absent from application logs. On a release tag,
+validation, enabled alert-dispatch startup, log safety, an encrypted PostgreSQL
+backup, a full repository data check, and an isolated restore through the same
+image-contained migration bundle. On a release tag,
 `Verify Published Image` then pulls the newly published artifact by digest and
 reruns the same smoke flow with exact OCI-label expectations. A production
 deployment still needs

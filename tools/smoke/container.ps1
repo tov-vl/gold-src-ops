@@ -8,8 +8,9 @@ Builds and smoke-tests the production GoldSrcOps container image.
 Creates isolated Docker resources, verifies the runtime image and fail-fast
 configuration behavior, applies the image-contained EF Core migration bundle
 twice through its production entrypoint, and checks alert-delivery startup, log
-safety, API liveness, and PostgreSQL-backed readiness. Temporary containers,
-network, secret file, and image tag are removed even when the test fails.
+safety, API liveness, PostgreSQL-backed readiness, and an encrypted backup and
+restore rehearsal. Temporary containers, network, secret files, backup data,
+and image tag are removed even when the test fails.
 
 .PARAMETER StartupTimeoutSeconds
 How long to wait for PostgreSQL and the API health endpoints.
@@ -70,6 +71,14 @@ $testIssuer = "goldsrcops-container-smoke"
 $alertWebhookUrl = "https://alerts.example.invalid/goldsrcops"
 $alertAuthorizationMarker = "Bearer goldsrcops-smoke-secret-$runId"
 $migrationSecretFile = Join-Path ([IO.Path]::GetTempPath()) "goldsrcops-smoke-$runId-database-connection"
+$postgresPasswordFile = Join-Path ([IO.Path]::GetTempPath()) "goldsrcops-smoke-$runId-postgres-password"
+$backupSmokeDirectory = Join-Path ([IO.Path]::GetTempPath()) "goldsrcops-smoke-$runId-backup"
+$resticRepositoryDirectory = Join-Path $backupSmokeDirectory "repository"
+$resticPasswordFile = Join-Path $backupSmokeDirectory "restic-password"
+$resticEnvironmentFile = Join-Path $backupSmokeDirectory "restic-environment"
+$backupEnvironmentFile = Join-Path $backupSmokeDirectory "deployment.env"
+$backupEvidenceFile = Join-Path $backupSmokeDirectory "backup-evidence.json"
+$restoreEvidenceFile = Join-Path $backupSmokeDirectory "restore-evidence.json"
 $imageBuilt = $false
 $succeeded = $false
 
@@ -498,6 +507,10 @@ try {
     Write-Host "Production rejected the HTTP webhook with the expected non-zero exit."
 
     Write-Step "Start isolated PostgreSQL"
+    [IO.File]::WriteAllText(
+        $postgresPasswordFile,
+        $databasePassword,
+        [System.Text.UTF8Encoding]::new($false))
     Invoke-External -FilePath "docker" -Arguments @("network", "create", $networkName)
     Invoke-External -FilePath "docker" -Arguments @(
         "run",
@@ -514,7 +527,9 @@ try {
         "--env",
         "POSTGRES_USER=$databaseUser",
         "--env",
-        "POSTGRES_PASSWORD=$databasePassword",
+        "POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password",
+        "--mount",
+        "type=bind,source=$postgresPasswordFile,target=/run/secrets/postgres-password,readonly",
         "--health-cmd",
         "pg_isready -U $databaseUser -d $databaseName",
         "--health-interval",
@@ -622,6 +637,90 @@ try {
 
     Write-Host "Alert delivery started without logging its endpoint or authorization value."
 
+    Write-Step "Create encrypted PostgreSQL backup"
+    Invoke-External -FilePath "docker" -Arguments @(
+        "exec",
+        "--env",
+        "PGPASSWORD=$databasePassword",
+        $postgresContainer,
+        "psql",
+        "--host=/var/run/postgresql",
+        "--username=$databaseUser",
+        "--dbname=$databaseName",
+        "--set",
+        "ON_ERROR_STOP=1",
+        "--command",
+        @'
+INSERT INTO goldsrcops.servers
+    ("Id", "Name", "Game", host, query_port, rcon_port, "IsEnabled", "PollIntervalSeconds", "Notes", "CreatedAtUtc")
+VALUES
+    ('00000000-0000-0000-0000-000000000001', 'backup-smoke', 'GoldSrc', '127.0.0.1', 27015, NULL, false, 60, NULL, now());
+'@)
+
+    New-Item -ItemType Directory -Path $resticRepositoryDirectory -Force | Out-Null
+    [IO.File]::WriteAllText(
+        $resticPasswordFile,
+        "goldsrcops-smoke-restic-password-$runId",
+        [System.Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllLines(
+        $resticEnvironmentFile,
+        @(
+            "AWS_ACCESS_KEY_ID=local-smoke",
+            "AWS_SECRET_ACCESS_KEY=local-smoke"
+        ),
+        [System.Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllLines(
+        $backupEnvironmentFile,
+        @(
+            "GOLDSRCOPS_IMAGE=$imageTag",
+            "GOLDSRCOPS_POSTGRES_IMAGE=postgres:16-alpine",
+            "GOLDSRCOPS_RESTIC_IMAGE=restic/restic:0.19.1",
+            "GOLDSRCOPS_BACKUP_HOST=goldsrcops-smoke",
+            "GOLDSRCOPS_BACKUP_REPOSITORY=/repository",
+            "GOLDSRCOPS_RESTIC_PASSWORD_FILE=$resticPasswordFile",
+            "GOLDSRCOPS_RESTIC_ENVIRONMENT_FILE=$resticEnvironmentFile"
+        ),
+        [System.Text.UTF8Encoding]::new($false))
+
+    & ./ops/production/postgres-backup.ps1 `
+        -Action Initialize `
+        -EnvironmentFile $backupEnvironmentFile `
+        -LocalRepositoryPath $resticRepositoryDirectory `
+        -AllowLocalTestResources
+    & ./ops/production/postgres-backup.ps1 `
+        -Action Create `
+        -EnvironmentFile $backupEnvironmentFile `
+        -SourceContainer $postgresContainer `
+        -LocalRepositoryPath $resticRepositoryDirectory `
+        -EvidenceFile $backupEvidenceFile `
+        -AllowLocalTestResources
+    & ./ops/production/postgres-backup.ps1 `
+        -Action Check `
+        -EnvironmentFile $backupEnvironmentFile `
+        -ReadDataSubset 100% `
+        -LocalRepositoryPath $resticRepositoryDirectory `
+        -AllowLocalTestResources
+
+    Write-Step "Rehearse encrypted PostgreSQL restore"
+    & ./ops/production/postgres-restore-rehearsal.ps1 `
+        -EnvironmentFile $backupEnvironmentFile `
+        -ExpectedMinimumServerCount 1 `
+        -LocalRepositoryPath $resticRepositoryDirectory `
+        -EvidenceFile $restoreEvidenceFile `
+        -AllowLocalTestResources
+
+    $backupEvidence = Get-Content -LiteralPath $backupEvidenceFile -Raw | ConvertFrom-Json
+    $restoreEvidence = Get-Content -LiteralPath $restoreEvidenceFile -Raw | ConvertFrom-Json
+    if ($backupEvidence.SnapshotId -ne $restoreEvidence.SnapshotId) {
+        throw "Restore rehearsal used a different snapshot than the smoke backup."
+    }
+
+    if ([int]$restoreEvidence.ServerCount -lt 1) {
+        throw "Restore rehearsal did not recover the smoke server record."
+    }
+
+    Write-Host "Encrypted backup and restore rehearsal recovered snapshot $($restoreEvidence.SnapshotId)."
+
     $succeeded = $true
     Write-Step "Container smoke test passed"
 }
@@ -643,6 +742,22 @@ finally {
 
     if (Test-Path -LiteralPath $migrationSecretFile) {
         Remove-Item -LiteralPath $migrationSecretFile -Force
+    }
+
+    if (Test-Path -LiteralPath $postgresPasswordFile) {
+        Remove-Item -LiteralPath $postgresPasswordFile -Force
+    }
+
+    if (Test-Path -LiteralPath $backupSmokeDirectory) {
+        $resolvedTemporaryRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+        $resolvedBackupDirectory = [IO.Path]::GetFullPath($backupSmokeDirectory)
+        if (-not $resolvedBackupDirectory.StartsWith(
+                $resolvedTemporaryRoot,
+                [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing to remove a backup smoke directory outside the system temporary path."
+        }
+
+        Remove-Item -LiteralPath $resolvedBackupDirectory -Recurse -Force
     }
 
     if ($imageBuilt -and -not $KeepImage) {

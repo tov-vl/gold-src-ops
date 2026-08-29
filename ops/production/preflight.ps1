@@ -6,10 +6,10 @@ Validates the provider-independent GoldSrcOps production Compose contract.
 
 .DESCRIPTION
 Renders the tracked Compose file with a deployment environment file and checks
-the immutable image, one-shot migration, network, proxy, secret, and port
-boundaries without printing secret values. ContractOnly validates the tracked
-example in CI while skipping target-host files and non-placeholder deployment
-values.
+the immutable image, one-shot migration, backup, network, proxy, secret, and
+port boundaries without printing secret values. ContractOnly validates the
+tracked example in CI while skipping target-host files and non-placeholder
+deployment values.
 #>
 
 [CmdletBinding()]
@@ -63,6 +63,59 @@ function Get-PropertyValue {
     return $property.Value
 }
 
+function Read-EnvironmentValues {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $values = [Collections.Generic.Dictionary[string, string]]::new(
+        [StringComparer]::Ordinal)
+
+    foreach ($line in [IO.File]::ReadAllLines($Path)) {
+        $trimmed = $line.Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('#')) {
+            continue
+        }
+
+        $separator = $trimmed.IndexOf('=')
+        Assert-Condition `
+            -Condition ($separator -gt 0) `
+            -Message "Deployment environment entries must use NAME=VALUE syntax."
+
+        $name = $trimmed.Substring(0, $separator).Trim()
+        $value = $trimmed.Substring($separator + 1).Trim()
+        Assert-Condition `
+            -Condition ($name -match '\A[A-Z][A-Z0-9_]*\z') `
+            -Message "Deployment environment contains an invalid setting name."
+        Assert-Condition `
+            -Condition (-not $values.ContainsKey($name)) `
+            -Message "Deployment environment contains a duplicate '$name' setting."
+
+        $values.Add($name, $value)
+    }
+
+    return $values
+}
+
+function Get-RequiredEnvironmentValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [Collections.Generic.Dictionary[string, string]]$Values,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $value = $null
+    Assert-Condition `
+        -Condition ($Values.TryGetValue($Name, [ref]$value) -and
+            -not [string]::IsNullOrWhiteSpace($value)) `
+        -Message "Deployment environment is missing '$Name'."
+
+    return $value
+}
+
 function Assert-ImmutableImage {
     param(
         [Parameter(Mandatory = $true)]
@@ -97,6 +150,47 @@ function Assert-IPv4Address {
         -Condition ([System.Net.IPAddress]::TryParse($Address, [ref]$parsed) -and
             $parsed.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork) `
         -Message "$Name must be a valid IPv4 address."
+}
+
+function Assert-OffHostResticRepository {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Repository,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ControlPlaneHost,
+
+        [switch]$AllowPlaceholder
+    )
+
+    Assert-Condition `
+        -Condition ($Repository.StartsWith("s3:https://", [StringComparison]::OrdinalIgnoreCase)) `
+        -Message "The backup repository must use an S3-compatible HTTPS endpoint."
+
+    $endpointAndPath = $Repository.Substring(3)
+    $endpoint = $null
+    Assert-Condition `
+        -Condition ([Uri]::TryCreate($endpointAndPath, [UriKind]::Absolute, [ref]$endpoint) -and
+            $endpoint.Scheme -eq [Uri]::UriSchemeHttps -and
+            [string]::IsNullOrEmpty($endpoint.UserInfo)) `
+        -Message "The backup repository must be an absolute S3 HTTPS URI without embedded credentials."
+    Assert-Condition `
+        -Condition ($endpoint.Host -notin @("localhost", "127.0.0.1", "::1")) `
+        -Message "The backup repository must be outside the control-plane host."
+    Assert-Condition `
+        -Condition (-not $endpoint.Host.Equals(
+                $ControlPlaneHost,
+                [StringComparison]::OrdinalIgnoreCase)) `
+        -Message "The backup repository must not resolve to the control-plane hostname."
+    Assert-Condition `
+        -Condition ($endpoint.AbsolutePath.Trim('/').Length -gt 0) `
+        -Message "The backup repository must include a bucket and repository path."
+
+    if (-not $AllowPlaceholder) {
+        Assert-Condition `
+            -Condition ($endpoint.Host -notmatch '(?i)(^|\.)example\.(com|net|org)$') `
+            -Message "The backup repository still uses a placeholder endpoint."
+    }
 }
 
 function Test-AddressInCidr {
@@ -223,6 +317,81 @@ function Assert-SecretFile {
         }
     }
 }
+
+function Assert-ResticEnvironmentFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    Assert-SecretFile -Path $Path -Name "Restic backend environment" -RequiredOwnerId 0
+
+    $forbiddenNames = @(
+        "RESTIC_PASSWORD",
+        "RESTIC_PASSWORD_COMMAND",
+        "RESTIC_PASSWORD_FILE",
+        "RESTIC_REPOSITORY",
+        "RESTIC_REPOSITORY_FILE"
+    )
+    $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+
+    foreach ($line in [IO.File]::ReadAllLines($Path)) {
+        $trimmed = $line.Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('#')) {
+            continue
+        }
+
+        $separator = $trimmed.IndexOf('=')
+        Assert-Condition `
+            -Condition ($separator -gt 0) `
+            -Message "Restic backend environment entries must use NAME=VALUE syntax."
+
+        $name = $trimmed.Substring(0, $separator).Trim()
+        Assert-Condition `
+            -Condition ($name -match '\A[A-Z][A-Z0-9_]*\z') `
+            -Message "Restic backend environment contains an invalid setting name."
+        Assert-Condition `
+            -Condition ($names.Add($name)) `
+            -Message "Restic backend environment contains a duplicate '$name' setting."
+        Assert-Condition `
+            -Condition ($name -notin $forbiddenNames) `
+            -Message "Restic backend environment must not override repository or password settings."
+    }
+
+    Assert-Condition `
+        -Condition ($names.Contains("AWS_ACCESS_KEY_ID") -and
+            $names.Contains("AWS_SECRET_ACCESS_KEY")) `
+        -Message "The S3 backup backend requires scoped AWS access-key settings."
+}
+
+$environmentValues = Read-EnvironmentValues -Path $environmentPath
+$resticImage = Get-RequiredEnvironmentValue `
+    -Values $environmentValues `
+    -Name "GOLDSRCOPS_RESTIC_IMAGE"
+$backupRepository = Get-RequiredEnvironmentValue `
+    -Values $environmentValues `
+    -Name "GOLDSRCOPS_BACKUP_REPOSITORY"
+$backupHost = Get-RequiredEnvironmentValue `
+    -Values $environmentValues `
+    -Name "GOLDSRCOPS_BACKUP_HOST"
+$controlPlaneHost = Get-RequiredEnvironmentValue `
+    -Values $environmentValues `
+    -Name "GOLDSRCOPS_HOSTNAME"
+$resticPasswordFile = Get-RequiredEnvironmentValue `
+    -Values $environmentValues `
+    -Name "GOLDSRCOPS_RESTIC_PASSWORD_FILE"
+$resticEnvironmentFile = Get-RequiredEnvironmentValue `
+    -Values $environmentValues `
+    -Name "GOLDSRCOPS_RESTIC_ENVIRONMENT_FILE"
+
+Assert-ImmutableImage -Image $resticImage -ServiceName "restic"
+Assert-OffHostResticRepository `
+    -Repository $backupRepository `
+    -ControlPlaneHost $controlPlaneHost `
+    -AllowPlaceholder:$ContractOnly
+Assert-Condition `
+    -Condition ($backupHost -match '\A[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?\z') `
+    -Message "GOLDSRCOPS_BACKUP_HOST must be a stable, bounded host identifier."
 
 $composeOutput = @(& docker compose `
     --env-file $environmentPath `
@@ -397,6 +566,9 @@ if (-not $ContractOnly) {
     Assert-Condition `
         -Condition ($authority.Host -notmatch '(?i)(^|\.)example\.(com|net|org)$') `
         -Message "The authentication authority still uses a placeholder host."
+    Assert-Condition `
+        -Condition ($backupHost -notmatch '(?i)(^|\.)example\.(com|net|org)$') `
+        -Message "GOLDSRCOPS_BACKUP_HOST still uses a placeholder host."
 
     $postgresPasswordFile = [string]$configuration.secrets.'postgres-password'.file
     $databaseConnectionFile = [string]$configuration.secrets.'database-connection'.file
@@ -414,6 +586,11 @@ if (-not $ContractOnly) {
         -Path $rconPasswordFile `
         -Name "RCON password" `
         -RequiredOwnerId 1654
+    Assert-SecretFile `
+        -Path $resticPasswordFile `
+        -Name "Restic password" `
+        -RequiredOwnerId 0
+    Assert-ResticEnvironmentFile -Path $resticEnvironmentFile
 
     $databaseConnection = [System.IO.File]::ReadAllText($databaseConnectionFile).Trim()
     $rconPassword = [System.IO.File]::ReadAllText($rconPasswordFile).Trim()
@@ -430,6 +607,24 @@ if (-not $ContractOnly) {
     & docker pull $api.image
     if ($LASTEXITCODE -ne 0) {
         throw "The digest-pinned API image could not be pulled."
+    }
+
+    & docker pull $resticImage
+    if ($LASTEXITCODE -ne 0) {
+        throw "The digest-pinned restic image could not be pulled."
+    }
+
+    & docker run `
+        --rm `
+        --network none `
+        --read-only `
+        --cap-drop ALL `
+        --security-opt no-new-privileges `
+        $resticImage `
+        version
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "The restic image could not execute its version check."
     }
 
     $apiUser = ((& docker image inspect --format "{{.Config.User}}" $api.image) -join "").Trim()
