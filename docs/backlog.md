@@ -398,9 +398,11 @@ Architecture Decisions 16 and 17; the reviewable delivery plan is recorded in
 Milestone status: architecture and delivery plan accepted; immutable GHCR image
 publication is integrated, and the controlled game-server baseline contract is
 defined. A self-operated MyArena game VDS is conditionally selected, with
-purchase-time checks and Timeweb Cloud fallback documented. The first release
-digest, infrastructure purchase, external server provisioning, and
-target-environment evidence remain incomplete.
+purchase-time checks and Timeweb Cloud fallback documented. The pinned ReHLDS
+and ReGameDLL_CS versions have passed a disposable local Linux rehearsal with
+verified artifacts, A2S, and guarded RCON. The first release digest,
+infrastructure purchase, external server provisioning, and target-environment
+evidence remain incomplete.
 
 Why this work is selected:
 
@@ -425,7 +427,8 @@ Planned reviewable slices:
    The first GHCR publication and digest evidence await the next release tag.
 3. In progress: use `docs/v2.3-controlled-gameserver-baseline.md` to provision
    one controlled ReHLDS and ReGameDLL_CS server outside the control-plane
-   host. The conditional provider decision is recorded in
+   host. The local target-runtime compatibility gate is complete. The
+   conditional provider decision is recorded in
    `docs/v2.3-gameserver-provider-decision.md`; pre-purchase checks,
    provisioning, external baseline polling, guarded RCON, restart/restore, and
    no-bot evidence remain pending.
