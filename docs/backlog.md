@@ -398,7 +398,10 @@ Architecture Decisions 16 and 17; the reviewable delivery plan is recorded in
 Milestone status: architecture and delivery plan accepted; immutable GHCR image
 publication is integrated, and the controlled game-server baseline contract is
 defined. A self-operated MyArena game VDS is conditionally selected, with
-purchase-time checks and Timeweb Cloud fallback documented. The pinned ReHLDS
+purchase-time checks and Timeweb Cloud fallback documented. A bounded one-period
+trial may defer only public-address stability and DDoS source-address
+preservation to mandatory post-provision checks; all other provider gates and
+the final checkout approval remain pre-purchase requirements. The pinned ReHLDS
 and ReGameDLL_CS versions have passed a disposable local Linux rehearsal with
 verified artifacts, A2S, and guarded RCON. The provider-independent Slice 3
 Compose, preflight, and one-shot migration contracts are now defined under
@@ -432,10 +435,11 @@ Planned reviewable slices:
 3. In progress: use `docs/v2.3-controlled-gameserver-baseline.md` to provision
    one controlled ReHLDS and ReGameDLL_CS server outside the control-plane
    host. The local target-runtime compatibility gate is complete. The
-   conditional provider decision is recorded in
-   `docs/v2.3-gameserver-provider-decision.md`; pre-purchase checks,
-   provisioning, external baseline polling, guarded RCON, restart/restore, and
-   no-bot evidence remain pending.
+   conditional provider decision and bounded trial exception are recorded in
+   `docs/v2.3-gameserver-provider-decision.md`; non-deferred pre-purchase checks,
+   checkout approval, provisioning, public-address and source-address trial
+   gates, external baseline polling, guarded RCON, restart/restore, and no-bot
+   evidence remain pending.
 4. In progress: deploy the single-node reference control plane with PostgreSQL,
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent
