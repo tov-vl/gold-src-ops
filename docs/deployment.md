@@ -2,9 +2,10 @@
 
 This document defines the current container deployment contract. It is
 platform-neutral: release tags publish the production image to GitHub Container
-Registry (GHCR), but the repository does not ship provider-specific Docker
-Compose, systemd, or Kubernetes production manifests. GoldSrcOps v2.2.0 is the
-latest public release. Transactional
+Registry (GHCR), and `ops/production` now supplies the provider-independent first
+sub-slice of the v2.3 reference Compose contract. The repository does not ship a
+provider-specific control-panel integration, systemd unit, or Kubernetes
+manifest. GoldSrcOps v2.2.0 is the latest public release. Transactional
 incident-alert delivery, audited dead-letter replay, and bounded RCON response
 collection extend the application without changing the supported container
 shape.
@@ -114,7 +115,7 @@ The production image has these fixed expectations:
 | Container port | `8080` over HTTP |
 | Runtime user | Non-root `$APP_UID` from the .NET runtime image |
 | Working directory | `/app` |
-| Writable path | `/tmp` only when the root filesystem is read-only |
+| Writable path | `/tmp`, plus explicitly mounted state or Unix-socket volumes when the root filesystem is read-only |
 | Database migration | Never performed by ordinary application startup |
 | Liveness | Anonymous `GET /health/live` |
 | Readiness | Anonymous `GET /health/ready`, including PostgreSQL connectivity |
@@ -123,6 +124,13 @@ The production image has these fixed expectations:
 Run the container with a read-only root filesystem, a small `/tmp` tmpfs, no
 additional Linux capabilities, and `no-new-privileges`. This shape is exercised
 by `tools/smoke/container.ps1`.
+
+The v2.3 reference Compose additionally mounts PostgreSQL's Unix-domain socket at
+`/var/run/postgresql`. PostgreSQL runs with `network_mode: none`, so this writable
+mount replaces a database TCP boundary rather than exposing one. Its connection
+string may set `SSL Mode=Disable` only for that socket path; remote or
+TCP-connected PostgreSQL still requires provider-appropriate TLS and certificate
+validation.
 
 The following Docker command illustrates the contract for a host-local reverse
 proxy. It assumes the named environment variables have already been injected
@@ -174,9 +182,10 @@ Required deployment values:
 
 | Environment variable | Purpose |
 | --- | --- |
-| `ConnectionStrings__GoldSrcOps` | Npgsql connection string. Production TLS and certificate validation must follow the database provider's requirements; do not copy the smoke test's `SSL Mode=Disable`. |
+| `ConnectionStrings__GoldSrcOps` | Npgsql connection string. TCP deployments require provider-appropriate TLS and certificate validation. `SSL Mode=Disable` is limited to the v2.3 reference Unix socket described above. |
 | `Authentication__Schemes__Bearer__Authority` | HTTPS metadata authority for the external identity provider. |
 | `Authentication__Schemes__Bearer__Audience` | GoldSrcOps API audience accepted from that provider. |
+| `ReverseProxy__KnownProxy` | Optional single trusted proxy IP. When set, the API processes one `X-Forwarded-For` and `X-Forwarded-Proto` hop from that address before HTTPS redirection and authentication. |
 
 Instead of `Authority` and `Audience`, a deployment may provide the equivalent
 validated issuer and audience settings described in `docs/security.md`.
@@ -218,9 +227,10 @@ default concurrency while backlog and receiver behavior are observed.
 
 ## Apply Migrations
 
-The runtime image intentionally cannot run EF tooling. Execute migrations once
-from the same signed source revision used to build the image, using the pinned
-SDK and repository-local tool manifest.
+The runtime image contains a framework-dependent EF Core migration bundle but
+does not contain the SDK, EF tool, or repository source. Docker builds the
+bundle from the same source revision and copies it into the same immutable image
+as the API. The API entrypoint never applies migrations during normal startup.
 
 The migration identity needs the required DDL permissions. Prefer a dedicated
 migration credential and a less-privileged runtime credential when the database
@@ -234,25 +244,29 @@ Before applying a migration:
 3. Review generated SQL and application/schema compatibility.
 4. Ensure no other migration job is running.
 
-Inject the Production connection and bearer configuration through the CI/CD
-secret store. Disable all workers in the migration process as a defensive
-boundary, then run:
+For the reference Compose deployment, inject the database connection through
+the external file-secret boundary, start PostgreSQL, and invoke the one-shot
+`migration` service from the same API image digest:
 
 ```powershell
-$env:ASPNETCORE_ENVIRONMENT = "Production"
-$env:Polling__Enabled = "false"
-$env:CommandDispatcher__Enabled = "false"
-$env:SnapshotRetention__Enabled = "false"
-$env:AlertDelivery__Enabled = "false"
+docker compose `
+  --env-file /etc/goldsrcops/deployment.env `
+  --file ./ops/production/compose.yml `
+  --profile operations `
+  up --detach --wait postgres
 
-dotnet restore GoldSrcOps.sln -p:AuditPipeline=true
-dotnet tool restore
-dotnet tool run dotnet-ef -- database update `
-  --project .\src\GoldSrcOps.Infrastructure `
-  --startup-project .\src\GoldSrcOps.Api `
-  -- `
-  --environment Production
+docker compose `
+  --env-file /etc/goldsrcops/deployment.env `
+  --file ./ops/production/compose.yml `
+  --profile operations `
+  run --rm migration
 ```
+
+The migration container receives no RCON or identity configuration, has no
+network interface or restart policy, and reaches PostgreSQL only through the
+shared Unix-domain socket. EF Core's provider migration lock serializes
+concurrent bundle executions, but the deployment workflow must still model this
+as one explicit job and wait for its zero exit code before starting the API.
 
 EF migration history is stored in `public`; application tables use the
 `goldsrcops` schema. The current snapshot-retention index is created
@@ -270,9 +284,10 @@ tables. Application rollback can therefore leave these migrations in place.
 Do not down-migrate while queued, dead-letter, or replay-audit records may still
 be required.
 
-Run the same command a second time in a staging or disposable environment to
+Run the same action a second time in a staging or disposable environment to
 confirm that the migration set is already up to date. The container smoke test
-performs the real PostgreSQL migration path before starting the API.
+builds the bundle into the production image, applies it to a clean PostgreSQL
+database, repeats it, and only then starts the hardened API container.
 
 ## Rollout And Probes
 

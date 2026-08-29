@@ -73,6 +73,7 @@ reliability release is summarized in
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Active v2.3 reference deployment plan | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
+| Active v2.3 production Compose contract | [Reference production Compose](ops/production/README.md) |
 | Active v2.3 game-server baseline | [Controlled game-server baseline](docs/v2.3-controlled-gameserver-baseline.md) |
 | Active v2.3 game-server provider decision | [Game-server provider decision](docs/v2.3-gameserver-provider-decision.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
@@ -435,8 +436,9 @@ dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 
 GitHub Actions runs the same quality gate on every push and pull request. After
 it succeeds, a dependent `Container Smoke` job builds the production image,
-applies migrations to isolated PostgreSQL, and checks its runtime, alert
-configuration, log-safety, and health contracts. An exact annotated
+applies its embedded migration bundle twice to isolated PostgreSQL, and checks
+runtime hardening, alert configuration, log-safety, and health contracts. An
+exact annotated
 `v<major>.<minor>.<patch>` tag adds `Publish Image` and
 `Verify Published Image`: they publish immutable release and full-revision tags
 to GHCR, record the digest, and rerun the smoke flow against the pulled digest.

@@ -62,6 +62,12 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Validate production Compose contract
+        run: >-
+          pwsh -NoProfile -File ./ops/production/preflight.ps1
+          -EnvironmentFile ./ops/production/deployment.env.example
+          -ContractOnly
+
       - name: Run container smoke test
         run: pwsh -NoProfile -File ./tools/smoke/container.ps1
 
