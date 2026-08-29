@@ -63,6 +63,25 @@ function Get-PropertyValue {
     return $property.Value
 }
 
+function Assert-BoundedLogging {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Service,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ServiceName
+    )
+
+    $logging = Get-PropertyValue -InputObject $Service -Name "logging"
+    Assert-Condition `
+        -Condition ($null -ne $logging -and [string]$logging.driver -eq "local") `
+        -Message "Service '$ServiceName' must use the bounded local log driver."
+    Assert-Condition `
+        -Condition ([string]$logging.options."max-file" -eq "5" -and
+            [string]$logging.options."max-size" -eq "10m") `
+        -Message "Service '$ServiceName' must retain at most five 10 MiB log files."
+}
+
 function Read-EnvironmentValues {
     param(
         [Parameter(Mandatory = $true)]
@@ -418,6 +437,27 @@ Assert-ImmutableImage -Image $caddy.image -ServiceName "caddy"
 Assert-Condition `
     -Condition ($migration.image -eq $api.image) `
     -Message "The migration action must use the exact API image digest."
+
+foreach ($runtimeService in @(
+        @{ Name = "postgres"; Service = $postgres },
+        @{ Name = "api"; Service = $api },
+        @{ Name = "caddy"; Service = $caddy }
+    )) {
+    Assert-Condition `
+        -Condition ([string]$runtimeService.Service.restart -eq "unless-stopped") `
+        -Message "Service '$($runtimeService.Name)' must restart unless explicitly stopped."
+}
+
+foreach ($loggedService in @(
+        @{ Name = "postgres"; Service = $postgres },
+        @{ Name = "api"; Service = $api },
+        @{ Name = "migration"; Service = $migration },
+        @{ Name = "caddy"; Service = $caddy }
+    )) {
+    Assert-BoundedLogging `
+        -Service $loggedService.Service `
+        -ServiceName $loggedService.Name
+}
 
 Assert-Condition `
     -Condition ($postgres.network_mode -eq "none") `

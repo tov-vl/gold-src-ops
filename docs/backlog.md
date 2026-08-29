@@ -409,9 +409,12 @@ Compose, preflight, and one-shot migration contracts are now defined under
 behind a Unix-domain socket, and the same API image carrying the serialized EF
 Core migration bundle. Encrypted off-host backup, repository checking, and
 isolated restore-rehearsal automation are implemented and covered by the
-container smoke flow. The first release digest, selected off-host repository,
-infrastructure purchase, external server provisioning, and target-environment
-evidence remain incomplete.
+container smoke flow. The first host-readiness gate is also implemented as a
+read-only Linux audit with deterministic failure-path coverage; Compose
+validation now enforces runtime restart policies and bounded logs. Snapshot
+results cannot count as live host evidence. The first release digest, selected
+off-host repository, infrastructure purchase, external server provisioning, and
+target-environment evidence remain incomplete.
 
 Why this work is selected:
 
@@ -428,6 +431,10 @@ Why this work is selected:
   instead of designing those views around synthetic assumptions.
 
 Planned reviewable slices:
+
+The canonical ten-step execution order for the remaining milestone is in
+`docs/v2.3-production-deployment.md#remaining-delivery-order`; this backlog
+tracks state without duplicating that operational sequence.
 
 1. Completed: record the provider-independent production topology, OTLP
    transition, threat boundaries, delivery sequence, and evidence contract.
@@ -448,8 +455,11 @@ Planned reviewable slices:
    Compose topology, bounded forwarded-header trust, file-based secret boundary,
    contract preflight, same-image one-shot migration bundle, client-side
    encrypted backup, repository check, and isolated restore rehearsal are
-   implemented. The runtime profile remains blocked on successful execution
-   against the selected off-host repository and the rest of the target-host
+   implemented. The read-only host audit covers Docker service startup, time,
+   capacity, UFW, effective listeners, container port publication, and optional
+   external dependencies without recording sensitive values. The runtime
+   profile remains blocked on successful live execution against the selected
+   VPS and off-host repository, plus the rest of the target-environment
    evidence.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
    Grafana, and health coverage for the private telemetry pipeline.
@@ -678,6 +688,9 @@ For the active v2.3 deployment milestone:
   changing metric names, bounded labels, or API readiness semantics.
 - Container-level coverage for the Collector configuration and private
   application-to-Collector metric path.
+- Deterministic host-preflight coverage for Docker boot enablement, time,
+  capacity, firewall scope, prohibited public listeners, published ports, and
+  external dependency failures; live output remains separate target evidence.
 - Target-environment evidence for TLS, OIDC metadata, secret injection,
   external A2S/RCON traffic, backup restoration, and immutable rollback.
 - A controlled stop/recovery scenario that verifies incidents and durable alert
