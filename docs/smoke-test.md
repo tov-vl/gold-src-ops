@@ -16,9 +16,10 @@ The script builds a uniquely tagged image, verifies its non-root runtime and
 OCI metadata, verifies that the SDK, repository metadata, and local settings
 are absent, checks that missing production configuration fails fast,
 and proves that Production rejects an HTTP alert webhook. It starts an isolated
-PostgreSQL container and applies EF Core migrations as a separate host-side
-action. It then starts the API with alert delivery enabled, a read-only
-filesystem, dropped Linux capabilities, and no-new-privileges before requiring
+PostgreSQL container, applies the image-contained EF Core migration bundle, and
+repeats the bundle to prove the already-up-to-date path. It then starts the API
+with alert delivery enabled, a read-only filesystem, dropped Linux capabilities,
+and no-new-privileges before requiring
 both `/health/live` and `/health/ready` to return `200 Healthy`. Finally, it
 checks that the hosted alert dispatcher started and that its HTTPS endpoint and
 synthetic authorization marker are absent from container logs.

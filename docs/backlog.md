@@ -401,10 +401,12 @@ defined. A self-operated MyArena game VDS is conditionally selected, with
 purchase-time checks and Timeweb Cloud fallback documented. The pinned ReHLDS
 and ReGameDLL_CS versions have passed a disposable local Linux rehearsal with
 verified artifacts, A2S, and guarded RCON. The provider-independent Slice 3
-Compose and preflight contract is now defined under `ops/production`, with only
-Caddy publishing host ports and PostgreSQL isolated behind a Unix-domain socket.
-The first release digest, migration and backup actions, infrastructure purchase,
-external server provisioning, and target-environment evidence remain incomplete.
+Compose, preflight, and one-shot migration contracts are now defined under
+`ops/production`, with only Caddy publishing host ports, PostgreSQL isolated
+behind a Unix-domain socket, and the same API image carrying the serialized EF
+Core migration bundle. The first release digest, backup and restore actions,
+infrastructure purchase, external server provisioning, and target-environment
+evidence remain incomplete.
 
 Why this work is selected:
 
@@ -438,8 +440,9 @@ Planned reviewable slices:
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent
    Compose topology, bounded forwarded-header trust, file-based secret boundary,
-   and contract preflight are implemented; the runtime profile remains blocked
-   on the migration action and target-host evidence.
+   contract preflight, and same-image one-shot migration bundle are implemented.
+   The runtime profile remains blocked on backup/restore and target-host
+   evidence.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
    Grafana, and health coverage for the private telemetry pipeline.
 6. Complete external A2S and guarded RCON verification, controlled

@@ -227,9 +227,10 @@ default concurrency while backlog and receiver behavior are observed.
 
 ## Apply Migrations
 
-The runtime image intentionally cannot run EF tooling. Execute migrations once
-from the same signed source revision used to build the image, using the pinned
-SDK and repository-local tool manifest.
+The runtime image contains a framework-dependent EF Core migration bundle but
+does not contain the SDK, EF tool, or repository source. Docker builds the
+bundle from the same source revision and copies it into the same immutable image
+as the API. The API entrypoint never applies migrations during normal startup.
 
 The migration identity needs the required DDL permissions. Prefer a dedicated
 migration credential and a less-privileged runtime credential when the database
@@ -243,25 +244,29 @@ Before applying a migration:
 3. Review generated SQL and application/schema compatibility.
 4. Ensure no other migration job is running.
 
-Inject the Production connection and bearer configuration through the CI/CD
-secret store. Disable all workers in the migration process as a defensive
-boundary, then run:
+For the reference Compose deployment, inject the database connection through
+the external file-secret boundary, start PostgreSQL, and invoke the one-shot
+`migration` service from the same API image digest:
 
 ```powershell
-$env:ASPNETCORE_ENVIRONMENT = "Production"
-$env:Polling__Enabled = "false"
-$env:CommandDispatcher__Enabled = "false"
-$env:SnapshotRetention__Enabled = "false"
-$env:AlertDelivery__Enabled = "false"
+docker compose `
+  --env-file /etc/goldsrcops/deployment.env `
+  --file ./ops/production/compose.yml `
+  --profile operations `
+  up --detach --wait postgres
 
-dotnet restore GoldSrcOps.sln -p:AuditPipeline=true
-dotnet tool restore
-dotnet tool run dotnet-ef -- database update `
-  --project .\src\GoldSrcOps.Infrastructure `
-  --startup-project .\src\GoldSrcOps.Api `
-  -- `
-  --environment Production
+docker compose `
+  --env-file /etc/goldsrcops/deployment.env `
+  --file ./ops/production/compose.yml `
+  --profile operations `
+  run --rm migration
 ```
+
+The migration container receives no RCON or identity configuration, has no
+network interface or restart policy, and reaches PostgreSQL only through the
+shared Unix-domain socket. EF Core's provider migration lock serializes
+concurrent bundle executions, but the deployment workflow must still model this
+as one explicit job and wait for its zero exit code before starting the API.
 
 EF migration history is stored in `public`; application tables use the
 `goldsrcops` schema. The current snapshot-retention index is created
@@ -279,9 +284,10 @@ tables. Application rollback can therefore leave these migrations in place.
 Do not down-migrate while queued, dead-letter, or replay-audit records may still
 be required.
 
-Run the same command a second time in a staging or disposable environment to
+Run the same action a second time in a staging or disposable environment to
 confirm that the migration set is already up to date. The container smoke test
-performs the real PostgreSQL migration path before starting the API.
+builds the bundle into the production image, applies it to a clean PostgreSQL
+database, repeats it, and only then starts the hardened API container.
 
 ## Rollout And Probes
 

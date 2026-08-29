@@ -7,10 +7,10 @@ single-node control plane. It defines and validates the intended container,
 network, TLS-proxy, and secret boundaries. It is not target-environment evidence
 and does not make the v2.3 milestone complete.
 
-The `runtime` profile must not be enabled until the separately reviewed
-migration action is available and has successfully migrated the target database.
-Backup/restore, external identity, public HTTPS, firewall, and recovery evidence
-also remain pending.
+The `runtime` profile must not be enabled on a target until preflight succeeds,
+a restorable backup exists, and the one-shot migration action has successfully
+migrated that database. Backup/restore, external identity, public HTTPS,
+firewall, and recovery evidence remain pending.
 
 ## Topology
 
@@ -20,6 +20,9 @@ also remain pending.
   setting trusts forwarded headers from the configured Caddy address only.
 - PostgreSQL uses `network_mode: none` and exposes no TCP listener to another
   container or the host. The API reaches it through a shared Unix-domain socket.
+- The `operations` profile contains a one-shot migration service. It uses the
+  exact API image, receives only the database secret, has no network interface
+  or restart policy, and reaches PostgreSQL through the same socket volume.
 - API, PostgreSQL, and Caddy images must all be supplied by immutable SHA-256
   digest.
 - The API runs with a read-only root filesystem, no Linux capabilities, and
@@ -82,23 +85,51 @@ It renders Compose, requires immutable image digests, checks the public-port and
 Unix-socket boundaries, verifies the trusted proxy address, and checks secret
 file location and permissions without printing secret contents. It also uses the
 configured digest-pinned Caddy image to validate the tracked Caddyfile. Full
-deployment mode pulls the API image and verifies its non-root UID because the
-file-secret ownership contract depends on that identity.
+deployment mode pulls the API image, verifies its non-root UID, and requires the
+image-contained secret-loading entrypoint and migration bundle.
 
 CI validates the tracked template with `-ContractOnly`. That mode deliberately
 accepts placeholder digests and does not prove target-host files, DNS, firewall,
 TLS issuance, identity metadata, migrations, or persistence.
 
+## Migration Action
+
+The Docker build creates the framework-dependent `/app/goldsrcops-migrate`
+EF Core migration bundle and copies it into the same runtime image as the API.
+The API does not run migrations during startup. The Compose `migration` service
+invokes the bundle only through the explicit `operations` profile, and EF Core's
+provider migration lock serializes concurrent bundle executions.
+
+After preflight and a verified backup, start PostgreSQL and run the one-shot
+action from the repository root:
+
+```powershell
+docker compose `
+  --env-file /etc/goldsrcops/deployment.env `
+  --file ./ops/production/compose.yml `
+  --profile operations `
+  up --detach --wait postgres
+
+docker compose `
+  --env-file /etc/goldsrcops/deployment.env `
+  --file ./ops/production/compose.yml `
+  --profile operations `
+  run --rm migration
+```
+
+Treat a zero exit code as the migration gate. Do not start the `runtime` profile
+after an interrupted or failed action. Repeat the command in a disposable or
+staging database to prove the already-up-to-date path; the container smoke test
+does this automatically. The bundle has no down-migration mode in this workflow.
+
 ## Remaining Slice 3 Work
 
-1. Add a serialized migration action tied to the same source revision as the API
-   image, then prove a clean migration and repeat execution.
-2. Add encrypted off-host PostgreSQL backup and restore procedures.
-3. Validate Caddy certificate issuance, forwarded scheme, AllowedHosts, and
+1. Add encrypted off-host PostgreSQL backup and restore procedures.
+2. Validate Caddy certificate issuance, forwarded scheme, AllowedHosts, and
    anonymous liveness plus PostgreSQL-backed readiness through public HTTPS.
-4. Validate Reader, Operator, expired-token, wrong-issuer, and wrong-audience
+3. Validate Reader, Operator, expired-token, wrong-issuer, and wrong-audience
    behavior against the selected external identity provider.
-5. Record host firewall, time synchronization, disk, service restart, and log
+4. Record host firewall, time synchronization, disk, service restart, and log
    retention evidence without storing account or secret data.
 
 The complete sequence and definition of done remain in

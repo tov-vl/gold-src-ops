@@ -6,9 +6,10 @@ Validates the provider-independent GoldSrcOps production Compose contract.
 
 .DESCRIPTION
 Renders the tracked Compose file with a deployment environment file and checks
-the immutable image, network, proxy, secret, and port boundaries without
-printing secret values. ContractOnly validates the tracked example in CI while
-skipping target-host files and non-placeholder deployment values.
+the immutable image, one-shot migration, network, proxy, secret, and port
+boundaries without printing secret values. ContractOnly validates the tracked
+example in CI while skipping target-host files and non-placeholder deployment
+values.
 #>
 
 [CmdletBinding()]
@@ -227,6 +228,7 @@ $composeOutput = @(& docker compose `
     --env-file $environmentPath `
     --file $composeFile `
     --profile runtime `
+    --profile operations `
     config `
     --format json)
 
@@ -237,11 +239,16 @@ if ($LASTEXITCODE -ne 0) {
 $configuration = ($composeOutput -join [Environment]::NewLine) | ConvertFrom-Json -Depth 100
 $postgres = $configuration.services.postgres
 $api = $configuration.services.api
+$migration = $configuration.services.migration
 $caddy = $configuration.services.caddy
 
 Assert-ImmutableImage -Image $postgres.image -ServiceName "postgres"
 Assert-ImmutableImage -Image $api.image -ServiceName "api"
+Assert-ImmutableImage -Image $migration.image -ServiceName "migration"
 Assert-ImmutableImage -Image $caddy.image -ServiceName "caddy"
+Assert-Condition `
+    -Condition ($migration.image -eq $api.image) `
+    -Message "The migration action must use the exact API image digest."
 
 Assert-Condition `
     -Condition ($postgres.network_mode -eq "none") `
@@ -261,12 +268,67 @@ Assert-Condition `
 Assert-Condition `
     -Condition (@($api.security_opt) -contains "no-new-privileges:true") `
     -Message "The API must enable no-new-privileges."
+Assert-Condition `
+    -Condition ($migration.network_mode -eq "none") `
+    -Message "The migration action must run without a network interface."
+Assert-Condition `
+    -Condition ($null -eq (Get-PropertyValue -InputObject $migration -Name "ports")) `
+    -Message "The migration action must not publish ports."
+Assert-Condition `
+    -Condition ([bool]$migration.read_only) `
+    -Message "The migration action root filesystem must be read-only."
+Assert-Condition `
+    -Condition (@($migration.cap_drop) -contains "ALL") `
+    -Message "The migration action must drop all Linux capabilities."
+Assert-Condition `
+    -Condition (@($migration.security_opt) -contains "no-new-privileges:true") `
+    -Message "The migration action must enable no-new-privileges."
+Assert-Condition `
+    -Condition ($null -eq (Get-PropertyValue -InputObject $migration -Name "restart")) `
+    -Message "The one-shot migration action must not have a restart policy."
+
+$migrationCommand = @($migration.command)
+Assert-Condition `
+    -Condition ($migrationCommand.Count -eq 3 -and
+        $migrationCommand[0] -eq "migrate" -and
+        $migrationCommand[1] -eq "--no-color" -and
+        $migrationCommand[2] -eq "--prefix-output") `
+    -Message "The migration action must invoke the tracked migrate entrypoint mode."
+Assert-Condition `
+    -Condition (@($migration.profiles) -contains "operations" -and
+        @($migration.profiles) -notcontains "runtime") `
+    -Message "The migration action must be isolated in the operations profile."
+$apiEntrypoint = @($api.entrypoint)
+$migrationEntrypoint = @($migration.entrypoint)
+Assert-Condition `
+    -Condition ($apiEntrypoint.Count -eq 2 -and
+        $apiEntrypoint[0] -eq "/bin/sh" -and
+        $apiEntrypoint[1] -eq "/app/api-entrypoint.sh") `
+    -Message "The secret-loading entrypoint must come from the immutable API image."
+Assert-Condition `
+    -Condition ($migrationEntrypoint.Count -eq $apiEntrypoint.Count -and
+        $migrationEntrypoint[0] -eq $apiEntrypoint[0] -and
+        $migrationEntrypoint[1] -eq $apiEntrypoint[1]) `
+    -Message "The API and migration action must use the same secret-loading entrypoint."
+Assert-Condition `
+    -Condition ([string]$migration.environment.DOTNET_BUNDLE_EXTRACT_BASE_DIR -eq "/tmp/.net") `
+    -Message "The migration bundle must extract only into the bounded writable tmpfs."
+
+$migrationSecretSources = @($migration.secrets | ForEach-Object { $_.source })
+Assert-Condition `
+    -Condition ($migrationSecretSources.Count -eq 1 -and
+        $migrationSecretSources[0] -eq "database-connection") `
+    -Message "The migration action must receive only the database connection secret."
 
 $postgresSocketSource = Get-VolumeSource -Service $postgres -Target "/var/run/postgresql"
 $apiSocketSource = Get-VolumeSource -Service $api -Target "/var/run/postgresql"
+$migrationSocketSource = Get-VolumeSource -Service $migration -Target "/var/run/postgresql"
 Assert-Condition `
     -Condition ($postgresSocketSource -eq $apiSocketSource) `
     -Message "PostgreSQL and the API must share the same Unix socket volume."
+Assert-Condition `
+    -Condition ($postgresSocketSource -eq $migrationSocketSource) `
+    -Message "PostgreSQL and the migration action must share the same Unix socket volume."
 
 $proxyAddress = [string]$api.environment.ReverseProxy__KnownProxy
 $apiAddress = [string]$api.networks.edge.ipv4_address
@@ -298,6 +360,13 @@ Assert-Condition `
 Assert-Condition `
     -Condition (@($api.environment.PSObject.Properties.Name | Where-Object { $_ -like "RconSecrets__*" }).Count -eq 0) `
     -Message "RCON passwords must not be stored in Compose environment values."
+Assert-Condition `
+    -Condition ($null -eq (Get-PropertyValue -InputObject $migration.environment -Name "ConnectionStrings__GoldSrcOps")) `
+    -Message "The migration connection string must not be stored in Compose environment values."
+Assert-Condition `
+    -Condition ($null -eq (Get-PropertyValue -InputObject $migration.environment -Name "GOLDSRCOPS_RCON_SECRET_ALIAS") -and
+        @($migration.environment.PSObject.Properties.Name | Where-Object { $_ -like "RconSecrets__*" }).Count -eq 0) `
+    -Message "The migration action must not receive RCON configuration."
 
 $expectedPorts = @(
     "80/tcp",
@@ -371,6 +440,16 @@ if (-not $ContractOnly) {
     Assert-Condition `
         -Condition ($apiUser -eq "1654") `
         -Message "The API image must run as Unix UID 1654 for file-secret ownership."
+
+    & docker run `
+        --rm `
+        --entrypoint /bin/sh `
+        $api.image `
+        -c "test -x /app/goldsrcops-migrate && test -r /app/api-entrypoint.sh"
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "The API image does not contain its migration bundle and secret-loading entrypoint."
+    }
 
     & docker run `
         --rm `

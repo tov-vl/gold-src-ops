@@ -46,7 +46,7 @@ services:
         condition: service_healthy
     entrypoint:
       - /bin/sh
-      - /opt/goldsrcops/api-entrypoint.sh
+      - /app/api-entrypoint.sh
     environment:
       AllowedHosts: ${GOLDSRCOPS_HOSTNAME:?Set GOLDSRCOPS_HOSTNAME}
       ASPNETCORE_ENVIRONMENT: Production
@@ -71,10 +71,6 @@ services:
       - source: rcon-password
         target: rcon-password
     volumes:
-      - type: bind
-        source: ./api-entrypoint.sh
-        target: /opt/goldsrcops/api-entrypoint.sh
-        read_only: true
       - postgres-socket:/var/run/postgresql
     expose:
       - "8080"
@@ -82,6 +78,39 @@ services:
       edge:
         ipv4_address: ${GOLDSRCOPS_API_IP:?Set GOLDSRCOPS_API_IP}
     stop_grace_period: 30s
+    logging: *bounded-logging
+
+  migration:
+    profiles: [operations]
+    image: ${GOLDSRCOPS_IMAGE:?Set GOLDSRCOPS_IMAGE to an immutable digest reference}
+    pull_policy: always
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - /app/api-entrypoint.sh
+    command:
+      - migrate
+      - --no-color
+      - --prefix-output
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_BUNDLE_EXTRACT_BASE_DIR: /tmp/.net
+      DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE: "false"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    secrets:
+      - source: database-connection
+        target: database-connection
+    volumes:
+      - postgres-socket:/var/run/postgresql
+    network_mode: none
     logging: *bounded-logging
 
   caddy:

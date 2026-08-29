@@ -6,10 +6,10 @@ Builds and smoke-tests the production GoldSrcOps container image.
 
 .DESCRIPTION
 Creates isolated Docker resources, verifies the runtime image and fail-fast
-configuration behavior, applies EF Core migrations as a separate action, and
-checks alert-delivery startup, log safety, API liveness, and PostgreSQL-backed
-readiness. Temporary containers, network, and image tag are removed even when
-the test fails.
+configuration behavior, applies the image-contained EF Core migration bundle
+twice through its production entrypoint, and checks alert-delivery startup, log
+safety, API liveness, and PostgreSQL-backed readiness. Temporary containers,
+network, secret file, and image tag are removed even when the test fails.
 
 .PARAMETER StartupTimeoutSeconds
 How long to wait for PostgreSQL and the API health endpoints.
@@ -55,22 +55,6 @@ if ($null -ne (Get-Variable -Name PSNativeCommandUseErrorActionPreference -Error
 }
 
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "../..")).Path
-$apiProject = Join-Path $repoRoot "src/GoldSrcOps.Api"
-$apiProjectFile = Join-Path $apiProject "GoldSrcOps.Api.csproj"
-$infrastructureProject = Join-Path $repoRoot "src/GoldSrcOps.Infrastructure"
-$localDotnetDirectory = Join-Path $repoRoot ".dotnet"
-$localDotnetWindows = Join-Path $localDotnetDirectory "dotnet.exe"
-$localDotnetUnix = Join-Path $localDotnetDirectory "dotnet"
-$dotnet = if (Test-Path -LiteralPath $localDotnetWindows) {
-    $localDotnetWindows
-}
-elseif (Test-Path -LiteralPath $localDotnetUnix) {
-    $localDotnetUnix
-}
-else {
-    "dotnet"
-}
-
 $runId = [Guid]::NewGuid().ToString("N").Substring(0, 12)
 $buildImageLocally = [string]::IsNullOrWhiteSpace($ImageReference)
 $imageTag = if ($buildImageLocally) { "goldsrcops:smoke-$runId" } else { $ImageReference }
@@ -85,6 +69,7 @@ $databasePassword = "goldsrcops-smoke"
 $testIssuer = "goldsrcops-container-smoke"
 $alertWebhookUrl = "https://alerts.example.invalid/goldsrcops"
 $alertAuthorizationMarker = "Bearer goldsrcops-smoke-secret-$runId"
+$migrationSecretFile = Join-Path ([IO.Path]::GetTempPath()) "goldsrcops-smoke-$runId-database-connection"
 $imageBuilt = $false
 $succeeded = $false
 
@@ -230,30 +215,43 @@ function Wait-HttpHealth {
     throw "Health endpoint '$Uri' did not become healthy within $TimeoutSeconds seconds. Last error: $lastError"
 }
 
-function Invoke-WithEnvironment {
+function Invoke-MigrationBundle {
     param(
         [Parameter(Mandatory = $true)]
-        [hashtable]$Variables,
+        [string]$Image,
 
         [Parameter(Mandatory = $true)]
-        [scriptblock]$Action
+        [string]$Network,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ConnectionFile
     )
 
-    $previousValues = @{}
-
-    foreach ($entry in $Variables.GetEnumerator()) {
-        $previousValues[$entry.Key] = [Environment]::GetEnvironmentVariable($entry.Key, "Process")
-        [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, "Process")
-    }
-
-    try {
-        & $Action
-    }
-    finally {
-        foreach ($entry in $previousValues.GetEnumerator()) {
-            [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, "Process")
-        }
-    }
+    Invoke-External -FilePath "docker" -Arguments @(
+        "run",
+        "--rm",
+        "--network",
+        $Network,
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=16m",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--env",
+        "ASPNETCORE_ENVIRONMENT=Production",
+        "--env",
+        "DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net",
+        "--mount",
+        "type=bind,source=$ConnectionFile,target=/run/secrets/database-connection,readonly",
+        "--entrypoint",
+        "/bin/sh",
+        $Image,
+        "/app/api-entrypoint.sh",
+        "migrate",
+        "--no-color",
+        "--prefix-output")
 }
 
 function Remove-ContainerIfPresent {
@@ -509,8 +507,6 @@ try {
         $postgresContainer,
         "--network",
         $networkName,
-        "--publish",
-        "127.0.0.1::5432",
         "--tmpfs",
         "/var/lib/postgresql/data:rw,nosuid,size=256m",
         "--env",
@@ -530,43 +526,27 @@ try {
         "postgres:16-alpine")
     Wait-ContainerHealthy -ContainerName $postgresContainer -TimeoutSeconds $StartupTimeoutSeconds
 
-    $postgresHostPort = Get-PublishedPort -ContainerName $postgresContainer -ContainerPort 5432
-    $migrationConnectionString =
-        "Host=127.0.0.1;Port=$postgresHostPort;Database=$databaseName;" +
-        "Username=$databaseUser;Password=$databasePassword;SSL Mode=Disable;GSS Encryption Mode=Disable"
-
-    Write-Step "Apply EF Core migrations separately"
-    Invoke-External -FilePath $dotnet -Arguments @("restore", $apiProjectFile)
-    Invoke-External -FilePath $dotnet -Arguments @("tool", "restore")
-    Invoke-WithEnvironment -Variables @{
-        "ASPNETCORE_ENVIRONMENT" = "Production"
-        "Authentication__Schemes__Bearer__ValidAudiences__0" = $testIssuer
-        "Authentication__Schemes__Bearer__ValidIssuer" = $testIssuer
-        "CommandDispatcher__Enabled" = "false"
-        "ConnectionStrings__GoldSrcOps" = $migrationConnectionString
-        "Polling__Enabled" = "false"
-        "SnapshotRetention__Enabled" = "false"
-    } -Action {
-        Invoke-External -FilePath $dotnet -Arguments @(
-            "tool",
-            "run",
-            "dotnet-ef",
-            "--",
-            "database",
-            "update",
-            "--project",
-            $infrastructureProject,
-            "--startup-project",
-            $apiProject,
-            "--",
-            "--environment",
-            "Production")
-    }
-
-    Write-Step "Start hardened API container"
     $containerConnectionString =
         "Host=$postgresContainer;Port=5432;Database=$databaseName;" +
         "Username=$databaseUser;Password=$databasePassword;SSL Mode=Disable;GSS Encryption Mode=Disable"
+    [IO.File]::WriteAllText(
+        $migrationSecretFile,
+        $containerConnectionString,
+        [System.Text.UTF8Encoding]::new($false))
+
+    Write-Step "Apply EF Core migration bundle"
+    Invoke-MigrationBundle `
+        -Image $imageTag `
+        -Network $networkName `
+        -ConnectionFile $migrationSecretFile
+
+    Write-Step "Reapply EF Core migration bundle"
+    Invoke-MigrationBundle `
+        -Image $imageTag `
+        -Network $networkName `
+        -ConnectionFile $migrationSecretFile
+
+    Write-Step "Start hardened API container"
     Invoke-External -FilePath "docker" -Arguments @(
         "run",
         "--rm",
@@ -660,6 +640,10 @@ finally {
     Remove-ContainerIfPresent -ContainerName $alertFailFastContainer
     Remove-ContainerIfPresent -ContainerName $postgresContainer
     Remove-NetworkIfPresent -Name $networkName
+
+    if (Test-Path -LiteralPath $migrationSecretFile) {
+        Remove-Item -LiteralPath $migrationSecretFile -Force
+    }
 
     if ($imageBuilt -and -not $KeepImage) {
         Remove-ImageIfPresent -Tag $imageTag

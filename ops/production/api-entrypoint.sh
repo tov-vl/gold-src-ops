@@ -16,6 +16,15 @@ require_readable_secret() {
 }
 
 require_readable_secret "$database_connection_file" "database connection"
+
+database_connection="$(cat "$database_connection_file")"
+export ConnectionStrings__GoldSrcOps="$database_connection"
+
+if [ "${1:-}" = "migrate" ]; then
+    shift
+    exec /app/goldsrcops-migrate "$@"
+fi
+
 require_readable_secret "$rcon_password_file" "RCON password"
 
 case "$rcon_secret_alias" in
@@ -30,7 +39,6 @@ if [ "${#rcon_secret_alias}" -gt 128 ]; then
     exit 1
 fi
 
-database_connection="$(cat "$database_connection_file")"
 rcon_password="$(cat "$rcon_password_file")"
 
 case "$rcon_password" in
@@ -40,7 +48,6 @@ case "$rcon_password" in
         ;;
 esac
 
-export ConnectionStrings__GoldSrcOps="$database_connection"
 export "RconSecrets__${rcon_secret_alias}=$rcon_password"
 
-exec dotnet GoldSrcOps.Api.dll
+exec dotnet GoldSrcOps.Api.dll "$@"

@@ -436,8 +436,9 @@ dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 
 GitHub Actions runs the same quality gate on every push and pull request. After
 it succeeds, a dependent `Container Smoke` job builds the production image,
-applies migrations to isolated PostgreSQL, and checks its runtime, alert
-configuration, log-safety, and health contracts. An exact annotated
+applies its embedded migration bundle twice to isolated PostgreSQL, and checks
+runtime hardening, alert configuration, log-safety, and health contracts. An
+exact annotated
 `v<major>.<minor>.<patch>` tag adds `Publish Image` and
 `Verify Published Image`: they publish immutable release and full-revision tags
 to GHCR, record the digest, and rerun the smoke flow against the pulled digest.

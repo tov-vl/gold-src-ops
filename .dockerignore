@@ -4,6 +4,7 @@
 !Dockerfile
 !.editorconfig
 !Directory.Build.props
+!dotnet-tools.json
 !global.json
 
 !src/
@@ -11,6 +12,10 @@
 !src/**/*.cs
 !src/**/*.csproj
 !src/GoldSrcOps.Api/appsettings.json
+
+!ops/
+!ops/production/
+!ops/production/api-entrypoint.sh
 
 src/GoldSrcOps.Api/appsettings.Development.json
 src/GoldSrcOps.Api/appsettings.Local.json
