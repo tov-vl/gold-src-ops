@@ -50,10 +50,10 @@ EXPOSE 8080
 WORKDIR /app
 COPY --link --from=build /app/publish .
 COPY --link --from=build /app/migrations/goldsrcops-migrate /app/goldsrcops-migrate
-COPY --link ops/production/api-entrypoint.sh /app/api-entrypoint.sh
+COPY --link --chmod=0555 ops/production/api-entrypoint.sh /app/api-entrypoint.sh
 
 RUN test -x /app/goldsrcops-migrate \
-    && test -r /app/api-entrypoint.sh
+    && test -x /app/api-entrypoint.sh
 
 USER $APP_UID
 

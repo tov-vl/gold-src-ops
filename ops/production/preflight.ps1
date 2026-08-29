@@ -640,7 +640,7 @@ if (-not $ContractOnly) {
         --rm `
         --entrypoint /bin/sh `
         $api.image `
-        -c "test -x /app/goldsrcops-migrate && test -r /app/api-entrypoint.sh"
+        -c "test -x /app/goldsrcops-migrate && test -x /app/api-entrypoint.sh"
 
     if ($LASTEXITCODE -ne 0) {
         throw "The API image does not contain its migration bundle and secret-loading entrypoint."
