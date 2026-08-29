@@ -75,6 +75,55 @@ The host also needs:
 - an external OAuth 2.0 or OpenID Connect issuer that emits the documented
   Reader and Operator roles.
 
+## Host Readiness
+
+The reference host baseline is an x86-64 Linux system using systemd, Docker
+Engine with the Compose plugin, and UFW. UFW must deny inbound traffic by
+default, allow outbound traffic, restrict SSH to one operator IPv4 `/32`, and
+allow only TCP `80`, TCP `443`, and UDP `443` for public Caddy ingress. Choosing
+this inspectable host baseline does not couple the application to a VPS vendor.
+
+Run the read-only baseline audit as root before installing production secrets or
+starting the runtime profile:
+
+```powershell
+sudo pwsh -NoProfile -File ./ops/production/host-preflight.ps1 `
+  -AdminIpv4Cidr 192.0.2.10/32 `
+  -EvidenceFile /var/lib/goldsrcops/evidence/host-baseline.json
+```
+
+The audit requires an active and boot-enabled `docker.service`, synchronized
+time, at least 10 GiB and 10 percent free inodes in Docker's storage filesystem,
+the expected UFW policy, an SSH listener, and no public PostgreSQL, API, OTLP,
+Prometheus, or Grafana listener. It also rejects Docker-published ports outside
+the Caddy set. Thresholds and the SSH port are explicit parameters when the
+reviewed host design requires different values.
+
+After DNS, backup storage, and external identity are configured, repeat the
+audit with dependency and runtime checks:
+
+```powershell
+sudo pwsh -NoProfile -File ./ops/production/host-preflight.ps1 `
+  -AdminIpv4Cidr 192.0.2.10/32 `
+  -EnvironmentFile /etc/goldsrcops/deployment.env `
+  -RequireExternalEndpoints `
+  -RequireRuntimeListeners `
+  -EvidenceFile /var/lib/goldsrcops/evidence/host-runtime.json
+```
+
+This additionally verifies HTTPS reachability of GHCR and the selected backup
+endpoint, successful retrieval of OIDC metadata, and the complete Caddy
+listener set. Evidence contains versions, capacity, port identifiers, and
+pass/fail results, but no host address, administrator CIDR, endpoint, or secret
+value. It must remain outside the repository and is atomically published with
+mode `0600` on Linux. The script changes no firewall, service, package, or
+Docker state.
+
+`tools/smoke/host-preflight.ps1` exercises deterministic passing and failing
+snapshots in CI. Such evidence always has `Source: Snapshot` and
+`TargetEvidence: false`; it validates the decision logic but cannot close the
+live host gate.
+
 ## Preflight
 
 Run the preflight before starting target services:
@@ -84,11 +133,12 @@ pwsh -NoProfile -File ./ops/production/preflight.ps1 `
   -EnvironmentFile /etc/goldsrcops/deployment.env
 ```
 
-It renders Compose, requires immutable image digests, checks the public-port and
-Unix-socket boundaries, verifies the trusted proxy address, and checks secret
-file location and permissions without printing secret contents. It also uses the
-configured digest-pinned Caddy image to validate the tracked Caddyfile. Full
-deployment mode pulls the API image, verifies its non-root UID, and requires the
+It renders Compose, requires immutable image digests, enforces runtime restart
+policies and bounded local logs, checks the public-port and Unix-socket
+boundaries, verifies the trusted proxy address, and checks secret file location
+and permissions without printing secret contents. It also uses the configured
+digest-pinned Caddy image to validate the tracked Caddyfile. Full deployment
+mode pulls the API image, verifies its non-root UID, and requires the
 image-contained secret-loading entrypoint and migration bundle. It also pulls
 the digest-pinned restic image and validates the off-host HTTPS repository and
 backup secret boundaries.
@@ -167,8 +217,9 @@ does this automatically. The bundle has no down-migration mode in this workflow.
    anonymous liveness plus PostgreSQL-backed readiness through public HTTPS.
 3. Validate Reader, Operator, expired-token, wrong-issuer, and wrong-audience
    behavior against the selected external identity provider.
-4. Record host firewall, time synchronization, disk, service restart, and log
-   retention evidence without storing account or secret data.
+4. Run both host-readiness stages on the selected VPS, perform one controlled
+   reboot, and retain sanitized firewall, time, capacity, service restart, and
+   log-retention evidence outside the repository.
 
 The complete sequence and definition of done remain in
 [`docs/v2.3-production-deployment.md`](../../docs/v2.3-production-deployment.md).

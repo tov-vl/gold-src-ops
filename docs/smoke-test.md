@@ -56,6 +56,22 @@ after the regular `Quality Gate` succeeds. For a release tag,
 `Verify Published Image` reruns it against the newly published digest using
 package-read permission.
 
+## Host-Readiness Decisions
+
+Run the deterministic host-preflight smoke independently with:
+
+```powershell
+pwsh -NoProfile -File .\tools\smoke\host-preflight.ps1
+```
+
+It checks one passing snapshot and focused failures for Docker boot enablement,
+time synchronization, disk capacity, SSH scope, public PostgreSQL, unexpected
+Docker port publication, and OIDC metadata. The `Container Smoke` CI job runs
+this command before the image smoke. Snapshot evidence is deliberately marked
+as non-target evidence; live VPS verification uses
+`ops/production/host-preflight.ps1` as documented in
+`ops/production/README.md`.
+
 ## Fast Path
 
 ```powershell
