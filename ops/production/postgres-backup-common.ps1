@@ -400,6 +400,17 @@ function Invoke-NativeCapture {
     }
 }
 
+function Get-CurrentUnixDockerUser {
+    $userId = (Invoke-NativeCapture -FilePath "id" -Arguments @("-u")).Output
+    $groupId = (Invoke-NativeCapture -FilePath "id" -Arguments @("-g")).Output
+
+    Assert-BackupCondition `
+        -Condition ($userId -match '\A[0-9]+\z' -and $groupId -match '\A[0-9]+\z') `
+        -Message "Could not resolve the current Unix user for the restic container."
+
+    return "${userId}:${groupId}"
+}
+
 function Invoke-NativeStreamPipeline {
     param(
         [Parameter(Mandatory = $true)]
@@ -512,6 +523,10 @@ function New-ResticDockerArguments {
     $arguments.Add("--rm")
     $arguments.Add("--name")
     $arguments.Add($ContainerName)
+    if (-not $IsWindows) {
+        $arguments.Add("--user")
+        $arguments.Add((Get-CurrentUnixDockerUser))
+    }
     $arguments.Add("--read-only")
     $arguments.Add("--cap-drop")
     $arguments.Add("ALL")

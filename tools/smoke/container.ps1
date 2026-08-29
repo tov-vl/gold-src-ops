@@ -103,7 +103,7 @@ function Set-OwnerOnlyFilePermissions {
     if (-not $IsWindows) {
         [IO.File]::SetUnixFileMode(
             $Path,
-            [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite)
+            [IO.UnixFileMode]::UserRead)
     }
 }
 

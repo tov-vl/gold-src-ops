@@ -42,6 +42,10 @@ repository. The backend file must not set any `RESTIC_PASSWORD*` or
 scoped `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; add a region or provider
 option only when the selected backend requires it.
 
+On Linux, the backup scripts run the restic container with the deployment
+operator's numeric UID and GID. This lets the capability-free container read
+owner-only files without granting it discretionary-access-control bypass.
+
 Keep the restic password in an independent recovery escrow. Losing it makes the
 backup data unrecoverable. Root and Docker-daemon administrators can access
 mounted secret files and container environment values, so restrict both roles
