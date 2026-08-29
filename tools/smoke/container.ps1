@@ -94,6 +94,19 @@ function Write-Step {
     Write-Host "==> $Name"
 }
 
+function Set-OwnerOnlyFilePermissions {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not $IsWindows) {
+        [IO.File]::SetUnixFileMode(
+            $Path,
+            [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite)
+    }
+}
+
 function Invoke-External {
     param(
         [Parameter(Mandatory = $true)]
@@ -662,6 +675,7 @@ VALUES
         $resticPasswordFile,
         "goldsrcops-smoke-restic-password-$runId",
         [System.Text.UTF8Encoding]::new($false))
+    Set-OwnerOnlyFilePermissions -Path $resticPasswordFile
     [IO.File]::WriteAllLines(
         $resticEnvironmentFile,
         @(
@@ -669,6 +683,7 @@ VALUES
             "AWS_SECRET_ACCESS_KEY=local-smoke"
         ),
         [System.Text.UTF8Encoding]::new($false))
+    Set-OwnerOnlyFilePermissions -Path $resticEnvironmentFile
     [IO.File]::WriteAllLines(
         $backupEnvironmentFile,
         @(
