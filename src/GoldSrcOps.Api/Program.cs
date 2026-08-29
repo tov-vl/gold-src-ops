@@ -1,4 +1,5 @@
 using GoldSrcOps.Api.Endpoints;
+using GoldSrcOps.Api.Hosting;
 using GoldSrcOps.Api.Security;
 using GoldSrcOps.Application.Alerts;
 using GoldSrcOps.Application.Commands;
@@ -10,6 +11,7 @@ using GoldSrcOps.Application.Telemetry;
 using GoldSrcOps.Infrastructure;
 using GoldSrcOps.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 
@@ -25,6 +27,9 @@ if (builder.Environment.IsDevelopment())
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
+var reverseProxyEnabled = ReverseProxyConfiguration.Configure(
+    builder.Services,
+    builder.Configuration);
 builder.Services.AddGoldSrcOpsSecurity(builder.Environment);
 builder.Services.AddScoped<AlertDeliveryReadService>();
 builder.Services.AddScoped<AlertDeliveryReplayService>();
@@ -52,6 +57,11 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi()
         .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
+}
+
+if (reverseProxyEnabled)
+{
+    app.UseForwardedHeaders();
 }
 
 app.UseHttpsRedirection();

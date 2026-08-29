@@ -2,9 +2,10 @@
 
 This document defines the current container deployment contract. It is
 platform-neutral: release tags publish the production image to GitHub Container
-Registry (GHCR), but the repository does not ship provider-specific Docker
-Compose, systemd, or Kubernetes production manifests. GoldSrcOps v2.2.0 is the
-latest public release. Transactional
+Registry (GHCR), and `ops/production` now supplies the provider-independent first
+sub-slice of the v2.3 reference Compose contract. The repository does not ship a
+provider-specific control-panel integration, systemd unit, or Kubernetes
+manifest. GoldSrcOps v2.2.0 is the latest public release. Transactional
 incident-alert delivery, audited dead-letter replay, and bounded RCON response
 collection extend the application without changing the supported container
 shape.
@@ -114,7 +115,7 @@ The production image has these fixed expectations:
 | Container port | `8080` over HTTP |
 | Runtime user | Non-root `$APP_UID` from the .NET runtime image |
 | Working directory | `/app` |
-| Writable path | `/tmp` only when the root filesystem is read-only |
+| Writable path | `/tmp`, plus explicitly mounted state or Unix-socket volumes when the root filesystem is read-only |
 | Database migration | Never performed by ordinary application startup |
 | Liveness | Anonymous `GET /health/live` |
 | Readiness | Anonymous `GET /health/ready`, including PostgreSQL connectivity |
@@ -123,6 +124,13 @@ The production image has these fixed expectations:
 Run the container with a read-only root filesystem, a small `/tmp` tmpfs, no
 additional Linux capabilities, and `no-new-privileges`. This shape is exercised
 by `tools/smoke/container.ps1`.
+
+The v2.3 reference Compose additionally mounts PostgreSQL's Unix-domain socket at
+`/var/run/postgresql`. PostgreSQL runs with `network_mode: none`, so this writable
+mount replaces a database TCP boundary rather than exposing one. Its connection
+string may set `SSL Mode=Disable` only for that socket path; remote or
+TCP-connected PostgreSQL still requires provider-appropriate TLS and certificate
+validation.
 
 The following Docker command illustrates the contract for a host-local reverse
 proxy. It assumes the named environment variables have already been injected
@@ -174,9 +182,10 @@ Required deployment values:
 
 | Environment variable | Purpose |
 | --- | --- |
-| `ConnectionStrings__GoldSrcOps` | Npgsql connection string. Production TLS and certificate validation must follow the database provider's requirements; do not copy the smoke test's `SSL Mode=Disable`. |
+| `ConnectionStrings__GoldSrcOps` | Npgsql connection string. TCP deployments require provider-appropriate TLS and certificate validation. `SSL Mode=Disable` is limited to the v2.3 reference Unix socket described above. |
 | `Authentication__Schemes__Bearer__Authority` | HTTPS metadata authority for the external identity provider. |
 | `Authentication__Schemes__Bearer__Audience` | GoldSrcOps API audience accepted from that provider. |
+| `ReverseProxy__KnownProxy` | Optional single trusted proxy IP. When set, the API processes one `X-Forwarded-For` and `X-Forwarded-Proto` hop from that address before HTTPS redirection and authentication. |
 
 Instead of `Authority` and `Audience`, a deployment may provide the equivalent
 validated issuer and audience settings described in `docs/security.md`.
