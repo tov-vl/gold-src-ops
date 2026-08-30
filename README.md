@@ -436,11 +436,12 @@ dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 ```
 
 GitHub Actions runs the same quality gate on every push and pull request. After
-it succeeds, a dependent `Container Smoke` job first exercises deterministic
-host-readiness pass/fail decisions, then builds the production image, applies
-its embedded migration bundle twice to isolated PostgreSQL, and checks runtime
-hardening, alert configuration, log-safety, health contracts, and an encrypted
-backup, full repository data check, and isolated restore rehearsal. An exact
+it succeeds, a dependent `Container Smoke` job first validates the plan-only
+host bootstrap and deterministic host-readiness pass/fail decisions, then
+builds the production image, applies its embedded migration bundle twice to
+isolated PostgreSQL, and checks runtime hardening, alert configuration,
+log-safety, health contracts, and an encrypted backup, full repository data
+check, and isolated restore rehearsal. An exact
 signed annotated `v<major>.<minor>.<patch>` or
 `v<major>.<minor>.<patch>-rc.<number>` tag adds `Publish Image` and
 `Verify Published Image`: they publish immutable exact and full-revision tags to
@@ -459,9 +460,9 @@ intended workflow, although the ruleset does not currently require one.
 
 Run `pwsh -NoProfile -File .\tools\smoke\container.ps1` to build and verify the
 production container against an isolated PostgreSQL instance. See
-`docs/smoke-test.md` for the image flow, the separate host-preflight smoke, and
-the longer live GoldSrc server flow. Live VPS auditing is documented in
-`ops/production/README.md`.
+`docs/smoke-test.md` for the image flow, the separate host-bootstrap and
+host-preflight smokes, and the longer live GoldSrc server flow. Live VPS
+hardening and auditing are documented in `ops/production/README.md`.
 Use `docs/deployment.md` for image versioning, production configuration,
 migrations, probes, and rollback. PostgreSQL recovery operations are in
 `docs/postgresql-backup.md`; alert-specific rollout and recovery guidance is in

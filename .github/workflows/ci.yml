@@ -71,6 +71,9 @@ jobs:
       - name: Validate image publication contract
         run: pwsh -NoProfile -File ./tools/smoke/image-publication.ps1
 
+      - name: Validate host bootstrap and hardening
+        run: bash ./tools/smoke/host-bootstrap.sh
+
       - name: Validate host-readiness preflight
         run: pwsh -NoProfile -File ./tools/smoke/host-preflight.ps1
 

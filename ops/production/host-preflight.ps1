@@ -6,10 +6,10 @@ Audits a Linux control-plane host before the GoldSrcOps runtime is enabled.
 
 .DESCRIPTION
 Collects read-only host observations for systemd, Docker, time synchronization,
-storage, UFW, listening ports, published container ports, and optional external
-dependencies. The script never changes host configuration and never records
-secret values. Snapshot mode exists only for deterministic CI validation and is
-always marked as non-target evidence.
+storage, UFW, effective SSH configuration, listening ports, published container
+ports, and optional external dependencies. The script never changes host
+configuration and never records secret values. Snapshot mode exists only for
+deterministic CI validation and is always marked as non-target evidence.
 #>
 
 [CmdletBinding(DefaultParameterSetName = "Live")]
@@ -33,6 +33,9 @@ param(
 
     [ValidateRange(1, 65535)]
     [int]$SshPort = 22,
+
+    [ValidatePattern('\A[a-z_][a-z0-9_-]{0,31}\z')]
+    [string]$OperatorUser = "gsoadmin",
 
     [ValidateRange(1, 1024)]
     [int]$MinimumFreeDiskGiB = 10,
@@ -379,6 +382,76 @@ function Get-DockerPublishedPorts {
     }
 }
 
+function Get-SshConfigurationObservation {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedAdminCidr,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedOperatorUser,
+
+        [Parameter(Mandatory = $true)]
+        [int]$ExpectedSshPort
+    )
+
+    $expectedAdminAddress = $ExpectedAdminCidr.Substring(
+        0,
+        $ExpectedAdminCidr.LastIndexOf('/'))
+    $connectionSpec = "user=$ExpectedOperatorUser,host=localhost," +
+        "addr=$expectedAdminAddress,laddr=127.0.0.1,lport=$ExpectedSshPort"
+    $probe = Invoke-NativeProbe `
+        -FilePath "/usr/sbin/sshd" `
+        -Arguments @("-T", "-C", $connectionSpec)
+    if ($probe.ExitCode -ne 0) {
+        return [pscustomobject]@{
+            Available = $false
+            RootLoginDisabled = $false
+            PasswordAuthenticationDisabled = $false
+            KeyboardInteractiveAuthenticationDisabled = $false
+            PublicKeyAuthenticationEnabled = $false
+            PublicKeyOnly = $false
+            ExpectedUserAllowed = $false
+        }
+    }
+
+    $settings = [Collections.Generic.Dictionary[string, string]]::new(
+        [StringComparer]::OrdinalIgnoreCase)
+    foreach ($line in $probe.Output -split '\r?\n') {
+        $separator = $line.IndexOf(' ')
+        if ($separator -le 0) {
+            continue
+        }
+
+        $name = $line.Substring(0, $separator)
+        $value = $line.Substring($separator + 1).Trim()
+        $settings[$name] = $value
+    }
+
+    $getSetting = {
+        param([string]$Name)
+
+        $value = $null
+        if ($settings.TryGetValue($Name, [ref]$value)) {
+            return $value
+        }
+
+        return ""
+    }
+    $allowedUsers = @((& $getSetting "allowusers") -split '\s+' |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+
+    return [pscustomobject]@{
+        Available = $true
+        RootLoginDisabled = (& $getSetting "permitrootlogin") -eq "no"
+        PasswordAuthenticationDisabled = (& $getSetting "passwordauthentication") -eq "no"
+        KeyboardInteractiveAuthenticationDisabled =
+            (& $getSetting "kbdinteractiveauthentication") -eq "no"
+        PublicKeyAuthenticationEnabled = (& $getSetting "pubkeyauthentication") -eq "yes"
+        PublicKeyOnly = (& $getSetting "authenticationmethods") -eq "publickey"
+        ExpectedUserAllowed = $allowedUsers -contains $ExpectedOperatorUser
+    }
+}
+
 function Get-LiveObservation {
     param(
         [Parameter(Mandatory = $true)]
@@ -386,6 +459,9 @@ function Get-LiveObservation {
 
         [Parameter(Mandatory = $true)]
         [int]$ExpectedSshPort,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedOperatorUser,
 
         [string]$DeploymentEnvironmentFile
     )
@@ -469,6 +545,10 @@ function Get-LiveObservation {
 
     $listeners = Get-PublicListenerPorts
     $publishedPorts = Get-DockerPublishedPorts
+    $sshConfiguration = Get-SshConfigurationObservation `
+        -ExpectedAdminCidr $ExpectedAdminCidr `
+        -ExpectedOperatorUser $ExpectedOperatorUser `
+        -ExpectedSshPort $ExpectedSshPort
 
     $ghcrReachable = $null
     $backupEndpointReachable = $null
@@ -506,7 +586,7 @@ function Get-LiveObservation {
     }
 
     return [pscustomobject]@{
-        SchemaVersion = 1
+        SchemaVersion = 2
         CapturedAtUtc = [DateTimeOffset]::UtcNow
         IsLinux = $true
         OperatingSystem = $operatingSystem
@@ -539,6 +619,14 @@ function Get-LiveObservation {
         FirewallHttpsTcpAllowed = $firewall.HttpsTcpAllowed
         FirewallHttpsUdpAllowed = $firewall.HttpsUdpAllowed
         FirewallPostgresAllowed = $firewall.PostgresAllowed
+        SshConfigurationAvailable = $sshConfiguration.Available
+        SshRootLoginDisabled = $sshConfiguration.RootLoginDisabled
+        SshPasswordAuthenticationDisabled = $sshConfiguration.PasswordAuthenticationDisabled
+        SshKeyboardInteractiveAuthenticationDisabled =
+            $sshConfiguration.KeyboardInteractiveAuthenticationDisabled
+        SshPublicKeyAuthenticationEnabled = $sshConfiguration.PublicKeyAuthenticationEnabled
+        SshPublicKeyOnly = $sshConfiguration.PublicKeyOnly
+        SshExpectedUserAllowed = $sshConfiguration.ExpectedUserAllowed
         ListenerInspectionAvailable = $listeners.Available
         PublicListenerPorts = @($listeners.Ports)
         DockerPortInspectionAvailable = $publishedPorts.Available
@@ -612,6 +700,9 @@ if (-not [Net.IPAddress]::TryParse($Matches["address"], [ref]$parsedAddress) -or
     $parsedAddress.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) {
     throw "AdminIpv4Cidr must contain a valid IPv4 address."
 }
+if ($OperatorUser -eq "root") {
+    throw "OperatorUser must identify a non-root account."
+}
 
 if ($PSCmdlet.ParameterSetName -eq "Live") {
     if ($RequireExternalEndpoints -and [string]::IsNullOrWhiteSpace($EnvironmentFile)) {
@@ -627,6 +718,7 @@ if ($PSCmdlet.ParameterSetName -eq "Live") {
     $observation = Get-LiveObservation `
         -ExpectedAdminCidr $AdminIpv4Cidr `
         -ExpectedSshPort $SshPort `
+        -ExpectedOperatorUser $OperatorUser `
         -DeploymentEnvironmentFile $deploymentEnvironmentForProbe
     $source = "Live"
     $targetEvidence = $true
@@ -656,7 +748,7 @@ else {
     $targetEvidence = $false
 }
 
-if ([int]$observation.SchemaVersion -ne 1) {
+if ([int]$observation.SchemaVersion -ne 2) {
     throw "Unsupported host observation schema version."
 }
 
@@ -719,8 +811,25 @@ Add-Check -Name "Public HTTPS firewall" -Passed $publicHttpsFirewallReady -Detai
 Add-Check -Name "PostgreSQL firewall" -Passed (-not [bool]$observation.FirewallPostgresAllowed) -Detail $(
     if (-not [bool]$observation.FirewallPostgresAllowed) { "No inbound PostgreSQL allow rule exists." } else { "An inbound PostgreSQL allow rule exists." })
 
+Add-Check -Name "SSH configuration inspection" -Passed ([bool]$observation.SshConfigurationAvailable) -Detail $(
+    if ([bool]$observation.SshConfigurationAvailable) { "The effective SSH configuration was inspected." } else { "The effective SSH configuration could not be inspected." })
+Add-Check -Name "Root SSH login" -Passed ([bool]$observation.SshRootLoginDisabled) -Detail $(
+    if ([bool]$observation.SshRootLoginDisabled) { "Direct root login is disabled." } else { "Direct root login is enabled." })
+$interactiveSshDisabled = [bool]$observation.SshPasswordAuthenticationDisabled -and
+    [bool]$observation.SshKeyboardInteractiveAuthenticationDisabled
+Add-Check -Name "Interactive SSH authentication" -Passed $interactiveSshDisabled -Detail $(
+    if ($interactiveSshDisabled) { "Interactive authentication is disabled." } else { "Interactive authentication is enabled." })
+$publicKeyOnly = [bool]$observation.SshPublicKeyAuthenticationEnabled -and
+    [bool]$observation.SshPublicKeyOnly
+Add-Check -Name "Public-key SSH authentication" -Passed $publicKeyOnly -Detail $(
+    if ($publicKeyOnly) { "Public-key authentication is the only accepted method." } else { "Public-key-only authentication is not enforced." })
+Add-Check -Name "SSH operator allowlist" -Passed ([bool]$observation.SshExpectedUserAllowed) -Detail $(
+    if ([bool]$observation.SshExpectedUserAllowed) { "The expected operator is allowed." } else { "The expected operator is not allowed." })
+
 $publicListenerPorts = @($observation.PublicListenerPorts | ForEach-Object { [string]$_ })
 $forbiddenPublicPorts = @(
+    "tcp/2375",
+    "tcp/2376",
     "tcp/3000",
     "tcp/4317",
     "tcp/4318",
@@ -732,7 +841,7 @@ $exposedForbiddenPorts = @($publicListenerPorts | Where-Object { $_ -in $forbidd
 Add-Check -Name "Listener inspection" -Passed ([bool]$observation.ListenerInspectionAvailable) -Detail $(
     if ([bool]$observation.ListenerInspectionAvailable) { "Public listeners were inspected." } else { "Public listeners could not be inspected." })
 Add-Check -Name "Private service listeners" -Passed ($exposedForbiddenPorts.Count -eq 0) -Detail $(
-    if ($exposedForbiddenPorts.Count -eq 0) { "No database, API, or telemetry port is publicly listening." } else { "A database, API, or telemetry port is publicly listening." })
+    if ($exposedForbiddenPorts.Count -eq 0) { "No database, Docker API, application, or telemetry port is publicly listening." } else { "A database, Docker API, application, or telemetry port is publicly listening." })
 Add-Check -Name "SSH listener" -Passed ($publicListenerPorts -contains "tcp/$SshPort") -Detail $(
     if ($publicListenerPorts -contains "tcp/$SshPort") { "The expected SSH listener is present." } else { "The expected SSH listener is absent." })
 
@@ -764,7 +873,7 @@ if ($RequireExternalEndpoints) {
 $failedChecks = @($checks | Where-Object { -not $_.Passed })
 $result = if ($failedChecks.Count -eq 0) { "Passed" } else { "Failed" }
 $evidence = [ordered]@{
-    SchemaVersion = 1
+    SchemaVersion = 2
     CheckedAtUtc = [DateTimeOffset]::UtcNow
     Source = $source
     TargetEvidence = $targetEvidence

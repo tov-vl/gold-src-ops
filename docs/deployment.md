@@ -314,11 +314,14 @@ database, repeats it, and only then starts the hardened API container.
 
 Before the first rollout on a new reference VPS, run the read-only
 `ops/production/host-preflight.ps1` baseline described in
-`ops/production/README.md`. It verifies Linux/systemd prerequisites, Docker
-startup, clock synchronization, disk and inode headroom, the reviewed UFW
-policy, effective listeners, and published container ports. Repeat it with
-external endpoint and runtime-listener checks after DNS, OIDC, backup storage,
-and Caddy are configured. Snapshot-mode CI output is not target evidence.
+`ops/production/README.md`. On a fresh Ubuntu 24.04 host, first use the
+plan-first `host-bootstrap.sh` prepare/finalize sequence from that runbook and
+verify a separate operator SSH session before finalization. The preflight then
+verifies Linux/systemd prerequisites, Docker startup, clock synchronization,
+disk and inode headroom, the reviewed UFW and effective key-only SSH policies,
+listeners, and published container ports. Repeat it with external endpoint and
+runtime-listener checks after DNS, OIDC, backup storage, and Caddy are
+configured. Snapshot-mode CI output is not target evidence.
 
 Use this order for a normal release:
 
@@ -390,12 +393,13 @@ pwsh -NoProfile -File .\tools\smoke\container.ps1
 ```
 
 The protected `main` workflow also requires both `Quality Gate` and
-`Container Smoke`. The latter includes deterministic host-preflight decisions
-for service startup, time, capacity, firewall, port exposure, and external
-dependency failures. The image smoke flow also verifies Production webhook
-HTTPS validation, enabled alert-dispatch startup, log safety, an encrypted
-PostgreSQL backup, a full repository data check, and an isolated restore through
-the same image-contained migration bundle. On a release tag,
+`Container Smoke`. The latter validates plan-only host-bootstrap behavior and
+deterministic host-preflight decisions for service startup, time, capacity,
+SSH, firewall, port exposure, and external dependency failures. The image smoke
+flow also verifies Production webhook HTTPS validation, enabled alert-dispatch
+startup, log safety, an encrypted PostgreSQL backup, a full repository data
+check, and an isolated restore through the same image-contained migration
+bundle. On a release tag,
 `Verify Published Image` then pulls the newly published artifact by digest and
 reruns the same smoke flow with exact OCI-label expectations. A production
 deployment still needs
