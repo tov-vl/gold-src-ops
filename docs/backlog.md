@@ -396,13 +396,14 @@ Architecture Decisions 16 through 18; the reviewable delivery plan is recorded i
 `docs/v2.3-production-deployment.md`.
 
 Milestone status: architecture and delivery plan accepted; immutable GHCR image
-publication is integrated, and the controlled game-server baseline contract is
-defined. A self-operated MyArena game VDS is conditionally selected, with
-purchase-time checks and Timeweb Cloud fallback documented. A bounded one-period
-trial may defer only public-address stability and DDoS source-address
-preservation to mandatory post-provision checks; all other provider gates and
-the final checkout approval remain pre-purchase requirements. The pinned ReHLDS
-and ReGameDLL_CS versions have passed a disposable local Linux rehearsal with
+publication now covers strict stable and release-candidate tags with
+digest-preserving candidate promotion, and the controlled game-server baseline
+contract is defined. A self-operated MyArena game VDS is conditionally selected,
+with purchase-time checks and Timeweb Cloud fallback documented. A bounded
+one-period trial may defer only public-address stability and DDoS source-address
+preservation to mandatory post-provision checks; all other provider gates and the
+final checkout approval remain pre-purchase requirements. The pinned ReHLDS and
+ReGameDLL_CS versions have passed a disposable local Linux rehearsal with
 verified artifacts, A2S, and guarded RCON. The provider-independent Slice 3
 Compose, preflight, and one-shot migration contracts are now defined under
 `ops/production`, with only Caddy publishing host ports, PostgreSQL isolated
@@ -412,7 +413,7 @@ isolated restore-rehearsal automation are implemented and covered by the
 container smoke flow. The first host-readiness gate is also implemented as a
 read-only Linux audit with deterministic failure-path coverage; Compose
 validation now enforces runtime restart policies and bounded logs. Snapshot
-results cannot count as live host evidence. The first release digest, selected
+results cannot count as live host evidence. The first candidate digest, selected
 off-host repository, infrastructure purchase, external server provisioning, and
 target-environment evidence remain incomplete.
 
@@ -433,14 +434,16 @@ Why this work is selected:
 Planned reviewable slices:
 
 The canonical ten-step execution order for the remaining milestone is in
-`docs/v2.3-production-deployment.md#remaining-delivery-order`; this backlog
+`docs/v2.3-production-deployment.md#delivery-order-and-status`; this backlog
 tracks state without duplicating that operational sequence.
 
 1. Completed: record the provider-independent production topology, OTLP
    transition, threat boundaries, delivery sequence, and evidence contract.
-2. Implemented: publish an immutable application image from a verified release
-   revision and deploy it by registry digest with a documented rollback digest.
-   The first GHCR publication and digest evidence await the next release tag.
+2. Implemented: publish an immutable application image from a verified stable or
+   release-candidate revision and deploy it by registry digest with a documented
+   rollback digest. A matching stable tag promotes the verified candidate digest
+   without rebuilding it. The first GHCR candidate publication and digest
+   evidence await a signed RC tag.
 3. In progress: use `docs/v2.3-controlled-gameserver-baseline.md` to provision
    one controlled ReHLDS and ReGameDLL_CS server outside the control-plane
    host. The local target-runtime compatibility gate is complete. The

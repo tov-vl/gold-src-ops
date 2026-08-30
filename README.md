@@ -441,11 +441,13 @@ host-readiness pass/fail decisions, then builds the production image, applies
 its embedded migration bundle twice to isolated PostgreSQL, and checks runtime
 hardening, alert configuration, log-safety, health contracts, and an encrypted
 backup, full repository data check, and isolated restore rehearsal. An exact
-annotated
-`v<major>.<minor>.<patch>` tag adds `Publish Image` and
-`Verify Published Image`: they publish immutable release and full-revision tags
-to GHCR, record the digest, and rerun the smoke flow against the pulled digest.
-The workflow never publishes `latest`.
+signed annotated `v<major>.<minor>.<patch>` or
+`v<major>.<minor>.<patch>-rc.<number>` tag adds `Publish Image` and
+`Verify Published Image`: they publish immutable exact and full-revision tags to
+GHCR, record the digest, and rerun the smoke flow against the pulled digest. An
+RC tag is explicitly classified as a release candidate and does not create a
+stable release. The workflow never publishes `latest`; a stable tag can promote
+the already verified digest of a matching RC revision without rebuilding it.
 
 The active `main` ruleset requires signed commits, linear history, the
 `Quality Gate`, and `Container Smoke`, and blocks branch deletion and force

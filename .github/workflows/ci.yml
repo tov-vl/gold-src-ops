@@ -68,6 +68,9 @@ jobs:
           -EnvironmentFile ./ops/production/deployment.env.example
           -ContractOnly
 
+      - name: Validate image publication contract
+        run: pwsh -NoProfile -File ./tools/smoke/image-publication.ps1
+
       - name: Validate host-readiness preflight
         run: pwsh -NoProfile -File ./tools/smoke/host-preflight.ps1
 
@@ -89,8 +92,11 @@ jobs:
       contents: read
       packages: write
     outputs:
-      digest: ${{ steps.publish.outputs.digest }}
+      artifact_version: ${{ steps.publication.outputs.artifact_version }}
+      channel: ${{ steps.release.outputs.channel }}
+      digest: ${{ steps.publication.outputs.digest }}
       image: ${{ steps.release.outputs.image }}
+      mode: ${{ steps.publication.outputs.mode }}
       revision: ${{ steps.release.outputs.revision }}
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
@@ -102,7 +108,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Validate release tag
+      - name: Validate image publication tag
         id: release
         shell: bash
         env:
@@ -110,13 +116,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error title=Invalid release tag::Expected v<major>.<minor>.<patch>, got '$GITHUB_REF_NAME'."
-            exit 1
-          fi
+          pwsh -NoLogo -NoProfile -File ./tools/ci/resolve-image-tag.ps1 \
+            -Tag "$GITHUB_REF_NAME" \
+            -GitHubOutputPath "$GITHUB_OUTPUT" > /dev/null
 
           if [[ "$(git cat-file -t "$GITHUB_REF")" != "tag" ]]; then
-            echo "::error title=Lightweight release reference::Release tags must be annotated."
+            echo "::error title=Lightweight image publication reference::Stable and release-candidate tags must be annotated."
             exit 1
           fi
 
@@ -124,18 +129,15 @@ jobs:
           git fetch --no-tags origin "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
 
           if ! git merge-base --is-ancestor "$revision" "origin/$DEFAULT_BRANCH"; then
-            echo "::error title=Untrusted release revision::The tagged commit is not reachable from '$DEFAULT_BRANCH'."
+            echo "::error title=Untrusted image revision::The tagged commit is not reachable from '$DEFAULT_BRANCH'."
             exit 1
           fi
 
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
-          version="${GITHUB_REF_NAME#v}"
 
           {
             echo "image=$image"
             echo "revision=$revision"
-            echo "tag=$GITHUB_REF_NAME"
-            echo "version=$version"
           } >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
@@ -148,32 +150,96 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Reject existing immutable tags
+      - name: Plan immutable publication
+        id: registry
         shell: bash
         env:
+          EXPECTED_IMAGE_SOURCE: ${{ github.server_url }}/${{ github.repository }}
           IMAGE: ${{ steps.release.outputs.image }}
+          RELEASE_BASE_VERSION: ${{ steps.release.outputs.base_version }}
+          RELEASE_CHANNEL: ${{ steps.release.outputs.channel }}
           RELEASE_REVISION: ${{ steps.release.outputs.revision }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
 
-          for tag in "$RELEASE_TAG" "sha-$RELEASE_REVISION"; do
-            image_ref="$IMAGE:$tag"
+          release_ref="$IMAGE:$RELEASE_TAG"
+          revision_ref="$IMAGE:sha-$RELEASE_REVISION"
 
-            if output="$(docker buildx imagetools inspect "$image_ref" 2>&1)"; then
-              echo "::error title=Immutable image tag already exists::$image_ref already exists and will not be overwritten."
+          if output="$(docker buildx imagetools inspect "$release_ref" 2>&1)"; then
+            echo "::error title=Immutable image tag already exists::$release_ref already exists and will not be overwritten."
+            exit 1
+          fi
+
+          if ! grep -Eiq 'manifest unknown|not found' <<< "$output"; then
+            echo "$output"
+            echo "::error title=Registry lookup failed::Could not prove that $release_ref is unused."
+            exit 1
+          fi
+
+          if output="$(docker buildx imagetools inspect "$revision_ref" 2>&1)"; then
+            if [[ "$RELEASE_CHANNEL" != "stable" ]]; then
+              echo "::error title=Revision image already exists::$revision_ref already belongs to an immutable publication."
               exit 1
             fi
 
-            if ! grep -Eiq 'manifest unknown|not found' <<< "$output"; then
+            source_digest="$(awk '/^Digest:/ { print $2; exit }' <<< "$output")"
+            if [[ ! "$source_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
               echo "$output"
-              echo "::error title=Registry lookup failed::Could not prove that $image_ref is unused."
+              echo "::error title=Invalid registry digest::Could not resolve the digest for $revision_ref."
               exit 1
             fi
-          done
+
+            docker pull "$IMAGE@$source_digest" > /dev/null
+            artifact_source="$(docker image inspect \
+              --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' \
+              "$IMAGE@$source_digest")"
+            artifact_revision="$(docker image inspect \
+              --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
+              "$IMAGE@$source_digest")"
+            artifact_version="$(docker image inspect \
+              --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' \
+              "$IMAGE@$source_digest")"
+            artifact_license="$(docker image inspect \
+              --format '{{ index .Config.Labels "org.opencontainers.image.licenses" }}' \
+              "$IMAGE@$source_digest")"
+
+            if [[ "$artifact_source" != "$EXPECTED_IMAGE_SOURCE" || \
+                  "$artifact_revision" != "$RELEASE_REVISION" || \
+                  "$artifact_license" != "MIT" ]]; then
+              echo "::error title=Candidate metadata mismatch::The existing revision image does not match the expected source, revision, and license."
+              exit 1
+            fi
+
+            pwsh -NoLogo -NoProfile -File ./tools/ci/resolve-image-tag.ps1 \
+              -Tag "v$artifact_version" \
+              -ExpectedChannel release-candidate \
+              -ExpectedBaseVersion "$RELEASE_BASE_VERSION" > /dev/null
+
+            {
+              echo "artifact_version=$artifact_version"
+              echo "mode=promote"
+              echo "source_digest=$source_digest"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! grep -Eiq 'manifest unknown|not found' <<< "$output"; then
+            echo "$output"
+            echo "::error title=Registry lookup failed::Could not determine whether $revision_ref exists."
+            exit 1
+          fi
+
+          {
+            echo "artifact_version=$RELEASE_VERSION"
+            echo "mode=build"
+            echo "source_digest="
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create image metadata
         id: metadata
+        if: steps.registry.outputs.mode == 'build'
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ steps.release.outputs.image }}
@@ -191,6 +257,7 @@ jobs:
 
       - name: Build and publish production image
         id: publish
+        if: steps.registry.outputs.mode == 'build'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -204,21 +271,81 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           annotations: ${{ steps.metadata.outputs.annotations }}
 
-      - name: Record published digest
+      - name: Promote verified candidate digest
+        if: steps.registry.outputs.mode == 'promote'
         shell: bash
         env:
           IMAGE: ${{ steps.release.outputs.image }}
-          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          SOURCE_DIGEST: ${{ steps.registry.outputs.source_digest }}
+        run: |
+          set -euo pipefail
+
+          docker buildx imagetools create \
+            --tag "$IMAGE:$RELEASE_TAG" \
+            "$IMAGE@$SOURCE_DIGEST"
+
+          output="$(docker buildx imagetools inspect "$IMAGE:$RELEASE_TAG")"
+          published_digest="$(awk '/^Digest:/ { print $2; exit }' <<< "$output")"
+
+          if [[ "$published_digest" != "$SOURCE_DIGEST" ]]; then
+            echo "$output"
+            echo "::error title=Candidate promotion changed digest::Expected $SOURCE_DIGEST, got $published_digest."
+            exit 1
+          fi
+
+      - name: Resolve publication result
+        id: publication
+        shell: bash
+        env:
+          ARTIFACT_VERSION: ${{ steps.registry.outputs.artifact_version }}
+          BUILD_DIGEST: ${{ steps.publish.outputs.digest }}
+          MODE: ${{ steps.registry.outputs.mode }}
+          SOURCE_DIGEST: ${{ steps.registry.outputs.source_digest }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$MODE" == "build" ]]; then
+            digest="$BUILD_DIGEST"
+          else
+            digest="$SOURCE_DIGEST"
+          fi
+
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error title=Invalid publication digest::The publication did not produce an immutable sha256 digest."
+            exit 1
+          fi
+
+          {
+            echo "artifact_version=$ARTIFACT_VERSION"
+            echo "digest=$digest"
+            echo "mode=$MODE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Record published digest
+        shell: bash
+        env:
+          ARTIFACT_VERSION: ${{ steps.publication.outputs.artifact_version }}
+          IMAGE: ${{ steps.release.outputs.image }}
+          IMAGE_DIGEST: ${{ steps.publication.outputs.digest }}
+          PUBLICATION_MODE: ${{ steps.publication.outputs.mode }}
+          RELEASE_CHANNEL: ${{ steps.release.outputs.channel }}
           RELEASE_REVISION: ${{ steps.release.outputs.revision }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           {
-            echo "## Published production image"
+            echo "## Published immutable image"
             echo
-            echo "- Release tag: \`$RELEASE_TAG\`"
+            echo "- Image tag: \`$RELEASE_TAG\`"
+            echo "- Publication channel: \`$RELEASE_CHANNEL\`"
+            echo "- Publication mode: \`$PUBLICATION_MODE\`"
+            echo "- Artifact version label: \`$ARTIFACT_VERSION\`"
             echo "- Source revision: \`$RELEASE_REVISION\`"
             echo "- Deployment reference: \`$IMAGE@$IMAGE_DIGEST\`"
             echo "- Mutable \`latest\` tag: not published"
+            if [[ "$RELEASE_CHANNEL" == "release-candidate" ]]; then
+              echo "- Stable release: not created"
+            fi
             echo "- Digest smoke test: pending \`Verify Published Image\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -254,7 +381,7 @@ jobs:
         env:
           EXPECTED_IMAGE_REVISION: ${{ needs.publish-image.outputs.revision }}
           EXPECTED_IMAGE_SOURCE: ${{ github.server_url }}/${{ github.repository }}
-          EXPECTED_IMAGE_VERSION: ${{ needs.publish-image.outputs.version }}
+          EXPECTED_IMAGE_VERSION: ${{ needs.publish-image.outputs.artifact_version }}
           IMAGE_REFERENCE: ${{ needs.publish-image.outputs.image }}@${{ needs.publish-image.outputs.digest }}
         run: |
           ./tools/smoke/container.ps1 `
@@ -268,12 +395,16 @@ jobs:
         env:
           IMAGE: ${{ needs.publish-image.outputs.image }}
           IMAGE_DIGEST: ${{ needs.publish-image.outputs.digest }}
+          PUBLICATION_MODE: ${{ needs.publish-image.outputs.mode }}
+          RELEASE_CHANNEL: ${{ needs.publish-image.outputs.channel }}
           RELEASE_TAG: ${{ needs.publish-image.outputs.tag }}
         run: |
           {
-            echo "## Verified production image"
+            echo "## Verified immutable image"
             echo
-            echo "- Release tag: \`$RELEASE_TAG\`"
+            echo "- Image tag: \`$RELEASE_TAG\`"
+            echo "- Publication channel: \`$RELEASE_CHANNEL\`"
+            echo "- Publication mode: \`$PUBLICATION_MODE\`"
             echo "- Deployment reference: \`$IMAGE@$IMAGE_DIGEST\`"
             echo "- Digest smoke test: passed"
           } >> "$GITHUB_STEP_SUMMARY"

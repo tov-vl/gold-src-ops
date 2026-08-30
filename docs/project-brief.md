@@ -64,8 +64,9 @@ Current implementation:
   protection.
 - A production-oriented .NET 10 container image with non-root execution,
   separate EF migrations, and isolated PostgreSQL-backed CI smoke coverage.
-- Tag-gated immutable GHCR image publication with OCI metadata, write-once
-  release and revision tags, digest recording, and digest-based smoke coverage.
+- Tag-gated immutable GHCR image publication with strict stable and
+  release-candidate tags, build-once candidate promotion, OCI metadata,
+  write-once references, digest recording, and digest-based smoke coverage.
 - Unit, API integration, deterministic polling, protocol, and PostgreSQL
   Testcontainers coverage.
 - GitHub Actions quality gate for formatting, build, tests, and NuGet audit.
@@ -113,8 +114,9 @@ recorded in
 `docs/v2.2-rcon-response-reliability.md`.
 
 The current release is production-oriented but is not yet claimed as a
-continuously operated production environment. Release-tag image publication is
-implemented, but its first registry digest remains future release evidence.
+continuously operated production environment. Stable and release-candidate image
+publication is implemented, including digest-preserving promotion, but the first
+registry digest remains future publication evidence.
 The repository does not yet operate the controlled external game server, ship a
 reference VPS topology, export production metrics through an OpenTelemetry
 Collector, or include a web operator experience. These are delivery gaps rather
