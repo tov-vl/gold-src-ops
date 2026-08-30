@@ -76,6 +76,68 @@ The host also needs:
 - an external OAuth 2.0 or OpenID Connect issuer that emits the documented
   Reader and Operator roles.
 
+## Host Bootstrap And Hardening
+
+`host-bootstrap.sh` prepares the reference host before any production secret is
+copied to it. It supports only a fresh Ubuntu 24.04 x86-64 VPS using systemd.
+Without `--apply`, it validates its arguments and prints a sanitized plan.
+
+The script owns the reference host firewall and resets UFW during `prepare`.
+Do not run it on a shared or previously configured host. The resulting inbound
+policy allows SSH only from the supplied operator IPv4 `/32`, plus public TCP
+`80`, TCP `443`, and UDP `443` for Caddy. Docker Engine, Docker Compose,
+PowerShell, unattended security updates, UTC/NTP, kernel settings, bounded
+required directories, and the non-root `gsoadmin` account are also prepared.
+
+Copy the reviewed script and a dedicated Ed25519 public key to the fresh host.
+Run the plan first from the provider-created SSH session, then repeat it with
+`--apply` only after checking the CIDR and key path. Preserve `SSH_CONNECTION`
+through `sudo`; the apply guard compares its source address and server port with
+the requested values before making changes.
+
+```bash
+bash /tmp/host-bootstrap.sh \
+  --phase prepare \
+  --admin-ipv4-cidr 192.0.2.10/32 \
+  --operator-public-key-file /tmp/gsoadmin.pub
+
+sudo --preserve-env=SSH_CONNECTION bash /tmp/host-bootstrap.sh \
+  --phase prepare \
+  --admin-ipv4-cidr 192.0.2.10/32 \
+  --operator-public-key-file /tmp/gsoadmin.pub \
+  --apply
+```
+
+`prepare` intentionally leaves the provider-created login available. Keep that
+session open and establish a separate SSH session as `gsoadmin`. From the new
+session, review and apply `finalize`. A non-default `--ssh-port` is supported
+only when the provider-created session already uses that port; the script does
+not migrate SSH between ports.
+
+```bash
+sudo --preserve-env=SSH_CONNECTION bash /tmp/host-bootstrap.sh \
+  --phase finalize \
+  --admin-ipv4-cidr 192.0.2.10/32
+
+sudo --preserve-env=SSH_CONNECTION bash /tmp/host-bootstrap.sh \
+  --phase finalize \
+  --admin-ipv4-cidr 192.0.2.10/32 \
+  --apply
+```
+
+The final phase accepts only `sudo` from the prepared operator over the expected
+SSH source. It validates the effective OpenSSH configuration before reloading
+the service, then disables direct root login and interactive authentication,
+requires public keys, and limits login to the operator account. Keep the active
+session open until a second post-finalize key-only login succeeds. If
+`REBOOT_REQUIRED: yes` was reported, reboot only after that test and verify the
+operator login again.
+
+The operator receives passwordless `sudo` because remote access is key-only and
+the account is the host administration boundary. It is deliberately not a
+member of the `docker` group, whose socket grants root-equivalent control; use
+`sudo docker ...` for host operations.
+
 ## Host Readiness
 
 The reference host baseline is an x86-64 Linux system using systemd, Docker
@@ -90,15 +152,17 @@ starting the runtime profile:
 ```powershell
 sudo pwsh -NoProfile -File ./ops/production/host-preflight.ps1 `
   -AdminIpv4Cidr 192.0.2.10/32 `
+  -OperatorUser gsoadmin `
   -EvidenceFile /var/lib/goldsrcops/evidence/host-baseline.json
 ```
 
 The audit requires an active and boot-enabled `docker.service`, synchronized
 time, at least 10 GiB and 10 percent free inodes in Docker's storage filesystem,
-the expected UFW policy, an SSH listener, and no public PostgreSQL, API, OTLP,
+the expected UFW policy, effective key-only SSH hardening for the operator, an
+SSH listener, and no public PostgreSQL, Docker API, application, OTLP,
 Prometheus, or Grafana listener. It also rejects Docker-published ports outside
-the Caddy set. Thresholds and the SSH port are explicit parameters when the
-reviewed host design requires different values.
+the Caddy set. Thresholds, the operator name, and the SSH port are explicit
+parameters when the reviewed host design requires different values.
 
 After DNS, backup storage, and external identity are configured, repeat the
 audit with dependency and runtime checks:
@@ -106,6 +170,7 @@ audit with dependency and runtime checks:
 ```powershell
 sudo pwsh -NoProfile -File ./ops/production/host-preflight.ps1 `
   -AdminIpv4Cidr 192.0.2.10/32 `
+  -OperatorUser gsoadmin `
   -EnvironmentFile /etc/goldsrcops/deployment.env `
   -RequireExternalEndpoints `
   -RequireRuntimeListeners `
@@ -120,8 +185,9 @@ value. It must remain outside the repository and is atomically published with
 mode `0600` on Linux. The script changes no firewall, service, package, or
 Docker state.
 
-`tools/smoke/host-preflight.ps1` exercises deterministic passing and failing
-snapshots in CI. Such evidence always has `Source: Snapshot` and
+`tools/smoke/host-bootstrap.sh` checks plan-only behavior, input rejection, and
+shell syntax. `tools/smoke/host-preflight.ps1` exercises deterministic passing
+and failing snapshots in CI. Such evidence always has `Source: Snapshot` and
 `TargetEvidence: false`; it validates the decision logic but cannot close the
 live host gate.
 
@@ -220,9 +286,9 @@ does this automatically. The bundle has no down-migration mode in this workflow.
    anonymous liveness plus PostgreSQL-backed readiness through public HTTPS.
 3. Validate Reader, Operator, expired-token, wrong-issuer, and wrong-audience
    behavior against the selected external identity provider.
-4. Run both host-readiness stages on the selected VPS, perform one controlled
-   reboot, and retain sanitized firewall, time, capacity, service restart, and
-   log-retention evidence outside the repository.
+4. Run both bootstrap phases and host-readiness stages on the selected VPS,
+   perform one controlled reboot, and retain sanitized SSH, firewall, time,
+   capacity, service restart, and log-retention evidence outside the repository.
 
 The complete sequence and definition of done remain in
 [`docs/v2.3-production-deployment.md`](../../docs/v2.3-production-deployment.md).

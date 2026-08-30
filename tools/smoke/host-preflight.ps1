@@ -6,8 +6,9 @@ Exercises the host-readiness validator with deterministic snapshots.
 
 .DESCRIPTION
 Runs one passing snapshot and focused failing snapshots for service startup,
-time, storage, firewall, public ports, and external dependency checks. Snapshot
-evidence is verified as non-target evidence and all temporary files are removed.
+time, storage, firewall, SSH hardening, public ports, and external dependency
+checks. Snapshot evidence is verified as non-target evidence and all temporary
+files are removed.
 #>
 
 [CmdletBinding()]
@@ -27,10 +28,10 @@ $smokeDirectory = Join-Path ([IO.Path]::GetTempPath()) "goldsrcops-host-prefligh
 
 function New-ReadySnapshot {
     return [ordered]@{
-        SchemaVersion = 1
+        SchemaVersion = 2
         CapturedAtUtc = [DateTimeOffset]::UtcNow
         IsLinux = $true
-        OperatingSystem = "Debian GNU/Linux 12"
+        OperatingSystem = "Ubuntu 24.04 LTS"
         Architecture = "x86_64"
         EffectiveUserId = 0
         DockerCliAvailable = $true
@@ -57,6 +58,13 @@ function New-ReadySnapshot {
         FirewallHttpsTcpAllowed = $true
         FirewallHttpsUdpAllowed = $true
         FirewallPostgresAllowed = $false
+        SshConfigurationAvailable = $true
+        SshRootLoginDisabled = $true
+        SshPasswordAuthenticationDisabled = $true
+        SshKeyboardInteractiveAuthenticationDisabled = $true
+        SshPublicKeyAuthenticationEnabled = $true
+        SshPublicKeyOnly = $true
+        SshExpectedUserAllowed = $true
         ListenerInspectionAvailable = $true
         PublicListenerPorts = @("tcp/22", "tcp/80", "tcp/443", "udp/443")
         DockerPortInspectionAvailable = $true
@@ -96,6 +104,8 @@ function Invoke-SnapshotCase {
             $preflightScript,
             "-AdminIpv4Cidr",
             "203.0.113.10/32",
+            "-OperatorUser",
+            "gsoadmin",
             "-SnapshotFile",
             $snapshotFile,
             "-EvidenceFile",
@@ -126,6 +136,9 @@ function Invoke-SnapshotCase {
 
     $evidenceText = Get-Content -LiteralPath $evidenceFile -Raw
     $evidence = $evidenceText | ConvertFrom-Json -Depth 100
+    if ([int]$evidence.SchemaVersion -ne 2) {
+        throw "Host-preflight evidence uses an unexpected schema version."
+    }
     if ($evidence.Source -ne "Snapshot" -or [bool]$evidence.TargetEvidence) {
         throw "Snapshot evidence could be mistaken for live target evidence."
     }
@@ -195,6 +208,27 @@ To                         Action      From
         -ShouldPass $false `
         -UfwStatus $unrestrictedSshUfwStatus
 
+    $rootSshLogin = New-ReadySnapshot
+    $rootSshLogin["SshRootLoginDisabled"] = $false
+    Invoke-SnapshotCase `
+        -Name "root SSH login" `
+        -Snapshot $rootSshLogin `
+        -ShouldPass $false
+
+    $interactiveSsh = New-ReadySnapshot
+    $interactiveSsh["SshPasswordAuthenticationDisabled"] = $false
+    Invoke-SnapshotCase `
+        -Name "interactive SSH authentication" `
+        -Snapshot $interactiveSsh `
+        -ShouldPass $false
+
+    $operatorNotAllowed = New-ReadySnapshot
+    $operatorNotAllowed["SshExpectedUserAllowed"] = $false
+    Invoke-SnapshotCase `
+        -Name "operator not allowed" `
+        -Snapshot $operatorNotAllowed `
+        -ShouldPass $false
+
     $publicPostgres = New-ReadySnapshot
     $publicPostgres["PublicListenerPorts"] = @(
         "tcp/22",
@@ -209,6 +243,19 @@ To                         Action      From
         -Snapshot $publicPostgres `
         -ShouldPass $false `
         -UfwStatus $publicPostgresUfwStatus
+
+    $publicDockerApi = New-ReadySnapshot
+    $publicDockerApi["PublicListenerPorts"] = @(
+        "tcp/22",
+        "tcp/80",
+        "tcp/443",
+        "tcp/2375",
+        "udp/443"
+    )
+    Invoke-SnapshotCase `
+        -Name "public Docker API" `
+        -Snapshot $publicDockerApi `
+        -ShouldPass $false
 
     $unexpectedDockerPort = New-ReadySnapshot
     $unexpectedDockerPort["DockerPublishedPorts"] = @(

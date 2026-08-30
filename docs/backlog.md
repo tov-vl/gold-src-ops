@@ -411,9 +411,12 @@ behind a Unix-domain socket, and the same API image carrying the serialized EF
 Core migration bundle. Encrypted off-host backup, repository checking, and
 isolated restore-rehearsal automation are implemented and covered by the
 container smoke flow. The first host-readiness gate is also implemented as a
-read-only Linux audit with deterministic failure-path coverage; Compose
-validation now enforces runtime restart policies and bounded logs. Snapshot
-results cannot count as live host evidence. Signed tag `v2.3.0-rc.1` has now
+read-only Linux audit with deterministic failure-path coverage. A plan-first,
+two-phase Ubuntu bootstrap now prepares a dedicated key-only operator before
+disabling provider-created SSH access; the audit verifies those effective SSH
+settings and rejects public Docker API listeners. Compose validation enforces
+runtime restart policies and bounded logs. Snapshot results cannot count as
+live host evidence. Signed tag `v2.3.0-rc.1` has now
 published and verified the first immutable candidate digest. A private
 Backblaze B2 repository in EU Central is initialized, its bucket-scoped
 credential and restic recovery key are separated from the future VPS, and a
@@ -466,12 +469,15 @@ tracks state without duplicating that operational sequence.
    contract preflight, same-image one-shot migration bundle, client-side
    encrypted backup, repository check, and isolated restore rehearsal are
    implemented. The read-only host audit covers Docker service startup, time,
-   capacity, UFW, effective listeners, container port publication, and optional
-   external dependencies without recording sensitive values. The runtime
-   profile remains blocked on successful live execution against the selected
-   VPS. The remote repository bootstrap is complete, but the first live backup,
-   repeated full data check, isolated restore rehearsal, target-host schedule,
-   and the rest of the target-environment evidence remain pending.
+   capacity, UFW, effective SSH hardening, listeners, container port
+   publication, and optional external dependencies without recording sensitive
+   values. The two-phase Ubuntu bootstrap is plan-only by default and preserves
+   the provider-created login until a separate operator session is verified.
+   The runtime profile remains blocked on successful live execution against the
+   selected VPS. The remote repository bootstrap is complete, but VPS
+   provisioning, the first live backup, repeated full data check, isolated
+   restore rehearsal, target-host schedule, and the rest of the
+   target-environment evidence remain pending.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
    Grafana, and health coverage for the private telemetry pipeline.
 6. Complete external A2S and guarded RCON verification, controlled

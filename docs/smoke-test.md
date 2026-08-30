@@ -61,6 +61,16 @@ container job also executes the deterministic tag-contract smoke cases.
 
 ## Host-Readiness Decisions
 
+Run the Ubuntu host-bootstrap smoke in a Linux shell with:
+
+```bash
+bash ./tools/smoke/host-bootstrap.sh
+```
+
+It validates shell syntax, sanitized plan-only output, strict input handling,
+and refusal to apply outside the required privileged SSH context. It never
+changes the machine running the smoke.
+
 Run the deterministic host-preflight smoke independently with:
 
 ```powershell
@@ -68,10 +78,11 @@ pwsh -NoProfile -File .\tools\smoke\host-preflight.ps1
 ```
 
 It checks one passing snapshot and focused failures for Docker boot enablement,
-time synchronization, disk capacity, SSH scope, public PostgreSQL, unexpected
-Docker port publication, and OIDC metadata. The `Container Smoke` CI job runs
-this command before the image smoke. Snapshot evidence is deliberately marked
-as non-target evidence; live VPS verification uses
+time synchronization, disk capacity, SSH scope and effective hardening, public
+PostgreSQL or Docker API listeners, unexpected Docker port publication, and
+OIDC metadata. The `Container Smoke` CI job runs both host checks before the
+image smoke. Snapshot evidence is deliberately marked as non-target evidence;
+live VPS verification uses
 `ops/production/host-preflight.ps1` as documented in
 `ops/production/README.md`.
 
