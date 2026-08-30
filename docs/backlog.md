@@ -413,7 +413,8 @@ isolated restore-rehearsal automation are implemented and covered by the
 container smoke flow. The first host-readiness gate is also implemented as a
 read-only Linux audit with deterministic failure-path coverage; Compose
 validation now enforces runtime restart policies and bounded logs. Snapshot
-results cannot count as live host evidence. The first candidate digest, selected
+results cannot count as live host evidence. Signed tag `v2.3.0-rc.1` has now
+published and verified the first immutable candidate digest. The selected
 off-host repository, infrastructure purchase, external server provisioning, and
 target-environment evidence remain incomplete.
 
@@ -439,11 +440,13 @@ tracks state without duplicating that operational sequence.
 
 1. Completed: record the provider-independent production topology, OTLP
    transition, threat boundaries, delivery sequence, and evidence contract.
-2. Implemented: publish an immutable application image from a verified stable or
+2. Completed: publish an immutable application image from a verified stable or
    release-candidate revision and deploy it by registry digest with a documented
    rollback digest. A matching stable tag promotes the verified candidate digest
-   without rebuilding it. The first GHCR candidate publication and digest
-   evidence await a signed RC tag.
+   without rebuilding it. Signed tag `v2.3.0-rc.1` and workflow
+   [#123](https://github.com/tov-vl/gold-src-ops/actions/runs/33305723331)
+   published and verified
+   `sha256:d21a5cb10bb8179310e660d50cb301fed277a5dc3fcbd900e77065fdcc9df458`.
 3. In progress: use `docs/v2.3-controlled-gameserver-baseline.md` to provision
    one controlled ReHLDS and ReGameDLL_CS server outside the control-plane
    host. The local target-runtime compatibility gate is complete. The
