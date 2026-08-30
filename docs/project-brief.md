@@ -115,8 +115,10 @@ recorded in
 
 The current release is production-oriented but is not yet claimed as a
 continuously operated production environment. Stable and release-candidate image
-publication is implemented, including digest-preserving promotion, but the first
-registry digest remains future publication evidence.
+publication is implemented, including digest-preserving promotion. Signed tag
+`v2.3.0-rc.1` published and verified the first immutable candidate digest,
+`sha256:d21a5cb10bb8179310e660d50cb301fed277a5dc3fcbd900e77065fdcc9df458`,
+without creating a stable release or mutable image alias.
 The repository does not yet operate the controlled external game server, ship a
 reference VPS topology, export production metrics through an OpenTelemetry
 Collector, or include a web operator experience. These are delivery gaps rather
