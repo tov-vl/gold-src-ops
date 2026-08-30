@@ -11,8 +11,12 @@ The `runtime` profile must not be enabled on a target until preflight succeeds,
 a restorable backup exists, and the one-shot migration action has successfully
 migrated that database. Backup and restore automation is implemented, but its
 private off-host backend is now initialized and independently escrowed. The
-first live PostgreSQL backup and restore, external identity, public HTTPS,
-firewall, and broader target-environment recovery evidence remain pending.
+control-plane VPS has passed its two-phase SSH hardening, controlled reboot, and
+live baseline host audit. Public DNS and real certificate issuance have also
+passed, with certificate data retained in the Compose-labelled Caddy volume.
+The first live PostgreSQL backup and restore, external identity, production
+runtime HTTPS checks, and broader target-environment recovery evidence remain
+pending.
 
 ## Topology
 
@@ -282,13 +286,15 @@ does this automatically. The bundle has no down-migration mode in this workflow.
    off-host repository, repeat the full data check over stored backup data, run
    the isolated restore rehearsal, configure the target-host schedule, and
    retain sanitized target evidence.
-2. Validate Caddy certificate issuance, forwarded scheme, AllowedHosts, and
-   anonymous liveness plus PostgreSQL-backed readiness through public HTTPS.
+2. Certificate issuance is complete. Validate the tracked Caddy configuration,
+   forwarded scheme, AllowedHosts, and anonymous liveness plus PostgreSQL-backed
+   readiness through public HTTPS after the database and migration gates pass.
 3. Validate Reader, Operator, expired-token, wrong-issuer, and wrong-audience
    behavior against the selected external identity provider.
-4. Run both bootstrap phases and host-readiness stages on the selected VPS,
-   perform one controlled reboot, and retain sanitized SSH, firewall, time,
-   capacity, service restart, and log-retention evidence outside the repository.
+4. The bootstrap phases, controlled reboot, and baseline host-readiness audit are
+   complete. Repeat the runtime audit after services start and retain sanitized
+   listener, restart-policy, log-retention, and external-dependency evidence
+   outside the repository.
 
 The complete sequence and definition of done remain in
 [`docs/v2.3-production-deployment.md`](../../docs/v2.3-production-deployment.md).
