@@ -220,18 +220,13 @@ public sealed class GoldSrcRconClientTests
     {
         var commandRequest = await CompleteChallengeAsync(server, CancellationToken.None);
 
-        for (var index = 0; index < responseChunks.Length; index++)
+        foreach (var responseChunk in responseChunks)
         {
-            var commandResponse = Packet(responseChunks[index]);
+            var commandResponse = Packet(responseChunk);
             await server.SendAsync(
                 commandResponse,
                 commandRequest.RemoteEndPoint,
                 CancellationToken.None);
-
-            if (index < responseChunks.Length - 1)
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(10));
-            }
         }
     }
 
