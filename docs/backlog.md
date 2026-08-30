@@ -414,9 +414,13 @@ container smoke flow. The first host-readiness gate is also implemented as a
 read-only Linux audit with deterministic failure-path coverage; Compose
 validation now enforces runtime restart policies and bounded logs. Snapshot
 results cannot count as live host evidence. Signed tag `v2.3.0-rc.1` has now
-published and verified the first immutable candidate digest. The selected
-off-host repository, infrastructure purchase, external server provisioning, and
-target-environment evidence remain incomplete.
+published and verified the first immutable candidate digest. A private
+Backblaze B2 repository in EU Central is initialized, its bucket-scoped
+credential and restic recovery key are separated from the future VPS, and a
+repository integrity check configured with a `100%` data subset has passed.
+Infrastructure purchase, the first live PostgreSQL backup and restore,
+external server provisioning, and target-environment evidence remain
+incomplete.
 
 Why this work is selected:
 
@@ -465,8 +469,9 @@ tracks state without duplicating that operational sequence.
    capacity, UFW, effective listeners, container port publication, and optional
    external dependencies without recording sensitive values. The runtime
    profile remains blocked on successful live execution against the selected
-   VPS and off-host repository, plus the rest of the target-environment
-   evidence.
+   VPS. The remote repository bootstrap is complete, but the first live backup,
+   repeated full data check, isolated restore rehearsal, target-host schedule,
+   and the rest of the target-environment evidence remain pending.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
    Grafana, and health coverage for the private telemetry pipeline.
 6. Complete external A2S and guarded RCON verification, controlled

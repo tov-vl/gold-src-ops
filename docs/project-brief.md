@@ -130,8 +130,11 @@ game-host selection and pre-purchase gate are recorded in
 `docs/v2.3-gameserver-provider-decision.md`; no external server has been
 purchased or provisioned. Slice 3 now includes a provider-independent Compose
 contract, same-image migration action, and encrypted off-host PostgreSQL backup
-and isolated restore-rehearsal automation. Target-host recovery evidence remains
-pending. The full sequence is recorded in
+and isolated restore-rehearsal automation. Its private Backblaze B2 backend in
+EU Central is initialized, the recovery key is escrowed outside the future VPS,
+and a repository integrity check configured with a `100%` data subset has
+passed. The first live PostgreSQL backup, restore rehearsal, and target-host
+recovery evidence remain pending. The full sequence is recorded in
 `docs/v2.3-production-deployment.md`.
 
 ## MVP Goal

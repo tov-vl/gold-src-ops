@@ -10,8 +10,9 @@ and does not make the v2.3 milestone complete.
 The `runtime` profile must not be enabled on a target until preflight succeeds,
 a restorable backup exists, and the one-shot migration action has successfully
 migrated that database. Backup and restore automation is implemented, but its
-off-host target evidence, external identity, public HTTPS, firewall, and broader
-recovery evidence remain pending.
+private off-host backend is now initialized and independently escrowed. The
+first live PostgreSQL backup and restore, external identity, public HTTPS,
+firewall, and broader target-environment recovery evidence remain pending.
 
 ## Topology
 
@@ -211,8 +212,10 @@ does this automatically. The bundle has no down-migration mode in this workflow.
 
 ## Remaining Slice 3 Work
 
-1. Run encrypted backup, full repository check, and restore rehearsal against
-   the selected off-host repository and retain sanitized target evidence.
+1. Create the first encrypted PostgreSQL backup against the initialized
+   off-host repository, repeat the full data check over stored backup data, run
+   the isolated restore rehearsal, configure the target-host schedule, and
+   retain sanitized target evidence.
 2. Validate Caddy certificate issuance, forwarded scheme, AllowedHosts, and
    anonymous liveness plus PostgreSQL-backed readiness through public HTTPS.
 3. Validate Reader, Operator, expired-token, wrong-issuer, and wrong-audience

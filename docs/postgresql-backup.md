@@ -65,6 +65,26 @@ pwsh -NoProfile -File ./ops/production/postgres-backup.ps1 `
 Do not reinitialize an existing path. A later `Create` action first verifies
 that the configured repository is already readable.
 
+### Reference Target Bootstrap
+
+On 2026-08-30, the reference backend was initialized in a private Backblaze B2
+bucket in EU Central. B2 server-side encryption is enabled, the application key
+is restricted to read/write access for that bucket, and Object Lock remains
+disabled until the snapshot-retention and pruning policy is reviewed.
+
+The restic repository was initialized and an integrity check configured with
+`-ReadDataSubset 100%` passed using image
+`restic/restic@sha256:136600b6ff6843d61d355f7f71f460a166429f35de6fd11b568fece3c9a4d510`.
+Backend credentials, the owner-only local recovery file, the independent
+encrypted password-manager escrow, and sanitized evidence are all kept outside
+Git. Repository, bucket, account, and credential identifiers are deliberately
+omitted from tracked documentation.
+
+This bootstrap proves remote repository access and configuration only. It does
+not contain a production PostgreSQL snapshot and does not replace the first
+backup, a repeated full data check over stored backup data, an isolated restore
+rehearsal, target-host scheduling, or measured recovery-duration evidence.
+
 ## Create A Backup
 
 PostgreSQL must be running through the reference Compose deployment. Create a
