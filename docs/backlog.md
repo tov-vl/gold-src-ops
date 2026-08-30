@@ -419,10 +419,14 @@ runtime restart policies and bounded logs. Snapshot results cannot count as
 live host evidence. Signed tag `v2.3.0-rc.1` has now
 published and verified the first immutable candidate digest. A private
 Backblaze B2 repository in EU Central is initialized, its bucket-scoped
-credential and restic recovery key are separated from the future VPS, and a
-repository integrity check configured with a `100%` data subset has passed.
-Infrastructure purchase, the first live PostgreSQL backup and restore,
-external server provisioning, and target-environment evidence remain
+credential and restic recovery key are separated from the control-plane VPS,
+and a repository integrity check configured with a `100%` data subset has
+passed.
+The control-plane VPS is provisioned and has passed the two-phase SSH hardening,
+controlled reboot, and live baseline host audit. Public DNS for
+`api.goldsrcops.com` and real ACME certificate issuance through digest-pinned
+Caddy have also passed. External identity, the first live PostgreSQL backup and
+restore, production runtime verification, and game-server provisioning remain
 incomplete.
 
 Why this work is selected:
@@ -473,11 +477,13 @@ tracks state without duplicating that operational sequence.
    publication, and optional external dependencies without recording sensitive
    values. The two-phase Ubuntu bootstrap is plan-only by default and preserves
    the provider-created login until a separate operator session is verified.
-   The runtime profile remains blocked on successful live execution against the
-   selected VPS. The remote repository bootstrap is complete, but VPS
-   provisioning, the first live backup, repeated full data check, isolated
-   restore rehearsal, target-host schedule, and the rest of the
-   target-environment evidence remain pending.
+   The selected VPS has completed the two-phase SSH hardening, controlled reboot,
+   and live baseline audit. DNS for `api.goldsrcops.com` resolves to the host,
+   and real ACME certificate issuance has passed with Caddy `2.11.4` pinned by
+   digest. The runtime profile remains disabled. External identity, the first
+   live backup, repeated full data check, isolated restore rehearsal, migration,
+   target-host schedule, public API authorization checks, and the remaining
+   target-environment evidence are pending.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
    Grafana, and health coverage for the private telemetry pipeline.
 6. Complete external A2S and guarded RCON verification, controlled

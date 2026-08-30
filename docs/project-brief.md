@@ -119,25 +119,27 @@ publication is implemented, including digest-preserving promotion. Signed tag
 `v2.3.0-rc.1` published and verified the first immutable candidate digest,
 `sha256:d21a5cb10bb8179310e660d50cb301fed277a5dc3fcbd900e77065fdcc9df458`,
 without creating a stable release or mutable image alias.
-The repository does not yet operate the controlled external game server, ship a
-reference VPS topology, export production metrics through an OpenTelemetry
-Collector, or include a web operator experience. These are delivery gaps rather
-than missing v2.2 release requirements. The active v2.3 plan closes the
-deployment and observability gaps before frontend or gameplay-agent work
-begins. Slice 2 starts with the provider-independent controlled game-server
-contract in `docs/v2.3-controlled-gameserver-baseline.md`. Its conditional
-game-host selection and pre-purchase gate are recorded in
-`docs/v2.3-gameserver-provider-decision.md`; no external server has been
-purchased or provisioned. Slice 3 now includes a provider-independent Compose
+The project does not yet operate the controlled external game server, export
+production metrics through an OpenTelemetry Collector, or include a web
+operator experience. These are delivery gaps rather than missing v2.2 release
+requirements. The active v2.3 plan closes the deployment and observability gaps
+before frontend or gameplay-agent work begins. Slice 2 starts with the
+provider-independent controlled game-server contract in
+`docs/v2.3-controlled-gameserver-baseline.md`. Its conditional game-host
+selection and pre-purchase gate are recorded in
+`docs/v2.3-gameserver-provider-decision.md`; no external game server has been
+purchased or provisioned. Slice 3 includes a provider-independent Compose
 contract, same-image migration action, and encrypted off-host PostgreSQL backup
-and isolated restore-rehearsal automation. A plan-first two-phase Ubuntu
-bootstrap prepares a dedicated key-only operator before disabling initial SSH
-access, and the read-only host audit verifies the resulting boundary. Its
-private Backblaze B2 backend in EU Central is initialized, the recovery key is
-escrowed outside the future VPS, and a repository integrity check configured
-with a `100%` data subset has passed. The first live PostgreSQL backup, restore
-rehearsal, and target-host recovery evidence remain pending. The full sequence
-is recorded in `docs/v2.3-production-deployment.md`.
+and isolated restore-rehearsal automation. The control-plane VPS has completed
+the two-phase key-only SSH hardening, controlled reboot, and live baseline host
+audit. DNS for `api.goldsrcops.com` resolves to that host, and certificate
+issuance through a digest-pinned Caddy image has passed against the public
+boundary. The private Backblaze B2 backend in EU Central is initialized, the
+recovery key is escrowed outside the VPS, and a repository integrity check
+configured with a `100%` data subset has passed. The production runtime remains
+disabled while external identity, the first live PostgreSQL backup, restore
+rehearsal, and migration gates are pending. The full sequence is recorded in
+`docs/v2.3-production-deployment.md`.
 
 ## MVP Goal
 
