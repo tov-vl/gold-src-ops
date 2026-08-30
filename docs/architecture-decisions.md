@@ -797,8 +797,10 @@ Implementation status:
 Implemented for v2.3 in `ops/production/postgres-backup.ps1`,
 `ops/production/postgres-restore-rehearsal.ps1`, and the container smoke flow.
 Local evidence covers an encrypted backup, full repository data check, eight
-migrations, required tables, and a restored control record. The selected remote
-repository, target-host scheduling, retention policy, recovery duration, and
+migrations, required tables, and a restored control record. The private remote
+repository is now initialized, independently escrowed, and has passed an
+integrity check configured with a `100%` data subset. The first live backup,
+target-host scheduling, retention policy, measured recovery duration, and
 off-host restore evidence remain deployment gates.
 
 References:
