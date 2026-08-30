@@ -42,26 +42,45 @@ Docker `HEALTHCHECK`.
 
 ## Publish And Version The Image
 
-The `Publish Image` CI job runs only for an exact `v<major>.<minor>.<patch>` tag
-after `Quality Gate` and `Container Smoke` succeed for the same revision. It
-rejects lightweight tags, revisions that are not reachable from the default
-branch, and release or revision image tags that already exist. The release
-procedure must still create a signed annotated Git tag and verify its signature
-before pushing it.
-
-The job publishes one `linux/amd64` image under both immutable references:
+The `Publish Image` CI job runs only after `Quality Gate` and `Container Smoke`
+succeed for the tagged revision. Its strict tag contract accepts:
 
 ```text
-ghcr.io/tov-vl/gold-src-ops:v<major>.<minor>.<patch>
+v<major>.<minor>.<patch>
+v<major>.<minor>.<patch>-rc.<positive-number>
+```
+
+Numeric identifiers do not have leading zeroes, the candidate number starts at
+one, and other prerelease or build-metadata forms are rejected. Both stable and
+release-candidate tags must be signed annotated Git tags whose revision is
+reachable from the default branch. Verify the tag signature before pushing it.
+
+For a previously unpublished revision, the job builds one `linux/amd64` image
+under both immutable references:
+
+```text
+ghcr.io/tov-vl/gold-src-ops:<exact-stable-or-rc-tag>
 ghcr.io/tov-vl/gold-src-ops:sha-<full-git-revision>
 ```
 
-It does not publish `latest`, moving major tags, or moving minor tags. Registry
-write permission is scoped to this job. A separate `Verify Published Image` job
-has only package-read permission and runs repository smoke code against the
-published digest. OCI labels record the HTTPS source URL, full Git revision,
-release version, and MIT license. The workflow summaries record the canonical
-deployment reference:
+An RC publication is a deployable candidate, not a stable project release. It
+does not publish `latest`, a stable alias, moving major or minor aliases, or a
+GitHub Release. If a later stable tag points at the same revision and has the
+same base version, the workflow attaches that exact stable tag to the existing
+candidate digest instead of rebuilding it. The write-once revision tag and RC
+tag remain unchanged. Because labels are part of the immutable image, a promoted
+digest retains the RC version label that originally identified its bits; the
+workflow summary records both the requested stable tag and promotion mode.
+
+Candidate tags cannot reuse an already published revision. Stable promotion is
+allowed only when the revision image has matching source, full revision, MIT
+license, and strict RC version labels for the same base version. Existing exact
+tags are always rejected, and registry lookup failures fail closed. Registry
+write permission is scoped to this job. A separate
+`Verify Published Image` job has only package-read permission and runs repository
+smoke code against the published digest. OCI labels record the HTTPS source URL,
+full Git revision, artifact version, and MIT license. The workflow summaries
+record the canonical deployment reference:
 
 ```text
 ghcr.io/tov-vl/gold-src-ops@sha256:<digest>
@@ -89,9 +108,10 @@ docker build --pull `
 ```
 
 The Dockerfile tracks the servicing `10.0` SDK and ASP.NET runtime image tags,
-so rebuilding the same source later can produce a different image. Release and
-rollback records must therefore retain the published digest rather than rely on
-source revision alone.
+so rebuilding the same source later can produce a different image. Candidate,
+release, and rollback records must therefore retain the published digest rather
+than rely on source revision alone. Promoting a matching candidate digest avoids
+that rebuild at the stable-release boundary.
 
 Retain at least the digest currently deployed and the immediately preceding
 known-good digest. Do not remove either image version while a rollout or rollback

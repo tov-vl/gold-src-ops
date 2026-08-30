@@ -46,15 +46,18 @@ pwsh -NoProfile -File .\tools\smoke\container.ps1 `
   -ImageReference $image
 ```
 
-The release workflow also supplies the expected source, revision, and version
-labels so a registry artifact cannot silently point at different release
-metadata. Registry authentication, when required by package visibility, must be
-completed before running the command.
+The image-publication workflow also supplies the expected source, revision, and
+artifact-version labels so a registry artifact cannot silently point at
+different metadata. A stable tag promoted from a matching candidate intentionally
+retains that candidate's version label because the digest is unchanged. Registry
+authentication, when required by package visibility, must be completed before
+running the command.
 
 GitHub Actions runs the same command in the dependent `Container Smoke` job
-after the regular `Quality Gate` succeeds. For a release tag,
-`Verify Published Image` reruns it against the newly published digest using
-package-read permission.
+after the regular `Quality Gate` succeeds. For an accepted stable or
+release-candidate tag, `Verify Published Image` reruns it against the newly
+published or promoted digest using package-read permission. The preceding
+container job also executes the deterministic tag-contract smoke cases.
 
 ## Host-Readiness Decisions
 
