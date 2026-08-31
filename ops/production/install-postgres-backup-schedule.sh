@@ -144,7 +144,8 @@ for protected_file in \
     owner_id="$(stat -c '%u' "$protected_file")"
     mode_bits="$(stat -c '%a' "$protected_file")"
     if [[ "$owner_id" != "0" ]] || (((8#$mode_bits & 0022) != 0)); then
-        echo "Production schedule paths must be root-owned and not group/other writable." >&2
+        echo "Unsafe production schedule path: $protected_file (owner uid=$owner_id, mode=$mode_bits)." >&2
+        echo "Expected owner uid=0 and no group/other write permissions." >&2
         exit 1
     fi
 done
