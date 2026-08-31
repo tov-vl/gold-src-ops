@@ -19,10 +19,10 @@ configured and verified through the public API. The first encrypted PostgreSQL
 backup, full repository check, isolated restore rehearsal, all eight migrations,
 idempotent migration rerun, public HTTPS health, anonymous rejection, Operator
 access, and live runtime host audit have passed. A guarded daily backup schedule,
-scoped retention policy, and freshness probe are implemented and
-container-tested; target timer activation remains pending. The Reader-only and
-signed negative-token matrix, game-server integration, and the broader recovery
-exercise also remain pending.
+scoped retention policy, and freshness probe are active on the target; the
+mandatory preview and first completed cycle passed. The Reader-only and signed
+negative-token matrix, game-server integration, and the broader recovery exercise
+also remain pending.
 
 ## Topology
 
@@ -311,10 +311,10 @@ does this automatically. The bundle has no down-migration mode in this workflow.
 
 ## Slice 3 Target Status
 
-1. In progress: the first encrypted PostgreSQL backup, repeated full data check,
+1. Completed: the first encrypted PostgreSQL backup, repeated full data check,
    isolated restore rehearsal, and sanitized target evidence are complete. The
-   guarded recurring schedule is implemented and container-tested; its live
-   retention preview, timer activation, and first fresh cycle remain pending.
+   guarded recurring schedule passed its live retention preview, is enabled as a
+   persistent systemd timer, and produced a fresh owner-only cycle marker.
 2. Completed: the tracked Caddy route passes HTTP-to-HTTPS redirection,
    certificate validation, anonymous liveness, and PostgreSQL-backed readiness
    through the public hostname.

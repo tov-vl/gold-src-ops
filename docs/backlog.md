@@ -437,10 +437,11 @@ token issuance has been verified without storing credentials in Git. The
 healthy, anonymous protected requests are rejected, the Operator identity
 passes the Reader and Operator policy surfaces, and the live runtime host audit
 confirms only Caddy is publicly published. A guarded daily backup schedule,
-scoped retention policy, and freshness probe are implemented and
-container-tested; live timer activation and its first successful cycle remain.
-Reader-only and signed negative-token checks, game-server provisioning,
-observability stack, recovery exercise, and soak evidence remain incomplete.
+scoped retention policy, and freshness probe are active on the target. Its
+non-destructive preview retained the existing recoverable snapshot, and the first
+completed cycle produced a fresh owner-only marker. Reader-only and signed
+negative-token checks, game-server provisioning, observability stack, recovery
+exercise, and soak evidence remain incomplete.
 
 Why this work is selected:
 
@@ -502,9 +503,10 @@ tracks state without duplicating that operational sequence.
    The API, Caddy, and PostgreSQL showed zero restarts with the expected
    `unless-stopped` policy and bounded local logs. The guarded daily backup
    schedule, scoped retention policy, mandatory preview, and 36-hour freshness
-   probe are implemented and container-tested. Live timer activation and its
-   first completed cycle, the dedicated Reader-only token, signed negative-token
-   matrix, and later recovery evidence are pending.
+   probe are active on the target. The preview retained the existing recoverable
+   snapshot, the persistent timer is enabled, and its first completed cycle
+   produced a valid owner-only freshness marker. The dedicated Reader-only token,
+   signed negative-token matrix, and later recovery evidence are pending.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
    Grafana, and health coverage for the private telemetry pipeline.
 6. Complete external A2S and guarded RCON verification, controlled

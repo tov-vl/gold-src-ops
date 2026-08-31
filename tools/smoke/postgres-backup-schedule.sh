@@ -14,6 +14,8 @@ grep -Fq "MODE: plan" <<<"$plan"
 grep -Fq "RETENTION: last=3 daily=14 weekly=8 monthly=12" <<<"$plan"
 grep -Fq "FRESHNESS_LIMIT_HOURS: 36" <<<"$plan"
 grep -Fq "NO_CHANGES:" <<<"$plan"
+grep -Fq 'Unsafe production schedule path: $protected_file' "$installer"
+grep -Fq 'owner uid=$owner_id, mode=$mode_bits' "$installer"
 
 if bash "$installer" --source-root "$repo_root" --unknown >/dev/null 2>&1; then
     echo "Installer accepted an unknown argument." >&2
