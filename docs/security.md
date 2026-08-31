@@ -180,6 +180,14 @@ tokens only as `SecureString` values or masked prompts, disables redirects, and
 does not read response bodies or token claims. Its optional sanitized evidence
 file must remain outside the repository.
 
+The production matrix passed against `v2.3.0-rc.4` at
+`2026-08-31T20:58:21Z`. Anonymous, expired, foreign-issuer, and wrong-audience
+requests returned `401` with a Bearer challenge. Reader dashboard and metrics
+requests returned `200`, while Reader mutation and valid missing-role requests
+returned `403`. Auth0 access-token lifetimes were restored to `3600/3600` after
+the bounded expiration check, and the dedicated test identity retained only the
+`Reader` role. Tokens and sanitized target evidence remain outside Git.
+
 The live foreign-issuer scenario uses an ephemeral RS256 key and therefore
 tests a foreign issuer and foreign signing authority together. It demonstrates
 that the public route fails closed, but does not attribute the rejection to one

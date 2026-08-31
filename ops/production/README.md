@@ -14,15 +14,16 @@ private off-host backend is now initialized and independently escrowed. The
 control-plane VPS has passed its two-phase SSH hardening, controlled reboot, and
 live baseline host audit. Public DNS and real certificate issuance have also
 passed, with certificate data retained in the Compose-labelled Caddy volume.
-The external Auth0 issuer, audience, role claim, and dedicated Operator login are
-configured and verified through the public API. The first encrypted PostgreSQL
-backup, full repository check, isolated restore rehearsal, all eight migrations,
-idempotent migration rerun, public HTTPS health, anonymous rejection, Operator
-access, and live runtime host audit have passed. A guarded daily backup schedule,
-scoped retention policy, and freshness probe are active on the target; the
-mandatory preview and first completed cycle passed. The Reader-only and signed
-negative-token matrix, game-server integration, and the broader recovery exercise
-also remain pending.
+The external Auth0 issuer, audience, role claim, and dedicated Reader and
+Operator logins are configured and verified through the public API. The first
+encrypted PostgreSQL backup, full repository check, isolated restore rehearsal,
+all eight migrations, idempotent migration rerun, public HTTPS health, complete
+eight-scenario authorization matrix, and live runtime host audit have passed.
+The signed `v2.3.0-rc.4` image is deployed by its verified digest after a
+successful preflight and already-up-to-date migration-bundle run. A guarded
+daily backup schedule, scoped retention policy, and freshness probe are active
+on the target; the mandatory preview and first completed cycle passed.
+Game-server integration and the broader recovery exercise remain pending.
 
 ## Topology
 
@@ -318,14 +319,14 @@ does this automatically. The bundle has no down-migration mode in this workflow.
 2. Completed: the tracked Caddy route passes HTTP-to-HTTPS redirection,
    certificate validation, anonymous liveness, and PostgreSQL-backed readiness
    through the public hostname.
-3. In progress: anonymous requests are rejected, and the dedicated Operator
-   token passes issuer, audience, role, subject, Reader-policy, Operator-policy,
-   and authenticated metrics checks. A dedicated Reader-only token plus signed
-   missing-role, expired-token, wrong-issuer, and wrong-audience cases remain.
-   Execute the guarded matrix with `tools/smoke/oidc-live.ps1`; its token
-   provenance, expected statuses, and optional sanitized evidence contract are
-   documented in `docs/smoke-test.md`. The expired-token input must be beyond
-   the API's explicit 30-second clock-skew allowance.
+3. Completed: anonymous requests are rejected; the dedicated Operator token
+   passes Reader-policy, Operator-policy, and authenticated metrics checks; and
+   the guarded matrix passes with a dedicated Reader-only token plus signed
+   missing-role, expired-token, wrong-issuer, and wrong-audience cases. The
+   matrix is implemented by `tools/smoke/oidc-live.ps1`; its token provenance,
+   expected statuses, and optional sanitized evidence contract are documented
+   in `docs/smoke-test.md`. The expired-token input was beyond the API's explicit
+   30-second clock-skew allowance.
 4. Completed: the runtime host audit retained sanitized listener,
    restart-policy, bounded-log, and external-dependency evidence outside the
    repository. All runtime containers had zero restarts at capture time.
