@@ -425,8 +425,11 @@ passed.
 The control-plane VPS is provisioned and has passed the two-phase SSH hardening,
 controlled reboot, and live baseline host audit. Public DNS for
 `api.goldsrcops.com` and real ACME certificate issuance through digest-pinned
-Caddy have also passed. External identity, the first live PostgreSQL backup and
-restore, production runtime verification, and game-server provisioning remain
+Caddy have also passed. The external Auth0 issuer, API audience, namespaced role
+claim, exact Reader/Operator roles, and dedicated Operator login are configured;
+token issuance has been verified without storing credentials in Git. The first
+live PostgreSQL backup and restore, the public API authorization matrix,
+production runtime verification, and game-server provisioning remain
 incomplete.
 
 Why this work is selected:

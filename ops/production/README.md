@@ -14,9 +14,10 @@ private off-host backend is now initialized and independently escrowed. The
 control-plane VPS has passed its two-phase SSH hardening, controlled reboot, and
 live baseline host audit. Public DNS and real certificate issuance have also
 passed, with certificate data retained in the Compose-labelled Caddy volume.
-The first live PostgreSQL backup and restore, external identity, production
-runtime HTTPS checks, and broader target-environment recovery evidence remain
-pending.
+The external Auth0 issuer, audience, role claim, and dedicated Operator login are
+configured and verified at the token boundary. The first live PostgreSQL backup
+and restore, public API authorization matrix, production runtime HTTPS checks,
+and broader target-environment recovery evidence remain pending.
 
 ## Topology
 
@@ -290,9 +291,10 @@ does this automatically. The bundle has no down-migration mode in this workflow.
 2. Certificate issuance is complete. Validate the tracked Caddy configuration,
    forwarded scheme, AllowedHosts, and anonymous liveness plus PostgreSQL-backed
    readiness through public HTTPS after the database and migration gates pass.
-3. Configure the selected external identity provider to emit the tracked role
-   claim, then validate Reader, Operator, missing-role, expired-token,
-   wrong-issuer, and wrong-audience behavior.
+3. The external identity provider now emits the tracked role claim for the
+   dedicated Operator identity. Validate Reader, Operator, missing-role,
+   expired-token, wrong-issuer, and wrong-audience behavior through the public
+   API after the recovery and migration gates pass.
 4. The bootstrap phases, controlled reboot, and baseline host-readiness audit are
    complete. Repeat the runtime audit after services start and retain sanitized
    listener, restart-policy, log-retention, and external-dependency evidence
