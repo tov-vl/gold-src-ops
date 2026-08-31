@@ -541,6 +541,12 @@ Assert-Condition `
 
 $proxyAddress = [string]$api.environment.ReverseProxy__KnownProxy
 $roleClaimType = [string]$api.environment.Authentication__Schemes__Bearer__RoleClaimType
+$validAudience = [string](Get-PropertyValue `
+    -InputObject $api.environment `
+    -Name "Authentication__Schemes__Bearer__ValidAudiences__0")
+$audiencePropertyNames = @($api.environment.PSObject.Properties.Name | Where-Object {
+        $_ -like "Authentication__Schemes__Bearer__ValidAudiences__*"
+    })
 $apiAddress = [string]$api.networks.edge.ipv4_address
 $caddyAddress = [string]$caddy.networks.edge.ipv4_address
 $edgeSubnet = [string]$configuration.networks.edge.ipam.config[0].subnet
@@ -550,6 +556,17 @@ Assert-Condition `
     -Condition (-not [string]::IsNullOrWhiteSpace($roleClaimType) -and
         $roleClaimType -eq $roleClaimType.Trim()) `
     -Message "The authentication role claim type must be non-empty and have no surrounding whitespace."
+Assert-Condition `
+    -Condition ($audiencePropertyNames.Count -eq 1 -and
+        $audiencePropertyNames[0] -eq "Authentication__Schemes__Bearer__ValidAudiences__0" -and
+        -not [string]::IsNullOrWhiteSpace($validAudience) -and
+        $validAudience -eq $validAudience.Trim()) `
+    -Message "The API must configure exactly one non-empty bearer ValidAudiences entry at index 0."
+Assert-Condition `
+    -Condition ($null -eq (Get-PropertyValue `
+            -InputObject $api.environment `
+            -Name "Authentication__Schemes__Bearer__Audience")) `
+    -Message "Use ValidAudiences__0 for automatic bearer scheme configuration; Audience is not part of this deployment contract."
 Assert-IPv4Address -Address $apiAddress -Name "API edge address"
 Assert-IPv4Address -Address $caddyAddress -Name "Caddy edge address"
 Assert-Condition `
