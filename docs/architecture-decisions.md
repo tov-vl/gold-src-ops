@@ -752,8 +752,9 @@ Reasoning:
 - A repository check alone does not prove application recovery. Restoring into
   disposable PostgreSQL and running the same-image migration bundle exercises
   the database, schema, and deployable artifact together.
-- One exclusive host lock serializes backup, repository checks, and rehearsals;
-  restic's repository lock protects the shared backend independently.
+- One exclusive host lock serializes backup, repository checks, retention, and
+  rehearsals; restic's repository lock protects the shared backend
+  independently.
 - Sanitized evidence can record the exact snapshot and image digests without
   exposing database or object-storage credentials.
 
@@ -772,8 +773,13 @@ Security and operational implications:
 - Record measured backup and recovery durations before adopting a recovery-time
   objective. Daily scheduling initially implies up to approximately 24 hours of
   schedule-derived data loss.
-- Define snapshot expiration before enabling destructive automated pruning.
-  The first implementation deliberately does not run `forget --prune`.
+- Apply expiration only to the exact backup host and recoverable tag. Keep the
+  latest 3, 14 daily, 8 weekly, and 12 monthly snapshots.
+- Require a fresh non-destructive retention preview before enabling automated
+  `forget --prune`. Publish a completed-cycle marker only after backup, sampled
+  data verification, pruning, and a final repository check all succeed.
+
+Retention policy amendment date: 2026-08-31.
 
 Alternatives considered:
 
@@ -795,13 +801,14 @@ Alternatives considered:
 Implementation status:
 
 Implemented for v2.3 in `ops/production/postgres-backup.ps1`,
+`ops/production/postgres-backup-status.ps1`, the guarded systemd installer,
 `ops/production/postgres-restore-rehearsal.ps1`, and the container smoke flow.
-Local evidence covers an encrypted backup, full repository data check, eight
-migrations, required tables, and a restored control record. The private remote
-repository is now initialized, independently escrowed, and has passed an
-integrity check configured with a `100%` data subset. The first live backup,
-target-host scheduling, retention policy, measured recovery duration, and
-off-host restore evidence remain deployment gates.
+Local evidence covers encrypted backup, retention and pruning, freshness
+validation, full repository data check, eight migrations, required tables, and
+a restored control record. The private remote repository is initialized and
+independently escrowed; its full data check, first live backup, and isolated live
+restore rehearsal have passed. Target timer activation, its first completed
+cycle, and the measured recovery-time objective remain deployment gates.
 
 References:
 
@@ -809,3 +816,4 @@ References:
 - [restic backup from stdin](https://restic.readthedocs.io/en/stable/040_backup.html#reading-data-from-stdin)
 - [restic integrity checks](https://restic.readthedocs.io/en/stable/045_working_with_repos.html#checking-integrity-and-consistency)
 - [restic dump](https://restic.readthedocs.io/en/stable/050_restore.html#printing-files-to-stdout)
+- [restic snapshot retention and pruning](https://restic.readthedocs.io/en/stable/060_forget.html)

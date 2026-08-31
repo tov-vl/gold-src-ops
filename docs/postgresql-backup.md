@@ -42,9 +42,12 @@ repository. The backend file must not set any `RESTIC_PASSWORD*` or
 scoped `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; add a region or provider
 option only when the selected backend requires it.
 
-On Linux, the backup scripts run the restic container with the deployment
-operator's numeric UID and GID. This lets the capability-free container read
-owner-only files without granting it discretionary-access-control bypass.
+On Linux, an interactive backup runs the restic container with the caller's
+numeric UID and GID. The systemd schedule runs as root because access to the
+Docker socket is already root-equivalent; its restic container still has all
+Linux capabilities removed, a read-only root filesystem, bounded tmpfs, and
+only the required owner-only secret mounts. The installer therefore accepts
+only root-controlled source paths and deployment metadata.
 
 Keep the restic password in an independent recovery escrow. Losing it makes the
 backup data unrecoverable. Root and Docker-daemon administrators can access
@@ -68,9 +71,11 @@ that the configured repository is already readable.
 ### Reference Target Bootstrap
 
 On 2026-08-30, the reference backend was initialized in a private Backblaze B2
-bucket in EU Central. B2 server-side encryption is enabled, the application key
-is restricted to read/write access for that bucket, and Object Lock remains
-disabled until the snapshot-retention and pruning policy is reviewed.
+bucket in EU Central. B2 server-side encryption is enabled and the application
+key is restricted to that bucket. Object Lock is disabled for this repository
+path because the scheduled retention policy requires snapshot and pack deletion.
+An append-only or immutable design would require a separate maintenance trust
+boundary and remains outside this baseline.
 
 The restic repository was initialized and an integrity check configured with
 `-ReadDataSubset 100%` passed using image
@@ -80,10 +85,11 @@ encrypted password-manager escrow, and sanitized evidence are all kept outside
 Git. Repository, bucket, account, and credential identifiers are deliberately
 omitted from tracked documentation.
 
-This bootstrap proves remote repository access and configuration only. It does
-not contain a production PostgreSQL snapshot and does not replace the first
-backup, a repeated full data check over stored backup data, an isolated restore
-rehearsal, target-host scheduling, or measured recovery-duration evidence.
+That bootstrap proved remote repository access and configuration only. The first
+production PostgreSQL backup, repeated full data check, and isolated restore
+rehearsal passed later as separate gates. They do not replace target timer
+activation, its first completed scheduled cycle, or measured recovery-duration
+evidence.
 
 ## Create A Backup
 
@@ -124,6 +130,86 @@ credential changes, and periodically at a cadence that fits repository size and
 download cost. A metadata-only successful backup does not replace data checks
 or restore rehearsals.
 
+## Preview Retention And Install The Schedule
+
+The reference retention policy keeps snapshots selected by any of these rules:
+
+- the latest 3 snapshots;
+- 14 daily snapshots;
+- 8 weekly snapshots; and
+- 12 monthly snapshots.
+
+Restic evaluates calendar rules on natural UTC periods that contain snapshots.
+When too few periods exist, it may additionally retain the oldest snapshot as a
+safe anchor. The policy is restricted to the exact
+`GOLDSRCOPS_BACKUP_HOST`, path, and
+`goldsrcops-postgresql-recoverable` tag; pending or unrelated snapshots are not
+eligible for expiration.
+
+The object-storage credential must permit list, read, write, and delete within
+only the selected backup bucket before retention is activated. First run the
+non-destructive preview and retain its owner-only evidence:
+
+```powershell
+sudo pwsh -NoProfile -File ./ops/production/postgres-backup.ps1 `
+  -Action Retain `
+  -EnvironmentFile /etc/goldsrcops/deployment.env `
+  -StatusFile /var/lib/goldsrcops/evidence/postgres-backup-retention-preview.json
+
+sudo pwsh -NoProfile -File ./ops/production/postgres-backup-status.ps1 `
+  -EnvironmentFile /etc/goldsrcops/deployment.env `
+  -StatusFile /var/lib/goldsrcops/evidence/postgres-backup-retention-preview.json `
+  -Kind RetentionPreview `
+  -MaximumAgeHours 24
+```
+
+Review every snapshot listed for removal. Then inspect the installer plan and
+apply it from the root-owned `/opt/goldsrcops` checkout:
+
+```bash
+bash ./ops/production/install-postgres-backup-schedule.sh
+sudo bash ./ops/production/install-postgres-backup-schedule.sh --apply
+```
+
+Apply refuses a source tree outside `/opt/goldsrcops`, a stale or mismatched
+preview, production source paths or `deployment.env` that are not root-owned or
+are group/other writable, an inactive Docker service, or an invalid unit. It
+installs and enables a persistent systemd timer for `03:15 UTC` with a stable
+host-specific delay of up to 30 minutes.
+
+Each timer activation holds the shared PostgreSQL recovery lock while it:
+
+1. creates and validates a recoverable backup;
+2. reads and authenticates a `5%` repository data sample;
+3. applies the scoped retention policy with `forget --prune`;
+4. checks repository structure after pruning; and
+5. atomically publishes an owner-only success marker.
+
+The marker is not updated after a partial or failed cycle. The service validates
+it immediately, while this command provides a monitoring-ready freshness probe
+with a 36-hour threshold:
+
+```powershell
+sudo pwsh -NoProfile -File ./ops/production/postgres-backup-status.ps1 `
+  -EnvironmentFile /etc/goldsrcops/deployment.env `
+  -StatusFile /var/lib/goldsrcops/evidence/postgres-backup-cycle.json `
+  -Kind ScheduledCycle `
+  -MaximumAgeHours 36
+```
+
+Use `systemctl list-timers goldsrcops-postgres-backup.timer` and
+`journalctl -u goldsrcops-postgres-backup.service` for schedule and failure
+diagnostics. Pause the timer before repository maintenance or an incident where
+the oldest known-good snapshots must be frozen:
+
+```bash
+sudo systemctl disable --now goldsrcops-postgres-backup.timer
+```
+
+Re-run a retention preview before enabling it again. Pruning can hold the restic
+repository lock for a long time, so the one-shot service has a four-hour timeout
+and must not overlap manual backup or restore actions.
+
 ## Rehearse A Restore
 
 Restore the latest recoverable snapshot into a disposable PostgreSQL container:
@@ -150,10 +236,11 @@ production database and never starts the API.
 
 ## Serialization And Evidence
 
-Backup initialization, creation, checks, and restore rehearsal use one exclusive
-host lock at `/var/lock/goldsrcops-postgres-recovery.lock`. If an operator
-overrides `-LockFile`, every scheduled action must use the same path. Restic's
-repository lock remains an independent second layer for remote concurrency.
+Backup initialization, creation, checks, retention, scheduled cycles, and restore
+rehearsal use one exclusive host lock at
+`/var/lock/goldsrcops-postgres-recovery.lock`. If an operator overrides
+`-LockFile`, every action must use the same path. Restic's repository lock
+remains an independent second layer for remote concurrency.
 
 The evidence files contain image references, snapshot identifiers and times,
 database size, migration count, table names, and restored server count. They do
@@ -169,9 +256,9 @@ configured off-host repository:
 - review of the sanitized evidence; and
 - a measured recovery duration recorded as the initial recovery-time baseline.
 
-Snapshot expiration and pruning are intentionally a separate operator action in
-the first baseline. Define and review a retention policy against object-storage
-capacity before adding an automated destructive `forget --prune` schedule.
+The scheduled retention policy is intentionally conservative and observable. A
+failed prune leaves the previous cycle marker stale and fails the systemd unit;
+it never triggers automatic repository unlock or backup restoration.
 
 ## Failure Handling
 
@@ -191,3 +278,5 @@ References:
 - [restic backup from stdin](https://restic.readthedocs.io/en/stable/040_backup.html#reading-data-from-stdin)
 - [restic repository checks](https://restic.readthedocs.io/en/stable/045_working_with_repos.html#checking-integrity-and-consistency)
 - [restic dump](https://restic.readthedocs.io/en/stable/050_restore.html#printing-files-to-stdout)
+- [restic snapshot retention and pruning](https://restic.readthedocs.io/en/stable/060_forget.html)
+- [systemd timer units](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html)
