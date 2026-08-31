@@ -703,6 +703,13 @@ function Enter-PostgresBackupLock {
     $directory = Split-Path -Parent $fullPath
     if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
         [void](New-Item -ItemType Directory -Path $directory)
+        if (-not $IsWindows) {
+            [IO.File]::SetUnixFileMode(
+                $directory,
+                [IO.UnixFileMode]::UserRead -bor
+                [IO.UnixFileMode]::UserWrite -bor
+                [IO.UnixFileMode]::UserExecute)
+        }
     }
 
     try {
@@ -750,6 +757,12 @@ function Write-BackupEvidence {
     $temporaryPath = "$fullPath.$([Guid]::NewGuid().ToString('N')).tmp"
     try {
         $Evidence | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $temporaryPath -Encoding utf8NoBOM
+        if (-not $IsWindows) {
+            [IO.File]::SetUnixFileMode(
+                $temporaryPath,
+                [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite)
+        }
+
         Move-Item -LiteralPath $temporaryPath -Destination $fullPath -Force
     }
     finally {

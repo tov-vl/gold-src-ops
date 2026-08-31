@@ -1,0 +1,33 @@
+[Unit]
+Description=GoldSrcOps encrypted PostgreSQL backup cycle
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/goldsrcops
+UMask=0077
+ExecStart=/usr/bin/pwsh -NoLogo -NoProfile -File /opt/goldsrcops/ops/production/postgres-backup.ps1 -Action Scheduled -ApplyRetention -EnvironmentFile /etc/goldsrcops/deployment.env -EvidenceFile /var/lib/goldsrcops/evidence/postgres-backup.json -StatusFile /var/lib/goldsrcops/evidence/postgres-backup-cycle.json -ReadDataSubset 5%% -KeepLast 3 -KeepDaily 14 -KeepWeekly 8 -KeepMonthly 12
+ExecStartPost=/usr/bin/pwsh -NoLogo -NoProfile -File /opt/goldsrcops/ops/production/postgres-backup-status.ps1 -EnvironmentFile /etc/goldsrcops/deployment.env -StatusFile /var/lib/goldsrcops/evidence/postgres-backup-cycle.json -Kind ScheduledCycle -MaximumAgeHours 36
+TimeoutStartSec=4h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadOnlyPaths=/etc/goldsrcops /opt/goldsrcops
+ReadWritePaths=/var/lib/goldsrcops/evidence /var/lock
+RemoveIPC=true
+RestrictAddressFamilies=AF_UNIX
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native

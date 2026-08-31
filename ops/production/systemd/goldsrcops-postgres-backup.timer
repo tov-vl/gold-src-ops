@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the GoldSrcOps PostgreSQL backup cycle daily
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+RandomizedDelaySec=30m
+FixedRandomDelay=true
+AccuracySec=1m
+Persistent=true
+Unit=goldsrcops-postgres-backup.service
+
+[Install]
+WantedBy=timers.target

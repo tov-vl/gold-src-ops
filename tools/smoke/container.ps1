@@ -78,6 +78,8 @@ $resticPasswordFile = Join-Path $backupSmokeDirectory "restic-password"
 $resticEnvironmentFile = Join-Path $backupSmokeDirectory "restic-environment"
 $backupEnvironmentFile = Join-Path $backupSmokeDirectory "deployment.env"
 $backupEvidenceFile = Join-Path $backupSmokeDirectory "backup-evidence.json"
+$backupStatusFile = Join-Path $backupSmokeDirectory "backup-status.json"
+$retentionPreviewFile = Join-Path $backupSmokeDirectory "retention-preview.json"
 $restoreEvidenceFile = Join-Path $backupSmokeDirectory "restore-evidence.json"
 $imageBuilt = $false
 $succeeded = $false
@@ -132,11 +134,14 @@ function Invoke-ExternalCapture {
     )
 
     $output = @(& $FilePath @Arguments 2>&1)
-    if ($LASTEXITCODE -ne 0) {
-        throw "Command '$FilePath' failed with exit code $LASTEXITCODE."
+    $exitCode = $LASTEXITCODE
+    $outputText = (($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine).Trim()
+    if ($exitCode -ne 0) {
+        $details = if ([string]::IsNullOrWhiteSpace($outputText)) { "No output." } else { $outputText }
+        throw "Command '$FilePath' failed with exit code $exitCode. $details"
     }
 
-    return (($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine).Trim()
+    return $outputText
 }
 
 function Wait-ContainerHealthy {
@@ -715,6 +720,95 @@ VALUES
         -ReadDataSubset 100% `
         -LocalRepositoryPath $resticRepositoryDirectory `
         -AllowLocalTestResources
+
+    Write-Step "Validate scheduled backup retention and freshness"
+    & ./ops/production/postgres-backup.ps1 `
+        -Action Retain `
+        -EnvironmentFile $backupEnvironmentFile `
+        -LocalRepositoryPath $resticRepositoryDirectory `
+        -StatusFile $retentionPreviewFile `
+        -AllowLocalTestResources
+    & ./ops/production/postgres-backup-status.ps1 `
+        -EnvironmentFile $backupEnvironmentFile `
+        -StatusFile $retentionPreviewFile `
+        -Kind RetentionPreview `
+        -AllowLocalTestResources
+
+    foreach ($iteration in 1..3) {
+        Start-Sleep -Seconds 1
+        & ./ops/production/postgres-backup.ps1 `
+            -Action Create `
+            -EnvironmentFile $backupEnvironmentFile `
+            -SourceContainer $postgresContainer `
+            -LocalRepositoryPath $resticRepositoryDirectory `
+            -AllowLocalTestResources
+    }
+
+    Start-Sleep -Seconds 1
+    & ./ops/production/postgres-backup.ps1 `
+        -Action Scheduled `
+        -ApplyRetention `
+        -EnvironmentFile $backupEnvironmentFile `
+        -SourceContainer $postgresContainer `
+        -LocalRepositoryPath $resticRepositoryDirectory `
+        -EvidenceFile $backupEvidenceFile `
+        -StatusFile $backupStatusFile `
+        -AllowLocalTestResources
+    & ./ops/production/postgres-backup-status.ps1 `
+        -EnvironmentFile $backupEnvironmentFile `
+        -StatusFile $backupStatusFile `
+        -AllowLocalTestResources
+
+    if (-not $IsWindows) {
+        $forbiddenEvidenceMode =
+            [IO.UnixFileMode]::GroupRead -bor
+            [IO.UnixFileMode]::GroupWrite -bor
+            [IO.UnixFileMode]::GroupExecute -bor
+            [IO.UnixFileMode]::OtherRead -bor
+            [IO.UnixFileMode]::OtherWrite -bor
+            [IO.UnixFileMode]::OtherExecute
+        foreach ($evidencePath in @($backupEvidenceFile, $backupStatusFile, $retentionPreviewFile)) {
+            $evidenceMode = [IO.File]::GetUnixFileMode($evidencePath)
+            if (($evidenceMode -band $forbiddenEvidenceMode) -ne 0) {
+                throw "Backup evidence is accessible by group or other users."
+            }
+        }
+    }
+
+    $snapshotArguments = @(
+        "run",
+        "--rm")
+    if (-not $IsWindows) {
+        $userId = Invoke-ExternalCapture -FilePath "id" -Arguments @("-u")
+        $groupId = Invoke-ExternalCapture -FilePath "id" -Arguments @("-g")
+        if ($userId -notmatch '\A[0-9]+\z' -or $groupId -notmatch '\A[0-9]+\z') {
+            throw "Unable to determine the current Unix user for the Restic snapshot check."
+        }
+
+        $snapshotArguments += @("--user", "${userId}:${groupId}")
+    }
+
+    $snapshotArguments += @(
+        "--network", "none",
+        "--read-only",
+        "--cap-drop", "ALL",
+        "--security-opt", "no-new-privileges",
+        "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
+        "--env", "RESTIC_REPOSITORY=/repository",
+        "--env", "RESTIC_PASSWORD_FILE=/run/secrets/restic-password",
+        "--env", "RESTIC_CACHE_DIR=/tmp/restic-cache",
+        "--mount", "type=bind,source=$resticRepositoryDirectory,target=/repository",
+        "--mount", "type=bind,source=$resticPasswordFile,target=/run/secrets/restic-password,readonly",
+        "restic/restic:0.19.1",
+        "snapshots",
+        "--json",
+        "--host", "goldsrcops-smoke",
+        "--tag", "goldsrcops-postgresql-recoverable")
+    $snapshotOutput = Invoke-ExternalCapture -FilePath "docker" -Arguments $snapshotArguments
+    $recoverableSnapshots = @($snapshotOutput | ConvertFrom-Json -Depth 20)
+    if ($recoverableSnapshots.Count -ne 4) {
+        throw "Scheduled retention kept $($recoverableSnapshots.Count) snapshots instead of 4."
+    }
 
     Write-Step "Rehearse encrypted PostgreSQL restore"
     & ./ops/production/postgres-restore-rehearsal.ps1 `

@@ -436,7 +436,9 @@ token issuance has been verified without storing credentials in Git. The
 `v2.3.0-rc.3` runtime is enabled behind Caddy: public liveness and readiness are
 healthy, anonymous protected requests are rejected, the Operator identity
 passes the Reader and Operator policy surfaces, and the live runtime host audit
-confirms only Caddy is publicly published. The recurring backup schedule,
+confirms only Caddy is publicly published. A guarded daily backup schedule,
+scoped retention policy, and freshness probe are implemented and
+container-tested; live timer activation and its first successful cycle remain.
 Reader-only and signed negative-token checks, game-server provisioning,
 observability stack, recovery exercise, and soak evidence remain incomplete.
 
@@ -498,9 +500,11 @@ tracks state without duplicating that operational sequence.
    all eight migrations, idempotent rerun, public runtime HTTPS checks, anonymous
    rejection, Operator authorization, and live runtime host audit have passed.
    The API, Caddy, and PostgreSQL showed zero restarts with the expected
-   `unless-stopped` policy and bounded local logs. The recurring target-host
-   backup schedule, dedicated Reader-only token, signed negative-token matrix,
-   and later recovery evidence are pending.
+   `unless-stopped` policy and bounded local logs. The guarded daily backup
+   schedule, scoped retention policy, mandatory preview, and 36-hour freshness
+   probe are implemented and container-tested. Live timer activation and its
+   first completed cycle, the dedicated Reader-only token, signed negative-token
+   matrix, and later recovery evidence are pending.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
    Grafana, and health coverage for the private telemetry pipeline.
 6. Complete external A2S and guarded RCON verification, controlled

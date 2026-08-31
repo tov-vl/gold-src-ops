@@ -77,6 +77,11 @@ jobs:
       - name: Validate host-readiness preflight
         run: pwsh -NoProfile -File ./tools/smoke/host-preflight.ps1
 
+      - name: Validate PostgreSQL backup schedule
+        run: |
+          pwsh -NoProfile -File ./tools/smoke/postgres-backup-schedule.ps1
+          bash ./tools/smoke/postgres-backup-schedule.sh
+
       - name: Run container smoke test
         run: pwsh -NoProfile -File ./tools/smoke/container.ps1
 

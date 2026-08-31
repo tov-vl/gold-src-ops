@@ -18,9 +18,11 @@ The external Auth0 issuer, audience, role claim, and dedicated Operator login ar
 configured and verified through the public API. The first encrypted PostgreSQL
 backup, full repository check, isolated restore rehearsal, all eight migrations,
 idempotent migration rerun, public HTTPS health, anonymous rejection, Operator
-access, and live runtime host audit have passed. A target backup schedule, the
-Reader-only and signed negative-token matrix, game-server integration, and the
-broader recovery exercise remain pending.
+access, and live runtime host audit have passed. A guarded daily backup schedule,
+scoped retention policy, and freshness probe are implemented and
+container-tested; target timer activation remains pending. The Reader-only and
+signed negative-token matrix, game-server integration, and the broader recovery
+exercise also remain pending.
 
 ## Topology
 
@@ -225,11 +227,13 @@ TLS issuance, identity metadata, migrations, or persistence.
 
 ## Backup And Restore
 
-`postgres-backup.ps1` initializes, creates, and checks client-side encrypted
-off-host backups. `postgres-restore-rehearsal.ps1` restores a recoverable
-snapshot into disposable network-isolated PostgreSQL, runs the migration bundle
-from the configured API image, verifies required tables and migration history,
-and removes all decrypted volumes.
+`postgres-backup.ps1` initializes, creates, checks, retains, and schedules
+client-side encrypted off-host backups. `postgres-backup-status.ps1` validates
+owner-only retention-preview and completed-cycle evidence without opening the
+repository. `postgres-restore-rehearsal.ps1` restores a recoverable snapshot
+into disposable network-isolated PostgreSQL, runs the migration bundle from the
+configured API image, verifies required tables and migration history, and
+removes all decrypted volumes.
 
 The scripts share one exclusive host lock and write optional sanitized evidence
 only to an operator-selected path outside the repository. Configure and verify
@@ -250,6 +254,26 @@ pwsh -NoProfile -File ./ops/production/postgres-restore-rehearsal.ps1 `
   -EnvironmentFile /etc/goldsrcops/deployment.env `
   -EvidenceFile /var/lib/goldsrcops/evidence/postgres-restore.json
 ```
+
+Before enabling the timer, run and review a non-destructive retention preview:
+
+```powershell
+sudo pwsh -NoProfile -File ./ops/production/postgres-backup.ps1 `
+  -Action Retain `
+  -EnvironmentFile /etc/goldsrcops/deployment.env `
+  -StatusFile /var/lib/goldsrcops/evidence/postgres-backup-retention-preview.json
+```
+
+Then inspect and apply the guarded installer:
+
+```bash
+bash ./ops/production/install-postgres-backup-schedule.sh
+sudo bash ./ops/production/install-postgres-backup-schedule.sh --apply
+```
+
+The installer requires a fresh matching preview before it enables the daily
+systemd timer. The timer runs one serialized backup, `5%` data check, scoped
+retention/prune, final structural check, and atomic freshness-marker update.
 
 Initialization, secret ownership, cadence, failure handling, and residual
 logical-backup limits are documented in
@@ -289,7 +313,8 @@ does this automatically. The bundle has no down-migration mode in this workflow.
 
 1. In progress: the first encrypted PostgreSQL backup, repeated full data check,
    isolated restore rehearsal, and sanitized target evidence are complete. The
-   recurring target-host schedule remains pending.
+   guarded recurring schedule is implemented and container-tested; its live
+   retention preview, timer activation, and first fresh cycle remain pending.
 2. Completed: the tracked Caddy route passes HTTP-to-HTTPS redirection,
    certificate validation, anonymous liveness, and PostgreSQL-backed readiness
    through the public hostname.
