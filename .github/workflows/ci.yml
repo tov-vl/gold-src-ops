@@ -82,6 +82,9 @@ jobs:
           pwsh -NoProfile -File ./tools/smoke/postgres-backup-schedule.ps1
           bash ./tools/smoke/postgres-backup-schedule.sh
 
+      - name: Validate OIDC live-smoke contract
+        run: pwsh -NoProfile -File ./tools/smoke/oidc-live-contract.ps1
+
       - name: Run container smoke test
         run: pwsh -NoProfile -File ./tools/smoke/container.ps1
 

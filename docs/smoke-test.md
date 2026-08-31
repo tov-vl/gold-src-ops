@@ -86,6 +86,64 @@ live VPS verification uses
 `ops/production/host-preflight.ps1` as documented in
 `ops/production/README.md`.
 
+## Production OIDC Authorization Matrix
+
+Run the public authorization matrix only with short-lived tokens issued for the
+reference production identity configuration. Prepare these values without
+writing them to files, shell history, logs, or chat:
+
+- a GoldSrcOps access token for a dedicated identity whose only application
+  role is `Reader`;
+- a GoldSrcOps access token issued to the same identity before any application
+  role was assigned;
+- a GoldSrcOps access token from the configured issuer and audience whose
+  expiration is more than 30 seconds in the past;
+- an unexpired Auth0 ID token from the Reader authorization flow, whose audience
+  is the native client rather than the GoldSrcOps API.
+
+The helper generates its foreign-issuer case as an ephemeral RS256 token. That
+private key exists only in process memory. Run the matrix and enter the four
+prepared values at the masked prompts:
+
+```powershell
+pwsh -NoProfile -File .\tools\smoke\oidc-live.ps1 `
+  -BaseUrl https://api.goldsrcops.com `
+  -EvidencePath C:\goldsrcops-evidence\oidc-authorization.json
+```
+
+`EvidencePath` is optional, must be absolute, and must remain outside the Git
+repository. The JSON contains only scenario names, methods, paths, expected and
+actual status codes, Bearer-challenge presence, and timestamps. The script does
+not parse token claims, follow redirects, read response bodies, or print
+authorization headers.
+
+The expected matrix is:
+
+| Scenario | Expected result |
+| --- | --- |
+| Anonymous dashboard read | `401` with Bearer challenge |
+| Reader dashboard read | `200` |
+| Reader metrics read | `200` |
+| Reader server-registration attempt | `403` before endpoint execution |
+| Valid token without an application role | `403` |
+| Expired GoldSrcOps access token | `401` with Bearer challenge |
+| Ephemeral signed foreign-issuer token | `401` with Bearer challenge |
+| Auth0 token with the native-client audience | `401` with Bearer challenge |
+
+The API intentionally allows 30 seconds of clock skew. An access token tested
+inside that window is still authenticated; wait until the token is at least 31
+seconds past `exp` before running the expired-token scenario.
+
+The foreign-issuer live case intentionally also uses a foreign signing key; it
+proves fail-closed behavior against a token from another signing authority. The
+unit test isolates issuer validation by signing the wrong-issuer token with the
+same trusted test key. The deterministic helper contract is checked without
+network access in CI and can be run independently:
+
+```powershell
+pwsh -NoProfile -File .\tools\smoke\oidc-live-contract.ps1
+```
+
 ## Fast Path
 
 ```powershell

@@ -15,6 +15,14 @@ namespace GoldSrcOps.UnitTests.Api;
 public sealed class SecurityServiceCollectionExtensionsTests
 {
     private const string CustomRoleClaimType = "https://goldsrcops.com/roles";
+    private static readonly TimeSpan ExpectedClockSkew = TimeSpan.FromSeconds(30);
+
+    public enum InvalidTokenKind
+    {
+        Expired,
+        WrongIssuer,
+        WrongAudience,
+    }
 
     [Fact]
     public void AddGoldSrcOpsSecurity_uses_framework_role_claim_type_by_default()
@@ -34,6 +42,16 @@ public sealed class SecurityServiceCollectionExtensionsTests
         var options = GetBearerOptions(serviceProvider);
 
         options.TokenValidationParameters.RoleClaimType.Should().Be(CustomRoleClaimType);
+    }
+
+    [Fact]
+    public void AddGoldSrcOpsSecurity_applies_bounded_access_token_clock_skew()
+    {
+        using var serviceProvider = CreateServiceProvider(CustomRoleClaimType);
+
+        var options = GetBearerOptions(serviceProvider);
+
+        options.TokenValidationParameters.ClockSkew.Should().Be(ExpectedClockSkew);
     }
 
     [Fact]
@@ -66,6 +84,51 @@ public sealed class SecurityServiceCollectionExtensionsTests
             .IsInRole(GoldSrcOpsSecurity.ReaderRole)
             .Should()
             .BeTrue();
+    }
+
+    [Theory]
+    [InlineData(InvalidTokenKind.Expired, typeof(SecurityTokenExpiredException))]
+    [InlineData(InvalidTokenKind.WrongIssuer, typeof(SecurityTokenInvalidIssuerException))]
+    [InlineData(InvalidTokenKind.WrongAudience, typeof(SecurityTokenInvalidAudienceException))]
+    public async Task Bearer_validation_rejects_invalid_token_contract(
+        InvalidTokenKind invalidTokenKind,
+        Type expectedExceptionType)
+    {
+        var signingKey = new SymmetricSecurityKey(new byte[32]);
+        await using var serviceProvider = CreateServiceProvider(CustomRoleClaimType, signingKey.Key);
+        var options = GetBearerOptions(serviceProvider);
+        var now = DateTime.UtcNow;
+        var token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+        {
+            Audience = invalidTokenKind == InvalidTokenKind.WrongAudience
+                ? "another-audience"
+                : "goldsrcops-tests",
+            Claims = new Dictionary<string, object>(StringComparer.Ordinal)
+            {
+                [CustomRoleClaimType] = new[] { GoldSrcOpsSecurity.ReaderRole },
+            },
+            Expires = invalidTokenKind == InvalidTokenKind.Expired
+                ? now.AddMinutes(-1)
+                : now.AddMinutes(5),
+            Issuer = invalidTokenKind == InvalidTokenKind.WrongIssuer
+                ? "another-issuer"
+                : "goldsrcops-tests",
+            NotBefore = invalidTokenKind == InvalidTokenKind.Expired
+                ? now.AddHours(-1)
+                : now.AddMinutes(-1),
+            SigningCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256),
+            Subject = new ClaimsIdentity(
+            [
+                new Claim(GoldSrcOpsSecurity.SubjectClaimType, "reader-42"),
+            ]),
+        });
+
+        var validationResult = await new JsonWebTokenHandler()
+            .ValidateTokenAsync(token, options.TokenValidationParameters);
+
+        validationResult.IsValid.Should().BeFalse();
+        validationResult.Exception.Should().NotBeNull();
+        validationResult.Exception!.GetType().Should().Be(expectedExceptionType);
     }
 
     [Theory]

@@ -25,6 +25,10 @@ authenticated principal. Production tokens must be issued through a standards-
 based OAuth 2.0 or OpenID Connect flow; GoldSrcOps must not expose a token-issuing
 endpoint or create production JWTs itself.
 
+Lifetime validation uses an explicit 30-second clock skew. The production host
+preflight requires synchronized time, so this allowance covers small clock
+differences without retaining the framework's implicit five-minute window.
+
 For local development only, `dotnet user-jwts` creates project-specific
 tokens and keeps the signing key in the developer's User Secrets store. Local
 tokens must never be accepted by a production deployment.
@@ -170,6 +174,19 @@ a Reader token when scraping `/metrics`.
 - Authorization failures must not reveal token contents, expected secrets, or
   protected resource details.
 
+The target-environment authorization matrix is implemented by
+`tools/smoke/oidc-live.ps1` and documented in `docs/smoke-test.md`. It accepts
+tokens only as `SecureString` values or masked prompts, disables redirects, and
+does not read response bodies or token claims. Its optional sanitized evidence
+file must remain outside the repository.
+
+The live foreign-issuer scenario uses an ephemeral RS256 key and therefore
+tests a foreign issuer and foreign signing authority together. It demonstrates
+that the public route fails closed, but does not attribute the rejection to one
+validator in isolation. The unit test supplies the trusted signing key while
+changing only issuer, audience, or lifetime and verifies each corresponding
+validation failure separately.
+
 ## Verification
 
 Unit and API integration tests prove that:
@@ -185,6 +202,9 @@ Unit and API integration tests prove that:
 - persisted `RequestedBy` comes from the authenticated `sub` claim;
 - tokens without a usable subject receive `401` from protected endpoints;
 - a configured namespaced role claim drives ASP.NET Core role membership;
+- trusted-key tokens are rejected independently for expiration, wrong issuer,
+  and wrong audience;
+- the configured access-token clock skew remains bounded to 30 seconds;
 - invalid role-claim configuration fails options validation;
 - test authentication overrides exist only in the integration-test host.
 
