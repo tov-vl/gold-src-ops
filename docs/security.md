@@ -37,9 +37,9 @@ the test host created by `WebApplicationFactory`.
 ### Configuration
 
 The bearer scheme uses the standard `Authentication:Schemes:Bearer` section.
-Production configuration supplies `Authority`, `Audience`, and
-`RoleClaimType`, or equivalent valid issuer and audience settings, for the
-external identity provider. `RoleClaimType` is the exact JWT claim name that
+Production configuration supplies `Authority`, an indexed `ValidAudiences`
+entry, and `RoleClaimType`, or equivalent valid issuer and audience settings,
+for the external identity provider. `RoleClaimType` is the exact JWT claim name that
 contains the application roles. A collision-resistant URI claim name such as
 `https://identity.example.com/claims/roles` keeps the contract independent of
 provider-specific defaults.
