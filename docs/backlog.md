@@ -416,21 +416,29 @@ two-phase Ubuntu bootstrap now prepares a dedicated key-only operator before
 disabling provider-created SSH access; the audit verifies those effective SSH
 settings and rejects public Docker API listeners. Compose validation enforces
 runtime restart policies and bounded logs. Snapshot results cannot count as
-live host evidence. Signed tag `v2.3.0-rc.1` has now
-published and verified the first immutable candidate digest. A private
+live host evidence. Signed tag `v2.3.0-rc.3` now identifies the current
+immutable candidate from revision `7f6c740`; its tag workflow published and
+verified digest
+`sha256:be8da02bf28f03b979ad29560b7a93d40060de1fcde8459f519bee3f5439e5c2`.
+A private
 Backblaze B2 repository in EU Central is initialized, its bucket-scoped
 credential and restic recovery key are separated from the control-plane VPS,
 and a repository integrity check configured with a `100%` data subset has
-passed.
+passed. The first encrypted PostgreSQL backup, repeated full data check, and
+isolated restore rehearsal have now also passed on the target; all eight
+migrations and required tables were verified.
 The control-plane VPS is provisioned and has passed the two-phase SSH hardening,
 controlled reboot, and live baseline host audit. Public DNS for
 `api.goldsrcops.com` and real ACME certificate issuance through digest-pinned
 Caddy have also passed. The external Auth0 issuer, API audience, namespaced role
 claim, exact Reader/Operator roles, and dedicated Operator login are configured;
-token issuance has been verified without storing credentials in Git. The first
-live PostgreSQL backup and restore, the public API authorization matrix,
-production runtime verification, and game-server provisioning remain
-incomplete.
+token issuance has been verified without storing credentials in Git. The
+`v2.3.0-rc.3` runtime is enabled behind Caddy: public liveness and readiness are
+healthy, anonymous protected requests are rejected, the Operator identity
+passes the Reader and Operator policy surfaces, and the live runtime host audit
+confirms only Caddy is publicly published. The recurring backup schedule,
+Reader-only and signed negative-token checks, game-server provisioning,
+observability stack, recovery exercise, and soak evidence remain incomplete.
 
 Why this work is selected:
 
@@ -457,10 +465,11 @@ tracks state without duplicating that operational sequence.
 2. Completed: publish an immutable application image from a verified stable or
    release-candidate revision and deploy it by registry digest with a documented
    rollback digest. A matching stable tag promotes the verified candidate digest
-   without rebuilding it. Signed tag `v2.3.0-rc.1` and workflow
-   [#123](https://github.com/tov-vl/gold-src-ops/actions/runs/33305723331)
+   without rebuilding it. Signed tag `v2.3.0-rc.3` and workflow
+   [#146](https://github.com/tov-vl/gold-src-ops/actions/runs/33404280101)
    published and verified
-   `sha256:d21a5cb10bb8179310e660d50cb301fed277a5dc3fcbd900e77065fdcc9df458`.
+   `sha256:be8da02bf28f03b979ad29560b7a93d40060de1fcde8459f519bee3f5439e5c2`
+   from revision `7f6c740`.
 3. In progress: use `docs/v2.3-controlled-gameserver-baseline.md` to provision
    one controlled ReHLDS and ReGameDLL_CS server outside the control-plane
    host. The local target-runtime compatibility gate is complete. The
@@ -484,11 +493,14 @@ tracks state without duplicating that operational sequence.
    and live baseline audit. DNS for `api.goldsrcops.com` resolves to the host,
    and real ACME certificate issuance has passed with Caddy `2.11.4` pinned by
    digest. A provider-independent JWT role-claim contract and its startup,
-   token-validation, Compose, and preflight checks are implemented. The runtime
-   profile remains disabled. External identity provisioning, the first live
-   backup, repeated full data check, isolated restore rehearsal, migration,
-   target-host schedule, public API authorization checks, and the remaining
-   target-environment evidence are pending.
+   token-validation, Compose, and preflight checks are implemented. The first
+   encrypted live backup, repeated full data check, isolated restore rehearsal,
+   all eight migrations, idempotent rerun, public runtime HTTPS checks, anonymous
+   rejection, Operator authorization, and live runtime host audit have passed.
+   The API, Caddy, and PostgreSQL showed zero restarts with the expected
+   `unless-stopped` policy and bounded local logs. The recurring target-host
+   backup schedule, dedicated Reader-only token, signed negative-token matrix,
+   and later recovery evidence are pending.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
    Grafana, and health coverage for the private telemetry pipeline.
 6. Complete external A2S and guarded RCON verification, controlled

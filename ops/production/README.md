@@ -15,9 +15,12 @@ control-plane VPS has passed its two-phase SSH hardening, controlled reboot, and
 live baseline host audit. Public DNS and real certificate issuance have also
 passed, with certificate data retained in the Compose-labelled Caddy volume.
 The external Auth0 issuer, audience, role claim, and dedicated Operator login are
-configured and verified at the token boundary. The first live PostgreSQL backup
-and restore, public API authorization matrix, production runtime HTTPS checks,
-and broader target-environment recovery evidence remain pending.
+configured and verified through the public API. The first encrypted PostgreSQL
+backup, full repository check, isolated restore rehearsal, all eight migrations,
+idempotent migration rerun, public HTTPS health, anonymous rejection, Operator
+access, and live runtime host audit have passed. A target backup schedule, the
+Reader-only and signed negative-token matrix, game-server integration, and the
+broader recovery exercise remain pending.
 
 ## Topology
 
@@ -282,23 +285,21 @@ after an interrupted or failed action. Repeat the command in a disposable or
 staging database to prove the already-up-to-date path; the container smoke test
 does this automatically. The bundle has no down-migration mode in this workflow.
 
-## Remaining Slice 3 Work
+## Slice 3 Target Status
 
-1. Create the first encrypted PostgreSQL backup against the initialized
-   off-host repository, repeat the full data check over stored backup data, run
-   the isolated restore rehearsal, configure the target-host schedule, and
-   retain sanitized target evidence.
-2. Certificate issuance is complete. Validate the tracked Caddy configuration,
-   forwarded scheme, AllowedHosts, and anonymous liveness plus PostgreSQL-backed
-   readiness through public HTTPS after the database and migration gates pass.
-3. The external identity provider now emits the tracked role claim for the
-   dedicated Operator identity. Validate Reader, Operator, missing-role,
-   expired-token, wrong-issuer, and wrong-audience behavior through the public
-   API after the recovery and migration gates pass.
-4. The bootstrap phases, controlled reboot, and baseline host-readiness audit are
-   complete. Repeat the runtime audit after services start and retain sanitized
-   listener, restart-policy, log-retention, and external-dependency evidence
-   outside the repository.
+1. In progress: the first encrypted PostgreSQL backup, repeated full data check,
+   isolated restore rehearsal, and sanitized target evidence are complete. The
+   recurring target-host schedule remains pending.
+2. Completed: the tracked Caddy route passes HTTP-to-HTTPS redirection,
+   certificate validation, anonymous liveness, and PostgreSQL-backed readiness
+   through the public hostname.
+3. In progress: anonymous requests are rejected, and the dedicated Operator
+   token passes issuer, audience, role, subject, Reader-policy, Operator-policy,
+   and authenticated metrics checks. A dedicated Reader-only token plus signed
+   missing-role, expired-token, wrong-issuer, and wrong-audience cases remain.
+4. Completed: the runtime host audit retained sanitized listener,
+   restart-policy, bounded-log, and external-dependency evidence outside the
+   repository. All runtime containers had zero restarts at capture time.
 
 The complete sequence and definition of done remain in
 [`docs/v2.3-production-deployment.md`](../../docs/v2.3-production-deployment.md).
