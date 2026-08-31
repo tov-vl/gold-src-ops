@@ -134,11 +134,14 @@ function Invoke-ExternalCapture {
     )
 
     $output = @(& $FilePath @Arguments 2>&1)
-    if ($LASTEXITCODE -ne 0) {
-        throw "Command '$FilePath' failed with exit code $LASTEXITCODE."
+    $exitCode = $LASTEXITCODE
+    $outputText = (($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine).Trim()
+    if ($exitCode -ne 0) {
+        $details = if ([string]::IsNullOrWhiteSpace($outputText)) { "No output." } else { $outputText }
+        throw "Command '$FilePath' failed with exit code $exitCode. $details"
     }
 
-    return (($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine).Trim()
+    return $outputText
 }
 
 function Wait-ContainerHealthy {
@@ -772,9 +775,20 @@ VALUES
         }
     }
 
-    $snapshotOutput = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
+    $snapshotArguments = @(
         "run",
-        "--rm",
+        "--rm")
+    if (-not $IsWindows) {
+        $userId = Invoke-ExternalCapture -FilePath "id" -Arguments @("-u")
+        $groupId = Invoke-ExternalCapture -FilePath "id" -Arguments @("-g")
+        if ($userId -notmatch '\A[0-9]+\z' -or $groupId -notmatch '\A[0-9]+\z') {
+            throw "Unable to determine the current Unix user for the Restic snapshot check."
+        }
+
+        $snapshotArguments += @("--user", "${userId}:${groupId}")
+    }
+
+    $snapshotArguments += @(
         "--network", "none",
         "--read-only",
         "--cap-drop", "ALL",
@@ -790,6 +804,7 @@ VALUES
         "--json",
         "--host", "goldsrcops-smoke",
         "--tag", "goldsrcops-postgresql-recoverable")
+    $snapshotOutput = Invoke-ExternalCapture -FilePath "docker" -Arguments $snapshotArguments
     $recoverableSnapshots = @($snapshotOutput | ConvertFrom-Json -Depth 20)
     if ($recoverableSnapshots.Count -ne 4) {
         throw "Scheduled retention kept $($recoverableSnapshots.Count) snapshots instead of 4."
