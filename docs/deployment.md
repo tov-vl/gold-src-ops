@@ -205,12 +205,15 @@ Required deployment values:
 | `ConnectionStrings__GoldSrcOps` | Npgsql connection string. TCP deployments require provider-appropriate TLS and certificate validation. `SSL Mode=Disable` is limited to the v2.3 reference Unix socket described above. |
 | `Authentication__Schemes__Bearer__Authority` | HTTPS metadata authority for the external identity provider. |
 | `Authentication__Schemes__Bearer__Audience` | GoldSrcOps API audience accepted from that provider. |
+| `Authentication__Schemes__Bearer__RoleClaimType` | Exact access-token claim name that carries the `Reader` and `Operator` application roles. |
 | `ReverseProxy__KnownProxy` | Optional single trusted proxy IP. When set, the API processes one `X-Forwarded-For` and `X-Forwarded-Proto` hop from that address before HTTPS redirection and authentication. |
 
 Instead of `Authority` and `Audience`, a deployment may provide the equivalent
 validated issuer and audience settings described in `docs/security.md`.
 Startup fails when the database connection string, issuer/authority, or
-audience is absent. HTTPS metadata is mandatory outside Development.
+audience is absent, or when an explicitly configured role claim type is invalid.
+The production Compose contract requires that role claim type explicitly.
+HTTPS metadata is mandatory outside Development.
 
 RCON passwords use `RconSecrets__<alias>`, where `<alias>` is the alias stored
 for a server credential. They must come from the deployment secret store and
