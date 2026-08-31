@@ -416,10 +416,11 @@ two-phase Ubuntu bootstrap now prepares a dedicated key-only operator before
 disabling provider-created SSH access; the audit verifies those effective SSH
 settings and rejects public Docker API listeners. Compose validation enforces
 runtime restart policies and bounded logs. Snapshot results cannot count as
-live host evidence. Signed tag `v2.3.0-rc.3` now identifies the current
-immutable candidate from revision `7f6c740`; its tag workflow published and
-verified digest
-`sha256:be8da02bf28f03b979ad29560b7a93d40060de1fcde8459f519bee3f5439e5c2`.
+live host evidence. Signed tag `v2.3.0-rc.4` now identifies the current
+immutable candidate from revision `a8c10be`; workflow
+[#161](https://github.com/tov-vl/gold-src-ops/actions/runs/33432947830)
+published and verified digest
+`sha256:73792b7a1ffa990a41346ddb4074e804549512655a1e8797caf2cead86b82abb`.
 A private
 Backblaze B2 repository in EU Central is initialized, its bucket-scoped
 credential and restic recovery key are separated from the control-plane VPS,
@@ -433,15 +434,16 @@ controlled reboot, and live baseline host audit. Public DNS for
 Caddy have also passed. The external Auth0 issuer, API audience, namespaced role
 claim, exact Reader/Operator roles, and dedicated Operator login are configured;
 token issuance has been verified without storing credentials in Git. The
-`v2.3.0-rc.3` runtime is enabled behind Caddy: public liveness and readiness are
-healthy, anonymous protected requests are rejected, the Operator identity
-passes the Reader and Operator policy surfaces, and the live runtime host audit
-confirms only Caddy is publicly published. A guarded daily backup schedule,
-scoped retention policy, and freshness probe are active on the target. Its
+`v2.3.0-rc.4` runtime is enabled behind Caddy: public liveness and readiness are
+healthy, the Operator identity passes the Reader and Operator policy surfaces,
+and all eight public Reader and negative-token scenarios pass. The live runtime
+host audit confirms only Caddy is publicly published. A guarded daily backup
+schedule, scoped retention policy, and freshness probe are active on the target. Its
 non-destructive preview retained the existing recoverable snapshot, and the first
-completed cycle produced a fresh owner-only marker. Reader-only and signed
-negative-token checks, game-server provisioning, observability stack, recovery
-exercise, and soak evidence remain incomplete.
+completed cycle produced a fresh owner-only marker. The previous rc.3 source,
+environment, and image digest remain available for rollback. Game-server
+provisioning, the observability stack, recovery exercise, and soak evidence
+remain incomplete.
 
 Why this work is selected:
 
@@ -468,11 +470,11 @@ tracks state without duplicating that operational sequence.
 2. Completed: publish an immutable application image from a verified stable or
    release-candidate revision and deploy it by registry digest with a documented
    rollback digest. A matching stable tag promotes the verified candidate digest
-   without rebuilding it. Signed tag `v2.3.0-rc.3` and workflow
-   [#146](https://github.com/tov-vl/gold-src-ops/actions/runs/33404280101)
+   without rebuilding it. Signed tag `v2.3.0-rc.4` and workflow
+   [#161](https://github.com/tov-vl/gold-src-ops/actions/runs/33432947830)
    published and verified
-   `sha256:be8da02bf28f03b979ad29560b7a93d40060de1fcde8459f519bee3f5439e5c2`
-   from revision `7f6c740`.
+   `sha256:73792b7a1ffa990a41346ddb4074e804549512655a1e8797caf2cead86b82abb`
+   from revision `a8c10be`.
 3. In progress: use `docs/v2.3-controlled-gameserver-baseline.md` to provision
    one controlled ReHLDS and ReGameDLL_CS server outside the control-plane
    host. The local target-runtime compatibility gate is complete. The
@@ -481,7 +483,7 @@ tracks state without duplicating that operational sequence.
    checkout approval, provisioning, public-address and source-address trial
    gates, external baseline polling, guarded RCON, restart/restore, and no-bot
    evidence remain pending.
-4. In progress: deploy the single-node reference control plane with PostgreSQL,
+4. Completed: deploy the single-node reference control plane with PostgreSQL,
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent
    Compose topology, bounded forwarded-header trust, file-based secret boundary,
@@ -505,8 +507,12 @@ tracks state without duplicating that operational sequence.
    schedule, scoped retention policy, mandatory preview, and 36-hour freshness
    probe are active on the target. The preview retained the existing recoverable
    snapshot, the persistent timer is enabled, and its first completed cycle
-   produced a valid owner-only freshness marker. The dedicated Reader-only token,
-   signed negative-token matrix, and later recovery evidence are pending.
+   produced a valid owner-only freshness marker. The rc.4 rollout passed
+   preflight and its already-up-to-date migration bundle before recreating the
+   API. The dedicated Reader-only token, missing-role, expired-token,
+   wrong-issuer, and wrong-audience cases all passed through public HTTPS. The
+   previous rc.3 source, environment file, and digest remain the rollback
+   baseline; the broader recovery exercise is tracked separately below.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
    Grafana, and health coverage for the private telemetry pipeline.
 6. Complete external A2S and guarded RCON verification, controlled
