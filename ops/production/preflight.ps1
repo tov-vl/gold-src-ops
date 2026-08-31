@@ -540,11 +540,16 @@ Assert-Condition `
     -Message "PostgreSQL and the migration action must share the same Unix socket volume."
 
 $proxyAddress = [string]$api.environment.ReverseProxy__KnownProxy
+$roleClaimType = [string]$api.environment.Authentication__Schemes__Bearer__RoleClaimType
 $apiAddress = [string]$api.networks.edge.ipv4_address
 $caddyAddress = [string]$caddy.networks.edge.ipv4_address
 $edgeSubnet = [string]$configuration.networks.edge.ipam.config[0].subnet
 
 Assert-IPv4Address -Address $proxyAddress -Name "ReverseProxy__KnownProxy"
+Assert-Condition `
+    -Condition (-not [string]::IsNullOrWhiteSpace($roleClaimType) -and
+        $roleClaimType -eq $roleClaimType.Trim()) `
+    -Message "The authentication role claim type must be non-empty and have no surrounding whitespace."
 Assert-IPv4Address -Address $apiAddress -Name "API edge address"
 Assert-IPv4Address -Address $caddyAddress -Name "Caddy edge address"
 Assert-Condition `

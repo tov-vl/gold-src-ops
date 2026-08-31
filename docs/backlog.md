@@ -480,8 +480,10 @@ tracks state without duplicating that operational sequence.
    The selected VPS has completed the two-phase SSH hardening, controlled reboot,
    and live baseline audit. DNS for `api.goldsrcops.com` resolves to the host,
    and real ACME certificate issuance has passed with Caddy `2.11.4` pinned by
-   digest. The runtime profile remains disabled. External identity, the first
-   live backup, repeated full data check, isolated restore rehearsal, migration,
+   digest. A provider-independent JWT role-claim contract and its startup,
+   token-validation, Compose, and preflight checks are implemented. The runtime
+   profile remains disabled. External identity provisioning, the first live
+   backup, repeated full data check, isolated restore rehearsal, migration,
    target-host schedule, public API authorization checks, and the remaining
    target-environment evidence are pending.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,

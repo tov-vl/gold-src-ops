@@ -37,8 +37,17 @@ the test host created by `WebApplicationFactory`.
 ### Configuration
 
 The bearer scheme uses the standard `Authentication:Schemes:Bearer` section.
-Production configuration supplies `Authority` and `Audience`, or equivalent
-valid issuer and audience settings, for the external identity provider.
+Production configuration supplies `Authority`, `Audience`, and
+`RoleClaimType`, or equivalent valid issuer and audience settings, for the
+external identity provider. `RoleClaimType` is the exact JWT claim name that
+contains the application roles. A collision-resistant URI claim name such as
+`https://identity.example.com/claims/roles` keeps the contract independent of
+provider-specific defaults.
+
+When `RoleClaimType` is absent, local and test hosts retain the framework
+`ClaimTypes.Role` default. The production Compose contract requires an explicit
+value. Startup rejects an empty value or surrounding whitespace so a typo
+cannot silently deny every Reader and Operator request.
 
 Create a short-lived local Operator token before starting the Development host:
 
@@ -84,9 +93,9 @@ handlers.
 not provide implicit role inheritance, so the `Reader` policy must explicitly
 accept both roles.
 
-The production identity provider and JWT bearer configuration must map the
-provider's application-role claim to ASP.NET Core role claims. Role names use
-the exact `Reader` and `Operator` casing.
+The production identity provider and JWT bearer configuration map the
+provider's application-role claim to ASP.NET Core roles through
+`RoleClaimType`. Role names use the exact `Reader` and `Operator` casing.
 
 The fallback policy is `Operator`. Every endpoint added later is therefore
 operator-only until it is explicitly downgraded to `Reader` or marked
@@ -150,10 +159,13 @@ Unit and API integration tests prove that:
 - command requests cannot spoof `RequestedBy`;
 - persisted `RequestedBy` comes from the authenticated `sub` claim;
 - tokens without a usable subject receive `401` from protected endpoints;
+- a configured namespaced role claim drives ASP.NET Core role membership;
+- invalid role-claim configuration fails options validation;
 - test authentication overrides exist only in the integration-test host.
 
 ## References
 
 - [Configure JWT bearer authentication in ASP.NET Core](https://learn.microsoft.com/aspnet/core/security/authentication/configure-jwt-bearer-authentication?view=aspnetcore-10.0)
+- [Map claims in ASP.NET Core](https://learn.microsoft.com/aspnet/core/security/authentication/claims?view=aspnetcore-10.0#name-claim-and-role-claim-mapping)
 - [Policy-based authorization in ASP.NET Core](https://learn.microsoft.com/aspnet/core/security/authorization/policies?view=aspnetcore-10.0)
 - [Manage development JWTs with dotnet user-jwts](https://learn.microsoft.com/aspnet/core/security/authentication/jwt-authn?view=aspnetcore-10.0)

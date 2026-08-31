@@ -78,7 +78,8 @@ The host also needs:
 - outbound HTTPS for ACME and identity-provider metadata;
 - no public PostgreSQL port;
 - an external OAuth 2.0 or OpenID Connect issuer that emits the documented
-  Reader and Operator roles.
+  Reader and Operator roles in the exact claim named by
+  `GOLDSRCOPS_AUTHENTICATION_ROLE_CLAIM_TYPE`.
 
 ## Host Bootstrap And Hardening
 
@@ -289,8 +290,9 @@ does this automatically. The bundle has no down-migration mode in this workflow.
 2. Certificate issuance is complete. Validate the tracked Caddy configuration,
    forwarded scheme, AllowedHosts, and anonymous liveness plus PostgreSQL-backed
    readiness through public HTTPS after the database and migration gates pass.
-3. Validate Reader, Operator, expired-token, wrong-issuer, and wrong-audience
-   behavior against the selected external identity provider.
+3. Configure the selected external identity provider to emit the tracked role
+   claim, then validate Reader, Operator, missing-role, expired-token,
+   wrong-issuer, and wrong-audience behavior.
 4. The bootstrap phases, controlled reboot, and baseline host-readiness audit are
    complete. Repeat the runtime audit after services start and retain sanitized
    listener, restart-policy, log-retention, and external-dependency evidence
