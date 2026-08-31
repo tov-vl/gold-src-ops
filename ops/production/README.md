@@ -322,6 +322,10 @@ does this automatically. The bundle has no down-migration mode in this workflow.
    token passes issuer, audience, role, subject, Reader-policy, Operator-policy,
    and authenticated metrics checks. A dedicated Reader-only token plus signed
    missing-role, expired-token, wrong-issuer, and wrong-audience cases remain.
+   Execute the guarded matrix with `tools/smoke/oidc-live.ps1`; its token
+   provenance, expected statuses, and optional sanitized evidence contract are
+   documented in `docs/smoke-test.md`. The expired-token input must be beyond
+   the API's explicit 30-second clock-skew allowance.
 4. Completed: the runtime host audit retained sanitized listener,
    restart-policy, bounded-log, and external-dependency evidence outside the
    repository. All runtime containers had zero restarts at capture time.

@@ -8,6 +8,7 @@ internal static class SecurityServiceCollectionExtensions
 {
     private const string RoleClaimTypeConfigurationKey =
         "Authentication:Schemes:Bearer:RoleClaimType";
+    private static readonly TimeSpan AccessTokenClockSkew = TimeSpan.FromSeconds(30);
 
     public static IServiceCollection AddGoldSrcOpsSecurity(
         this IServiceCollection services,
@@ -39,6 +40,7 @@ internal static class SecurityServiceCollectionExtensions
                     options.TokenValidationParameters.ValidateAudience = true;
                     options.TokenValidationParameters.ValidateIssuer = true;
                     options.TokenValidationParameters.ValidateLifetime = true;
+                    options.TokenValidationParameters.ClockSkew = AccessTokenClockSkew;
 
                     var existingHandler = options.Events.OnTokenValidated;
                     options.Events.OnTokenValidated = async context =>
