@@ -137,9 +137,11 @@ issuance through a digest-pinned Caddy image has passed against the public
 boundary. The private Backblaze B2 backend in EU Central is initialized, the
 recovery key is escrowed outside the VPS, and a repository integrity check
 configured with a `100%` data subset has passed. The production runtime remains
-disabled while external identity, the first live PostgreSQL backup, restore
-rehearsal, and migration gates are pending. The full sequence is recorded in
-`docs/v2.3-production-deployment.md`.
+disabled while the first live PostgreSQL backup, restore rehearsal, and
+migration gates are pending. The external Auth0 identity contract is configured
+and verified through token issuance; its Reader/Operator and rejection behavior
+through the public API remains a post-recovery runtime gate. The full sequence
+is recorded in `docs/v2.3-production-deployment.md`.
 
 ## MVP Goal
 

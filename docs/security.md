@@ -49,6 +49,31 @@ When `RoleClaimType` is absent, local and test hosts retain the framework
 value. Startup rejects an empty value or surrounding whitespace so a typo
 cannot silently deny every Reader and Operator request.
 
+### Reference Production Identity Baseline
+
+The reference deployment uses Auth0 as its external identity provider. Its
+non-secret resource-server contract is:
+
+| Setting | Value |
+| --- | --- |
+| Authority | `https://dev-gz6ky0cyuxbeky0c.us.auth0.com/` |
+| Audience | `https://api.goldsrcops.com` |
+| Role claim | `https://goldsrcops.com/roles` |
+| Application roles | `Reader`, `Operator` |
+
+On 2026-08-31, the dedicated database identity completed a passkey-backed login
+and received an access token with the expected issuer, audience, subject, and
+`Operator` role claim. The native operator client accepts only the Auth0
+database connection. Its Google social connection is disabled, and the retained
+legacy Google identity has no application role. Public database sign-up is
+disabled; account creation and role assignment remain explicit operator actions.
+
+This verifies identity-provider configuration and token issuance. It does not
+yet prove authorization through the public GoldSrcOps route. Reader access,
+Operator access, missing-role, expired-token, wrong-issuer, and wrong-audience
+behavior remain target-environment checks after the database recovery and
+migration gates allow the production runtime to start.
+
 Create a short-lived local Operator token before starting the Development host:
 
 ```powershell
