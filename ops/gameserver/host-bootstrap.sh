@@ -116,6 +116,10 @@ validate_current_ssh_source() {
         fail "--ssh-port must match the current SSH server port."
 }
 
+ensure_sshd_runtime_directory() {
+    install -d -m 0755 -o root -g root /run/sshd
+}
+
 validate_effective_ssh_configuration() {
     local expected_address="${control_plane_ipv4_cidr%/32}"
     local connection_spec="user=$operator_user,host=localhost,addr=$expected_address,laddr=127.0.0.1,lport=$ssh_port"
@@ -253,6 +257,7 @@ require_apply_environment() {
     id "$operator_user" >/dev/null 2>&1 ||
         fail "The verified operator account does not exist."
     validate_current_ssh_source
+    ensure_sshd_runtime_directory
     validate_effective_ssh_configuration
 }
 
@@ -373,6 +378,7 @@ run_apply() {
     configure_kernel
     timedatectl set-timezone UTC
     timedatectl set-ntp true
+    ensure_sshd_runtime_directory
     validate_effective_ssh_configuration
     configure_firewall
     write_prepared_marker

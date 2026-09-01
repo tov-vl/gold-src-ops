@@ -35,7 +35,7 @@ run_ufw_validation() {
         export control_plane_ipv4_cidr="203.0.113.10/32"
         export ssh_port="22"
         export game_port="27015"
-        # shellcheck disable=SC2317
+        # shellcheck disable=SC2317,SC2329
         ufw() {
             cat "$status_file"
         }
@@ -81,6 +81,30 @@ bash -s -- \
     > "$stdin_plan_output"
 grep -Fq 'PLAN_ONLY: no host changes were made' "$stdin_plan_output" ||
     fail "Game-host bootstrap did not execute its plan when read from stdin."
+
+sshd_runtime_call="$smoke_directory/sshd-runtime-call.out"
+sshd_runtime_expected="$smoke_directory/sshd-runtime-expected.out"
+(
+    # shellcheck source=/dev/null
+    source "$bootstrap_script"
+    # shellcheck disable=SC2317,SC2329
+    install() {
+        printf '%s\n' "$@" > "$sshd_runtime_call"
+    }
+    ensure_sshd_runtime_directory
+)
+cat > "$sshd_runtime_expected" <<'EOF'
+-d
+-m
+0755
+-o
+root
+-g
+root
+/run/sshd
+EOF
+cmp -s "$sshd_runtime_expected" "$sshd_runtime_call" ||
+    fail "Game-host bootstrap did not restore the OpenSSH runtime directory safely."
 
 expect_failure missing-cidr \
     bash "$bootstrap_script"
