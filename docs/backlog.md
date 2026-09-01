@@ -498,10 +498,13 @@ tracks state without duplicating that operational sequence.
    SHA-256 and applied. Pinned artifact hashes and detached signatures passed;
    HLDS build `5433925`, ReHLDS `3.15.0.896`, ReGameDLL_CS `5.30.0.814`, and all
    recorded hashes were independently verified. The constrained unit remains
-   disabled and inactive with no configuration, secret, process, or listener.
-   Trial-period address stability, DDoS source-address preservation, controlled
-   activation, external baseline polling, guarded RCON, restart/restore, and
-   no-bot evidence remain pending.
+   disabled and inactive with no configuration, secret, process, or listener. A
+   plan-first activation workflow now verifies the installed runtime and exact
+   SSH/UFW source, accepts the existing secret through stdin only, rolls back
+   failed first starts, and never enables the unit. Trial-period address
+   stability, DDoS source-address preservation, target activation, external
+   baseline polling, guarded RCON, restart/restore, and no-bot evidence remain
+   pending.
 4. Completed: deploy the single-node reference control plane with PostgreSQL,
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent

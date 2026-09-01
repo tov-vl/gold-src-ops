@@ -127,10 +127,12 @@ before frontend or gameplay-agent work begins. Slice 2 uses the
 provider-independent controlled game-server contract in
 `docs/v2.3-controlled-gameserver-baseline.md`. Its bounded-trial game VDS is now
 provisioned; the reviewed host foundation, controlled reboot, and post-reboot
-audit have passed, while runtime installation and the external A2S/RCON gates
-remain pending. Slice 3 includes the provider-independent Compose contract,
-same-image migration action, and encrypted off-host PostgreSQL backup and
-isolated restore rehearsal. The control-plane VPS has completed hardening,
+audit have passed, and the pinned runtime is installed with its service disabled
+and inactive. The plan-first activation workflow is implemented, while target
+activation and the external A2S/RCON gates remain pending. Slice 3 includes the
+provider-independent Compose contract, same-image migration action, and
+encrypted off-host PostgreSQL backup and isolated restore rehearsal. The
+control-plane VPS has completed hardening,
 backup and recovery gates, migrations, public TLS, external OIDC policy checks,
 and the digest-pinned `v2.3.0-rc.4` runtime rollout. The recurring encrypted
 backup schedule and freshness evidence are active. The full sequence is

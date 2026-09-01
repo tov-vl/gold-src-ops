@@ -1,10 +1,11 @@
 # Controlled Game-Server Operations
 
-This directory contains the provider-independent host foundation and pinned
-runtime installer for the first controlled ReHLDS baseline.
+This directory contains the provider-independent host foundation, pinned
+runtime installer, and first-start activation workflow for the controlled
+ReHLDS baseline.
 
-Both scripts are plan-only by default. Each plan must be reviewed from the same
-Git revision that will be applied to a paid host.
+All three workflows are plan-only by default. Each plan must be reviewed from
+the same Git revision that will be applied to a paid host.
 
 ## Scope
 
@@ -231,10 +232,70 @@ It covers syntax, pinned values, plan sanitization, strict marker parsing,
 checksum failure, the signing-key fingerprint, apply order, service activation
 guards, and systemd hardening without downloading artifacts or changing a host.
 
+## Runtime Activation
+
+`runtime-activate.sh` is the separate all-or-nothing first-start workflow. It:
+
+- rereads the strict host and runtime markers and verifies the installed
+  SteamCMD, ReHLDS, ReGameDLL_CS, and systemd-unit hashes before configuration;
+- requires the operator recorded by the host foundation and preserved
+  `SSH_CONNECTION` metadata;
+- derives the approved RCON source as an exact IPv4 `/32` only when UFW is
+  active with default-deny incoming policy and the current SSH source matches
+  the sole SSH and game-port allow rules;
+- accepts one 32-128 character Base64-safe RCON secret through stdin only;
+- writes a fixed minimal public baseline containing `sv_rcon_condebug 0` and the
+  exact `rcon_adduser` command, while keeping `rcon_password` in a root-only
+  private file;
+- creates `runtime-enabled` only after both configuration files are ready;
+- starts and verifies the service but deliberately leaves it disabled across
+  reboot;
+- stops the service and removes every activation file if first start fails or
+  the controlling SSH session is lost.
+
+The source restriction follows the command contract documented by the pinned
+[ReHLDS `3.15.0.896` README](https://github.com/rehlds/ReHLDS/blob/3.15.0.896/README.md).
+An empty ReHLDS RCON user list permits every source that knows the password, so
+activation refuses to create configuration without the exact non-empty `/32`.
+
+Review the sanitized plan locally and on the target:
+
+```bash
+bash ./ops/gameserver/runtime-activate.sh
+bash /tmp/goldsrcops-gameserver-runtime-activate.sh
+```
+
+Apply only by streaming the already escrowed control-plane value. Do not replace
+the producer with `echo`, a literal, an environment variable, or a command-line
+argument:
+
+```bash
+<approved-secret-producer> | \
+  sudo --preserve-env=SSH_CONNECTION \
+  bash /tmp/goldsrcops-gameserver-runtime-activate.sh \
+    --apply \
+    --rcon-secret-stdin
+```
+
+Expected successful state is `active` and `disabled`: the first controlled
+process is running, but a reboot cannot silently cross the later restart gate.
+Keep target-specific configuration, addresses, and raw output outside Git.
+
+The deterministic repository smoke is:
+
+```bash
+bash ./tools/smoke/gameserver-runtime-activate.sh
+```
+
+It covers plan sanitization, stdin-only secret validation, strict marker
+parsing, exact-source and default-deny firewall gates, public/private rendering,
+activation order, disconnect rollback coverage, and the prohibition on service
+enablement or secret arguments.
+
 ## Next Boundary
 
-The runtime is installed on the bounded-trial host, but it is deliberately not
-configured or active. Use a separate activation workflow to create the public
-configuration, inject the RCON secret, persist an exact `/32` ReHLDS RCON user,
-create `runtime-enabled`, and perform the first controlled start. Public UDP
-must remain closed until that source allowlist is non-empty and verified.
+The runtime is installed on the bounded-trial host, and its plan-first activation
+workflow is implemented but has not yet been applied there. After reviewed
+activation, verify external `A2S_INFO` and authenticated `rcon_users` from the
+actual control-plane source before registering the endpoint or dispatching a
+guarded command.
