@@ -266,7 +266,7 @@ install_runtime_dependencies() {
     export NEEDRESTART_MODE=a
 
     apt-get update
-    apt-get upgrade --yes
+    apt-get upgrade --yes --with-new-pkgs
     apt-get install --yes --no-install-recommends \
         ca-certificates \
         curl \

@@ -106,6 +106,27 @@ EOF
 cmp -s "$sshd_runtime_expected" "$sshd_runtime_call" ||
     fail "Game-host bootstrap did not restore the OpenSSH runtime directory safely."
 
+apt_upgrade_call="$smoke_directory/apt-upgrade-call.out"
+apt_upgrade_expected="$smoke_directory/apt-upgrade-expected.out"
+(
+    # shellcheck source=/dev/null
+    source "$bootstrap_script"
+    # shellcheck disable=SC2317,SC2329
+    apt-get() {
+        if [[ "${1:-}" == 'upgrade' ]]; then
+            printf '%s\n' "$@" > "$apt_upgrade_call"
+        fi
+    }
+    install_runtime_dependencies
+)
+cat > "$apt_upgrade_expected" <<'EOF'
+upgrade
+--yes
+--with-new-pkgs
+EOF
+cmp -s "$apt_upgrade_expected" "$apt_upgrade_call" ||
+    fail "Game-host bootstrap did not allow dependency packages during the security upgrade."
+
 expect_failure missing-cidr \
     bash "$bootstrap_script"
 
