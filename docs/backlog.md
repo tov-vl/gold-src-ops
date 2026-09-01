@@ -399,12 +399,14 @@ Milestone status: architecture and delivery plan accepted; immutable GHCR image
 publication now covers strict stable and release-candidate tags with
 digest-preserving candidate promotion, and the controlled game-server baseline
 contract is defined. A self-operated MyArena game VDS is provisioned for the
-approved bounded trial, with Timeweb Cloud retained as fallback. Only
-public-address stability across the trial and DDoS source-address preservation
-remain mandatory empirical provider gates; the other purchase conditions and
-checkout approval completed before provisioning. The pinned ReHLDS and
-ReGameDLL_CS versions have passed a disposable local Linux rehearsal with
-verified artifacts, A2S, and guarded RCON. The provider-independent Slice 3
+approved bounded trial, with Timeweb Cloud retained as fallback. DDoS
+source-address preservation has passed from the production control plane;
+public-address stability across the remaining trial is the outstanding
+empirical provider gate. The other purchase conditions and checkout approval
+completed before provisioning. The pinned ReHLDS and ReGameDLL_CS versions
+have passed both a disposable local Linux rehearsal and the initial controlled
+external activation with verified artifacts, A2S, and guarded RCON preflight.
+The provider-independent Slice 3
 Compose, preflight, and one-shot migration contracts are now defined under
 `ops/production`, with only Caddy publishing host ports, PostgreSQL isolated
 behind a Unix-domain socket, and the same API image carrying the serialized EF
@@ -450,10 +452,21 @@ the locked service identity, owner-scoped directories, unattended updates, and
 kernel hardening are active. A controlled reboot and post-reboot audit verified
 the new kernel, marker, SSH and firewall policy, clock, package state, and
 systemd health. The pinned runtime was subsequently installed and independently
-verified while its service remained disabled and inactive. Controlled
-activation, external A2S/RCON and provider-risk evidence, the observability
-stack, the recovery exercise, and soak evidence remain incomplete. Raw target
-evidence remains outside Git.
+verified while its service remained disabled and inactive. Rollback-safe
+activation has now applied the reviewed public/private configuration and left
+the healthy service active but disabled across reboot. The MyArena game
+protection profile is scoped to the reviewed Counter-Strike 1.6 UDP endpoint.
+External A2S from the production control plane passed with the expected source
+address preserved in both directions. Authenticated `rcon_users` returned a
+non-empty exact-source allowlist with no world allowance, and the escrowed
+secret matched both protected runtime copies without appearing in process
+arguments, environment, unit configuration, public configuration, markers, or
+the current journal. A short stability gate completed seven of seven A2S
+queries with zero service restarts and zero bots. Trial-period address
+stability, endpoint registration and scheduled polling, one guarded `say`,
+restart/restore, the 24-hour no-bot observation, the observability stack, the
+recovery exercise, and soak evidence remain incomplete. Raw target evidence
+remains outside Git.
 
 Why this work is selected:
 
@@ -485,7 +498,7 @@ tracks state without duplicating that operational sequence.
    published and verified
    `sha256:73792b7a1ffa990a41346ddb4074e804549512655a1e8797caf2cead86b82abb`
    from revision `a8c10be`.
-3. In progress: use `docs/v2.3-controlled-gameserver-baseline.md` to provision
+3. In progress: use `docs/v2.3-controlled-gameserver-baseline.md` to operate
    one controlled ReHLDS and ReGameDLL_CS server outside the control-plane
    host. The local target-runtime compatibility gate is complete. The
    conditional provider decision and bounded trial exception are recorded in
@@ -497,14 +510,16 @@ tracks state without duplicating that operational sequence.
    survived the reboot. The plan-first pinned runtime installer was matched by
    SHA-256 and applied. Pinned artifact hashes and detached signatures passed;
    HLDS build `5433925`, ReHLDS `3.15.0.896`, ReGameDLL_CS `5.30.0.814`, and all
-   recorded hashes were independently verified. The constrained unit remains
-   disabled and inactive with no configuration, secret, process, or listener. A
-   plan-first activation workflow now verifies the installed runtime and exact
-   SSH/UFW source, accepts the existing secret through stdin only, rolls back
-   failed first starts, and never enables the unit. Trial-period address
-   stability, DDoS source-address preservation, target activation, external
-   baseline polling, guarded RCON, restart/restore, and no-bot evidence remain
-   pending.
+   recorded hashes were independently verified. The constrained unit was then
+   activated through the plan-first workflow, which verified the installed
+   runtime and exact SSH/UFW source, accepted the existing secret through stdin
+   only, retained rollback on failure, and never enabled the unit. The healthy
+   service is active and disabled. Provider game protection, external A2S from
+   the production control plane, source-address preservation, a non-empty exact
+   `rcon_users` allowlist, secret containment, and a seven-query stability gate
+   have passed. Trial-period address stability, endpoint registration and
+   scheduled polling, one guarded `say`, restart/restore, and the 24-hour no-bot
+   observation remain pending.
 4. Completed: deploy the single-node reference control plane with PostgreSQL,
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent
@@ -537,9 +552,9 @@ tracks state without duplicating that operational sequence.
    baseline; the broader recovery exercise is tracked separately below.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
    Grafana, and health coverage for the private telemetry pipeline.
-6. Complete external A2S and guarded RCON verification, controlled
-   failure/recovery, alert delivery, process restart, backup/restore, rollback,
-   and soak evidence.
+6. Register the controlled endpoint, verify repeated scheduled A2S polling, run
+   one guarded `say`, and complete controlled failure/recovery, alert delivery,
+   process restart, backup/restore, rollback, and soak evidence.
 
 Definition of done:
 
