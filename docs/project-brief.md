@@ -119,19 +119,23 @@ publication is implemented, including digest-preserving promotion. Signed tag
 `v2.3.0-rc.1` published and verified the first immutable candidate digest,
 `sha256:d21a5cb10bb8179310e660d50cb301fed277a5dc3fcbd900e77065fdcc9df458`,
 without creating a stable release or mutable image alias.
-The project does not yet operate the controlled external ReHLDS runtime, export
-production metrics through an OpenTelemetry Collector, or include a web
-operator experience. These are delivery gaps rather than missing v2.2 release
-requirements. The active v2.3 plan closes the deployment and observability gaps
-before frontend or gameplay-agent work begins. Slice 2 uses the
-provider-independent controlled game-server contract in
-`docs/v2.3-controlled-gameserver-baseline.md`. Its bounded-trial game VDS is now
-provisioned; the reviewed host foundation, controlled reboot, and post-reboot
-audit have passed, and the pinned runtime is installed with its service disabled
-and inactive. The plan-first activation workflow is implemented, while target
-activation and the external A2S/RCON gates remain pending. Slice 3 includes the
-provider-independent Compose contract, same-image migration action, and
-encrypted off-host PostgreSQL backup and isolated restore rehearsal. The
+The project now operates the initial controlled external ReHLDS runtime, but it
+does not yet export production metrics through an OpenTelemetry Collector or
+include a web operator experience. These are delivery gaps rather than missing
+v2.2 release requirements. The active v2.3 plan closes the deployment and
+observability gaps before frontend or gameplay-agent work begins. Slice 2 uses
+the provider-independent controlled game-server contract in
+`docs/v2.3-controlled-gameserver-baseline.md`. Its bounded-trial game VDS has
+passed the reviewed host foundation, controlled reboot, pinned runtime install,
+and rollback-safe activation gates. The service is active while remaining
+disabled across reboot. Provider game protection is configured for the reviewed
+UDP endpoint; external A2S, source-address preservation, authenticated
+`rcon_users`, and secret-containment checks have passed from the production
+control plane. Endpoint registration, scheduled polling, one guarded `say`,
+restart/restore, and the 24-hour no-bot observation remain pending. Slice 3
+includes the provider-independent Compose contract, same-image migration
+action, and encrypted off-host PostgreSQL backup and isolated restore
+rehearsal. The
 control-plane VPS has completed hardening,
 backup and recovery gates, migrations, public TLS, external OIDC policy checks,
 and the digest-pinned `v2.3.0-rc.4` runtime rollout. The recurring encrypted
