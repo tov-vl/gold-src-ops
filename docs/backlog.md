@@ -463,7 +463,9 @@ secret matched both protected runtime copies without appearing in process
 arguments, environment, unit configuration, public configuration, markers, or
 the current journal. A short stability gate completed seven of seven A2S
 queries with zero service restarts and zero bots. Trial-period address
-stability, endpoint registration and scheduled polling, one guarded `say`,
+stability remains an empirical provider gate. The reviewed endpoint is now
+registered in the production control plane, where three scheduled A2S snapshots
+over 120 seconds succeeded with zero failures and zero bots. One guarded `say`,
 restart/restore, the 24-hour no-bot observation, the observability stack, the
 recovery exercise, and soak evidence remain incomplete. Raw target evidence
 remains outside Git.
@@ -517,9 +519,10 @@ tracks state without duplicating that operational sequence.
    service is active and disabled. Provider game protection, external A2S from
    the production control plane, source-address preservation, a non-empty exact
    `rcon_users` allowlist, secret containment, and a seven-query stability gate
-   have passed. Trial-period address stability, endpoint registration and
-   scheduled polling, one guarded `say`, restart/restore, and the 24-hour no-bot
-   observation remain pending.
+   have passed. The reviewed endpoint is registered in production, and three
+   scheduled A2S snapshots over 120 seconds passed with zero failures and zero
+   bots. Trial-period address stability, one guarded `say`, restart/restore,
+   and the 24-hour no-bot observation remain pending.
 4. Completed: deploy the single-node reference control plane with PostgreSQL,
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent
@@ -552,9 +555,10 @@ tracks state without duplicating that operational sequence.
    baseline; the broader recovery exercise is tracked separately below.
 5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
    Grafana, and health coverage for the private telemetry pipeline.
-6. Register the controlled endpoint, verify repeated scheduled A2S polling, run
-   one guarded `say`, and complete controlled failure/recovery, alert delivery,
-   process restart, backup/restore, rollback, and soak evidence.
+6. In progress: the controlled endpoint is registered and repeated scheduled
+   A2S polling is verified. Run one guarded `say`, then complete controlled
+   failure/recovery, alert delivery, process restart, backup/restore, rollback,
+   and soak evidence.
 
 Definition of done:
 

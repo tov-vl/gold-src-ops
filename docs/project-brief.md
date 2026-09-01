@@ -131,8 +131,10 @@ and rollback-safe activation gates. The service is active while remaining
 disabled across reboot. Provider game protection is configured for the reviewed
 UDP endpoint; external A2S, source-address preservation, authenticated
 `rcon_users`, and secret-containment checks have passed from the production
-control plane. Endpoint registration, scheduled polling, one guarded `say`,
-restart/restore, and the 24-hour no-bot observation remain pending. Slice 3
+control plane. The reviewed endpoint is now registered in production; three
+scheduled A2S snapshots over 120 seconds succeeded with zero failures and zero
+bots. One guarded `say`, restart/restore, and the 24-hour no-bot observation
+remain pending. Slice 3
 includes the provider-independent Compose contract, same-image migration
 action, and encrypted off-host PostgreSQL backup and isolated restore
 rehearsal. The
