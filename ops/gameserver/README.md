@@ -140,6 +140,17 @@ UTC/NTP, kernel settings, and zero failed systemd units. SteamCMD and all game
 runtime artifacts and secrets remained absent. Host addresses, provider
 identifiers, key fingerprints, and raw evidence are retained outside Git.
 
+Later on 2026-09-01, the runtime installer from the merged revision was copied to
+the same host and its SHA-256 was matched before execution. Plan-only mode was
+reverified as non-mutating, then apply validated the pinned checksums and both
+detached ReHLDS Team signatures, stabilized HLDS app `90` after four SteamCMD
+passes, and installed ReHLDS `3.15.0.896` plus ReGameDLL_CS `5.30.0.814`. The
+recorded HLDS build id is `5433925`. Independent post-install checks verified all
+12 recorded artifact and unit hashes, the plugin-free baseline, zero failed
+systemd units, and an active firewall. The service remained `disabled` and
+`inactive`; configuration, activation marker, game process, and UDP listener
+remained absent. Raw target evidence remains outside Git.
+
 ## Runtime Installer
 
 `runtime-install.sh` is the separate first-install workflow required after the
@@ -222,9 +233,8 @@ guards, and systemd hardening without downloading artifacts or changing a host.
 
 ## Next Boundary
 
-The runtime installer is implemented and locally verified but has not yet been
-applied to the bounded-trial host. After a reviewed apply leaves the service
-disabled and inactive, use a separate activation workflow to create the public
+The runtime is installed on the bounded-trial host, but it is deliberately not
+configured or active. Use a separate activation workflow to create the public
 configuration, inject the RCON secret, persist an exact `/32` ReHLDS RCON user,
 create `runtime-enabled`, and perform the first controlled start. Public UDP
 must remain closed until that source allowlist is non-empty and verified.

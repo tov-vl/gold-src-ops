@@ -449,8 +449,11 @@ full dependency-bearing security updates, minimal 32-bit runtime dependencies,
 the locked service identity, owner-scoped directories, unattended updates, and
 kernel hardening are active. A controlled reboot and post-reboot audit verified
 the new kernel, marker, SSH and firewall policy, clock, package state, and
-systemd health; raw target evidence remains outside Git. Installing ReHLDS, the
-observability stack, the recovery exercise, and soak evidence remain incomplete.
+systemd health. The pinned runtime was subsequently installed and independently
+verified while its service remained disabled and inactive. Controlled
+activation, external A2S/RCON and provider-risk evidence, the observability
+stack, the recovery exercise, and soak evidence remain incomplete. Raw target
+evidence remains outside Git.
 
 Why this work is selected:
 
@@ -491,11 +494,13 @@ tracks state without duplicating that operational sequence.
    hardening, and exact-source UFW are complete. The provider-independent
    foundation under `ops/gameserver` has been applied, followed by a controlled
    reboot and successful post-reboot host audit. Initial management reachability
-   survived the reboot. The plan-first pinned runtime installer, artifact and
-   signing-key verification, disabled-by-default systemd contract, and
-   deterministic smoke are implemented, but target apply has not occurred.
-   Trial-period address stability, DDoS source-address preservation, runtime
-   installation, external baseline polling, guarded RCON, restart/restore, and
+   survived the reboot. The plan-first pinned runtime installer was matched by
+   SHA-256 and applied. Pinned artifact hashes and detached signatures passed;
+   HLDS build `5433925`, ReHLDS `3.15.0.896`, ReGameDLL_CS `5.30.0.814`, and all
+   recorded hashes were independently verified. The constrained unit remains
+   disabled and inactive with no configuration, secret, process, or listener.
+   Trial-period address stability, DDoS source-address preservation, controlled
+   activation, external baseline polling, guarded RCON, restart/restore, and
    no-bot evidence remain pending.
 4. Completed: deploy the single-node reference control plane with PostgreSQL,
    TLS reverse proxy, external OIDC integration, secret injection, serialized
