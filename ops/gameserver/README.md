@@ -222,7 +222,9 @@ root-controlled public configuration and private RCON configuration. It exposes
 their contents to the service only through systemd credentials, never through
 the process command line or environment. The installer also normalizes the
 service-owned SteamCMD and game-server roots to mode `0750` after upstream tools
-finish writing them.
+finish writing them. `ProtectProc=invisible` continues hiding other users'
+process metadata, while `ProcSubset=all` keeps non-process APIs such as
+`/proc/cpuinfo` available to the legacy engine.
 
 The deterministic repository smoke is:
 

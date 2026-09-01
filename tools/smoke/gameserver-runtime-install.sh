@@ -182,6 +182,8 @@ for expected in \
     'NoNewPrivileges=true' \
     'CapabilityBoundingSet=' \
     'PrivateDevices=true' \
+    'ProtectProc=invisible' \
+    'ProcSubset=all' \
     'ProtectSystem=strict' \
     'ProtectHome=true' \
     'RestrictNamespaces=true' \
@@ -192,6 +194,9 @@ done
 
 if grep -Eiq 'rcon_password|Environment=.*password|EnvironmentFile' "$unit_file"; then
     fail "Game-runtime unit contains an unsafe secret transport."
+fi
+if grep -Fxq 'ProcSubset=pid' "$unit_file"; then
+    fail "Game-runtime unit hides /proc APIs required by ReHLDS."
 fi
 
 run_apply_body="$(sed -n '/^run_apply() {$/,/^}$/p' "$installer")"

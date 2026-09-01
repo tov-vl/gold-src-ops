@@ -292,6 +292,15 @@ for expected_call in \
     previous_line="$current_line"
 done
 
+for expected_unit_setting in \
+    "'ProtectProc=invisible'" \
+    "'ProcSubset=all'"; do
+    grep -Fq "$expected_unit_setting" "$activator" ||
+        fail "Game-runtime activation contract is missing $expected_unit_setting."
+done
+! grep -Fq "'ProcSubset=pid'" "$activator" ||
+    fail "Game-runtime activation accepts an incompatible procfs subset."
+
 # shellcheck disable=SC2016
 grep -Fq 'systemctl stop "$SERVICE_NAME"' "$activator" ||
     fail "Activation rollback does not stop the service."
