@@ -72,7 +72,7 @@ for expected in \
     'accept one bounded Base64-safe RCON secret through stdin only and never print it' \
     'atomically install root-controlled public/private configuration and runtime-enabled' \
     'start but do not enable goldsrcops-gameserver.service, with rollback on any first-start failure' \
-    'verify stable active state, process ownership, zero restarts, and one UDP listener' \
+    'verify both config-load markers, stable active state, process ownership, zero restarts, and one UDP listener' \
     'PLAN_ONLY: no stdin was read and no host changes were made'; do
     grep -Fq "$expected" "$plan_output" ||
         fail "Game-runtime activation plan is missing '$expected'."
@@ -260,8 +260,11 @@ sv_lan "0"
 sv_password ""
 sv_rcon_condebug "0"
 rcon_adduser 203.0.113.10/32
+exec goldsrcops-private.cfg
+echo "GoldSrcOps public runtime configuration loaded"
 EOF
-printf 'rcon_password "%s"\n' "$safe_secret" > "$smoke_directory/server-private.expected"
+printf 'rcon_password "%s"\necho "GoldSrcOps private runtime configuration loaded"\n' \
+    "$safe_secret" > "$smoke_directory/server-private.expected"
 cmp -s "$public_configuration" "$smoke_directory/server-public.expected" ||
     fail "The rendered public runtime configuration changed."
 cmp -s "$private_configuration" "$smoke_directory/server-private.expected" ||
@@ -274,6 +277,18 @@ cmp -s "$private_configuration" "$smoke_directory/server-private.expected" ||
     fail "The public runtime configuration contains the RCON password command."
 ! grep -Fq 'rcon_adduser' "$private_configuration" ||
     fail "The private runtime configuration contains source policy."
+grep -Fqx 'exec goldsrcops-private.cfg' "$public_configuration" ||
+    fail "The public runtime configuration does not load the private credential."
+for expected_marker in \
+    'GoldSrcOps public runtime configuration loaded' \
+    'GoldSrcOps private runtime configuration loaded'; do
+    grep -Fq "$expected_marker" "$activator" ||
+        fail "The activator does not verify '$expected_marker'."
+done
+# The expected source fragment must remain literal.
+# shellcheck disable=SC2016
+grep -Fq '_SYSTEMD_INVOCATION_ID=$invocation_id' "$activator" ||
+    fail "The activator does not scope config-load evidence to the current service invocation."
 
 run_apply_body="$(sed -n '/^run_apply() {$/,/^}$/p' "$activator")"
 previous_line=0

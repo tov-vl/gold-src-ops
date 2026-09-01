@@ -176,7 +176,7 @@ for expected in \
     'ConditionPathExists=/etc/goldsrcops/gameserver/runtime-enabled' \
     'ConditionPathExists=/etc/goldsrcops/gameserver/secrets/server-private.cfg' \
     'LoadCredential=server-private.cfg:/etc/goldsrcops/gameserver/secrets/server-private.cfg' \
-    'ExecStart=/var/lib/goldsrc/server/hlds_run -game cstrike -console -strictportbind -ip 0.0.0.0 -port 27015 +map de_dust2 +maxplayers 4 +exec goldsrcops-public.cfg +exec goldsrcops-private.cfg' \
+    'ExecStart=/var/lib/goldsrc/server/hlds_run -game cstrike -console -strictportbind -ip 0.0.0.0 -port 27015 +servercfgfile goldsrcops-public.cfg +maxplayers 4 +map de_dust2' \
     'Restart=on-failure' \
     'MemoryMax=1G' \
     'NoNewPrivileges=true' \
