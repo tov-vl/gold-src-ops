@@ -74,6 +74,9 @@ jobs:
       - name: Validate host bootstrap and hardening
         run: bash ./tools/smoke/host-bootstrap.sh
 
+      - name: Validate game-server host bootstrap
+        run: bash ./tools/smoke/gameserver-host-bootstrap.sh
+
       - name: Validate host-readiness preflight
         run: pwsh -NoProfile -File ./tools/smoke/host-preflight.ps1
 

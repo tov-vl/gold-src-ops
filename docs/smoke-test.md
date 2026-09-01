@@ -71,6 +71,17 @@ It validates shell syntax, sanitized plan-only output, strict input handling,
 and refusal to apply outside the required privileged SSH context. It never
 changes the machine running the smoke.
 
+Run the separate game-server host-foundation smoke with:
+
+```bash
+bash ./tools/smoke/gameserver-host-bootstrap.sh
+```
+
+It verifies the provider-independent game-host plan, exact-source network
+boundary, non-login service identity, explicit runtime deferrals, input
+rejection, and non-root apply guard. It does not install packages or contact a
+game-server host.
+
 Run the deterministic host-preflight smoke independently with:
 
 ```powershell
@@ -80,9 +91,9 @@ pwsh -NoProfile -File .\tools\smoke\host-preflight.ps1
 It checks one passing snapshot and focused failures for Docker boot enablement,
 time synchronization, disk capacity, SSH scope and effective hardening, public
 PostgreSQL or Docker API listeners, unexpected Docker port publication, and
-OIDC metadata. The `Container Smoke` CI job runs both host checks before the
-image smoke. Snapshot evidence is deliberately marked as non-target evidence;
-live VPS verification uses
+OIDC metadata. The `Container Smoke` CI job runs all host-contract checks before
+the image smoke. Snapshot evidence is deliberately marked as non-target
+evidence; live control-plane VPS verification uses
 `ops/production/host-preflight.ps1` as documented in
 `ops/production/README.md`.
 
