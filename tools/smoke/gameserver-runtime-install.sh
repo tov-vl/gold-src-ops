@@ -129,6 +129,18 @@ expect_failure checksum-mismatch bash -c \
     _ "$installer" "$checksum_fixture" \
     0000000000000000000000000000000000000000000000000000000000000000
 
+runtime_mode_root="$smoke_directory/runtime-mode"
+mkdir -p "$runtime_mode_root/steamcmd" "$runtime_mode_root/server"
+chmod 0755 "$runtime_mode_root/steamcmd" "$runtime_mode_root/server"
+# shellcheck disable=SC2016
+bash -c \
+    'source "$1"; staging_root="$2"; normalize_runtime_directory_modes' \
+    _ "$installer" "$runtime_mode_root"
+[[ "$(stat -c '%a' "$runtime_mode_root/steamcmd")" == 750 ]] ||
+    fail "The SteamCMD root mode was not normalized after installation."
+[[ "$(stat -c '%a' "$runtime_mode_root/server")" == 750 ]] ||
+    fail "The game-server root mode was not normalized after installation."
+
 key_file="$smoke_directory/rehlds-signing-key.asc"
 key_home="$smoke_directory/gnupg"
 mkdir "$key_home"
