@@ -23,7 +23,9 @@ The signed `v2.3.0-rc.4` image is deployed by its verified digest after a
 successful preflight and already-up-to-date migration-bundle run. A guarded
 daily backup schedule, scoped retention policy, and freshness probe are active
 on the target; the mandatory preview and first completed cycle passed.
-Game-server integration and the broader recovery exercise remain pending.
+Core game-server integration has passed through the public API, including
+registered polling and one audited guarded RCON `say`. Controlled game-server
+restart/restore and the broader recovery exercise remain pending.
 
 ## Topology
 
