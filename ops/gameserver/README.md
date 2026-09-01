@@ -126,8 +126,20 @@ The repository smoke test is:
 bash ./tools/smoke/gameserver-host-bootstrap.sh
 ```
 
-It validates syntax, sanitized plan output, input rejection, and the non-root
-apply guard. It does not mutate a host.
+It validates syntax, sanitized plan and stdin execution, input rejection,
+dependency-bearing security upgrades, OpenSSH runtime-directory restoration,
+stale-marker invalidation, exact UFW pass/fail decisions, and the non-root apply
+guard. It does not mutate a host.
+
+## Live Evidence
+
+On 2026-09-01, this foundation was applied from reviewed, versioned source to the
+bounded-trial game host. A controlled reboot and a fresh key-only session then
+verified the installed security kernel, marker, account and path ownership,
+effective SSH hardening, exact UFW policy, package state, unattended updates,
+UTC/NTP, kernel settings, and zero failed systemd units. SteamCMD and all game
+runtime artifacts and secrets remained absent. Host addresses, provider
+identifiers, key fingerprints, and raw evidence are retained outside Git.
 
 ## Next Boundary
 

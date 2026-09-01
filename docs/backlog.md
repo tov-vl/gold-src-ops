@@ -398,11 +398,11 @@ Architecture Decisions 16 through 18; the reviewable delivery plan is recorded i
 Milestone status: architecture and delivery plan accepted; immutable GHCR image
 publication now covers strict stable and release-candidate tags with
 digest-preserving candidate promotion, and the controlled game-server baseline
-contract is defined. A self-operated MyArena game VDS is conditionally selected,
-with purchase-time checks and Timeweb Cloud fallback documented. A bounded
-one-period trial may defer only public-address stability and DDoS source-address
-preservation to mandatory post-provision checks; all other provider gates and the
-final checkout approval remain pre-purchase requirements. The pinned ReHLDS and
+contract is defined. A self-operated MyArena game VDS is provisioned for the
+approved bounded trial, with Timeweb Cloud retained as fallback. Only
+public-address stability across the trial and DDoS source-address preservation
+remain mandatory empirical provider gates; the other purchase conditions and
+checkout approval completed before provisioning. The pinned ReHLDS and
 ReGameDLL_CS versions have passed a disposable local Linux rehearsal with
 verified artifacts, A2S, and guarded RCON. The provider-independent Slice 3
 Compose, preflight, and one-shot migration contracts are now defined under
@@ -441,14 +441,16 @@ host audit confirms only Caddy is publicly published. A guarded daily backup
 schedule, scoped retention policy, and freshness probe are active on the target. Its
 non-destructive preview retained the existing recoverable snapshot, and the first
 completed cycle produced a fresh owner-only marker. The previous rc.3 source,
-environment, and image digest remain available for rollback. Game-server
-host access is now provisioned with a dedicated key-only operator, disabled
-root and interactive SSH authentication, exact-source UFW rules, synchronized
-time, and a clean Ubuntu baseline. A separate plan-first game-host bootstrap
-now codifies the minimal 32-bit runtime dependencies, locked service identity,
-owner-scoped directories, and non-public network boundary with deterministic CI
-coverage. Applying that runtime foundation, installing ReHLDS, the observability
-stack, recovery exercise, and soak evidence remain incomplete.
+environment, and image digest remain available for rollback. Game-server host
+access is provisioned with a dedicated key-only operator, disabled root and
+interactive SSH authentication, exact-source UFW rules, and synchronized time.
+The plan-first game-host bootstrap has now been applied from a reviewed revision:
+full dependency-bearing security updates, minimal 32-bit runtime dependencies,
+the locked service identity, owner-scoped directories, unattended updates, and
+kernel hardening are active. A controlled reboot and post-reboot audit verified
+the new kernel, marker, SSH and firewall policy, clock, package state, and
+systemd health; raw target evidence remains outside Git. Installing ReHLDS, the
+observability stack, the recovery exercise, and soak evidence remain incomplete.
 
 Why this work is selected:
 
@@ -486,12 +488,12 @@ tracks state without duplicating that operational sequence.
    conditional provider decision and bounded trial exception are recorded in
    `docs/v2.3-gameserver-provider-decision.md`; non-deferred pre-purchase checks,
    checkout approval, initial provisioning, key-only operator access, SSH
-   hardening, exact-source UFW, and the clean host baseline are complete. The
-   provider-independent game-host foundation is implemented under
-   `ops/gameserver` but has not yet been applied to the target. Runtime
-   installation, public-address and source-address trial gates, external
-   baseline polling, guarded RCON, restart/restore, and no-bot evidence remain
-   pending.
+   hardening, and exact-source UFW are complete. The provider-independent
+   foundation under `ops/gameserver` has been applied, followed by a controlled
+   reboot and successful post-reboot host audit. Initial management reachability
+   survived the reboot; trial-period address stability, DDoS source-address
+   preservation, runtime installation, external baseline polling, guarded RCON,
+   restart/restore, and no-bot evidence remain pending.
 4. Completed: deploy the single-node reference control plane with PostgreSQL,
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent

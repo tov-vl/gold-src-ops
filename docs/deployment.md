@@ -14,9 +14,10 @@ The accepted v2.3 reference-deployment direction is documented in
 `docs/v2.3-production-deployment.md`. Immutable image publication is its first
 implemented delivery slice. The controlled external game-server contract is in
 `docs/v2.3-controlled-gameserver-baseline.md`. A self-operated MyArena game VDS
-is the conditional target recorded in
-`docs/v2.3-gameserver-provider-decision.md`; purchase, provisioning, and all
-target-environment evidence remain pending.
+is the bounded-trial target recorded in
+`docs/v2.3-gameserver-provider-decision.md`; provisioning, the reviewed host
+foundation, controlled reboot, and post-reboot audit are complete. Runtime
+installation and external A2S/RCON evidence remain pending.
 
 ## Supported Shape
 
