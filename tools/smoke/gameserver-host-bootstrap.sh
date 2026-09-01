@@ -127,6 +127,33 @@ EOF
 cmp -s "$apt_upgrade_expected" "$apt_upgrade_call" ||
     fail "Game-host bootstrap did not allow dependency packages during the security upgrade."
 
+marker_removal_call="$smoke_directory/marker-removal-call.out"
+marker_removal_expected="$smoke_directory/marker-removal-expected.out"
+(
+    # shellcheck source=/dev/null
+    source "$bootstrap_script"
+    # shellcheck disable=SC2317,SC2329
+    rm() {
+        printf '%s\n' "$@" > "$marker_removal_call"
+    }
+    invalidate_prepared_marker
+)
+cat > "$marker_removal_expected" <<'EOF'
+-f
+--
+/etc/goldsrcops/gameserver/host-prepared
+EOF
+cmp -s "$marker_removal_expected" "$marker_removal_call" ||
+    fail "Game-host bootstrap did not invalidate the readiness marker safely."
+
+run_apply_body="$(sed -n '/^run_apply() {$/,/^}$/p' "$bootstrap_script")"
+require_line="$(grep -nFx '    require_apply_environment' <<< "$run_apply_body" | cut -d: -f1)"
+invalidate_line="$(grep -nFx '    invalidate_prepared_marker' <<< "$run_apply_body" | cut -d: -f1)"
+configure_line="$(grep -nFx '    configure_firewall' <<< "$run_apply_body" | head -n 1 | cut -d: -f1)"
+[[ -n "$require_line" && -n "$invalidate_line" && -n "$configure_line" &&
+    "$require_line" -lt "$invalidate_line" && "$invalidate_line" -lt "$configure_line" ]] ||
+    fail "Game-host bootstrap did not invalidate readiness immediately after apply preflight."
+
 expect_failure missing-cidr \
     bash "$bootstrap_script"
 

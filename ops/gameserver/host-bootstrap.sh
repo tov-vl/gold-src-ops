@@ -368,8 +368,13 @@ EOF
     chmod 0640 "$PREPARED_MARKER"
 }
 
+invalidate_prepared_marker() {
+    rm -f -- "$PREPARED_MARKER"
+}
+
 run_apply() {
     require_apply_environment
+    invalidate_prepared_marker
     configure_firewall
     install_runtime_dependencies
     configure_service_account
