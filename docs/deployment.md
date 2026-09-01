@@ -16,8 +16,9 @@ implemented delivery slice. The controlled external game-server contract is in
 `docs/v2.3-controlled-gameserver-baseline.md`. A self-operated MyArena game VDS
 is the bounded-trial target recorded in
 `docs/v2.3-gameserver-provider-decision.md`; provisioning, the reviewed host
-foundation, controlled reboot, and post-reboot audit are complete. Runtime
-installation and external A2S/RCON evidence remain pending.
+foundation, controlled reboot, post-reboot audit, and pinned runtime installation
+are complete. The plan-first activation workflow is implemented; target
+activation and external A2S/RCON evidence remain pending.
 
 ## Supported Shape
 

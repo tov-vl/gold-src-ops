@@ -93,6 +93,19 @@ host-marker parsing, checksum rejection, the ReHLDS signing-key fingerprint,
 first-install ordering, disabled-by-default service gates, and systemd
 hardening. It neither downloads upstream artifacts nor starts a game server.
 
+Run the separate game-server runtime-activation smoke with:
+
+```bash
+bash ./tools/smoke/gameserver-runtime-activate.sh
+```
+
+It verifies sanitized plan-only behavior, strict host and runtime marker
+parsing, exact `/32`, default-deny firewall, and Base64-safe secret validation,
+deterministic public/private config rendering, marker-before-start ordering,
+disconnect rollback coverage, and refusal to accept a secret argument or enable
+the unit. It reads only generated fixture values and does not contact or change
+a game-server host.
+
 Run the deterministic host-preflight smoke independently with:
 
 ```powershell

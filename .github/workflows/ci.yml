@@ -80,6 +80,9 @@ jobs:
       - name: Validate game-server runtime installer
         run: bash ./tools/smoke/gameserver-runtime-install.sh
 
+      - name: Validate game-server runtime activation
+        run: bash ./tools/smoke/gameserver-runtime-activate.sh
+
       - name: Validate host-readiness preflight
         run: pwsh -NoProfile -File ./tools/smoke/host-preflight.ps1
 
