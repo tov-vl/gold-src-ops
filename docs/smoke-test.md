@@ -82,6 +82,17 @@ boundary, non-login service identity, explicit runtime deferrals, input
 rejection, and non-root apply guard. It does not install packages or contact a
 game-server host.
 
+Run the separate game-server runtime-installer smoke with:
+
+```bash
+bash ./tools/smoke/gameserver-runtime-install.sh
+```
+
+It verifies pinned artifact identities, sanitized plan-only behavior, strict
+host-marker parsing, checksum rejection, the ReHLDS signing-key fingerprint,
+first-install ordering, disabled-by-default service gates, and systemd
+hardening. It neither downloads upstream artifacts nor starts a game server.
+
 Run the deterministic host-preflight smoke independently with:
 
 ```powershell

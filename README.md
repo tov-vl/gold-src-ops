@@ -463,10 +463,10 @@ intended workflow, although the ruleset does not currently require one.
 Run `pwsh -NoProfile -File .\tools\smoke\container.ps1` to build and verify the
 production container against an isolated PostgreSQL instance. See
 `docs/smoke-test.md` for the image flow, the separate control-plane and
-game-server host-bootstrap smokes, the host-preflight smoke, and the longer
-live GoldSrc server flow. Live control-plane hardening and auditing are
-documented in `ops/production/README.md`; the game-host foundation is in
-`ops/gameserver/README.md`.
+game-server host-bootstrap and runtime-installer smokes, the host-preflight
+smoke, and the longer live GoldSrc server flow. Live control-plane hardening and
+auditing are documented in `ops/production/README.md`; the game-host foundation
+and pinned runtime installation are in `ops/gameserver/README.md`.
 Use `docs/deployment.md` for image versioning, production configuration,
 migrations, probes, and rollback. PostgreSQL recovery operations are in
 `docs/postgresql-backup.md`; alert-specific rollout and recovery guidance is in

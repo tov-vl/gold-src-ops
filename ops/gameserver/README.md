@@ -1,11 +1,10 @@
-# Controlled Game-Server Host Bootstrap
+# Controlled Game-Server Operations
 
-This directory contains the provider-independent host foundation for the first
-controlled ReHLDS baseline. It prepares a minimal Ubuntu host before SteamCMD or
-game-server artifacts are installed.
+This directory contains the provider-independent host foundation and pinned
+runtime installer for the first controlled ReHLDS baseline.
 
-The bootstrap is plan-only by default. It must be reviewed before `--apply` is
-used against a paid host.
+Both scripts are plan-only by default. Each plan must be reviewed from the same
+Git revision that will be applied to a paid host.
 
 ## Scope
 
@@ -141,10 +140,91 @@ UTC/NTP, kernel settings, and zero failed systemd units. SteamCMD and all game
 runtime artifacts and secrets remained absent. Host addresses, provider
 identifiers, key fingerprints, and raw evidence are retained outside Git.
 
+## Runtime Installer
+
+`runtime-install.sh` is the separate first-install workflow required after the
+host foundation passes. It:
+
+- requires the root-owned `host-prepared` marker and exact foundation account,
+  path, and mode contract;
+- verifies the pinned official SteamCMD bootstrap with SHA-256;
+- installs HLDS app `90` from the `steam_legacy` branch as the locked `goldsrc`
+  account and repeats SteamCMD until the required tree is stable;
+- verifies the pinned ReHLDS `3.15.0.896` and ReGameDLL_CS `5.30.0.814` ZIP
+  hashes and both detached signatures against the embedded ReHLDS Team public
+  key fingerprint;
+- rejects Metamod, AMX Mod X, ReAPI, YaPB, Reunion, and an indirect GameDLL
+  loader from the minimal baseline;
+- records the updated SteamCMD hashes, actual Steam build id, app-manifest hash,
+  release versions, installed binary hashes, and systemd unit hash in
+  `runtime-installed`;
+- installs a resource-bounded and privilege-restricted systemd unit without
+  enabling or starting it.
+
+The official SteamCMD bootstrap URL and the `steam_legacy` depot are mutable
+upstream distribution channels. The installer fails if the bootstrap bytes no
+longer match the reviewed SHA-256, while the delivered HLDS build is recorded as
+deployment evidence rather than misrepresented as an immutable artifact. A
+changed bootstrap or unexpected HLDS build requires a new review before apply.
+
+Review the runtime plan locally:
+
+```bash
+bash ./ops/gameserver/runtime-install.sh \
+  --service-user goldsrc \
+  --game-port 27015
+```
+
+Transfer the reviewed self-contained script from the same commit to the target,
+review the plan there, and apply it through the recorded operator account:
+
+```bash
+bash /tmp/goldsrcops-gameserver-runtime-install.sh \
+  --service-user goldsrc \
+  --game-port 27015
+
+sudo bash /tmp/goldsrcops-gameserver-runtime-install.sh \
+  --service-user goldsrc \
+  --game-port 27015 \
+  --apply
+```
+
+Do not add an RCON password, host address, provider identifier, or unreviewed
+artifact URL to the command. Apply downloads only the hard-coded HTTPS sources
+and refuses a non-empty or previously marked runtime.
+
+After apply, retain host-specific output outside Git and verify:
+
+```bash
+sudo cat /etc/goldsrcops/gameserver/runtime-installed
+sudo systemctl cat goldsrcops-gameserver.service
+sudo systemctl is-enabled goldsrcops-gameserver.service
+sudo systemctl is-active goldsrcops-gameserver.service
+sudo test ! -e /etc/goldsrcops/gameserver/runtime-enabled
+sudo ss -H -lntu
+```
+
+Expected state is `disabled`, `inactive`, no `runtime-enabled` marker, no
+private configuration, and no game listener. The unit additionally requires a
+root-controlled public configuration and private RCON configuration. It exposes
+their contents to the service only through systemd credentials, never through
+the process command line or environment.
+
+The deterministic repository smoke is:
+
+```bash
+bash ./tools/smoke/gameserver-runtime-install.sh
+```
+
+It covers syntax, pinned values, plan sanitization, strict marker parsing,
+checksum failure, the signing-key fingerprint, apply order, service activation
+guards, and systemd hardening without downloading artifacts or changing a host.
+
 ## Next Boundary
 
-After this foundation passes on the target, install SteamCMD and the pinned
-HLDS/ReHLDS/ReGameDLL_CS artifacts through a separate verified installer. That
-installer must verify release hashes and signatures, keep the RCON secret out
-of command history, install a constrained systemd unit, and leave public UDP
-closed until the RCON source allowlist is non-empty and verified.
+The runtime installer is implemented and locally verified but has not yet been
+applied to the bounded-trial host. After a reviewed apply leaves the service
+disabled and inactive, use a separate activation workflow to create the public
+configuration, inject the RCON secret, persist an exact `/32` ReHLDS RCON user,
+create `runtime-enabled`, and perform the first controlled start. Public UDP
+must remain closed until that source allowlist is non-empty and verified.
