@@ -516,6 +516,7 @@ apply_runtime_overlays() {
     chown -R "$service_user:$service_group" \
         "$staging_root/steamcmd" \
         "$staging_root/server"
+    normalize_runtime_directory_modes
 
     final_hlds_linux_sha256="$(sha256sum "$staging_root/server/hlds_linux" | awk '{ print $1 }')"
     final_engine_sha256="$(sha256sum "$staging_root/server/engine_i486.so" | awk '{ print $1 }')"
@@ -530,6 +531,12 @@ apply_runtime_overlays() {
     [[ "$final_regamedll_sha256" == \
         "$(sha256sum "$regamedll_extract/bin/linux32/cstrike/dlls/cs.so" | awk '{ print $1 }')" ]] ||
         fail "The installed ReGameDLL_CS binary does not match the verified archive."
+}
+
+normalize_runtime_directory_modes() {
+    chmod 0750 \
+        "$staging_root/steamcmd" \
+        "$staging_root/server"
 }
 
 validate_runtime_tree() {

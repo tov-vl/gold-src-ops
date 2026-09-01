@@ -220,7 +220,9 @@ Expected state is `disabled`, `inactive`, no `runtime-enabled` marker, no
 private configuration, and no game listener. The unit additionally requires a
 root-controlled public configuration and private RCON configuration. It exposes
 their contents to the service only through systemd credentials, never through
-the process command line or environment.
+the process command line or environment. The installer also normalizes the
+service-owned SteamCMD and game-server roots to mode `0750` after upstream tools
+finish writing them.
 
 The deterministic repository smoke is:
 
