@@ -351,6 +351,8 @@ validate_service_contract() {
         "ExecStart=$service_home/server/hlds_run -game cstrike -console -strictportbind -ip 0.0.0.0 -port $prepared_game_port +map de_dust2 +maxplayers 4 +exec goldsrcops-public.cfg +exec goldsrcops-private.cfg" \
         'NoNewPrivileges=true' \
         'CapabilityBoundingSet=' \
+        'ProtectProc=invisible' \
+        'ProcSubset=all' \
         'ProtectSystem=strict'; do
         grep -Fxq "$expected" "$SYSTEMD_UNIT_FILE" || fail "The game-server unit contract changed."
     done
