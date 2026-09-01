@@ -248,11 +248,13 @@ guards, and systemd hardening without downloading artifacts or changing a host.
   active with default-deny incoming policy and the current SSH source matches
   the sole SSH and game-port allow rules;
 - accepts one 32-128 character Base64-safe RCON secret through stdin only;
-- writes a fixed minimal public baseline containing `sv_rcon_condebug 0` and the
-  exact `rcon_adduser` command, while keeping `rcon_password` in a root-only
-  private file;
+- assigns the public credential as ReHLDS `servercfgfile`, writes a fixed
+  minimal baseline containing `sv_rcon_condebug 0` and the exact
+  `rcon_adduser` command, and loads `rcon_password` from a root-only private
+  credential;
 - creates `runtime-enabled` only after both configuration files are ready;
-- starts and verifies the service but deliberately leaves it disabled across
+- starts the service, requires public and private config-load markers from the
+  current systemd invocation, and deliberately leaves it disabled across
   reboot;
 - stops the service and removes every activation file if first start fails or
   the controlling SSH session is lost.
@@ -261,6 +263,10 @@ The source restriction follows the command contract documented by the pinned
 [ReHLDS `3.15.0.896` README](https://github.com/rehlds/ReHLDS/blob/3.15.0.896/README.md).
 An empty ReHLDS RCON user list permits every source that knows the password, so
 activation refuses to create configuration without the exact non-empty `/32`.
+The same pinned engine defines
+[`servercfgfile`](https://github.com/rehlds/ReHLDS/blob/3.15.0.896/rehlds/engine/sv_main.cpp)
+as the dedicated-server configuration selector; activation uses it so the
+credential-backed public configuration is loaded during map startup.
 
 Review the sanitized plan locally and on the target:
 

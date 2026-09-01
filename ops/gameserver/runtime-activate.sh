@@ -13,6 +13,8 @@ readonly PUBLIC_CONFIGURATION="$CONFIGURATION_DIRECTORY/server-public.cfg"
 readonly PRIVATE_CONFIGURATION="$CONFIGURATION_DIRECTORY/secrets/server-private.cfg"
 readonly SYSTEMD_UNIT_FILE="/etc/systemd/system/$SERVICE_NAME"
 readonly SERVER_NAME="GoldSrcOps Controlled Baseline"
+readonly PUBLIC_CONFIGURATION_MARKER="GoldSrcOps public runtime configuration loaded"
+readonly PRIVATE_CONFIGURATION_MARKER="GoldSrcOps private runtime configuration loaded"
 readonly EXPECTED_REHLDS_VERSION="3.15.0.896"
 readonly EXPECTED_REGAMEDLL_VERSION="5.30.0.814"
 
@@ -348,7 +350,7 @@ validate_service_contract() {
         "Group=$service_group" \
         "LoadCredential=server-public.cfg:$PUBLIC_CONFIGURATION" \
         "LoadCredential=server-private.cfg:$PRIVATE_CONFIGURATION" \
-        "ExecStart=$service_home/server/hlds_run -game cstrike -console -strictportbind -ip 0.0.0.0 -port $prepared_game_port +map de_dust2 +maxplayers 4 +exec goldsrcops-public.cfg +exec goldsrcops-private.cfg" \
+        "ExecStart=$service_home/server/hlds_run -game cstrike -console -strictportbind -ip 0.0.0.0 -port $prepared_game_port +servercfgfile goldsrcops-public.cfg +maxplayers 4 +map de_dust2" \
         'NoNewPrivileges=true' \
         'CapabilityBoundingSet=' \
         'ProtectProc=invisible' \
@@ -400,6 +402,8 @@ sv_lan "0"
 sv_password ""
 sv_rcon_condebug "0"
 rcon_adduser $approved_rcon_cidr
+exec goldsrcops-private.cfg
+echo "$PUBLIC_CONFIGURATION_MARKER"
 EOF
     chmod 0640 "$destination"
 }
@@ -407,7 +411,9 @@ EOF
 render_private_configuration() {
     local destination="$1"
 
-    printf 'rcon_password "%s"\n' "$rcon_secret" > "$destination"
+    printf 'rcon_password "%s"\necho "%s"\n' \
+        "$rcon_secret" \
+        "$PRIVATE_CONFIGURATION_MARKER" > "$destination"
     chmod 0600 "$destination"
 }
 
@@ -498,6 +504,20 @@ verify_first_start() {
     process_user="$(ps -o user= -p "$main_pid" | tr -d '[:space:]')"
     [[ "$process_user" == "$prepared_service_user" ]] ||
         fail "The game-server process owner changed."
+
+    local invocation_id journal_output
+    invocation_id="$(systemctl show "$SERVICE_NAME" --property=InvocationID --value)"
+    [[ "$invocation_id" =~ ^[0-9a-f]{32}$ ]] ||
+        fail "The game-server invocation identity is unavailable."
+    journal_output="$(journalctl \
+        --quiet \
+        --no-pager \
+        --output=cat \
+        "_SYSTEMD_INVOCATION_ID=$invocation_id")"
+    grep -Fq "$PUBLIC_CONFIGURATION_MARKER" <<< "$journal_output" ||
+        fail "The public runtime configuration was not loaded."
+    grep -Fq "$PRIVATE_CONFIGURATION_MARKER" <<< "$journal_output" ||
+        fail "The private runtime configuration was not loaded."
 }
 
 cleanup_staging() {
@@ -537,6 +557,7 @@ require_apply_environment() {
         getent \
         grep \
         id \
+        journalctl \
         mktemp \
         mv \
         pgrep \
@@ -611,7 +632,7 @@ print_plan() {
     log "PLAN: accept one bounded Base64-safe RCON secret through stdin only and never print it"
     log "PLAN: atomically install root-controlled public/private configuration and runtime-enabled"
     log "PLAN: start but do not enable $SERVICE_NAME, with rollback on any first-start failure"
-    log "PLAN: verify stable active state, process ownership, zero restarts, and one UDP listener"
+    log "PLAN: verify both config-load markers, stable active state, process ownership, zero restarts, and one UDP listener"
     log "PLAN_ONLY: no stdin was read and no host changes were made; add --apply --rcon-secret-stdin to execute this plan."
 }
 
