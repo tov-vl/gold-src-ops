@@ -70,6 +70,18 @@ if grep -Fq '203.0.113.10' "$plan_output"; then
     fail "Game-host plan exposed the control-plane address."
 fi
 
+stdin_plan_output="$smoke_directory/stdin-plan.out"
+bash -s -- \
+    --control-plane-ipv4-cidr 203.0.113.10/32 \
+    --operator-user gsoadmin \
+    --service-user goldsrc \
+    --ssh-port 22 \
+    --game-port 27015 \
+    < "$bootstrap_script" \
+    > "$stdin_plan_output"
+grep -Fq 'PLAN_ONLY: no host changes were made' "$stdin_plan_output" ||
+    fail "Game-host bootstrap did not execute its plan when read from stdin."
+
 expect_failure missing-cidr \
     bash "$bootstrap_script"
 
