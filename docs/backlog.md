@@ -491,9 +491,12 @@ tracks state without duplicating that operational sequence.
    hardening, and exact-source UFW are complete. The provider-independent
    foundation under `ops/gameserver` has been applied, followed by a controlled
    reboot and successful post-reboot host audit. Initial management reachability
-   survived the reboot; trial-period address stability, DDoS source-address
-   preservation, runtime installation, external baseline polling, guarded RCON,
-   restart/restore, and no-bot evidence remain pending.
+   survived the reboot. The plan-first pinned runtime installer, artifact and
+   signing-key verification, disabled-by-default systemd contract, and
+   deterministic smoke are implemented, but target apply has not occurred.
+   Trial-period address stability, DDoS source-address preservation, runtime
+   installation, external baseline polling, guarded RCON, restart/restore, and
+   no-bot evidence remain pending.
 4. Completed: deploy the single-node reference control plane with PostgreSQL,
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent
