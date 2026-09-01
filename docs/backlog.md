@@ -442,8 +442,13 @@ schedule, scoped retention policy, and freshness probe are active on the target.
 non-destructive preview retained the existing recoverable snapshot, and the first
 completed cycle produced a fresh owner-only marker. The previous rc.3 source,
 environment, and image digest remain available for rollback. Game-server
-provisioning, the observability stack, recovery exercise, and soak evidence
-remain incomplete.
+host access is now provisioned with a dedicated key-only operator, disabled
+root and interactive SSH authentication, exact-source UFW rules, synchronized
+time, and a clean Ubuntu baseline. A separate plan-first game-host bootstrap
+now codifies the minimal 32-bit runtime dependencies, locked service identity,
+owner-scoped directories, and non-public network boundary with deterministic CI
+coverage. Applying that runtime foundation, installing ReHLDS, the observability
+stack, recovery exercise, and soak evidence remain incomplete.
 
 Why this work is selected:
 
@@ -480,9 +485,13 @@ tracks state without duplicating that operational sequence.
    host. The local target-runtime compatibility gate is complete. The
    conditional provider decision and bounded trial exception are recorded in
    `docs/v2.3-gameserver-provider-decision.md`; non-deferred pre-purchase checks,
-   checkout approval, provisioning, public-address and source-address trial
-   gates, external baseline polling, guarded RCON, restart/restore, and no-bot
-   evidence remain pending.
+   checkout approval, initial provisioning, key-only operator access, SSH
+   hardening, exact-source UFW, and the clean host baseline are complete. The
+   provider-independent game-host foundation is implemented under
+   `ops/gameserver` but has not yet been applied to the target. Runtime
+   installation, public-address and source-address trial gates, external
+   baseline polling, guarded RCON, restart/restore, and no-bot evidence remain
+   pending.
 4. Completed: deploy the single-node reference control plane with PostgreSQL,
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent
