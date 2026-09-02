@@ -595,13 +595,14 @@ tracks state without duplicating that operational sequence.
    pending work, backup/restore, and image rollback now have sanitized target
    evidence. The 24-hour deployment soak is running from
    `2026-09-02T16:23:57Z` through `2026-09-03T16:23:57Z` after matching
-   fail-closed baselines passed on both hosts. A read-only control-plane
-   evaluator, deterministic pass/fail smoke, explicit SLI measurement contract,
-   and draft `docs/v2.3-readiness.md` are implemented. Complete the target
-   evaluation and separate game-host continuity and trial-period
-   address-stability checks, then record terminal SLI observations and propose
-   SLO values. The shorter soak is operational evidence for this reference
-   deployment, not proof of long-term reliability or an achieved SLO.
+   fail-closed baselines passed on both hosts. Read-only control-plane and
+   game-host continuity evaluators, deterministic pass/fail smoke coverage for
+   both, the explicit SLI measurement contract, and draft
+   `docs/v2.3-readiness.md` are implemented. Complete both target evaluations
+   and the separate trial-period address-stability check, then record terminal
+   SLI observations and propose SLO values. The shorter soak is operational
+   evidence for this reference deployment, not proof of long-term reliability
+   or an achieved SLO.
 
 Definition of done:
 

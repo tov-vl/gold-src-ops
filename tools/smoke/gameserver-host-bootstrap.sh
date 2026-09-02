@@ -108,6 +108,7 @@ cmp -s "$sshd_runtime_expected" "$sshd_runtime_call" ||
 
 apt_upgrade_call="$smoke_directory/apt-upgrade-call.out"
 apt_upgrade_expected="$smoke_directory/apt-upgrade-expected.out"
+apt_install_call="$smoke_directory/apt-install-call.out"
 (
     # shellcheck source=/dev/null
     source "$bootstrap_script"
@@ -115,6 +116,8 @@ apt_upgrade_expected="$smoke_directory/apt-upgrade-expected.out"
     apt-get() {
         if [[ "${1:-}" == 'upgrade' ]]; then
             printf '%s\n' "$@" > "$apt_upgrade_call"
+        elif [[ "${1:-}" == 'install' ]]; then
+            printf '%s\n' "$@" > "$apt_install_call"
         fi
     }
     install_runtime_dependencies
@@ -126,6 +129,8 @@ upgrade
 EOF
 cmp -s "$apt_upgrade_expected" "$apt_upgrade_call" ||
     fail "Game-host bootstrap did not allow dependency packages during the security upgrade."
+grep -Fxq 'jq' "$apt_install_call" ||
+    fail "Game-host bootstrap did not install the JSON parser required by readiness checks."
 
 marker_removal_call="$smoke_directory/marker-removal-call.out"
 marker_removal_expected="$smoke_directory/marker-removal-expected.out"

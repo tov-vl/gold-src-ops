@@ -272,6 +272,7 @@ install_runtime_dependencies() {
         curl \
         file \
         gnupg \
+        jq \
         lib32gcc-s1 \
         lib32stdc++6 \
         lib32z1 \

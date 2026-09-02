@@ -136,6 +136,17 @@ tests the evaluator but cannot close a live release soak. The read-only target
 procedure and its measurement limits are documented in
 `ops/production/README.md` and `docs/v2.3-readiness.md`.
 
+Run the game-host continuity evidence smoke on Linux or in the CI runner with:
+
+```bash
+bash ./tools/smoke/gameserver-soak-readiness.sh
+```
+
+It covers completed and diagnostic in-progress intervals plus focused service,
+process, restart, listener, ownership, evidence-location, and sanitization
+failures. Snapshot output is always non-target evidence; the live command is
+documented in `ops/gameserver/README.md`.
+
 ## Production OIDC Authorization Matrix
 
 Run the public authorization matrix only with short-lived tokens issued for the
