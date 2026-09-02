@@ -345,6 +345,48 @@ The complete data path, pinned components, private Grafana access, rollout
 checks, and failure diagnostics are documented in
 [`docs/observability.md`](../../docs/observability.md).
 
+## Soak Readiness
+
+`soak-readiness.ps1` compares the owner-only control-plane baseline with a
+read-only terminal observation. It checks candidate and container continuity,
+current HTTPS health through host-local Caddy, scheduled-backup freshness,
+persisted polling and bot outcomes, incident and durable-work state, private
+telemetry coverage, and
+terminal host capacity. It neither deploys nor restarts a service, applies a
+migration, changes configuration, nor performs RCON.
+
+Run the final check as root from the exact reviewed source revision after the
+baseline completion time:
+
+```powershell
+sudo pwsh -NoProfile -File ./ops/production/soak-readiness.ps1 `
+  -BaselineFile /var/lib/goldsrcops/evidence/v2.3-soak-baseline.json `
+  -EnvironmentFile /etc/goldsrcops/deployment.env `
+  -ExpectedPollIntervalSeconds 60 `
+  -EvidenceFile /var/lib/goldsrcops/evidence/v2.3-soak-readiness.json
+```
+
+The baseline and output must remain outside the repository and be inaccessible
+to group and other users. Evidence is atomically published with mode `0600` on
+Linux and excludes endpoint, credential, token, command-payload, and backup
+snapshot values. A successful final run reports `Passed` with
+`TargetEvidence: true`.
+
+During the active interval, add `-AllowIncomplete` only for a diagnostic
+observation. Such a run reports `InProgress`; it cannot satisfy the release
+gate. Any deployment, migration, configuration change, or process restart
+invalidates the interval even if the evaluator's other checks pass. Compare the
+game-server service identity, start time, restart count, active state, and
+endpoint separately with its owner-only baseline.
+
+The evaluator records only sampled HTTPS health through host-local Caddy.
+Production Prometheus checks the Collector's application-export target, not
+continuous public API uptime.
+The complete indicator contract, thresholds, and claim limits are in
+[`docs/v2.3-readiness.md`](../../docs/v2.3-readiness.md). Deterministic CI
+coverage is provided by `tools/smoke/soak-readiness.ps1` and is always marked as
+non-target evidence.
+
 ## Target Status
 
 1. Completed: the first encrypted PostgreSQL backup, repeated full data check,
@@ -371,6 +413,11 @@ checks, and failure diagnostics are documented in
    publication, zero restart counts, and sanitized root-only evidence all
    passed on 2026-09-02. The final Grafana-only recreation disabled analytics
    and both update-check paths without interrupting the other runtime services.
+6. In progress: matching owner-only soak baselines passed on both hosts. The
+   accepted 24-hour interval runs from `2026-09-02T16:23:57Z` through
+   `2026-09-03T16:23:57Z`. The read-only terminal evaluator and deterministic
+   decision-logic smoke are implemented; target completion evidence and the
+   separate game-host continuity check remain pending.
 
 The complete sequence and definition of done remain in
 [`docs/v2.3-production-deployment.md`](../../docs/v2.3-production-deployment.md).

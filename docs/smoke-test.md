@@ -122,6 +122,20 @@ evidence; live control-plane VPS verification uses
 `ops/production/host-preflight.ps1` as documented in
 `ops/production/README.md`.
 
+Run the deterministic soak-readiness smoke independently with:
+
+```powershell
+pwsh -NoProfile -File .\tools\smoke\soak-readiness.ps1
+```
+
+It verifies completed and explicitly diagnostic in-progress evaluations,
+candidate and container continuity, polling outcomes, telemetry coverage,
+repository evidence rejection, and owner-only evidence mode on Linux. Every
+fixture result is marked `Source: Snapshot` and `TargetEvidence: false`; it
+tests the evaluator but cannot close a live release soak. The read-only target
+procedure and its measurement limits are documented in
+`ops/production/README.md` and `docs/v2.3-readiness.md`.
+
 ## Production OIDC Authorization Matrix
 
 Run the public authorization matrix only with short-lived tokens issued for the

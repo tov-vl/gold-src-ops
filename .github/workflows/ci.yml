@@ -86,6 +86,9 @@ jobs:
       - name: Validate host-readiness preflight
         run: pwsh -NoProfile -File ./tools/smoke/host-preflight.ps1
 
+      - name: Validate soak-readiness evidence contract
+        run: pwsh -NoProfile -File ./tools/smoke/soak-readiness.ps1
+
       - name: Validate PostgreSQL backup schedule
         run: |
           pwsh -NoProfile -File ./tools/smoke/postgres-backup-schedule.ps1
