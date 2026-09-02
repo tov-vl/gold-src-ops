@@ -142,7 +142,8 @@ controlled stop, atomic configuration restore, post-restart RCON allowlist
 check, and 31 healthy scheduled A2S snapshots across 30 minutes and 2 seconds
 have also passed with zero bots and no process replacement. The standalone
 24-hour no-bot observation was removed from Slice 2 by an accepted scope
-decision; zero-bot evidence remains part of the later 72-hour deployment soak.
+decision; zero-bot evidence remains part of the later integrated 24-hour
+deployment soak.
 Slice 3 includes the provider-independent Compose contract, same-image migration
 action, and encrypted off-host PostgreSQL backup and isolated restore rehearsal.
 The control-plane VPS has completed hardening, backup and recovery gates,
@@ -155,8 +156,11 @@ sequence is recorded in `docs/v2.3-production-deployment.md`. The controlled
 external failure/recovery exercise has also passed: one thresholded incident
 opened and closed, pending alert work survived an API restart, two events were
 delivered with distinct idempotency keys, and an rc.4 rollback followed by rc.5
-roll-forward preserved durable state. Trial-period address stability and the
-72-hour release soak remain outstanding.
+roll-forward preserved durable state. Trial-period address stability remains
+outstanding. The accepted 24-hour release soak is active from
+`2026-09-02T16:23:57Z` through `2026-09-03T16:23:57Z`; it is short operational
+evidence for the reference deployment rather than a long-term reliability or
+achieved-SLO claim.
 
 ## MVP Goal
 
