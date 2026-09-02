@@ -481,9 +481,12 @@ Slice 2 by an accepted scope decision; bot count remains part of the later
 target from `v2.3.0-rc.5`. Collector, Prometheus, and Grafana health, live
 application and ASP.NET Core metrics, Grafana provisioning, internal-only
 networking, absent host port publication, zero restart counts, and root-only
-evidence all passed. Trial-period address stability, the broader recovery
-exercise, and soak evidence remain incomplete. Raw target evidence remains
-outside Git.
+evidence all passed. The broader recovery exercise has now also passed: one
+incident opened after the configured threshold and closed after recovery, its
+two alert events were delivered once each through a temporary restricted HTTPS
+receiver, pending work survived an API restart, and rc.4 rollback plus rc.5
+roll-forward preserved durable counts. Trial-period address stability and soak
+evidence remain incomplete. Raw target evidence remains outside Git.
 
 Why this work is selected:
 
@@ -572,7 +575,7 @@ tracks state without duplicating that operational sequence.
    API. The dedicated Reader-only token, missing-role, expired-token,
    wrong-issuer, and wrong-audience cases all passed through public HTTPS. The
    previous rc.4 source, environment file, and digest remain the rollback
-   baseline; the broader recovery exercise is tracked separately below.
+   baseline and passed the later live rollback exercise.
 5. Completed: the stable OTLP exporter, private digest-pinned OpenTelemetry
    Collector, Prometheus, Grafana, provisioned dashboard, and container-level
    health and metric-path coverage are implemented and deployed. Direct
@@ -585,8 +588,10 @@ tracks state without duplicating that operational sequence.
    services.
 6. In progress: the controlled endpoint is registered, repeated scheduled A2S
    polling is verified, and one guarded production `say` has passed with durable
-   audit evidence. Complete controlled failure/recovery, alert delivery, process
-   restart, backup/restore, rollback, and soak evidence.
+   audit evidence. Controlled failure/recovery, alert delivery, restart with
+   pending work, backup/restore, and image rollback now have sanitized target
+   evidence. Complete trial-period address stability and the 72-hour deployment
+   soak, then record initial SLI and SLO values.
 
 Definition of done:
 

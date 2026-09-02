@@ -29,8 +29,12 @@ restore, post-restart RCON verification, and a 30-minute no-bot A2S check. The
 private OTLP Collector, Prometheus, and Grafana services are now deployed on the
 target. Their private network, health, live metric path, provisioned Grafana
 assets, zero restart counts, and owner-only evidence have passed. Grafana
-analytics and both update-check paths are disabled. The broader recovery
-exercise and the 72-hour release soak remain pending.
+analytics and both update-check paths are disabled. The controlled recovery
+exercise has passed with one incident lifecycle, durable pending work across an
+API restart, two successful idempotent-keyed webhook requests, and a verified
+rc.4 rollback plus rc.5 roll-forward. The temporary restricted receiver was
+removed afterward and alert delivery returned to its disabled baseline. The
+72-hour release soak remains pending.
 
 ## Topology
 
