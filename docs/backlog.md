@@ -469,9 +469,16 @@ over 120 seconds succeeded with zero failures and zero bots. One guarded
 production `say` completed with a persisted Operator identity, `Succeeded`
 terminal state, complete timestamps, and no failure reason. PostgreSQL and
 ReHLDS journal checks confirmed the single dispatch, and the service remained
-active with zero restarts. Restart/restore, the 24-hour no-bot observation, the
-observability stack, the recovery exercise, and soak evidence remain incomplete.
-Raw target evidence remains outside Git.
+active with zero restarts. On 2026-09-02, controlled stop, deliberate
+configuration withdrawal, atomic restore, post-restart `rcon_users`, and a
+30-minute scheduled A2S check also passed. One probe three seconds after start
+recorded the startup transition; from the first healthy result, 31 snapshots
+spanned 1,802 seconds with zero failures and zero bots while the invocation and
+process remained unchanged. The standalone 24-hour no-bot gate was removed from
+Slice 2 by an accepted scope decision; bot count remains part of the later
+72-hour deployment soak. Trial-period address stability, the observability
+stack, the broader recovery exercise, and soak evidence remain incomplete. Raw
+target evidence remains outside Git.
 
 Why this work is selected:
 
@@ -525,8 +532,12 @@ tracks state without duplicating that operational sequence.
    have passed. The reviewed endpoint is registered in production, and three
    scheduled A2S snapshots over 120 seconds passed with zero failures and zero
    bots. One guarded production `say` passed with its Operator audit identity
-   and terminal state persisted. Trial-period address stability,
-   restart/restore, and the 24-hour no-bot observation remain pending.
+   and terminal state persisted. Controlled stop, configuration restore,
+   post-restart allowlist verification, and 31 healthy snapshots across 30
+   minutes and 2 seconds have also passed with zero bots and a stable process.
+   Trial-period address stability remains pending. The standalone 24-hour no-bot
+   observation is intentionally omitted; the later 72-hour deployment soak
+   retains the longer stability and bot-count evidence.
 4. Completed: deploy the single-node reference control plane with PostgreSQL,
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent

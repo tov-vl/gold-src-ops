@@ -24,8 +24,10 @@ successful preflight and already-up-to-date migration-bundle run. A guarded
 daily backup schedule, scoped retention policy, and freshness probe are active
 on the target; the mandatory preview and first completed cycle passed.
 Core game-server integration has passed through the public API, including
-registered polling and one audited guarded RCON `say`. Controlled game-server
-restart/restore and the broader recovery exercise remain pending.
+registered polling, one audited guarded RCON `say`, controlled configuration
+restore, post-restart RCON verification, and a 30-minute no-bot A2S check. The
+standalone 24-hour game-server observation is intentionally omitted; the broader
+recovery exercise and 72-hour release soak remain pending.
 
 ## Topology
 

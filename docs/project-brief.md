@@ -136,16 +136,19 @@ scheduled A2S snapshots over 120 seconds succeeded with zero failures and zero
 bots. One guarded production `say` has now completed with a persisted Operator
 identity, `Succeeded` terminal state, complete execution timestamps, and no
 failure reason; PostgreSQL and ReHLDS journal checks independently confirmed the
-single dispatch while the service remained active with zero restarts.
-Restart/restore and the 24-hour no-bot observation remain pending. Slice 3
-includes the provider-independent Compose contract, same-image migration
-action, and encrypted off-host PostgreSQL backup and isolated restore
-rehearsal. The
-control-plane VPS has completed hardening,
-backup and recovery gates, migrations, public TLS, external OIDC policy checks,
-and the digest-pinned `v2.3.0-rc.4` runtime rollout. The recurring encrypted
-backup schedule and freshness evidence are active. The full sequence is
-recorded in `docs/v2.3-production-deployment.md`.
+single dispatch while the service remained active with zero restarts. A
+controlled stop, atomic configuration restore, post-restart RCON allowlist
+check, and 31 healthy scheduled A2S snapshots across 30 minutes and 2 seconds
+have also passed with zero bots and no process replacement. The standalone
+24-hour no-bot observation was removed from Slice 2 by an accepted scope
+decision; zero-bot evidence remains part of the later 72-hour deployment soak.
+Slice 3 includes the provider-independent Compose contract, same-image migration
+action, and encrypted off-host PostgreSQL backup and isolated restore rehearsal.
+The control-plane VPS has completed hardening, backup and recovery gates,
+migrations, public TLS, external OIDC policy checks, and the digest-pinned
+`v2.3.0-rc.4` runtime rollout. The recurring encrypted backup schedule and
+freshness evidence are active. The full sequence is recorded in
+`docs/v2.3-production-deployment.md`.
 
 ## MVP Goal
 
