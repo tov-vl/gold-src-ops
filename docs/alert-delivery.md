@@ -189,3 +189,12 @@ dotnet test .\tests\GoldSrcOps.UnitTests\GoldSrcOps.UnitTests.csproj `
 The focused replay tests verify low-cardinality outcome mapping, Prometheus
 export, HTTP-validation accounting, safe structured fields, cancellation, and
 fault redaction. The full quality gate remains authoritative before release.
+
+The first production recovery exercise completed on 2026-09-02. A pending
+unavailable event survived an API restart while dispatch remained disabled. A
+temporary Caddy route restricted to the API container's private address then
+accepted the unavailable and recovered events in one attempt each, with two
+valid and distinct `Idempotency-Key` values. No dead letter was created, so no
+replay was required. This proves the deployed HTTPS delivery path for the
+exercise; it does not establish a durable off-host alert receiver. The route was
+removed and `AlertDelivery__Enabled=false` restored after verification.

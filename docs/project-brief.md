@@ -151,7 +151,12 @@ migrations, public TLS, external OIDC policy checks, and the digest-pinned
 freshness evidence are active. The private observability target rollout has
 also passed health, metric-path, provisioning, network-isolation, and host
 readiness checks with root-only evidence retained outside Git. The full
-sequence is recorded in `docs/v2.3-production-deployment.md`.
+sequence is recorded in `docs/v2.3-production-deployment.md`. The controlled
+external failure/recovery exercise has also passed: one thresholded incident
+opened and closed, pending alert work survived an API restart, two events were
+delivered with distinct idempotency keys, and an rc.4 rollback followed by rc.5
+roll-forward preserved durable state. Trial-period address stability and the
+72-hour release soak remain outstanding.
 
 ## MVP Goal
 
