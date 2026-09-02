@@ -270,11 +270,28 @@ Dead-letter replay uses only the bounded `accepted`, `idempotent`, `conflict`,
 and `invalid` result labels; request IDs, event IDs, subjects, and reasons never
 become metric dimensions.
 
-The OpenTelemetry packages are aligned on `1.18.0`; the direct ASP.NET Core
-Prometheus exporter remains `1.18.0-beta.1` because no stable release exists.
-v1.1 retains the authenticated, integration-tested `/metrics` contract instead
-of adding an OpenTelemetry Collector deployment. The accepted prerelease risk
-and the later OTLP migration trigger are recorded in Architecture Decision 12.
+The OpenTelemetry SDK, instrumentations, and stable OTLP exporter are aligned on
+`1.18.0`; the direct ASP.NET Core Prometheus exporter remains
+`1.18.0-beta.1` because no stable release exists. OTLP metrics export is
+disabled by default and can be enabled with validated `Telemetry:Otlp`
+settings for endpoint, protocol, export interval, and timeout. The
+authenticated `/metrics` contract remains available during the v2 transition.
+The accepted prerelease risk and migration path are recorded in Architecture
+Decisions 12 and 17.
+
+For a private gRPC Collector endpoint, enable the exporter with:
+
+```text
+Telemetry__Otlp__Enabled=true
+Telemetry__Otlp__Endpoint=http://otel-collector:4317
+Telemetry__Otlp__Protocol=grpc
+Telemetry__Otlp__ExportIntervalMilliseconds=60000
+Telemetry__Otlp__ExportTimeoutMilliseconds=30000
+```
+
+`http/protobuf` is also supported. The endpoint must be an absolute HTTP or
+HTTPS URL without user information, query, or fragment. Export timeout cannot
+exceed the export interval.
 
 ## Local Smoke Flow
 

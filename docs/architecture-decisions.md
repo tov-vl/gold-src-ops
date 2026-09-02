@@ -710,9 +710,11 @@ Alternatives considered:
 
 Implementation status:
 
-Accepted for v2.3 and not yet implemented. The existing source continues to use
-the direct exporter until the OTLP package, configuration, Collector stack,
-compatibility tests, and target-environment evidence are integrated.
+Partially implemented for v2.3. The API includes the stable OTLP package,
+validated opt-in configuration, direct-exporter compatibility, and coverage for
+an unavailable OTLP endpoint without changing readiness. The private Collector,
+Prometheus and Grafana stack, container-path tests, and target-environment
+evidence remain pending.
 
 References:
 

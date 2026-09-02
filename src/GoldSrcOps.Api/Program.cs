@@ -39,17 +39,19 @@ builder.Services.AddScoped<MonitoringReadService>();
 builder.Services.AddScoped<ServerCredentialsService>();
 builder.Services.AddScoped<CommandExecutionService>();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
+var otlpMetricsOptions = OtlpMetricsOptions.FromConfiguration(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<GoldSrcOpsDbContext>(
         name: "database",
         tags: ["ready"]);
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(static resource => resource.AddService("GoldSrcOps"))
-    .WithMetrics(static metrics => metrics
+    .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
         .AddRuntimeInstrumentation()
         .AddMeter(GoldSrcOpsMetrics.MeterName)
-        .AddPrometheusExporter());
+        .AddPrometheusExporter()
+        .AddConfiguredOtlpExporter(otlpMetricsOptions));
 
 var app = builder.Build();
 

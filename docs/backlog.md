@@ -568,8 +568,10 @@ tracks state without duplicating that operational sequence.
    wrong-issuer, and wrong-audience cases all passed through public HTTPS. The
    previous rc.3 source, environment file, and digest remain the rollback
    baseline; the broader recovery exercise is tracked separately below.
-5. Add configurable OTLP metric export, an OpenTelemetry Collector, Prometheus,
-   Grafana, and health coverage for the private telemetry pipeline.
+5. In progress: the stable OTLP exporter now has validated opt-in configuration,
+   retains direct `/metrics`, and cannot affect API readiness when its endpoint
+   is unavailable. Add the private OpenTelemetry Collector, Prometheus, Grafana,
+   dashboard, and container-level health and metric-path coverage.
 6. In progress: the controlled endpoint is registered, repeated scheduled A2S
    polling is verified, and one guarded production `say` has passed with durable
    audit evidence. Complete controlled failure/recovery, alert delivery, process
@@ -792,8 +794,10 @@ For v2 alert delivery:
 
 For the active v2.3 deployment milestone:
 
-- Configuration and integration coverage for optional OTLP export without
-  changing metric names, bounded labels, or API readiness semantics.
+- In progress: configuration and fail-open API integration coverage for
+  optional OTLP export are implemented without changing direct metric names,
+  bounded labels, or API readiness semantics. Collector-bound metric semantics
+  are verified by the container-level coverage below.
 - Container-level coverage for the Collector configuration and private
   application-to-Collector metric path.
 - Deterministic host-preflight coverage for Docker boot enablement, time,
