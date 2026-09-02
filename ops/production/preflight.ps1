@@ -749,10 +749,13 @@ Assert-Condition `
         $null -eq (Get-PropertyValue -InputObject $grafana.environment -Name "GF_SECURITY_ADMIN_PASSWORD")) `
     -Message "Grafana must receive only its file-backed admin password."
 Assert-Condition `
-    -Condition ([string]$grafana.environment.GF_AUTH_ANONYMOUS_ENABLED -eq "false" -and
+    -Condition ([string]$grafana.environment.GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES -eq "false" -and
+        [string]$grafana.environment.GF_ANALYTICS_CHECK_FOR_UPDATES -eq "false" -and
+        [string]$grafana.environment.GF_ANALYTICS_REPORTING_ENABLED -eq "false" -and
+        [string]$grafana.environment.GF_AUTH_ANONYMOUS_ENABLED -eq "false" -and
         [string]$grafana.environment.GF_USERS_ALLOW_SIGN_UP -eq "false" -and
         [string]$grafana.environment.GF_PLUGINS_PREINSTALL_DISABLED -eq "true") `
-    -Message "Grafana anonymous access, self-registration, and startup plugin downloads must remain disabled."
+    -Message "Grafana analytics, update checks, anonymous access, self-registration, and startup plugin downloads must remain disabled."
 
 $dashboardPath = Join-Path $PSScriptRoot "observability/grafana/dashboards/goldsrcops-operations.json"
 $dashboard = Get-Content -LiteralPath $dashboardPath -Raw | ConvertFrom-Json -Depth 100

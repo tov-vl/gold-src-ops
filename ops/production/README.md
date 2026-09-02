@@ -19,17 +19,18 @@ Operator logins are configured and verified through the public API. The first
 encrypted PostgreSQL backup, full repository check, isolated restore rehearsal,
 all eight migrations, idempotent migration rerun, public HTTPS health, complete
 eight-scenario authorization matrix, and live runtime host audit have passed.
-The signed `v2.3.0-rc.4` image is deployed by its verified digest after a
+The signed `v2.3.0-rc.5` image is deployed by its verified digest after a
 successful preflight and already-up-to-date migration-bundle run. A guarded
 daily backup schedule, scoped retention policy, and freshness probe are active
 on the target; the mandatory preview and first completed cycle passed.
 Core game-server integration has passed through the public API, including
 registered polling, one audited guarded RCON `say`, controlled configuration
 restore, post-restart RCON verification, and a 30-minute no-bot A2S check. The
-repository now also defines the private OTLP Collector, Prometheus, and Grafana
-runtime contract and verifies it through container smoke. Target observability
-rollout, the broader recovery exercise, and the 72-hour release soak remain
-pending.
+private OTLP Collector, Prometheus, and Grafana services are now deployed on the
+target. Their private network, health, live metric path, provisioned Grafana
+assets, zero restart counts, and owner-only evidence have passed. Grafana
+analytics and both update-check paths are disabled. The broader recovery
+exercise and the 72-hour release soak remain pending.
 
 ## Topology
 
@@ -357,9 +358,12 @@ checks, and failure diagnostics are documented in
 4. Completed: the runtime host audit retained sanitized listener,
    restart-policy, bounded-log, and external-dependency evidence outside the
    repository. All runtime containers had zero restarts at capture time.
-5. Pending: deploy the Collector, Prometheus, and Grafana services on the target,
-   verify live metric queries and the provisioned dashboard, and retain
-   sanitized private-listener and container-health evidence outside Git.
+5. Completed: the Collector, Prometheus, and Grafana services are deployed on
+   the target. Live application and ASP.NET Core metric queries, the provisioned
+   datasource and dashboard, internal-only telemetry network, absent host port
+   publication, zero restart counts, and sanitized root-only evidence all
+   passed on 2026-09-02. The final Grafana-only recreation disabled analytics
+   and both update-check paths without interrupting the other runtime services.
 
 The complete sequence and definition of done remain in
 [`docs/v2.3-production-deployment.md`](../../docs/v2.3-production-deployment.md).

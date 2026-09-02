@@ -418,11 +418,11 @@ two-phase Ubuntu bootstrap now prepares a dedicated key-only operator before
 disabling provider-created SSH access; the audit verifies those effective SSH
 settings and rejects public Docker API listeners. Compose validation enforces
 runtime restart policies and bounded logs. Snapshot results cannot count as
-live host evidence. Signed tag `v2.3.0-rc.4` now identifies the current
-immutable candidate from revision `a8c10be`; workflow
-[#161](https://github.com/tov-vl/gold-src-ops/actions/runs/33432947830)
+live host evidence. Signed tag `v2.3.0-rc.5` now identifies the current
+immutable candidate from revision `58a74da`; workflow
+[#204](https://github.com/tov-vl/gold-src-ops/actions/runs/33631016313)
 published and verified digest
-`sha256:73792b7a1ffa990a41346ddb4074e804549512655a1e8797caf2cead86b82abb`.
+`sha256:f146c61e5eba942fc40d27792088ec6666fb2605959429093930c30a43f7d639`.
 A private
 Backblaze B2 repository in EU Central is initialized, its bucket-scoped
 credential and restic recovery key are separated from the control-plane VPS,
@@ -436,13 +436,14 @@ controlled reboot, and live baseline host audit. Public DNS for
 Caddy have also passed. The external Auth0 issuer, API audience, namespaced role
 claim, exact Reader/Operator roles, and dedicated Operator login are configured;
 token issuance has been verified without storing credentials in Git. The
-`v2.3.0-rc.4` runtime is enabled behind Caddy: public liveness and readiness are
-healthy, the Operator identity passes the Reader and Operator policy surfaces,
-and all eight public Reader and negative-token scenarios pass. The live runtime
-host audit confirms only Caddy is publicly published. A guarded daily backup
-schedule, scoped retention policy, and freshness probe are active on the target. Its
-non-destructive preview retained the existing recoverable snapshot, and the first
-completed cycle produced a fresh owner-only marker. The previous rc.3 source,
+`v2.3.0-rc.5` runtime is enabled behind Caddy: public liveness and readiness are
+healthy. The complete Operator, Reader, and negative-token authorization matrix
+passed on `v2.3.0-rc.4`; the rc.5 rollout preserved those contracts. The live
+runtime host audit confirms only Caddy is publicly published. A guarded daily
+backup schedule, scoped retention policy, and freshness probe are active on the
+target. Its non-destructive preview retained the existing recoverable snapshot,
+and the first completed cycle produced a fresh owner-only marker. The previous
+rc.4 source,
 environment, and image digest remain available for rollback. Game-server host
 access is provisioned with a dedicated key-only operator, disabled root and
 interactive SSH authentication, exact-source UFW rules, and synchronized time.
@@ -476,10 +477,13 @@ recorded the startup transition; from the first healthy result, 31 snapshots
 spanned 1,802 seconds with zero failures and zero bots while the invocation and
 process remained unchanged. The standalone 24-hour no-bot gate was removed from
 Slice 2 by an accepted scope decision; bot count remains part of the later
-72-hour deployment soak. The private observability stack and its container
-verification are implemented in the repository; target deployment, trial-period
-address stability, the broader recovery exercise, and soak evidence remain
-incomplete. Raw target evidence remains outside Git.
+72-hour deployment soak. The private observability stack is now deployed on the
+target from `v2.3.0-rc.5`. Collector, Prometheus, and Grafana health, live
+application and ASP.NET Core metrics, Grafana provisioning, internal-only
+networking, absent host port publication, zero restart counts, and root-only
+evidence all passed. Trial-period address stability, the broader recovery
+exercise, and soak evidence remain incomplete. Raw target evidence remains
+outside Git.
 
 Why this work is selected:
 
@@ -506,11 +510,11 @@ tracks state without duplicating that operational sequence.
 2. Completed: publish an immutable application image from a verified stable or
    release-candidate revision and deploy it by registry digest with a documented
    rollback digest. A matching stable tag promotes the verified candidate digest
-   without rebuilding it. Signed tag `v2.3.0-rc.4` and workflow
-   [#161](https://github.com/tov-vl/gold-src-ops/actions/runs/33432947830)
+   without rebuilding it. Signed tag `v2.3.0-rc.5` and workflow
+   [#204](https://github.com/tov-vl/gold-src-ops/actions/runs/33631016313)
    published and verified
-   `sha256:73792b7a1ffa990a41346ddb4074e804549512655a1e8797caf2cead86b82abb`
-   from revision `a8c10be`.
+   `sha256:f146c61e5eba942fc40d27792088ec6666fb2605959429093930c30a43f7d639`
+   from revision `58a74da`.
 3. In progress: use `docs/v2.3-controlled-gameserver-baseline.md` to operate
    one controlled ReHLDS and ReGameDLL_CS server outside the control-plane
    host. The local target-runtime compatibility gate is complete. The
@@ -563,18 +567,22 @@ tracks state without duplicating that operational sequence.
    schedule, scoped retention policy, mandatory preview, and 36-hour freshness
    probe are active on the target. The preview retained the existing recoverable
    snapshot, the persistent timer is enabled, and its first completed cycle
-   produced a valid owner-only freshness marker. The rc.4 rollout passed
+   produced a valid owner-only freshness marker. The rc.5 rollout passed
    preflight and its already-up-to-date migration bundle before recreating the
    API. The dedicated Reader-only token, missing-role, expired-token,
    wrong-issuer, and wrong-audience cases all passed through public HTTPS. The
-   previous rc.3 source, environment file, and digest remain the rollback
+   previous rc.4 source, environment file, and digest remain the rollback
    baseline; the broader recovery exercise is tracked separately below.
-5. In progress: the stable OTLP exporter, private digest-pinned OpenTelemetry
+5. Completed: the stable OTLP exporter, private digest-pinned OpenTelemetry
    Collector, Prometheus, Grafana, provisioned dashboard, and container-level
-   health and metric-path coverage are implemented. Direct `/metrics` remains
-   available for compatibility but is not part of the production scrape path.
-   Deploy the stack on the target and retain private-network, health, query, and
-   dashboard evidence.
+   health and metric-path coverage are implemented and deployed. Direct
+   `/metrics` remains available for compatibility but is not part of the
+   production scrape path. On 2026-09-02, private-network and host-port checks,
+   service health, application and ASP.NET Core queries, Grafana datasource and
+   dashboard provisioning, zero restart counts, and root-only target evidence
+   all passed. Analytics reporting and both Grafana update-check paths are
+   disabled; the final Grafana-only recreation did not interrupt other runtime
+   services.
 6. In progress: the controlled endpoint is registered, repeated scheduled A2S
    polling is verified, and one guarded production `say` has passed with durable
    audit evidence. Complete controlled failure/recovery, alert delivery, process
@@ -828,10 +836,8 @@ The released v1 baseline includes:
 
 Remaining portfolio gaps, in priority order:
 
-- A continuously running reference deployment across a real external A2S/RCON
-  boundary.
-- Target deployment and operating evidence for production OTLP export through
-  the Collector, Prometheus, and Grafana stack.
+- Completed recovery and soak evidence for the continuously running reference
+  deployment across its real external A2S/RCON boundary.
 - A compact public read-only dashboard backed by a deliberately sanitized
   projection.
 - An authenticated Reader/Operator web workflow for servers, incidents,

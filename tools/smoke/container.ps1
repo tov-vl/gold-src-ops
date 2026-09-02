@@ -810,6 +810,8 @@ try {
         "--security-opt",
         "no-new-privileges",
         "--env",
+        "GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES=false",
+        "--env",
         "GF_ANALYTICS_CHECK_FOR_UPDATES=false",
         "--env",
         "GF_ANALYTICS_REPORTING_ENABLED=false",
