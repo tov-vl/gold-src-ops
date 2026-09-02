@@ -74,6 +74,7 @@ reliability release is summarized in
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Active v2.3 reference deployment plan | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
 | Active v2.3 release evidence | [v2.3 readiness](docs/v2.3-readiness.md) |
+| Initial SLI record and SLO proposal | [Service-level objectives](docs/service-level-objectives.md) |
 | Active v2.3 production Compose contract | [Reference production Compose](ops/production/README.md) |
 | Production metrics path and operations | [Observability](docs/observability.md) |
 | PostgreSQL off-host backup and restore | [PostgreSQL backup](docs/postgresql-backup.md) |
