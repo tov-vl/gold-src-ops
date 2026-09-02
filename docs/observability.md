@@ -2,10 +2,12 @@
 
 ## Status
 
-The repository-side v2.3 observability contract is implemented. The reference
-Compose topology, immutable image references, Collector and Prometheus
-configuration, Grafana provisioning, preflight assertions, and container smoke
-coverage are ready for target deployment. Live target evidence remains pending.
+The repository-side v2.3 observability contract and its first target rollout
+are complete. On 2026-09-02, signed candidate `v2.3.0-rc.5` was deployed by its
+verified image digest. The private Collector, Prometheus, and Grafana services
+passed production preflight, health, metric-path, provisioning, and host-network
+checks. Sanitized target evidence remains outside Git in the root-only
+`/var/lib/goldsrcops/evidence` directory.
 
 ## Data Path
 
@@ -56,9 +58,10 @@ unique generated password. On the Linux target, the file must be owned by UID
 `472`, use mode `0400`, and contain only the password. Do not place it in the
 environment file, shell history, logs, or deployment evidence.
 
-Anonymous access and self-registration are disabled. The reference deployment
-does not expose Grafana through Caddy. Open an SSH tunnel only for the operator
-session that needs it:
+Anonymous access, self-registration, analytics reporting, core update checks,
+plugin update checks, and startup plugin downloads are disabled. The reference
+deployment does not expose Grafana through Caddy. Open an SSH tunnel only for
+the operator session that needs it:
 
 ```powershell
 ssh -N -L 3000:<GOLDSRCOPS_GRAFANA_IP>:3000 <operator>@<control-plane-host>
@@ -118,6 +121,42 @@ provisioned datasource is healthy and that the Operations dashboard has recent
 API and GoldSrcOps application data. Finally, rerun host readiness and retain
 sanitized evidence that ports `3000`, `4317`, `8888`, `9090`, `9464`, and
 `13133` are not publicly listening.
+
+### First Target Result
+
+The first target rollout completed on 2026-09-02 from signed tag
+`v2.3.0-rc.5`, revision
+`58a74dafecb7eefe3b4f1e310347dbafb94d4b05`, and API image digest
+`sha256:f146c61e5eba942fc40d27792088ec6666fb2605959429093930c30a43f7d639`.
+Tag workflow
+[#204](https://github.com/tov-vl/gold-src-ops/actions/runs/33631016313)
+published and verified that image. The final Grafana outbound-update hardening
+is recorded in
+[pull request #62](https://github.com/tov-vl/gold-src-ops/pull/62) and was
+validated by workflow runs
+[#205](https://github.com/tov-vl/gold-src-ops/actions/runs/33635546123)
+and
+[#206](https://github.com/tov-vl/gold-src-ops/actions/runs/33635585889).
+
+The target checks established all of the following:
+
+- public liveness and PostgreSQL-backed readiness returned `200`;
+- `up{job="goldsrcops"}` was `1`, and both GoldSrcOps polling and ASP.NET Core
+  request metrics were present;
+- the provisioned datasource reported `OK`, and dashboard
+  `goldsrcops-operations` was provisioned with `editable=false`;
+- the telemetry network was internal and non-attachable, with no Collector,
+  Prometheus, or Grafana host port publication;
+- all six runtime services had zero restart counts after rollout;
+- only Grafana was recreated for the final configuration hardening, while the
+  API, Collector, Prometheus, Caddy, and PostgreSQL containers were preserved;
+- fresh Grafana startup logs contained no external plugin-update request or
+  outbound update error after both update-check settings were disabled.
+
+The owner-only target records are
+`/var/lib/goldsrcops/evidence/observability-rollout.json` and
+`/var/lib/goldsrcops/evidence/host-runtime-observability.json`. They contain no
+credentials, bearer tokens, private endpoint values, or operator addresses.
 
 ## Failure Semantics
 
