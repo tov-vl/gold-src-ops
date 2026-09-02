@@ -62,6 +62,9 @@ $imageTag = if ($buildImageLocally) { "goldsrcops:smoke-$runId" } else { $ImageR
 $networkName = "goldsrcops-smoke-$runId"
 $postgresContainer = "goldsrcops-smoke-postgres-$runId"
 $apiContainer = "goldsrcops-smoke-api-$runId"
+$collectorContainer = "goldsrcops-smoke-otel-collector-$runId"
+$prometheusContainer = "goldsrcops-smoke-prometheus-$runId"
+$grafanaContainer = "goldsrcops-smoke-grafana-$runId"
 $failFastContainer = "goldsrcops-smoke-failfast-$runId"
 $alertFailFastContainer = "goldsrcops-smoke-alert-failfast-$runId"
 $databaseName = "goldsrcops"
@@ -72,6 +75,7 @@ $alertWebhookUrl = "https://alerts.example.invalid/goldsrcops"
 $alertAuthorizationMarker = "Bearer goldsrcops-smoke-secret-$runId"
 $migrationSecretFile = Join-Path ([IO.Path]::GetTempPath()) "goldsrcops-smoke-$runId-database-connection"
 $postgresPasswordFile = Join-Path ([IO.Path]::GetTempPath()) "goldsrcops-smoke-$runId-postgres-password"
+$grafanaPasswordFile = Join-Path ([IO.Path]::GetTempPath()) "goldsrcops-smoke-$runId-grafana-password"
 $backupSmokeDirectory = Join-Path ([IO.Path]::GetTempPath()) "goldsrcops-smoke-$runId-backup"
 $resticRepositoryDirectory = Join-Path $backupSmokeDirectory "repository"
 $resticPasswordFile = Join-Path $backupSmokeDirectory "restic-password"
@@ -107,6 +111,46 @@ function Set-OwnerOnlyFilePermissions {
             $Path,
             [IO.UnixFileMode]::UserRead)
     }
+}
+
+function Set-ContainerReadableFilePermissions {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not $IsWindows) {
+        [IO.File]::SetUnixFileMode(
+            $Path,
+            [IO.UnixFileMode]::UserRead -bor
+            [IO.UnixFileMode]::GroupRead -bor
+            [IO.UnixFileMode]::OtherRead)
+    }
+}
+
+function Get-EnvironmentFileValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $prefix = "$Name="
+    $matches = @([IO.File]::ReadAllLines($Path) | Where-Object {
+            $_.StartsWith($prefix, [StringComparison]::Ordinal)
+        })
+    if ($matches.Count -ne 1) {
+        throw "Expected exactly one '$Name' setting in '$Path'."
+    }
+
+    $value = $matches[0].Substring($prefix.Length).Trim()
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        throw "Setting '$Name' in '$Path' is empty."
+    }
+
+    return $value
 }
 
 function Invoke-External {
@@ -186,16 +230,19 @@ function Get-PublishedPort {
         [int]$ContainerPort
     )
 
-    $mapping = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
-        "port",
-        $ContainerName,
-        "$ContainerPort/tcp")
+    $deadline = [DateTimeOffset]::UtcNow.AddSeconds(10)
+    while ([DateTimeOffset]::UtcNow -lt $deadline) {
+        $mapping = ((@(& docker port $ContainerName "$ContainerPort/tcp" 2>$null) |
+                    ForEach-Object { [string]$_ }) -join [Environment]::NewLine).Trim()
+        if ($LASTEXITCODE -eq 0 -and
+            $mapping -match '\A127\.0\.0\.1:(?<port>[0-9]+)\s*\z') {
+            return [int]$Matches["port"]
+        }
 
-    if ($mapping -notmatch ":(?<port>[0-9]+)\s*$") {
-        throw "Docker did not publish container port $ContainerPort for '$ContainerName'."
+        Start-Sleep -Milliseconds 200
     }
 
-    return [int]$Matches["port"]
+    throw "Docker did not publish container port $ContainerPort for '$ContainerName'."
 }
 
 function Wait-HttpHealth {
@@ -240,6 +287,126 @@ function Wait-HttpHealth {
     }
 
     throw "Health endpoint '$Uri' did not become healthy within $TimeoutSeconds seconds. Last error: $lastError"
+}
+
+function Wait-HttpStatus {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ContainerName,
+
+        [Parameter(Mandatory = $true)]
+        [Uri]$Uri,
+
+        [Parameter(Mandatory = $true)]
+        [int]$TimeoutSeconds
+    )
+
+    $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
+    $lastError = "No response received."
+
+    while ([DateTimeOffset]::UtcNow -lt $deadline) {
+        $running = (& docker inspect --format "{{.State.Running}}" $ContainerName 2>$null) -join ""
+        if ($LASTEXITCODE -ne 0 -or $running -ne "true") {
+            throw "Container '$ContainerName' stopped before $($Uri.AbsolutePath) became available."
+        }
+
+        try {
+            $response = Invoke-WebRequest `
+                -UseBasicParsing `
+                -Uri $Uri `
+                -MaximumRedirection 0 `
+                -TimeoutSec 5
+            if ($response.StatusCode -eq 200) {
+                return
+            }
+
+            $lastError = "HTTP $($response.StatusCode)."
+        }
+        catch {
+            $lastError = $_.Exception.Message
+        }
+
+        Start-Sleep -Seconds 1
+    }
+
+    throw "Endpoint '$Uri' did not return HTTP 200 within $TimeoutSeconds seconds. Last error: $lastError"
+}
+
+function Wait-PrometheusQuery {
+    param(
+        [Parameter(Mandatory = $true)]
+        [Uri]$BaseUri,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Query,
+
+        [Parameter(Mandatory = $true)]
+        [int]$TimeoutSeconds
+    )
+
+    $encodedQuery = [Uri]::EscapeDataString($Query)
+    $uri = [Uri]::new($BaseUri, "/api/v1/query?query=$encodedQuery")
+    $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
+    $lastError = "No successful query response received."
+
+    while ([DateTimeOffset]::UtcNow -lt $deadline) {
+        try {
+            $response = Invoke-RestMethod -Uri $uri -TimeoutSec 5
+            if ($response.status -eq "success" -and @($response.data.result).Count -gt 0) {
+                return
+            }
+
+            $lastError = "Query succeeded without a matching time series."
+        }
+        catch {
+            $lastError = $_.Exception.Message
+        }
+
+        Start-Sleep -Seconds 1
+    }
+
+    throw "Prometheus query '$Query' returned no series within $TimeoutSeconds seconds. Last error: $lastError"
+}
+
+function Wait-GrafanaProvisioning {
+    param(
+        [Parameter(Mandatory = $true)]
+        [Uri]$BaseUri,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Password,
+
+        [Parameter(Mandatory = $true)]
+        [int]$TimeoutSeconds
+    )
+
+    $credentialBytes = [Text.Encoding]::UTF8.GetBytes("admin:$Password")
+    $headers = @{ Authorization = "Basic $([Convert]::ToBase64String($credentialBytes))" }
+    $datasourceUri = [Uri]::new($BaseUri, "/api/datasources/uid/goldsrcops-prometheus")
+    $dashboardUri = [Uri]::new($BaseUri, "/api/dashboards/uid/goldsrcops-operations")
+    $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
+    $lastError = "Provisioned resources were not returned."
+
+    while ([DateTimeOffset]::UtcNow -lt $deadline) {
+        try {
+            $datasource = Invoke-RestMethod -Uri $datasourceUri -Headers $headers -TimeoutSec 5
+            $dashboard = Invoke-RestMethod -Uri $dashboardUri -Headers $headers -TimeoutSec 5
+            if ($datasource.uid -eq "goldsrcops-prometheus" -and
+                $datasource.url -eq "http://prometheus:9090" -and
+                $dashboard.dashboard.uid -eq "goldsrcops-operations") {
+                return
+            }
+
+            $lastError = "Grafana returned unexpected datasource or dashboard metadata."
+        }
+        catch {
+            $lastError = $_.Exception.Message
+        }
+
+        Start-Sleep -Seconds 1
+    }
+
+    throw "Grafana provisioning did not become ready within $TimeoutSeconds seconds. Last error: $lastError"
 }
 
 function Invoke-MigrationBundle {
@@ -331,6 +498,17 @@ try {
         "--format",
         "{{.ServerVersion}}")
     Write-Host "Docker server: $dockerVersion"
+
+    $deploymentEnvironmentPath = Join-Path $repoRoot "ops/production/deployment.env.example"
+    $collectorImage = Get-EnvironmentFileValue `
+        -Path $deploymentEnvironmentPath `
+        -Name "GOLDSRCOPS_OTEL_COLLECTOR_IMAGE"
+    $prometheusImage = Get-EnvironmentFileValue `
+        -Path $deploymentEnvironmentPath `
+        -Name "GOLDSRCOPS_PROMETHEUS_IMAGE"
+    $grafanaImage = Get-EnvironmentFileValue `
+        -Path $deploymentEnvironmentPath `
+        -Name "GOLDSRCOPS_GRAFANA_IMAGE"
 
     if ($buildImageLocally) {
         Write-Step "Build production image"
@@ -524,12 +702,173 @@ try {
 
     Write-Host "Production rejected the HTTP webhook with the expected non-zero exit."
 
-    Write-Step "Start isolated PostgreSQL"
+    Write-Step "Pull observability images by digest"
+    foreach ($observabilityImage in @($collectorImage, $prometheusImage, $grafanaImage)) {
+        if ($observabilityImage -notmatch '\A[^@\s]+@sha256:[0-9a-f]{64}\z') {
+            throw "Observability smoke images must use immutable sha256 references."
+        }
+
+        Invoke-External -FilePath "docker" -Arguments @("pull", $observabilityImage)
+        $imageUser = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
+            "image",
+            "inspect",
+            "--format",
+            "{{.Config.User}}",
+            $observabilityImage)
+        if ([string]::IsNullOrWhiteSpace($imageUser) -or
+            $imageUser -match '\A(?:root|0)(?::|\z)') {
+            throw "Observability smoke images must configure a non-root runtime user."
+        }
+    }
+
+    Write-Step "Start private observability stack"
+    $collectorConfigPath = Join-Path $repoRoot "ops/production/observability/otel-collector.yml"
+    $prometheusConfigPath = Join-Path $repoRoot "ops/production/observability/prometheus.yml"
+    $grafanaDatasourceProvisioningPath = Join-Path $repoRoot "ops/production/observability/grafana/provisioning/datasources"
+    $grafanaDashboardProvisioningPath = Join-Path $repoRoot "ops/production/observability/grafana/provisioning/dashboards"
+    $grafanaDashboardsPath = Join-Path $repoRoot "ops/production/observability/grafana/dashboards"
+    $grafanaPassword = "goldsrcops-smoke-grafana-$runId"
+
     [IO.File]::WriteAllText(
         $postgresPasswordFile,
         $databasePassword,
         [System.Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText(
+        $grafanaPasswordFile,
+        $grafanaPassword,
+        [System.Text.UTF8Encoding]::new($false))
+    Set-ContainerReadableFilePermissions -Path $grafanaPasswordFile
+
     Invoke-External -FilePath "docker" -Arguments @("network", "create", $networkName)
+    Invoke-External -FilePath "docker" -Arguments @(
+        "run",
+        "--detach",
+        "--name",
+        $collectorContainer,
+        "--network",
+        $networkName,
+        "--network-alias",
+        "otel-collector",
+        "--publish",
+        "127.0.0.1::13133",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=16m",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--mount",
+        "type=bind,source=$collectorConfigPath,target=/etc/otelcol-contrib/config.yaml,readonly",
+        $collectorImage,
+        "--config=/etc/otelcol-contrib/config.yaml")
+    Invoke-External -FilePath "docker" -Arguments @(
+        "run",
+        "--detach",
+        "--name",
+        $prometheusContainer,
+        "--network",
+        $networkName,
+        "--network-alias",
+        "prometheus",
+        "--publish",
+        "127.0.0.1::9090",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=16m",
+        "--tmpfs",
+        "/prometheus:rw,noexec,nosuid,uid=65534,gid=65534,mode=0700,size=128m",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--mount",
+        "type=bind,source=$prometheusConfigPath,target=/etc/prometheus/prometheus.yml,readonly",
+        $prometheusImage,
+        "--config.file=/etc/prometheus/prometheus.yml",
+        "--storage.tsdb.path=/prometheus",
+        "--storage.tsdb.retention.time=1h",
+        "--storage.tsdb.retention.size=64MB")
+    Invoke-External -FilePath "docker" -Arguments @(
+        "run",
+        "--detach",
+        "--name",
+        $grafanaContainer,
+        "--network",
+        $networkName,
+        "--publish",
+        "127.0.0.1::3000",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=32m",
+        "--tmpfs",
+        "/var/lib/grafana:rw,noexec,nosuid,size=128m",
+        "--tmpfs",
+        "/var/log/grafana:rw,noexec,nosuid,size=16m",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--env",
+        "GF_ANALYTICS_CHECK_FOR_UPDATES=false",
+        "--env",
+        "GF_ANALYTICS_REPORTING_ENABLED=false",
+        "--env",
+        "GF_AUTH_ANONYMOUS_ENABLED=false",
+        "--env",
+        "GF_PLUGINS_PREINSTALL_DISABLED=true",
+        "--env",
+        "GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana-admin-password",
+        "--env",
+        "GF_SECURITY_ADMIN_USER=admin",
+        "--env",
+        "GF_SECURITY_DISABLE_GRAVATAR=true",
+        "--env",
+        "GF_USERS_ALLOW_SIGN_UP=false",
+        "--mount",
+        "type=bind,source=$grafanaPasswordFile,target=/run/secrets/grafana-admin-password,readonly",
+        "--mount",
+        "type=bind,source=$grafanaDatasourceProvisioningPath,target=/etc/grafana/provisioning/datasources,readonly",
+        "--mount",
+        "type=bind,source=$grafanaDashboardProvisioningPath,target=/etc/grafana/provisioning/dashboards,readonly",
+        "--mount",
+        "type=bind,source=$grafanaDashboardsPath,target=/etc/grafana/dashboards,readonly",
+        $grafanaImage)
+
+    $collectorHostPort = Get-PublishedPort `
+        -ContainerName $collectorContainer `
+        -ContainerPort 13133
+    $prometheusHostPort = Get-PublishedPort `
+        -ContainerName $prometheusContainer `
+        -ContainerPort 9090
+    $grafanaHostPort = Get-PublishedPort `
+        -ContainerName $grafanaContainer `
+        -ContainerPort 3000
+    $collectorHealthUri = [Uri]"http://127.0.0.1:$collectorHostPort/"
+    $prometheusBaseUri = [Uri]"http://127.0.0.1:$prometheusHostPort"
+    $prometheusReadyUri = [Uri]::new($prometheusBaseUri, "/-/ready")
+    $grafanaBaseUri = [Uri]"http://127.0.0.1:$grafanaHostPort"
+    $grafanaHealthUri = [Uri]::new($grafanaBaseUri, "/api/health")
+
+    Wait-HttpStatus `
+        -ContainerName $collectorContainer `
+        -Uri $collectorHealthUri `
+        -TimeoutSeconds $StartupTimeoutSeconds
+    Wait-HttpStatus `
+        -ContainerName $prometheusContainer `
+        -Uri $prometheusReadyUri `
+        -TimeoutSeconds $StartupTimeoutSeconds
+    Wait-HttpStatus `
+        -ContainerName $grafanaContainer `
+        -Uri $grafanaHealthUri `
+        -TimeoutSeconds $StartupTimeoutSeconds
+    Wait-GrafanaProvisioning `
+        -BaseUri $grafanaBaseUri `
+        -Password $grafanaPassword `
+        -TimeoutSeconds $StartupTimeoutSeconds
+    Write-Host "Collector, Prometheus, and provisioned Grafana are ready on loopback-only smoke ports."
+
+    Write-Step "Start isolated PostgreSQL"
     Invoke-External -FilePath "docker" -Arguments @(
         "run",
         "--rm",
@@ -617,6 +956,16 @@ try {
         "AlertDelivery__WebhookUrl=$alertWebhookUrl",
         "--env",
         "AlertDelivery__Authorization=$alertAuthorizationMarker",
+        "--env",
+        "Telemetry__Otlp__Enabled=true",
+        "--env",
+        "Telemetry__Otlp__Endpoint=http://otel-collector:4317",
+        "--env",
+        "Telemetry__Otlp__Protocol=grpc",
+        "--env",
+        "Telemetry__Otlp__ExportIntervalMilliseconds=1000",
+        "--env",
+        "Telemetry__Otlp__ExportTimeoutMilliseconds=500",
         $imageTag)
 
     $apiHostPort = Get-PublishedPort -ContainerName $apiContainer -ContainerPort 8080
@@ -635,6 +984,28 @@ try {
         -Uri $readyUri `
         -TimeoutSeconds $StartupTimeoutSeconds
     Write-Host "Readiness: 200 Healthy"
+
+    Write-Step "Verify API to Collector to Prometheus metrics path"
+    foreach ($iteration in 1..3) {
+        Invoke-WebRequest -UseBasicParsing -Uri $liveUri -TimeoutSec 5 | Out-Null
+    }
+    Wait-PrometheusQuery `
+        -BaseUri $prometheusBaseUri `
+        -Query 'up{job="goldsrcops"} == 1' `
+        -TimeoutSeconds $StartupTimeoutSeconds
+    Wait-PrometheusQuery `
+        -BaseUri $prometheusBaseUri `
+        -Query 'up{job="otel-collector"} == 1' `
+        -TimeoutSeconds $StartupTimeoutSeconds
+    Wait-PrometheusQuery `
+        -BaseUri $prometheusBaseUri `
+        -Query 'goldsrcops_alerts_pending{service_name="GoldSrcOps"}' `
+        -TimeoutSeconds $StartupTimeoutSeconds
+    Wait-PrometheusQuery `
+        -BaseUri $prometheusBaseUri `
+        -Query 'http_server_request_duration_seconds_count{service_name="GoldSrcOps"}' `
+        -TimeoutSeconds $StartupTimeoutSeconds
+    Write-Host "Application and ASP.NET Core metrics crossed the private OTLP boundary."
 
     Write-Step "Verify alert delivery startup and log safety"
     $apiLogs = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
@@ -830,20 +1201,43 @@ VALUES
 
     Write-Host "Encrypted backup and restore rehearsal recovered snapshot $($restoreEvidence.SnapshotId)."
 
+    Write-Step "Verify Collector outage does not affect API readiness"
+    Invoke-External -FilePath "docker" -Arguments @(
+        "stop",
+        "--timeout",
+        "5",
+        $collectorContainer)
+    Wait-HttpHealth `
+        -ContainerName $apiContainer `
+        -Uri $readyUri `
+        -TimeoutSeconds $StartupTimeoutSeconds
+    Write-Host "Readiness remained healthy after the Collector stopped."
+
     $succeeded = $true
     Write-Step "Container smoke test passed"
 }
 finally {
     if (-not $succeeded) {
-        & docker container inspect $apiContainer *> $null
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host ""
-            Write-Host "API container logs:"
-            & docker logs $apiContainer 2>&1 | ForEach-Object { Write-Host $_ }
+        foreach ($diagnosticContainer in @(
+                @{ Name = "API"; Container = $apiContainer },
+                @{ Name = "OpenTelemetry Collector"; Container = $collectorContainer },
+                @{ Name = "Prometheus"; Container = $prometheusContainer },
+                @{ Name = "Grafana"; Container = $grafanaContainer }
+            )) {
+            & docker container inspect $diagnosticContainer.Container *> $null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host ""
+                Write-Host "$($diagnosticContainer.Name) container logs:"
+                & docker logs --tail 100 $diagnosticContainer.Container 2>&1 |
+                    ForEach-Object { Write-Host $_ }
+            }
         }
     }
 
     Remove-ContainerIfPresent -ContainerName $apiContainer
+    Remove-ContainerIfPresent -ContainerName $grafanaContainer
+    Remove-ContainerIfPresent -ContainerName $prometheusContainer
+    Remove-ContainerIfPresent -ContainerName $collectorContainer
     Remove-ContainerIfPresent -ContainerName $failFastContainer
     Remove-ContainerIfPresent -ContainerName $alertFailFastContainer
     Remove-ContainerIfPresent -ContainerName $postgresContainer
@@ -855,6 +1249,10 @@ finally {
 
     if (Test-Path -LiteralPath $postgresPasswordFile) {
         Remove-Item -LiteralPath $postgresPasswordFile -Force
+    }
+
+    if (Test-Path -LiteralPath $grafanaPasswordFile) {
+        Remove-Item -LiteralPath $grafanaPasswordFile -Force
     }
 
     if (Test-Path -LiteralPath $backupSmokeDirectory) {
