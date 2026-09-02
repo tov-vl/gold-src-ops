@@ -597,12 +597,14 @@ tracks state without duplicating that operational sequence.
    `2026-09-02T16:23:57Z` through `2026-09-03T16:23:57Z` after matching
    fail-closed baselines passed on both hosts. Read-only control-plane and
    game-host continuity evaluators, deterministic pass/fail smoke coverage for
-   both, the explicit SLI measurement contract, and draft
-   `docs/v2.3-readiness.md` are implemented. Complete both target evaluations
-   and the separate trial-period address-stability check, then record terminal
-   SLI observations and propose SLO values. The shorter soak is operational
-   evidence for this reference deployment, not proof of long-term reliability
-   or an achieved SLO.
+   both, the explicit SLI measurement contract, draft objective register with
+   activation gates and error budgets, terminal observation template in
+   `docs/service-level-objectives.md`, and draft `docs/v2.3-readiness.md` are
+   implemented. Complete both target evaluations
+   and the separate trial-period address-stability check, then fill the sanitized
+   terminal SLI record and review the proposed SLO values prospectively. The
+   shorter soak is operational evidence for this reference deployment, not proof
+   of long-term reliability or an achieved SLO.
 
 Definition of done:
 

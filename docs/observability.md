@@ -126,7 +126,8 @@ In this topology, `up{job="goldsrcops"}` reports Prometheus reachability of the
 Collector's application-export endpoint. It does not probe the public API and
 must not be presented as API uptime. Continuous HTTP availability requires a
 separate external black-box time series; until then, public health evidence is
-explicitly sampled.
+explicitly sampled. The inactive objective and its measurement gate are recorded
+in [service-level objectives](service-level-objectives.md).
 
 ### First Target Result
 

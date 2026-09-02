@@ -160,9 +160,10 @@ roll-forward preserved durable state. Trial-period address stability remains
 outstanding. The accepted 24-hour release soak is active from
 `2026-09-02T16:23:57Z` through `2026-09-03T16:23:57Z`; it is short operational
 evidence for the reference deployment rather than a long-term reliability or
-achieved-SLO claim. A fail-closed read-only terminal evaluator, deterministic
-smoke coverage, and draft v2.3 readiness matrix now define how completion is
-measured without treating Collector scrape health as public API uptime.
+achieved-SLO claim. Fail-closed read-only terminal evaluators, deterministic
+smoke coverage, the draft v2.3 readiness matrix, and a prospective initial SLO
+register now define how completion is measured without treating Collector
+scrape health as public API uptime.
 
 ## MVP Goal
 
