@@ -1,0 +1,16 @@
+apiVersion: 1
+
+deleteDatasources:
+  - name: GoldSrcOps Prometheus
+    orgId: 1
+
+datasources:
+  - name: GoldSrcOps Prometheus
+    uid: goldsrcops-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST

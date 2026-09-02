@@ -31,8 +31,8 @@ available in
 - Durable RCON command queue with per-server serialization, interrupted-command
   recovery, bounded multi-datagram responses, external secret references, and
   payload-safe lifecycle logs.
-- Liveness, database readiness, structured logging, and OpenTelemetry
-  Prometheus metrics.
+- Liveness, database readiness, structured logging, authenticated Prometheus
+  metrics, and a private OTLP Collector, Prometheus, and Grafana path.
 - Bounded snapshot retention with PostgreSQL integration and concurrency tests.
 - Tag-gated immutable GHCR image publication with OCI metadata and
   digest-based container verification.
@@ -74,6 +74,7 @@ reliability release is summarized in
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Active v2.3 reference deployment plan | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
 | Active v2.3 production Compose contract | [Reference production Compose](ops/production/README.md) |
+| Production metrics path and operations | [Observability](docs/observability.md) |
 | PostgreSQL off-host backup and restore | [PostgreSQL backup](docs/postgresql-backup.md) |
 | Active v2.3 game-server baseline | [Controlled game-server baseline](docs/v2.3-controlled-gameserver-baseline.md) |
 | Active v2.3 game-server host foundation | [Game-server host bootstrap](ops/gameserver/README.md) |
@@ -273,11 +274,12 @@ become metric dimensions.
 The OpenTelemetry SDK, instrumentations, and stable OTLP exporter are aligned on
 `1.18.0`; the direct ASP.NET Core Prometheus exporter remains
 `1.18.0-beta.1` because no stable release exists. OTLP metrics export is
-disabled by default and can be enabled with validated `Telemetry:Otlp`
-settings for endpoint, protocol, export interval, and timeout. The
-authenticated `/metrics` contract remains available during the v2 transition.
-The accepted prerelease risk and migration path are recorded in Architecture
-Decisions 12 and 17.
+disabled by default for development and tests and enabled by the production
+Compose contract with validated endpoint, protocol, export interval, and
+timeout settings. Production Prometheus scrapes only the Collector; the
+authenticated `/metrics` contract remains available during the v2 transition
+for compatibility and rollback. The accepted prerelease risk and migration
+path are recorded in Architecture Decisions 12 and 17.
 
 For a private gRPC Collector endpoint, enable the exporter with:
 
@@ -458,8 +460,9 @@ it succeeds, a dependent `Container Smoke` job first validates the plan-only
 control-plane and game-server host bootstraps plus deterministic host-readiness
 pass/fail decisions, then builds the production image, applies its embedded
 migration bundle twice to isolated PostgreSQL, and checks runtime hardening,
-alert configuration,
-log-safety, health contracts, and an encrypted backup, full repository data
+alert configuration, log-safety, health contracts, the private
+API-to-Collector-to-Prometheus metric path, provisioned Grafana assets,
+Collector-outage readiness, and an encrypted backup, full repository data
 check, and isolated restore rehearsal. An exact
 signed annotated `v<major>.<minor>.<patch>` or
 `v<major>.<minor>.<patch>-rc.<number>` tag adds `Publish Image` and

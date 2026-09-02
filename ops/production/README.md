@@ -2,10 +2,10 @@
 
 ## Status
 
-This directory contains the provider-independent first sub-slice of the v2.3
-single-node control plane. It defines and validates the intended container,
-network, TLS-proxy, and secret boundaries. It is not target-environment evidence
-and does not make the v2.3 milestone complete.
+This directory contains the provider-independent v2.3 single-node control-plane
+contract. It defines and validates the intended container, network, TLS-proxy,
+observability, and secret boundaries. It is not target-environment evidence and
+does not make the v2.3 milestone complete.
 
 The `runtime` profile must not be enabled on a target until preflight succeeds,
 a restorable backup exists, and the one-shot migration action has successfully
@@ -26,8 +26,10 @@ on the target; the mandatory preview and first completed cycle passed.
 Core game-server integration has passed through the public API, including
 registered polling, one audited guarded RCON `say`, controlled configuration
 restore, post-restart RCON verification, and a 30-minute no-bot A2S check. The
-standalone 24-hour game-server observation is intentionally omitted; the broader
-recovery exercise and 72-hour release soak remain pending.
+repository now also defines the private OTLP Collector, Prometheus, and Grafana
+runtime contract and verifies it through container smoke. Target observability
+rollout, the broader recovery exercise, and the 72-hour release soak remain
+pending.
 
 ## Topology
 
@@ -44,8 +46,15 @@ recovery exercise and 72-hour release soak remain pending.
   digest.
 - The API runs with a read-only root filesystem, no Linux capabilities, and
   `no-new-privileges`.
-- Container logs use bounded local rotation. Persistent PostgreSQL and Caddy
-  state use named volumes.
+- The API exports metrics over private OTLP gRPC to the OpenTelemetry Collector.
+  Prometheus scrapes only Collector endpoints, and Grafana queries Prometheus.
+  All three services attach only to an internal telemetry network and publish no
+  host ports.
+- Collector, Prometheus, and Grafana run as non-root users with read-only root
+  filesystems, dropped capabilities, `no-new-privileges`, bounded logs, and
+  immutable digest-pinned images. Prometheus and Grafana use named data volumes.
+- Container logs use bounded local rotation. Persistent service state uses named
+  volumes.
 
 The database connection secret should use this shape, with an independently
 generated password:
@@ -72,22 +81,24 @@ Create these separate secret files outside the repository:
 | `GOLDSRCOPS_POSTGRES_PASSWORD_FILE` | PostgreSQL role password used during database initialization. |
 | `GOLDSRCOPS_DATABASE_CONNECTION_FILE` | Complete single-line Npgsql connection string using the shared Unix socket. |
 | `GOLDSRCOPS_RCON_PASSWORD_FILE` | Single-line RCON password for `GOLDSRCOPS_RCON_SECRET_ALIAS`. |
+| `GOLDSRCOPS_GRAFANA_ADMIN_PASSWORD_FILE` | Unique Grafana administrator password used only for private operator access. |
 | `GOLDSRCOPS_RESTIC_PASSWORD_FILE` | Independent password for client-side backup encryption. |
 | `GOLDSRCOPS_RESTIC_ENVIRONMENT_FILE` | Repository-scoped S3-compatible backend credentials. |
 
 Docker Compose implements file-backed secrets as bind mounts and cannot remap
 their ownership. On Linux, create the PostgreSQL password file with owner UID
 `0` and mode `0400`; create the database connection and RCON files with the API
-runtime UID `1654` and mode `0400`. The PostgreSQL password in the first two
-files must be the same. Keep all values out of shell history, source control,
-image layers, logs, and issue or pull-request text.
+runtime UID `1654` and mode `0400`; create the Grafana password file with UID
+`472` and mode `0400`. The PostgreSQL password in the first two files must be the
+same. Keep all values out of shell history, source control, image layers, logs,
+and issue or pull-request text.
 
 The host also needs:
 
 - DNS for `GOLDSRCOPS_HOSTNAME` pointing to the control-plane host;
 - inbound TCP `80`, TCP `443`, and UDP `443` for Caddy;
 - outbound HTTPS for ACME and identity-provider metadata;
-- no public PostgreSQL port;
+- no public PostgreSQL, OTLP, Collector telemetry, Prometheus, or Grafana port;
 - an external OAuth 2.0 or OpenID Connect issuer that emits the documented
   Reader and Operator roles in the exact claim named by
   `GOLDSRCOPS_AUTHENTICATION_ROLE_CLAIM_TYPE`.
@@ -314,7 +325,19 @@ after an interrupted or failed action. Repeat the command in a disposable or
 staging database to prove the already-up-to-date path; the container smoke test
 does this automatically. The bundle has no down-migration mode in this workflow.
 
-## Slice 3 Target Status
+## Observability
+
+The production runtime enables the validated OTLP gRPC exporter and sends to the
+Collector on the internal `telemetry` network. The API does not depend on the
+Collector for startup or readiness. Prometheus scrapes only the Collector's
+application-export and self-telemetry endpoints; it does not scrape the
+authenticated API `/metrics` compatibility endpoint.
+
+The complete data path, pinned components, private Grafana access, rollout
+checks, and failure diagnostics are documented in
+[`docs/observability.md`](../../docs/observability.md).
+
+## Target Status
 
 1. Completed: the first encrypted PostgreSQL backup, repeated full data check,
    isolated restore rehearsal, and sanitized target evidence are complete. The
@@ -334,6 +357,9 @@ does this automatically. The bundle has no down-migration mode in this workflow.
 4. Completed: the runtime host audit retained sanitized listener,
    restart-policy, bounded-log, and external-dependency evidence outside the
    repository. All runtime containers had zero restarts at capture time.
+5. Pending: deploy the Collector, Prometheus, and Grafana services on the target,
+   verify live metric queries and the provisioned dashboard, and retain
+   sanitized private-listener and container-health evidence outside Git.
 
 The complete sequence and definition of done remain in
 [`docs/v2.3-production-deployment.md`](../../docs/v2.3-production-deployment.md).

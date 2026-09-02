@@ -60,6 +60,11 @@ services:
       AlertDelivery__Enabled: "false"
       Polling__Enabled: "true"
       SnapshotRetention__Enabled: "true"
+      Telemetry__Otlp__Enabled: "true"
+      Telemetry__Otlp__Endpoint: http://otel-collector:4317
+      Telemetry__Otlp__Protocol: grpc
+      Telemetry__Otlp__ExportIntervalMilliseconds: "60000"
+      Telemetry__Otlp__ExportTimeoutMilliseconds: "30000"
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m
@@ -78,6 +83,9 @@ services:
     networks:
       edge:
         ipv4_address: ${GOLDSRCOPS_API_IP:?Set GOLDSRCOPS_API_IP}
+        gw_priority: 1
+      telemetry:
+        ipv4_address: ${GOLDSRCOPS_API_TELEMETRY_IP:?Set GOLDSRCOPS_API_TELEMETRY_IP}
     stop_grace_period: 30s
     logging: *bounded-logging
 
@@ -158,11 +166,157 @@ services:
     stop_grace_period: 30s
     logging: *bounded-logging
 
+  otel-collector:
+    profiles: [runtime]
+    image: ${GOLDSRCOPS_OTEL_COLLECTOR_IMAGE:?Set GOLDSRCOPS_OTEL_COLLECTOR_IMAGE to an immutable digest reference}
+    pull_policy: always
+    restart: unless-stopped
+    command:
+      - --config=/etc/otelcol-contrib/config.yaml
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - type: bind
+        source: ./observability/otel-collector.yml
+        target: /etc/otelcol-contrib/config.yaml
+        read_only: true
+    expose:
+      - "13133"
+      - "4317"
+      - "8888"
+      - "9464"
+    networks:
+      telemetry:
+        ipv4_address: ${GOLDSRCOPS_OTEL_COLLECTOR_IP:?Set GOLDSRCOPS_OTEL_COLLECTOR_IP}
+    healthcheck:
+      test:
+        - CMD
+        - /otelcol-contrib
+        - validate
+        - --config=/etc/otelcol-contrib/config.yaml
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 30s
+    logging: *bounded-logging
+
+  prometheus:
+    profiles: [runtime]
+    image: ${GOLDSRCOPS_PROMETHEUS_IMAGE:?Set GOLDSRCOPS_PROMETHEUS_IMAGE to an immutable digest reference}
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      otel-collector:
+        condition: service_started
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=1GB
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - type: bind
+        source: ./observability/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+      - prometheus-data:/prometheus
+    expose:
+      - "9090"
+    networks:
+      telemetry:
+        ipv4_address: ${GOLDSRCOPS_PROMETHEUS_IP:?Set GOLDSRCOPS_PROMETHEUS_IP}
+    healthcheck:
+      test:
+        - CMD
+        - /bin/wget
+        - -q
+        - -O
+        - /dev/null
+        - http://127.0.0.1:9090/-/ready
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 30s
+    logging: *bounded-logging
+
+  grafana:
+    profiles: [runtime]
+    image: ${GOLDSRCOPS_GRAFANA_IMAGE:?Set GOLDSRCOPS_GRAFANA_IMAGE to an immutable digest reference}
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_started
+    environment:
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana-admin-password
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+      - /var/log/grafana:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    secrets:
+      - source: grafana-admin-password
+        target: grafana-admin-password
+    volumes:
+      - type: bind
+        source: ./observability/grafana/provisioning/datasources
+        target: /etc/grafana/provisioning/datasources
+        read_only: true
+      - type: bind
+        source: ./observability/grafana/provisioning/dashboards
+        target: /etc/grafana/provisioning/dashboards
+        read_only: true
+      - type: bind
+        source: ./observability/grafana/dashboards
+        target: /etc/grafana/dashboards
+        read_only: true
+      - grafana-data:/var/lib/grafana
+    expose:
+      - "3000"
+    networks:
+      telemetry:
+        ipv4_address: ${GOLDSRCOPS_GRAFANA_IP:?Set GOLDSRCOPS_GRAFANA_IP}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O /dev/null http://127.0.0.1:3000/api/health
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 30s
+    logging: *bounded-logging
+
 networks:
   edge:
     ipam:
       config:
         - subnet: ${GOLDSRCOPS_EDGE_SUBNET:?Set GOLDSRCOPS_EDGE_SUBNET}
+  telemetry:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${GOLDSRCOPS_TELEMETRY_SUBNET:?Set GOLDSRCOPS_TELEMETRY_SUBNET}
 
 secrets:
   postgres-password:
@@ -171,9 +325,13 @@ secrets:
     file: ${GOLDSRCOPS_DATABASE_CONNECTION_FILE:?Set GOLDSRCOPS_DATABASE_CONNECTION_FILE}
   rcon-password:
     file: ${GOLDSRCOPS_RCON_PASSWORD_FILE:?Set GOLDSRCOPS_RCON_PASSWORD_FILE}
+  grafana-admin-password:
+    file: ${GOLDSRCOPS_GRAFANA_ADMIN_PASSWORD_FILE:?Set GOLDSRCOPS_GRAFANA_ADMIN_PASSWORD_FILE}
 
 volumes:
   postgres-data:
   postgres-socket:
   caddy-data:
   caddy-config:
+  prometheus-data:
+  grafana-data:

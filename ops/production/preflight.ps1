@@ -82,6 +82,38 @@ function Assert-BoundedLogging {
         -Message "Service '$ServiceName' must retain at most five 10 MiB log files."
 }
 
+function Assert-HardenedPrivateRuntimeService {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Service,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ServiceName
+    )
+
+    Assert-Condition `
+        -Condition ($null -eq (Get-PropertyValue -InputObject $Service -Name "ports")) `
+        -Message "Service '$ServiceName' must not publish host ports."
+    Assert-Condition `
+        -Condition ([bool]$Service.read_only) `
+        -Message "Service '$ServiceName' must use a read-only root filesystem."
+    Assert-Condition `
+        -Condition (@($Service.cap_drop) -contains "ALL") `
+        -Message "Service '$ServiceName' must drop all Linux capabilities."
+    Assert-Condition `
+        -Condition (@($Service.security_opt) -contains "no-new-privileges:true") `
+        -Message "Service '$ServiceName' must enable no-new-privileges."
+    Assert-Condition `
+        -Condition (@($Service.profiles).Count -eq 1 -and
+            @($Service.profiles) -contains "runtime") `
+        -Message "Service '$ServiceName' must exist only in the runtime profile."
+
+    $networkNames = @($Service.networks.PSObject.Properties.Name)
+    Assert-Condition `
+        -Condition ($networkNames.Count -eq 1 -and $networkNames[0] -eq "telemetry") `
+        -Message "Service '$ServiceName' must attach only to the private telemetry network."
+}
+
 function Read-EnvironmentValues {
     param(
         [Parameter(Mandatory = $true)]
@@ -276,6 +308,35 @@ function Get-VolumeSource {
     return [string]$mount[0].source
 }
 
+function Assert-TrackedBindMount {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Service,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ServiceName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Target,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedPath
+    )
+
+    $mount = @($Service.volumes | Where-Object { $_.target -eq $Target })
+    Assert-Condition `
+        -Condition ($mount.Count -eq 1 -and
+            [string]$mount[0].type -eq "bind" -and
+            [bool]$mount[0].read_only) `
+        -Message "Service '$ServiceName' must read '$Target' from one read-only bind mount."
+
+    $actualPath = [IO.Path]::GetFullPath([string]$mount[0].source)
+    $expectedFullPath = [IO.Path]::GetFullPath($ExpectedPath)
+    Assert-Condition `
+        -Condition ($actualPath.Equals($expectedFullPath, [StringComparison]::OrdinalIgnoreCase)) `
+        -Message "Service '$ServiceName' must mount the tracked '$ExpectedPath' path at '$Target'."
+}
+
 function Test-PathInsideRepository {
     param([Parameter(Mandatory = $true)][string]$Path)
 
@@ -429,11 +490,17 @@ $postgres = $configuration.services.postgres
 $api = $configuration.services.api
 $migration = $configuration.services.migration
 $caddy = $configuration.services.caddy
+$collector = $configuration.services.'otel-collector'
+$prometheus = $configuration.services.prometheus
+$grafana = $configuration.services.grafana
 
 Assert-ImmutableImage -Image $postgres.image -ServiceName "postgres"
 Assert-ImmutableImage -Image $api.image -ServiceName "api"
 Assert-ImmutableImage -Image $migration.image -ServiceName "migration"
 Assert-ImmutableImage -Image $caddy.image -ServiceName "caddy"
+Assert-ImmutableImage -Image $collector.image -ServiceName "otel-collector"
+Assert-ImmutableImage -Image $prometheus.image -ServiceName "prometheus"
+Assert-ImmutableImage -Image $grafana.image -ServiceName "grafana"
 Assert-Condition `
     -Condition ($migration.image -eq $api.image) `
     -Message "The migration action must use the exact API image digest."
@@ -441,7 +508,10 @@ Assert-Condition `
 foreach ($runtimeService in @(
         @{ Name = "postgres"; Service = $postgres },
         @{ Name = "api"; Service = $api },
-        @{ Name = "caddy"; Service = $caddy }
+        @{ Name = "caddy"; Service = $caddy },
+        @{ Name = "otel-collector"; Service = $collector },
+        @{ Name = "prometheus"; Service = $prometheus },
+        @{ Name = "grafana"; Service = $grafana }
     )) {
     Assert-Condition `
         -Condition ([string]$runtimeService.Service.restart -eq "unless-stopped") `
@@ -452,7 +522,10 @@ foreach ($loggedService in @(
         @{ Name = "postgres"; Service = $postgres },
         @{ Name = "api"; Service = $api },
         @{ Name = "migration"; Service = $migration },
-        @{ Name = "caddy"; Service = $caddy }
+        @{ Name = "caddy"; Service = $caddy },
+        @{ Name = "otel-collector"; Service = $collector },
+        @{ Name = "prometheus"; Service = $prometheus },
+        @{ Name = "grafana"; Service = $grafana }
     )) {
     Assert-BoundedLogging `
         -Service $loggedService.Service `
@@ -477,6 +550,15 @@ Assert-Condition `
 Assert-Condition `
     -Condition (@($api.security_opt) -contains "no-new-privileges:true") `
     -Message "The API must enable no-new-privileges."
+foreach ($privateService in @(
+        @{ Name = "otel-collector"; Service = $collector },
+        @{ Name = "prometheus"; Service = $prometheus },
+        @{ Name = "grafana"; Service = $grafana }
+    )) {
+    Assert-HardenedPrivateRuntimeService `
+        -Service $privateService.Service `
+        -ServiceName $privateService.Name
+}
 Assert-Condition `
     -Condition ($migration.network_mode -eq "none") `
     -Message "The migration action must run without a network interface."
@@ -548,8 +630,13 @@ $audiencePropertyNames = @($api.environment.PSObject.Properties.Name | Where-Obj
         $_ -like "Authentication__Schemes__Bearer__ValidAudiences__*"
     })
 $apiAddress = [string]$api.networks.edge.ipv4_address
+$apiTelemetryAddress = [string]$api.networks.telemetry.ipv4_address
 $caddyAddress = [string]$caddy.networks.edge.ipv4_address
+$collectorAddress = [string]$collector.networks.telemetry.ipv4_address
+$prometheusAddress = [string]$prometheus.networks.telemetry.ipv4_address
+$grafanaAddress = [string]$grafana.networks.telemetry.ipv4_address
 $edgeSubnet = [string]$configuration.networks.edge.ipam.config[0].subnet
+$telemetrySubnet = [string]$configuration.networks.telemetry.ipam.config[0].subnet
 
 Assert-IPv4Address -Address $proxyAddress -Name "ReverseProxy__KnownProxy"
 Assert-Condition `
@@ -568,7 +655,11 @@ Assert-Condition `
             -Name "Authentication__Schemes__Bearer__Audience")) `
     -Message "Use ValidAudiences__0 for automatic bearer scheme configuration; Audience is not part of this deployment contract."
 Assert-IPv4Address -Address $apiAddress -Name "API edge address"
+Assert-IPv4Address -Address $apiTelemetryAddress -Name "API telemetry address"
 Assert-IPv4Address -Address $caddyAddress -Name "Caddy edge address"
+Assert-IPv4Address -Address $collectorAddress -Name "Collector telemetry address"
+Assert-IPv4Address -Address $prometheusAddress -Name "Prometheus telemetry address"
+Assert-IPv4Address -Address $grafanaAddress -Name "Grafana telemetry address"
 Assert-Condition `
     -Condition ($proxyAddress -eq $caddyAddress) `
     -Message "The API must trust only the configured Caddy address."
@@ -581,6 +672,95 @@ Assert-Condition `
 Assert-Condition `
     -Condition (Test-AddressInCidr -Address $caddyAddress -Cidr $edgeSubnet) `
     -Message "The Caddy address must belong to the edge subnet."
+Assert-Condition `
+    -Condition ([bool]$configuration.networks.telemetry.internal) `
+    -Message "The telemetry network must be internal."
+Assert-Condition `
+    -Condition ([int]$api.networks.edge.gw_priority -eq 1) `
+    -Message "The API edge network must remain its preferred egress gateway."
+$apiNetworkNames = @($api.networks.PSObject.Properties.Name | Sort-Object)
+Assert-Condition `
+    -Condition (@(Compare-Object @("edge", "telemetry") $apiNetworkNames).Count -eq 0) `
+    -Message "The API must attach only to the edge and telemetry networks."
+
+$telemetryAddresses = @(
+    $apiTelemetryAddress,
+    $collectorAddress,
+    $prometheusAddress,
+    $grafanaAddress
+)
+foreach ($telemetryAddress in $telemetryAddresses) {
+    Assert-Condition `
+        -Condition (Test-AddressInCidr -Address $telemetryAddress -Cidr $telemetrySubnet) `
+        -Message "Every telemetry service address must belong to the telemetry subnet."
+    Assert-Condition `
+        -Condition (-not (Test-AddressInCidr -Address $telemetryAddress -Cidr $edgeSubnet)) `
+        -Message "Telemetry service addresses must not belong to the edge subnet."
+}
+Assert-Condition `
+    -Condition (@($telemetryAddresses | Sort-Object -Unique).Count -eq $telemetryAddresses.Count) `
+    -Message "Telemetry service addresses must be unique."
+
+$otlpEndpoint = [string]$api.environment.Telemetry__Otlp__Endpoint
+Assert-Condition `
+    -Condition ([string]$api.environment.Telemetry__Otlp__Enabled -eq "true" -and
+        $otlpEndpoint -eq "http://otel-collector:4317" -and
+        [string]$api.environment.Telemetry__Otlp__Protocol -eq "grpc" -and
+        [string]$api.environment.Telemetry__Otlp__ExportIntervalMilliseconds -eq "60000" -and
+        [string]$api.environment.Telemetry__Otlp__ExportTimeoutMilliseconds -eq "30000") `
+    -Message "The production API must use the bounded private OTLP metrics contract."
+
+$apiDependencyNames = @($api.depends_on.PSObject.Properties.Name)
+Assert-Condition `
+    -Condition ($apiDependencyNames.Count -eq 1 -and $apiDependencyNames[0] -eq "postgres") `
+    -Message "Collector availability must not gate API startup."
+
+Assert-TrackedBindMount `
+    -Service $collector `
+    -ServiceName "otel-collector" `
+    -Target "/etc/otelcol-contrib/config.yaml" `
+    -ExpectedPath (Join-Path $PSScriptRoot "observability/otel-collector.yml")
+Assert-TrackedBindMount `
+    -Service $prometheus `
+    -ServiceName "prometheus" `
+    -Target "/etc/prometheus/prometheus.yml" `
+    -ExpectedPath (Join-Path $PSScriptRoot "observability/prometheus.yml")
+Assert-TrackedBindMount `
+    -Service $grafana `
+    -ServiceName "grafana" `
+    -Target "/etc/grafana/provisioning/datasources" `
+    -ExpectedPath (Join-Path $PSScriptRoot "observability/grafana/provisioning/datasources")
+Assert-TrackedBindMount `
+    -Service $grafana `
+    -ServiceName "grafana" `
+    -Target "/etc/grafana/provisioning/dashboards" `
+    -ExpectedPath (Join-Path $PSScriptRoot "observability/grafana/provisioning/dashboards")
+Assert-TrackedBindMount `
+    -Service $grafana `
+    -ServiceName "grafana" `
+    -Target "/etc/grafana/dashboards" `
+    -ExpectedPath (Join-Path $PSScriptRoot "observability/grafana/dashboards")
+
+$grafanaSecretSources = @($grafana.secrets | ForEach-Object { $_.source })
+Assert-Condition `
+    -Condition ($grafanaSecretSources.Count -eq 1 -and
+        $grafanaSecretSources[0] -eq "grafana-admin-password" -and
+        [string]$grafana.environment.GF_SECURITY_ADMIN_PASSWORD__FILE -eq "/run/secrets/grafana-admin-password" -and
+        $null -eq (Get-PropertyValue -InputObject $grafana.environment -Name "GF_SECURITY_ADMIN_PASSWORD")) `
+    -Message "Grafana must receive only its file-backed admin password."
+Assert-Condition `
+    -Condition ([string]$grafana.environment.GF_AUTH_ANONYMOUS_ENABLED -eq "false" -and
+        [string]$grafana.environment.GF_USERS_ALLOW_SIGN_UP -eq "false" -and
+        [string]$grafana.environment.GF_PLUGINS_PREINSTALL_DISABLED -eq "true") `
+    -Message "Grafana anonymous access, self-registration, and startup plugin downloads must remain disabled."
+
+$dashboardPath = Join-Path $PSScriptRoot "observability/grafana/dashboards/goldsrcops-operations.json"
+$dashboard = Get-Content -LiteralPath $dashboardPath -Raw | ConvertFrom-Json -Depth 100
+Assert-Condition `
+    -Condition ([string]$dashboard.uid -eq "goldsrcops-operations" -and
+        [string]$dashboard.title -eq "GoldSrcOps Operations" -and
+        @($dashboard.panels).Count -ge 5) `
+    -Message "The provisioned GoldSrcOps dashboard contract is incomplete."
 
 Assert-Condition `
     -Condition ($null -eq (Get-PropertyValue -InputObject $api.environment -Name "ASPNETCORE_FORWARDEDHEADERS_ENABLED")) `
@@ -635,6 +815,7 @@ if (-not $ContractOnly) {
     $postgresPasswordFile = [string]$configuration.secrets.'postgres-password'.file
     $databaseConnectionFile = [string]$configuration.secrets.'database-connection'.file
     $rconPasswordFile = [string]$configuration.secrets.'rcon-password'.file
+    $grafanaAdminPasswordFile = [string]$configuration.secrets.'grafana-admin-password'.file
 
     Assert-SecretFile `
         -Path $postgresPasswordFile `
@@ -648,6 +829,10 @@ if (-not $ContractOnly) {
         -Path $rconPasswordFile `
         -Name "RCON password" `
         -RequiredOwnerId 1654
+    Assert-SecretFile `
+        -Path $grafanaAdminPasswordFile `
+        -Name "Grafana admin password" `
+        -RequiredOwnerId 472
     Assert-SecretFile `
         -Path $resticPasswordFile `
         -Name "Restic password" `
@@ -674,6 +859,29 @@ if (-not $ContractOnly) {
     & docker pull $resticImage
     if ($LASTEXITCODE -ne 0) {
         throw "The digest-pinned restic image could not be pulled."
+    }
+
+    foreach ($observabilityImage in @(
+            @{ Name = "otel-collector"; Image = [string]$collector.image },
+            @{ Name = "prometheus"; Image = [string]$prometheus.image },
+            @{ Name = "grafana"; Image = [string]$grafana.image }
+        )) {
+        & docker pull $observabilityImage.Image
+        if ($LASTEXITCODE -ne 0) {
+            throw "The digest-pinned $($observabilityImage.Name) image could not be pulled."
+        }
+
+        $imageUser = ((& docker image inspect `
+                    --format "{{.Config.User}}" `
+                    $observabilityImage.Image) -join "").Trim()
+        if ($LASTEXITCODE -ne 0) {
+            throw "The $($observabilityImage.Name) runtime user could not be inspected."
+        }
+
+        Assert-Condition `
+            -Condition (-not [string]::IsNullOrWhiteSpace($imageUser) -and
+                $imageUser -notmatch '\A(?:root|0)(?::|\z)') `
+            -Message "The $($observabilityImage.Name) image must configure a non-root runtime user."
     }
 
     & docker run `
@@ -718,6 +926,38 @@ if (-not $ContractOnly) {
 
     if ($LASTEXITCODE -ne 0) {
         throw "Caddy configuration validation failed with exit code $LASTEXITCODE."
+    }
+
+    & docker run `
+        --rm `
+        --network none `
+        --read-only `
+        --cap-drop ALL `
+        --security-opt no-new-privileges `
+        --volume "${PSScriptRoot}/observability/otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro" `
+        $collector.image `
+        validate `
+        --config=/etc/otelcol-contrib/config.yaml
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "OpenTelemetry Collector configuration validation failed with exit code $LASTEXITCODE."
+    }
+
+    & docker run `
+        --rm `
+        --network none `
+        --read-only `
+        --cap-drop ALL `
+        --security-opt no-new-privileges `
+        --entrypoint /bin/promtool `
+        --volume "${PSScriptRoot}/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro" `
+        $prometheus.image `
+        check `
+        config `
+        /etc/prometheus/prometheus.yml
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Prometheus configuration validation failed with exit code $LASTEXITCODE."
     }
 }
 

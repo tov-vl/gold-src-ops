@@ -49,7 +49,7 @@ jobs:
     name: Container Smoke
     needs: quality
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       DOCKER_BUILDKIT: 1
 

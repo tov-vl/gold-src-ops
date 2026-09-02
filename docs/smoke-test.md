@@ -14,19 +14,20 @@ pwsh -NoProfile -File .\tools\smoke\container.ps1
 
 The script builds a uniquely tagged image, verifies its non-root runtime and
 OCI metadata, verifies that the SDK, repository metadata, and local settings
-are absent, checks that missing production configuration fails fast,
-and proves that Production rejects an HTTP alert webhook. It starts an isolated
-PostgreSQL container, applies the image-contained EF Core migration bundle, and
-repeats the bundle to prove the already-up-to-date path. It then starts the API
-with alert delivery enabled, a read-only filesystem, dropped Linux capabilities,
-and no-new-privileges before requiring
-both `/health/live` and `/health/ready` to return `200 Healthy`. Finally, it
-checks that the hosted alert dispatcher started and that its HTTPS endpoint and
-synthetic authorization marker are absent from container logs. The final stage
+are absent, checks that missing production configuration fails fast, and proves
+that Production rejects an HTTP alert webhook. It validates and starts the
+digest-pinned OpenTelemetry Collector, Prometheus, and Grafana images, requires
+their loopback-only smoke endpoints to become healthy, and verifies the
+provisioned datasource and dashboard. It then starts isolated PostgreSQL,
+applies the image-contained EF Core migration bundle twice, and starts the API
+with alert delivery and OTLP enabled under the production hardening controls.
+The smoke requires both health endpoints, observes application and ASP.NET Core
+metrics after the Collector boundary, checks alert log safety, and proves that
+API readiness remains healthy when the Collector is stopped. The final stage
 streams a custom-format dump into a temporary encrypted restic repository,
 checks every stored data pack, restores the snapshot into a second isolated
-PostgreSQL instance, reapplies the image-contained migration bundle, and proves
-that a control record and all required tables survived the round trip.
+PostgreSQL instance, reapplies the migration bundle, and proves that a control
+record and all required tables survived the round trip.
 
 The container smoke does not send an alert to an external endpoint. Synthetic
 Kestrel tests cover the HTTP delivery boundary, while PostgreSQL integration

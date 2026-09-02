@@ -11,7 +11,9 @@ orchestration, domain rules, and infrastructure integrations.
 ```mermaid
 flowchart LR
     clients["Operators / API clients"]
+    collector["OpenTelemetry Collector"]
     prometheus["Prometheus"]
+    grafana["Grafana"]
     goldsrc["GoldSrc dedicated servers"]
     webhook["HTTPS webhook receiver"]
     postgres[("PostgreSQL")]
@@ -62,7 +64,9 @@ flowchart LR
     end
 
     clients --> endpoints
-    prometheus --> probes
+    telemetry -->|OTLP metrics| collector
+    prometheus -->|scrapes| collector
+    grafana --> prometheus
     endpoints --> serverService
     endpoints --> monitoringService
     endpoints --> incidentService
@@ -388,7 +392,12 @@ are stored separately and are not part of the delete. See
 - `/health/ready` runs readiness checks tagged as `ready`, including database
   connectivity through `GoldSrcOpsDbContext`.
 - `/metrics` exposes ASP.NET Core, runtime, and GoldSrcOps application metrics
-  in Prometheus format through OpenTelemetry.
+  in Prometheus format through OpenTelemetry. It remains authenticated for v2
+  compatibility and rollback.
+- The production-default path exports metrics by private OTLP gRPC to the
+  OpenTelemetry Collector. Prometheus scrapes only the Collector's private
+  exporter and internal telemetry endpoints, and Grafana queries Prometheus.
+  None of those service ports is published on the host.
 - Application metrics currently cover polling runs, server poll attempts by
   result, incident transitions, queued commands, dispatched commands, completed
   command dispatches by result, recovered interrupted commands, and
@@ -413,7 +422,9 @@ The current test suite keeps the layers visible:
 - command execution tests cover background dispatch orchestration, secret-reference
   resolution, structured-log safety, GoldSrc RCON packet handling, and a
   synthetic UDP RCON flow;
-- telemetry tests cover command metric recording and Prometheus exposure;
+- telemetry tests cover metric recording and direct Prometheus exposure, while
+  the production container smoke observes application and ASP.NET Core metrics
+  after the private Collector boundary and checks Collector-outage readiness;
 - alert tests cover transactional enqueueing, dispatcher outcomes, retry and
   dead-letter policy, sanitized logs, the synthetic HTTP boundary, and
   Prometheus exposure;
