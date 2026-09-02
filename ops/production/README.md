@@ -34,7 +34,10 @@ exercise has passed with one incident lifecycle, durable pending work across an
 API restart, two successful idempotent-keyed webhook requests, and a verified
 rc.4 rollback plus rc.5 roll-forward. The temporary restricted receiver was
 removed afterward and alert delivery returned to its disabled baseline. The
-72-hour release soak remains pending.
+accepted 24-hour release soak is active from `2026-09-02T16:23:57Z` through
+`2026-09-03T16:23:57Z`. Repository-only work may proceed in a separate branch,
+but any production deployment, migration, configuration change, or process
+restart invalidates the interval and requires a new baseline.
 
 ## Topology
 

@@ -476,8 +476,8 @@ configuration withdrawal, atomic restore, post-restart `rcon_users`, and a
 recorded the startup transition; from the first healthy result, 31 snapshots
 spanned 1,802 seconds with zero failures and zero bots while the invocation and
 process remained unchanged. The standalone 24-hour no-bot gate was removed from
-Slice 2 by an accepted scope decision; bot count remains part of the later
-72-hour deployment soak. The private observability stack is now deployed on the
+Slice 2 by an accepted scope decision; bot count remains part of the integrated
+24-hour deployment soak. The private observability stack is now deployed on the
 target from `v2.3.0-rc.5`. Collector, Prometheus, and Grafana health, live
 application and ASP.NET Core metrics, Grafana provisioning, internal-only
 networking, absent host port publication, zero restart counts, and root-only
@@ -485,8 +485,10 @@ evidence all passed. The broader recovery exercise has now also passed: one
 incident opened after the configured threshold and closed after recovery, its
 two alert events were delivered once each through a temporary restricted HTTPS
 receiver, pending work survived an API restart, and rc.4 rollback plus rc.5
-roll-forward preserved durable counts. Trial-period address stability and soak
-evidence remain incomplete. Raw target evidence remains outside Git.
+roll-forward preserved durable counts. Trial-period address stability remains
+pending. The 24-hour release soak is active from `2026-09-02T16:23:57Z` through
+`2026-09-03T16:23:57Z`; matching root-only baselines passed on both hosts. Raw
+target evidence remains outside Git.
 
 Why this work is selected:
 
@@ -544,8 +546,9 @@ tracks state without duplicating that operational sequence.
    post-restart allowlist verification, and 31 healthy snapshots across 30
    minutes and 2 seconds have also passed with zero bots and a stable process.
    Trial-period address stability remains pending. The standalone 24-hour no-bot
-   observation is intentionally omitted; the later 72-hour deployment soak
-   retains the longer stability and bot-count evidence.
+   observation is intentionally omitted; the integrated Slice 6 24-hour soak
+   retains the combined stability, bot-count, API, durable-state, backup, and
+   observability evidence.
 4. Completed: deploy the single-node reference control plane with PostgreSQL,
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent
@@ -590,8 +593,13 @@ tracks state without duplicating that operational sequence.
    polling is verified, and one guarded production `say` has passed with durable
    audit evidence. Controlled failure/recovery, alert delivery, restart with
    pending work, backup/restore, and image rollback now have sanitized target
-   evidence. Complete trial-period address stability and the 72-hour deployment
-   soak, then record initial SLI and SLO values.
+   evidence. The 24-hour deployment soak is running from
+   `2026-09-02T16:23:57Z` through `2026-09-03T16:23:57Z` after matching
+   fail-closed baselines passed on both hosts. Complete it and the separate
+   trial-period address-stability check, then record initial SLI observations
+   and propose SLO values. The shorter soak is operational evidence for this
+   reference deployment, not proof of long-term reliability or an achieved
+   SLO.
 
 Definition of done:
 
