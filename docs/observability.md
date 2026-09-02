@@ -122,6 +122,12 @@ API and GoldSrcOps application data. Finally, rerun host readiness and retain
 sanitized evidence that ports `3000`, `4317`, `8888`, `9090`, `9464`, and
 `13133` are not publicly listening.
 
+In this topology, `up{job="goldsrcops"}` reports Prometheus reachability of the
+Collector's application-export endpoint. It does not probe the public API and
+must not be presented as API uptime. Continuous HTTP availability requires a
+separate external black-box time series; until then, public health evidence is
+explicitly sampled.
+
 ### First Target Result
 
 The first target rollout completed on 2026-09-02 from signed tag

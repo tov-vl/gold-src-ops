@@ -73,6 +73,7 @@ reliability release is summarized in
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Active v2.3 reference deployment plan | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
+| Active v2.3 release evidence | [v2.3 readiness](docs/v2.3-readiness.md) |
 | Active v2.3 production Compose contract | [Reference production Compose](ops/production/README.md) |
 | Production metrics path and operations | [Observability](docs/observability.md) |
 | PostgreSQL off-host backup and restore | [PostgreSQL backup](docs/postgresql-backup.md) |
@@ -458,8 +459,9 @@ dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 GitHub Actions runs the same quality gate on every push and pull request. After
 it succeeds, a dependent `Container Smoke` job first validates the plan-only
 control-plane and game-server host bootstraps plus deterministic host-readiness
-pass/fail decisions, then builds the production image, applies its embedded
-migration bundle twice to isolated PostgreSQL, and checks runtime hardening,
+and soak-readiness pass/fail decisions, then builds the production image and
+applies its embedded migration bundle twice to isolated PostgreSQL. It checks
+runtime hardening,
 alert configuration, log-safety, health contracts, the private
 API-to-Collector-to-Prometheus metric path, provisioned Grafana assets,
 Collector-outage readiness, and an encrypted backup, full repository data
@@ -484,7 +486,8 @@ Run `pwsh -NoProfile -File .\tools\smoke\container.ps1` to build and verify the
 production container against an isolated PostgreSQL instance. See
 `docs/smoke-test.md` for the image flow, the separate control-plane and
 game-server host-bootstrap, runtime-installer, and runtime-activation smokes,
-the host-preflight smoke, and the longer live GoldSrc server flow. Live
+the host-preflight and soak-readiness smokes, and the longer live GoldSrc server
+flow. Live
 control-plane hardening and auditing are documented in
 `ops/production/README.md`; the game-host foundation, pinned runtime
 installation, and guarded first-start workflow are in
@@ -492,7 +495,8 @@ installation, and guarded first-start workflow are in
 Use `docs/deployment.md` for image versioning, production configuration,
 migrations, probes, and rollback. PostgreSQL recovery operations are in
 `docs/postgresql-backup.md`; alert-specific rollout and recovery guidance is in
-`docs/alert-delivery.md`.
+`docs/alert-delivery.md`. The active release-evidence boundary is recorded in
+`docs/v2.3-readiness.md`.
 
 For a concise five-to-ten-minute portfolio walkthrough, use `docs/demo.md`.
 

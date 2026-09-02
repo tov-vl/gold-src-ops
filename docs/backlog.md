@@ -595,11 +595,13 @@ tracks state without duplicating that operational sequence.
    pending work, backup/restore, and image rollback now have sanitized target
    evidence. The 24-hour deployment soak is running from
    `2026-09-02T16:23:57Z` through `2026-09-03T16:23:57Z` after matching
-   fail-closed baselines passed on both hosts. Complete it and the separate
-   trial-period address-stability check, then record initial SLI observations
-   and propose SLO values. The shorter soak is operational evidence for this
-   reference deployment, not proof of long-term reliability or an achieved
-   SLO.
+   fail-closed baselines passed on both hosts. A read-only control-plane
+   evaluator, deterministic pass/fail smoke, explicit SLI measurement contract,
+   and draft `docs/v2.3-readiness.md` are implemented. Complete the target
+   evaluation and separate game-host continuity and trial-period
+   address-stability checks, then record terminal SLI observations and propose
+   SLO values. The shorter soak is operational evidence for this reference
+   deployment, not proof of long-term reliability or an achieved SLO.
 
 Definition of done:
 
@@ -849,8 +851,9 @@ The released v1 baseline includes:
 
 Remaining portfolio gaps, in priority order:
 
-- Completed recovery and soak evidence for the continuously running reference
-  deployment across its real external A2S/RCON boundary.
+- Complete terminal soak evidence for the continuously running reference
+  deployment across its real external A2S/RCON boundary; the recovery exercise
+  is complete and the 24-hour observation is active.
 - A compact public read-only dashboard backed by a deliberately sanitized
   projection.
 - An authenticated Reader/Operator web workflow for servers, incidents,
