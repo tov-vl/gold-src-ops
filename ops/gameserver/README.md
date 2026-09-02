@@ -302,10 +302,46 @@ parsing, exact-source and default-deny firewall gates, public/private rendering,
 activation order, disconnect rollback coverage, and the prohibition on service
 enablement or secret arguments.
 
+## Release-Soak Continuity
+
+`soak-readiness.sh` performs the read-only game-host half of the v2.3 release
+soak evaluation. It compares the owner-only baseline with the current systemd
+service state, boot enablement, restart count, invocation, main process, and the
+single configured UDP listener. The listener process must remain inside the
+service control group. The script never starts, stops, restarts, enables, or
+reconfigures the service and does not perform A2S or RCON.
+
+Run the final check as root from the exact reviewed source after the baseline
+completion time:
+
+```bash
+sudo bash ./ops/gameserver/soak-readiness.sh \
+  --baseline-file /var/lib/goldsrcops/evidence/v2.3-soak-baseline.json \
+  --evidence-file /var/lib/goldsrcops/evidence/v2.3-gameserver-soak-readiness.json
+```
+
+The baseline must be a root-owned regular file with mode `0600`. Evidence is
+atomically written outside the repository with mode `0600` and contains only
+sanitized booleans and interval metadata. It excludes the endpoint, port,
+process and invocation identifiers, credentials, and raw command output.
+
+During the active interval, `--allow-incomplete` may be used for diagnostics.
+It reports `InProgress` and cannot close the release gate. Snapshot mode is for
+deterministic CI only and always records `TargetEvidence: false`:
+
+```bash
+bash ./tools/smoke/gameserver-soak-readiness.sh
+```
+
+External A2S, persisted bot counts, and trial-period address stability remain
+separate control-plane checks. A terminal host observation must not be presented
+as continuous external availability.
+
 ## Next Boundary
 
-The runtime is installed on the bounded-trial host, and its plan-first activation
-workflow is implemented but has not yet been applied there. After reviewed
-activation, verify external `A2S_INFO` and authenticated `rcon_users` from the
-actual control-plane source before registering the endpoint or dispatching a
-guarded command.
+Runtime activation, external `A2S_INFO`, authenticated `rcon_users`, controlled
+restart/restore, guarded RCON, and the short post-restart observation have
+passed on the bounded-trial host. Complete the integrated 24-hour release soak
+with matching control-plane and game-host evidence, then record the separate
+trial-period address-stability outcome. Keep target addresses, identifiers,
+credentials, and raw evidence outside Git.

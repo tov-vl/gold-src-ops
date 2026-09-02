@@ -83,6 +83,9 @@ jobs:
       - name: Validate game-server runtime activation
         run: bash ./tools/smoke/gameserver-runtime-activate.sh
 
+      - name: Validate game-host soak-readiness evidence contract
+        run: bash ./tools/smoke/gameserver-soak-readiness.sh
+
       - name: Validate host-readiness preflight
         run: pwsh -NoProfile -File ./tools/smoke/host-preflight.ps1
 
