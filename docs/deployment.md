@@ -17,8 +17,9 @@ implemented delivery slice. The controlled external game-server contract is in
 is the bounded-trial target recorded in
 `docs/v2.3-gameserver-provider-decision.md`; provisioning, the reviewed host
 foundation, controlled reboot, post-reboot audit, and pinned runtime installation
-are complete. The plan-first activation workflow is implemented; target
-activation and external A2S/RCON evidence remain pending.
+are complete. The plan-first activation, external A2S verification, production
+registration and polling, and one guarded RCON `say` are complete. Controlled
+restart and configuration-restore evidence remain pending.
 
 ## Supported Shape
 
