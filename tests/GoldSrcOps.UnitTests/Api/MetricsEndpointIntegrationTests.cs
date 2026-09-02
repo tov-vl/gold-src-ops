@@ -13,6 +13,36 @@ namespace GoldSrcOps.UnitTests.Api;
 public sealed class MetricsEndpointIntegrationTests
 {
     [Fact]
+    public async Task Unavailable_otlp_endpoint_does_not_affect_readiness_or_direct_metrics()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(
+            configurationOverrides: new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["Telemetry:Otlp:Enabled"] = "true",
+                ["Telemetry:Otlp:Endpoint"] = "http://127.0.0.1:1",
+                ["Telemetry:Otlp:Protocol"] = "http/protobuf",
+                ["Telemetry:Otlp:ExportIntervalMilliseconds"] = "1000",
+                ["Telemetry:Otlp:ExportTimeoutMilliseconds"] = "100"
+            });
+        using var client = factory.CreateClient();
+        GoldSrcOpsMetrics.RecordPollingRun(new ServerPollingResult(
+            DueServers: 1,
+            SuccessfulPolls: 1,
+            FailedPolls: 0,
+            OpenedIncidents: 0,
+            ClosedIncidents: 0));
+        await Task.Delay(TimeSpan.FromMilliseconds(1_100));
+
+        var readinessResponse = await client.GetAsync("/health/ready");
+        var metricsResponse = await client.GetAsync("/metrics");
+
+        readinessResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        metricsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var metricsBody = await metricsResponse.Content.ReadAsStringAsync();
+        metricsBody.Should().Contain("goldsrcops_polling_runs");
+    }
+
+    [Fact]
     public async Task GetMetrics_returns_prometheus_metrics_with_application_polling_series()
     {
         await using var factory = new GoldSrcOpsApiFactory();

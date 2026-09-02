@@ -13,6 +13,7 @@ namespace GoldSrcOps.UnitTests.Api;
 internal sealed class GoldSrcOpsApiFactory : WebApplicationFactory<Program>
 {
     private readonly bool _commandDispatcherEnabled;
+    private readonly IReadOnlyDictionary<string, string?>? _configurationOverrides;
     private readonly Action<IServiceCollection>? _configureTestServices;
     private readonly string _databaseName = $"goldsrcops-tests-{Guid.NewGuid():N}";
     private readonly TestApiPrincipal _principal;
@@ -20,8 +21,10 @@ internal sealed class GoldSrcOpsApiFactory : WebApplicationFactory<Program>
     public GoldSrcOpsApiFactory(
         Action<IServiceCollection>? configureTestServices = null,
         TestApiPrincipal? principal = null,
-        bool commandDispatcherEnabled = false)
+        bool commandDispatcherEnabled = false,
+        IReadOnlyDictionary<string, string?>? configurationOverrides = null)
     {
+        _configurationOverrides = configurationOverrides;
         _configureTestServices = configureTestServices;
         _principal = principal ?? TestApiPrincipal.Operator();
         _commandDispatcherEnabled = commandDispatcherEnabled;
@@ -63,6 +66,11 @@ internal sealed class GoldSrcOpsApiFactory : WebApplicationFactory<Program>
                 ["Polling:Enabled"] = "false",
                 ["SnapshotRetention:Enabled"] = "false"
             });
+
+            if (_configurationOverrides is not null)
+            {
+                configuration.AddInMemoryCollection(_configurationOverrides);
+            }
         });
 
         builder.ConfigureServices(services =>
