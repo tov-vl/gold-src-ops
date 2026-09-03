@@ -1,12 +1,13 @@
 # GoldSrcOps Initial Service-Level Objectives
 
-Review date: 2026-09-02. Status: draft; no objective is active or achieved.
+Review date: 2026-09-03. Status: reviewed draft with terminal v2.3 SLI
+evidence; no objective is active or achieved.
 
 ## Purpose And Scope
 
 This document defines the first reviewable SLI and SLO proposal for the
 single-node GoldSrcOps reference deployment and its one controlled GoldSrc
-endpoint. It is an operating hypothesis, not a release claim. The active
+endpoint. It is an operating hypothesis, not a release claim. The completed
 24-hour v2.3 soak supplies a bounded baseline only; it cannot establish a
 rolling monthly objective retroactively.
 
@@ -66,28 +67,40 @@ a concrete service expectation and a continuous measurement population exist.
 
 ## Terminal v2.3 SLI Record
 
-`Pending` means the value must not be filled before
-`2026-09-03T16:23:57Z`. Only sanitized aggregates belong in Git; owner-only JSON,
-host addresses, endpoint addresses, identifiers, credentials, command payloads,
-and raw logs remain outside the repository.
+The values below were transcribed only after the expected completion time of
+`2026-09-03T16:23:57Z`. Only sanitized aggregates belong in Git; owner-only
+JSON, host addresses, endpoint addresses, identifiers, credentials, command
+payloads, and raw logs remain outside the repository.
 
 | Observation | Authoritative field or source | Sanitized value | Interpretation |
 | --- | --- | --- | --- |
-| Soak window and decision | Control-plane evidence `Window`, `Result`, and `TargetEvidence` | Pending | Must show at least 24 hours, `Passed`, and target evidence. |
-| Candidate continuity | Control-plane evidence `Candidate` plus container continuity checks | Pending | Version, source revision, image digest, migration revision, and required containers must match the baseline. |
-| Sampled external HTTPS health | Timestamped operator heartbeat summary | Pending | Record good/total samples and maximum sample gap; do not label the ratio as continuous API uptime. |
-| Host-local HTTPS edge | `Indicators.HttpsEdge` | Pending | Record terminal liveness and readiness status through Caddy. |
-| Poll coverage | `Indicators.Polling.Expected`, `Total`, and `CoveragePercent` | Pending | Bounded scheduler continuity for the one controlled endpoint. |
-| Poll success | `Indicators.Polling.Successful`, `Failed`, and `SuccessPercent` | Pending | Composite A2S result across application, network, and game host. |
-| Poll latency | `Indicators.Polling.AverageLatencyMs`, `P95LatencyMs`, and `MaximumLatencyMs` | Pending | Terminal 24-hour latency distribution, not a long-term latency objective. |
-| Poll continuity and bots | `Indicators.Polling.MaximumGapSeconds` and `BotPositivePolls` | Pending | Must remain within the release bound and contain zero bot-positive polls. |
-| Incident state | `Indicators.Incidents` | Pending | Record opened, currently open, and maximum duration counts without inferring an incident SLO from a zero-event window. |
-| Command state | `Indicators.Commands` | Pending | Record total, succeeded, failed, and currently incomplete commands. |
-| Alert outbox state | `Indicators.AlertOutbox` | Pending | Record created, processed, pending, and dead-letter counts; delivery is disabled outside the controlled exercise. |
-| Telemetry continuity | `Indicators.Telemetry` | Pending | Record application-export and Collector sample and healthy-sample coverage; this is not public API uptime. |
-| Terminal capacity | `Indicators.Capacity` | Pending | Record sanitized database sizes, free disk, available memory, processor count, and one-minute load. |
-| Game-host process continuity | Game-host evidence `Result`, `TargetEvidence`, and `Continuity` | Pending | Must show `Passed`, target evidence, and every continuity flag true. |
-| Trial-period address stability | Owner-only start/end comparison | Pending | Publish only pass/fail and observation bounds, never the address. |
+| Soak window and decision | Control-plane evidence `Window`, `Result`, and `TargetEvidence` | 24.095 hours; `Passed`; target evidence; 18/18 checks passed | The bounded release interval completed without changing the candidate or runtime. |
+| Candidate continuity | Control-plane evidence `Candidate` plus container continuity checks | `2.3.0-rc.5`; source, image, migration, and all six required containers matched the baseline; zero restart deltas | This establishes continuity only for the observed candidate and interval. |
+| Sampled external HTTPS health | Timestamped operator heartbeat summary and terminal probe | 10/10 completed scheduled evaluations plus the terminal probe observed healthy public liveness and readiness; one scheduled trigger produced no result; maximum completed-sample gap was 12 h 38 min 34 s | These are discrete observations, not continuous API uptime. |
+| Host-local HTTPS edge | `Indicators.HttpsEdge` | Liveness `200`; readiness `200` | Caddy and the database-backed API path were healthy at the terminal check. |
+| Poll coverage | `Indicators.Polling.Expected` and `Total`, recomputed with the corrected floating-point ratio | 1,444 persisted polls / 1,445 nominal slots = 99.9308% | Bounded scheduler continuity for the one controlled endpoint. |
+| Poll success | `Indicators.Polling.Successful`, `Failed`, and `SuccessPercent` | 1,444 successful; 0 failed; 100.0% | Composite A2S result across application, network, and game host. |
+| Poll latency | `Indicators.Polling.LatencySampleCount`, `AverageLatencyMs`, `P95LatencyMs`, and `MaximumLatencyMs` | 1,444 samples; average 18.64 ms; p95 21 ms; maximum 23 ms | Terminal distribution over every successful poll, not a long-term latency objective. |
+| Poll continuity and bots | `Indicators.Polling.MaximumGapSeconds` and `BotPositivePolls` | Maximum gap 60.58 s; 0 bot-positive polls | The 60-second schedule remained within the 130-second release bound. |
+| Incident state | `Indicators.Incidents` | 0 opened; 0 currently open; maximum duration not applicable | A zero-event window does not establish an incident SLO. |
+| Command state | `Indicators.Commands` | Total/succeeded/failed/incomplete: 0/0/0/0 | No command population existed from which to infer `CMD-01`. |
+| Alert outbox state | `Indicators.AlertOutbox` | Created/processed/pending/dead-lettered: 0/0/0/0 | Delivery remained disabled after the controlled exercise. |
+| Telemetry continuity | Historical terminal Prometheus query and `Indicators.Telemetry` | Both targets had 5,783/5,782 expected samples, all healthy; capped coverage 100.0% | Private telemetry continuity is not public API uptime. |
+| Terminal capacity | `Indicators.Capacity` | Database 9,149,463 B; poll table 835,584 B; free disk 69.86 GiB; available memory 6,810.73 MiB; 4 processors; load 0.08 | A terminal capacity observation, not sustained utilization evidence. |
+| Game-host process continuity | Game-host evidence `Result`, `TargetEvidence`, and `Continuity` | `Passed`; target evidence; 8/8 checks and all seven continuity flags passed | The active boot-disabled service, process identity, restart count, and single owned UDP listener matched the baseline. |
+| Trial-period address stability | Owner-only start/end comparison | Passed across the bounded trial; one current global address matched the configured value at terminal comparison | Raw address values remain owner-only. |
+
+One monitoring-path anomaly occurred during the window: a local VPN route lost
+HTTPS and SSH reachability while an independent external probe still observed
+healthy public HTTPS. The route was corrected and later checks passed. This was
+not classified as a production outage, but together with the 12-hour sampling
+gap and one incomplete scheduled trigger it keeps `API-01` inactive.
+
+The initial terminal evidence rounded fractional coverage to integer values
+because of PowerShell overload resolution. The release branch corrects that
+calculation and adds fractional boundary tests. The poll-coverage value above
+is recomputed directly from the retained counts; telemetry sample counts were
+verified at the terminal evaluation timestamp.
 
 ## Completion Procedure
 
@@ -108,3 +121,5 @@ and raw logs remain outside the repository.
 
 The release can use a passing terminal record as v2.3 readiness evidence. It
 must still describe every initial SLO as proposed rather than achieved.
+For this review, every proposal remains inactive because its forward-looking
+activation gate and complete measurement window have not yet been satisfied.

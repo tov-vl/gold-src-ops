@@ -400,9 +400,9 @@ publication now covers strict stable and release-candidate tags with
 digest-preserving candidate promotion, and the controlled game-server baseline
 contract is defined. A self-operated MyArena game VDS is provisioned for the
 approved bounded trial, with Timeweb Cloud retained as fallback. DDoS
-source-address preservation has passed from the production control plane;
-public-address stability across the remaining trial is the outstanding
-empirical provider gate. The other purchase conditions and checkout approval
+source-address preservation and bounded trial-period public-address stability
+have passed from the production control plane. The other purchase conditions
+and checkout approval
 completed before provisioning. The pinned ReHLDS and ReGameDLL_CS versions
 have passed both a disposable local Linux rehearsal and the initial controlled
 external activation with verified artifacts, A2S, and guarded RCON preflight.
@@ -464,9 +464,9 @@ secret matched both protected runtime copies without appearing in process
 arguments, environment, unit configuration, public configuration, markers, or
 the current journal. A short stability gate completed seven of seven A2S
 queries with zero service restarts and zero bots. Trial-period address
-stability remains an empirical provider gate. The reviewed endpoint is now
-registered in the production control plane, where three scheduled A2S snapshots
-over 120 seconds succeeded with zero failures and zero bots. One guarded
+stability later passed its bounded terminal comparison. The reviewed endpoint
+is now registered in the production control plane, where three scheduled A2S
+snapshots over 120 seconds succeeded with zero failures and zero bots. One guarded
 production `say` completed with a persisted Operator identity, `Succeeded`
 terminal state, complete timestamps, and no failure reason. PostgreSQL and
 ReHLDS journal checks confirmed the single dispatch, and the service remained
@@ -485,10 +485,12 @@ evidence all passed. The broader recovery exercise has now also passed: one
 incident opened after the configured threshold and closed after recovery, its
 two alert events were delivered once each through a temporary restricted HTTPS
 receiver, pending work survived an API restart, and rc.4 rollback plus rc.5
-roll-forward preserved durable counts. Trial-period address stability remains
-pending. The 24-hour release soak is active from `2026-09-02T16:23:57Z` through
-`2026-09-03T16:23:57Z`; matching root-only baselines passed on both hosts. Raw
-target evidence remains outside Git.
+roll-forward preserved durable counts. Trial-period address stability passed.
+The 24-hour release soak completed after 24.095 hours; the control-plane
+evaluator passed 18/18 checks and the game-host evaluator passed 8/8 checks
+with target evidence. Sanitized terminal SLI values are recorded, while raw
+target evidence remains outside Git. Final repository checks and stable
+publication remain pending.
 
 Why this work is selected:
 
@@ -520,7 +522,7 @@ tracks state without duplicating that operational sequence.
    published and verified
    `sha256:f146c61e5eba942fc40d27792088ec6666fb2605959429093930c30a43f7d639`
    from revision `58a74da`.
-3. In progress: use `docs/v2.3-controlled-gameserver-baseline.md` to operate
+3. Completed: use `docs/v2.3-controlled-gameserver-baseline.md` to operate
    one controlled ReHLDS and ReGameDLL_CS server outside the control-plane
    host. The local target-runtime compatibility gate is complete. The
    conditional provider decision and bounded trial exception are recorded in
@@ -545,10 +547,10 @@ tracks state without duplicating that operational sequence.
    and terminal state persisted. Controlled stop, configuration restore,
    post-restart allowlist verification, and 31 healthy snapshots across 30
    minutes and 2 seconds have also passed with zero bots and a stable process.
-   Trial-period address stability remains pending. The standalone 24-hour no-bot
-   observation is intentionally omitted; the integrated Slice 6 24-hour soak
-   retains the combined stability, bot-count, API, durable-state, backup, and
-   observability evidence.
+   Trial-period address stability and the integrated Slice 6 24-hour no-bot
+   observation passed. The standalone 24-hour no-bot observation is
+   intentionally omitted; the integrated soak retains the combined stability,
+   bot-count, API, durable-state, backup, and observability evidence.
 4. Completed: deploy the single-node reference control plane with PostgreSQL,
    TLS reverse proxy, external OIDC integration, secret injection, serialized
    migrations, and off-host backup and restore evidence. The provider-independent
@@ -589,22 +591,19 @@ tracks state without duplicating that operational sequence.
    all passed. Analytics reporting and both Grafana update-check paths are
    disabled; the final Grafana-only recreation did not interrupt other runtime
    services.
-6. In progress: the controlled endpoint is registered, repeated scheduled A2S
+6. Completed: the controlled endpoint is registered, repeated scheduled A2S
    polling is verified, and one guarded production `say` has passed with durable
    audit evidence. Controlled failure/recovery, alert delivery, restart with
-   pending work, backup/restore, and image rollback now have sanitized target
-   evidence. The 24-hour deployment soak is running from
-   `2026-09-02T16:23:57Z` through `2026-09-03T16:23:57Z` after matching
-   fail-closed baselines passed on both hosts. Read-only control-plane and
-   game-host continuity evaluators, deterministic pass/fail smoke coverage for
-   both, the explicit SLI measurement contract, draft objective register with
-   activation gates and error budgets, terminal observation template in
-   `docs/service-level-objectives.md`, and draft `docs/v2.3-readiness.md` are
-   implemented. Complete both target evaluations
-   and the separate trial-period address-stability check, then fill the sanitized
-   terminal SLI record and review the proposed SLO values prospectively. The
-   shorter soak is operational evidence for this reference deployment, not proof
-   of long-term reliability or an achieved SLO.
+   pending work, backup/restore, and image rollback have sanitized target
+   evidence. The 24-hour deployment soak completed after 24.095 hours with
+   18/18 control-plane and 8/8 game-host checks passing, target evidence on both
+   hosts, zero failed A2S polls, zero bots, unchanged runtime processes, and a
+   passing bounded address comparison. Read-only evaluators, deterministic
+   pass/fail smoke coverage, the explicit SLI measurement contract, reviewed
+   inactive objective register, terminal observation in
+   `docs/service-level-objectives.md`, and `docs/v2.3-readiness.md` are complete.
+   The short soak is operational evidence for this reference deployment, not
+   proof of long-term reliability or an achieved SLO.
 
 Definition of done:
 
@@ -829,13 +828,15 @@ For the active v2.3 deployment milestone:
 - Completed: container-level validation of Collector, Prometheus, and Grafana
   configuration, provisioning, the private application-to-Collector metric
   path, and API readiness after Collector loss.
-- Deterministic host-preflight coverage for Docker boot enablement, time,
-  capacity, firewall scope, prohibited public listeners, published ports, and
-  external dependency failures; live output remains separate target evidence.
-- Target-environment evidence for TLS, OIDC metadata, secret injection,
-  external A2S/RCON traffic, backup restoration, and immutable rollback.
-- A controlled stop/recovery scenario that verifies incidents and durable alert
-  state without treating YaPB sessions as real-player adoption.
+- Completed: deterministic host-preflight coverage for Docker boot enablement,
+  time, capacity, firewall scope, prohibited public listeners, published ports,
+  and external dependency failures; live output remains separate target
+  evidence.
+- Completed: target-environment evidence for TLS, OIDC metadata, secret
+  injection, external A2S/RCON traffic, backup restoration, and immutable
+  rollback.
+- Completed: a controlled stop/recovery scenario that verifies incidents and
+  durable alert state without treating YaPB sessions as real-player adoption.
 
 ## Portfolio Baseline And Remaining Gaps
 
@@ -854,15 +855,15 @@ The released v1 baseline includes:
 
 Remaining portfolio gaps, in priority order:
 
-- Complete terminal soak evidence for the continuously running reference
-  deployment across its real external A2S/RCON boundary; the recovery exercise
-  is complete and the 24-hour observation is active.
+- Add continuous independent public availability measurement and review the
+  initial SLOs prospectively after their full activation windows; the completed
+  24-hour release sample is not a monthly uptime claim.
 - A compact public read-only dashboard backed by a deliberately sanitized
   projection.
 - An authenticated Reader/Operator web workflow for servers, incidents,
   commands, dead letters, and replay.
-- Recorded uptime, initial SLOs, a controlled failure/recovery demonstration, a
-  concise video walkthrough, and a small evidence-based postmortem.
+- A concise video walkthrough and a small evidence-based postmortem covering
+  the completed controlled failure/recovery exercise.
 - A later versioned AMX Mod X/ReAPI event agent with a durable inbox, only after
   the production control plane and UI are established.
 

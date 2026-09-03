@@ -948,7 +948,7 @@ $expectedPolls = [Math]::Max(
     1,
     [Math]::Floor($elapsed.TotalSeconds / $pollIntervalSeconds))
 $pollCoveragePercent = [Math]::Min(
-    100,
+    100.0,
     ([int]$database.pollTotal * 100.0) / $expectedPolls)
 $pollCoverageReady = $pollCoveragePercent -ge $MinimumPollCoveragePercent
 Add-Check -Name "Polling coverage" -Passed $pollCoverageReady -Detail $(
@@ -969,6 +969,16 @@ Add-Check -Name "Polling outcomes" -Passed $pollOutcomesHealthy -Detail $(
     }
     else {
         "The soak contains a failed poll, a bot-positive poll, or no poll data."
+    })
+
+$latencySamplesComplete = [int]$database.latencySampleCount -eq
+    [int]$database.pollSuccessful
+Add-Check -Name "Polling latency samples" -Passed $latencySamplesComplete -Detail $(
+    if ($latencySamplesComplete) {
+        "Every successful poll has a latency sample."
+    }
+    else {
+        "The latency distribution does not cover every successful poll."
     })
 
 $maximumAllowedGapSeconds = ($pollIntervalSeconds * 2) + 10
@@ -1026,19 +1036,19 @@ $expectedScrapeSamples = [Math]::Max(
     1,
     [Math]::Floor($elapsed.TotalSeconds / $scrapeIntervalSeconds))
 $pipelineCoveragePercent = [Math]::Min(
-    100,
+    100.0,
     ([double]$observation.Telemetry.GoldSrcOpsSamples * 100.0) /
         $expectedScrapeSamples)
 $pipelineHealthyPercent = [Math]::Min(
-    100,
+    100.0,
     ([double]$observation.Telemetry.GoldSrcOpsHealthySamples * 100.0) /
         $expectedScrapeSamples)
 $collectorCoveragePercent = [Math]::Min(
-    100,
+    100.0,
     ([double]$observation.Telemetry.CollectorSamples * 100.0) /
         $expectedScrapeSamples)
 $collectorHealthyPercent = [Math]::Min(
-    100,
+    100.0,
     ([double]$observation.Telemetry.CollectorHealthySamples * 100.0) /
         $expectedScrapeSamples)
 $telemetryHealthy = [double]$observation.Telemetry.GoldSrcOpsUp -eq 1 -and
@@ -1123,6 +1133,7 @@ $evidence = [ordered]@{
             SuccessPercent = [Math]::Round($pollSuccessPercent, 4)
             CoveragePercent = [Math]::Round($pollCoveragePercent, 4)
             BotPositivePolls = [int]$database.botPositivePolls
+            LatencySampleCount = [int]$database.latencySampleCount
             AverageLatencyMs = $database.averageLatencyMs
             P95LatencyMs = $database.p95LatencyMs
             MaximumLatencyMs = $database.maximumLatencyMs

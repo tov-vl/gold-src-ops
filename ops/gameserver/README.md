@@ -340,8 +340,8 @@ as continuous external availability.
 ## Next Boundary
 
 Runtime activation, external `A2S_INFO`, authenticated `rcon_users`, controlled
-restart/restore, guarded RCON, and the short post-restart observation have
-passed on the bounded-trial host. Complete the integrated 24-hour release soak
-with matching control-plane and game-host evidence, then record the separate
-trial-period address-stability outcome. Keep target addresses, identifiers,
-credentials, and raw evidence outside Git.
+restart/restore, guarded RCON, the short post-restart observation, the
+integrated 24-hour release soak, and the bounded address-stability comparison
+have passed on the trial host. Keep target addresses, identifiers, credentials,
+and raw evidence outside Git. Any later process or configuration change needs a
+new baseline before it can support another continuity claim.

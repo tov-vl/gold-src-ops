@@ -118,6 +118,7 @@ function New-ReadySnapshot {
             pollSuccessful = $pollCount
             pollFailed = 0
             botPositivePolls = 0
+            latencySampleCount = $pollCount
             averageLatencyMs = 12.25
             p95LatencyMs = 19.5
             maximumLatencyMs = 25
@@ -168,6 +169,8 @@ function Invoke-SoakCase {
         [Parameter(Mandatory = $true)]
         [ValidateSet("Passed", "Failed", "InProgress")]
         [string]$ExpectedResult,
+
+        [Nullable[double]]$ExpectedPollCoveragePercent,
 
         [switch]$AllowIncomplete
     )
@@ -223,6 +226,16 @@ function Invoke-SoakCase {
     if ($evidence.Result -ne $ExpectedResult) {
         throw "Soak-readiness case '$Name' recorded '$($evidence.Result)' instead of '$ExpectedResult'."
     }
+    if ([int]$evidence.Indicators.Polling.LatencySampleCount -ne
+        [int]$Snapshot.Database.latencySampleCount) {
+        throw "Soak-readiness case '$Name' did not preserve the latency sample count."
+    }
+    if ($null -ne $ExpectedPollCoveragePercent -and
+        [Math]::Abs(
+            [double]$evidence.Indicators.Polling.CoveragePercent -
+            [double]$ExpectedPollCoveragePercent) -gt 0.0001) {
+        throw "Soak-readiness case '$Name' rounded polling coverage incorrectly."
+    }
     if ($evidenceText -match '(?i)password|authorization|203\.0\.113\.') {
         throw "Soak-readiness evidence contains a forbidden sensitive marker."
     }
@@ -272,6 +285,17 @@ try {
         -ShouldPass $true `
         -ExpectedResult "Passed"
 
+    $fractionalPollCoverage = New-ReadySnapshot
+    $fractionalPollCoverage.Database["pollTotal"]--
+    $fractionalPollCoverage.Database["pollSuccessful"]--
+    $fractionalPollCoverage.Database["latencySampleCount"]--
+    Invoke-SoakCase `
+        -Name "fractional poll coverage" `
+        -Snapshot $fractionalPollCoverage `
+        -ShouldPass $true `
+        -ExpectedResult "Passed" `
+        -ExpectedPollCoveragePercent 99.9306
+
     Invoke-SoakCase `
         -Name "in progress allowed" `
         -Snapshot (New-ReadySnapshot -ElapsedHours 12) `
@@ -319,12 +343,35 @@ try {
         -ShouldPass $false `
         -ExpectedResult "Failed"
 
+    $latencySampleGap = New-ReadySnapshot
+    $latencySampleGap.Database["latencySampleCount"]--
+    Invoke-SoakCase `
+        -Name "latency sample gap" `
+        -Snapshot $latencySampleGap `
+        -ShouldPass $false `
+        -ExpectedResult "Failed"
+
     $telemetryGap = New-ReadySnapshot
     $telemetryGap.Telemetry["GoldSrcOpsSamples"] = 100
     $telemetryGap.Telemetry["GoldSrcOpsHealthySamples"] = 100
     Invoke-SoakCase `
         -Name "telemetry gap" `
         -Snapshot $telemetryGap `
+        -ShouldPass $false `
+        -ExpectedResult "Failed"
+
+    $fractionalTelemetryGap = New-ReadySnapshot
+    foreach ($field in @(
+            "GoldSrcOpsSamples",
+            "GoldSrcOpsHealthySamples",
+            "CollectorSamples",
+            "CollectorHealthySamples"
+        )) {
+        $fractionalTelemetryGap.Telemetry[$field] = 5702
+    }
+    Invoke-SoakCase `
+        -Name "fractional telemetry gap" `
+        -Snapshot $fractionalTelemetryGap `
         -ShouldPass $false `
         -ExpectedResult "Failed"
 
