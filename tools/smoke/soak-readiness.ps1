@@ -170,6 +170,8 @@ function Invoke-SoakCase {
         [ValidateSet("Passed", "Failed", "InProgress")]
         [string]$ExpectedResult,
 
+        [Nullable[double]]$ExpectedPollCoveragePercent,
+
         [switch]$AllowIncomplete
     )
 
@@ -228,6 +230,12 @@ function Invoke-SoakCase {
         [int]$Snapshot.Database.latencySampleCount) {
         throw "Soak-readiness case '$Name' did not preserve the latency sample count."
     }
+    if ($null -ne $ExpectedPollCoveragePercent -and
+        [Math]::Abs(
+            [double]$evidence.Indicators.Polling.CoveragePercent -
+            [double]$ExpectedPollCoveragePercent) -gt 0.0001) {
+        throw "Soak-readiness case '$Name' rounded polling coverage incorrectly."
+    }
     if ($evidenceText -match '(?i)password|authorization|203\.0\.113\.') {
         throw "Soak-readiness evidence contains a forbidden sensitive marker."
     }
@@ -276,6 +284,17 @@ try {
         -Snapshot (New-ReadySnapshot) `
         -ShouldPass $true `
         -ExpectedResult "Passed"
+
+    $fractionalPollCoverage = New-ReadySnapshot
+    $fractionalPollCoverage.Database["pollTotal"]--
+    $fractionalPollCoverage.Database["pollSuccessful"]--
+    $fractionalPollCoverage.Database["latencySampleCount"]--
+    Invoke-SoakCase `
+        -Name "fractional poll coverage" `
+        -Snapshot $fractionalPollCoverage `
+        -ShouldPass $true `
+        -ExpectedResult "Passed" `
+        -ExpectedPollCoveragePercent 99.9306
 
     Invoke-SoakCase `
         -Name "in progress allowed" `
@@ -338,6 +357,21 @@ try {
     Invoke-SoakCase `
         -Name "telemetry gap" `
         -Snapshot $telemetryGap `
+        -ShouldPass $false `
+        -ExpectedResult "Failed"
+
+    $fractionalTelemetryGap = New-ReadySnapshot
+    foreach ($field in @(
+            "GoldSrcOpsSamples",
+            "GoldSrcOpsHealthySamples",
+            "CollectorSamples",
+            "CollectorHealthySamples"
+        )) {
+        $fractionalTelemetryGap.Telemetry[$field] = 5702
+    }
+    Invoke-SoakCase `
+        -Name "fractional telemetry gap" `
+        -Snapshot $fractionalTelemetryGap `
         -ShouldPass $false `
         -ExpectedResult "Failed"
 

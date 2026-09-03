@@ -948,7 +948,7 @@ $expectedPolls = [Math]::Max(
     1,
     [Math]::Floor($elapsed.TotalSeconds / $pollIntervalSeconds))
 $pollCoveragePercent = [Math]::Min(
-    100,
+    100.0,
     ([int]$database.pollTotal * 100.0) / $expectedPolls)
 $pollCoverageReady = $pollCoveragePercent -ge $MinimumPollCoveragePercent
 Add-Check -Name "Polling coverage" -Passed $pollCoverageReady -Detail $(
@@ -1036,19 +1036,19 @@ $expectedScrapeSamples = [Math]::Max(
     1,
     [Math]::Floor($elapsed.TotalSeconds / $scrapeIntervalSeconds))
 $pipelineCoveragePercent = [Math]::Min(
-    100,
+    100.0,
     ([double]$observation.Telemetry.GoldSrcOpsSamples * 100.0) /
         $expectedScrapeSamples)
 $pipelineHealthyPercent = [Math]::Min(
-    100,
+    100.0,
     ([double]$observation.Telemetry.GoldSrcOpsHealthySamples * 100.0) /
         $expectedScrapeSamples)
 $collectorCoveragePercent = [Math]::Min(
-    100,
+    100.0,
     ([double]$observation.Telemetry.CollectorSamples * 100.0) /
         $expectedScrapeSamples)
 $collectorHealthyPercent = [Math]::Min(
-    100,
+    100.0,
     ([double]$observation.Telemetry.CollectorHealthySamples * 100.0) /
         $expectedScrapeSamples)
 $telemetryHealthy = [double]$observation.Telemetry.GoldSrcOpsUp -eq 1 -and
