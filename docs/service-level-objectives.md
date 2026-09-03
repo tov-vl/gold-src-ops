@@ -1,6 +1,6 @@
 # GoldSrcOps Initial Service-Level Objectives
 
-Review date: 2026-09-02. Status: draft; no objective is active or achieved.
+Review date: 2026-09-03. Status: draft; no objective is active or achieved.
 
 ## Purpose And Scope
 
@@ -79,7 +79,7 @@ and raw logs remain outside the repository.
 | Host-local HTTPS edge | `Indicators.HttpsEdge` | Pending | Record terminal liveness and readiness status through Caddy. |
 | Poll coverage | `Indicators.Polling.Expected`, `Total`, and `CoveragePercent` | Pending | Bounded scheduler continuity for the one controlled endpoint. |
 | Poll success | `Indicators.Polling.Successful`, `Failed`, and `SuccessPercent` | Pending | Composite A2S result across application, network, and game host. |
-| Poll latency | `Indicators.Polling.AverageLatencyMs`, `P95LatencyMs`, and `MaximumLatencyMs` | Pending | Terminal 24-hour latency distribution, not a long-term latency objective. |
+| Poll latency | `Indicators.Polling.LatencySampleCount`, `AverageLatencyMs`, `P95LatencyMs`, and `MaximumLatencyMs` | Pending | Terminal 24-hour latency distribution over every successful poll, not a long-term latency objective. |
 | Poll continuity and bots | `Indicators.Polling.MaximumGapSeconds` and `BotPositivePolls` | Pending | Must remain within the release bound and contain zero bot-positive polls. |
 | Incident state | `Indicators.Incidents` | Pending | Record opened, currently open, and maximum duration counts without inferring an incident SLO from a zero-event window. |
 | Command state | `Indicators.Commands` | Pending | Record total, succeeded, failed, and currently incomplete commands. |

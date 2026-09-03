@@ -118,6 +118,7 @@ function New-ReadySnapshot {
             pollSuccessful = $pollCount
             pollFailed = 0
             botPositivePolls = 0
+            latencySampleCount = $pollCount
             averageLatencyMs = 12.25
             p95LatencyMs = 19.5
             maximumLatencyMs = 25
@@ -223,6 +224,10 @@ function Invoke-SoakCase {
     if ($evidence.Result -ne $ExpectedResult) {
         throw "Soak-readiness case '$Name' recorded '$($evidence.Result)' instead of '$ExpectedResult'."
     }
+    if ([int]$evidence.Indicators.Polling.LatencySampleCount -ne
+        [int]$Snapshot.Database.latencySampleCount) {
+        throw "Soak-readiness case '$Name' did not preserve the latency sample count."
+    }
     if ($evidenceText -match '(?i)password|authorization|203\.0\.113\.') {
         throw "Soak-readiness evidence contains a forbidden sensitive marker."
     }
@@ -316,6 +321,14 @@ try {
     Invoke-SoakCase `
         -Name "poll failure" `
         -Snapshot $pollFailure `
+        -ShouldPass $false `
+        -ExpectedResult "Failed"
+
+    $latencySampleGap = New-ReadySnapshot
+    $latencySampleGap.Database["latencySampleCount"]--
+    Invoke-SoakCase `
+        -Name "latency sample gap" `
+        -Snapshot $latencySampleGap `
         -ShouldPass $false `
         -ExpectedResult "Failed"
 

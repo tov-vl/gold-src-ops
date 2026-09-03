@@ -971,6 +971,16 @@ Add-Check -Name "Polling outcomes" -Passed $pollOutcomesHealthy -Detail $(
         "The soak contains a failed poll, a bot-positive poll, or no poll data."
     })
 
+$latencySamplesComplete = [int]$database.latencySampleCount -eq
+    [int]$database.pollSuccessful
+Add-Check -Name "Polling latency samples" -Passed $latencySamplesComplete -Detail $(
+    if ($latencySamplesComplete) {
+        "Every successful poll has a latency sample."
+    }
+    else {
+        "The latency distribution does not cover every successful poll."
+    })
+
 $maximumAllowedGapSeconds = ($pollIntervalSeconds * 2) + 10
 $maximumGapSeconds = if ($null -eq $database.maximumPollGapSeconds) {
     0.0
@@ -1123,6 +1133,7 @@ $evidence = [ordered]@{
             SuccessPercent = [Math]::Round($pollSuccessPercent, 4)
             CoveragePercent = [Math]::Round($pollCoveragePercent, 4)
             BotPositivePolls = [int]$database.botPositivePolls
+            LatencySampleCount = [int]$database.latencySampleCount
             AverageLatencyMs = $database.averageLatencyMs
             P95LatencyMs = $database.p95LatencyMs
             MaximumLatencyMs = $database.maximumLatencyMs
