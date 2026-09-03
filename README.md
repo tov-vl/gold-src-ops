@@ -478,6 +478,11 @@ GHCR, record the digest, and rerun the smoke flow against the pulled digest. An
 RC tag is explicitly classified as a release candidate and does not create a
 stable release. The workflow never publishes `latest`; a stable tag can promote
 the already verified digest of a matching RC revision without rebuilding it.
+A manual workflow dispatch can resume an incomplete stable publication only
+for an existing annotated stable tag. An existing GHCR reference is accepted
+when it already matches the verified digest, or recovered before the GitHub
+Release exists when it is a one-manifest wrapper around exactly that digest;
+every other attempted overwrite fails closed.
 
 The active `main` ruleset requires signed commits, linear history, the
 `Quality Gate`, and `Container Smoke`, and blocks branch deletion and force

@@ -4,6 +4,16 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Stable annotated tag to resume after an incomplete publication
+        required: false
+        type: string
+      recover_single_manifest_wrapper:
+        description: Replace a failed one-manifest wrapper before its GitHub Release exists
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -105,7 +115,9 @@ jobs:
 
   publish-image:
     name: Publish Image
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
     needs:
       - quality
       - container-smoke
@@ -139,19 +151,40 @@ jobs:
         shell: bash
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          MANUAL_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
 
-          pwsh -NoLogo -NoProfile -File ./tools/ci/resolve-image-tag.ps1 \
-            -Tag "$GITHUB_REF_NAME" \
-            -GitHubOutputPath "$GITHUB_OUTPUT" > /dev/null
+          release_tag="$GITHUB_REF_NAME"
+          release_ref="$GITHUB_REF"
+          resolver_args=()
 
-          if [[ "$(git cat-file -t "$GITHUB_REF")" != "tag" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            release_tag="$MANUAL_RELEASE_TAG"
+            release_ref="refs/tags/$release_tag"
+            resolver_args+=(-ExpectedChannel stable)
+          fi
+
+          pwsh -NoLogo -NoProfile -File ./tools/ci/resolve-image-tag.ps1 \
+            -Tag "$release_tag" \
+            -GitHubOutputPath "$GITHUB_OUTPUT" \
+            "${resolver_args[@]}" > /dev/null
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            git fetch --force --no-tags origin "+$release_ref:$release_ref"
+          fi
+
+          if ! release_object_type="$(git cat-file -t "$release_ref" 2>/dev/null)"; then
+            echo "::error title=Missing image publication tag::$release_ref does not exist."
+            exit 1
+          fi
+
+          if [[ "$release_object_type" != "tag" ]]; then
             echo "::error title=Lightweight image publication reference::Stable and release-candidate tags must be annotated."
             exit 1
           fi
 
-          revision="$(git rev-list -n 1 "$GITHUB_REF")"
+          revision="$(git rev-list -n 1 "$release_ref")"
           git fetch --no-tags origin "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
 
           if ! git merge-base --is-ancestor "$revision" "origin/$DEFAULT_BRANCH"; then
@@ -180,7 +213,9 @@ jobs:
         id: registry
         shell: bash
         env:
+          ALLOW_SINGLE_MANIFEST_RECOVERY: ${{ inputs.recover_single_manifest_wrapper }}
           EXPECTED_IMAGE_SOURCE: ${{ github.server_url }}/${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IMAGE: ${{ steps.release.outputs.image }}
           RELEASE_BASE_VERSION: ${{ steps.release.outputs.base_version }}
           RELEASE_CHANNEL: ${{ steps.release.outputs.channel }}
@@ -193,13 +228,12 @@ jobs:
           release_ref="$IMAGE:$RELEASE_TAG"
           revision_ref="$IMAGE:sha-$RELEASE_REVISION"
 
-          if output="$(docker buildx imagetools inspect "$release_ref" 2>&1)"; then
-            echo "::error title=Immutable image tag already exists::$release_ref already exists and will not be overwritten."
-            exit 1
-          fi
-
-          if ! grep -Eiq 'manifest unknown|not found' <<< "$output"; then
-            echo "$output"
+          release_exists=false
+          release_output=""
+          if release_output="$(docker buildx imagetools inspect "$release_ref" 2>&1)"; then
+            release_exists=true
+          elif ! grep -Eiq 'manifest unknown|not found' <<< "$release_output"; then
+            echo "$release_output"
             echo "::error title=Registry lookup failed::Could not prove that $release_ref is unused."
             exit 1
           fi
@@ -243,9 +277,58 @@ jobs:
               -ExpectedChannel release-candidate \
               -ExpectedBaseVersion "$RELEASE_BASE_VERSION" > /dev/null
 
+            promotion_args=()
+            if [[ "$release_exists" == "true" ]]; then
+              existing_digest="$(awk '/^Digest:/ { print $2; exit }' <<< "$release_output")"
+              existing_raw="$(docker buildx imagetools inspect --raw "$release_ref")"
+              existing_media_type="$(jq -r '.mediaType // ""' <<< "$existing_raw")"
+              existing_child_digests="$(jq -c '[.manifests[]?.digest]' <<< "$existing_raw")"
+
+              promotion_args+=(
+                -ExistingDigest "$existing_digest"
+                -ExistingMediaType "$existing_media_type"
+                -ExistingChildDigestsJson "$existing_child_digests")
+
+              if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+                promotion_args+=(-AllowExistingReference)
+              fi
+            fi
+
+            if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" &&
+                  "$ALLOW_SINGLE_MANIFEST_RECOVERY" == "true" ]]; then
+              promotion_args+=(-AllowSingleManifestRecovery)
+            fi
+
+            mode="$(pwsh -NoLogo -NoProfile \
+              -File ./tools/ci/resolve-image-promotion.ps1 \
+              -SourceDigest "$source_digest" \
+              "${promotion_args[@]}")"
+
+            if [[ "$mode" == "recover" ]]; then
+              response_file="$(mktemp)"
+              status_code="$(curl --silent --show-error \
+                --output "$response_file" \
+                --write-out '%{http_code}' \
+                --header 'Accept: application/vnd.github+json' \
+                --header "Authorization: Bearer $GITHUB_TOKEN" \
+                --header 'X-GitHub-Api-Version: 2022-11-28' \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+              rm -f "$response_file"
+
+              if [[ "$status_code" == "200" ]]; then
+                echo "::error title=Published release cannot be recovered::A GitHub Release already exists for $RELEASE_TAG."
+                exit 1
+              fi
+
+              if [[ "$status_code" != "404" ]]; then
+                echo "::error title=Release lookup failed::GitHub returned HTTP $status_code while checking $RELEASE_TAG."
+                exit 1
+              fi
+            fi
+
             {
               echo "artifact_version=$artifact_version"
-              echo "mode=promote"
+              echo "mode=$mode"
               echo "source_digest=$source_digest"
             } >> "$GITHUB_OUTPUT"
             exit 0
@@ -254,6 +337,16 @@ jobs:
           if ! grep -Eiq 'manifest unknown|not found' <<< "$output"; then
             echo "$output"
             echo "::error title=Registry lookup failed::Could not determine whether $revision_ref exists."
+            exit 1
+          fi
+
+          if [[ "$release_exists" == "true" ]]; then
+            echo "::error title=Immutable image tag already exists::$release_ref already exists and will not be overwritten."
+            exit 1
+          fi
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "::error title=Missing candidate image::Manual publication can resume only an existing stable candidate revision."
             exit 1
           fi
 
@@ -298,7 +391,7 @@ jobs:
           annotations: ${{ steps.metadata.outputs.annotations }}
 
       - name: Promote verified candidate digest
-        if: steps.registry.outputs.mode == 'promote'
+        if: steps.registry.outputs.mode == 'promote' || steps.registry.outputs.mode == 'recover'
         shell: bash
         env:
           IMAGE: ${{ steps.release.outputs.image }}
@@ -308,6 +401,7 @@ jobs:
           set -euo pipefail
 
           docker buildx imagetools create \
+            --prefer-index=false \
             --tag "$IMAGE:$RELEASE_TAG" \
             "$IMAGE@$SOURCE_DIGEST"
 

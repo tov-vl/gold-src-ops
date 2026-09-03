@@ -7,6 +7,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $resolverPath = Join-Path $PSScriptRoot "../ci/resolve-image-tag.ps1"
+$promotionResolverPath = Join-Path $PSScriptRoot "../ci/resolve-image-promotion.ps1"
 
 function Assert-Equal {
     param(
@@ -66,6 +67,42 @@ function Assert-InvalidTag {
     }
 
     throw "Invalid image publication tag '$Tag' was accepted."
+}
+
+function Assert-PromotionMode {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Arguments,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedMode
+    )
+
+    $actualMode = & $promotionResolverPath @Arguments
+    Assert-Equal -Actual $actualMode -Expected $ExpectedMode -Context 'Image promotion mode mismatch.'
+}
+
+function Assert-InvalidPromotion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Arguments,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedMessage
+    )
+
+    try {
+        $null = & $promotionResolverPath @Arguments
+    }
+    catch {
+        if ($_.Exception.Message -notlike $ExpectedMessage) {
+            throw
+        }
+
+        return
+    }
+
+    throw 'Invalid image promotion state was accepted.'
 }
 
 $validCases = @(
@@ -149,4 +186,90 @@ finally {
     Remove-Item -LiteralPath $outputPath -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "Image publication tag smoke passed: $($validCases.Count) valid, $($invalidTags.Count) invalid, and 2 promotion-compatibility cases."
+$sourceDigest = 'sha256:' + ('a' * 64)
+$existingDigest = 'sha256:' + ('b' * 64)
+$otherDigest = 'sha256:' + ('c' * 64)
+$ociIndexMediaType = 'application/vnd.oci.image.index.v1+json'
+
+Assert-PromotionMode `
+    -Arguments @{ SourceDigest = $sourceDigest } `
+    -ExpectedMode 'promote'
+Assert-PromotionMode `
+    -Arguments @{
+        SourceDigest = $sourceDigest
+        ExistingDigest = $sourceDigest
+        AllowExistingReference = $true
+    } `
+    -ExpectedMode 'verify'
+Assert-PromotionMode `
+    -Arguments @{
+        SourceDigest = $sourceDigest
+        ExistingDigest = $existingDigest
+        ExistingMediaType = $ociIndexMediaType
+        ExistingChildDigestsJson = ConvertTo-Json -Compress @($sourceDigest)
+        AllowExistingReference = $true
+        AllowSingleManifestRecovery = $true
+    } `
+    -ExpectedMode 'recover'
+
+Assert-InvalidPromotion `
+    -Arguments @{
+        SourceDigest = $sourceDigest
+        ExistingDigest = $sourceDigest
+    } `
+    -ExpectedMessage '*immutable image tag already exists*'
+Assert-InvalidPromotion `
+    -Arguments @{
+        SourceDigest = $sourceDigest
+        ExistingDigest = $existingDigest
+        ExistingMediaType = $ociIndexMediaType
+        ExistingChildDigestsJson = ConvertTo-Json -Compress @($sourceDigest)
+        AllowExistingReference = $true
+    } `
+    -ExpectedMessage '*does not match the verified source digest*'
+Assert-InvalidPromotion `
+    -Arguments @{
+        SourceDigest = $sourceDigest
+        ExistingDigest = $existingDigest
+        ExistingMediaType = 'application/vnd.oci.image.manifest.v1+json'
+        ExistingChildDigestsJson = ConvertTo-Json -Compress @($sourceDigest)
+        AllowExistingReference = $true
+        AllowSingleManifestRecovery = $true
+    } `
+    -ExpectedMessage '*requires an OCI index or Docker manifest list*'
+Assert-InvalidPromotion `
+    -Arguments @{
+        SourceDigest = $sourceDigest
+        ExistingDigest = $existingDigest
+        ExistingMediaType = $ociIndexMediaType
+        ExistingChildDigestsJson = ConvertTo-Json -Compress @($sourceDigest, $otherDigest)
+        AllowExistingReference = $true
+        AllowSingleManifestRecovery = $true
+    } `
+    -ExpectedMessage '*requires exactly one child equal to the verified source digest*'
+Assert-InvalidPromotion `
+    -Arguments @{
+        SourceDigest = $sourceDigest
+        ExistingDigest = $existingDigest
+        ExistingMediaType = $ociIndexMediaType
+        ExistingChildDigestsJson = ConvertTo-Json -Compress @($otherDigest)
+        AllowExistingReference = $true
+        AllowSingleManifestRecovery = $true
+    } `
+    -ExpectedMessage '*requires exactly one child equal to the verified source digest*'
+
+$workflowPath = Join-Path $PSScriptRoot '../../.github/workflows/ci.yml'
+$workflow = Get-Content -LiteralPath $workflowPath -Raw
+$requiredWorkflowFragments = @(
+    'release_tag:',
+    'recover_single_manifest_wrapper:',
+    '-File ./tools/ci/resolve-image-promotion.ps1',
+    '--prefer-index=false')
+
+foreach ($fragment in $requiredWorkflowFragments) {
+    if (-not $workflow.Contains($fragment, [StringComparison]::Ordinal)) {
+        throw "Image publication workflow is missing required fragment '$fragment'."
+    }
+}
+
+Write-Host "Image publication smoke passed: $($validCases.Count) valid tags, $($invalidTags.Count) invalid tags, 2 compatibility cases, 8 promotion cases, and $($requiredWorkflowFragments.Count) workflow contracts."

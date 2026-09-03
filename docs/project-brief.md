@@ -66,7 +66,8 @@ Current implementation:
   separate EF migrations, and isolated PostgreSQL-backed CI smoke coverage.
 - Tag-gated immutable GHCR image publication with strict stable and
   release-candidate tags, build-once candidate promotion, OCI metadata,
-  write-once references, digest recording, and digest-based smoke coverage.
+  fail-closed references, constrained pre-release recovery, digest recording,
+  and digest-based smoke coverage.
 - Unit, API integration, deterministic polling, protocol, and PostgreSQL
   Testcontainers coverage.
 - GitHub Actions quality gate for formatting, build, tests, and NuGet audit.
