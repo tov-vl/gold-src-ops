@@ -34,10 +34,11 @@ exercise has passed with one incident lifecycle, durable pending work across an
 API restart, two successful idempotent-keyed webhook requests, and a verified
 rc.4 rollback plus rc.5 roll-forward. The temporary restricted receiver was
 removed afterward and alert delivery returned to its disabled baseline. The
-accepted 24-hour release soak is active from `2026-09-02T16:23:57Z` through
-`2026-09-03T16:23:57Z`. Repository-only work may proceed in a separate branch,
-but any production deployment, migration, configuration change, or process
-restart invalidates the interval and requires a new baseline.
+accepted 24-hour release soak completed after 24.095 hours with 18/18
+control-plane and 8/8 game-host checks passing, and the bounded address check
+also passed. Raw target evidence remains owner-only. Any later production
+deployment, migration, configuration change, or process restart falls outside
+that evidence and requires a new baseline for a subsequent soak claim.
 
 ## Topology
 
@@ -413,11 +414,11 @@ non-target evidence.
    publication, zero restart counts, and sanitized root-only evidence all
    passed on 2026-09-02. The final Grafana-only recreation disabled analytics
    and both update-check paths without interrupting the other runtime services.
-6. In progress: matching owner-only soak baselines passed on both hosts. The
-   accepted 24-hour interval runs from `2026-09-02T16:23:57Z` through
-   `2026-09-03T16:23:57Z`. The read-only terminal evaluator and deterministic
-   decision-logic smoke are implemented; target completion evidence and the
-   separate game-host continuity check remain pending.
+6. Completed: the accepted 24-hour interval passed after 24.095 hours. The
+   control-plane evaluator passed 18/18 checks, the game-host evaluator passed
+   8/8 checks and every continuity flag, and the bounded address-stability
+   comparison passed. Sanitized SLI values are recorded in
+   `docs/service-level-objectives.md`; raw target evidence remains owner-only.
 
 The complete sequence and definition of done remain in
 [`docs/v2.3-production-deployment.md`](../../docs/v2.3-production-deployment.md).

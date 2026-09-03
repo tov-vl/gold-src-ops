@@ -156,14 +156,15 @@ sequence is recorded in `docs/v2.3-production-deployment.md`. The controlled
 external failure/recovery exercise has also passed: one thresholded incident
 opened and closed, pending alert work survived an API restart, two events were
 delivered with distinct idempotency keys, and an rc.4 rollback followed by rc.5
-roll-forward preserved durable state. Trial-period address stability remains
-outstanding. The accepted 24-hour release soak is active from
-`2026-09-02T16:23:57Z` through `2026-09-03T16:23:57Z`; it is short operational
-evidence for the reference deployment rather than a long-term reliability or
-achieved-SLO claim. Fail-closed read-only terminal evaluators, deterministic
-smoke coverage, the draft v2.3 readiness matrix, and a prospective initial SLO
-register now define how completion is measured without treating Collector
-scrape health as public API uptime.
+roll-forward preserved durable state. Trial-period address stability passed.
+The accepted 24-hour release soak completed after 24.095 hours; all 18
+control-plane and eight game-host checks passed with target evidence. It is
+short operational evidence for the reference deployment rather than a
+long-term reliability or achieved-SLO claim. Fail-closed read-only terminal
+evaluators, deterministic smoke coverage, the v2.3 readiness matrix, and a
+reviewed but inactive initial SLO register define the result without treating
+Collector scrape health as public API uptime. Stable release publication
+remains pending.
 
 ## MVP Goal
 

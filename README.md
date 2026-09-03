@@ -59,9 +59,9 @@ dead-letter recovery release is summarized in
 [docs/release-notes-v2.1.md](docs/release-notes-v2.1.md). The v2.2 RCON
 reliability release is summarized in
 [docs/release-notes-v2.2.md](docs/release-notes-v2.2.md).
-The draft v2.3 reference-deployment release is summarized in
-[docs/release-notes-v2.3.md](docs/release-notes-v2.3.md); its final release gate
-is still in progress.
+The validated v2.3 reference-deployment candidate is summarized in
+[docs/release-notes-v2.3.md](docs/release-notes-v2.3.md); its operational gate
+has passed, while repository checks and stable publication remain pending.
 
 ## Documentation
 
@@ -73,7 +73,7 @@ is still in progress.
 | v2 alert-delivery release | [v2 release notes](docs/release-notes-v2.md) |
 | v2.1 dead-letter recovery release | [v2.1 release notes](docs/release-notes-v2.1.md) |
 | v2.2 RCON reliability release | [v2.2 release notes](docs/release-notes-v2.2.md) |
-| v2.3 reference deployment release draft | [v2.3 release notes](docs/release-notes-v2.3.md) |
+| v2.3 validated release candidate | [v2.3 release notes](docs/release-notes-v2.3.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Active v2.3 reference deployment plan | [v2.3 production deployment](docs/v2.3-production-deployment.md) |

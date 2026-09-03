@@ -1,7 +1,7 @@
 # GoldSrcOps v2.3.0 Release Notes
 
-Prepared: 2026-09-03. Published: pending. Status: draft; final release gate in
-progress.
+Prepared: 2026-09-03. Published: pending. Status: release candidate validated;
+repository checks and stable publication pending.
 
 ## Overview
 
@@ -18,9 +18,10 @@ export and stricter production identity and reverse-proxy configuration, while
 the larger change is the reviewed deployment, recovery, observability, and
 evidence surface around it.
 
-The release is not published yet. The accepted 24-hour soak remains active
-through `2026-09-03T16:23:57Z`; no terminal result or long-term reliability
-claim is made in this draft.
+The release is not published yet. The accepted 24-hour soak completed after
+24.095 hours with passing target evidence on both hosts and a passing bounded
+address-stability comparison. This remains short release evidence, not a
+long-term reliability or achieved-SLO claim.
 
 ## Included In v2.3
 
@@ -101,23 +102,26 @@ restart count, or health state.
 - The controlled recovery exercise opened and closed one threshold-qualified
   incident, preserved pending alert work across API restart, delivered both
   events once, and preserved durable state through rollback and roll-forward.
+- The terminal release soak passed all 18 control-plane and eight game-host
+  checks. All 1,444 persisted A2S attempts succeeded, no bot-positive poll was
+  observed, required processes did not restart, and durable queues ended empty.
 
 Detailed sanitized conclusions and the boundary around owner-only evidence are
 recorded in [v2.3 readiness](v2.3-readiness.md).
 
 ## Final Release Gate
 
-The following items deliberately remain pending until the complete observation
-window has elapsed:
+The operational evidence gates are complete. Repository checks and stable
+publication deliberately remain separate:
 
 | Gate | Status | Completion evidence |
 | --- | --- | --- |
-| Complete 24-hour interval | Pending | Control-plane evidence reports `Passed` and `TargetEvidence: true`. |
-| Control-plane continuity | Pending | Candidate, six required containers, HTTPS, backup, database, telemetry, queues, incidents, and capacity satisfy every evaluator bound. |
-| Game-host continuity | Pending | Service, boot state, restart count, invocation, main process, and UDP listener match the owner-only baseline. |
-| A2S and bot observation | Pending | Every persisted poll succeeds, coverage and maximum gap remain within bounds, and no bot-positive poll exists. |
-| Trial address stability | Pending | Owner-only start and end values match; only the sanitized outcome and observation bounds enter Git. |
-| Initial SLI record | Pending | Aggregate terminal values are transcribed into `docs/service-level-objectives.md` without activating or claiming achievement of an SLO. |
+| Complete 24-hour interval | Passed | Control-plane evidence reports 24.095 hours, `Passed`, `TargetEvidence: true`, and 18/18 checks. |
+| Control-plane continuity | Passed | Candidate and all six containers matched the baseline; terminal HTTPS, backup, telemetry, durable state, and capacity passed. |
+| Game-host continuity | Passed | Eight of eight checks and every process/listener continuity flag passed. |
+| A2S and bot observation | Passed | All 1,444 persisted polls succeeded, coverage recomputed to 99.9308%, maximum gap was 60.58 seconds, and bot-positive polls remained zero. |
+| Trial address stability | Passed | The owner-only bounded comparison matched; only the sanitized result enters Git. |
+| Initial SLI record | Complete | Aggregate terminal values are recorded without activating or claiming achievement of an SLO. |
 | Final repository checks | Pending | Release-documentation pull request and post-merge `Quality Gate` and `Container Smoke` pass. |
 | Stable publication | Pending | Signed `v2.3.0` tag promotes the verified candidate digest, the published digest smoke passes, and the GitHub Release is published. |
 
@@ -157,6 +161,9 @@ new image was built from the latter.
   reliability and not an achieved monthly SLO.
 - Public API health has sampled external checks but no continuous independent
   black-box time series, so a public availability SLO remains inactive.
+- One local VPN routing interruption affected the monitoring path while an
+  independent external health probe remained successful. It was not classified
+  as a production outage, but it reinforces the sampled-evidence boundary.
 - The controlled server has no real-player adoption claim. YaPB and other bots
   remain absent during the release soak.
 - GoldSrcOps does not provision provider infrastructure, manage billing, or
@@ -181,7 +188,7 @@ new image was built from the latter.
 
 ## Publication Status
 
-Not published. Replace this section only after the final target evaluators,
-address-stability comparison, release-documentation checks, signed stable tag,
-tag-triggered image verification, and GitHub Release publication have all
-completed.
+Not published. Target evaluators, address stability, and the terminal SLI record
+are complete. Replace this section only after release-documentation checks, the
+signed stable tag, tag-triggered image verification, and GitHub Release
+publication have all completed.
