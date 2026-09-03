@@ -114,18 +114,19 @@ GitHub Release publication are complete; the design and residual UDP limits are
 recorded in
 `docs/v2.2-rcon-response-reliability.md`.
 
-The current release is production-oriented but is not yet claimed as a
-continuously operated production environment. Stable and release-candidate image
-publication is implemented, including digest-preserving promotion. Signed tag
-`v2.3.0-rc.1` published and verified the first immutable candidate digest,
-`sha256:d21a5cb10bb8179310e660d50cb301fed277a5dc3fcbd900e77065fdcc9df458`,
-without creating a stable release or mutable image alias.
+The current v2.3 release records one continuously operated single-node
+reference environment without claiming high availability, long-term
+reliability, or an achieved service-level objective. Stable and
+release-candidate image publication is implemented with digest-preserving
+promotion. Signed tag `v2.3.0` identifies application revision `58a74da` and
+promotes the immutable digest verified for `v2.3.0-rc.5`, without publishing a
+mutable image alias.
 The project now operates the initial controlled external ReHLDS runtime and
 exports production metrics through a private OpenTelemetry Collector,
 Prometheus, and Grafana path. It does not yet include a web operator experience.
-That is a later delivery gap rather than a missing v2.2 release requirement.
-The active v2.3 plan closes the remaining deployment and recovery gaps before
-frontend or gameplay-agent work begins. Slice 2 uses
+That is a later delivery gap outside the accepted v2.3 release scope.
+The completed v2.3 plan closes the deployment and recovery gaps before frontend
+or gameplay-agent work begins. Slice 2 uses
 the provider-independent controlled game-server contract in
 `docs/v2.3-controlled-gameserver-baseline.md`. Its bounded-trial game VDS has
 passed the reviewed host foundation, controlled reboot, pinned runtime install,
@@ -164,8 +165,12 @@ short operational evidence for the reference deployment rather than a
 long-term reliability or achieved-SLO claim. Fail-closed read-only terminal
 evaluators, deterministic smoke coverage, the v2.3 readiness matrix, and a
 reviewed but inactive initial SLO register define the result without treating
-Collector scrape health as public API uptime. Stable release publication
-remains pending.
+Collector scrape health as public API uptime. Final evidence pull request
+[#68](https://github.com/tov-vl/gold-src-ops/pull/68), publication hardening pull
+request [#69](https://github.com/tov-vl/gold-src-ops/pull/69), both post-merge
+workflows, and final publication workflow
+[#33788658773](https://github.com/tov-vl/gold-src-ops/actions/runs/33788658773)
+passed before the stable GitHub Release was published.
 
 ## MVP Goal
 

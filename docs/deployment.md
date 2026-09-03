@@ -5,10 +5,9 @@ platform-neutral: release tags publish the production image to GitHub Container
 Registry (GHCR), and `ops/production` now supplies the provider-independent first
 sub-slice of the v2.3 reference Compose contract. The repository does not ship a
 provider-specific control-panel integration, systemd unit, or Kubernetes
-manifest. GoldSrcOps v2.2.0 is the latest public release. Transactional
-incident-alert delivery, audited dead-letter replay, and bounded RCON response
-collection extend the application without changing the supported container
-shape.
+manifest. GoldSrcOps v2.3.0 is the latest public release. It retains the v2.2
+application contracts while adding the verified reference-deployment,
+recovery, identity, and observability surface described below.
 
 The accepted v2.3 reference-deployment direction is documented in
 `docs/v2.3-production-deployment.md`. Immutable image publication is its first
@@ -18,8 +17,8 @@ is the bounded-trial target recorded in
 `docs/v2.3-gameserver-provider-decision.md`; provisioning, the reviewed host
 foundation, controlled reboot, post-reboot audit, and pinned runtime installation
 are complete. The plan-first activation, external A2S verification, production
-registration and polling, and one guarded RCON `say` are complete. Controlled
-restart and configuration-restore evidence remain pending.
+registration and polling, one guarded RCON `say`, controlled restart,
+configuration restore, and the integrated release soak are complete.
 
 ## Supported Shape
 

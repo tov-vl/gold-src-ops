@@ -387,23 +387,24 @@ Definition of done:
 - The unavoidable UDP loss, ordering, and quiet-window limitations remain
   explicit in the RCON operations guide.
 
-## Active v2.3 Milestone: Reference Production Deployment
+## Completed v2.3 Milestone: Reference Production Deployment
 
-The next milestone moves GoldSrcOps from a production-oriented container
+This milestone moved GoldSrcOps from a production-oriented container
 contract to a continuously running reference environment across a real external
 network boundary. The accepted topology and telemetry direction are defined by
 Architecture Decisions 16 through 18; the reviewable delivery plan is recorded in
 `docs/v2.3-production-deployment.md`.
 
-Milestone status: architecture and delivery plan accepted; immutable GHCR image
+Milestone status: completed. Architecture and delivery plan are accepted;
+immutable GHCR image
 publication now covers strict stable and release-candidate tags with
 digest-preserving candidate promotion, and the controlled game-server baseline
 contract is defined. A self-operated MyArena game VDS is provisioned for the
 approved bounded trial, with Timeweb Cloud retained as fallback. DDoS
 source-address preservation and bounded trial-period public-address stability
 have passed from the production control plane. The other purchase conditions
-and checkout approval
-completed before provisioning. The pinned ReHLDS and ReGameDLL_CS versions
+and checkout approval were completed before provisioning. The pinned ReHLDS
+and ReGameDLL_CS versions
 have passed both a disposable local Linux rehearsal and the initial controlled
 external activation with verified artifacts, A2S, and guarded RCON preflight.
 The provider-independent Slice 3
@@ -489,14 +490,25 @@ roll-forward preserved durable counts. Trial-period address stability passed.
 The 24-hour release soak completed after 24.095 hours; the control-plane
 evaluator passed 18/18 checks and the game-host evaluator passed 8/8 checks
 with target evidence. Sanitized terminal SLI values are recorded, while raw
-target evidence remains outside Git. Final repository checks and stable
-publication remain pending.
+target evidence remains outside Git. Final evidence pull request
+[#68](https://github.com/tov-vl/gold-src-ops/pull/68) and publication hardening
+pull request [#69](https://github.com/tov-vl/gold-src-ops/pull/69) were integrated
+through protected `main`; post-merge workflows
+[#33784710906](https://github.com/tov-vl/gold-src-ops/actions/runs/33784710906)
+and
+[#33787856532](https://github.com/tov-vl/gold-src-ops/actions/runs/33787856532)
+passed. Signed tag `v2.3.0` promotes the verified candidate digest, final
+publication workflow
+[#33788658773](https://github.com/tov-vl/gold-src-ops/actions/runs/33788658773)
+passed all four jobs, and the stable
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.3.0)
+is published.
 
-Why this work is selected:
+Why this work was selected:
 
-- The released backend already demonstrates protocol integration, durable
-  workflows, security, observability, and recovery, but it is not yet operated
-  as a persistent public environment.
+- At selection time, the released backend already demonstrated protocol
+  integration, durable workflows, security, observability, and recovery, but
+  had not yet been operated as a persistent public environment.
 - A remote game server and a separate control-plane host exercise the real
   A2S/RCON network, identity, TLS, secret, backup, and rollback boundaries that
   local and CI environments cannot prove.
@@ -506,9 +518,9 @@ Why this work is selected:
 - Real operational data should guide the later public dashboard and Operator UI
   instead of designing those views around synthetic assumptions.
 
-Planned reviewable slices:
+Delivered reviewable slices:
 
-The canonical ten-step execution order for the remaining milestone is in
+The canonical ten-step execution order for the milestone is in
 `docs/v2.3-production-deployment.md#delivery-order-and-status`; this backlog
 tracks state without duplicating that operational sequence.
 
@@ -521,7 +533,10 @@ tracks state without duplicating that operational sequence.
    [#204](https://github.com/tov-vl/gold-src-ops/actions/runs/33631016313)
    published and verified
    `sha256:f146c61e5eba942fc40d27792088ec6666fb2605959429093930c30a43f7d639`
-   from revision `58a74da`.
+   from revision `58a74da`. Signed stable tag `v2.3.0` targets that revision;
+   workflow
+   [#33788658773](https://github.com/tov-vl/gold-src-ops/actions/runs/33788658773)
+   promoted and verified the same digest before publishing the stable release.
 3. Completed: use `docs/v2.3-controlled-gameserver-baseline.md` to operate
    one controlled ReHLDS and ReGameDLL_CS server outside the control-plane
    host. The local target-runtime compatibility gate is complete. The
@@ -820,7 +835,7 @@ For v2 alert delivery:
 - Production container smoke coverage for HTTPS startup validation, enabled
   dispatcher registration, and endpoint/authorization log safety.
 
-For the active v2.3 deployment milestone:
+For the completed v2.3 deployment milestone:
 
 - Completed: configuration and fail-open API integration coverage for optional
   OTLP export without changing direct metric names, bounded labels, or API

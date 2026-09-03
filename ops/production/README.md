@@ -4,8 +4,9 @@
 
 This directory contains the provider-independent v2.3 single-node control-plane
 contract. It defines and validates the intended container, network, TLS-proxy,
-observability, and secret boundaries. It is not target-environment evidence and
-does not make the v2.3 milestone complete.
+observability, and secret boundaries. The contract alone is not target-environment
+evidence; completed deployment and release evidence is recorded separately in
+[`docs/v2.3-readiness.md`](../../docs/v2.3-readiness.md).
 
 The `runtime` profile must not be enabled on a target until preflight succeeds,
 a restorable backup exists, and the one-shot migration action has successfully
