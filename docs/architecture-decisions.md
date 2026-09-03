@@ -716,8 +716,8 @@ compatibility. Digest-pinned Collector, Prometheus, and Grafana services use a
 private internal network, tracked provisioning, bounded persistent storage, and
 no host-published ports. Container smoke observes application and ASP.NET Core
 metrics after the Collector boundary and verifies that Collector loss does not
-change API readiness. Target-environment rollout and operating evidence remain
-pending.
+change API readiness. Target-environment rollout, recovery exercise, and
+24-hour release-soak evidence are complete for the v2.3 reference deployment.
 
 References:
 

@@ -1,7 +1,6 @@
 # GoldSrcOps v2.3.0 Release Notes
 
-Prepared: 2026-09-03. Published: pending. Status: release candidate validated;
-repository checks and stable publication pending.
+Prepared and published: 2026-09-03. Status: stable release published.
 
 ## Overview
 
@@ -18,7 +17,7 @@ export and stricter production identity and reverse-proxy configuration, while
 the larger change is the reviewed deployment, recovery, observability, and
 evidence surface around it.
 
-The release is not published yet. The accepted 24-hour soak completed after
+The release was published after the accepted 24-hour soak completed after
 24.095 hours with passing target evidence on both hosts and a passing bounded
 address-stability comparison. This remains short release evidence, not a
 long-term reliability or achieved-SLO claim.
@@ -68,17 +67,20 @@ same application image before the API starts. Backup credentials, restic key,
 RCON password, OIDC credentials, host addresses, and provider identifiers
 remain outside Git and outside public evidence.
 
-## Candidate Baseline
+## Release Artifact Baseline
 
-The running candidate is the signed annotated tag `v2.3.0-rc.5`:
+The signed annotated stable tag `v2.3.0` targets the same application revision
+as the soaked `v2.3.0-rc.5` candidate:
 
-| Property | Candidate |
+| Property | Release artifact |
 | --- | --- |
 | Source revision | `58a74dafecb7eefe3b4f1e310347dbafb94d4b05` |
 | API image digest | `sha256:f146c61e5eba942fc40d27792088ec6666fb2605959429093930c30a43f7d639` |
-| Publication workflow | [GitHub Actions run #204](https://github.com/tov-vl/gold-src-ops/actions/runs/33631016313) |
+| Candidate publication workflow | [GitHub Actions run #204](https://github.com/tov-vl/gold-src-ops/actions/runs/33631016313) |
+| Stable publication workflow | [GitHub Actions run #33788658773](https://github.com/tov-vl/gold-src-ops/actions/runs/33788658773) |
 | Rollback candidate | `v2.3.0-rc.4`, retained by immutable digest outside Git |
-| Final operational evidence revision | Pending final `main` revision; recorded separately from the image source |
+| Final operational evidence revision | `df740cd8f36922a146ef3cb560b7defcf2b41660` |
+| Publication-workflow revision | `6dbbb26d00985ee0e05014c3e5cc3593bd88fa11` |
 
 The final evaluator rejects any drift in version, source revision, image
 digest, migration revision, required container identity, container start time,
@@ -111,8 +113,8 @@ recorded in [v2.3 readiness](v2.3-readiness.md).
 
 ## Final Release Gate
 
-The operational evidence gates are complete. Repository checks and stable
-publication deliberately remain separate:
+The operational evidence, repository, and stable-publication gates are
+complete:
 
 | Gate | Status | Completion evidence |
 | --- | --- | --- |
@@ -122,22 +124,31 @@ publication deliberately remain separate:
 | A2S and bot observation | Passed | All 1,444 persisted polls succeeded, coverage recomputed to 99.9308%, maximum gap was 60.58 seconds, and bot-positive polls remained zero. |
 | Trial address stability | Passed | The owner-only bounded comparison matched; only the sanitized result enters Git. |
 | Initial SLI record | Complete | Aggregate terminal values are recorded without activating or claiming achievement of an SLO. |
-| Final repository checks | Pending | Release-documentation pull request and post-merge `Quality Gate` and `Container Smoke` pass. |
-| Stable publication | Pending | Signed `v2.3.0` tag promotes the verified candidate digest, the published digest smoke passes, and the GitHub Release is published. |
+| Final repository checks | Passed | [Pull request #68](https://github.com/tov-vl/gold-src-ops/pull/68) and [post-merge run #33784710906](https://github.com/tov-vl/gold-src-ops/actions/runs/33784710906) passed; publication hardening [pull request #69](https://github.com/tov-vl/gold-src-ops/pull/69) and [post-merge run #33787856532](https://github.com/tov-vl/gold-src-ops/actions/runs/33787856532) also passed. |
+| Stable publication | Passed | Signed `v2.3.0` promotes the verified candidate digest; [run #33788658773](https://github.com/tov-vl/gold-src-ops/actions/runs/33788658773) passed `Quality Gate`, `Container Smoke`, publication, and published-image verification before the GitHub Release was published. |
 
 ## Stable Artifact Publication
 
-After the final release gate passes, signed annotated tag `v2.3.0` will target
-the same source revision as `v2.3.0-rc.5`. This lets the publication workflow
-promote the already verified candidate digest instead of building a new image
-that did not participate in the soak.
+Signed annotated tag `v2.3.0` targets the same source revision as
+`v2.3.0-rc.5`. The final publication workflow promoted the already verified
+candidate digest instead of building a new image that did not participate in
+the soak.
 
 Deployment hardening outside the API image, operational evidence, evaluators,
 smoke coverage, and documentation added after the candidate remain on `main`
 and are linked from the GitHub Release. They do not change the API image
-inputs. The stable release record must state both the tagged application
-revision and the later operational-evidence revision; it must not imply that a
-new image was built from the latter.
+inputs. The stable release records both the tagged application revision and the
+later operational-evidence and publication-workflow revisions; it does not
+imply that a new image was built from either later revision.
+
+The first tag-triggered stable publication
+[failed closed](https://github.com/tov-vl/gold-src-ops/actions/runs/33785349339)
+before creating a GitHub Release because registry metadata produced a wrapper
+index with a different digest. Pull request
+[#69](https://github.com/tov-vl/gold-src-ops/pull/69) constrained promotion to
+the candidate manifest and added a guarded recovery path. The successful final
+workflow then verified the exact candidate digest before publishing the
+release; no mismatched stable release was published.
 
 ## Compatibility And Rollback
 
@@ -188,7 +199,9 @@ new image was built from the latter.
 
 ## Publication Status
 
-Not published. Target evaluators, address stability, and the terminal SLI record
-are complete. Replace this section only after release-documentation checks, the
-signed stable tag, tag-triggered image verification, and GitHub Release
-publication have all completed.
+Published on 2026-09-03 as
+[GoldSrcOps v2.3.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.3.0).
+The signed stable tag identifies application revision `58a74da`; operational
+evidence and publication hardening remain linked separately through pull
+requests #68 and #69 and their workflow revisions. The stable and
+release-candidate tags resolve to the same verified image digest.

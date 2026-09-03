@@ -6,16 +6,21 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.2.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.2.0)
-is the current public release. Its signed annotated tag identifies revision
-`9e02f07`; final release-documentation pull request #23, post-merge run #76,
-and signed-tag run #77 all passed GitHub Actions `Quality Gate` and
-`Container Smoke`. The local release gate passed all 259 tests with zero build
-warnings and no known vulnerable NuGet packages. Release notes and detailed
-evidence are
-available in
-[docs/release-notes-v2.2.md](docs/release-notes-v2.2.md) and
-[docs/v2.2-readiness.md](docs/v2.2-readiness.md).
+**Status:** [v2.3.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.3.0)
+is the current public release. Its signed annotated tag identifies application
+revision `58a74da` and promotes the exact digest exercised by the
+`v2.3.0-rc.5` reference deployment. Final evidence
+[pull request #68](https://github.com/tov-vl/gold-src-ops/pull/68), publication
+hardening [pull request #69](https://github.com/tov-vl/gold-src-ops/pull/69),
+their post-merge workflows
+[#33784710906](https://github.com/tov-vl/gold-src-ops/actions/runs/33784710906)
+and
+[#33787856532](https://github.com/tov-vl/gold-src-ops/actions/runs/33787856532),
+and the final publication workflow
+[#33788658773](https://github.com/tov-vl/gold-src-ops/actions/runs/33788658773)
+all passed. Release notes and detailed evidence are available in
+[docs/release-notes-v2.3.md](docs/release-notes-v2.3.md) and
+[docs/v2.3-readiness.md](docs/v2.3-readiness.md).
 
 ## Highlights
 
@@ -59,9 +64,10 @@ dead-letter recovery release is summarized in
 [docs/release-notes-v2.1.md](docs/release-notes-v2.1.md). The v2.2 RCON
 reliability release is summarized in
 [docs/release-notes-v2.2.md](docs/release-notes-v2.2.md).
-The validated v2.3 reference-deployment candidate is summarized in
-[docs/release-notes-v2.3.md](docs/release-notes-v2.3.md); its operational gate
-has passed, while repository checks and stable publication remain pending.
+The published v2.3 reference-deployment release is summarized in
+[docs/release-notes-v2.3.md](docs/release-notes-v2.3.md). Its bounded
+operational gate, repository checks, digest-preserving stable publication, and
+published-image verification have passed.
 
 ## Documentation
 
@@ -73,18 +79,18 @@ has passed, while repository checks and stable publication remain pending.
 | v2 alert-delivery release | [v2 release notes](docs/release-notes-v2.md) |
 | v2.1 dead-letter recovery release | [v2.1 release notes](docs/release-notes-v2.1.md) |
 | v2.2 RCON reliability release | [v2.2 release notes](docs/release-notes-v2.2.md) |
-| v2.3 validated release candidate | [v2.3 release notes](docs/release-notes-v2.3.md) |
+| v2.3 reference deployment release | [v2.3 release notes](docs/release-notes-v2.3.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
-| Active v2.3 reference deployment plan | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
-| Active v2.3 release evidence | [v2.3 readiness](docs/v2.3-readiness.md) |
+| Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
+| v2.3 release evidence | [v2.3 readiness](docs/v2.3-readiness.md) |
 | Initial SLI record and SLO proposal | [Service-level objectives](docs/service-level-objectives.md) |
-| Active v2.3 production Compose contract | [Reference production Compose](ops/production/README.md) |
+| v2.3 production Compose contract | [Reference production Compose](ops/production/README.md) |
 | Production metrics path and operations | [Observability](docs/observability.md) |
 | PostgreSQL off-host backup and restore | [PostgreSQL backup](docs/postgresql-backup.md) |
-| Active v2.3 game-server baseline | [Controlled game-server baseline](docs/v2.3-controlled-gameserver-baseline.md) |
-| Active v2.3 game-server host foundation | [Game-server host bootstrap](ops/gameserver/README.md) |
-| Active v2.3 game-server provider decision | [Game-server provider decision](docs/v2.3-gameserver-provider-decision.md) |
+| v2.3 game-server baseline | [Controlled game-server baseline](docs/v2.3-controlled-gameserver-baseline.md) |
+| v2.3 game-server host foundation | [Game-server host bootstrap](ops/gameserver/README.md) |
+| v2.3 game-server provider decision | [Game-server provider decision](docs/v2.3-gameserver-provider-decision.md) |
 | v2 alert delivery and transactional outbox | [v2 outbox design](docs/v2-alert-outbox.md) |
 | Alert delivery configuration and recovery | [Alert delivery operations](docs/alert-delivery.md) |
 | Dead-letter inspection and replay contract | [Dead-letter replay design](docs/dead-letter-replay.md) |
@@ -553,16 +559,15 @@ The spike follows Valve's documented A2S server query format:
 
 The public repository is configured with private vulnerability reporting,
 Dependabot security updates, and a protected `main` workflow. The
-[GoldSrcOps v2.2.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.2.0)
-adds bounded multi-datagram RCON response
-collection, endpoint isolation, one end-to-end deadline, explicit receive
-ceilings, and failure instead of known partial success. The implementation,
-owned-server verification, corrective RCON deadline-test verification, and
-release workflow are complete. It was published from a signed annotated tag
-after the required pull-request, post-merge, and tag-triggered checks passed.
-Detailed evidence is recorded in
-[docs/v2.2-readiness.md](docs/v2.2-readiness.md), while
-[v2.1.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.1.0) remains the
+[GoldSrcOps v2.3.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.3.0)
+adds the first continuously operated reference deployment across separate
+control-plane and game-server hosts, public TLS and external OIDC, encrypted
+off-host recovery, a private OpenTelemetry path, and bounded recovery and soak
+evidence. Its signed stable tag promotes the exact image digest exercised by
+the release candidate; no image was rebuilt after the soak. Detailed evidence
+and explicit claim limits are recorded in
+[docs/v2.3-readiness.md](docs/v2.3-readiness.md), while
+[v2.2.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.2.0) is the
 preceding stable release.
 
 ## License
