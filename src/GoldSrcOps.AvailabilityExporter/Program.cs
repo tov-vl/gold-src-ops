@@ -74,6 +74,11 @@ internal static class ConsoleRunner
             command.QueryStep,
             TimeSpan.FromSeconds(30),
             DefaultMaximumResponseBytes);
+        var logsOptions = GrafanaLogsApiOptions.CreateOptional(
+            Environment.GetEnvironmentVariable("GOLDSRCOPS_GRAFANA_LOGS_URL"),
+            Environment.GetEnvironmentVariable("GOLDSRCOPS_GRAFANA_LOGS_USER"),
+            Environment.GetEnvironmentVariable("GOLDSRCOPS_GRAFANA_LOGS_TOKEN"),
+            apiOptions);
 
         using var handler = new HttpClientHandler
         {
@@ -90,7 +95,10 @@ internal static class ConsoleRunner
             Timeout = Timeout.InfiniteTimeSpan,
         };
         var client = new GrafanaMetricsApiClient(httpClient, apiOptions);
-        var exporter = new GrafanaMetricsExporter(client, apiOptions);
+        IProbeFailureDetailSource? failureDetailSource = logsOptions is null
+            ? null
+            : new GrafanaLogsApiClient(httpClient, logsOptions);
+        var exporter = new GrafanaMetricsExporter(client, apiOptions, failureDetailSource);
         var records = await exporter.ExportAsync(
             command.WindowStartUtc - command.Overlap,
             command.WindowEndUtc,
@@ -228,6 +236,8 @@ internal static class ConsoleRunner
         Console.WriteLine();
         Console.WriteLine("Export credentials are read only from GOLDSRCOPS_GRAFANA_METRICS_URL,");
         Console.WriteLine("GOLDSRCOPS_GRAFANA_METRICS_USER, and GOLDSRCOPS_GRAFANA_METRICS_TOKEN.");
+        Console.WriteLine("Optional transport-failure enrichment requires all of GOLDSRCOPS_GRAFANA_LOGS_URL,");
+        Console.WriteLine("GOLDSRCOPS_GRAFANA_LOGS_USER, and GOLDSRCOPS_GRAFANA_LOGS_TOKEN.");
         Console.WriteLine("Archive credentials are read only from GOLDSRCOPS_B2_S3_ENDPOINT,");
         Console.WriteLine("GOLDSRCOPS_B2_REGION, GOLDSRCOPS_B2_BUCKET, and split GOLDSRCOPS_B2_READ_*");
         Console.WriteLine("and GOLDSRCOPS_B2_WRITE_* credentials. Rehearsal needs only GOLDSRCOPS_B2_READ_*.");

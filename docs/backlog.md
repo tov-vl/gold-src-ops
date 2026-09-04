@@ -681,11 +681,16 @@ Delivery order:
    suppression, SHA-256 verified recovery, and deterministic report comparison
    also passed live on 2026-09-04. The fail-closed GitHub-hosted scheduler,
    pinned-revision gate, serialized writer, bounded catch-up window, temporary
-   evidence cleanup, and contract smoke are implemented; live environment setup
-   and one explicitly confirmed manual scheduled cycle remain. The cron
-   activation variable stays disabled until that recovery proof passes. Then
-   complete transport-failure and alert tests and a fresh 24-hour shadow without
-   exposing private telemetry.
+   evidence cleanup, and contract smoke are implemented. Its environment,
+   pinned revision, activation variable, and one explicitly confirmed manual
+   archive/recovery cycle are complete. No automatic scheduled event was
+   observed after either registered cron slot, so scheduler continuity remains
+   open. A bounded optional Loki adapter now classifies known DNS, connect, TLS,
+   and timeout failures, while unknown or ambiguous details remain
+   `monitor_error`; safe fixtures cover correlation, response limits, and
+   payload-free exceptions. Next prove the adapter with a least-privilege
+   `logs:read` credential, resolve the scheduler observation gap, complete alert
+   tests, and collect a fresh 24-hour shadow without exposing private telemetry.
    The sanitized setup and implementation records are in
    `docs/v2.4-synthetic-monitoring-rollout.md` and
    `docs/v2.4-availability-evidence-exporter.md`.
