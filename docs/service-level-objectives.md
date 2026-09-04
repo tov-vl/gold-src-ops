@@ -1,7 +1,8 @@
 # GoldSrcOps Initial Service-Level Objectives
 
-Review date: 2026-09-03. Status: reviewed draft with terminal v2.3 SLI
-evidence; no objective is active or achieved.
+Review date: 2026-09-04. Status: reviewed draft with terminal v2.3 SLI
+evidence and an accepted `API-01` measurement design; no objective is active or
+achieved.
 
 ## Purpose And Scope
 
@@ -22,9 +23,9 @@ health into public API availability.
 ## Measurement Policy
 
 - Ratio objectives use UTC rolling windows and are evaluated at least daily.
-- Missing external-probe or recording-rule samples count as bad unless a proven
-  measurement defect is documented before the review. Missing data never counts
-  as success.
+- Missing external-probe or recording-rule samples count as bad. A proven
+  measurement defect documented before review may invalidate and restart a
+  measurement window, but missing data never becomes success.
 - Planned maintenance consumes the public API error budget. Polling objectives
   exclude an endpoint only while it was already persisted as disabled; an
   interval must not be removed retroactively.
@@ -44,7 +45,7 @@ exist.
 
 | ID | Service behavior and SLI | Draft objective | Error budget | Activation gate |
 | --- | --- | --- | --- | --- |
-| `API-01` | External one-minute `GET /health/ready` probes are good when DNS and certificate validation succeed and the response is HTTP `200`; a missing sample is bad. | At least 99.5% good samples over 30 rolling days. | At most 216 bad minutes in a 30-day window. | An independent external probe must persist timestamped results continuously for a complete window. |
+| `API-01` | External one-minute `GET /health/ready` probes are good when DNS and certificate validation succeed and the response is HTTP `200`; a missing sample is bad. | At least 99.5% good samples over 30 rolling days. | At most 216 bad minutes in a 30-day window. | The independent probe must satisfy the [v2.4 external availability contract](v2.4-external-availability-monitoring.md), record an activation tuple, and persist a complete prospective window. |
 | `MON-01` | Poll coverage is durable snapshots divided by expected poll slots while each endpoint is enabled. A slot is good when its snapshot is persisted within two configured intervals plus 10 seconds. | At least 99.5% per endpoint over 30 rolling days. | At a 60-second interval, at most 216 missing slots per endpoint in 30 days. | A recording rule or durable evaluator must retain interval-level coverage rather than only a terminal aggregate. |
 | `MON-02` | Poll success is reachable persisted snapshots divided by all persisted attempts for each enabled endpoint. | At least 99.0% per endpoint over 30 rolling days. | At a 60-second interval, at most 432 failed attempts per endpoint in 30 days. | Endpoint identity and enabled intervals must be available to the query; provider and network failures remain in this composite SLI. |
 | `MON-03` | Poll freshness is good at each one-minute evaluation when the latest successful snapshot is no older than two configured intervals plus 10 seconds. | At least 99.5% per endpoint over 30 rolling days. | At most 216 stale evaluation minutes per endpoint in 30 days. | A continuous freshness query must exist; the terminal maximum-gap value alone is insufficient. |
@@ -64,6 +65,28 @@ not by itself change an SLO.
 Poll latency, Collector scrape health, CPU, memory, disk, and database size stay
 as diagnostic or capacity indicators. They do not become user-facing SLOs until
 a concrete service expectation and a continuous measurement population exist.
+
+## API-01 Activation State
+
+Decision 19 and the
+[v2.4 external availability contract](v2.4-external-availability-monitoring.md)
+define the primary probe, minute-slot population, missing-data behavior, result
+schema, and activation lifecycle. `API-01` is still in the `Draft` stage.
+
+The following work remains before its official window can begin:
+
+- select a managed provider with raw per-execution export and sufficient
+  retention;
+- configure one primary `/health/ready` probe and separate diagnostic probes;
+- validate failure classification, missing slots, retry behavior, and alert
+  routing;
+- complete a 24-hour shadow run and record the activation timestamp, owner,
+  monitor and evaluator revisions, primary location, report query, and alert
+  route.
+
+Shadow samples and the completed v2.3 soak do not enter the official
+denominator. The first met-or-missed decision can be made only after 30 complete
+forward-looking days from the recorded activation timestamp.
 
 ## Terminal v2.3 SLI Record
 
