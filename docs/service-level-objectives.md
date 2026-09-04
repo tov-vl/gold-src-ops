@@ -1,8 +1,8 @@
 # GoldSrcOps Initial Service-Level Objectives
 
 Review date: 2026-09-04. Status: reviewed draft with terminal v2.3 SLI
-evidence and an accepted `API-01` measurement design; no objective is active or
-achieved.
+evidence, an accepted `API-01` measurement design, and a conditional provider
+selection; no objective is active or achieved.
 
 ## Purpose And Scope
 
@@ -75,8 +75,8 @@ schema, and activation lifecycle. `API-01` is still in the `Draft` stage.
 
 The following work remains before its official window can begin:
 
-- select a managed provider with raw per-execution export and sufficient
-  retention;
+- validate the selected Grafana Cloud candidate with accurate account details,
+  recoverable raw-result export, and independent 45-day retention;
 - configure one primary `/health/ready` probe and separate diagnostic probes;
 - validate failure classification, missing slots, retry behavior, and alert
   routing;

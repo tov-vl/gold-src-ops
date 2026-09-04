@@ -885,10 +885,11 @@ Alternatives considered:
 
 Implementation status:
 
-Design accepted for v2.4. No provider is selected or configured, no official
-activation timestamp exists, and `API-01` remains inactive. Provider selection,
-target setup, a 24-hour shadow validation, deterministic evaluation, and one
-complete prospective 30-day window remain required. The full contract is in
+Design accepted for v2.4. Decision 20 conditionally selects a preferred shadow
+provider, but no monitor is configured, no official activation timestamp
+exists, and `API-01` remains inactive. Target setup, a 24-hour shadow validation,
+deterministic evaluation, and one complete prospective 30-day window remain
+required. The full contract is in
 `docs/v2.4-external-availability-monitoring.md`.
 
 References:
@@ -898,3 +899,60 @@ References:
 - [Prometheus multi-target exporter pattern](https://prometheus.io/docs/guides/multi-target-exporter/)
 - [Prometheus blackbox exporter configuration](https://github.com/prometheus/blackbox_exporter/blob/master/CONFIGURATION.md)
 - [GitHub Actions scheduled workflow limits](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
+
+## Decision 20: Prefer Grafana Cloud With An Independent Evidence Archive
+
+Decision:
+
+Use Grafana Cloud Synthetic Monitoring as the preferred provider for the v2.4
+`API-01` shadow rollout. Configure one Frankfurt public probe as the canonical
+one-minute `/health/ready` source, with same-location liveness and a five-minute
+Stockholm readiness probe for diagnosis only.
+
+Treat this as a conditional selection rather than SLO activation. Before an
+official window begins, prove that the configured HTTP check preserves the
+timeout, redirect, TLS, and exact-status contract; normalize timestamped
+underlying metrics and logs; and copy recoverable evidence to a private
+owner-controlled Backblaze B2 namespace for at least 45 days. Generate the
+denominator from expected UTC slots rather than Grafana's displayed uptime.
+
+Decision date: 2026-09-04.
+
+Reasoning:
+
+- HTTP checks support the required minute schedule, ten-second timeout,
+  redirect control, certificate validation, and expected status.
+- Public EMEA probes are outside both GoldSrcOps hosting failure domains.
+- Prometheus metrics, probe logs, `config_version`, the Metrics API, and
+  API/Terraform configuration provide the best available input for a
+  reproducible provider-independent evaluator.
+- The proposed readiness, liveness, and secondary diagnostic checks consume an
+  estimated 95,040 of the current 100,000 free monthly API executions.
+- Existing Grafana uptime aggregation is not canonical because reported-sample
+  and `max_over_time` behavior does not enforce the GoldSrcOps missing-slot
+  denominator.
+- Free retention is 14 days, while Pro log retention is 30 days. Independent
+  export is therefore required even though Pro metrics retention is longer.
+
+Alternatives considered:
+
+- Checkly. Not selected because its free plan cannot run every minute and its
+  self-service plans retain raw results for only 7 or 30 days; the 180-day tier
+  requires an enterprise agreement.
+- Better Stack Uptime. Not selected because the documented response-time API is
+  limited to 24 hours and a complete canonical per-attempt failure export was
+  not established from the published API.
+- UptimeRobot. Rejected because one-minute checking requires a paid plan and
+  checks are progressively spaced out during an extended outage, violating the
+  fixed expected population.
+- An independent self-hosted black-box probe. Retained as an exit option if the
+  managed candidate fails account, export, retention, or schedule validation;
+  deferred because it adds another host and service to operate.
+
+Implementation status:
+
+Provider comparison completed. No Grafana Cloud account or monitor was created
+by this decision, and `API-01` remains `Draft`. Account validation, target setup,
+independent archive implementation, safe failure tests, and a complete 24-hour
+shadow run are required next. Details and current vendor references are in
+`docs/v2.4-synthetic-monitoring-provider-decision.md`.

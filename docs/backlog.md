@@ -663,13 +663,14 @@ retroactively.
 
 Delivery order:
 
-1. **External availability contract**: define the independent primary probe,
-   expected-minute population, raw result schema, missing-data rules, retention,
-   and activation gates. Decision 19 and
+1. **External availability contract (completed 2026-09-04)**: define the
+   independent primary probe, expected-minute population, raw result schema,
+   missing-data rules, retention, and activation gates. Decision 19 and
    `docs/v2.4-external-availability-monitoring.md` define this slice.
-2. **Provider selection**: compare managed synthetic-monitoring providers for
-   one-minute HTTPS checks, TLS and redirect controls, raw export, retention,
-   alerting, legal and account fit, cost, and exit conditions.
+2. **Provider selection (completed 2026-09-04)**: Decision 20 and
+   `docs/v2.4-synthetic-monitoring-provider-decision.md` conditionally select
+   Grafana Cloud Synthetic Monitoring for shadow validation, with explicit
+   account, export, retention, cost, credential, and exit gates.
 3. **Measurement rollout**: configure the public readiness primary probe,
    diagnostic liveness and secondary-location checks, off-host result retention,
    and tested alert routing without exposing private telemetry.
@@ -919,9 +920,10 @@ The released v1 baseline includes:
 
 Remaining portfolio gaps, in priority order:
 
-- Complete the active v2.4 independent public availability measurement rollout
-  and review the initial SLOs prospectively after their full activation windows;
-  the completed 24-hour release sample is not a monthly uptime claim.
+- Complete the active v2.4 Grafana Cloud shadow rollout, independent result
+  archive, and public availability evaluator, then review the initial SLOs
+  prospectively after their full activation windows; the completed 24-hour
+  release sample is not a monthly uptime claim.
 - A compact public read-only dashboard backed by a deliberately sanitized
   projection.
 - An authenticated Reader/Operator web workflow for servers, incidents,
