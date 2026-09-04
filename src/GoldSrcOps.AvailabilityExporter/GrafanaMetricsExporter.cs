@@ -8,16 +8,25 @@ internal sealed class GrafanaMetricsExporter
 
     private readonly GrafanaMetricsApiClient _client;
     private readonly GrafanaMetricsApiOptions _options;
+    private readonly IProbeFailureDetailSource? _failureDetailSource;
 
     public GrafanaMetricsExporter(
         GrafanaMetricsApiClient client,
-        GrafanaMetricsApiOptions options)
+        GrafanaMetricsApiOptions options,
+        IProbeFailureDetailSource? failureDetailSource = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(options);
+        if (failureDetailSource is not null &&
+            (failureDetailSource.CorrelationTolerance <= TimeSpan.Zero ||
+             failureDetailSource.CorrelationTolerance > TimeSpan.FromSeconds(30)))
+        {
+            throw new ArgumentOutOfRangeException(nameof(failureDetailSource));
+        }
 
         _client = client;
         _options = options;
+        _failureDetailSource = failureDetailSource;
     }
 
     public async Task<IReadOnlyList<CanonicalAvailabilityResult>> ExportAsync(
@@ -70,6 +79,15 @@ internal sealed class GrafanaMetricsExporter
 
         EnsureSingleCheckIdentity(successes.Keys);
 
+        IReadOnlyList<ProbeFailureDetail> failureDetails = [];
+        if (_failureDetailSource is not null && RequiresFailureDetails(successes, statuses))
+        {
+            failureDetails = await _failureDetailSource.QueryAsync(
+                startUtc,
+                endUtc,
+                cancellationToken).ConfigureAwait(false);
+        }
+
         var context = new AvailabilityNormalizationContext(
             ProviderName,
             _options.MonitorRevision,
@@ -92,12 +110,18 @@ internal sealed class GrafanaMetricsExporter
             TimeSpan? duration = durations.TryGetValue(success.Key, out var durationSeconds)
                 ? ParseDuration(durationSeconds)
                 : null;
+            var failureKind = ResolveFailureKind(
+                success.Key.SourceTimestampUtc,
+                succeeded,
+                httpStatus,
+                failureDetails);
             var record = AvailabilityNormalizer.Normalize(
                 new ProviderProbeSample(
                     success.Key.SourceTimestampUtc,
                     succeeded,
                     httpStatus,
                     duration,
+                    FailureKind: failureKind,
                     CompletedAtUtc: success.Key.SourceTimestampUtc),
                 context);
 
@@ -184,6 +208,53 @@ internal sealed class GrafanaMetricsExporter
         }
 
         return samples;
+    }
+
+    private static bool RequiresFailureDetails(
+        IReadOnlyDictionary<MetricObservationKey, double> successes,
+        Dictionary<MetricObservationKey, double> statuses)
+    {
+        foreach (var success in successes)
+        {
+            if (!ParseSuccess(success.Value) &&
+                (!statuses.TryGetValue(success.Key, out var status) || ParseHttpStatus(status) is null))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private ProbeFailureKind? ResolveFailureKind(
+        DateTimeOffset sourceTimestampUtc,
+        bool succeeded,
+        int? httpStatus,
+        IReadOnlyList<ProbeFailureDetail> failureDetails)
+    {
+        if (succeeded || httpStatus is not null || _failureDetailSource is null)
+        {
+            return null;
+        }
+
+        var tolerance = _failureDetailSource.CorrelationTolerance;
+        var matchingKinds = failureDetails
+            .Where(detail =>
+            {
+                var difference = detail.ObservedAtUtc - sourceTimestampUtc;
+                return difference >= -tolerance && difference <= tolerance;
+            })
+            .Select(detail => detail.FailureKind)
+            .Distinct()
+            .Take(2)
+            .ToArray();
+
+        return matchingKinds.Length switch
+        {
+            0 => ProbeFailureKind.Monitor,
+            1 => matchingKinds[0],
+            _ => ProbeFailureKind.Monitor,
+        };
     }
 
     private static void EnsureSingleCheckIdentity(IEnumerable<MetricObservationKey> keys)

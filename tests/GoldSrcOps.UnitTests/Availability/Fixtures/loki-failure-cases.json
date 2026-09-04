@@ -1,0 +1,37 @@
+[
+  {
+    "name": "dns resolution",
+    "line": "time=2026-09-04T12:00:01Z level=ERROR msg=\"Resolution with IP protocol failed\" target=https://private.example.test err=\"lookup private.example.test: no such host\"",
+    "expectedFailureKind": "dns"
+  },
+  {
+    "name": "connection refused",
+    "line": "time=2026-09-04T12:00:01Z level=ERROR msg=\"HTTP request failed\" target=https://private.example.test err=\"Get \\\"https://private.example.test\\\": dial tcp 192.0.2.10:443: connect: connection refused\"",
+    "expectedFailureKind": "connect"
+  },
+  {
+    "name": "certificate verification",
+    "line": "time=2026-09-04T12:00:01Z level=ERROR msg=\"TLS certificate verification failed\" target=https://private.example.test err=\"x509: certificate signed by unknown authority\"",
+    "expectedFailureKind": "tls"
+  },
+  {
+    "name": "request timeout",
+    "line": "time=2026-09-04T12:00:01Z level=ERROR msg=\"HTTP request failed\" target=https://private.example.test err=\"context deadline exceeded\"",
+    "expectedFailureKind": "timeout"
+  },
+  {
+    "name": "ambiguous tls timeout",
+    "line": "time=2026-09-04T12:00:01Z level=ERROR msg=\"HTTP request failed\" target=https://private.example.test err=\"tls: handshake timeout\"",
+    "expectedFailureKind": "monitor"
+  },
+  {
+    "name": "unknown request failure",
+    "line": "time=2026-09-04T12:00:01Z level=ERROR msg=\"HTTP request failed\" target=https://private.example.test err=\"provider-specific failure\"",
+    "expectedFailureKind": "monitor"
+  },
+  {
+    "name": "healthy diagnostic line",
+    "line": "time=2026-09-04T12:00:01Z level=DEBUG msg=\"Resolved target address\" target=https://private.example.test",
+    "expectedFailureKind": null
+  }
+]

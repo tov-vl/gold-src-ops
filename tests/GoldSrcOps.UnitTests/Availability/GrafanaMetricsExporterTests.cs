@@ -93,6 +93,71 @@ public sealed class GrafanaMetricsExporterTests
     }
 
     [Fact]
+    public async Task ExportAsync_enriches_a_no_status_failure_with_one_correlated_detail()
+    {
+        var sourceTimestamp = WindowStart.AddSeconds(20);
+        var evaluation = WindowStart.AddSeconds(30);
+        using var handler = new SequenceHttpMessageHandler(
+            CreateMatrix((evaluation, 0d)),
+            CreateMatrix((evaluation, UnixSeconds(sourceTimestamp))),
+            CreateEmptyMatrix(),
+            CreateEmptyMatrix(),
+            CreateEmptyMatrix(),
+            CreateEmptyMatrix());
+        using var httpClient = CreateHttpClient(handler);
+        var options = CreateOptions();
+        var failureDetails = new StubFailureDetailSource(
+            TimeSpan.FromSeconds(10),
+            new ProbeFailureDetail(sourceTimestamp.AddSeconds(2), ProbeFailureKind.Dns));
+        var exporter = new GrafanaMetricsExporter(
+            new GrafanaMetricsApiClient(httpClient, options),
+            options,
+            failureDetails);
+
+        var records = await exporter.ExportAsync(
+            WindowStart,
+            WindowStart.AddMinutes(1),
+            CancellationToken.None);
+
+        records.Should().ContainSingle().Which.Outcome.Should().Be(AvailabilityOutcome.DnsError);
+        failureDetails.QueryCount.Should().Be(1);
+        failureDetails.QueriedStartUtc.Should().Be(WindowStart);
+        failureDetails.QueriedEndUtc.Should().Be(WindowStart.AddMinutes(1));
+    }
+
+    [Fact]
+    public async Task ExportAsync_uses_monitor_error_for_ambiguous_correlated_details()
+    {
+        var sourceTimestamp = WindowStart.AddSeconds(20);
+        var evaluation = WindowStart.AddSeconds(30);
+        using var handler = new SequenceHttpMessageHandler(
+            CreateMatrix((evaluation, 0d)),
+            CreateMatrix((evaluation, UnixSeconds(sourceTimestamp))),
+            CreateEmptyMatrix(),
+            CreateEmptyMatrix(),
+            CreateEmptyMatrix(),
+            CreateEmptyMatrix());
+        using var httpClient = CreateHttpClient(handler);
+        var options = CreateOptions();
+        var failureDetails = new StubFailureDetailSource(
+            TimeSpan.FromSeconds(10),
+            new ProbeFailureDetail(sourceTimestamp.AddSeconds(-1), ProbeFailureKind.Connect),
+            new ProbeFailureDetail(sourceTimestamp.AddSeconds(1), ProbeFailureKind.Timeout));
+        var exporter = new GrafanaMetricsExporter(
+            new GrafanaMetricsApiClient(httpClient, options),
+            options,
+            failureDetails);
+
+        var records = await exporter.ExportAsync(
+            WindowStart,
+            WindowStart.AddMinutes(1),
+            CancellationToken.None);
+
+        records.Should().ContainSingle().Which.Outcome.Should().Be(AvailabilityOutcome.MonitorError);
+        failureDetails.QueryCount.Should().Be(1);
+    }
+
+    [Fact]
     public async Task QueryRangeAsync_does_not_include_response_content_in_an_error()
     {
         using var handler = new SequenceHttpMessageHandler(
@@ -219,4 +284,36 @@ public sealed class GrafanaMetricsExporterTests
         string Body,
         string? AuthorizationScheme,
         string? AuthorizationParameter);
+
+    private sealed class StubFailureDetailSource : IProbeFailureDetailSource
+    {
+        private readonly IReadOnlyList<ProbeFailureDetail> _details;
+
+        public StubFailureDetailSource(
+            TimeSpan correlationTolerance,
+            params ProbeFailureDetail[] details)
+        {
+            CorrelationTolerance = correlationTolerance;
+            _details = details;
+        }
+
+        public TimeSpan CorrelationTolerance { get; }
+
+        public int QueryCount { get; private set; }
+
+        public DateTimeOffset? QueriedStartUtc { get; private set; }
+
+        public DateTimeOffset? QueriedEndUtc { get; private set; }
+
+        public Task<IReadOnlyList<ProbeFailureDetail>> QueryAsync(
+            DateTimeOffset startUtc,
+            DateTimeOffset endUtc,
+            CancellationToken cancellationToken)
+        {
+            QueryCount++;
+            QueriedStartUtc = startUtc;
+            QueriedEndUtc = endUtc;
+            return Task.FromResult(_details);
+        }
+    }
 }
