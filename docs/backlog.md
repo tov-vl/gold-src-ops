@@ -675,9 +675,13 @@ Delivery order:
    and both diagnostic checks were configured on 2026-09-04 under
    `v2-4-shadow-001`. The standalone Metrics API exporter, canonical create-only
    JSONL format, overlap deduplication, expected-slot evaluator, and deterministic
-   contract fixtures are implemented. Prove the least-privilege live export,
-   add off-host B2 retention and recovery, complete transport-failure and alert
-   tests, and collect a fresh 24-hour shadow without exposing private telemetry.
+   contract fixtures are implemented. A bounded least-privilege live export
+   passed on 2026-09-04. A separate private B2 archive, split prefix-scoped
+   reader/writer credentials, one content-addressed upload, sequential duplicate
+   suppression, SHA-256 verified recovery, and deterministic report comparison
+   also passed live on 2026-09-04. Complete external scheduling,
+   transport-failure and alert tests, and a fresh 24-hour shadow without exposing
+   private telemetry.
    The sanitized setup and implementation records are in
    `docs/v2.4-synthetic-monitoring-rollout.md` and
    `docs/v2.4-availability-evidence-exporter.md`.

@@ -36,6 +36,8 @@ internal static class ConsoleRunner
             {
                 ExportCommandOptions export => await RunExportAsync(export, cancellationToken).ConfigureAwait(false),
                 EvaluateCommandOptions evaluate => await RunEvaluationAsync(evaluate, cancellationToken).ConfigureAwait(false),
+                ArchiveCommandOptions archive => await RunArchiveAsync(archive, cancellationToken).ConfigureAwait(false),
+                RehearseCommandOptions rehearse => await RunRehearsalAsync(rehearse, cancellationToken).ConfigureAwait(false),
                 _ => throw new InvalidOperationException("The command is unsupported."),
             };
         }
@@ -104,6 +106,60 @@ internal static class ConsoleRunner
         return 0;
     }
 
+    private static async Task<int> RunArchiveAsync(
+        ArchiveCommandOptions command,
+        CancellationToken cancellationToken)
+    {
+        using var reader = CreateEvidenceObjectClient(
+            "GOLDSRCOPS_B2_READ_KEY_ID",
+            "GOLDSRCOPS_B2_READ_APPLICATION_KEY");
+        using var writer = CreateEvidenceObjectClient(
+            "GOLDSRCOPS_B2_WRITE_KEY_ID",
+            "GOLDSRCOPS_B2_WRITE_APPLICATION_KEY");
+        var archive = new EvidenceArchive(reader, writer);
+        var receipt = await archive.UploadNewAsync(command.InputPath, cancellationToken).ConfigureAwait(false);
+
+        Console.WriteLine(FormattableString.Invariant(
+            $"Archive completed: {receipt.ContentLength} bytes stored under a content-addressed key with SHA-256 {receipt.Sha256}."));
+        return 0;
+    }
+
+    private static async Task<int> RunRehearsalAsync(
+        RehearseCommandOptions command,
+        CancellationToken cancellationToken)
+    {
+        using var objectClient = CreateEvidenceObjectClient(
+            "GOLDSRCOPS_B2_READ_KEY_ID",
+            "GOLDSRCOPS_B2_READ_APPLICATION_KEY");
+        var archive = new EvidenceArchive(objectClient);
+        var rehearsal = new AvailabilityRecoveryRehearsal(archive);
+        var result = await rehearsal.RunAsync(
+            command.Sha256,
+            command.DownloadOutputPath,
+            command.ExpectedReportPath,
+            command.ReportOutputPath,
+            command.Request,
+            cancellationToken).ConfigureAwait(false);
+
+        Console.WriteLine(FormattableString.Invariant(
+            $"Recovery rehearsal completed: {result.Download.RecordCount} records and {result.Download.ContentLength} bytes verified."));
+        Console.WriteLine("Deterministic evaluation matches the expected report.");
+        return 0;
+    }
+
+    private static B2EvidenceObjectClient CreateEvidenceObjectClient(
+        string keyIdEnvironmentVariable,
+        string applicationKeyEnvironmentVariable)
+    {
+        var settings = B2EvidenceStorageSettings.Create(
+            ReadRequiredEnvironmentVariable("GOLDSRCOPS_B2_S3_ENDPOINT"),
+            ReadRequiredEnvironmentVariable("GOLDSRCOPS_B2_REGION"),
+            ReadRequiredEnvironmentVariable("GOLDSRCOPS_B2_BUCKET"),
+            ReadRequiredEnvironmentVariable(keyIdEnvironmentVariable),
+            ReadRequiredEnvironmentVariable(applicationKeyEnvironmentVariable));
+        return B2EvidenceObjectClient.Create(settings);
+    }
+
     private static async Task<int> RunEvaluationAsync(
         EvaluateCommandOptions command,
         CancellationToken cancellationToken)
@@ -162,7 +218,18 @@ internal static class ConsoleRunner
         Console.WriteLine("           --evaluated-at <UTC> --monitor-revision <revision> --location <label>");
         Console.WriteLine("           [--output <new.json>] [--grace-minutes 5] [--target 0.995]");
         Console.WriteLine();
+        Console.WriteLine("  archive --input <segment.jsonl>");
+        Console.WriteLine();
+        Console.WriteLine("  rehearse --sha256 <digest> --download-output <new.jsonl>");
+        Console.WriteLine("            --expected-report <report.json> --output <new-report.json>");
+        Console.WriteLine("            --window-start <UTC> --window-end <UTC> --evaluated-at <UTC>");
+        Console.WriteLine("            --monitor-revision <revision> --location <label>");
+        Console.WriteLine("            [--grace-minutes 5] [--target 0.995]");
+        Console.WriteLine();
         Console.WriteLine("Export credentials are read only from GOLDSRCOPS_GRAFANA_METRICS_URL,");
         Console.WriteLine("GOLDSRCOPS_GRAFANA_METRICS_USER, and GOLDSRCOPS_GRAFANA_METRICS_TOKEN.");
+        Console.WriteLine("Archive credentials are read only from GOLDSRCOPS_B2_S3_ENDPOINT,");
+        Console.WriteLine("GOLDSRCOPS_B2_REGION, GOLDSRCOPS_B2_BUCKET, and split GOLDSRCOPS_B2_READ_*");
+        Console.WriteLine("and GOLDSRCOPS_B2_WRITE_* credentials. Rehearsal needs only GOLDSRCOPS_B2_READ_*.");
     }
 }
