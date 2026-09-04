@@ -26,8 +26,10 @@ Active v2.4 work begins with independent external availability measurement and
 a prospective `API-01` window before the public and authenticated operator web
 experience. The provider-independent contract is documented in
 [docs/v2.4-external-availability-monitoring.md](docs/v2.4-external-availability-monitoring.md),
-and the conditional managed-provider choice is recorded in
-[docs/v2.4-synthetic-monitoring-provider-decision.md](docs/v2.4-synthetic-monitoring-provider-decision.md).
+the conditional managed-provider choice is recorded in
+[docs/v2.4-synthetic-monitoring-provider-decision.md](docs/v2.4-synthetic-monitoring-provider-decision.md),
+and the current non-authoritative setup is captured in
+[docs/v2.4-synthetic-monitoring-rollout.md](docs/v2.4-synthetic-monitoring-rollout.md).
 
 ## Highlights
 
@@ -94,6 +96,7 @@ published-image verification have passed.
 | Initial SLI record and SLO proposal | [Service-level objectives](docs/service-level-objectives.md) |
 | v2.4 external availability contract | [External availability monitoring](docs/v2.4-external-availability-monitoring.md) |
 | v2.4 synthetic-monitoring provider | [Synthetic-monitoring provider decision](docs/v2.4-synthetic-monitoring-provider-decision.md) |
+| v2.4 synthetic-monitoring rollout | [Synthetic-monitoring rollout](docs/v2.4-synthetic-monitoring-rollout.md) |
 | v2.3 production Compose contract | [Reference production Compose](ops/production/README.md) |
 | Production metrics path and operations | [Observability](docs/observability.md) |
 | PostgreSQL off-host backup and restore | [PostgreSQL backup](docs/postgresql-backup.md) |

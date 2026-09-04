@@ -886,8 +886,9 @@ Alternatives considered:
 Implementation status:
 
 Design accepted for v2.4. Decision 20 conditionally selects a preferred shadow
-provider, but no monitor is configured, no official activation timestamp
-exists, and `API-01` remains inactive. Target setup, a 24-hour shadow validation,
+provider, and three non-authoritative checks were configured on 2026-09-04. No
+official activation timestamp exists, and `API-01` remains inactive. Export,
+independent retention, failure and alert tests, a 24-hour shadow validation,
 deterministic evaluation, and one complete prospective 30-day window remain
 required. The full contract is in
 `docs/v2.4-external-availability-monitoring.md`.
@@ -926,8 +927,9 @@ Reasoning:
 - Prometheus metrics, probe logs, `config_version`, the Metrics API, and
   API/Terraform configuration provide the best available input for a
   reproducible provider-independent evaluator.
-- The proposed readiness, liveness, and secondary diagnostic checks consume an
-  estimated 95,040 of the current 100,000 free monthly API executions.
+- The saved readiness, liveness, and secondary diagnostic checks consume an
+  estimated 98,208 of the current 100,000 free API executions in a 31-day
+  month, leaving only 1,792 executions of margin.
 - Existing Grafana uptime aggregation is not canonical because reported-sample
   and `max_over_time` behavior does not enforce the GoldSrcOps missing-slot
   denominator.
@@ -951,8 +953,10 @@ Alternatives considered:
 
 Implementation status:
 
-Provider comparison completed. No Grafana Cloud account or monitor was created
-by this decision, and `API-01` remains `Draft`. Account validation, target setup,
-independent archive implementation, safe failure tests, and a complete 24-hour
-shadow run are required next. Details and current vendor references are in
-`docs/v2.4-synthetic-monitoring-provider-decision.md`.
+Provider comparison completed. Account availability was validated and three
+non-authoritative shadow checks were configured on 2026-09-04 under sanitized
+monitor revision `v2-4-shadow-001`. `API-01` remains `Draft`: normalized export,
+independent archive implementation, safe failure and alert tests, and a complete
+24-hour shadow run are required next. The effective configuration is in
+`docs/v2.4-synthetic-monitoring-rollout.md`; decision details and vendor
+references are in `docs/v2.4-synthetic-monitoring-provider-decision.md`.
