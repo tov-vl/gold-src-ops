@@ -6,7 +6,7 @@ production control-plane and game-server failure domains.
 
 The scheduler is not the `API-01` probe. Grafana Cloud Synthetic Monitoring
 continues to produce the one-minute primary population. The workflow exports a
-six-hour rolling window once per hour at minute 17, then writes one
+six-hour rolling window once per hour at minute 53, then writes one
 content-addressed primary segment to the independent B2 archive. The overlap
 allows later runs to recover from ordinary GitHub scheduling delays without
 changing the canonical slot rules.

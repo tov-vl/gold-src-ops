@@ -323,7 +323,7 @@ throw "Unexpected fake exporter command '$command'."
 
     $workflow = Get-Content -LiteralPath $workflowPath -Raw
     $requiredWorkflowFragments = @(
-        'cron: "17 * * * *"',
+        'cron: "53 * * * *"',
         "confirm_archive:",
         "inputs.confirm_archive",
         "vars.GOLDSRCOPS_AVAILABILITY_SCHEDULER_ENABLED == 'true'",

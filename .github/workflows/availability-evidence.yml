@@ -2,7 +2,7 @@ name: Availability Evidence
 
 on:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "53 * * * *"
   workflow_dispatch:
     inputs:
       confirm_archive:
