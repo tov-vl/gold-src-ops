@@ -22,6 +22,11 @@ all passed. Release notes and detailed evidence are available in
 [docs/release-notes-v2.3.md](docs/release-notes-v2.3.md) and
 [docs/v2.3-readiness.md](docs/v2.3-readiness.md).
 
+Active v2.4 work begins with independent external availability measurement and
+a prospective `API-01` window before the public and authenticated operator web
+experience. The provider-independent contract is documented in
+[docs/v2.4-external-availability-monitoring.md](docs/v2.4-external-availability-monitoring.md).
+
 ## Highlights
 
 - Scheduled `A2S_INFO` polling with challenge handling and legacy
@@ -85,6 +90,7 @@ published-image verification have passed.
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
 | v2.3 release evidence | [v2.3 readiness](docs/v2.3-readiness.md) |
 | Initial SLI record and SLO proposal | [Service-level objectives](docs/service-level-objectives.md) |
+| v2.4 external availability contract | [External availability monitoring](docs/v2.4-external-availability-monitoring.md) |
 | v2.3 production Compose contract | [Reference production Compose](ops/production/README.md) |
 | Production metrics path and operations | [Observability](docs/observability.md) |
 | PostgreSQL off-host backup and restore | [PostgreSQL backup](docs/postgresql-backup.md) |

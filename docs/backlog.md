@@ -654,6 +654,55 @@ Non-goals for v2.3:
   or payment processing.
 - Service extraction, a message broker, or multiple active polling workers.
 
+## Active v2.4 Milestone: Continuous Evidence And Operator Experience
+
+v2.4 turns the bounded v2.3 deployment evidence into continuously reviewable
+operations data before adding the operator-facing web experience. The milestone
+does not change the v2.3 single-node availability claim or activate an SLO
+retroactively.
+
+Delivery order:
+
+1. **External availability contract**: define the independent primary probe,
+   expected-minute population, raw result schema, missing-data rules, retention,
+   and activation gates. Decision 19 and
+   `docs/v2.4-external-availability-monitoring.md` define this slice.
+2. **Provider selection**: compare managed synthetic-monitoring providers for
+   one-minute HTTPS checks, TLS and redirect controls, raw export, retention,
+   alerting, legal and account fit, cost, and exit conditions.
+3. **Measurement rollout**: configure the public readiness primary probe,
+   diagnostic liveness and secondary-location checks, off-host result retention,
+   and tested alert routing without exposing private telemetry.
+4. **Activation**: pass a 24-hour shadow run, record the immutable activation
+   tuple, and start the prospective 30-day `API-01` window without importing
+   shadow or v2.3 soak samples.
+5. **Public experience**: add a compact Blazor Web App backed by a deliberately
+   sanitized read model for current public status and availability evidence.
+6. **Operator experience**: add authenticated Reader and Operator workflows for
+   servers, incidents, history, commands, dead letters, and replay without
+   weakening the existing API policies or audit trail.
+7. **First SLO review**: after a complete forward-looking window, publish the
+   reproducible sanitized result and report `API-01` as met or missed. Review the
+   target without changing it to fit the observed result.
+
+Acceptance boundaries:
+
+- Exactly one external monitor location defines the `API-01` primary result;
+  all other probes remain diagnostic until a separate aggregation decision.
+- Raw monitoring results and provider credentials remain outside the production
+  control plane and Git; only sanitized aggregates may be public.
+- Missing primary samples and planned maintenance consume the error budget.
+- No objective is active until its activation tuple is recorded, and no
+  objective is achieved before its complete prospective window passes.
+- The public UI must not expose server addresses, provider identifiers,
+  authenticated operational data, or private observability endpoints.
+
+Non-goals for the first v2.4 slices:
+
+- Multi-node or multi-region GoldSrcOps deployment.
+- A custom monitoring service when a managed provider satisfies the contract.
+- Gameplay-agent ingestion, VIP entitlements, or payment processing.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -870,9 +919,9 @@ The released v1 baseline includes:
 
 Remaining portfolio gaps, in priority order:
 
-- Add continuous independent public availability measurement and review the
-  initial SLOs prospectively after their full activation windows; the completed
-  24-hour release sample is not a monthly uptime claim.
+- Complete the active v2.4 independent public availability measurement rollout
+  and review the initial SLOs prospectively after their full activation windows;
+  the completed 24-hour release sample is not a monthly uptime claim.
 - A compact public read-only dashboard backed by a deliberately sanitized
   projection.
 - An authenticated Reader/Operator web workflow for servers, incidents,

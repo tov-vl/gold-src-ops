@@ -636,9 +636,13 @@ Alternatives considered:
 
 Implementation status:
 
-Accepted for v2.3. No provider, paid service, production host, or continuously
-running environment is implied by this documentation change. The delivery and
-evidence sequence is defined in `docs/v2.3-production-deployment.md`.
+Implemented and exercised for v2.3 across separate control-plane and game-server
+hosts. Public TLS and external identity, encrypted off-host recovery, private
+observability, external A2S and guarded RCON, a recovery exercise, and the
+bounded release soak all passed their documented gates. This remains a
+single-node reference topology and does not claim high availability. The
+delivery and evidence sequence is recorded in
+`docs/v2.3-production-deployment.md`.
 
 ## Decision 17: Export Production Metrics Through OTLP And A Collector
 
@@ -812,8 +816,9 @@ Local evidence covers encrypted backup, retention and pruning, freshness
 validation, full repository data check, eight migrations, required tables, and
 a restored control record. The private remote repository is initialized and
 independently escrowed; its full data check, first live backup, and isolated live
-restore rehearsal have passed. Target timer activation, its first completed
-cycle, and the measured recovery-time objective remain deployment gates.
+restore rehearsal have passed. The target timer and its first completed cycle
+also passed for v2.3. Backup and restore durations remain evidence only; no
+recovery-time objective is active.
 
 References:
 
@@ -822,3 +827,74 @@ References:
 - [restic integrity checks](https://restic.readthedocs.io/en/stable/045_working_with_repos.html#checking-integrity-and-consistency)
 - [restic dump](https://restic.readthedocs.io/en/stable/050_restore.html#printing-files-to-stdout)
 - [restic snapshot retention and pruning](https://restic.readthedocs.io/en/stable/060_forget.html)
+
+## Decision 19: Measure Public Availability From An Independent External Probe
+
+Decision:
+
+Use one designated managed black-box probe outside both GoldSrcOps host failure
+domains as the authoritative source for the proposed `API-01` availability SLI.
+It sends an unauthenticated HTTPS `GET` to the public `/health/ready` endpoint
+once per UTC minute and requires successful DNS resolution, trusted
+hostname-valid TLS, no redirect, and HTTP `200` within 10 seconds.
+
+Generate the SLI denominator from expected minute slots after an explicit
+activation timestamp, not from observed result rows. Missing slots, provider
+execution failures, planned maintenance, timeouts, redirects, TLS failures, and
+non-`200` responses are bad. Retries and additional probe locations are
+diagnostic and cannot replace or outvote the canonical primary result.
+
+Persist raw timestamped results and monitor revisions outside the production
+control plane for at least one complete 30-day window plus review margin. Keep
+provider secrets, account identifiers, and raw evidence outside Git; only the
+provider-independent contract, evaluator, and sanitized aggregates belong in
+the repository.
+
+Decision date: 2026-09-04.
+
+Reasoning:
+
+- Public readiness traverses DNS, the Internet path, Caddy, the API, and
+  PostgreSQL, which is closer to the minimum useful client experience than
+  host-local liveness or Collector scrape health.
+- A probe on the control-plane VPS shares the failure domain it is supposed to
+  measure and cannot establish external reachability.
+- One primary location gives every minute a deterministic outcome. Multiple
+  equal-vote locations would require a separate quorum or aggregation policy.
+- An expected-slot denominator prevents missing provider data from improving
+  the reported ratio.
+- Managed synthetic monitoring minimizes new operational software while the
+  provider-independent export preserves an exit path.
+- Alert thresholds and the SLO answer different questions: notification may
+  require consecutive failures, while every bad minute still consumes budget.
+
+Alternatives considered:
+
+- Use private Prometheus or OpenTelemetry data as public availability. Rejected
+  because those signals do not prove DNS, TLS, or the external client path.
+- Run Prometheus blackbox exporter beside the API. Rejected as the primary
+  source because it shares the control-plane failure domain; it remains a valid
+  diagnostic pattern from an independent host later.
+- Use scheduled GitHub Actions. Rejected because their minimum interval is five
+  minutes and scheduled runs may be delayed or dropped, so they cannot define a
+  complete one-minute population.
+- Build a custom .NET probe immediately. Deferred because it adds another
+  service to operate without differentiating the GoldSrcOps control plane.
+- Combine several regions into the headline SLI. Deferred until observed need
+  justifies a reviewed aggregation policy.
+
+Implementation status:
+
+Design accepted for v2.4. No provider is selected or configured, no official
+activation timestamp exists, and `API-01` remains inactive. Provider selection,
+target setup, a 24-hour shadow validation, deterministic evaluation, and one
+complete prospective 30-day window remain required. The full contract is in
+`docs/v2.4-external-availability-monitoring.md`.
+
+References:
+
+- [Google SRE Workbook: Implementing SLOs](https://sre.google/workbook/implementing-slos/)
+- [Google SRE Workbook: Alerting on SLOs](https://sre.google/workbook/alerting-on-slos/)
+- [Prometheus multi-target exporter pattern](https://prometheus.io/docs/guides/multi-target-exporter/)
+- [Prometheus blackbox exporter configuration](https://github.com/prometheus/blackbox_exporter/blob/master/CONFIGURATION.md)
+- [GitHub Actions scheduled workflow limits](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)

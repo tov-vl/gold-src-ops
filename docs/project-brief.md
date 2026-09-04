@@ -223,10 +223,13 @@ The project should evolve in stages:
 - v2.3: provider-independent reference production deployment, real external
   ReHLDS boundary, immutable delivery, and production OTLP metrics through an
   OpenTelemetry Collector.
-- A following milestone: compact Blazor Web App with a sanitized public
-  dashboard and an authenticated Reader/Operator area.
-- A later portfolio milestone: uptime and SLO evidence, a controlled
-  failure/recovery demonstration, a short video, and a small postmortem.
+- v2.4: first establish continuous independent public API availability
+  measurement and activate `API-01` prospectively; then add a compact Blazor Web
+  App with a sanitized public dashboard and an authenticated Reader/Operator
+  area.
+- A later portfolio milestone: publish a complete SLO review window alongside
+  the existing controlled failure/recovery evidence, a short video, and a small
+  postmortem.
 - A later product experiment: versioned AMX Mod X/ReAPI gameplay events through
   a durable inbox. Sandbox entitlements may follow; real payments remain
   explicitly out of scope until then.
