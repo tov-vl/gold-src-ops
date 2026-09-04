@@ -1,0 +1,138 @@
+name: Availability Evidence
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      confirm_archive:
+        description: Confirm this reviewed run may write one archive object
+        required: true
+        default: false
+        type: boolean
+      window_end_utc:
+        description: Optional exact UTC minute for a reviewed catch-up window
+        required: false
+        type: string
+      lookback_minutes:
+        description: Bounded export lookback in minutes
+        required: false
+        default: 360
+        type: number
+
+permissions:
+  contents: read
+
+concurrency:
+  group: availability-evidence-writer-v1
+  cancel-in-progress: false
+
+env:
+  CI: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  archive-primary:
+    name: Archive Primary Evidence
+    if: >-
+      (github.event_name == 'schedule' &&
+        vars.GOLDSRCOPS_AVAILABILITY_SCHEDULER_ENABLED == 'true') ||
+      (github.event_name == 'workflow_dispatch' &&
+        inputs.confirm_archive)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: availability-evidence-shadow
+      deployment: false
+
+    steps:
+      - name: Checkout pinned exporter revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ vars.GOLDSRCOPS_AVAILABILITY_EXPORTER_REVISION }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify pinned exporter revision
+        shell: bash
+        env:
+          EXPECTED_REVISION: ${{ vars.GOLDSRCOPS_AVAILABILITY_EXPORTER_REVISION }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$EXPECTED_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error title=Invalid exporter revision::The environment revision must be a 40-character lowercase commit SHA."
+            exit 1
+          fi
+
+          actual_revision="$(git rev-parse HEAD)"
+          if [[ "$actual_revision" != "$EXPECTED_REVISION" ]]; then
+            echo "::error title=Exporter revision mismatch::The checked-out source does not match the reviewed environment revision."
+            exit 1
+          fi
+
+          git fetch --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main"
+          if ! git merge-base --is-ancestor \
+            "$EXPECTED_REVISION" \
+            "refs/remotes/origin/main"; then
+            echo "::error title=Untrusted exporter revision::The reviewed exporter revision is not reachable from main."
+            exit 1
+          fi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+        with:
+          global-json-file: global.json
+
+      - name: Restore exporter with NuGet audit
+        run: >-
+          dotnet restore
+          ./src/GoldSrcOps.AvailabilityExporter/GoldSrcOps.AvailabilityExporter.csproj
+          -p:AuditPipeline=true
+
+      - name: Publish exporter
+        run: >-
+          dotnet publish
+          ./src/GoldSrcOps.AvailabilityExporter/GoldSrcOps.AvailabilityExporter.csproj
+          --configuration Release
+          --no-restore
+          --output "$RUNNER_TEMP/availability-exporter"
+
+      - name: Export and archive primary evidence
+        shell: pwsh
+        env:
+          REQUESTED_WINDOW_END_UTC: ${{ inputs.window_end_utc }}
+          REQUESTED_LOOKBACK_MINUTES: ${{ inputs.lookback_minutes }}
+          GOLDSRCOPS_AVAILABILITY_PRIMARY_JOB: goldsrcops-api-ready-primary-shadow
+          GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE: ${{ secrets.GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE }}
+          GOLDSRCOPS_AVAILABILITY_PRIMARY_LOCATION: Frankfurt
+          GOLDSRCOPS_AVAILABILITY_MONITOR_REVISION: v2-4-shadow-001
+          GOLDSRCOPS_GRAFANA_METRICS_URL: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_URL }}
+          GOLDSRCOPS_GRAFANA_METRICS_USER: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_USER }}
+          GOLDSRCOPS_GRAFANA_METRICS_TOKEN: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_TOKEN }}
+          GOLDSRCOPS_B2_S3_ENDPOINT: ${{ secrets.GOLDSRCOPS_B2_S3_ENDPOINT }}
+          GOLDSRCOPS_B2_REGION: ${{ secrets.GOLDSRCOPS_B2_REGION }}
+          GOLDSRCOPS_B2_BUCKET: ${{ secrets.GOLDSRCOPS_B2_BUCKET }}
+          GOLDSRCOPS_B2_WRITE_KEY_ID: ${{ secrets.GOLDSRCOPS_B2_WRITE_KEY_ID }}
+          GOLDSRCOPS_B2_WRITE_APPLICATION_KEY: ${{ secrets.GOLDSRCOPS_B2_WRITE_APPLICATION_KEY }}
+          GOLDSRCOPS_B2_READ_KEY_ID: ${{ secrets.GOLDSRCOPS_B2_READ_KEY_ID }}
+          GOLDSRCOPS_B2_READ_APPLICATION_KEY: ${{ secrets.GOLDSRCOPS_B2_READ_APPLICATION_KEY }}
+        run: |
+          $arguments = @{
+            ExporterAssemblyPath = "$env:RUNNER_TEMP/availability-exporter/GoldSrcOps.AvailabilityExporter.dll"
+            WorkingDirectory = "$env:RUNNER_TEMP/availability-evidence"
+          }
+
+          if (-not [string]::IsNullOrWhiteSpace($env:REQUESTED_WINDOW_END_UTC)) {
+            $arguments.WindowEndUtc = $env:REQUESTED_WINDOW_END_UTC
+          }
+
+          if (-not [string]::IsNullOrWhiteSpace($env:REQUESTED_LOOKBACK_MINUTES)) {
+            $arguments.LookbackMinutes = [int]::Parse(
+              $env:REQUESTED_LOOKBACK_MINUTES,
+              [Globalization.CultureInfo]::InvariantCulture)
+          }
+
+          ./ops/availability/run-export-cycle.ps1 @arguments

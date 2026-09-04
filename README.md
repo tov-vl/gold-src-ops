@@ -33,6 +33,8 @@ and the current non-authoritative setup is captured in
 The standalone normalized export, expected-slot evaluation, and
 content-addressed off-host evidence-recovery workflow is documented in
 [docs/v2.4-availability-evidence-exporter.md](docs/v2.4-availability-evidence-exporter.md).
+Its independent GitHub-hosted scheduling contract and operator setup are in
+[ops/availability/README.md](ops/availability/README.md).
 
 ## Highlights
 

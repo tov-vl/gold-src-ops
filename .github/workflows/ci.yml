@@ -107,6 +107,9 @@ jobs:
           pwsh -NoProfile -File ./tools/smoke/postgres-backup-schedule.ps1
           bash ./tools/smoke/postgres-backup-schedule.sh
 
+      - name: Validate availability evidence schedule
+        run: pwsh -NoProfile -File ./tools/smoke/availability-evidence-schedule.ps1
+
       - name: Validate OIDC live-smoke contract
         run: pwsh -NoProfile -File ./tools/smoke/oidc-live-contract.ps1
 
