@@ -886,11 +886,12 @@ Alternatives considered:
 Implementation status:
 
 Design accepted for v2.4. Decision 20 conditionally selects a preferred shadow
-provider, and three non-authoritative checks were configured on 2026-09-04. No
-official activation timestamp exists, and `API-01` remains inactive. Export,
-independent retention, failure and alert tests, a 24-hour shadow validation,
-deterministic evaluation, and one complete prospective 30-day window remain
-required. The full contract is in
+provider, and three non-authoritative checks were configured on 2026-09-04. The
+normalized exporter, create-only JSONL format, expected-slot evaluator, and
+contract fixtures are implemented. No official activation timestamp exists,
+and `API-01` remains inactive. Live export proof, independent retention,
+provider failure-detail and alert tests, a 24-hour shadow validation, and one
+complete prospective 30-day window remain required. The full contract is in
 `docs/v2.4-external-availability-monitoring.md`.
 
 References:
@@ -955,8 +956,9 @@ Implementation status:
 
 Provider comparison completed. Account availability was validated and three
 non-authoritative shadow checks were configured on 2026-09-04 under sanitized
-monitor revision `v2-4-shadow-001`. `API-01` remains `Draft`: normalized export,
-independent archive implementation, safe failure and alert tests, and a complete
-24-hour shadow run are required next. The effective configuration is in
-`docs/v2.4-synthetic-monitoring-rollout.md`; decision details and vendor
+monitor revision `v2-4-shadow-001`. The local normalized exporter and evaluator
+are implemented. `API-01` remains `Draft`: live Metrics API proof, independent
+archive implementation and recovery, provider failure-detail and alert tests,
+and a complete 24-hour shadow run are required next. The effective configuration
+is in `docs/v2.4-synthetic-monitoring-rollout.md`; decision details and vendor
 references are in `docs/v2.4-synthetic-monitoring-provider-decision.md`.

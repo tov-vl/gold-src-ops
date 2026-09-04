@@ -673,10 +673,14 @@ Delivery order:
    account, export, retention, cost, credential, and exit gates.
 3. **Measurement rollout (in progress)**: the public readiness primary probe
    and both diagnostic checks were configured on 2026-09-04 under
-   `v2-4-shadow-001`. Implement off-host result retention, deterministic
-   evaluation, safe failure tests, and tested alert routing without exposing
-   private telemetry. The sanitized setup record is in
-   `docs/v2.4-synthetic-monitoring-rollout.md`.
+   `v2-4-shadow-001`. The standalone Metrics API exporter, canonical create-only
+   JSONL format, overlap deduplication, expected-slot evaluator, and deterministic
+   contract fixtures are implemented. Prove the least-privilege live export,
+   add off-host B2 retention and recovery, complete transport-failure and alert
+   tests, and collect a fresh 24-hour shadow without exposing private telemetry.
+   The sanitized setup and implementation records are in
+   `docs/v2.4-synthetic-monitoring-rollout.md` and
+   `docs/v2.4-availability-evidence-exporter.md`.
 4. **Activation**: pass a 24-hour shadow run, record the immutable activation
    tuple, and start the prospective 30-day `API-01` window without importing
    shadow or v2.3 soak samples.
