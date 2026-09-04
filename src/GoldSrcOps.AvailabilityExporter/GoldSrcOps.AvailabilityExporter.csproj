@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="4.0.102.4" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\GoldSrcOps.Application\GoldSrcOps.Application.csproj" />
   </ItemGroup>
 

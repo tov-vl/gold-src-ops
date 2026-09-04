@@ -23,6 +23,15 @@ internal sealed record EvaluateCommandOptions(
     string? OutputPath,
     AvailabilityEvaluationRequest Request) : CommandOptions;
 
+internal sealed record ArchiveCommandOptions(string InputPath) : CommandOptions;
+
+internal sealed record RehearseCommandOptions(
+    string Sha256,
+    string DownloadOutputPath,
+    string ExpectedReportPath,
+    string ReportOutputPath,
+    AvailabilityEvaluationRequest Request) : CommandOptions;
+
 internal static class CommandOptionsParser
 {
     private static readonly HashSet<string> ExportKeys = new(StringComparer.Ordinal)
@@ -53,6 +62,26 @@ internal static class CommandOptionsParser
         "--target",
     };
 
+    private static readonly HashSet<string> ArchiveKeys = new(StringComparer.Ordinal)
+    {
+        "--input",
+    };
+
+    private static readonly HashSet<string> RehearseKeys = new(StringComparer.Ordinal)
+    {
+        "--sha256",
+        "--download-output",
+        "--expected-report",
+        "--output",
+        "--window-start",
+        "--window-end",
+        "--evaluated-at",
+        "--monitor-revision",
+        "--location",
+        "--grace-minutes",
+        "--target",
+    };
+
     public static bool TryParse(string[] args, out CommandOptions? options, out string error)
     {
         ArgumentNullException.ThrowIfNull(args);
@@ -61,7 +90,7 @@ internal static class CommandOptionsParser
 
         if (args.Length == 0)
         {
-            error = "Expected the export or evaluate command.";
+            error = "Expected the export, evaluate, archive, or rehearse command.";
             return false;
         }
 
@@ -74,7 +103,9 @@ internal static class CommandOptionsParser
         {
             "export" => TryParseExport(values, out options, out error),
             "evaluate" => TryParseEvaluate(values, out options, out error),
-            _ => Fail("Expected the export or evaluate command.", out options, out error),
+            "archive" => TryParseArchive(values, out options, out error),
+            "rehearse" => TryParseRehearse(values, out options, out error),
+            _ => Fail("Expected the export, evaluate, archive, or rehearse command.", out options, out error),
         };
     }
 
@@ -127,6 +158,79 @@ internal static class CommandOptionsParser
             output,
             TimeSpan.FromMinutes(overlapMinutes),
             TimeSpan.FromSeconds(stepSeconds));
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool TryParseArchive(
+        IReadOnlyDictionary<string, string> values,
+        out CommandOptions? options,
+        out string error)
+    {
+        options = null;
+        if (!ValidateKeys(values, ArchiveKeys, out error) ||
+            !TryGetRequired(values, "--input", out var input, out error))
+        {
+            return false;
+        }
+
+        options = new ArchiveCommandOptions(input);
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool TryParseRehearse(
+        IReadOnlyDictionary<string, string> values,
+        out CommandOptions? options,
+        out string error)
+    {
+        options = null;
+
+        if (!ValidateKeys(values, RehearseKeys, out error) ||
+            !TryGetRequired(values, "--sha256", out var sha256, out error) ||
+            !TryGetRequired(values, "--download-output", out var downloadOutput, out error) ||
+            !TryGetRequired(values, "--expected-report", out var expectedReport, out error) ||
+            !TryGetRequired(values, "--output", out var reportOutput, out error) ||
+            !TryGetUtcMinute(values, "--window-start", out var startUtc, out error) ||
+            !TryGetUtcMinute(values, "--window-end", out var endUtc, out error) ||
+            !TryGetUtc(values, "--evaluated-at", out var evaluatedAtUtc, out error) ||
+            !TryGetRequired(values, "--monitor-revision", out var revision, out error) ||
+            !TryGetRequired(values, "--location", out var location, out error) ||
+            !TryGetInteger(values, "--grace-minutes", 5, 0, 60, out var graceMinutes, out error) ||
+            !TryGetDecimal(values, "--target", 0.995m, 0m, 1m, out var target, out error))
+        {
+            return false;
+        }
+
+        if (endUtc <= startUtc)
+        {
+            error = "--window-end must be later than --window-start.";
+            return false;
+        }
+
+        try
+        {
+            sha256 = EvidenceArchive.NormalizeSha256(sha256);
+        }
+        catch (ArgumentException)
+        {
+            error = "--sha256 must contain exactly 64 hexadecimal characters.";
+            return false;
+        }
+
+        options = new RehearseCommandOptions(
+            sha256,
+            downloadOutput,
+            expectedReport,
+            reportOutput,
+            new AvailabilityEvaluationRequest(
+                startUtc,
+                endUtc,
+                evaluatedAtUtc,
+                revision,
+                location,
+                TimeSpan.FromMinutes(graceMinutes),
+                target));
         error = string.Empty;
         return true;
     }

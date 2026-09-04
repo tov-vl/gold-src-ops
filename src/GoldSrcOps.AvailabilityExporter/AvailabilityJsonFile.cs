@@ -9,6 +9,7 @@ internal static class AvailabilityJsonFile
 {
     private const int MaximumLineLength = 16 * 1024;
     private const int MaximumRecordCount = 1_000_000;
+    private const int MaximumJsonFileLength = 1024 * 1024;
 
     private static readonly JsonSerializerOptions SerializerOptions = CreateSerializerOptions();
 
@@ -108,6 +109,33 @@ internal static class AvailabilityJsonFile
         }
 
         return records;
+    }
+
+    public static async Task<T> ReadJsonAsync<T>(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var fullPath = Path.GetFullPath(path);
+        await using var stream = new FileStream(
+            fullPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 16 * 1024,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+        if (stream.Length <= 0 || stream.Length > MaximumJsonFileLength)
+        {
+            throw new InvalidDataException("The JSON input has an invalid length.");
+        }
+
+        return await JsonSerializer.DeserializeAsync<T>(
+            stream,
+            SerializerOptions,
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidDataException("The JSON input is null.");
     }
 
     private static async Task WriteNewAsync(

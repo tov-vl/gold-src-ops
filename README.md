@@ -30,8 +30,8 @@ the conditional managed-provider choice is recorded in
 [docs/v2.4-synthetic-monitoring-provider-decision.md](docs/v2.4-synthetic-monitoring-provider-decision.md),
 and the current non-authoritative setup is captured in
 [docs/v2.4-synthetic-monitoring-rollout.md](docs/v2.4-synthetic-monitoring-rollout.md).
-The standalone normalized export and expected-slot evaluation workflow is
-documented in
+The standalone normalized export, expected-slot evaluation, and
+content-addressed off-host evidence-recovery workflow is documented in
 [docs/v2.4-availability-evidence-exporter.md](docs/v2.4-availability-evidence-exporter.md).
 
 ## Highlights
