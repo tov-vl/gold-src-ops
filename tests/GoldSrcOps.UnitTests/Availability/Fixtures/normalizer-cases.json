@@ -1,0 +1,56 @@
+[
+  {
+    "succeeded": true,
+    "httpStatus": 200,
+    "failureKind": null,
+    "expectedOutcome": "good"
+  },
+  {
+    "succeeded": false,
+    "httpStatus": null,
+    "failureKind": "dns",
+    "expectedOutcome": "dns_error"
+  },
+  {
+    "succeeded": false,
+    "httpStatus": null,
+    "failureKind": "connect",
+    "expectedOutcome": "connect_error"
+  },
+  {
+    "succeeded": false,
+    "httpStatus": null,
+    "failureKind": "tls",
+    "expectedOutcome": "tls_error"
+  },
+  {
+    "succeeded": false,
+    "httpStatus": null,
+    "failureKind": "timeout",
+    "expectedOutcome": "timeout"
+  },
+  {
+    "succeeded": false,
+    "httpStatus": null,
+    "failureKind": "monitor",
+    "expectedOutcome": "monitor_error"
+  },
+  {
+    "succeeded": false,
+    "httpStatus": 302,
+    "failureKind": null,
+    "expectedOutcome": "redirect"
+  },
+  {
+    "succeeded": false,
+    "httpStatus": 503,
+    "failureKind": null,
+    "expectedOutcome": "http_error"
+  },
+  {
+    "succeeded": false,
+    "httpStatus": 200,
+    "failureKind": null,
+    "expectedOutcome": "monitor_error"
+  }
+]

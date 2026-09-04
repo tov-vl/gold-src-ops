@@ -30,6 +30,9 @@ the conditional managed-provider choice is recorded in
 [docs/v2.4-synthetic-monitoring-provider-decision.md](docs/v2.4-synthetic-monitoring-provider-decision.md),
 and the current non-authoritative setup is captured in
 [docs/v2.4-synthetic-monitoring-rollout.md](docs/v2.4-synthetic-monitoring-rollout.md).
+The standalone normalized export and expected-slot evaluation workflow is
+documented in
+[docs/v2.4-availability-evidence-exporter.md](docs/v2.4-availability-evidence-exporter.md).
 
 ## Highlights
 
@@ -97,6 +100,7 @@ published-image verification have passed.
 | v2.4 external availability contract | [External availability monitoring](docs/v2.4-external-availability-monitoring.md) |
 | v2.4 synthetic-monitoring provider | [Synthetic-monitoring provider decision](docs/v2.4-synthetic-monitoring-provider-decision.md) |
 | v2.4 synthetic-monitoring rollout | [Synthetic-monitoring rollout](docs/v2.4-synthetic-monitoring-rollout.md) |
+| v2.4 normalized evidence pipeline | [Availability evidence exporter](docs/v2.4-availability-evidence-exporter.md) |
 | v2.3 production Compose contract | [Reference production Compose](ops/production/README.md) |
 | Production metrics path and operations | [Observability](docs/observability.md) |
 | PostgreSQL off-host backup and restore | [PostgreSQL backup](docs/postgresql-backup.md) |

@@ -125,7 +125,8 @@ flowchart LR
 - `GoldSrcOps.Application` coordinates use cases such as server registration,
   credential metadata, command queueing, monitoring reads, incident reads, and
   polling, alert dispatch, and snapshot retention. It owns the outbox and alert
-  delivery boundaries but depends on interfaces, not EF Core, UDP, or HTTP
+  delivery boundaries and the provider-independent availability normalizer and
+  expected-slot evaluator, but depends on interfaces, not EF Core, UDP, or HTTP
   transport details.
 - `GoldSrcOps.Domain` owns the core server state model and transition rules:
   server status, poll snapshots, availability incidents, credential references,
@@ -135,6 +136,11 @@ flowchart LR
   the HTTPS webhook channel, local secret-reference resolution, the system
   clock, and the polling, command-dispatch, alert-dispatch, and retention
   background workers.
+- `GoldSrcOps.AvailabilityExporter` is a separately invoked operator tool. It
+  reads bounded managed-monitor metrics, writes create-only canonical JSONL,
+  and runs the application-layer evaluator outside the production API runtime.
+  Provider credentials are process environment inputs and raw evidence remains
+  outside PostgreSQL and Git.
 
 ## Security Boundary
 

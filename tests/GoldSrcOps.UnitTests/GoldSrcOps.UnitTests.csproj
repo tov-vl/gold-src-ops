@@ -34,8 +34,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Availability\Fixtures\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\GoldSrcOps.Api\GoldSrcOps.Api.csproj" />
     <ProjectReference Include="..\..\src\GoldSrcOps.Application\GoldSrcOps.Application.csproj" />
+    <ProjectReference Include="..\..\src\GoldSrcOps.AvailabilityExporter\GoldSrcOps.AvailabilityExporter.csproj" />
     <ProjectReference Include="..\..\src\GoldSrcOps.Contracts\GoldSrcOps.Contracts.csproj" />
     <ProjectReference Include="..\..\src\GoldSrcOps.Domain\GoldSrcOps.Domain.csproj" />
     <ProjectReference Include="..\..\src\GoldSrcOps.Infrastructure\GoldSrcOps.Infrastructure.csproj" />
