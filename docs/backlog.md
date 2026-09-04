@@ -679,9 +679,13 @@ Delivery order:
    passed on 2026-09-04. A separate private B2 archive, split prefix-scoped
    reader/writer credentials, one content-addressed upload, sequential duplicate
    suppression, SHA-256 verified recovery, and deterministic report comparison
-   also passed live on 2026-09-04. Complete external scheduling,
-   transport-failure and alert tests, and a fresh 24-hour shadow without exposing
-   private telemetry.
+   also passed live on 2026-09-04. The fail-closed GitHub-hosted scheduler,
+   pinned-revision gate, serialized writer, bounded catch-up window, temporary
+   evidence cleanup, and contract smoke are implemented; live environment setup
+   and one explicitly confirmed manual scheduled cycle remain. The cron
+   activation variable stays disabled until that recovery proof passes. Then
+   complete transport-failure and alert tests and a fresh 24-hour shadow without
+   exposing private telemetry.
    The sanitized setup and implementation records are in
    `docs/v2.4-synthetic-monitoring-rollout.md` and
    `docs/v2.4-availability-evidence-exporter.md`.
