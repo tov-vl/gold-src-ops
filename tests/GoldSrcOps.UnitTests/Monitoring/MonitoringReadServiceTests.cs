@@ -47,6 +47,73 @@ public sealed class MonitoringReadServiceTests
 
     [Theory]
     [AutoMoqData]
+    public async Task GetPublicStatusAsync_excludes_disabled_servers(
+        [Frozen] Mock<IMonitoringReadRepository> repository,
+        MonitoringReadService sut)
+    {
+        var now = new DateTimeOffset(2026, 9, 5, 12, 0, 0, TimeSpan.Zero);
+        IReadOnlyList<DashboardServerStatusDto> serverStatuses =
+        [
+            TestData.DashboardServerStatus(ServerStatus.Online, lastCheckedAtUtc: now),
+            TestData.DashboardServerStatus(
+                ServerStatus.Offline,
+                isEnabled: false,
+                lastCheckedAtUtc: now.AddMinutes(1))
+        ];
+        repository
+            .Setup(static x => x.ListDashboardServerStatusesAsync(CancellationToken.None))
+            .ReturnsAsync(serverStatuses);
+        repository
+            .Setup(static x => x.CountOpenIncidentsForEnabledServersAsync(CancellationToken.None))
+            .ReturnsAsync(0);
+
+        var result = await sut.GetPublicStatusAsync(CancellationToken.None);
+
+        result.Should().BeEquivalentTo(new PublicStatusDto(
+            State: PublicStatusState.Operational,
+            MonitoredServers: 1,
+            OnlineServers: 1,
+            ServersRequiringAttention: 0,
+            OpenIncidents: 0,
+            LastObservedAtUtc: now));
+        repository.Verify(static x => x.ListDashboardServerStatusesAsync(CancellationToken.None), Times.Once);
+        repository.Verify(static x => x.CountOpenIncidentsForEnabledServersAsync(CancellationToken.None), Times.Once);
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [AutoMoqData]
+    public async Task GetPublicStatusAsync_returns_unknown_without_observed_enabled_server(
+        [Frozen] Mock<IMonitoringReadRepository> repository,
+        MonitoringReadService sut)
+    {
+        IReadOnlyList<DashboardServerStatusDto> serverStatuses =
+        [
+            TestData.DashboardServerStatus(ServerStatus.Unknown)
+        ];
+        repository
+            .Setup(static x => x.ListDashboardServerStatusesAsync(CancellationToken.None))
+            .ReturnsAsync(serverStatuses);
+        repository
+            .Setup(static x => x.CountOpenIncidentsForEnabledServersAsync(CancellationToken.None))
+            .ReturnsAsync(1);
+
+        var result = await sut.GetPublicStatusAsync(CancellationToken.None);
+
+        result.Should().BeEquivalentTo(new PublicStatusDto(
+            State: PublicStatusState.Unknown,
+            MonitoredServers: 1,
+            OnlineServers: 0,
+            ServersRequiringAttention: 1,
+            OpenIncidents: 1,
+            LastObservedAtUtc: null));
+        repository.Verify(static x => x.ListDashboardServerStatusesAsync(CancellationToken.None), Times.Once);
+        repository.Verify(static x => x.CountOpenIncidentsForEnabledServersAsync(CancellationToken.None), Times.Once);
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [AutoMoqData]
     public async Task ListSnapshotsAsync_uses_default_limit_for_recent_history(
         [Frozen] Mock<IMonitoringReadRepository> repository,
         MonitoringReadService sut)

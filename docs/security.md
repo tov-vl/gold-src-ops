@@ -142,6 +142,7 @@ operation.
 | `GET /api/servers...` | `Reader` |
 | `GET /api/incidents...` | `Reader` |
 | `GET /api/dashboard/overview` | `Reader` |
+| `GET /api/public/status` | Anonymous |
 | `GET /api/alert-delivery/dead-letters` | `Reader` |
 | `GET /api/alert-delivery/dead-letters/{eventId}` | `Reader` |
 | `POST /api/alert-delivery/dead-letters/{eventId}/replay` | `Operator` |
@@ -161,9 +162,12 @@ an `Operator` endpoint. The persisted token subject remains the audit identity;
 there is no separate public dispatch operation.
 
 Health probes remain anonymous so container and platform probes do not need an
-operator token. They must continue returning only bounded health status, without
-configuration, exception, or secret details. Prometheus must be configured with
-a Reader token when scraping `/metrics`.
+operator token. The public status endpoint is also anonymous, but returns only
+aggregate state, enabled-server counts, open incidents for enabled servers, and
+the latest enabled-server observation time. It excludes server addresses,
+names, provider identifiers, command data, and observability endpoints, and its
+response is cached server-side for 15 seconds. Prometheus must be configured
+with a Reader token when scraping `/metrics`.
 
 ## HTTP Behavior
 
@@ -205,7 +209,8 @@ Unit and API integration tests prove that:
 - dead-letter list, detail, and replay-record endpoints require Reader access;
 - dead-letter replay requires Operator access and derives its audit identity
   from the authenticated subject;
-- liveness and readiness remain anonymous while metrics require Reader access;
+- liveness, readiness, and the sanitized public status remain anonymous while
+  metrics require Reader access;
 - command requests cannot spoof `RequestedBy`;
 - persisted `RequestedBy` comes from the authenticated `sub` claim;
 - tokens without a usable subject receive `401` from protected endpoints;

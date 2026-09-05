@@ -85,4 +85,70 @@ public sealed class MonitoringReadService
             openIncidents,
             lastCheckedAtUtc);
     }
+
+    public async Task<PublicStatusDto> GetPublicStatusAsync(CancellationToken cancellationToken)
+    {
+        var servers = await _repository.ListDashboardServerStatusesAsync(cancellationToken);
+        var openIncidents = await _repository.CountOpenIncidentsForEnabledServersAsync(cancellationToken);
+
+        var monitoredServers = 0;
+        var onlineServers = 0;
+        var serversRequiringAttention = 0;
+        DateTimeOffset? lastObservedAtUtc = null;
+
+        foreach (var server in servers)
+        {
+            if (!server.IsEnabled)
+            {
+                continue;
+            }
+
+            monitoredServers++;
+
+            if (server.Status == ServerStatus.Online)
+            {
+                onlineServers++;
+            }
+            else
+            {
+                serversRequiringAttention++;
+            }
+
+            if (server.LastCheckedAtUtc is not null &&
+                (lastObservedAtUtc is null || server.LastCheckedAtUtc > lastObservedAtUtc))
+            {
+                lastObservedAtUtc = server.LastCheckedAtUtc;
+            }
+        }
+
+        var state = GetPublicStatusState(
+            monitoredServers,
+            serversRequiringAttention,
+            openIncidents,
+            lastObservedAtUtc);
+
+        return new PublicStatusDto(
+            state,
+            monitoredServers,
+            onlineServers,
+            serversRequiringAttention,
+            openIncidents,
+            lastObservedAtUtc);
+    }
+
+    private static PublicStatusState GetPublicStatusState(
+        int monitoredServers,
+        int serversRequiringAttention,
+        int openIncidents,
+        DateTimeOffset? lastObservedAtUtc)
+    {
+        if (monitoredServers == 0 || lastObservedAtUtc is null)
+        {
+            return PublicStatusState.Unknown;
+        }
+
+        return serversRequiringAttention > 0 || openIncidents > 0
+            ? PublicStatusState.Degraded
+            : PublicStatusState.Operational;
+    }
 }
