@@ -1,9 +1,14 @@
 using GoldSrcOps.Web.Components;
+using GoldSrcOps.Web.Hosting;
 using GoldSrcOps.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents();
+builder.Services.AddHealthChecks();
+var reverseProxyEnabled = ReverseProxyConfiguration.Configure(
+    builder.Services,
+    builder.Configuration);
 var apiBaseUrl = builder.Configuration["GoldSrcOpsApi:BaseUrl"];
 if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var apiBaseAddress) ||
     (!string.Equals(apiBaseAddress.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
@@ -20,6 +25,11 @@ builder.Services.AddHttpClient<PublicStatusClient>(client =>
 
 var app = builder.Build();
 
+if (reverseProxyEnabled)
+{
+    app.UseForwardedHeaders();
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -30,6 +40,8 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 app.UseAntiforgery();
 app.MapStaticAssets();
+app.MapHealthChecks("/health/live")
+    .AllowAnonymous();
 app.MapRazorComponents<App>();
 
 app.Run();

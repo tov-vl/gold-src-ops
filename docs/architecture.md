@@ -131,6 +131,8 @@ flowchart LR
 - `GoldSrcOps.Web` is a separately deployable Blazor Web App. Its initial static
   SSR page calls only the anonymous sanitized aggregate status endpoint from the
   server; the browser receives neither bearer tokens nor protected API access.
+  Production runs it as a separate digest-pinned, secret-free container behind
+  Caddy, with an image-local liveness probe and a private service-name API call.
 - `GoldSrcOps.Contracts` contains HTTP request and response records that define
   the public API shape.
 - `GoldSrcOps.Application` coordinates use cases such as server registration,

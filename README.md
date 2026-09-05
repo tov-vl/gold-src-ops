@@ -40,7 +40,9 @@ Its independent GitHub-hosted scheduling contract and operator setup are in
 of one scheduled segment passed in
 [run #33968872991](https://github.com/tov-vl/gold-src-ops/actions/runs/33968872991),
 closing the current availability implementation slice while shadow collection
-continues without blocking UI development.
+continues without blocking UI development. Production packaging and rollout for
+the dashboard follow the fail-closed two-image contract in
+[docs/v2.4-public-dashboard-deployment.md](docs/v2.4-public-dashboard-deployment.md).
 
 ## Highlights
 
@@ -116,6 +118,7 @@ published-image verification have passed.
 | v2.4 synthetic-monitoring provider | [Synthetic-monitoring provider decision](docs/v2.4-synthetic-monitoring-provider-decision.md) |
 | v2.4 synthetic-monitoring rollout | [Synthetic-monitoring rollout](docs/v2.4-synthetic-monitoring-rollout.md) |
 | v2.4 normalized evidence pipeline | [Availability evidence exporter](docs/v2.4-availability-evidence-exporter.md) |
+| v2.4 public dashboard deployment | [Public dashboard deployment](docs/v2.4-public-dashboard-deployment.md) |
 | v2.3 production Compose contract | [Reference production Compose](ops/production/README.md) |
 | Production metrics path and operations | [Observability](docs/observability.md) |
 | PostgreSQL off-host backup and restore | [PostgreSQL backup](docs/postgresql-backup.md) |
@@ -351,7 +354,8 @@ dotnet run --project .\src\GoldSrcOps.Web --launch-profile http
 The public dashboard is available at `http://localhost:5123`. Development uses
 `http://localhost:5142` as its API base URL. The browser receives only the
 sanitized public projection; API access happens from the server-rendered web
-host.
+host. Its production image and hardened runtime contract are exercised with
+`pwsh -NoProfile -File .\tools\smoke\web-container.ps1`.
 
 ## Local Smoke Flow
 

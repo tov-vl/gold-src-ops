@@ -457,6 +457,9 @@ $backupHost = Get-RequiredEnvironmentValue `
 $controlPlaneHost = Get-RequiredEnvironmentValue `
     -Values $environmentValues `
     -Name "GOLDSRCOPS_HOSTNAME"
+$webHost = Get-RequiredEnvironmentValue `
+    -Values $environmentValues `
+    -Name "GOLDSRCOPS_WEB_HOSTNAME"
 $resticPasswordFile = Get-RequiredEnvironmentValue `
     -Values $environmentValues `
     -Name "GOLDSRCOPS_RESTIC_PASSWORD_FILE"
@@ -488,6 +491,7 @@ if ($LASTEXITCODE -ne 0) {
 $configuration = ($composeOutput -join [Environment]::NewLine) | ConvertFrom-Json -Depth 100
 $postgres = $configuration.services.postgres
 $api = $configuration.services.api
+$web = $configuration.services.web
 $migration = $configuration.services.migration
 $caddy = $configuration.services.caddy
 $collector = $configuration.services.'otel-collector'
@@ -496,6 +500,7 @@ $grafana = $configuration.services.grafana
 
 Assert-ImmutableImage -Image $postgres.image -ServiceName "postgres"
 Assert-ImmutableImage -Image $api.image -ServiceName "api"
+Assert-ImmutableImage -Image $web.image -ServiceName "web"
 Assert-ImmutableImage -Image $migration.image -ServiceName "migration"
 Assert-ImmutableImage -Image $caddy.image -ServiceName "caddy"
 Assert-ImmutableImage -Image $collector.image -ServiceName "otel-collector"
@@ -508,6 +513,7 @@ Assert-Condition `
 foreach ($runtimeService in @(
         @{ Name = "postgres"; Service = $postgres },
         @{ Name = "api"; Service = $api },
+        @{ Name = "web"; Service = $web },
         @{ Name = "caddy"; Service = $caddy },
         @{ Name = "otel-collector"; Service = $collector },
         @{ Name = "prometheus"; Service = $prometheus },
@@ -521,6 +527,7 @@ foreach ($runtimeService in @(
 foreach ($loggedService in @(
         @{ Name = "postgres"; Service = $postgres },
         @{ Name = "api"; Service = $api },
+        @{ Name = "web"; Service = $web },
         @{ Name = "migration"; Service = $migration },
         @{ Name = "caddy"; Service = $caddy },
         @{ Name = "otel-collector"; Service = $collector },
@@ -550,6 +557,21 @@ Assert-Condition `
 Assert-Condition `
     -Condition (@($api.security_opt) -contains "no-new-privileges:true") `
     -Message "The API must enable no-new-privileges."
+Assert-Condition `
+    -Condition ($null -eq (Get-PropertyValue -InputObject $web -Name "ports")) `
+    -Message "The Web host must not publish ports."
+Assert-Condition `
+    -Condition ([bool]$web.read_only) `
+    -Message "The Web host root filesystem must be read-only."
+Assert-Condition `
+    -Condition (@($web.cap_drop) -contains "ALL") `
+    -Message "The Web host must drop all Linux capabilities."
+Assert-Condition `
+    -Condition (@($web.security_opt) -contains "no-new-privileges:true") `
+    -Message "The Web host must enable no-new-privileges."
+Assert-Condition `
+    -Condition (@($web.profiles).Count -eq 1 -and @($web.profiles) -contains "runtime") `
+    -Message "The Web host must exist only in the runtime profile."
 foreach ($privateService in @(
         @{ Name = "otel-collector"; Service = $collector },
         @{ Name = "prometheus"; Service = $prometheus },
@@ -630,6 +652,7 @@ $audiencePropertyNames = @($api.environment.PSObject.Properties.Name | Where-Obj
         $_ -like "Authentication__Schemes__Bearer__ValidAudiences__*"
     })
 $apiAddress = [string]$api.networks.edge.ipv4_address
+$webAddress = [string]$web.networks.edge.ipv4_address
 $apiTelemetryAddress = [string]$api.networks.telemetry.ipv4_address
 $caddyAddress = [string]$caddy.networks.edge.ipv4_address
 $collectorAddress = [string]$collector.networks.telemetry.ipv4_address
@@ -654,7 +677,11 @@ Assert-Condition `
             -InputObject $api.environment `
             -Name "Authentication__Schemes__Bearer__Audience")) `
     -Message "Use ValidAudiences__0 for automatic bearer scheme configuration; Audience is not part of this deployment contract."
+Assert-Condition `
+    -Condition ([string]$api.environment.AllowedHosts -eq "$controlPlaneHost;api") `
+    -Message "The API must accept only its public hostname and the private Compose service alias."
 Assert-IPv4Address -Address $apiAddress -Name "API edge address"
+Assert-IPv4Address -Address $webAddress -Name "Web edge address"
 Assert-IPv4Address -Address $apiTelemetryAddress -Name "API telemetry address"
 Assert-IPv4Address -Address $caddyAddress -Name "Caddy edge address"
 Assert-IPv4Address -Address $collectorAddress -Name "Collector telemetry address"
@@ -667,8 +694,14 @@ Assert-Condition `
     -Condition ($apiAddress -ne $caddyAddress) `
     -Message "The API and Caddy must use different edge addresses."
 Assert-Condition `
+    -Condition (@(@($apiAddress, $webAddress, $caddyAddress) | Sort-Object -Unique).Count -eq 3) `
+    -Message "The API, Web host, and Caddy must use distinct edge addresses."
+Assert-Condition `
     -Condition (Test-AddressInCidr -Address $apiAddress -Cidr $edgeSubnet) `
     -Message "The API address must belong to the edge subnet."
+Assert-Condition `
+    -Condition (Test-AddressInCidr -Address $webAddress -Cidr $edgeSubnet) `
+    -Message "The Web address must belong to the edge subnet."
 Assert-Condition `
     -Condition (Test-AddressInCidr -Address $caddyAddress -Cidr $edgeSubnet) `
     -Message "The Caddy address must belong to the edge subnet."
@@ -682,6 +715,26 @@ $apiNetworkNames = @($api.networks.PSObject.Properties.Name | Sort-Object)
 Assert-Condition `
     -Condition (@(Compare-Object @("edge", "telemetry") $apiNetworkNames).Count -eq 0) `
     -Message "The API must attach only to the edge and telemetry networks."
+$webNetworkNames = @($web.networks.PSObject.Properties.Name)
+Assert-Condition `
+    -Condition ($webNetworkNames.Count -eq 1 -and $webNetworkNames[0] -eq "edge") `
+    -Message "The Web host must attach only to the edge network."
+Assert-Condition `
+    -Condition ([string]$web.environment.GoldSrcOpsApi__BaseUrl -eq "http://api:8080/") `
+    -Message "The Web host must use the private API service endpoint."
+Assert-Condition `
+    -Condition ([string]$web.environment.ReverseProxy__KnownProxy -eq $caddyAddress) `
+    -Message "The Web host must trust only the configured Caddy address."
+Assert-Condition `
+    -Condition ([string]$web.environment.AllowedHosts -eq "$webHost;localhost") `
+    -Message "The Web host must accept only its public hostname and the local image health-check host."
+$webSecrets = Get-PropertyValue -InputObject $web -Name "secrets"
+Assert-Condition `
+    -Condition ($null -eq $webSecrets) `
+    -Message "The public Web host must not receive deployment secrets."
+Assert-Condition `
+    -Condition ([string]$caddy.environment.GOLDSRCOPS_WEB_HOSTNAME -eq $webHost) `
+    -Message "Caddy and the Web host must use the same public hostname."
 
 $telemetryAddresses = @(
     $apiTelemetryAddress,
@@ -714,6 +767,14 @@ $apiDependencyNames = @($api.depends_on.PSObject.Properties.Name)
 Assert-Condition `
     -Condition ($apiDependencyNames.Count -eq 1 -and $apiDependencyNames[0] -eq "postgres") `
     -Message "Collector availability must not gate API startup."
+$webDependencyNames = @($web.depends_on.PSObject.Properties.Name)
+Assert-Condition `
+    -Condition ($webDependencyNames.Count -eq 1 -and $webDependencyNames[0] -eq "api") `
+    -Message "The Web host must depend only on API startup."
+$caddyDependencyNames = @($caddy.depends_on.PSObject.Properties.Name)
+Assert-Condition `
+    -Condition ($caddyDependencyNames.Count -eq 1 -and $caddyDependencyNames[0] -eq "api") `
+    -Message "Web availability must not gate the shared Caddy ingress."
 
 Assert-TrackedBindMount `
     -Service $collector `
@@ -798,6 +859,7 @@ if (-not $ContractOnly) {
         -Message "The deployment environment file must live outside the repository."
 
     $hostName = [string]$caddy.environment.GOLDSRCOPS_HOSTNAME
+    $configuredWebHost = [string]$caddy.environment.GOLDSRCOPS_WEB_HOSTNAME
     $authorityValue = [string]$api.environment.Authentication__Schemes__Bearer__Authority
     $authority = $null
     Assert-Condition `
@@ -808,6 +870,12 @@ if (-not $ContractOnly) {
         -Condition ($hostName -notmatch '(?i)(^|\.)example\.(com|net|org)$' -and
             $hostName -notin @("localhost", "127.0.0.1")) `
         -Message "GOLDSRCOPS_HOSTNAME still uses a placeholder or local value."
+    Assert-Condition `
+        -Condition ($configuredWebHost -eq $webHost -and
+            $configuredWebHost -ne $hostName -and
+            $configuredWebHost -notmatch '(?i)(^|\.)example\.(com|net|org)$' -and
+            $configuredWebHost -notin @("localhost", "127.0.0.1")) `
+        -Message "GOLDSRCOPS_WEB_HOSTNAME must be a distinct non-placeholder public hostname."
     Assert-Condition `
         -Condition ($authority.Host -notmatch '(?i)(^|\.)example\.(com|net|org)$') `
         -Message "The authentication authority still uses a placeholder host."
@@ -857,6 +925,11 @@ if (-not $ContractOnly) {
     & docker pull $api.image
     if ($LASTEXITCODE -ne 0) {
         throw "The digest-pinned API image could not be pulled."
+    }
+
+    & docker pull $web.image
+    if ($LASTEXITCODE -ne 0) {
+        throw "The digest-pinned Web image could not be pulled."
     }
 
     & docker pull $resticImage
@@ -909,6 +982,29 @@ if (-not $ContractOnly) {
         -Condition ($apiUser -eq "1654") `
         -Message "The API image must run as Unix UID 1654 for file-secret ownership."
 
+    $webUser = ((& docker image inspect --format "{{.Config.User}}" $web.image) -join "").Trim()
+    if ($LASTEXITCODE -ne 0) {
+        throw "The Web image runtime user could not be inspected."
+    }
+
+    Assert-Condition `
+        -Condition ($webUser -eq "1654") `
+        -Message "The Web image must run as Unix UID 1654."
+
+    & docker run `
+        --rm `
+        --network none `
+        --read-only `
+        --cap-drop ALL `
+        --security-opt no-new-privileges `
+        --entrypoint /bin/sh `
+        $web.image `
+        -c "test -f /app/GoldSrcOps.Web.dll && test ! -e /app/appsettings.Development.json && test ! -e /app/appsettings.Local.json"
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "The Web image does not match its minimal production runtime contract."
+    }
+
     & docker run `
         --rm `
         --entrypoint /bin/sh `
@@ -923,6 +1019,7 @@ if (-not $ContractOnly) {
         --rm `
         --env "GOLDSRCOPS_ACME_EMAIL=$($caddy.environment.GOLDSRCOPS_ACME_EMAIL)" `
         --env "GOLDSRCOPS_HOSTNAME=$hostName" `
+        --env "GOLDSRCOPS_WEB_HOSTNAME=$configuredWebHost" `
         --volume "${PSScriptRoot}/Caddyfile:/etc/caddy/Caddyfile:ro" `
         $caddy.image `
         caddy validate --config /etc/caddy/Caddyfile

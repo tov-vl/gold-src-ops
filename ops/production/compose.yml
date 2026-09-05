@@ -48,7 +48,7 @@ services:
       - /bin/sh
       - /app/api-entrypoint.sh
     environment:
-      AllowedHosts: ${GOLDSRCOPS_HOSTNAME:?Set GOLDSRCOPS_HOSTNAME}
+      AllowedHosts: ${GOLDSRCOPS_HOSTNAME:?Set GOLDSRCOPS_HOSTNAME};api
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: "8080"
       Authentication__Schemes__Bearer__Authority: ${GOLDSRCOPS_AUTHENTICATION_AUTHORITY:?Set GOLDSRCOPS_AUTHENTICATION_AUTHORITY}
@@ -86,6 +86,36 @@ services:
         gw_priority: 1
       telemetry:
         ipv4_address: ${GOLDSRCOPS_API_TELEMETRY_IP:?Set GOLDSRCOPS_API_TELEMETRY_IP}
+    stop_grace_period: 30s
+    logging: *bounded-logging
+
+  web:
+    profiles: [runtime]
+    image: ${GOLDSRCOPS_WEB_IMAGE:?Set GOLDSRCOPS_WEB_IMAGE to an immutable digest reference}
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      AllowedHosts: ${GOLDSRCOPS_WEB_HOSTNAME:?Set GOLDSRCOPS_WEB_HOSTNAME};localhost
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+      DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE: "false"
+      GoldSrcOpsApi__BaseUrl: http://api:8080/
+      ReverseProxy__KnownProxy: ${GOLDSRCOPS_PROXY_IP:?Set GOLDSRCOPS_PROXY_IP}
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    expose:
+      - "8080"
+    networks:
+      edge:
+        ipv4_address: ${GOLDSRCOPS_WEB_IP:?Set GOLDSRCOPS_WEB_IP}
     stop_grace_period: 30s
     logging: *bounded-logging
 
@@ -133,6 +163,7 @@ services:
     environment:
       GOLDSRCOPS_ACME_EMAIL: ${GOLDSRCOPS_ACME_EMAIL:?Set GOLDSRCOPS_ACME_EMAIL}
       GOLDSRCOPS_HOSTNAME: ${GOLDSRCOPS_HOSTNAME:?Set GOLDSRCOPS_HOSTNAME}
+      GOLDSRCOPS_WEB_HOSTNAME: ${GOLDSRCOPS_WEB_HOSTNAME:?Set GOLDSRCOPS_WEB_HOSTNAME}
     ports:
       - target: 80
         published: "80"

@@ -708,8 +708,11 @@ Delivery order:
    shadow or v2.3 soak samples.
 5. **Public experience (first slice completed 2026-09-05)**: the compact Blazor
    Web App and anonymous, cached, deliberately sanitized current-status read
-   model are implemented. Production packaging and richer public availability
-   history remain follow-up work.
+   model are implemented. The next slice packages the API and Web host as
+   separately digest-addressed release artifacts, adds the hardened Web health
+   and Compose/Caddy contract, and rolls the dashboard out at the root project
+   domain. Richer public availability history remains follow-up work. See
+   `docs/v2.4-public-dashboard-deployment.md`.
 6. **Operator experience**: add authenticated Reader and Operator workflows for
    servers, incidents, history, commands, dead letters, and replay without
    weakening the existing API policies or audit trail.
@@ -957,6 +960,8 @@ Remaining portfolio gaps, in priority order:
   24-hour release sample is not a monthly uptime claim.
 - Package and deploy the implemented public read-only dashboard, then add a
   bounded historical availability view without broadening its sanitized API.
+  The packaging and rollout contract is implemented; target publication and
+  public verification evidence are pending.
 - An authenticated Reader/Operator web workflow for servers, incidents,
   commands, dead letters, and replay.
 - A concise video walkthrough and a small evidence-based postmortem covering

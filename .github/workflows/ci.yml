@@ -116,8 +116,11 @@ jobs:
       - name: Validate OIDC live-smoke contract
         run: pwsh -NoProfile -File ./tools/smoke/oidc-live-contract.ps1
 
-      - name: Run container smoke test
+      - name: Run API container smoke test
         run: pwsh -NoProfile -File ./tools/smoke/container.ps1
+
+      - name: Run Web container smoke test
+        run: pwsh -NoProfile -File ./tools/smoke/web-container.ps1
 
   publish-image:
     name: Publish Image
@@ -532,5 +535,408 @@ jobs:
             echo "- Publication channel: \`$RELEASE_CHANNEL\`"
             echo "- Publication mode: \`$PUBLICATION_MODE\`"
             echo "- Deployment reference: \`$IMAGE@$IMAGE_DIGEST\`"
+            echo "- Digest smoke test: passed"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish-web-image:
+    name: Publish Web Image
+    if: >-
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
+    needs:
+      - quality
+      - container-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: ghcr-web-release-publication
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      artifact_version: ${{ steps.publication.outputs.artifact_version }}
+      channel: ${{ steps.release.outputs.channel }}
+      digest: ${{ steps.publication.outputs.digest }}
+      image: ${{ steps.release.outputs.image }}
+      mode: ${{ steps.publication.outputs.mode }}
+      revision: ${{ steps.release.outputs.revision }}
+      tag: ${{ steps.release.outputs.tag }}
+
+    steps:
+      - name: Checkout release revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate Web image publication tag
+        id: release
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          MANUAL_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          release_tag="$GITHUB_REF_NAME"
+          release_ref="$GITHUB_REF"
+          resolver_args=()
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            release_tag="$MANUAL_RELEASE_TAG"
+            release_ref="refs/tags/$release_tag"
+            resolver_args+=(-ExpectedChannel stable)
+          fi
+
+          pwsh -NoLogo -NoProfile -File ./tools/ci/resolve-image-tag.ps1 \
+            -Tag "$release_tag" \
+            -GitHubOutputPath "$GITHUB_OUTPUT" \
+            "${resolver_args[@]}" > /dev/null
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            git fetch --force --no-tags origin "+$release_ref:$release_ref"
+          fi
+
+          if ! release_object_type="$(git cat-file -t "$release_ref" 2>/dev/null)"; then
+            echo "::error title=Missing Web image publication tag::$release_ref does not exist."
+            exit 1
+          fi
+
+          if [[ "$release_object_type" != "tag" ]]; then
+            echo "::error title=Lightweight Web image publication reference::Stable and release-candidate tags must be annotated."
+            exit 1
+          fi
+
+          revision="$(git rev-list -n 1 "$release_ref")"
+          git fetch --no-tags origin "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+
+          if ! git merge-base --is-ancestor "$revision" "origin/$DEFAULT_BRANCH"; then
+            echo "::error title=Untrusted Web image revision::The tagged commit is not reachable from '$DEFAULT_BRANCH'."
+            exit 1
+          fi
+
+          image="ghcr.io/${GITHUB_REPOSITORY,,}-web"
+          {
+            echo "image=$image"
+            echo "revision=$revision"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Plan immutable Web publication
+        id: registry
+        shell: bash
+        env:
+          ALLOW_SINGLE_MANIFEST_RECOVERY: ${{ inputs.recover_single_manifest_wrapper }}
+          EXPECTED_IMAGE_SOURCE: ${{ github.server_url }}/${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE: ${{ steps.release.outputs.image }}
+          RELEASE_BASE_VERSION: ${{ steps.release.outputs.base_version }}
+          RELEASE_CHANNEL: ${{ steps.release.outputs.channel }}
+          RELEASE_REVISION: ${{ steps.release.outputs.revision }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          release_ref="$IMAGE:$RELEASE_TAG"
+          revision_ref="$IMAGE:sha-$RELEASE_REVISION"
+
+          release_exists=false
+          release_output=""
+          if release_output="$(docker buildx imagetools inspect "$release_ref" 2>&1)"; then
+            release_exists=true
+          elif ! grep -Eiq 'manifest unknown|not found' <<< "$release_output"; then
+            echo "$release_output"
+            echo "::error title=Web registry lookup failed::Could not prove whether $release_ref exists."
+            exit 1
+          fi
+
+          if output="$(docker buildx imagetools inspect "$revision_ref" 2>&1)"; then
+            if [[ "$RELEASE_CHANNEL" != "stable" ]]; then
+              echo "::error title=Web revision image already exists::$revision_ref already belongs to an immutable publication."
+              exit 1
+            fi
+
+            source_digest="$(awk '/^Digest:/ { print $2; exit }' <<< "$output")"
+            if [[ ! "$source_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "$output"
+              echo "::error title=Invalid Web registry digest::Could not resolve the digest for $revision_ref."
+              exit 1
+            fi
+
+            docker pull "$IMAGE@$source_digest" > /dev/null
+            artifact_source="$(docker image inspect \
+              --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' \
+              "$IMAGE@$source_digest")"
+            artifact_revision="$(docker image inspect \
+              --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
+              "$IMAGE@$source_digest")"
+            artifact_version="$(docker image inspect \
+              --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' \
+              "$IMAGE@$source_digest")"
+            artifact_license="$(docker image inspect \
+              --format '{{ index .Config.Labels "org.opencontainers.image.licenses" }}' \
+              "$IMAGE@$source_digest")"
+
+            if [[ "$artifact_source" != "$EXPECTED_IMAGE_SOURCE" || \
+                  "$artifact_revision" != "$RELEASE_REVISION" || \
+                  "$artifact_license" != "MIT" ]]; then
+              echo "::error title=Web candidate metadata mismatch::The existing revision image does not match the expected source, revision, and license."
+              exit 1
+            fi
+
+            pwsh -NoLogo -NoProfile -File ./tools/ci/resolve-image-tag.ps1 \
+              -Tag "v$artifact_version" \
+              -ExpectedChannel release-candidate \
+              -ExpectedBaseVersion "$RELEASE_BASE_VERSION" > /dev/null
+
+            promotion_args=()
+            if [[ "$release_exists" == "true" ]]; then
+              existing_digest="$(awk '/^Digest:/ { print $2; exit }' <<< "$release_output")"
+              existing_raw="$(docker buildx imagetools inspect --raw "$release_ref")"
+              existing_media_type="$(jq -r '.mediaType // ""' <<< "$existing_raw")"
+              existing_child_digests="$(jq -c '[.manifests[]?.digest]' <<< "$existing_raw")"
+
+              promotion_args+=(
+                -ExistingDigest "$existing_digest"
+                -ExistingMediaType "$existing_media_type"
+                -ExistingChildDigestsJson "$existing_child_digests")
+
+              if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+                promotion_args+=(-AllowExistingReference)
+              fi
+            fi
+
+            if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" &&
+                  "$ALLOW_SINGLE_MANIFEST_RECOVERY" == "true" ]]; then
+              promotion_args+=(-AllowSingleManifestRecovery)
+            fi
+
+            mode="$(pwsh -NoLogo -NoProfile \
+              -File ./tools/ci/resolve-image-promotion.ps1 \
+              -SourceDigest "$source_digest" \
+              "${promotion_args[@]}")"
+
+            if [[ "$mode" == "recover" ]]; then
+              response_file="$(mktemp)"
+              status_code="$(curl --silent --show-error \
+                --output "$response_file" \
+                --write-out '%{http_code}' \
+                --header 'Accept: application/vnd.github+json' \
+                --header "Authorization: Bearer $GITHUB_TOKEN" \
+                --header 'X-GitHub-Api-Version: 2022-11-28' \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+              rm -f "$response_file"
+
+              if [[ "$status_code" == "200" ]]; then
+                echo "::error title=Published release cannot be recovered::A GitHub Release already exists for $RELEASE_TAG."
+                exit 1
+              fi
+
+              if [[ "$status_code" != "404" ]]; then
+                echo "::error title=Release lookup failed::GitHub returned HTTP $status_code while checking $RELEASE_TAG."
+                exit 1
+              fi
+            fi
+
+            {
+              echo "artifact_version=$artifact_version"
+              echo "mode=$mode"
+              echo "source_digest=$source_digest"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! grep -Eiq 'manifest unknown|not found' <<< "$output"; then
+            echo "$output"
+            echo "::error title=Web registry lookup failed::Could not determine whether $revision_ref exists."
+            exit 1
+          fi
+
+          if [[ "$release_exists" == "true" ]]; then
+            echo "::error title=Immutable Web image tag already exists::$release_ref already exists and will not be overwritten."
+            exit 1
+          fi
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "::error title=Missing Web candidate image::Manual publication can resume only an existing stable candidate revision."
+            exit 1
+          fi
+
+          {
+            echo "artifact_version=$RELEASE_VERSION"
+            echo "mode=build"
+            echo "source_digest="
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create Web image metadata
+        id: metadata
+        if: steps.registry.outputs.mode == 'build'
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ steps.release.outputs.image }}
+          flavor: latest=false
+          tags: |
+            type=raw,value=${{ steps.release.outputs.tag }}
+            type=raw,value=sha-${{ steps.release.outputs.revision }}
+          labels: |
+            org.opencontainers.image.title=GoldSrcOps Web
+            org.opencontainers.image.description=Public status experience for the GoldSrcOps control plane
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.release.outputs.revision }}
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+            org.opencontainers.image.licenses=MIT
+
+      - name: Build and publish production Web image
+        id: publish
+        if: steps.registry.outputs.mode == 'build'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ./Dockerfile.web
+          platforms: linux/amd64
+          pull: true
+          push: true
+          provenance: false
+          sbom: false
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          annotations: ${{ steps.metadata.outputs.annotations }}
+
+      - name: Promote verified Web candidate digest
+        if: steps.registry.outputs.mode == 'promote' || steps.registry.outputs.mode == 'recover'
+        shell: bash
+        env:
+          IMAGE: ${{ steps.release.outputs.image }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          SOURCE_DIGEST: ${{ steps.registry.outputs.source_digest }}
+        run: |
+          set -euo pipefail
+
+          docker buildx imagetools create \
+            --prefer-index=false \
+            --tag "$IMAGE:$RELEASE_TAG" \
+            "$IMAGE@$SOURCE_DIGEST"
+
+          output="$(docker buildx imagetools inspect "$IMAGE:$RELEASE_TAG")"
+          published_digest="$(awk '/^Digest:/ { print $2; exit }' <<< "$output")"
+          if [[ "$published_digest" != "$SOURCE_DIGEST" ]]; then
+            echo "$output"
+            echo "::error title=Web candidate promotion changed digest::Expected $SOURCE_DIGEST, got $published_digest."
+            exit 1
+          fi
+
+      - name: Resolve Web publication result
+        id: publication
+        shell: bash
+        env:
+          ARTIFACT_VERSION: ${{ steps.registry.outputs.artifact_version }}
+          BUILD_DIGEST: ${{ steps.publish.outputs.digest }}
+          MODE: ${{ steps.registry.outputs.mode }}
+          SOURCE_DIGEST: ${{ steps.registry.outputs.source_digest }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$MODE" == "build" ]]; then
+            digest="$BUILD_DIGEST"
+          else
+            digest="$SOURCE_DIGEST"
+          fi
+
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error title=Invalid Web publication digest::The publication did not produce an immutable sha256 digest."
+            exit 1
+          fi
+
+          {
+            echo "artifact_version=$ARTIFACT_VERSION"
+            echo "digest=$digest"
+            echo "mode=$MODE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Record published Web digest
+        shell: bash
+        env:
+          IMAGE: ${{ steps.release.outputs.image }}
+          IMAGE_DIGEST: ${{ steps.publication.outputs.digest }}
+          PUBLICATION_MODE: ${{ steps.publication.outputs.mode }}
+          RELEASE_CHANNEL: ${{ steps.release.outputs.channel }}
+          RELEASE_REVISION: ${{ steps.release.outputs.revision }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          {
+            echo "## Published immutable Web image"
+            echo
+            echo "- Image tag: $RELEASE_TAG"
+            echo "- Publication channel: $RELEASE_CHANNEL"
+            echo "- Publication mode: $PUBLICATION_MODE"
+            echo "- Source revision: $RELEASE_REVISION"
+            echo "- Deployment reference: $IMAGE@$IMAGE_DIGEST"
+            echo "- Mutable latest tag: not published"
+            echo "- Digest smoke test: pending Verify Published Web Image"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  verify-published-web-image:
+    name: Verify Published Web Image
+    needs: publish-web-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout release revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke-test published Web digest
+        shell: pwsh
+        env:
+          EXPECTED_IMAGE_REVISION: ${{ needs.publish-web-image.outputs.revision }}
+          EXPECTED_IMAGE_SOURCE: ${{ github.server_url }}/${{ github.repository }}
+          EXPECTED_IMAGE_VERSION: ${{ needs.publish-web-image.outputs.artifact_version }}
+          IMAGE_REFERENCE: ${{ needs.publish-web-image.outputs.image }}@${{ needs.publish-web-image.outputs.digest }}
+        run: |
+          ./tools/smoke/web-container.ps1 `
+            -ImageReference $env:IMAGE_REFERENCE `
+            -ExpectedImageSource $env:EXPECTED_IMAGE_SOURCE `
+            -ExpectedImageRevision $env:EXPECTED_IMAGE_REVISION `
+            -ExpectedImageVersion $env:EXPECTED_IMAGE_VERSION
+
+      - name: Record Web digest verification
+        shell: bash
+        env:
+          IMAGE: ${{ needs.publish-web-image.outputs.image }}
+          IMAGE_DIGEST: ${{ needs.publish-web-image.outputs.digest }}
+          PUBLICATION_MODE: ${{ needs.publish-web-image.outputs.mode }}
+          RELEASE_CHANNEL: ${{ needs.publish-web-image.outputs.channel }}
+          RELEASE_TAG: ${{ needs.publish-web-image.outputs.tag }}
+        run: |
+          {
+            echo "## Verified immutable Web image"
+            echo
+            echo "- Image tag: $RELEASE_TAG"
+            echo "- Publication channel: $RELEASE_CHANNEL"
+            echo "- Publication mode: $PUBLICATION_MODE"
+            echo "- Deployment reference: $IMAGE@$IMAGE_DIGEST"
             echo "- Digest smoke test: passed"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -1,7 +1,7 @@
 # Container Deployment
 
 This document defines the current container deployment contract. It is
-platform-neutral: release tags publish the production image to GitHub Container
+platform-neutral: release tags publish production images to GitHub Container
 Registry (GHCR), and `ops/production` now supplies the provider-independent first
 sub-slice of the v2.3 reference Compose contract. The repository does not ship a
 provider-specific control-panel integration, systemd unit, or Kubernetes
@@ -25,6 +25,8 @@ configuration restore, and the integrated release soak are complete.
 The supported baseline consists of:
 
 - the immutable GoldSrcOps API image built from the repository `Dockerfile`;
+- the immutable GoldSrcOps Web image built from `Dockerfile.web` for v2.4 and
+  later tags;
 - an external PostgreSQL database, with PostgreSQL 16 as the verified baseline;
 - an external OAuth 2.0 or OpenID Connect provider for bearer tokens;
 - an external TLS-terminating reverse proxy or ingress;
@@ -37,10 +39,11 @@ The supported baseline consists of:
   migration and receiver are ready;
 - a separate, serialized EF Core migration action before application rollout.
 
-The image serves HTTP on container port `8080`, runs as the non-root .NET image
-user, and contains only the published ASP.NET Core application. It does not
-contain the .NET SDK, `dotnet-ef`, Development configuration, or a built-in
-Docker `HEALTHCHECK`.
+Both images serve HTTP on container port `8080` and run as the non-root .NET
+image user. Neither contains the .NET SDK or Development configuration. The API
+image contains its migration bundle and has no built-in Docker `HEALTHCHECK`;
+the Web image contains only its published application and probes
+`/health/live` with its built-in health check.
 
 ## Publish And Version The Image
 
@@ -64,6 +67,12 @@ under both immutable references:
 ghcr.io/tov-vl/gold-src-ops:<exact-stable-or-rc-tag>
 ghcr.io/tov-vl/gold-src-ops:sha-<full-git-revision>
 ```
+
+Starting with v2.4, the same tag also publishes and independently verifies the
+Web image under `ghcr.io/tov-vl/gold-src-ops-web`. API and Web deployment
+references use separate digests even though their OCI revision and version
+labels match. Stable Web publication promotes the matching candidate digest;
+it does not rebuild or publish a mutable `latest` tag.
 
 An RC publication is a deployable candidate, not a stable project release. It
 does not publish `latest`, a stable alias, moving major or minor aliases, or a
@@ -129,7 +138,7 @@ test are the evidence boundary.
 
 ## Runtime Contract
 
-The production image has these fixed expectations:
+The production API image has these fixed expectations:
 
 | Item | Contract |
 | --- | --- |
@@ -146,6 +155,14 @@ The production image has these fixed expectations:
 Run the container with a read-only root filesystem, a small `/tmp` tmpfs, no
 additional Linux capabilities, and `no-new-privileges`. This shape is exercised
 by `tools/smoke/container.ps1`.
+
+The Web image runs `dotnet GoldSrcOps.Web.dll` on port `8080`, exposes anonymous
+`GET /health/live`, and is exercised by `tools/smoke/web-container.ps1`. It uses
+the same read-only, bounded-tmpfs, capability-free runtime shape and receives no
+deployment secrets. Its server-side API base URL points to the private Compose
+service name, while Caddy is its only public route. The anonymous static-SSR
+slice intentionally has no persisted Data Protection key ring; one is required
+before authenticated or protected user state is introduced.
 
 The v2.3 reference Compose additionally mounts PostgreSQL's Unix-domain socket at
 `/var/run/postgresql`. PostgreSQL runs with `network_mode: none`, so this writable
@@ -209,6 +226,12 @@ Required deployment values:
 | `Authentication__Schemes__Bearer__ValidAudiences__0` | GoldSrcOps API audience accepted from that provider. ASP.NET Core's automatic named-scheme configuration reads the indexed `ValidAudiences` collection. |
 | `Authentication__Schemes__Bearer__RoleClaimType` | Exact access-token claim name that carries the `Reader` and `Operator` application roles. |
 | `ReverseProxy__KnownProxy` | Optional single trusted proxy IP. When set, the API processes one `X-Forwarded-For` and `X-Forwarded-Proto` hop from that address before HTTPS redirection and authentication. |
+
+The reference Compose additionally requires `GOLDSRCOPS_WEB_IMAGE`,
+`GOLDSRCOPS_WEB_HOSTNAME`, and `GOLDSRCOPS_WEB_IP`. The Web hostname must differ
+from the API hostname, and its static address must be unique within the private
+edge subnet. Web forwarded headers trust the same single Caddy address as the
+API.
 
 Instead of `Authority` and `ValidAudiences`, a deployment may provide the equivalent
 validated issuer and audience settings described in `docs/security.md`.
@@ -332,13 +355,15 @@ Use this order for a normal release:
 
 1. Build, test, publish, and record the immutable image digest.
 2. Back up PostgreSQL and run the single migration action.
-3. Start one instance pinned to the digest with singleton workers configured
+3. Start one API instance pinned to its digest with singleton workers configured
    for the intended topology.
 4. Wait for liveness and readiness before routing traffic.
 5. Verify authentication, logs, and the authenticated metrics scrape.
 6. Configure the HTTPS webhook and its optional authorization secret, then
    enable alert delivery on one instance and verify backlog telemetry.
-7. Replace remaining HTTP-only replicas, keeping polling and retention disabled
+7. Start the separately pinned Web image, verify `/health/live`, and route its
+   hostname through Caddy only after it reports healthy.
+8. Replace remaining HTTP-only API replicas, keeping polling and retention disabled
    on them. Enable additional alert dispatchers only when receiver capacity
    requires them.
 
@@ -395,6 +420,7 @@ Before publishing a candidate image, run:
 
 ```powershell
 pwsh -NoProfile -File .\tools\smoke\container.ps1
+pwsh -NoProfile -File .\tools\smoke\web-container.ps1
 ```
 
 The protected `main` workflow also requires both `Quality Gate` and
