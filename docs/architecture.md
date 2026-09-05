@@ -1,16 +1,20 @@
 # GoldSrcOps Architecture
 
-GoldSrcOps is currently a modular monolith. The API host owns HTTP endpoints,
-background polling, command and alert dispatch, snapshot and outbox retention,
-persistence wiring, health checks, and metrics export in one deployable
-process. The internal boundaries still separate API contracts, application
-orchestration, domain rules, and infrastructure integrations.
+The GoldSrcOps control plane is currently a modular monolith. The API host owns
+HTTP endpoints, background polling, command and alert dispatch, snapshot and
+outbox retention, persistence wiring, health checks, and metrics export in one
+deployable process. A separate Blazor Web host renders the public dashboard from
+a sanitized API projection. The internal boundaries still separate API
+contracts, application orchestration, domain rules, and infrastructure
+integrations.
 
 ## System Overview
 
 ```mermaid
 flowchart LR
     clients["Operators / API clients"]
+    visitors["Public visitors"]
+    web["GoldSrcOps.Web<br/>Blazor static SSR"]
     collector["OpenTelemetry Collector"]
     prometheus["Prometheus"]
     grafana["Grafana"]
@@ -19,7 +23,8 @@ flowchart LR
     postgres[("PostgreSQL")]
 
     subgraph api["GoldSrcOps.Api"]
-        endpoints["Server, command, credential, incident, and dashboard endpoints"]
+        endpoints["Protected server, command, credential, incident, and dashboard endpoints"]
+        publicStatus["Anonymous /api/public/status"]
         probes["/health/live, /health/ready, /metrics"]
         openapi["OpenAPI in Development"]
     end
@@ -64,11 +69,14 @@ flowchart LR
     end
 
     clients --> endpoints
+    visitors --> web
+    web -->|"server-side HTTP"| publicStatus
     telemetry -->|OTLP metrics| collector
     prometheus -->|scrapes| collector
     grafana --> prometheus
     endpoints --> serverService
     endpoints --> monitoringService
+    publicStatus --> monitoringService
     endpoints --> incidentService
     endpoints --> credentialService
     endpoints --> commandService
@@ -120,6 +128,9 @@ flowchart LR
 - `GoldSrcOps.Api` contains the host, JWT bearer authentication, endpoint
   authorization policies, Minimal API endpoint mapping, health
   endpoints, Prometheus scraping endpoint, and OpenTelemetry configuration.
+- `GoldSrcOps.Web` is a separately deployable Blazor Web App. Its initial static
+  SSR page calls only the anonymous sanitized aggregate status endpoint from the
+  server; the browser receives neither bearer tokens nor protected API access.
 - `GoldSrcOps.Contracts` contains HTTP request and response records that define
   the public API shape.
 - `GoldSrcOps.Application` coordinates use cases such as server registration,
@@ -150,6 +161,8 @@ The API enforces the control-plane security boundary defined in
 ```mermaid
 flowchart LR
     client["Operator / API client"]
+    visitor["Public visitor"]
+    web["Blazor Web host"]
     identity["External OAuth 2.0 / OIDC provider"]
     authentication["JWT bearer authentication"]
     reader["Reader policy"]
@@ -158,6 +171,7 @@ flowchart LR
     writes["Server, credential, and command mutations"]
     platform["Container / platform probe"]
     health["Anonymous health probes"]
+    publicStatus["Anonymous sanitized public status"]
 
     client -->|"OAuth/OIDC flow"| identity
     identity -->|"JWT access token"| client
@@ -168,6 +182,8 @@ flowchart LR
     operatorPolicy --> reads
     operatorPolicy --> writes
     platform --> health
+    visitor --> web
+    web -->|"server-side request"| publicStatus
 ```
 
 GoldSrcOps remains a resource server and does not issue production tokens or
@@ -178,7 +194,11 @@ provider. Local development uses project-specific tokens from
 The `Reader` policy permits read endpoints and metrics. The `Operator` policy
 permits all reads plus server, credential, and command mutations. The fallback
 policy is `Operator`, so a new endpoint is not exposed to readers by accident.
-Only bounded liveness and readiness probes remain anonymous.
+The explicit public-status exception returns only enabled-fleet aggregates and
+the latest observation time, with a 15-second server-side cache. It excludes
+server names, addresses, providers, commands, credentials, and telemetry access.
+Apart from this projection, only bounded liveness and readiness probes remain
+anonymous.
 
 Command audit identity comes from the authenticated token subject. Callers can
 no longer supply `RequestedBy` in command request bodies. The endpoint matrix,
