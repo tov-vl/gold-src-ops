@@ -158,11 +158,13 @@ by `tools/smoke/container.ps1`.
 
 The Web image runs `dotnet GoldSrcOps.Web.dll` on port `8080`, exposes anonymous
 `GET /health/live`, and is exercised by `tools/smoke/web-container.ps1`. It uses
-the same read-only, bounded-tmpfs, capability-free runtime shape and receives no
-deployment secrets. Its server-side API base URL points to the private Compose
-service name, while Caddy is its only public route. The anonymous static-SSR
-slice intentionally has no persisted Data Protection key ring; one is required
-before authenticated or protected user state is introduced.
+the same read-only, bounded-tmpfs, capability-free runtime shape. Its
+server-side API base URL points to the private Compose service name, while Caddy
+is its only public route. The authenticated deployment receives only its OIDC
+client secret and X.509 Data Protection certificate/password. A single writable
+bind mount at `/var/lib/goldsrcops/data-protection` stores the encrypted key
+ring; database, RCON, backup, and observability secrets remain unavailable to
+Web.
 
 The v2.3 reference Compose additionally mounts PostgreSQL's Unix-domain socket at
 `/var/run/postgresql`. PostgreSQL runs with `network_mode: none`, so this writable
@@ -232,6 +234,23 @@ The reference Compose additionally requires `GOLDSRCOPS_WEB_IMAGE`,
 from the API hostname, and its static address must be unique within the private
 edge subnet. Web forwarded headers trust the same single Caddy address as the
 API.
+
+The authenticated Web host also requires:
+
+| Environment variable | Purpose |
+| --- | --- |
+| `GOLDSRCOPS_WEB_AUTHENTICATION_CLIENT_ID` | Public identifier of the confidential OIDC Web client. |
+| `GOLDSRCOPS_WEB_OIDC_CLIENT_SECRET_FILE` | Owner-only, single-line client-secret file owned by UID `1654`. |
+| `GOLDSRCOPS_WEB_DATA_PROTECTION_CERTIFICATE_FILE` | Owner-only PKCS #12 certificate with a private key, used to encrypt the persisted key ring. |
+| `GOLDSRCOPS_WEB_DATA_PROTECTION_CERTIFICATE_PASSWORD_FILE` | Owner-only, single-line password for the PKCS #12 file. |
+
+The host directory `/var/lib/goldsrcops/data-protection` must be owned by UID
+`1654` with mode `0700`. The certificate and password must be escrowed outside
+the control-plane host because losing them invalidates existing sessions and
+can make retained Data Protection keys unreadable. The current bounded
+in-memory session store deliberately logs all users out when the sole Web
+instance restarts; shared or restart-persistent sessions are deferred until a
+second Web instance is justified.
 
 Instead of `Authority` and `ValidAudiences`, a deployment may provide the equivalent
 validated issuer and audience settings described in `docs/security.md`.

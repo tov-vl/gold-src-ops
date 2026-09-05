@@ -5,8 +5,9 @@ control plane.
 
 ## Trust Model
 
-- GoldSrcOps is a resource server. It validates access tokens but does not own
-  user accounts, login flows, passwords, refresh tokens, or token issuance.
+- GoldSrcOps.Api is a resource server. GoldSrcOps.Web is a confidential OIDC
+  client and server-side BFF. Neither owns user accounts, passwords, or token
+  issuance.
 - A production deployment uses an external OAuth 2.0 / OpenID Connect identity
   provider to issue JWT access tokens.
 - The current deployment has one administrative domain. Authenticated
@@ -32,6 +33,33 @@ differences without retaining the framework's implicit five-minute window.
 For local development only, `dotnet user-jwts` creates project-specific
 tokens and keeps the signing key in the developer's User Secrets store. Local
 tokens must never be accepted by a production deployment.
+
+### Web BFF Session
+
+The protected Blazor static-SSR pages use the OIDC authorization-code flow with
+PKCE and a cookie session. The identity provider must issue an ID token and API
+access token carrying the same configured application-role claim. Web applies
+its own `Reader` policy to the ID-token principal and sends the access token to
+the API only from server-side `HttpClient` calls.
+
+`SaveTokens` stores tokens in authentication properties, but the cookie handler
+uses a bounded server-side ticket store. The browser cookie therefore contains
+an opaque random session key rather than serialized tokens. The cookie is
+HTTP-only, SameSite Lax, secure in Production, non-sliding, and expires after 55
+minutes. Logout is a POST protected by antiforgery validation. Remote failures
+use a generic error page and do not expose provider or token details.
+
+The initial ticket store is process-local and limited to 1,024 sessions. The
+reference deployment runs one Web instance, and any Web restart intentionally
+logs every user out. This avoids introducing a distributed session dependency
+for the MVP; horizontal Web scaling requires a shared encrypted ticket store
+first.
+
+Production startup fails unless authentication uses an HTTPS authority, a
+file-backed client secret, and a persistent X.509-protected Data Protection key
+ring. The Web container receives none of the API database, RCON, backup, or
+observability secrets. When Web authentication is disabled, both its login
+endpoint and protected routes fail closed with `404`.
 
 Startup validation requires issuer and audience configuration. Metadata retrieval
 must use HTTPS outside Development. There is no runtime

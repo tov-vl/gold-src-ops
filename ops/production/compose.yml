@@ -102,6 +102,16 @@ services:
       AllowedHosts: ${GOLDSRCOPS_WEB_HOSTNAME:?Set GOLDSRCOPS_WEB_HOSTNAME};localhost
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: "8080"
+      Authentication__Audience: ${GOLDSRCOPS_AUTHENTICATION_AUDIENCE:?Set GOLDSRCOPS_AUTHENTICATION_AUDIENCE}
+      Authentication__Authority: ${GOLDSRCOPS_AUTHENTICATION_AUTHORITY:?Set GOLDSRCOPS_AUTHENTICATION_AUTHORITY}
+      Authentication__ClientId: ${GOLDSRCOPS_WEB_AUTHENTICATION_CLIENT_ID:?Set GOLDSRCOPS_WEB_AUTHENTICATION_CLIENT_ID}
+      Authentication__ClientSecretFile: /run/secrets/web-oidc-client-secret
+      Authentication__Enabled: "true"
+      Authentication__RoleClaimType: ${GOLDSRCOPS_AUTHENTICATION_ROLE_CLAIM_TYPE:?Set GOLDSRCOPS_AUTHENTICATION_ROLE_CLAIM_TYPE}
+      DataProtection__CertificatePasswordFile: /run/secrets/web-data-protection-certificate-password
+      DataProtection__CertificatePath: /run/secrets/web-data-protection-certificate
+      DataProtection__KeysPath: /var/lib/goldsrcops/data-protection
+      DataProtection__PersistKeys: "true"
       DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE: "false"
       GoldSrcOpsApi__BaseUrl: http://api:8080/
       ReverseProxy__KnownProxy: ${GOLDSRCOPS_PROXY_IP:?Set GOLDSRCOPS_PROXY_IP}
@@ -111,6 +121,17 @@ services:
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
+    secrets:
+      - source: web-oidc-client-secret
+        target: web-oidc-client-secret
+      - source: web-data-protection-certificate
+        target: web-data-protection-certificate
+      - source: web-data-protection-certificate-password
+        target: web-data-protection-certificate-password
+    volumes:
+      - type: bind
+        source: /var/lib/goldsrcops/data-protection
+        target: /var/lib/goldsrcops/data-protection
     expose:
       - "8080"
     networks:
@@ -359,6 +380,12 @@ secrets:
     file: ${GOLDSRCOPS_RCON_PASSWORD_FILE:?Set GOLDSRCOPS_RCON_PASSWORD_FILE}
   grafana-admin-password:
     file: ${GOLDSRCOPS_GRAFANA_ADMIN_PASSWORD_FILE:?Set GOLDSRCOPS_GRAFANA_ADMIN_PASSWORD_FILE}
+  web-oidc-client-secret:
+    file: ${GOLDSRCOPS_WEB_OIDC_CLIENT_SECRET_FILE:?Set GOLDSRCOPS_WEB_OIDC_CLIENT_SECRET_FILE}
+  web-data-protection-certificate:
+    file: ${GOLDSRCOPS_WEB_DATA_PROTECTION_CERTIFICATE_FILE:?Set GOLDSRCOPS_WEB_DATA_PROTECTION_CERTIFICATE_FILE}
+  web-data-protection-certificate-password:
+    file: ${GOLDSRCOPS_WEB_DATA_PROTECTION_CERTIFICATE_PASSWORD_FILE:?Set GOLDSRCOPS_WEB_DATA_PROTECTION_CERTIFICATE_PASSWORD_FILE}
 
 volumes:
   postgres-data:

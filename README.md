@@ -71,8 +71,8 @@ evidence for the dashboard follows the fail-closed two-image contract in
   digest-based container verification.
 - Repeatable Docker-based local startup, authenticated smoke test, and guarded
   owned-server RCON verification.
-- A separate Blazor Web App backed by an anonymous, cached aggregate status
-  projection that excludes server identity and operator data.
+- A separate Blazor Web App with an anonymous aggregate status view and an
+  OIDC-protected Reader portal for server inventory and current status.
 
 ## Architecture Overview
 
@@ -81,7 +81,9 @@ domain, and infrastructure projects.
 The API host exposes HTTP endpoints, health checks, metrics, and the in-process
 polling, command-dispatch, alert-dispatch, and snapshot-retention workers.
 The separate Blazor Web host renders the public dashboard from the sanitized
-aggregate API projection and does not receive operator credentials.
+aggregate API projection. For protected pages it acts as a server-side OIDC
+BFF: tokens stay in a bounded server session and only an opaque cookie reaches
+the browser.
 Application services coordinate use cases, domain entities own state
 transitions, and infrastructure implements EF Core persistence plus GoldSrc A2S
 integration.
@@ -362,6 +364,25 @@ The public dashboard is available at `http://localhost:5123`. Development uses
 sanitized public projection; API access happens from the server-rendered web
 host. Its production image and hardened runtime contract are exercised with
 `pwsh -NoProfile -File .\tools\smoke\web-container.ps1`.
+
+The Reader portal is disabled by default. To exercise OIDC locally, configure
+a confidential Web client whose callback is
+`http://localhost:5123/signin-oidc`, configure the API to accept the same
+issuer and audience, then store the development-only Web settings in User
+Secrets:
+
+```powershell
+dotnet user-secrets set --project .\src\GoldSrcOps.Web "Authentication:Enabled" "true"
+dotnet user-secrets set --project .\src\GoldSrcOps.Web "Authentication:Authority" "https://identity.example.com/"
+dotnet user-secrets set --project .\src\GoldSrcOps.Web "Authentication:Audience" "goldsrcops-api"
+dotnet user-secrets set --project .\src\GoldSrcOps.Web "Authentication:ClientId" "goldsrcops-web"
+dotnet user-secrets set --project .\src\GoldSrcOps.Web "Authentication:ClientSecret" "<client-secret>"
+dotnet user-secrets set --project .\src\GoldSrcOps.Web "Authentication:RoleClaimType" "https://identity.example.com/claims/roles"
+```
+
+The identity provider must put the configured role claim in both the ID token
+used by Web and the access token validated by API. See
+[docs/v2.4-reader-portal.md](docs/v2.4-reader-portal.md).
 
 ## Local Smoke Flow
 

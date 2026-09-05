@@ -287,6 +287,7 @@ configure_directories() {
     install -d -m 0750 -o "$operator_user" -g "$operator_group" /opt/goldsrcops
     install -d -m 0755 -o root -g root /etc/goldsrcops
     install -d -m 0711 -o root -g root /etc/goldsrcops/secrets
+    install -d -m 0700 -o 1654 -g 1654 /var/lib/goldsrcops/data-protection
     install -d -m 0700 -o root -g root /var/lib/goldsrcops/evidence
     install -d -m 0700 -o root -g root "$STATE_DIRECTORY"
 }

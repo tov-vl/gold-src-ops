@@ -333,6 +333,8 @@ try {
     $hostPort = [int]$Matches["port"]
     $healthUri = [Uri]"http://127.0.0.1:$hostPort/health/live"
     $homeUri = [Uri]"http://127.0.0.1:$hostPort/"
+    $readerPortalUri = [Uri]"http://127.0.0.1:$hostPort/operator/servers"
+    $loginUri = [Uri]"http://127.0.0.1:$hostPort/auth/login"
 
     $null = Wait-HttpStatus -Uri $healthUri -TimeoutSeconds $StartupTimeoutSeconds
     Wait-ContainerHealthy -TimeoutSeconds $StartupTimeoutSeconds
@@ -344,6 +346,25 @@ try {
     if ($homeResponse.Content.Contains("Loading current status", [StringComparison]::Ordinal) -or
         $homeResponse.Content.Contains("_framework/blazor.web.js", [StringComparison]::Ordinal)) {
         throw "Web dashboard did not complete as a self-contained static SSR response."
+    }
+
+    $readerPortalResponse = Invoke-WebRequest `
+        -UseBasicParsing `
+        -Uri $readerPortalUri `
+        -TimeoutSec 5 `
+        -SkipHttpErrorCheck
+    if ($readerPortalResponse.StatusCode -ne 404 -or
+        $readerPortalResponse.Content.Contains("Controlled servers", [StringComparison]::Ordinal)) {
+        throw "Disabled authentication must not expose the Reader portal."
+    }
+
+    $loginResponse = Invoke-WebRequest `
+        -UseBasicParsing `
+        -Uri $loginUri `
+        -TimeoutSec 5 `
+        -SkipHttpErrorCheck
+    if ($loginResponse.StatusCode -ne 404) {
+        throw "Disabled authentication must not expose the OIDC login endpoint."
     }
 
     $containerContract = Invoke-ExternalCapture -FilePath "docker" -Arguments @(

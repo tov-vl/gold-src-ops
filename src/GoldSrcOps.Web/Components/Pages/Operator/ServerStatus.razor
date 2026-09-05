@@ -1,0 +1,152 @@
+@page "/operator/servers/{ServerId:guid}"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<ServerStatus> Logger
+
+<PageTitle>@(_server is null ? "Server status" : _server.Name) | GoldSrcOps</PageTitle>
+
+<div class="detail-page">
+    <a class="back-link" href="/operator/servers">Back to servers</a>
+
+    @if (_loadFailed)
+    {
+        <section class="detail-state" role="alert">
+            <h1>Server status is unavailable</h1>
+            <p>The API did not return a usable Reader snapshot.</p>
+        </section>
+    }
+    else if (_notFound)
+    {
+        <section class="detail-state">
+            <h1>Server not found</h1>
+            <p>The requested server is not present in the Reader inventory.</p>
+        </section>
+    }
+    else if (_server is not null && _status is not null)
+    {
+        <header class="detail-heading">
+            <div>
+                <p class="eyebrow">Server status</p>
+                <h1>@_server.Name</h1>
+                <p class="endpoint">@_server.Game · <code>@_server.Host:@_server.QueryPort</code></p>
+            </div>
+            <span class="availability @AvailabilityClass">
+                <span aria-hidden="true"></span>
+                @StatusLabel
+            </span>
+        </header>
+
+        <section class="status-grid" aria-label="Latest server observation">
+            <article class="status-primary">
+                <span>Latest observation</span>
+                <strong>@FormatDateTime(_status.LastCheckedAtUtc)</strong>
+                <p>@ObservationSummary</p>
+            </article>
+            <dl>
+                <div>
+                    <dt>Map</dt>
+                    <dd>@DisplayValue(_status.CurrentMap)</dd>
+                </div>
+                <div>
+                    <dt>Players</dt>
+                    <dd>@PlayerSummary</dd>
+                </div>
+                <div>
+                    <dt>Latency</dt>
+                    <dd>@LatencySummary</dd>
+                </div>
+                <div>
+                    <dt>Last success</dt>
+                    <dd>@FormatDateTime(_status.LastSuccessAtUtc)</dd>
+                </div>
+                <div>
+                    <dt>Consecutive failures</dt>
+                    <dd>@_status.ConsecutiveFailures</dd>
+                </div>
+                <div>
+                    <dt>Monitoring</dt>
+                    <dd>@(_server.IsEnabled ? $"Every {_server.PollIntervalSeconds} seconds" : "Disabled")</dd>
+                </div>
+            </dl>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(_status.FailureReason))
+        {
+            <section class="failure-detail" aria-labelledby="failure-title">
+                <p class="eyebrow">Latest failure</p>
+                <h2 id="failure-title">Probe did not complete</h2>
+                <p>@_status.FailureReason</p>
+            </section>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_server.Notes))
+        {
+            <section class="notes" aria-labelledby="notes-title">
+                <p class="eyebrow">Inventory note</p>
+                <h2 id="notes-title">Context</h2>
+                <p>@_server.Notes</p>
+            </section>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid ServerId { get; set; }
+
+    private ServerResponse? _server;
+    private ServerStatusResponse? _status;
+    private bool _loadFailed;
+    private bool _notFound;
+
+    private string AvailabilityClass => _status?.Status.ToLowerInvariant() switch
+    {
+        "online" => "availability--online",
+        "offline" => "availability--offline",
+        _ => "availability--unknown"
+    };
+
+    private string StatusLabel => string.IsNullOrWhiteSpace(_status?.Status)
+        ? "Unknown"
+        : _status.Status;
+
+    private string ObservationSummary => _status?.IsReachable == true
+        ? "The latest A2S probe reached the server."
+        : "The latest A2S probe did not reach the server.";
+
+    private string PlayerSummary => _status?.Players is null
+        ? "Not available"
+        : _status.MaxPlayers is null
+            ? _status.Players.Value.ToString(CultureInfo.InvariantCulture)
+            : $"{_status.Players.Value}/{_status.MaxPlayers.Value}";
+
+    private string LatencySummary => _status?.LatencyMs is null
+        ? "Not available"
+        : $"{_status.LatencyMs.Value} ms";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            var serverTask = ReaderApiClient.GetServerAsync(ServerId);
+            var statusTask = ReaderApiClient.GetServerStatusAsync(ServerId);
+            await Task.WhenAll(serverTask, statusTask);
+
+            _server = await serverTask;
+            _status = await statusTask;
+            _notFound = _server is null || _status is null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load Reader status for server {ServerId}.", ServerId);
+            _loadFailed = true;
+        }
+    }
+
+    private static string DisplayValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "Not available" : value;
+
+    private static string FormatDateTime(DateTimeOffset? value) => value is null
+        ? "Not available"
+        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+}

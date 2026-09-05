@@ -1,0 +1,26 @@
+@inject WebAuthenticationState AuthenticationState
+
+<section class="access-boundary" aria-labelledby="access-title">
+    <p class="eyebrow">Operator portal</p>
+    @if (AuthenticationState.Enabled)
+    {
+        <AuthorizeView>
+            <Authorized>
+                <h1 id="access-title">Reader role required</h1>
+                <p>Your account is signed in but is not assigned the Reader or Operator role.</p>
+                <a class="secondary-action" href="/">Return to public status</a>
+            </Authorized>
+            <NotAuthorized>
+                <h1 id="access-title">Reader access required</h1>
+                <p>Sign in with an account assigned the Reader or Operator role to view this page.</p>
+                <a class="primary-action" href="/auth/login">Sign in</a>
+            </NotAuthorized>
+        </AuthorizeView>
+    }
+    else
+    {
+        <h1 id="access-title">Portal unavailable</h1>
+        <p>Authenticated access is not configured in this environment.</p>
+        <a class="secondary-action" href="/">Return to public status</a>
+    }
+</section>

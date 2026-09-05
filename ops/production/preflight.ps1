@@ -398,6 +398,51 @@ function Assert-SecretFile {
     }
 }
 
+function Assert-SecureDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [int]$RequiredOwnerId = -1
+    )
+
+    Assert-Condition `
+        -Condition (-not (Test-PathInsideRepository -Path $Path)) `
+        -Message "$Name directory must live outside the repository."
+    Assert-Condition `
+        -Condition (Test-Path -LiteralPath $Path -PathType Container) `
+        -Message "$Name directory does not exist."
+
+    if (-not $IsWindows) {
+        $mode = [System.IO.File]::GetUnixFileMode($Path)
+        $forbiddenMode =
+            [System.IO.UnixFileMode]::GroupRead -bor
+            [System.IO.UnixFileMode]::GroupWrite -bor
+            [System.IO.UnixFileMode]::GroupExecute -bor
+            [System.IO.UnixFileMode]::OtherRead -bor
+            [System.IO.UnixFileMode]::OtherWrite -bor
+            [System.IO.UnixFileMode]::OtherExecute
+
+        Assert-Condition `
+            -Condition (($mode -band $forbiddenMode) -eq 0) `
+            -Message "$Name directory must not be accessible by group or other users."
+
+        if ($RequiredOwnerId -ge 0) {
+            $ownerId = ((& stat --format=%u -- $Path) -join "").Trim()
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not determine the owner of the $Name directory."
+            }
+
+            Assert-Condition `
+                -Condition ($ownerId -eq $RequiredOwnerId.ToString([Globalization.CultureInfo]::InvariantCulture)) `
+                -Message "$Name directory must be owned by Unix UID $RequiredOwnerId."
+        }
+    }
+}
+
 function Assert-ResticEnvironmentFile {
     param(
         [Parameter(Mandatory = $true)]
@@ -728,10 +773,44 @@ Assert-Condition `
 Assert-Condition `
     -Condition ([string]$web.environment.AllowedHosts -eq "$webHost;localhost") `
     -Message "The Web host must accept only its public hostname and the local image health-check host."
-$webSecrets = Get-PropertyValue -InputObject $web -Name "secrets"
+$webSecretSources = @($web.secrets | ForEach-Object { $_.source } | Sort-Object)
 Assert-Condition `
-    -Condition ($null -eq $webSecrets) `
-    -Message "The public Web host must not receive deployment secrets."
+    -Condition (@(Compare-Object @(
+                "web-data-protection-certificate",
+                "web-data-protection-certificate-password",
+                "web-oidc-client-secret") $webSecretSources).Count -eq 0) `
+    -Message "The Web host must receive only its OIDC and Data Protection secrets."
+Assert-Condition `
+    -Condition ([string]$web.environment.Authentication__Enabled -eq "true" -and
+        [string]$web.environment.Authentication__Authority -eq
+            [string]$api.environment.Authentication__Schemes__Bearer__Authority -and
+        [string]$web.environment.Authentication__Audience -eq $validAudience -and
+        [string]$web.environment.Authentication__RoleClaimType -eq $roleClaimType -and
+        -not [string]::IsNullOrWhiteSpace([string]$web.environment.Authentication__ClientId) -and
+        [string]$web.environment.Authentication__ClientSecretFile -eq
+            "/run/secrets/web-oidc-client-secret") `
+    -Message "The Web OIDC client must share the API authority, audience, and role contract and use its file-backed secret."
+Assert-Condition `
+    -Condition ([string]$web.environment.DataProtection__PersistKeys -eq "true" -and
+        [string]$web.environment.DataProtection__KeysPath -eq
+            "/var/lib/goldsrcops/data-protection" -and
+        [string]$web.environment.DataProtection__CertificatePath -eq
+            "/run/secrets/web-data-protection-certificate" -and
+        [string]$web.environment.DataProtection__CertificatePasswordFile -eq
+            "/run/secrets/web-data-protection-certificate-password") `
+    -Message "The authenticated Web host must persist an X.509-protected Data Protection key ring."
+$webDataProtectionMount = @($web.volumes | Where-Object {
+        $_.target -eq "/var/lib/goldsrcops/data-protection"
+    })
+Assert-Condition `
+    -Condition ($webDataProtectionMount.Count -eq 1 -and
+        [string]$webDataProtectionMount[0].type -eq "bind" -and
+        -not [bool](Get-PropertyValue `
+            -InputObject $webDataProtectionMount[0] `
+            -Name "read_only") -and
+        [string]$webDataProtectionMount[0].source -eq
+            "/var/lib/goldsrcops/data-protection") `
+    -Message "The Web host must have exactly one writable bind mount for its Data Protection key ring."
 Assert-Condition `
     -Condition ([string]$caddy.environment.GOLDSRCOPS_WEB_HOSTNAME -eq $webHost) `
     -Message "Caddy and the Web host must use the same public hostname."
@@ -887,6 +966,11 @@ if (-not $ContractOnly) {
     $databaseConnectionFile = [string]$configuration.secrets.'database-connection'.file
     $rconPasswordFile = [string]$configuration.secrets.'rcon-password'.file
     $grafanaAdminPasswordFile = [string]$configuration.secrets.'grafana-admin-password'.file
+    $webOidcClientSecretFile = [string]$configuration.secrets.'web-oidc-client-secret'.file
+    $webDataProtectionCertificateFile =
+        [string]$configuration.secrets.'web-data-protection-certificate'.file
+    $webDataProtectionCertificatePasswordFile =
+        [string]$configuration.secrets.'web-data-protection-certificate-password'.file
 
     Assert-SecretFile `
         -Path $postgresPasswordFile `
@@ -904,6 +988,22 @@ if (-not $ContractOnly) {
         -Path $grafanaAdminPasswordFile `
         -Name "Grafana admin password" `
         -RequiredOwnerId 472
+    Assert-SecretFile `
+        -Path $webOidcClientSecretFile `
+        -Name "Web OIDC client" `
+        -RequiredOwnerId 1654
+    Assert-SecretFile `
+        -Path $webDataProtectionCertificateFile `
+        -Name "Web Data Protection certificate" `
+        -RequiredOwnerId 1654
+    Assert-SecretFile `
+        -Path $webDataProtectionCertificatePasswordFile `
+        -Name "Web Data Protection certificate password" `
+        -RequiredOwnerId 1654
+    Assert-SecureDirectory `
+        -Path "/var/lib/goldsrcops/data-protection" `
+        -Name "Web Data Protection" `
+        -RequiredOwnerId 1654
     Assert-SecretFile `
         -Path $resticPasswordFile `
         -Name "Restic password" `
