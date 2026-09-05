@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1
+
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+
+ARG TARGETARCH
+ARG BUILD_CONFIGURATION=Release
+
+WORKDIR /source
+
+COPY --link .editorconfig Directory.Build.props global.json ./
+COPY --link src/GoldSrcOps.Contracts/GoldSrcOps.Contracts.csproj src/GoldSrcOps.Contracts/
+COPY --link src/GoldSrcOps.Web/GoldSrcOps.Web.csproj src/GoldSrcOps.Web/
+
+RUN dotnet restore src/GoldSrcOps.Web/GoldSrcOps.Web.csproj -a $TARGETARCH
+
+COPY --link src/GoldSrcOps.Contracts/ src/GoldSrcOps.Contracts/
+COPY --link src/GoldSrcOps.Web/ src/GoldSrcOps.Web/
+
+RUN dotnet publish src/GoldSrcOps.Web/GoldSrcOps.Web.csproj \
+    -a $TARGETARCH \
+    -c $BUILD_CONFIGURATION \
+    --no-restore \
+    -o /app/publish \
+    /p:UseAppHost=false \
+    && rm -f /app/publish/appsettings.Development.json /app/publish/appsettings.Local.json
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
+ENV ASPNETCORE_HTTP_PORTS=8080 \
+    DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
+
+EXPOSE 8080
+
+WORKDIR /app
+COPY --link --from=build /app/publish .
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/live HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && read -r status <&3 && [[ \"$status\" == *\" 200 \"* ]]"]
+
+USER $APP_UID
+
+ENTRYPOINT ["dotnet", "GoldSrcOps.Web.dll"]

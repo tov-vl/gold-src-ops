@@ -3,7 +3,7 @@
 	email {$GOLDSRCOPS_ACME_EMAIL}
 }
 
-{$GOLDSRCOPS_HOSTNAME} {
+(common) {
 	encode zstd gzip
 
 	header {
@@ -13,10 +13,18 @@
 		X-Content-Type-Options "nosniff"
 	}
 
-	reverse_proxy api:8080
-
 	log {
 		output stdout
 		format json
 	}
+}
+
+{$GOLDSRCOPS_HOSTNAME} {
+	import common
+	reverse_proxy api:8080
+}
+
+{$GOLDSRCOPS_WEB_HOSTNAME} {
+	import common
+	reverse_proxy web:8080
 }

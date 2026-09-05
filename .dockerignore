@@ -2,6 +2,7 @@
 
 !.dockerignore
 !Dockerfile
+!Dockerfile.web
 !.editorconfig
 !Directory.Build.props
 !dotnet-tools.json
@@ -12,6 +13,10 @@
 !src/**/*.cs
 !src/**/*.csproj
 !src/GoldSrcOps.Api/appsettings.json
+!src/GoldSrcOps.Web/**/*.razor
+!src/GoldSrcOps.Web/**/*.css
+!src/GoldSrcOps.Web/wwwroot/**
+!src/GoldSrcOps.Web/appsettings.json
 
 !ops/
 !ops/production/

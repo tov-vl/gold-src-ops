@@ -47,13 +47,18 @@ that evidence and requires a new baseline for a subsequent soak claim.
   UDP `443`.
 - The API is reachable only through the private `edge` network. Its static proxy
   setting trusts forwarded headers from the configured Caddy address only.
+- The public Web host is reachable only through the same private `edge`
+  network, calls the anonymous API projection by service name, receives no
+  secrets, and has its own image-local liveness check. Caddy routes the API and
+  Web hostnames independently.
 - PostgreSQL uses `network_mode: none` and exposes no TCP listener to another
   container or the host. The API reaches it through a shared Unix-domain socket.
 - The `operations` profile contains a one-shot migration service. It uses the
   exact API image, receives only the database secret, has no network interface
   or restart policy, and reaches PostgreSQL through the same socket volume.
 - API, PostgreSQL, and Caddy images must all be supplied by immutable SHA-256
-  digest.
+  digest. The Web image uses an independent immutable digest from the same
+  release revision.
 - The API runs with a read-only root filesystem, no Linux capabilities, and
   `no-new-privileges`.
 - The API exports metrics over private OTLP gRPC to the OpenTelemetry Collector.
@@ -106,6 +111,7 @@ and issue or pull-request text.
 The host also needs:
 
 - DNS for `GOLDSRCOPS_HOSTNAME` pointing to the control-plane host;
+- DNS for `GOLDSRCOPS_WEB_HOSTNAME` pointing to the same Caddy ingress;
 - inbound TCP `80`, TCP `443`, and UDP `443` for Caddy;
 - outbound HTTPS for ACME and identity-provider metadata;
 - no public PostgreSQL, OTLP, Collector telemetry, Prometheus, or Grafana port;
@@ -239,7 +245,8 @@ pwsh -NoProfile -File ./ops/production/preflight.ps1 `
 
 It renders Compose, requires immutable image digests, enforces runtime restart
 policies and bounded local logs, checks the public-port and Unix-socket
-boundaries, verifies the trusted proxy address, and checks secret file location
+boundaries, verifies both trusted proxy boundaries, proves the Web service has
+no secrets or published port, and checks secret file location
 and permissions without printing secret contents. It also uses the configured
 digest-pinned Caddy image to validate the tracked Caddyfile. Full deployment
 mode pulls the API image, verifies its non-root UID, and requires the

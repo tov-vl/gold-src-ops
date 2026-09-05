@@ -76,7 +76,9 @@ Current implementation:
   recovery. The prospective `API-01` SLO remains `Draft`.
 - A separate .NET 10 Blazor Web App backed by an anonymous, cached, sanitized
   aggregate status projection; server identities and operator data remain
-  private.
+  private. Its production contract uses an independently digest-addressed,
+  secret-free container behind the shared Caddy ingress; target rollout
+  evidence remains pending.
 - A completed v1 readiness review with startup, migration, live polling,
   authenticated API, safe command, and metrics evidence in
   `docs/v1-readiness.md`.

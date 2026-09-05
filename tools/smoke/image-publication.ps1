@@ -264,12 +264,30 @@ $requiredWorkflowFragments = @(
     'release_tag:',
     'recover_single_manifest_wrapper:',
     '-File ./tools/ci/resolve-image-promotion.ps1',
-    '--prefer-index=false')
+    '--prefer-index=false',
+    'publish-web-image:',
+    'ghcr.io/${GITHUB_REPOSITORY,,}-web',
+    'file: ./Dockerfile.web',
+    './tools/smoke/web-container.ps1')
 
 foreach ($fragment in $requiredWorkflowFragments) {
     if (-not $workflow.Contains($fragment, [StringComparison]::Ordinal)) {
         throw "Image publication workflow is missing required fragment '$fragment'."
     }
+}
+
+$promotionResolverInvocationCount = [regex]::Matches(
+    $workflow,
+    [regex]::Escape('-File ./tools/ci/resolve-image-promotion.ps1')).Count
+if ($promotionResolverInvocationCount -ne 2) {
+    throw "Image publication workflow must apply the promotion resolver to both API and Web images."
+}
+
+$digestPreservingPromotionCount = [regex]::Matches(
+    $workflow,
+    [regex]::Escape('--prefer-index=false')).Count
+if ($digestPreservingPromotionCount -ne 2) {
+    throw "Image publication workflow must preserve the verified digest for both API and Web promotions."
 }
 
 Write-Host "Image publication smoke passed: $($validCases.Count) valid tags, $($invalidTags.Count) invalid tags, 2 compatibility cases, 8 promotion cases, and $($requiredWorkflowFragments.Count) workflow contracts."
