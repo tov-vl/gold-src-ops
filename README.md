@@ -22,9 +22,11 @@ all passed. Release notes and detailed evidence are available in
 [docs/release-notes-v2.3.md](docs/release-notes-v2.3.md) and
 [docs/v2.3-readiness.md](docs/v2.3-readiness.md).
 
-Active v2.4 work begins with independent external availability measurement and
-a prospective `API-01` window before the public and authenticated operator web
-experience. The provider-independent contract is documented in
+Active v2.4 work now advances independent external availability measurement and
+the web experience in parallel. `API-01` remains `Draft` while shadow evidence
+accumulates, and the first sanitized public Blazor dashboard landed in
+[PR #82](https://github.com/tov-vl/gold-src-ops/pull/82). The
+provider-independent monitoring contract is documented in
 [docs/v2.4-external-availability-monitoring.md](docs/v2.4-external-availability-monitoring.md),
 the conditional managed-provider choice is recorded in
 [docs/v2.4-synthetic-monitoring-provider-decision.md](docs/v2.4-synthetic-monitoring-provider-decision.md),
@@ -34,7 +36,11 @@ The standalone normalized export, expected-slot evaluation, and
 content-addressed off-host evidence-recovery workflow is documented in
 [docs/v2.4-availability-evidence-exporter.md](docs/v2.4-availability-evidence-exporter.md).
 Its independent GitHub-hosted scheduling contract and operator setup are in
-[ops/availability/README.md](ops/availability/README.md).
+[ops/availability/README.md](ops/availability/README.md). Independent recovery
+of one scheduled segment passed in
+[run #33968872991](https://github.com/tov-vl/gold-src-ops/actions/runs/33968872991),
+closing the current availability implementation slice while shadow collection
+continues without blocking UI development.
 
 ## Highlights
 
@@ -57,13 +63,20 @@ Its independent GitHub-hosted scheduling contract and operator setup are in
   digest-based container verification.
 - Repeatable Docker-based local startup, authenticated smoke test, and guarded
   owned-server RCON verification.
+- A separate Blazor Web App backed by an anonymous, cached aggregate status
+  projection that excludes server identity and operator data.
 
 ## Architecture Overview
 
-GoldSrcOps is a modular monolith with separate API, contracts, application, domain, and infrastructure projects.
+GoldSrcOps is a modular monolith with separate API, contracts, application,
+domain, and infrastructure projects.
 The API host exposes HTTP endpoints, health checks, metrics, and the in-process
 polling, command-dispatch, alert-dispatch, and snapshot-retention workers.
-Application services coordinate use cases, domain entities own state transitions, and infrastructure implements EF Core persistence plus GoldSrc A2S integration.
+The separate Blazor Web host renders the public dashboard from the sanitized
+aggregate API projection and does not receive operator credentials.
+Application services coordinate use cases, domain entities own state
+transitions, and infrastructure implements EF Core persistence plus GoldSrc A2S
+integration.
 
 See [docs/architecture.md](docs/architecture.md) for the component diagram and
 runtime flows. The MVP evidence and accepted deferrals are recorded in

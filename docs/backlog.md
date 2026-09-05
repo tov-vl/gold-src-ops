@@ -657,9 +657,9 @@ Non-goals for v2.3:
 ## Active v2.4 Milestone: Continuous Evidence And Operator Experience
 
 v2.4 turns the bounded v2.3 deployment evidence into continuously reviewable
-operations data before adding the operator-facing web experience. The milestone
-does not change the v2.3 single-node availability claim or activate an SLO
-retroactively.
+operations data while the operator-facing web experience advances in parallel.
+The milestone does not change the v2.3 single-node availability claim or
+activate an SLO retroactively.
 
 Delivery order:
 
@@ -671,8 +671,9 @@ Delivery order:
    `docs/v2.4-synthetic-monitoring-provider-decision.md` conditionally select
    Grafana Cloud Synthetic Monitoring for shadow validation, with explicit
    account, export, retention, cost, credential, and exit gates.
-3. **Measurement rollout (in progress)**: the public readiness primary probe
-   and both diagnostic checks were configured on 2026-09-04 under
+3. **Measurement rollout (implementation slice completed 2026-09-05)**: the
+   public readiness primary probe and both diagnostic checks were configured on
+   2026-09-04 under
    `v2-4-shadow-001`. The standalone Metrics API exporter, canonical create-only
    JSONL format, overlap deduplication, expected-slot evaluator, and deterministic
    contract fixtures are implemented. A bounded least-privilege live export
@@ -682,28 +683,33 @@ Delivery order:
    also passed live on 2026-09-04. The fail-closed GitHub-hosted scheduler,
    pinned-revision gate, serialized writer, bounded catch-up window, temporary
    evidence cleanup, and contract smoke are implemented. Its environment,
-   pinned revision, activation variable, and one explicitly confirmed manual
-   archive/recovery cycle are complete. Four automatic scheduled runs succeeded
-   by 2026-09-05, with export/archive confirmed in run 33945949528. Independent
-   recovery of a scheduled segment and review of the irregular delivery remain
-   open. A bounded optional Loki adapter now classifies known DNS, connect, TLS,
+   pinned revision, scheduler-enable variable, and one explicitly confirmed
+   manual archive/recovery cycle are complete. A scheduled export/archive passed
+   in [run 33964685839](https://github.com/tov-vl/gold-src-ops/actions/runs/33964685839),
+   and independent read-only recovery of that segment passed digest,
+   canonical-record, and deterministic-report checks in
+   [run 33968872991](https://github.com/tov-vl/gold-src-ops/actions/runs/33968872991).
+   A bounded optional Loki adapter classifies known DNS, connect, TLS,
    and timeout failures, while unknown or ambiguous details remain
    `monitor_error`; safe fixtures cover correlation, response limits, and
    payload-free exceptions. The workflow maps the three optional Loki secrets
-   only into the export step. A manual main-only DNS proof workflow checks
-   distinct diagnostic slots without B2 access or retained raw evidence.
-   Next prove the adapter with a least-privilege
-   `logs:read` credential, advance the reviewed exporter pin, recover a scheduled
-   archive, complete alert tests, and collect a fresh 24-hour shadow without
-   exposing private telemetry.
+   only into the export step. Its least-privilege live `logs:read` path and
+   controlled DNS classification passed in
+   [run 33964036998](https://github.com/tov-vl/gold-src-ops/actions/runs/33964036998)
+   without B2 access or retained raw evidence. The current availability
+   implementation slice is now closed. Shadow collection continues while alert
+   tests and a fresh contiguous 24-hour activation window remain pending; those
+   gates block `API-01` activation, not UI development.
    The sanitized setup and implementation records are in
    `docs/v2.4-synthetic-monitoring-rollout.md` and
    `docs/v2.4-availability-evidence-exporter.md`.
 4. **Activation**: pass a 24-hour shadow run, record the immutable activation
    tuple, and start the prospective 30-day `API-01` window without importing
    shadow or v2.3 soak samples.
-5. **Public experience**: add a compact Blazor Web App backed by a deliberately
-   sanitized read model for current public status and availability evidence.
+5. **Public experience (first slice completed 2026-09-05)**: the compact Blazor
+   Web App and anonymous, cached, deliberately sanitized current-status read
+   model are implemented. Production packaging and richer public availability
+   history remain follow-up work.
 6. **Operator experience**: add authenticated Reader and Operator workflows for
    servers, incidents, history, commands, dead letters, and replay without
    weakening the existing API policies or audit trail.
@@ -945,12 +951,12 @@ The released v1 baseline includes:
 
 Remaining portfolio gaps, in priority order:
 
-- Complete the active v2.4 Grafana Cloud shadow rollout, independent result
-  archive, and public availability evaluator, then review the initial SLOs
-  prospectively after their full activation windows; the completed 24-hour
-  release sample is not a monthly uptime claim.
-- A compact public read-only dashboard backed by a deliberately sanitized
-  projection.
+- Continue the active v2.4 Grafana Cloud shadow collection, prove alert routing,
+  and activate `API-01` only for a new prospective window; archive and independent
+  scheduled-segment recovery are already proved, while the completed v2.3
+  24-hour release sample is not a monthly uptime claim.
+- Package and deploy the implemented public read-only dashboard, then add a
+  bounded historical availability view without broadening its sanitized API.
 - An authenticated Reader/Operator web workflow for servers, incidents,
   commands, dead letters, and replay.
 - A concise video walkthrough and a small evidence-based postmortem covering

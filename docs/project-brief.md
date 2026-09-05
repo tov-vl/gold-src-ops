@@ -71,6 +71,12 @@ Current implementation:
 - Unit, API integration, deterministic polling, protocol, and PostgreSQL
   Testcontainers coverage.
 - GitHub Actions quality gate for formatting, build, tests, and NuGet audit.
+- Independent external availability shadow probes with a normalized exporter,
+  create-only off-host archive, scheduled collection, and verified read-only
+  recovery. The prospective `API-01` SLO remains `Draft`.
+- A separate .NET 10 Blazor Web App backed by an anonymous, cached, sanitized
+  aggregate status projection; server identities and operator data remain
+  private.
 - A completed v1 readiness review with startup, migration, live polling,
   authenticated API, safe command, and metrics evidence in
   `docs/v1-readiness.md`.
@@ -123,10 +129,11 @@ promotes the immutable digest verified for `v2.3.0-rc.5`, without publishing a
 mutable image alias.
 The project now operates the initial controlled external ReHLDS runtime and
 exports production metrics through a private OpenTelemetry Collector,
-Prometheus, and Grafana path. It does not yet include a web operator experience.
-That is a later delivery gap outside the accepted v2.3 release scope.
-The completed v2.3 plan closes the deployment and recovery gaps before frontend
-or gameplay-agent work begins. Slice 2 uses
+Prometheus, and Grafana path. The accepted v2.3 release scope did not include a
+web experience. v2.4 now includes the first sanitized public dashboard, while
+the authenticated operator area remains a delivery gap. The completed v2.3 plan
+closed the deployment and recovery gaps before frontend or gameplay-agent work
+began. Slice 2 uses
 the provider-independent controlled game-server contract in
 `docs/v2.3-controlled-gameserver-baseline.md`. Its bounded-trial game VDS has
 passed the reviewed host foundation, controlled reboot, pinned runtime install,
@@ -223,10 +230,11 @@ The project should evolve in stages:
 - v2.3: provider-independent reference production deployment, real external
   ReHLDS boundary, immutable delivery, and production OTLP metrics through an
   OpenTelemetry Collector.
-- v2.4: first establish continuous independent public API availability
-  measurement and activate `API-01` prospectively; then add a compact Blazor Web
-  App with a sanitized public dashboard and an authenticated Reader/Operator
-  area.
+- v2.4: continue independent public API availability measurement and activate
+  `API-01` prospectively only after its remaining gates pass. The off-host
+  evidence recovery path and first sanitized public Blazor dashboard are
+  complete; authenticated Reader/Operator workflows can advance while shadow
+  evidence accumulates.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
