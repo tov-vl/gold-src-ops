@@ -706,13 +706,18 @@ Delivery order:
 4. **Activation**: pass a 24-hour shadow run, record the immutable activation
    tuple, and start the prospective 30-day `API-01` window without importing
    shadow or v2.3 soak samples.
-5. **Public experience (first slice completed 2026-09-05)**: the compact Blazor
-   Web App and anonymous, cached, deliberately sanitized current-status read
-   model are implemented. The next slice packages the API and Web host as
-   separately digest-addressed release artifacts, adds the hardened Web health
-   and Compose/Caddy contract, and rolls the dashboard out at the root project
-   domain. Richer public availability history remains follow-up work. See
-   `docs/v2.4-public-dashboard-deployment.md`.
+5. **Public experience (production candidate deployed 2026-09-05)**: the
+   compact Blazor Web App and anonymous, cached, deliberately sanitized
+   current-status read model are implemented. Pull request #84 packaged the API
+   and Web host as separately digest-addressed release artifacts and added the
+   hardened Web health and Compose/Caddy contract. Pull request #85 corrected
+   the static-SSR rendering contract. Signed candidate `v2.4.0-rc.2` and
+   [workflow 33983719134](https://github.com/tov-vl/gold-src-ops/actions/runs/33983719134)
+   published and verified both images from revision `c173c27`; the production
+   rollout and sanitized post-deployment checks passed. A fresh authenticated
+   API policy matrix remains a pre-stable verification item but does not block
+   operator UI development. Richer public availability history remains
+   follow-up work. See `docs/v2.4-public-dashboard-deployment.md`.
 6. **Operator experience**: add authenticated Reader and Operator workflows for
    servers, incidents, history, commands, dead letters, and replay without
    weakening the existing API policies or audit trail.

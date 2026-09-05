@@ -24,8 +24,14 @@ all passed. Release notes and detailed evidence are available in
 
 Active v2.4 work now advances independent external availability measurement and
 the web experience in parallel. `API-01` remains `Draft` while shadow evidence
-accumulates, and the first sanitized public Blazor dashboard landed in
-[PR #82](https://github.com/tov-vl/gold-src-ops/pull/82). The
+accumulates. The first sanitized public Blazor dashboard landed in
+[PR #82](https://github.com/tov-vl/gold-src-ops/pull/82), its production
+packaging landed in
+[PR #84](https://github.com/tov-vl/gold-src-ops/pull/84), and the static-SSR
+release correction landed in
+[PR #85](https://github.com/tov-vl/gold-src-ops/pull/85). Signed candidate
+`v2.4.0-rc.2` was published, digest-verified, and deployed from revision
+`c173c27`; it is not yet a stable v2.4 release. The
 provider-independent monitoring contract is documented in
 [docs/v2.4-external-availability-monitoring.md](docs/v2.4-external-availability-monitoring.md),
 the conditional managed-provider choice is recorded in
@@ -40,8 +46,8 @@ Its independent GitHub-hosted scheduling contract and operator setup are in
 of one scheduled segment passed in
 [run #33968872991](https://github.com/tov-vl/gold-src-ops/actions/runs/33968872991),
 closing the current availability implementation slice while shadow collection
-continues without blocking UI development. Production packaging and rollout for
-the dashboard follow the fail-closed two-image contract in
+continues without blocking UI development. Production packaging and rollout
+evidence for the dashboard follows the fail-closed two-image contract in
 [docs/v2.4-public-dashboard-deployment.md](docs/v2.4-public-dashboard-deployment.md).
 
 ## Highlights
