@@ -60,6 +60,37 @@ separate, bucket- and prefix-scoped, and time-bounded where supported. The job
 maps secrets only into the export step; checkout, SDK setup, restore, and publish
 steps do not receive them.
 
+Optional transport-failure enrichment maps these additional environment
+secrets only into the export step:
+
+```text
+GOLDSRCOPS_GRAFANA_LOGS_URL
+GOLDSRCOPS_GRAFANA_LOGS_USER
+GOLDSRCOPS_GRAFANA_LOGS_TOKEN
+```
+
+Use a separate access policy with only `logs:read`, scoped to the reviewed
+stack and `job=~"goldsrcops-api-.*"`. Create a 90-day token. Supply the Loki
+HTTPS base URL and Logs tenant user from the stack's connection details.
+Do not reuse the Metrics API credential. All three secrets must be set
+together; absent settings preserve metrics-only behavior, and partial settings
+fail closed in the exporter.
+
+Before enabling log enrichment, verify the credential with a bounded query and
+a temporary diagnostic check against a deliberately unresolvable `.invalid`
+hostname. Give it a separate job and monitor revision, no production target,
+one probe, and a short lifetime. Confirm `dns_error` in the normalized output,
+then disable the temporary check. Keep its evidence out of the primary archive.
+This proves DNS classification only; other transport categories remain separate
+live checks. A healthy primary export does not query Loki and cannot prove log
+access.
+
+After that proof, review the workflow mapping, advance the environment's
+exporter revision to the reviewed main commit containing the Loki adapter, and
+verify one serialized cycle. Record the effective revision before opening a new
+shadow window. Keep secrets unset and the previous pin while credential setup
+or live verification is incomplete.
+
 ## Operation
 
 The workflow serializes scheduled and manual runs through one concurrency group
