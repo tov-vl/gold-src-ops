@@ -690,7 +690,9 @@ Delivery order:
    and timeout failures, while unknown or ambiguous details remain
    `monitor_error`; safe fixtures cover correlation, response limits, and
    payload-free exceptions. The workflow maps the three optional Loki secrets
-   only into the export step. Next prove the adapter with a least-privilege
+   only into the export step. A manual main-only DNS proof workflow checks
+   distinct diagnostic slots without B2 access or retained raw evidence.
+   Next prove the adapter with a least-privilege
    `logs:read` credential, advance the reviewed exporter pin, recover a scheduled
    archive, complete alert tests, and collect a fresh 24-hour shadow without
    exposing private telemetry.

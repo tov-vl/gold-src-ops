@@ -110,6 +110,9 @@ jobs:
       - name: Validate availability evidence schedule
         run: pwsh -NoProfile -File ./tools/smoke/availability-evidence-schedule.ps1
 
+      - name: Validate diagnostic DNS proof
+        run: pwsh -NoProfile -File ./tools/smoke/availability-dns-proof.ps1
+
       - name: Validate OIDC live-smoke contract
         run: pwsh -NoProfile -File ./tools/smoke/oidc-live-contract.ps1
 

@@ -1,0 +1,72 @@
+name: Availability DNS Proof
+
+on:
+  workflow_dispatch:
+    inputs:
+      window_end_utc:
+        description: Exact UTC minute ending the reviewed 15-minute diagnostic window
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: availability-dns-proof
+  cancel-in-progress: false
+
+env:
+  CI: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  verify-dns:
+    name: Verify Diagnostic DNS Classification
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: availability-evidence-shadow
+      deployment: false
+
+    steps:
+      - name: Checkout dispatched main revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+        with:
+          global-json-file: global.json
+
+      - name: Restore exporter with NuGet audit
+        run: >-
+          dotnet restore
+          ./src/GoldSrcOps.AvailabilityExporter/GoldSrcOps.AvailabilityExporter.csproj
+          -p:AuditPipeline=true
+
+      - name: Publish exporter
+        run: >-
+          dotnet publish
+          ./src/GoldSrcOps.AvailabilityExporter/GoldSrcOps.AvailabilityExporter.csproj
+          --configuration Release --no-restore
+          --output "$RUNNER_TEMP/availability-exporter"
+
+      - name: Verify diagnostic evidence without archiving
+        shell: pwsh
+        env:
+          REQUESTED_WINDOW_END_UTC: ${{ inputs.window_end_utc }}
+          GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE: ${{ secrets.GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE }}
+          GOLDSRCOPS_GRAFANA_METRICS_URL: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_URL }}
+          GOLDSRCOPS_GRAFANA_METRICS_USER: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_USER }}
+          GOLDSRCOPS_GRAFANA_METRICS_TOKEN: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_TOKEN }}
+          GOLDSRCOPS_GRAFANA_LOGS_URL: ${{ secrets.GOLDSRCOPS_GRAFANA_LOGS_URL }}
+          GOLDSRCOPS_GRAFANA_LOGS_USER: ${{ secrets.GOLDSRCOPS_GRAFANA_LOGS_USER }}
+          GOLDSRCOPS_GRAFANA_LOGS_TOKEN: ${{ secrets.GOLDSRCOPS_GRAFANA_LOGS_TOKEN }}
+        run: |
+          ./ops/availability/verify-dns-transport.ps1 `
+            -ExporterAssemblyPath "$env:RUNNER_TEMP/availability-exporter/GoldSrcOps.AvailabilityExporter.dll" `
+            -WindowEndUtc $env:REQUESTED_WINDOW_END_UTC
