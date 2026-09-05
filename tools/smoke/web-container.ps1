@@ -341,6 +341,10 @@ try {
         -not $homeResponse.Content.Contains("Status unavailable", [StringComparison]::Ordinal)) {
         throw "Web dashboard did not render its safe API-unavailable state."
     }
+    if ($homeResponse.Content.Contains("Loading current status", [StringComparison]::Ordinal) -or
+        $homeResponse.Content.Contains("_framework/blazor.web.js", [StringComparison]::Ordinal)) {
+        throw "Web dashboard did not complete as a self-contained static SSR response."
+    }
 
     $containerContract = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
         "inspect",
