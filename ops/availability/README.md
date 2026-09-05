@@ -20,8 +20,11 @@ gap while the provider still retains the source metrics.
 ## GitHub Environment
 
 Create an environment named `availability-evidence-shadow` with deployment
-history disabled for the workflow job and restrict it to the protected `main`
-branch. Do not add a required reviewer because scheduled runs are unattended.
+history disabled for the workflow job. Select **Selected branches and tags**
+and add one **Branch** rule with the exact pattern `main`, with no tag rules.
+Do not rely on **Protected branches only** when branch protection is implemented
+solely by a ruleset. Do not add a required reviewer because scheduled runs are
+unattended.
 
 Leave the repository variable
 `GOLDSRCOPS_AVAILABILITY_SCHEDULER_ENABLED` absent or set to `false` during
@@ -59,6 +62,46 @@ The Metrics API token remains `metrics:read`. The B2 reader and writer remain
 separate, bucket- and prefix-scoped, and time-bounded where supported. The job
 maps secrets only into the export step; checkout, SDK setup, restore, and publish
 steps do not receive them.
+
+Optional transport-failure enrichment maps these additional environment
+secrets only into the export step:
+
+```text
+GOLDSRCOPS_GRAFANA_LOGS_URL
+GOLDSRCOPS_GRAFANA_LOGS_USER
+GOLDSRCOPS_GRAFANA_LOGS_TOKEN
+```
+
+Use a separate access policy with only `logs:read`, scoped to the reviewed
+stack and `job=~"goldsrcops-api-.*"`. Create a 90-day token. Supply the Loki
+HTTPS base URL and Logs tenant user from the stack's connection details.
+Do not reuse the Metrics API credential. All three secrets must be set
+together; absent settings preserve metrics-only behavior, and partial settings
+fail closed in the exporter.
+
+Before advancing the scheduled exporter pin, stage all three secrets in the
+main-only environment and verify them with **Availability DNS Proof**. This
+manual, read-only workflow uses its dispatched `main` SHA, independent of the
+scheduled exporter pin. It has no B2 credentials and retains no raw artifact.
+
+Create a short-lived HTTP diagnostic check targeting a deliberately
+unresolvable `.invalid` hostname, never the production target. Use job
+`goldsrcops-api-dns-validation`, labels `environment=validation`,
+`role=diagnostic`, `monitor_revision=v2-4-dns-validation-001`, the existing
+Frankfurt probe, a 60-second interval, and a 10-second timeout. After at least
+three completed samples, disable the check. Allow five minutes for ingestion
+and dispatch the proof with the exact UTC-minute end of a 15-minute window
+covering those samples. It requires at least three distinct diagnostic slots,
+all `dns_error` without HTTP status, then deletes the temporary segment.
+This proves DNS classification only; other transport categories remain separate
+live checks. A healthy primary export does not query Loki and cannot prove log
+access.
+
+After that proof, review the workflow mapping, advance the environment's
+exporter revision to the reviewed main commit containing the Loki adapter, and
+verify one serialized cycle. Record the effective revision before opening a new
+shadow window. Keep the previous metrics-only pin while live verification is
+incomplete; do not advance it merely because secret setup succeeded.
 
 ## Operation
 

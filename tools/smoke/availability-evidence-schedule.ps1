@@ -22,6 +22,9 @@ $environmentNames = @(
     "GOLDSRCOPS_GRAFANA_METRICS_URL",
     "GOLDSRCOPS_GRAFANA_METRICS_USER",
     "GOLDSRCOPS_GRAFANA_METRICS_TOKEN",
+    "GOLDSRCOPS_GRAFANA_LOGS_URL",
+    "GOLDSRCOPS_GRAFANA_LOGS_USER",
+    "GOLDSRCOPS_GRAFANA_LOGS_TOKEN",
     "GOLDSRCOPS_B2_S3_ENDPOINT",
     "GOLDSRCOPS_B2_REGION",
     "GOLDSRCOPS_B2_BUCKET",
@@ -114,6 +117,15 @@ $encodedArguments = @(
 
 $command = $CommandArguments[0]
 if ($command -eq "export") {
+    foreach ($name in @(
+            "GOLDSRCOPS_GRAFANA_LOGS_URL",
+            "GOLDSRCOPS_GRAFANA_LOGS_USER",
+            "GOLDSRCOPS_GRAFANA_LOGS_TOKEN")) {
+        if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+            throw "The optional log configuration did not reach the exporter process."
+        }
+    }
+
     if ($env:GOLDSRCOPS_FAKE_EXPORT_FAIL -eq "true") {
         throw "Synthetic export failure."
     }
@@ -151,6 +163,9 @@ throw "Unexpected fake exporter command '$command'."
     $env:GOLDSRCOPS_GRAFANA_METRICS_URL = "https://metrics.invalid"
     $env:GOLDSRCOPS_GRAFANA_METRICS_USER = "metrics-user"
     $env:GOLDSRCOPS_GRAFANA_METRICS_TOKEN = "secret-metrics-token"
+    $env:GOLDSRCOPS_GRAFANA_LOGS_URL = "https://logs.invalid"
+    $env:GOLDSRCOPS_GRAFANA_LOGS_USER = "logs-user"
+    $env:GOLDSRCOPS_GRAFANA_LOGS_TOKEN = "secret-logs-token"
     $env:GOLDSRCOPS_B2_S3_ENDPOINT = "https://s3.invalid"
     $env:GOLDSRCOPS_B2_REGION = "test-region"
     $env:GOLDSRCOPS_B2_BUCKET = "test-bucket"
@@ -241,6 +256,9 @@ throw "Unexpected fake exporter command '$command'."
         $env:GOLDSRCOPS_GRAFANA_METRICS_URL,
         $env:GOLDSRCOPS_GRAFANA_METRICS_USER,
         $env:GOLDSRCOPS_GRAFANA_METRICS_TOKEN,
+        $env:GOLDSRCOPS_GRAFANA_LOGS_URL,
+        $env:GOLDSRCOPS_GRAFANA_LOGS_USER,
+        $env:GOLDSRCOPS_GRAFANA_LOGS_TOKEN,
         $env:GOLDSRCOPS_B2_S3_ENDPOINT,
         $env:GOLDSRCOPS_B2_REGION,
         $env:GOLDSRCOPS_B2_BUCKET,
@@ -340,6 +358,25 @@ throw "Unexpected fake exporter command '$command'."
     foreach ($fragment in $requiredWorkflowFragments) {
         if (-not $workflow.Contains($fragment, [StringComparison]::Ordinal)) {
             throw "Availability evidence workflow is missing required fragment '$fragment'."
+        }
+    }
+
+    $exportStepMarker = "      - name: Export and archive primary evidence"
+    $exportStepIndex = $workflow.IndexOf($exportStepMarker, [StringComparison]::Ordinal)
+    if ($exportStepIndex -lt 0) {
+        throw "Availability evidence workflow is missing its export step."
+    }
+
+    $setupSteps = $workflow.Substring(0, $exportStepIndex)
+    $exportStep = $workflow.Substring($exportStepIndex)
+    foreach ($name in @(
+            "GOLDSRCOPS_GRAFANA_LOGS_URL",
+            "GOLDSRCOPS_GRAFANA_LOGS_USER",
+            "GOLDSRCOPS_GRAFANA_LOGS_TOKEN")) {
+        $mapping = ('          {0}: ${{{{ secrets.{0} }}}}' -f $name)
+        if (-not $exportStep.Contains($mapping, [StringComparison]::Ordinal) -or
+            $setupSteps.Contains($name, [StringComparison]::Ordinal)) {
+            throw "Optional Loki secrets must be mapped only into the export step."
         }
     }
 

@@ -683,14 +683,19 @@ Delivery order:
    pinned-revision gate, serialized writer, bounded catch-up window, temporary
    evidence cleanup, and contract smoke are implemented. Its environment,
    pinned revision, activation variable, and one explicitly confirmed manual
-   archive/recovery cycle are complete. No automatic scheduled event was
-   observed after either registered cron slot, so scheduler continuity remains
+   archive/recovery cycle are complete. Four automatic scheduled runs succeeded
+   by 2026-09-05, with export/archive confirmed in run 33945949528. Independent
+   recovery of a scheduled segment and review of the irregular delivery remain
    open. A bounded optional Loki adapter now classifies known DNS, connect, TLS,
    and timeout failures, while unknown or ambiguous details remain
    `monitor_error`; safe fixtures cover correlation, response limits, and
-   payload-free exceptions. Next prove the adapter with a least-privilege
-   `logs:read` credential, resolve the scheduler observation gap, complete alert
-   tests, and collect a fresh 24-hour shadow without exposing private telemetry.
+   payload-free exceptions. The workflow maps the three optional Loki secrets
+   only into the export step. A manual main-only DNS proof workflow checks
+   distinct diagnostic slots without B2 access or retained raw evidence.
+   Next prove the adapter with a least-privilege
+   `logs:read` credential, advance the reviewed exporter pin, recover a scheduled
+   archive, complete alert tests, and collect a fresh 24-hour shadow without
+   exposing private telemetry.
    The sanitized setup and implementation records are in
    `docs/v2.4-synthetic-monitoring-rollout.md` and
    `docs/v2.4-availability-evidence-exporter.md`.
