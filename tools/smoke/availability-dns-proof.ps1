@@ -57,6 +57,10 @@ foreach ($name in @("GOLDSRCOPS_GRAFANA_LOGS_URL", "GOLDSRCOPS_GRAFANA_LOGS_USER
 $outputPath = $CommandArguments[[Array]::IndexOf($CommandArguments, "--output") + 1]
 [IO.File]::WriteAllText($env:GOLDSRCOPS_FAKE_PATH_LOG, $outputPath)
 Write-Output "private-child-output"
+if ($env:GOLDSRCOPS_FAKE_MODE -eq "http-error") {
+    [Console]::Error.WriteLine("Operation failed: The logs API returned HTTP status 400.")
+    exit 1
+}
 if ($env:GOLDSRCOPS_FAKE_MODE -eq "export-fail") { exit 1 }
 if ($env:GOLDSRCOPS_FAKE_MODE -eq "empty") { [IO.File]::WriteAllText($outputPath, ""); exit 0 }
 if ($env:GOLDSRCOPS_FAKE_MODE -eq "malformed") { [IO.File]::WriteAllText($outputPath, "{private-payload"); exit 0 }
@@ -119,6 +123,9 @@ $lines = foreach ($minute in 1..3) {
     Assert-Cleaned
     $env:GOLDSRCOPS_FAKE_MODE = "export-fail"
     Assert-Fails { & $proof @arguments } "Diagnostic export failed*"
+    Assert-Cleaned
+    $env:GOLDSRCOPS_FAKE_MODE = "http-error"
+    Assert-Fails { & $proof @arguments } "Diagnostic export failed (logs_http_400)*"
     Assert-Cleaned
     $env:GOLDSRCOPS_GRAFANA_LOGS_TOKEN = ""
     Assert-Fails { & $proof @arguments } "*GOLDSRCOPS_GRAFANA_LOGS_TOKEN*missing*"

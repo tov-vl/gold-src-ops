@@ -15,7 +15,8 @@ internal sealed record GrafanaLogsApiOptions(
     TimeSpan CorrelationTolerance)
 {
     private const int DefaultMaximumResponseBytes = 8 * 1024 * 1024;
-    private const int DefaultMaximumLines = 5_000;
+    // Reserve one sentinel line within Loki's default 5,000-entry query limit.
+    private const int DefaultMaximumLines = 4_999;
 
     public static GrafanaLogsApiOptions? CreateOptional(
         string? endpointText,

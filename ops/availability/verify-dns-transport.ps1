@@ -75,15 +75,26 @@ $segment = Join-Path $directory "diagnostic.jsonl"
 [IO.Directory]::CreateDirectory($directory) | Out-Null
 
 try {
-    # Child output is intentionally suppressed, including failure diagnostics.
-    & $executable $assembly export `
+    # Only a fixed API category/status can leave the child output boundary.
+    $exportOutput = @(& $executable $assembly export `
         --window-start $plan.WindowStartUtc --window-end $plan.WindowEndUtc `
         --job $plan.Job --probe $env:GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE `
         --environment $plan.Environment --role $plan.Role `
         --monitor-revision $plan.MonitorRevision --location $plan.Location `
-        --output $segment --overlap-minutes 0 --step-seconds 15 *> $null
+        --output $segment --overlap-minutes 0 --step-seconds 15 2>&1)
     if ($LASTEXITCODE -ne 0) {
-        throw "Diagnostic export failed; investigate the scoped read configuration."
+        $category = "unclassified"
+        foreach ($line in $exportOutput) {
+            if ([string]$line -cmatch '^Operation failed: The (logs|metrics) API returned HTTP status ([1-5][0-9]{2})\.$') {
+                $category = "$($Matches[1])_http_$($Matches[2])"
+                break
+            }
+            if ([string]$line -cmatch '^Operation failed: The (logs|metrics) API request timed out\.$') {
+                $category = "$($Matches[1])_timeout"
+                break
+            }
+        }
+        throw "Diagnostic export failed ($category); investigate the scoped read configuration."
     }
     if (-not [IO.File]::Exists($segment) -or
         ([IO.FileInfo]::new($segment)).Length -gt 131072) {

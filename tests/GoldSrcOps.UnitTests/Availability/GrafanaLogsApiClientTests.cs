@@ -138,6 +138,42 @@ public sealed class GrafanaLogsApiClientTests
         result.Should().BeNull();
     }
 
+    [Theory]
+    [InlineData(4_999, false)]
+    [InlineData(5_000, true)]
+    public async Task QueryAsync_default_limit_reserves_sentinel_within_provider_limit(
+        int returnedLineCount,
+        bool shouldReject)
+    {
+        const string line = "level=ERROR msg=\"Resolution with IP protocol failed\"";
+        var response = CreateLokiResponse(Enumerable.Range(0, returnedLineCount)
+            .Select(index => (WindowStart.AddMilliseconds(index), line))
+            .ToArray());
+        using var handler = new CapturingHttpMessageHandler(
+            new StubResponse(HttpStatusCode.OK, response));
+        using var httpClient = CreateHttpClient(handler);
+        var options = GrafanaLogsApiOptions.CreateOptional(
+            "https://logs.example.test", "logs-user", "logs-token", CreateMetricsOptions());
+        Assert.NotNull(options);
+        var client = new GrafanaLogsApiClient(httpClient, options);
+
+        if (shouldReject)
+        {
+            var exception = await Assert.ThrowsAsync<GrafanaLogsApiException>(() =>
+                client.QueryAsync(WindowStart, WindowStart.AddMinutes(1), CancellationToken.None));
+            exception.Message.Should().Contain("line limit");
+        }
+        else
+        {
+            var details = await client.QueryAsync(
+                WindowStart, WindowStart.AddMinutes(1), CancellationToken.None);
+            details.Should().HaveCount(returnedLineCount);
+        }
+
+        var request = handler.Requests.Should().ContainSingle().Which;
+        Uri.UnescapeDataString(request.RequestUri.Query).Should().Contain("limit=5000&");
+    }
+
     [Fact]
     public void CreateOptional_rejects_partial_log_settings_without_exposing_values()
     {
