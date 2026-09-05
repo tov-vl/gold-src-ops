@@ -121,6 +121,14 @@ Use the read-only `rehearse` command with the expected digest to determine
 whether the object committed. Do not run a manual writer while the scheduled
 workflow owns the namespace.
 
+Use the manual `Availability Evidence Recovery` workflow for an independently
+executed recovery rehearsal. Supply the reviewed segment SHA-256 and its exact
+UTC evaluation window. The workflow re-exports that immutable source interval,
+builds an expected deterministic report, then downloads the archived segment
+with the prefix-scoped read credential and compares the recovered report. It
+does not receive the B2 writer credential, upload a GitHub artifact, or retain
+the temporary evidence files.
+
 Before starting a 24-hour shadow:
 
 1. review the pinned exporter revision and effective monitor revision;

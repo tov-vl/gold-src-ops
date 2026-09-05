@@ -8,6 +8,9 @@ $ErrorActionPreference = "Stop"
 
 $schedulerPath = Join-Path $PSScriptRoot "../../ops/availability/run-export-cycle.ps1"
 $workflowPath = Join-Path $PSScriptRoot "../../.github/workflows/availability-evidence.yml"
+$recoveryWorkflowPath = Join-Path `
+    $PSScriptRoot `
+    "../../.github/workflows/availability-evidence-recovery.yml"
 $temporaryRoot = Join-Path `
     ([IO.Path]::GetTempPath()) `
     "goldsrcops-availability-schedule-$([Guid]::NewGuid().ToString('N'))"
@@ -384,7 +387,35 @@ throw "Unexpected fake exporter command '$command'."
         throw "Availability evidence workflow must not retain raw GitHub artifacts."
     }
 
-    Write-Host "Availability evidence schedule smoke passed: plan, success, secret boundary, failure paths, cleanup, and workflow contract."
+    $recoveryWorkflow = Get-Content -LiteralPath $recoveryWorkflowPath -Raw
+    foreach ($fragment in @(
+            "workflow_dispatch:",
+            "segment_sha256:",
+            "group: availability-evidence-recovery-v1",
+            "cancel-in-progress: false",
+            "contents: read",
+            "name: availability-evidence-shadow",
+            "deployment: false",
+            "persist-credentials: false",
+            "git merge-base --is-ancestor",
+            'ref: ${{ vars.GOLDSRCOPS_AVAILABILITY_EXPORTER_REVISION }}',
+            'GOLDSRCOPS_B2_READ_KEY_ID: ${{ secrets.GOLDSRCOPS_B2_READ_KEY_ID }}',
+            "Invoke-Exporter rehearse")) {
+        if (-not $recoveryWorkflow.Contains($fragment, [StringComparison]::Ordinal)) {
+            throw "Availability recovery workflow is missing required fragment '$fragment'."
+        }
+    }
+
+    foreach ($forbidden in @(
+            "GOLDSRCOPS_B2_WRITE_KEY_ID",
+            "GOLDSRCOPS_B2_WRITE_APPLICATION_KEY",
+            "upload-artifact")) {
+        if ($recoveryWorkflow.Contains($forbidden, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Availability recovery workflow contains forbidden fragment '$forbidden'."
+        }
+    }
+
+    Write-Host "Availability evidence schedule smoke passed: writer and read-only recovery contracts, failure paths, and cleanup."
 }
 finally {
     foreach ($name in $environmentNames) {

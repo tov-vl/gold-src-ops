@@ -1,0 +1,216 @@
+name: Availability Evidence Recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      segment_sha256:
+        description: SHA-256 of the reviewed content-addressed segment
+        required: true
+        type: string
+      window_start_utc:
+        description: Exact UTC start minute of the archived evaluation window
+        required: true
+        type: string
+      window_end_utc:
+        description: Exact UTC end minute of the archived evaluation window
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: availability-evidence-recovery-v1
+  cancel-in-progress: false
+
+env:
+  CI: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  rehearse-primary:
+    name: Rehearse Primary Evidence Recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: availability-evidence-shadow
+      deployment: false
+
+    steps:
+      - name: Checkout pinned exporter revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ vars.GOLDSRCOPS_AVAILABILITY_EXPORTER_REVISION }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify pinned exporter revision
+        shell: bash
+        env:
+          EXPECTED_REVISION: ${{ vars.GOLDSRCOPS_AVAILABILITY_EXPORTER_REVISION }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$EXPECTED_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error title=Invalid exporter revision::The environment revision must be a 40-character lowercase commit SHA."
+            exit 1
+          fi
+
+          actual_revision="$(git rev-parse HEAD)"
+          if [[ "$actual_revision" != "$EXPECTED_REVISION" ]]; then
+            echo "::error title=Exporter revision mismatch::The checked-out source does not match the reviewed environment revision."
+            exit 1
+          fi
+
+          git fetch --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main"
+          if ! git merge-base --is-ancestor \
+            "$EXPECTED_REVISION" \
+            "refs/remotes/origin/main"; then
+            echo "::error title=Untrusted exporter revision::The reviewed exporter revision is not reachable from main."
+            exit 1
+          fi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+        with:
+          global-json-file: global.json
+
+      - name: Restore exporter with NuGet audit
+        run: >-
+          dotnet restore
+          ./src/GoldSrcOps.AvailabilityExporter/GoldSrcOps.AvailabilityExporter.csproj
+          -p:AuditPipeline=true
+
+      - name: Publish exporter
+        run: >-
+          dotnet publish
+          ./src/GoldSrcOps.AvailabilityExporter/GoldSrcOps.AvailabilityExporter.csproj
+          --configuration Release
+          --no-restore
+          --output "$RUNNER_TEMP/availability-exporter"
+
+      - name: Re-export and rehearse primary evidence
+        shell: pwsh
+        env:
+          REQUESTED_SEGMENT_SHA256: ${{ inputs.segment_sha256 }}
+          REQUESTED_WINDOW_START_UTC: ${{ inputs.window_start_utc }}
+          REQUESTED_WINDOW_END_UTC: ${{ inputs.window_end_utc }}
+          GOLDSRCOPS_AVAILABILITY_PRIMARY_JOB: goldsrcops-api-ready-primary-shadow
+          GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE: ${{ secrets.GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE }}
+          GOLDSRCOPS_AVAILABILITY_PRIMARY_LOCATION: Frankfurt
+          GOLDSRCOPS_AVAILABILITY_MONITOR_REVISION: v2-4-shadow-001
+          GOLDSRCOPS_GRAFANA_METRICS_URL: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_URL }}
+          GOLDSRCOPS_GRAFANA_METRICS_USER: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_USER }}
+          GOLDSRCOPS_GRAFANA_METRICS_TOKEN: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_TOKEN }}
+          GOLDSRCOPS_GRAFANA_LOGS_URL: ${{ secrets.GOLDSRCOPS_GRAFANA_LOGS_URL }}
+          GOLDSRCOPS_GRAFANA_LOGS_USER: ${{ secrets.GOLDSRCOPS_GRAFANA_LOGS_USER }}
+          GOLDSRCOPS_GRAFANA_LOGS_TOKEN: ${{ secrets.GOLDSRCOPS_GRAFANA_LOGS_TOKEN }}
+          GOLDSRCOPS_B2_S3_ENDPOINT: ${{ secrets.GOLDSRCOPS_B2_S3_ENDPOINT }}
+          GOLDSRCOPS_B2_REGION: ${{ secrets.GOLDSRCOPS_B2_REGION }}
+          GOLDSRCOPS_B2_BUCKET: ${{ secrets.GOLDSRCOPS_B2_BUCKET }}
+          GOLDSRCOPS_B2_READ_KEY_ID: ${{ secrets.GOLDSRCOPS_B2_READ_KEY_ID }}
+          GOLDSRCOPS_B2_READ_APPLICATION_KEY: ${{ secrets.GOLDSRCOPS_B2_READ_APPLICATION_KEY }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          if ($env:REQUESTED_SEGMENT_SHA256 -notmatch '\A[0-9a-fA-F]{64}\z') {
+            throw "The segment SHA-256 must contain exactly 64 hexadecimal characters."
+          }
+
+          $styles = [Globalization.DateTimeStyles]::AssumeUniversal -bor
+            [Globalization.DateTimeStyles]::AdjustToUniversal
+          $start = [DateTimeOffset]::MinValue
+          $end = [DateTimeOffset]::MinValue
+          $format = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+          if (-not [DateTimeOffset]::TryParseExact(
+              $env:REQUESTED_WINDOW_START_UTC,
+              $format,
+              [Globalization.CultureInfo]::InvariantCulture,
+              $styles,
+              [ref]$start)) {
+            throw "The window start must use the exact UTC-minute format."
+          }
+          if (-not [DateTimeOffset]::TryParseExact(
+              $env:REQUESTED_WINDOW_END_UTC,
+              $format,
+              [Globalization.CultureInfo]::InvariantCulture,
+              $styles,
+              [ref]$end)) {
+            throw "The window end must use the exact UTC-minute format."
+          }
+          if ($end -le $start -or $end -gt [DateTimeOffset]::UtcNow) {
+            throw "The recovery window must be a completed positive interval."
+          }
+
+          $directory = Join-Path `
+            $env:RUNNER_TEMP `
+            "availability-evidence-recovery-$([Guid]::NewGuid().ToString('N'))"
+          [IO.Directory]::CreateDirectory($directory) | Out-Null
+          $freshSegment = Join-Path $directory "fresh.jsonl"
+          $expectedReport = Join-Path $directory "expected-report.json"
+          $recoveredSegment = Join-Path $directory "recovered.jsonl"
+          $recoveredReport = Join-Path $directory "recovered-report.json"
+          $assembly = "$env:RUNNER_TEMP/availability-exporter/GoldSrcOps.AvailabilityExporter.dll"
+          $startText = $start.ToString("O", [Globalization.CultureInfo]::InvariantCulture)
+          $endText = $end.ToString("O", [Globalization.CultureInfo]::InvariantCulture)
+          $evaluatedAtText = $end.AddMinutes(5).ToString(
+            "O",
+            [Globalization.CultureInfo]::InvariantCulture)
+
+          function Invoke-Exporter {
+            dotnet $assembly @args
+            if ($LASTEXITCODE -ne 0) {
+              throw "Availability exporter command failed with exit code $LASTEXITCODE."
+            }
+          }
+
+          try {
+            Invoke-Exporter export `
+              --window-start $startText `
+              --window-end $endText `
+              --job $env:GOLDSRCOPS_AVAILABILITY_PRIMARY_JOB `
+              --probe $env:GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE `
+              --environment production `
+              --role primary `
+              --monitor-revision $env:GOLDSRCOPS_AVAILABILITY_MONITOR_REVISION `
+              --location $env:GOLDSRCOPS_AVAILABILITY_PRIMARY_LOCATION `
+              --output $freshSegment `
+              --overlap-minutes 10 `
+              --step-seconds 15
+
+            Invoke-Exporter evaluate `
+              --input $freshSegment `
+              --window-start $startText `
+              --window-end $endText `
+              --evaluated-at $evaluatedAtText `
+              --monitor-revision $env:GOLDSRCOPS_AVAILABILITY_MONITOR_REVISION `
+              --location $env:GOLDSRCOPS_AVAILABILITY_PRIMARY_LOCATION `
+              --output $expectedReport
+
+            Invoke-Exporter rehearse `
+              --sha256 $env:REQUESTED_SEGMENT_SHA256 `
+              --download-output $recoveredSegment `
+              --expected-report $expectedReport `
+              --output $recoveredReport `
+              --window-start $startText `
+              --window-end $endText `
+              --evaluated-at $evaluatedAtText `
+              --monitor-revision $env:GOLDSRCOPS_AVAILABILITY_MONITOR_REVISION `
+              --location $env:GOLDSRCOPS_AVAILABILITY_PRIMARY_LOCATION
+
+            @(
+              "## Availability evidence recovery",
+              "",
+              "- Result: verified",
+              "- Window start: ``$startText``",
+              "- Window end: ``$endText``",
+              "- Lookback: ``$([int]($end - $start).TotalMinutes)`` minutes",
+              "- Storage access: read only",
+              "- Raw GitHub artifact: not retained") |
+                Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+          }
+          finally {
+            Remove-Item -LiteralPath $directory -Recurse -Force
+          }
