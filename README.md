@@ -253,9 +253,10 @@ RCON dispatch configuration lives under `Rcon`:
 See [docs/rcon.md](docs/rcon.md) for secret-reference formats, dispatch flow,
 validated receive bounds, and current RCON limits.
 
-All control-plane API endpoints require an authenticated bearer token. Read
-endpoints and `/metrics` accept `Reader` or `Operator`; mutations require
-`Operator`. Liveness and readiness remain anonymous. See
+All control-plane API endpoints require an authenticated bearer token except
+for liveness, readiness, and the deliberately sanitized public status
+projection. Read endpoints and `/metrics` accept `Reader` or `Operator`;
+mutations require `Operator`. See
 [docs/security.md](docs/security.md) for the complete policy matrix and
 production configuration requirements.
 
@@ -263,6 +264,7 @@ API endpoints:
 
 - `GET /health/live` - lightweight liveness probe.
 - `GET /health/ready` - readiness probe that validates database connectivity.
+- `GET /api/public/status` - anonymous aggregate status for enabled servers.
 - `GET /metrics` - Prometheus scrape endpoint backed by OpenTelemetry metrics.
 - `POST /api/servers`
 - `GET /api/servers`
@@ -324,6 +326,19 @@ Telemetry__Otlp__ExportTimeoutMilliseconds=30000
 `http/protobuf` is also supported. The endpoint must be an absolute HTTP or
 HTTPS URL without user information, query, or fragment. Export timeout cannot
 exceed the export interval.
+
+### 5. Run The Public Dashboard
+
+With the API running, start the Blazor Web App in a second terminal:
+
+```powershell
+dotnet run --project .\src\GoldSrcOps.Web --launch-profile http
+```
+
+The public dashboard is available at `http://localhost:5123`. Development uses
+`http://localhost:5142` as its API base URL. The browser receives only the
+sanitized public projection; API access happens from the server-rendered web
+host.
 
 ## Local Smoke Flow
 

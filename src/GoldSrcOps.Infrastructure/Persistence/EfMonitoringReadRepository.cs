@@ -78,4 +78,14 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
             .AsNoTracking()
             .CountAsync(x => x.ClosedAtUtc == null, cancellationToken);
     }
+
+    public async Task<int> CountOpenIncidentsForEnabledServersAsync(CancellationToken cancellationToken)
+    {
+        return await (
+            from incident in _dbContext.AvailabilityIncidents.AsNoTracking()
+            join server in _dbContext.Servers.AsNoTracking() on incident.ServerId equals server.Id
+            where incident.ClosedAtUtc == null && server.IsEnabled
+            select incident.Id)
+            .CountAsync(cancellationToken);
+    }
 }

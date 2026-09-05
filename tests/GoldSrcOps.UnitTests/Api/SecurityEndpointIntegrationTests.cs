@@ -56,13 +56,14 @@ public sealed class SecurityEndpointIntegrationTests
     }
 
     [Fact]
-    public async Task Anonymous_client_can_call_health_only()
+    public async Task Anonymous_client_can_call_health_and_public_status_only()
     {
         await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Anonymous);
         using var client = factory.CreateClient();
 
         var live = await client.GetAsync("/health/live");
         var ready = await client.GetAsync("/health/ready");
+        var publicStatus = await client.GetAsync("/api/public/status");
         var read = await client.GetAsync("/api/servers");
         var alertDeliveryRead = await client.GetAsync("/api/alert-delivery/dead-letters");
         var alertDeliveryDetail = await client.GetAsync(
@@ -77,6 +78,7 @@ public sealed class SecurityEndpointIntegrationTests
 
         live.StatusCode.Should().Be(HttpStatusCode.OK);
         ready.StatusCode.Should().Be(HttpStatusCode.OK);
+        publicStatus.StatusCode.Should().Be(HttpStatusCode.OK);
         read.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryRead.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryDetail.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

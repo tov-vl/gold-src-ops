@@ -1,0 +1,174 @@
+@page "/"
+@attribute [StreamRendering]
+@inject PublicStatusClient StatusClient
+@inject ILogger<Home> Logger
+
+<PageTitle>GoldSrcOps status</PageTitle>
+<HeadContent>
+    <meta name="description" content="Live public status for the GoldSrcOps monitored game-server fleet." />
+</HeadContent>
+
+<div class="status-page">
+    <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">Fleet control plane</p>
+        <h1 id="page-title">GoldSrcOps</h1>
+        <p class="lede">Live status for the monitored GoldSrc server fleet.</p>
+    </section>
+
+    @if (_isLoading)
+    {
+        <section class="status-loading" aria-busy="true" aria-live="polite">
+            <div class="loading-signal" aria-hidden="true"></div>
+            <div>
+                <p class="loading-title">Loading current status</p>
+                <p class="loading-copy">Reading the latest monitoring snapshot.</p>
+            </div>
+        </section>
+    }
+    else if (_status is null)
+    {
+        <section class="status-summary status-summary--unavailable" role="status">
+            <div class="summary-copy">
+                <span class="status-signal" aria-hidden="true"></span>
+                <div>
+                    <p class="status-kicker">Status unavailable</p>
+                    <h2>Monitoring data could not be reached</h2>
+                    <p>Please try again shortly. No last-known state is shown as current data.</p>
+                </div>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="status-summary @SummaryClass" role="status">
+            <div class="summary-copy">
+                <span class="status-signal" aria-hidden="true"></span>
+                <div>
+                    <p class="status-kicker">@StatusLabel</p>
+                    <h2>@StatusHeading</h2>
+                    <p>@StatusDescription</p>
+                </div>
+            </div>
+
+            <div class="observation-time">
+                <span>Last observation</span>
+                @if (_status.LastObservedAtUtc is { } observedAtUtc)
+                {
+                    <time datetime="@observedAtUtc.ToString("O")">
+                        @observedAtUtc.ToUniversalTime().ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture)
+                    </time>
+                }
+                else
+                {
+                    <strong>Not available</strong>
+                }
+            </div>
+        </section>
+
+        <section class="fleet" aria-labelledby="fleet-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Current snapshot</p>
+                    <h2 id="fleet-title">Monitored fleet</h2>
+                </div>
+                <p>@FleetSummary</p>
+            </div>
+
+            <div class="fleet-meter" role="img" aria-label="@FleetSummary">
+                @if (_status.MonitoredServers > 0)
+                {
+                    <span class="fleet-meter__online" style="flex-grow: @_status.OnlineServers"></span>
+                    <span class="fleet-meter__attention" style="flex-grow: @_status.ServersRequiringAttention"></span>
+                }
+                else
+                {
+                    <span class="fleet-meter__empty"></span>
+                }
+            </div>
+
+            <div class="metrics">
+                <article class="metric">
+                    <span class="metric-label">Monitored</span>
+                    <strong>@_status.MonitoredServers</strong>
+                    <span>enabled servers</span>
+                </article>
+                <article class="metric metric--online">
+                    <span class="metric-label">Online</span>
+                    <strong>@_status.OnlineServers</strong>
+                    <span>responding normally</span>
+                </article>
+                <article class="metric metric--attention">
+                    <span class="metric-label">Attention</span>
+                    <strong>@_status.ServersRequiringAttention</strong>
+                    <span>offline or awaiting data</span>
+                </article>
+                <article class="metric metric--incidents">
+                    <span class="metric-label">Open incidents</span>
+                    <strong>@_status.OpenIncidents</strong>
+                    <span>active availability events</span>
+                </article>
+            </div>
+        </section>
+
+        <section class="scope-note" aria-labelledby="scope-title">
+            <h2 id="scope-title">What this page reports</h2>
+            <p>
+                This public view shows aggregate availability only. Administrative endpoints,
+                server addresses, command history, and provider details remain private.
+            </p>
+        </section>
+    }
+</div>
+
+@code {
+    private PublicStatusResponse? _status;
+    private bool _isLoading = true;
+
+    private string SummaryClass => _status?.State switch
+    {
+        "operational" => "status-summary--operational",
+        "degraded" => "status-summary--degraded",
+        _ => "status-summary--unknown"
+    };
+
+    private string StatusLabel => _status?.State switch
+    {
+        "operational" => "Operational",
+        "degraded" => "Degraded",
+        _ => "Status unknown"
+    };
+
+    private string StatusHeading => _status?.State switch
+    {
+        "operational" => "All monitored servers are online",
+        "degraded" => "Some servers require attention",
+        _ => "Monitoring is waiting for observations"
+    };
+
+    private string StatusDescription => _status?.State switch
+    {
+        "operational" => "The latest monitoring snapshot reports normal availability.",
+        "degraded" => "At least one server is offline, unobserved, or has an open incident.",
+        _ => "No complete observation is available for the enabled fleet yet."
+    };
+
+    private string FleetSummary => _status is null
+        ? "No fleet data available."
+        : $"{_status.OnlineServers} of {_status.MonitoredServers} monitored servers online.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _status = await StatusClient.GetStatusAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load the public fleet status.");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

@@ -27,6 +27,10 @@ if (builder.Environment.IsDevelopment())
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
+builder.Services.AddOutputCache(static options =>
+    options.AddPolicy(
+        PublicStatusEndpoints.CachePolicyName,
+        static policy => policy.Expire(TimeSpan.FromSeconds(15))));
 var reverseProxyEnabled = ReverseProxyConfiguration.Configure(
     builder.Services,
     builder.Configuration);
@@ -69,6 +73,7 @@ if (reverseProxyEnabled)
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseOutputCache();
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
@@ -82,6 +87,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     .AllowAnonymous();
 app.MapPrometheusScrapingEndpoint("/metrics")
     .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
+app.MapPublicStatusEndpoints();
 app.MapAlertDeliveryEndpoints();
 app.MapServerEndpoints();
 app.MapIncidentEndpoints();

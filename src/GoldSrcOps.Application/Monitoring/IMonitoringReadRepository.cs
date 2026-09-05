@@ -14,4 +14,6 @@ public interface IMonitoringReadRepository
     Task<IReadOnlyList<DashboardServerStatusDto>> ListDashboardServerStatusesAsync(CancellationToken cancellationToken);
 
     Task<int> CountOpenIncidentsAsync(CancellationToken cancellationToken);
+
+    Task<int> CountOpenIncidentsForEnabledServersAsync(CancellationToken cancellationToken);
 }

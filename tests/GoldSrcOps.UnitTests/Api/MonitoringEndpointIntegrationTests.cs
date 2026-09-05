@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using AwesomeAssertions;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Domain.Servers;
@@ -129,6 +130,69 @@ public sealed class MonitoringEndpointIntegrationTests
             UnknownServers: 1,
             OpenIncidents: 1,
             LastCheckedAtUtc: lastCheckedAtUtc));
+    }
+
+    [Fact]
+    public async Task GetPublicStatus_returns_sanitized_enabled_fleet_summary_for_anonymous_client()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Anonymous);
+        using var client = factory.CreateClient();
+        var now = new DateTimeOffset(2026, 9, 5, 12, 0, 0, TimeSpan.Zero);
+        var lastObservedAtUtc = now.AddMinutes(-1);
+        await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var onlineServer = CreateServer("Dust2 Public", "127.0.0.1", createdAtUtc: now.AddHours(-1));
+            onlineServer.GetCurrentState(now).MarkOnline(lastObservedAtUtc, 20, "de_dust2", 14, 32);
+
+            var offlineServer = CreateServer("Inferno Public", "127.0.0.2", createdAtUtc: now.AddHours(-1));
+            offlineServer.GetCurrentState(now).MarkOffline(now.AddMinutes(-5), "query timeout");
+
+            var disabledServer = CreateServer("Nuke Public", "127.0.0.3", createdAtUtc: now.AddHours(-1));
+            disabledServer.GetCurrentState(now).MarkOffline(now, "maintenance");
+            disabledServer.Disable();
+
+            dbContext.Servers.AddRange(onlineServer, offlineServer, disabledServer);
+            dbContext.AvailabilityIncidents.AddRange(
+                AvailabilityIncident.Open(
+                    offlineServer.Id,
+                    now.AddMinutes(-5),
+                    "query timeout",
+                    consecutiveFailures: 3),
+                AvailabilityIncident.Open(
+                    disabledServer.Id,
+                    now,
+                    "maintenance",
+                    consecutiveFailures: 3));
+            await dbContext.SaveChangesAsync();
+        });
+
+        var response = await client.GetAsync("/api/public/status");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(payload);
+        document.RootElement
+            .EnumerateObject()
+            .Select(static property => property.Name)
+            .Should()
+            .BeEquivalentTo(
+                "state",
+                "monitoredServers",
+                "onlineServers",
+                "serversRequiringAttention",
+                "openIncidents",
+                "lastObservedAtUtc");
+
+        var status = JsonSerializer.Deserialize<PublicStatusResponse>(
+            payload,
+            JsonSerializerOptions.Web);
+        status.Should().BeEquivalentTo(new PublicStatusResponse(
+            State: "degraded",
+            MonitoredServers: 2,
+            OnlineServers: 1,
+            ServersRequiringAttention: 1,
+            OpenIncidents: 1,
+            LastObservedAtUtc: lastObservedAtUtc));
     }
 
     private static Server CreateServer(string name, string host, DateTimeOffset createdAtUtc)
