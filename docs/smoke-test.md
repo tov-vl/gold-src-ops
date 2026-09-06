@@ -155,6 +155,8 @@ writing them to files, shell history, logs, or chat:
 
 - a GoldSrcOps access token for a dedicated identity whose only application
   role is `Reader`;
+- a GoldSrcOps access token for a dedicated identity whose application role is
+  `Operator`;
 - a GoldSrcOps access token issued to the same identity before any application
   role was assigned;
 - a GoldSrcOps access token from the configured issuer and audience whose
@@ -163,7 +165,7 @@ writing them to files, shell history, logs, or chat:
   is the native client rather than the GoldSrcOps API.
 
 The helper generates its foreign-issuer case as an ephemeral RS256 token. That
-private key exists only in process memory. Run the matrix and enter the four
+private key exists only in process memory. Run the matrix and enter the five
 prepared values at the masked prompts:
 
 ```powershell
@@ -186,6 +188,8 @@ The expected matrix is:
 | Reader dashboard read | `200` |
 | Reader metrics read | `200` |
 | Reader server-registration attempt | `403` before endpoint execution |
+| Operator dashboard read | `200` |
+| Operator invalid server-registration attempt | `400` after authorization and before persistence |
 | Valid token without an application role | `403` |
 | Expired GoldSrcOps access token | `401` with Bearer challenge |
 | Ephemeral signed foreign-issuer token | `401` with Bearer challenge |

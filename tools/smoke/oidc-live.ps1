@@ -6,9 +6,11 @@ Verifies the production OIDC authorization matrix through the public API.
 
 .DESCRIPTION
 Checks anonymous rejection, Reader read access, Reader mutation denial,
-missing-role denial, and Bearer rejection for expired, foreign-issuer, and
-wrong-audience tokens. Tokens are accepted only as SecureString values or
-prompted without echo. Response bodies and token claims are never read.
+Operator read and mutation-policy access, missing-role denial, and Bearer
+rejection for expired, foreign-issuer, and wrong-audience tokens. Tokens are
+accepted only as SecureString values or prompted without echo. Response bodies
+and token claims are never read. The Operator mutation-policy probe uses an
+invalid request that must be rejected before any server is registered.
 
 .PARAMETER BaseUrl
 The public GoldSrcOps HTTPS origin. Paths, credentials, query strings, and
@@ -16,6 +18,9 @@ fragments are rejected.
 
 .PARAMETER ReaderAccessToken
 A valid access token whose only GoldSrcOps application role is Reader.
+
+.PARAMETER OperatorAccessToken
+A valid access token whose GoldSrcOps application role is Operator.
 
 .PARAMETER MissingRoleAccessToken
 A valid access token from the configured issuer and audience without a
@@ -46,6 +51,8 @@ param(
     [Uri]$BaseUrl = "https://api.goldsrcops.com",
 
     [Security.SecureString]$ReaderAccessToken,
+
+    [Security.SecureString]$OperatorAccessToken,
 
     [Security.SecureString]$MissingRoleAccessToken,
 
@@ -321,6 +328,9 @@ try {
     $readerToken = Resolve-RequiredToken `
         -Value $ReaderAccessToken `
         -Prompt "GoldSrcOps Reader access token"
+    $operatorToken = Resolve-RequiredToken `
+        -Value $OperatorAccessToken `
+        -Prompt "GoldSrcOps Operator access token"
     $missingRoleToken = Resolve-RequiredToken `
         -Value $MissingRoleAccessToken `
         -Prompt "GoldSrcOps access token without an application role"
@@ -372,6 +382,22 @@ try {
             Path = "/api/servers"
             AccessToken = $readerToken
             ExpectedStatus = 403
+            RequireBearerChallenge = $false
+        },
+        [pscustomobject]@{
+            Name = "OperatorRead"
+            Method = "GET"
+            Path = "/api/dashboard/overview"
+            AccessToken = $operatorToken
+            ExpectedStatus = 200
+            RequireBearerChallenge = $false
+        },
+        [pscustomobject]@{
+            Name = "OperatorMutationValidation"
+            Method = "POST"
+            Path = "/api/servers"
+            AccessToken = $operatorToken
+            ExpectedStatus = 400
             RequireBearerChallenge = $false
         },
         [pscustomobject]@{

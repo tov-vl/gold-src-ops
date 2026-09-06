@@ -12,6 +12,7 @@ $temporaryDirectory = Join-Path ([IO.Path]::GetTempPath()) "goldsrcops-oidc-$run
 $evidencePath = Join-Path $temporaryDirectory "oidc-evidence.json"
 $secretValues = @(
     "reader-$runId",
+    "operator-$runId",
     "missing-role-$runId",
     "expired-$runId",
     "wrong-audience-$runId"
@@ -47,15 +48,18 @@ try {
     New-Item -ItemType Directory -Path $temporaryDirectory | Out-Null
 
     $readerToken = New-TestToken -Value $secretValues[0]
-    $missingRoleToken = New-TestToken -Value $secretValues[1]
-    $expiredToken = New-TestToken -Value $secretValues[2]
-    $wrongAudienceToken = New-TestToken -Value $secretValues[3]
+    $operatorToken = New-TestToken -Value $secretValues[1]
+    $missingRoleToken = New-TestToken -Value $secretValues[2]
+    $expiredToken = New-TestToken -Value $secretValues[3]
+    $wrongAudienceToken = New-TestToken -Value $secretValues[4]
 
     $expectedResponses = @{
         AnonymousReader = [pscustomobject]@{ StatusCode = 401; HasBearerChallenge = $true }
         ReaderRead = [pscustomobject]@{ StatusCode = 200; HasBearerChallenge = $false }
         ReaderMetrics = [pscustomobject]@{ StatusCode = 200; HasBearerChallenge = $false }
         ReaderMutation = [pscustomobject]@{ StatusCode = 403; HasBearerChallenge = $false }
+        OperatorRead = [pscustomobject]@{ StatusCode = 200; HasBearerChallenge = $false }
+        OperatorMutationValidation = [pscustomobject]@{ StatusCode = 400; HasBearerChallenge = $false }
         MissingRole = [pscustomobject]@{ StatusCode = 403; HasBearerChallenge = $false }
         ExpiredToken = [pscustomobject]@{ StatusCode = 401; HasBearerChallenge = $true }
         ForeignIssuer = [pscustomobject]@{ StatusCode = 401; HasBearerChallenge = $true }
@@ -87,6 +91,7 @@ try {
     $parameters = @{
         BaseUrl = [Uri]"http://127.0.0.1:5142/"
         ReaderAccessToken = $readerToken
+        OperatorAccessToken = $operatorToken
         MissingRoleAccessToken = $missingRoleToken
         ExpiredAccessToken = $expiredToken
         WrongAudienceAccessToken = $wrongAudienceToken
@@ -101,6 +106,8 @@ try {
         "ReaderRead",
         "ReaderMetrics",
         "ReaderMutation",
+        "OperatorRead",
+        "OperatorMutationValidation",
         "MissingRole",
         "ExpiredToken",
         "ForeignIssuer",
@@ -143,6 +150,7 @@ try {
         & $matrixScript `
             -BaseUrl ([Uri]"http://127.0.0.1:5142/") `
             -ReaderAccessToken $readerToken `
+            -OperatorAccessToken $operatorToken `
             -MissingRoleAccessToken $missingRoleToken `
             -ExpiredAccessToken $expiredToken `
             -WrongAudienceAccessToken $wrongAudienceToken `
