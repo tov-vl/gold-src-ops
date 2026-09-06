@@ -22,7 +22,8 @@ Completed:
 - Successful and failed poll attempts update `ServerCurrentState`.
 - Every poll attempt writes a `PollSnapshot`.
 - Availability incident detection added.
-- `GET /api/incidents/open`, `GET /api/incidents/{id}`, and `GET /api/servers/{id}/incidents` added.
+- `GET /api/incidents/open`, `GET /api/incidents/{id}`, and bounded
+  `GET /api/servers/{id}/incidents?limit=` added.
 - Unit tests added for incident open/close transitions.
 - Code style and static analysis configured through `.editorconfig`, `Directory.Build.props`, and Meziantou.Analyzer.
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=` added.
@@ -105,8 +106,8 @@ Completed:
 - Private vulnerability reporting, the dependency graph, Dependabot alerts and
   security updates, Secret Protection, and push protection are enabled.
 - The active `Protect main` ruleset has no bypasses and requires signed commits,
-  linear history, and the GitHub Actions `Quality Gate`; it also blocks branch
-  deletion and force pushes.
+  linear history, and the GitHub Actions `Quality Gate`, `Container Smoke`, and
+  `Browser Smoke`; it also blocks branch deletion and force pushes.
 - The initial publication commit was pushed and passed the GitHub Actions
   `Quality Gate`.
 - Release documentation was integrated into `main` through a signed linear
@@ -719,7 +720,8 @@ Delivery order:
    on 2026-09-06. Richer public availability history remains follow-up work.
    See `docs/v2.4-public-dashboard-deployment.md` and
    `docs/v2.4-reader-portal.md`.
-6. **Operator experience (first read-only slice deployed 2026-09-06)**: pull
+6. **Operator experience (second read-only repository slice implemented
+   2026-09-06)**: pull
    request #87 added OIDC login/logout, a server-side BFF session, server
    inventory, and current server status without mutations. Signed candidate
    `v2.4.0-rc.3` and
@@ -733,9 +735,15 @@ Delivery order:
    token-free protected responses and DOM content, and the opaque secure
    session-cookie contract. This closes the bounded token-boundary evidence
    item; separate availability and release-readiness criteria remain.
-   Incidents and history are the next read-only slice; commands, dead letters,
-   and replay remain later Operator work and must preserve the existing API
-   policies and audit trail.
+   The second repository slice adds an open-incident fleet view and per-server
+   tabs for current status versus bounded A2S and incident history. The incident
+   API now validates an optional limit, clamps it defensively in the application
+   layer, and applies it before EF Core materialization. Reader, Operator,
+   no-role, API-boundary, browser token-boundary, and stylesheet-activation
+   checks cover the new surface; desktop and mobile screenshots were reviewed
+   locally. Candidate publication and production verification remain pending.
+   Commands, dead letters, and replay remain later Operator work and must
+   preserve the existing API policies and audit trail.
 7. **First SLO review**: after a complete forward-looking window, publish the
    reproducible sanitized result and report `API-01` as met or missed. Review the
    target without changing it to fit the observed result.
@@ -786,7 +794,7 @@ Monitoring:
 Incidents:
 
 - `GET /api/incidents/open`
-- `GET /api/servers/{id}/incidents`
+- `GET /api/servers/{id}/incidents?limit=`
 - `GET /api/incidents/{id}`
 
 Commands:
@@ -978,12 +986,11 @@ Remaining portfolio gaps, in priority order:
   and activate `API-01` only for a new prospective window; archive and independent
   scheduled-segment recovery are already proved, while the completed v2.3
   24-hour release sample is not a monthly uptime claim.
-- Package and deploy the implemented public read-only dashboard, then add a
-  bounded historical availability view without broadening its sanitized API.
-  The packaging and rollout contract is implemented; target publication and
-  public verification evidence are pending.
-- An authenticated Reader/Operator web workflow for servers, incidents,
-  commands, dead letters, and replay.
+- Add a bounded historical availability view to the deployed public dashboard
+  without broadening its sanitized API or treating shadow data as an active SLO.
+- Publish and verify the second authenticated read-only portal slice, then add
+  guarded Operator workflows for commands, dead letters, and replay while
+  preserving authorization, idempotency, and audit contracts.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
 - A later versioned AMX Mod X/ReAPI event agent with a durable inbox, only after

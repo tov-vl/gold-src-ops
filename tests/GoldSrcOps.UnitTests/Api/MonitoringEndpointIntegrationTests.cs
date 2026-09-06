@@ -3,6 +3,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AwesomeAssertions;
+using GoldSrcOps.Application.Incidents;
+using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Domain.Servers;
 
@@ -89,6 +91,67 @@ public sealed class MonitoringEndpointIntegrationTests
             $"/api/servers/{Guid.NewGuid()}/snapshots?from={ToQueryValue(fromUtc)}&to={ToQueryValue(toUtc)}");
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task GetServerIncidents_returns_requested_recent_limit_in_reverse_chronological_order()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var openedAtUtc = new DateTimeOffset(2026, 9, 6, 9, 0, 0, TimeSpan.Zero);
+        var seed = await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var server = CreateServer("Incident fixture", "127.0.0.3", openedAtUtc.AddHours(-2));
+            var olderIncident = AvailabilityIncident.Open(
+                server.Id,
+                openedAtUtc.AddHours(-1),
+                "Earlier timeout",
+                consecutiveFailures: 3);
+            olderIncident.Close(openedAtUtc.AddMinutes(-30), "Probe recovered");
+            var newestIncident = AvailabilityIncident.Open(
+                server.Id,
+                openedAtUtc,
+                "Current timeout",
+                consecutiveFailures: 4);
+
+            dbContext.Servers.Add(server);
+            dbContext.AvailabilityIncidents.AddRange(olderIncident, newestIncident);
+            await dbContext.SaveChangesAsync();
+
+            return new IncidentSeed(server.Id, newestIncident.Id);
+        });
+
+        var response = await client.GetAsync($"/api/servers/{seed.ServerId:D}/incidents?limit=1");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var incidents = await response.Content.ReadFromJsonAsync<AvailabilityIncidentResponse[]>();
+        incidents.Should().ContainSingle();
+        incidents![0].Should().BeEquivalentTo(new
+        {
+            Id = seed.ExpectedIncidentId,
+            seed.ServerId,
+            Type = "Unreachable",
+            OpenedAtUtc = openedAtUtc,
+            ClosedAtUtc = (DateTimeOffset?)null,
+            StartReason = "Current timeout",
+            EndReason = (string?)null,
+            ConsecutiveFailures = 4
+        });
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(IncidentsService.MaxIncidentHistoryLimit + 1)]
+    public async Task GetServerIncidents_returns_validation_problem_for_invalid_limit(int limit)
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/servers/{Guid.NewGuid():D}/incidents?limit={limit}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("errors").TryGetProperty("limit", out _).Should().BeTrue();
     }
 
     [Fact]
@@ -212,4 +275,6 @@ public sealed class MonitoringEndpointIntegrationTests
     }
 
     private sealed record SnapshotSeed(Guid ServerId, Guid ExpectedSnapshotId);
+
+    private sealed record IncidentSeed(Guid ServerId, Guid ExpectedIncidentId);
 }

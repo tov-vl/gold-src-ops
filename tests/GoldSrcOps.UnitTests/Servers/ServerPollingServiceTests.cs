@@ -368,10 +368,11 @@ public sealed class ServerPollingServiceTests
 
         public Task<IReadOnlyList<AvailabilityIncident>> ListByServerAsync(
             Guid serverId,
+            int limit,
             CancellationToken cancellationToken)
         {
             return Task.FromResult<IReadOnlyList<AvailabilityIncident>>(
-                Items.Where(x => x.ServerId == serverId).ToArray());
+                Items.Where(x => x.ServerId == serverId).Take(limit).ToArray());
         }
     }
 

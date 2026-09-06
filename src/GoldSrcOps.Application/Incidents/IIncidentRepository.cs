@@ -10,7 +10,10 @@ public interface IIncidentRepository
 
     Task<IReadOnlyList<AvailabilityIncident>> ListOpenAsync(CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<AvailabilityIncident>> ListByServerAsync(Guid serverId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<AvailabilityIncident>> ListByServerAsync(
+        Guid serverId,
+        int limit,
+        CancellationToken cancellationToken);
 
     Task AddAsync(AvailabilityIncident incident, CancellationToken cancellationToken);
 }

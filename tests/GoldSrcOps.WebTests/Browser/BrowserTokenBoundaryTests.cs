@@ -15,28 +15,27 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
 
-        var listResponse = await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
-        var listBody = await RequireResponseBodyAsync(listResponse);
-        var listDom = await Page.ContentAsync();
-        await AssertBrowserStorageIsEmptyAsync();
-        var detailResponse = await Page.GotoAsync(
-            new Uri(
-                baseAddress,
-                $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}").AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
-        var detailBody = await RequireResponseBodyAsync(detailResponse);
-        var detailDom = await Page.ContentAsync();
-        await AssertBrowserStorageIsEmptyAsync();
+        var listPage = await VisitAsync(BrowserTokenBoundaryWebApplicationFactory.SignInPath);
+        var detailPage = await VisitAsync($"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}");
+        var historyPage = await VisitAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/history");
+        var incidentsPage = await VisitAsync("/operator/incidents");
 
-        Page.Url.Should().EndWith($"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}");
-        listBody.Should().Contain(ReaderWebApplicationFactory.ServerName);
-        detailBody.Should().Contain("Latest observation");
-        AssertTokenFree(listBody);
-        AssertTokenFree(listDom);
-        AssertTokenFree(detailBody);
-        AssertTokenFree(detailDom);
+        Page.Url.Should().EndWith("/operator/incidents");
+        var stylesheetHrefs = await Page.EvaluateAsync<string[]>(
+            "Array.from(document.styleSheets, sheet => sheet.href ?? '')");
+        stylesheetHrefs.Should().Contain(
+            href => href.Contains("GoldSrcOps.Web.", StringComparison.Ordinal) &&
+                    href.EndsWith(".styles.css", StringComparison.Ordinal));
+        listPage.Body.Should().Contain(ReaderWebApplicationFactory.ServerName);
+        detailPage.Body.Should().Contain("Latest observation");
+        historyPage.Body.Should().Contain("Recent observations");
+        incidentsPage.Body.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
+        foreach (var page in new[] { listPage, detailPage, historyPage, incidentsPage })
+        {
+            AssertTokenFree(page.Body);
+            AssertTokenFree(page.Dom);
+        }
 
         var scriptVisibleCookies = await Page.EvaluateAsync<string>("document.cookie");
         scriptVisibleCookies.Should().NotContain(
@@ -57,6 +56,17 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         authenticationCookie.Path.Should().Be("/");
         authenticationCookie.Value.Should().NotBeNullOrWhiteSpace();
         AssertTokenFree(authenticationCookie.Value);
+
+        async Task<PageContent> VisitAsync(string relativePath)
+        {
+            var response = await Page.GotoAsync(
+                new Uri(baseAddress, relativePath).AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            var body = await RequireResponseBodyAsync(response);
+            var dom = await Page.ContentAsync();
+            await AssertBrowserStorageIsEmptyAsync();
+            return new PageContent(body, dom);
+        }
     }
 
     private async Task AssertBrowserStorageIsEmptyAsync()
@@ -81,6 +91,8 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         JwtPattern.IsMatch(value).Should().BeFalse();
         TokenFieldPattern.IsMatch(value).Should().BeFalse();
     }
+
+    private sealed record PageContent(string Body, string Dom);
 
     [GeneratedRegex(
         @"(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?![A-Za-z0-9_-])",

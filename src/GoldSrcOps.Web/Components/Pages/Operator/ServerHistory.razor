@@ -1,0 +1,223 @@
+@page "/operator/servers/{ServerId:guid}/history"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<ServerHistory> Logger
+
+<PageTitle>@(_server is null ? "Server history" : $"{_server.Name} history") | GoldSrcOps</PageTitle>
+
+<div class="history-page">
+    <a class="back-link" href="/operator/servers">Back to servers</a>
+
+    @if (_loadFailed)
+    {
+        <section class="history-state" role="alert">
+            <h1>Server history is unavailable</h1>
+            <p>The API did not return usable Reader history.</p>
+        </section>
+    }
+    else if (_notFound)
+    {
+        <section class="history-state">
+            <h1>Server not found</h1>
+            <p>The requested server is not present in the Reader inventory.</p>
+        </section>
+    }
+    else if (_server is not null)
+    {
+        <header class="history-heading">
+            <div>
+                <p class="eyebrow">Server history</p>
+                <h1>@_server.Name</h1>
+                <p class="endpoint">@_server.Game · <code>@_server.Host:@_server.QueryPort</code></p>
+            </div>
+            <p>Recent A2S observations and availability incidents, newest first.</p>
+        </header>
+
+        <ServerSectionNav ServerId="@ServerId" />
+
+        <section class="history-summary" aria-label="History summary">
+            <article>
+                <span>Samples</span>
+                <strong>@_snapshots.Count</strong>
+            </article>
+            <article class="summary--online">
+                <span>Reachable</span>
+                <strong>@ReachableCount</strong>
+            </article>
+            <article class="summary--offline">
+                <span>Unreachable</span>
+                <strong>@UnreachableCount</strong>
+            </article>
+            <article class="summary--incidents">
+                <span>Incidents</span>
+                <strong>@_incidents.Count</strong>
+            </article>
+        </section>
+
+        <section class="history-section" aria-labelledby="observations-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">A2S probes</p>
+                    <h2 id="observations-title">Recent observations</h2>
+                </div>
+                <span>Up to @SnapshotLimit samples</span>
+            </div>
+
+            @if (_snapshots.Count == 0)
+            {
+                <div class="empty-state">
+                    <h3>No observations recorded</h3>
+                    <p>This server does not have any retained polling samples yet.</p>
+                </div>
+            }
+            else
+            {
+                <div class="observation-table" role="table" aria-label="Recent server observations">
+                    <div class="observation-row observation-row--header" role="row">
+                        <span role="columnheader">Observed</span>
+                        <span role="columnheader">State</span>
+                        <span role="columnheader">Map</span>
+                        <span role="columnheader">Players</span>
+                        <span role="columnheader">Bots</span>
+                        <span role="columnheader">Latency</span>
+                        <span role="columnheader">Result</span>
+                    </div>
+                    @foreach (var snapshot in _snapshots)
+                    {
+                        <div class="observation-row" role="row">
+                            <time role="cell" datetime="@snapshot.CheckedAtUtc.ToString("O", CultureInfo.InvariantCulture)">
+                                <span class="cell-label">Observed</span>
+                                @FormatDateTime(snapshot.CheckedAtUtc)
+                            </time>
+                            <span role="cell">
+                                <span class="state-label @(snapshot.IsReachable ? "state-label--online" : "state-label--offline")">
+                                    @(snapshot.IsReachable ? "Reachable" : "Unreachable")
+                                </span>
+                            </span>
+                            <span role="cell"><span class="cell-label">Map</span>@DisplayValue(snapshot.Map)</span>
+                            <span role="cell"><span class="cell-label">Players</span>@FormatPlayers(snapshot)</span>
+                            <span role="cell"><span class="cell-label">Bots</span>@FormatNumber(snapshot.Bots)</span>
+                            <span role="cell"><span class="cell-label">Latency</span>@FormatLatency(snapshot.LatencyMs)</span>
+                            <span class="result" role="cell">
+                                <span class="cell-label">Result</span>
+                                @(snapshot.IsReachable ? "Probe completed" : DisplayValue(snapshot.FailureReason))
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="history-section" aria-labelledby="incident-history-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Availability</p>
+                    <h2 id="incident-history-title">Incident history</h2>
+                </div>
+                <span>Up to @IncidentLimit incidents</span>
+            </div>
+
+            @if (_incidents.Count == 0)
+            {
+                <div class="empty-state">
+                    <h3>No incidents recorded</h3>
+                    <p>No retained availability incidents exist for this server.</p>
+                </div>
+            }
+            else
+            {
+                <div class="incident-table" role="table" aria-label="Server incident history">
+                    <div class="incident-row incident-row--header" role="row">
+                        <span role="columnheader">State</span>
+                        <span role="columnheader">Opened</span>
+                        <span role="columnheader">Closed</span>
+                        <span role="columnheader">Failures</span>
+                        <span role="columnheader">Start reason</span>
+                        <span role="columnheader">Resolution</span>
+                    </div>
+                    @foreach (var incident in _incidents)
+                    {
+                        <div class="incident-row" id="@($"incident-{incident.Id:D}")" role="row">
+                            <span role="cell">
+                                <span class="state-label @(incident.ClosedAtUtc is null ? "state-label--offline" : "state-label--resolved")">
+                                    @(incident.ClosedAtUtc is null ? "Open" : "Resolved")
+                                </span>
+                            </span>
+                            <time role="cell" datetime="@incident.OpenedAtUtc.ToString("O", CultureInfo.InvariantCulture)">
+                                <span class="cell-label">Opened</span>
+                                @FormatDateTime(incident.OpenedAtUtc)
+                            </time>
+                            <span role="cell">
+                                <span class="cell-label">Closed</span>
+                                @FormatDateTime(incident.ClosedAtUtc)
+                            </span>
+                            <span role="cell"><span class="cell-label">Failures</span>@incident.ConsecutiveFailures</span>
+                            <span class="result" role="cell"><span class="cell-label">Start reason</span>@incident.StartReason</span>
+                            <span class="result" role="cell"><span class="cell-label">Resolution</span>@DisplayValue(incident.EndReason)</span>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private const int SnapshotLimit = 100;
+    private const int IncidentLimit = 50;
+
+    [Parameter]
+    public Guid ServerId { get; set; }
+
+    private ServerResponse? _server;
+    private IReadOnlyList<PollSnapshotResponse> _snapshots = [];
+    private IReadOnlyList<AvailabilityIncidentResponse> _incidents = [];
+    private bool _loadFailed;
+    private bool _notFound;
+
+    private int ReachableCount => _snapshots.Count(static snapshot => snapshot.IsReachable);
+    private int UnreachableCount => _snapshots.Count - ReachableCount;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            var serverTask = ReaderApiClient.GetServerAsync(ServerId);
+            var snapshotsTask = ReaderApiClient.GetServerSnapshotsAsync(ServerId, SnapshotLimit);
+            var incidentsTask = ReaderApiClient.GetServerIncidentsAsync(ServerId, IncidentLimit);
+            await Task.WhenAll(serverTask, snapshotsTask, incidentsTask);
+
+            _server = await serverTask;
+            var history = await snapshotsTask;
+            _incidents = (await incidentsTask)
+                .OrderByDescending(static incident => incident.OpenedAtUtc)
+                .ToArray();
+            _snapshots = history?.Items ?? [];
+            _notFound = _server is null || history is null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load Reader history for server {ServerId}.", ServerId);
+            _loadFailed = true;
+        }
+    }
+
+    private static string DisplayValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "Not available" : value;
+
+    private static string FormatDateTime(DateTimeOffset? value) => value is null
+        ? "Not available"
+        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+
+    private static string FormatPlayers(PollSnapshotResponse snapshot) => snapshot.Players is null
+        ? "Not available"
+        : snapshot.MaxPlayers is null
+            ? snapshot.Players.Value.ToString(CultureInfo.InvariantCulture)
+            : $"{snapshot.Players.Value}/{snapshot.MaxPlayers.Value}";
+
+    private static string FormatLatency(int? latencyMs) => latencyMs is null
+        ? "Not available"
+        : $"{latencyMs.Value} ms";
+
+    private static string FormatNumber(int? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "Not available";
+}

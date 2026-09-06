@@ -4,6 +4,9 @@ namespace GoldSrcOps.Application.Incidents;
 
 public sealed class IncidentsService
 {
+    public const int DefaultIncidentHistoryLimit = 50;
+    public const int MaxIncidentHistoryLimit = 200;
+
     private readonly IIncidentRepository _incidents;
 
     public IncidentsService(IIncidentRepository incidents)
@@ -25,9 +28,14 @@ public sealed class IncidentsService
 
     public async Task<IReadOnlyList<AvailabilityIncidentDto>> ListByServerAsync(
         Guid serverId,
+        int? limit,
         CancellationToken cancellationToken)
     {
-        var incidents = await _incidents.ListByServerAsync(serverId, cancellationToken);
+        var selectedLimit = Math.Clamp(
+            limit ?? DefaultIncidentHistoryLimit,
+            1,
+            MaxIncidentHistoryLimit);
+        var incidents = await _incidents.ListByServerAsync(serverId, selectedLimit, cancellationToken);
         return incidents.Select(Map).ToArray();
     }
 

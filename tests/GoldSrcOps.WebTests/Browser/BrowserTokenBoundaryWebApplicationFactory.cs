@@ -31,6 +31,7 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Production");
+        builder.UseStaticWebAssets();
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(

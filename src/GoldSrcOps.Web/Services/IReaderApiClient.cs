@@ -1,3 +1,4 @@
+using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
 
@@ -13,5 +14,18 @@ public interface IReaderApiClient
 
     Task<ServerStatusResponse?> GetServerStatusAsync(
         Guid serverId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AvailabilityIncidentResponse>> GetOpenIncidentsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AvailabilityIncidentResponse>> GetServerIncidentsAsync(
+        Guid serverId,
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<SnapshotHistoryResponse?> GetServerSnapshotsAsync(
+        Guid serverId,
+        int limit,
         CancellationToken cancellationToken = default);
 }
