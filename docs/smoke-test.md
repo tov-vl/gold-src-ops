@@ -60,6 +60,37 @@ release-candidate tag, `Verify Published Image` reruns it against the newly
 published or promoted digest using package-read permission. The preceding
 container job also executes the deterministic tag-contract smoke cases.
 
+## Browser Token Boundary
+
+The browser smoke starts the Web application on an ephemeral Kestrel port and
+uses Playwright Chromium to render the authenticated server list and detail
+pages. Its test-only sign-in fixture stores recognizable fake JWT sentinels in
+the server-side ticket. The check requires token-free response bodies and DOM
+content, empty local and session storage, and one opaque secure HTTP-only
+session cookie with the production attributes.
+
+Run it from the repository root with PowerShell 7:
+
+```powershell
+dotnet restore .\tests\GoldSrcOps.WebTests\GoldSrcOps.WebTests.csproj `
+  -p:AuditPipeline=true
+dotnet build .\tests\GoldSrcOps.WebTests\GoldSrcOps.WebTests.csproj `
+  --no-restore
+pwsh -NoProfile -File `
+  .\tests\GoldSrcOps.WebTests\bin\Debug\net10.0\playwright.ps1 `
+  install --only-shell chromium
+$env:GOLDSRCOPS_RUN_BROWSER_TESTS = "true"
+dotnet test .\tests\GoldSrcOps.WebTests\GoldSrcOps.WebTests.csproj `
+  --no-build `
+  --filter "FullyQualifiedName~BrowserTokenBoundaryTests"
+Remove-Item Env:GOLDSRCOPS_RUN_BROWSER_TESTS
+```
+
+Ordinary solution test runs skip this opt-in check so they do not implicitly
+download or launch a browser. GitHub Actions runs it in the separate
+`Browser Smoke` job after `Quality Gate`, installing only the headless Chromium
+shell and its runner dependencies.
+
 ## Host-Readiness Decisions
 
 Run the Ubuntu host-bootstrap smoke in a Linux shell with:
