@@ -67,16 +67,50 @@ public sealed class ReaderPortalIntegrationTests
     }
 
     [Fact]
-    public async Task Operator_can_view_reader_incidents()
+    public async Task Reader_can_view_command_history_and_dead_letters_without_raw_payloads()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var commandsResponse = await client.GetAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands");
+        var commandsBody = await commandsResponse.Content.ReadAsStringAsync();
+        using var deadLettersResponse = await client.GetAsync("/operator/dead-letters");
+        var deadLettersBody = await deadLettersResponse.Content.ReadAsStringAsync();
+        using var deadLetterDetailResponse = await client.GetAsync(
+            $"/operator/dead-letters/{ReaderWebApplicationFactory.DeadLetterEventId:D}");
+        var deadLetterDetailBody = await deadLetterDetailResponse.Content.ReadAsStringAsync();
+
+        commandsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        commandsBody.Should().Contain("Command history");
+        commandsBody.Should().Contain(ReaderWebApplicationFactory.CommandResultSummary);
+        commandsBody.Should().NotContain(ReaderWebApplicationFactory.CommandPayloadSentinel);
+        deadLettersResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        deadLettersBody.Should().Contain("Current dead letters");
+        deadLettersBody.Should().Contain("v1");
+        deadLettersBody.Should().Contain(ReaderWebApplicationFactory.DeadLetterLastError);
+        deadLetterDetailResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        deadLetterDetailBody.Should().Contain("Ordering warning");
+        deadLetterDetailBody.Should().Contain(ReaderWebApplicationFactory.DeadLetterLastError);
+        deadLetterDetailBody.Should().NotContain(ReaderWebApplicationFactory.DeadLetterPayloadSentinel);
+    }
+
+    [Fact]
+    public async Task Operator_can_view_reader_operations_data()
     {
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
         using var client = factory.CreateClient();
 
-        using var response = await client.GetAsync("/operator/incidents");
-        var body = await response.Content.ReadAsStringAsync();
+        using var incidentsResponse = await client.GetAsync("/operator/incidents");
+        var incidentsBody = await incidentsResponse.Content.ReadAsStringAsync();
+        using var commandsResponse = await client.GetAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands");
+        using var deadLettersResponse = await client.GetAsync("/operator/dead-letters");
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        body.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
+        incidentsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        incidentsBody.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
+        commandsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        deadLettersResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Theory]
@@ -84,6 +118,9 @@ public sealed class ReaderPortalIntegrationTests
     [InlineData("/operator/incidents")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/history")]
+    [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/commands")]
+    [InlineData("/operator/dead-letters")]
+    [InlineData("/operator/dead-letters/70d51faf-6029-4b1e-a922-b7a3ab8d1f84")]
     public async Task Signed_in_account_without_role_cannot_view_reader_data(string requestPath)
     {
         await using var factory = new ReaderWebApplicationFactory(role: null);
@@ -109,5 +146,33 @@ public sealed class ReaderPortalIntegrationTests
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         body.Should().Contain("Server not found");
         body.Should().NotContain(ReaderWebApplicationFactory.ServerName);
+    }
+
+    [Fact]
+    public async Task Missing_command_history_returns_not_found_state()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync($"/operator/servers/{Guid.NewGuid():D}/commands");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Server not found");
+        body.Should().NotContain(ReaderWebApplicationFactory.ServerName);
+    }
+
+    [Fact]
+    public async Task Missing_dead_letter_returns_not_found_state()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync($"/operator/dead-letters/{Guid.NewGuid():D}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Dead letter not found");
+        body.Should().NotContain(ReaderWebApplicationFactory.DeadLetterLastError);
     }
 }

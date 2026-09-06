@@ -1,0 +1,153 @@
+@page "/operator/dead-letters"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<DeadLetters> Logger
+
+<PageTitle>Dead letters | GoldSrcOps</PageTitle>
+
+<div class="dead-letters-page">
+    <header class="page-heading">
+        <div>
+            <p class="eyebrow">Delivery operations</p>
+            <h1>Dead letters</h1>
+        </div>
+        <p>Alert events that exhausted their bounded delivery cycle.</p>
+    </header>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h2>Dead-letter data is unavailable</h2>
+            <p>The API did not return a usable Reader page.</p>
+        </section>
+    }
+    else if (_page is not null)
+    {
+        <section class="dead-letter-summary" aria-label="Dead-letter page summary">
+            <article class="summary--alert">
+                <span>On this page</span>
+                <strong>@_page.Items.Count</strong>
+            </article>
+            <article>
+                <span>Delivery attempts</span>
+                <strong>@_page.Items.Sum(static item => item.AttemptCount)</strong>
+            </article>
+            <article>
+                <span>Replayed events</span>
+                <strong>@_page.Items.Count(static item => item.ReplayCount > 0)</strong>
+            </article>
+        </section>
+
+        <section class="dead-letter-section" aria-labelledby="dead-letter-list-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Durable outbox</p>
+                    <h2 id="dead-letter-list-title">Current dead letters</h2>
+                </div>
+                <span>Up to @_page.Limit events</span>
+            </div>
+
+            @if (_page.Items.Count == 0)
+            {
+                <div class="empty-state">
+                    <h3>No dead letters</h3>
+                    <p>No alert event currently requires manual delivery review.</p>
+                </div>
+            }
+            else
+            {
+                <div class="dead-letter-table" role="table" aria-label="Current dead-letter events">
+                    <div class="dead-letter-row dead-letter-row--header" role="row">
+                        <span role="columnheader">Event</span>
+                        <span role="columnheader">Occurred</span>
+                        <span role="columnheader">Dead-lettered</span>
+                        <span role="columnheader">Attempts</span>
+                        <span role="columnheader">Replays</span>
+                        <span role="columnheader">Last error</span>
+                        <span role="columnheader"><span class="visually-hidden">Open</span></span>
+                    </div>
+                    @foreach (var item in _page.Items)
+                    {
+                        <div class="dead-letter-row" role="row">
+                            <span class="event-type" role="cell">
+                                <span class="cell-label">Event</span>
+                                @item.EventType <small>v@(item.PayloadVersion)</small>
+                            </span>
+                            <time role="cell" datetime="@item.OccurredAtUtc.ToString("O", CultureInfo.InvariantCulture)">
+                                <span class="cell-label">Occurred</span>
+                                @FormatDateTime(item.OccurredAtUtc)
+                            </time>
+                            <span role="cell">
+                                <span class="cell-label">Dead-lettered</span>
+                                @FormatDateTime(item.DeadLetteredAtUtc)
+                            </span>
+                            <span role="cell"><span class="cell-label">Attempts</span>@item.AttemptCount</span>
+                            <span role="cell"><span class="cell-label">Replays</span>@item.ReplayCount</span>
+                            <span class="last-error" role="cell">
+                                <span class="cell-label">Last error</span>
+                                @DisplayValue(item.LastError)
+                            </span>
+                            <span class="row-action" role="cell">
+                                <a href="@($"/operator/dead-letters/{item.EventId:D}")"
+                                   aria-label="Inspect @item.EventType dead letter">Inspect</a>
+                            </span>
+                        </div>
+                    }
+                </div>
+
+                @if (NextPageHref is not null)
+                {
+                    <nav class="pagination" aria-label="Dead-letter pagination">
+                        <a href="@NextPageHref">Next page</a>
+                    </nav>
+                }
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private const int DeadLetterLimit = 50;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "cursor")]
+    public string? Cursor { get; set; }
+
+    private DeadLetterListResponse? _page;
+    private bool _loadFailed;
+
+    private string? NextPageHref
+    {
+        get
+        {
+            var nextCursor = _page?.NextCursor;
+            return string.IsNullOrWhiteSpace(nextCursor)
+                ? null
+                : $"/operator/dead-letters?cursor={Uri.EscapeDataString(nextCursor)}";
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadFailed = false;
+        _page = null;
+
+        try
+        {
+            var cursor = string.IsNullOrWhiteSpace(Cursor) ? null : Cursor;
+            _page = await ReaderApiClient.GetDeadLettersAsync(cursor, DeadLetterLimit);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load the Reader dead-letter page.");
+            _loadFailed = true;
+        }
+    }
+
+    private static string DisplayValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "Not available" : value;
+
+    private static string FormatDateTime(DateTimeOffset? value) => value is null
+        ? "Not available"
+        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+}

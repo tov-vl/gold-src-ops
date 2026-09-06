@@ -1,0 +1,123 @@
+@page "/operator/dead-letters/{EventId:guid}"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<DeadLetterDetail> Logger
+
+<PageTitle>Dead-letter detail | GoldSrcOps</PageTitle>
+
+<div class="dead-letter-detail-page">
+    <a class="back-link" href="/operator/dead-letters">Back to dead letters</a>
+
+    @if (_loadFailed)
+    {
+        <section class="detail-state" role="alert">
+            <h1>Dead-letter detail is unavailable</h1>
+            <p>The API did not return a usable Reader record.</p>
+        </section>
+    }
+    else if (_notFound)
+    {
+        <section class="detail-state">
+            <h1>Dead letter not found</h1>
+            <p>The event is not present in the current dead-letter queue.</p>
+        </section>
+    }
+    else if (_deadLetter is not null)
+    {
+        <header class="detail-heading">
+            <div>
+                <p class="eyebrow">Delivery review</p>
+                <h1>@_deadLetter.EventType</h1>
+                <p class="event-id"><code>@_deadLetter.EventId</code></p>
+            </div>
+            <span class="dead-letter-state"><span aria-hidden="true"></span>Dead letter</span>
+        </header>
+
+        @if (_deadLetter.HasNewerEvent)
+        {
+            <section class="ordering-warning" role="status" aria-labelledby="ordering-warning-title">
+                <p class="eyebrow">Ordering warning</p>
+                <h2 id="ordering-warning-title">A newer event exists for this aggregate</h2>
+                <p>
+                    Latest retained occurrence: @FormatDateTime(_deadLetter.LatestKnownOccurredAtUtc).
+                    Current delivery state: @DisplayValue(_deadLetter.NewerEventStatus).
+                </p>
+            </section>
+        }
+
+        <section class="detail-grid" aria-label="Dead-letter metadata">
+            <dl>
+                <div>
+                    <dt>Event version</dt>
+                    <dd>v@(_deadLetter.PayloadVersion)</dd>
+                </div>
+                <div>
+                    <dt>Occurred</dt>
+                    <dd>@FormatDateTime(_deadLetter.OccurredAtUtc)</dd>
+                </div>
+                <div>
+                    <dt>Dead-lettered</dt>
+                    <dd>@FormatDateTime(_deadLetter.DeadLetteredAtUtc)</dd>
+                </div>
+                <div>
+                    <dt>Delivery attempts</dt>
+                    <dd>@_deadLetter.AttemptCount</dd>
+                </div>
+                <div>
+                    <dt>Replay cycles</dt>
+                    <dd>@_deadLetter.ReplayCount</dd>
+                </div>
+                <div>
+                    <dt>Aggregate</dt>
+                    <dd>@_deadLetter.AggregateType</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="aggregate-identity" aria-labelledby="aggregate-title">
+            <p class="eyebrow">Aggregate identity</p>
+            <h2 id="aggregate-title">@_deadLetter.AggregateType</h2>
+            <p><code>@_deadLetter.AggregateId</code></p>
+        </section>
+
+        <section class="failure-detail" aria-labelledby="last-error-title">
+            <p class="eyebrow">Last delivery error</p>
+            <h2 id="last-error-title">Delivery cycle exhausted</h2>
+            <p>@DisplayValue(_deadLetter.LastError)</p>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid EventId { get; set; }
+
+    private DeadLetterDetailResponse? _deadLetter;
+    private bool _loadFailed;
+    private bool _notFound;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadFailed = false;
+        _notFound = false;
+        _deadLetter = null;
+
+        try
+        {
+            _deadLetter = await ReaderApiClient.GetDeadLetterAsync(EventId);
+            _notFound = _deadLetter is null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load Reader dead-letter detail for event {EventId}.", EventId);
+            _loadFailed = true;
+        }
+    }
+
+    private static string DisplayValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "Not available" : value;
+
+    private static string FormatDateTime(DateTimeOffset? value) => value is null
+        ? "Not available"
+        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+}

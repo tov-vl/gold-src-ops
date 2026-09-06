@@ -1,0 +1,279 @@
+.dead-letters-page {
+    width: min(100% - 40px, 1180px);
+    margin: 0 auto;
+    padding: 56px 0 96px;
+}
+
+.page-heading,
+.section-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 32px;
+}
+
+.page-heading {
+    padding-bottom: 38px;
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.page-heading > p {
+    max-width: 46ch;
+    margin-bottom: 4px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    text-align: right;
+}
+
+.eyebrow {
+    margin-bottom: 10px;
+    color: var(--ink-muted);
+    font-size: 0.72rem;
+    font-weight: 760;
+    text-transform: uppercase;
+}
+
+.page-heading h1 {
+    margin-bottom: 0;
+    font-size: 3rem;
+    line-height: 1.05;
+}
+
+.dead-letter-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.dead-letter-summary article {
+    min-width: 0;
+    min-height: 116px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 24px;
+    border-right: 1px solid var(--line);
+    background: var(--surface);
+}
+
+.dead-letter-summary article:first-child {
+    border-left: 1px solid var(--line);
+}
+
+.dead-letter-summary span {
+    color: var(--ink-muted);
+    font-size: 0.68rem;
+    font-weight: 720;
+    text-transform: uppercase;
+}
+
+.dead-letter-summary strong {
+    color: var(--ink);
+    font-size: 1.9rem;
+}
+
+.dead-letter-summary .summary--alert strong {
+    color: var(--signal-red);
+}
+
+.dead-letter-section {
+    padding-top: 54px;
+}
+
+.section-heading {
+    margin-bottom: 22px;
+}
+
+.section-heading > span {
+    color: var(--ink-muted);
+    font-size: 0.78rem;
+}
+
+.section-heading h2 {
+    margin-bottom: 0;
+    font-size: 1.65rem;
+}
+
+.dead-letter-table {
+    border-top: 1px solid var(--line-strong);
+}
+
+.dead-letter-row {
+    min-height: 72px;
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr) 72px 64px minmax(180px, 1.3fr) 58px;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+}
+
+.dead-letter-row--header {
+    min-height: 42px;
+    background: transparent;
+    color: var(--ink-muted);
+    font-size: 0.68rem;
+    font-weight: 740;
+    text-transform: uppercase;
+}
+
+.event-type {
+    overflow-wrap: anywhere;
+    color: var(--ink);
+    font-weight: 720;
+}
+
+.event-type small {
+    color: var(--ink-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.last-error {
+    overflow-wrap: anywhere;
+    line-height: 1.45;
+}
+
+.row-action {
+    text-align: right;
+}
+
+.row-action a,
+.pagination a {
+    color: var(--signal-blue);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.row-action a:hover,
+.pagination a:hover {
+    text-decoration: underline;
+}
+
+.pagination {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 22px;
+}
+
+.cell-label,
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.empty-state,
+.load-state {
+    padding: 34px 0;
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.load-state {
+    margin-top: 34px;
+}
+
+.empty-state h3,
+.load-state h2 {
+    margin-bottom: 8px;
+    font-size: 1.15rem;
+}
+
+.empty-state p,
+.load-state p {
+    max-width: 62ch;
+    margin-bottom: 0;
+    color: var(--ink-muted);
+    line-height: 1.6;
+}
+
+@media (max-width: 980px) {
+    .dead-letter-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 9px 20px;
+        padding: 18px 16px;
+    }
+
+    .dead-letter-row--header {
+        display: none;
+    }
+
+    .dead-letter-row > span,
+    .dead-letter-row > time {
+        grid-column: 1;
+    }
+
+    .dead-letter-row .row-action {
+        grid-column: 2;
+        grid-row: 1 / span 6;
+        align-self: center;
+    }
+
+    .cell-label {
+        position: static;
+        width: auto;
+        height: auto;
+        display: inline;
+        margin-right: 6px;
+        overflow: visible;
+        clip: auto;
+        color: var(--ink-muted);
+        font-size: 0.66rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        white-space: normal;
+    }
+}
+
+@media (max-width: 640px) {
+    .dead-letters-page {
+        width: min(100% - 28px, 1180px);
+        padding: 42px 0 76px;
+    }
+
+    .page-heading,
+    .section-heading {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .page-heading > p {
+        text-align: left;
+    }
+
+    .page-heading h1 {
+        font-size: 2.35rem;
+    }
+
+    .dead-letter-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .dead-letter-summary article,
+    .dead-letter-summary article:first-child {
+        min-height: 0;
+        align-items: center;
+        flex-direction: row;
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--line);
+        border-left: 1px solid var(--line);
+    }
+
+    .dead-letter-summary article:last-child {
+        border-bottom: 0;
+    }
+
+    .dead-letter-summary strong {
+        font-size: 1.55rem;
+    }
+}

@@ -1,3 +1,5 @@
+using GoldSrcOps.Contracts.Alerts;
+using GoldSrcOps.Contracts.Commands;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
@@ -27,5 +29,19 @@ public interface IReaderApiClient
     Task<SnapshotHistoryResponse?> GetServerSnapshotsAsync(
         Guid serverId,
         int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CommandExecutionResponse>?> GetServerCommandsAsync(
+        Guid serverId,
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<DeadLetterListResponse> GetDeadLettersAsync(
+        string? cursor,
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<DeadLetterDetailResponse?> GetDeadLetterAsync(
+        Guid eventId,
         CancellationToken cancellationToken = default);
 }

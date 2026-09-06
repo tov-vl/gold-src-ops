@@ -1,6 +1,9 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.Json;
+using GoldSrcOps.Contracts.Alerts;
+using GoldSrcOps.Contracts.Commands;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
@@ -40,8 +43,14 @@ internal sealed class ReaderWebApplicationFactory(string? role = WebSecurity.Rea
 {
     public static readonly Guid ServerId = Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f");
     public static readonly Guid OpenIncidentId = Guid.Parse("9307a87e-61cf-4901-8026-b301908431d6");
+    public static readonly Guid CommandId = Guid.Parse("17477e4e-97bb-4c50-a046-08fa5cd48dca");
+    public static readonly Guid DeadLetterEventId = Guid.Parse("70d51faf-6029-4b1e-a922-b7a3ab8d1f84");
     public const string ServerName = "Reader fixture server";
     public const string OpenIncidentReason = "A2S query timed out";
+    public const string CommandResultSummary = "Command accepted by the server";
+    public const string CommandPayloadSentinel = "fixture-command-payload-must-not-render";
+    public const string DeadLetterLastError = "Webhook endpoint returned a terminal response";
+    public const string DeadLetterPayloadSentinel = "fixture-dead-letter-payload-must-not-render";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -139,6 +148,92 @@ internal sealed class ReaderWebApplicationFactory(string? role = WebSecurity.Rea
 
             return Task.FromResult<IReadOnlyList<AvailabilityIncidentResponse>>(incidents.Take(limit).ToArray());
         }
+
+        public Task<IReadOnlyList<CommandExecutionResponse>?> GetServerCommandsAsync(
+            Guid serverId,
+            int limit,
+            CancellationToken cancellationToken = default)
+        {
+            if (serverId != ServerId)
+            {
+                return Task.FromResult<IReadOnlyList<CommandExecutionResponse>?>(null);
+            }
+
+            IReadOnlyList<CommandExecutionResponse> commands =
+            [
+                new(
+                    CommandId,
+                    ServerId,
+                    "Say",
+                    "Succeeded",
+                    CommandPayloadSentinel,
+                    "operator-fixture",
+                    ObservedAtUtc.AddMinutes(-10),
+                    ObservedAtUtc.AddMinutes(-9),
+                    ObservedAtUtc.AddMinutes(-9),
+                    CommandResultSummary,
+                    null),
+                new(
+                    Guid.Parse("5f780c3f-30b0-4509-88db-73034fefbd2e"),
+                    ServerId,
+                    "Restart",
+                    "Failed",
+                    "restart",
+                    "operator-fixture",
+                    ObservedAtUtc.AddMinutes(-45),
+                    ObservedAtUtc.AddMinutes(-44),
+                    ObservedAtUtc.AddMinutes(-43),
+                    null,
+                    "RCON acknowledgement timed out")
+            ];
+
+            return Task.FromResult<IReadOnlyList<CommandExecutionResponse>?>(commands.Take(limit).ToArray());
+        }
+
+        public Task<DeadLetterListResponse> GetDeadLettersAsync(
+            string? cursor,
+            int limit,
+            CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<DeadLetterListItemResponse> items =
+            [
+                new(
+                    DeadLetterEventId,
+                    "AvailabilityIncidentOpened",
+                    1,
+                    "Server",
+                    ServerId,
+                    ObservedAtUtc.AddMinutes(-20),
+                    5,
+                    1,
+                    ObservedAtUtc.AddMinutes(-15),
+                    DeadLetterLastError)
+            ];
+
+            return Task.FromResult(new DeadLetterListResponse(limit, "fixture-next-cursor", items));
+        }
+
+        public Task<DeadLetterDetailResponse?> GetDeadLetterAsync(
+            Guid eventId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<DeadLetterDetailResponse?>(eventId == DeadLetterEventId
+                ? new DeadLetterDetailResponse(
+                    DeadLetterEventId,
+                    "AvailabilityIncidentOpened",
+                    1,
+                    "Server",
+                    ServerId,
+                    ObservedAtUtc.AddMinutes(-20),
+                    JsonSerializer.SerializeToElement(new { content = DeadLetterPayloadSentinel }),
+                    5,
+                    1,
+                    ObservedAtUtc.AddMinutes(-15),
+                    DeadLetterLastError,
+                    true,
+                    Guid.Parse("0b6749f3-2114-478a-b0bd-8a336f876175"),
+                    "Delivered",
+                    ObservedAtUtc.AddMinutes(-5))
+                : null);
 
         public Task<SnapshotHistoryResponse?> GetServerSnapshotsAsync(
             Guid serverId,

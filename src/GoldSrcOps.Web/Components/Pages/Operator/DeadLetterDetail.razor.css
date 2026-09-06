@@ -1,0 +1,213 @@
+.dead-letter-detail-page {
+    width: min(100% - 40px, 960px);
+    margin: 0 auto;
+    padding: 44px 0 96px;
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 34px;
+    color: var(--ink-muted);
+    font-size: 0.8rem;
+    font-weight: 680;
+    text-decoration: none;
+}
+
+.back-link:hover {
+    color: var(--ink);
+}
+
+.back-link::before {
+    margin-right: 8px;
+    content: "\2190";
+}
+
+.detail-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 32px;
+    padding-bottom: 34px;
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.eyebrow {
+    margin-bottom: 10px;
+    color: var(--ink-muted);
+    font-size: 0.72rem;
+    font-weight: 760;
+    text-transform: uppercase;
+}
+
+.detail-heading h1,
+.detail-state h1 {
+    margin-bottom: 14px;
+    font-size: 3rem;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+}
+
+.event-id {
+    margin-bottom: 0;
+    overflow-wrap: anywhere;
+    color: var(--ink-muted);
+    font-size: 0.82rem;
+}
+
+.dead-letter-state {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding-bottom: 3px;
+    color: var(--signal-red);
+    font-size: 0.86rem;
+    font-weight: 740;
+}
+
+.dead-letter-state > span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--signal-red);
+    box-shadow: 0 0 0 5px var(--signal-red-soft);
+}
+
+.ordering-warning {
+    padding: 30px;
+    border-right: 1px solid #e3c184;
+    border-bottom: 1px solid #e3c184;
+    border-left: 1px solid #e3c184;
+    background: var(--signal-amber-soft);
+}
+
+.ordering-warning h2,
+.aggregate-identity h2,
+.failure-detail h2 {
+    margin-bottom: 10px;
+    font-size: 1.25rem;
+}
+
+.ordering-warning p:last-child,
+.aggregate-identity p:last-child,
+.failure-detail p:last-child,
+.detail-state p {
+    max-width: 72ch;
+    margin-bottom: 0;
+    overflow-wrap: anywhere;
+    color: var(--ink-muted);
+    line-height: 1.65;
+}
+
+.detail-grid {
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.detail-grid dl {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 0;
+}
+
+.detail-grid dl > div {
+    min-width: 0;
+    min-height: 122px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 26px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+}
+
+.detail-grid dl > div:nth-child(3n + 1) {
+    border-left: 1px solid var(--line);
+}
+
+.detail-grid dl > div:nth-last-child(-n + 3) {
+    border-bottom: 0;
+}
+
+.detail-grid dt {
+    color: var(--ink-muted);
+    font-size: 0.68rem;
+    font-weight: 720;
+    text-transform: uppercase;
+}
+
+.detail-grid dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--ink);
+    font-size: 0.96rem;
+    font-weight: 700;
+}
+
+.aggregate-identity,
+.failure-detail,
+.detail-state {
+    padding: 42px 0;
+    border-bottom: 1px solid var(--line-strong);
+}
+
+@media (max-width: 720px) {
+    .detail-grid dl {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .detail-grid dl > div:nth-child(3n + 1) {
+        border-left: 0;
+    }
+
+    .detail-grid dl > div:nth-child(2n + 1) {
+        border-left: 1px solid var(--line);
+    }
+
+    .detail-grid dl > div:nth-last-child(-n + 3) {
+        border-bottom: 1px solid var(--line);
+    }
+
+    .detail-grid dl > div:nth-last-child(-n + 2) {
+        border-bottom: 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .dead-letter-detail-page {
+        width: min(100% - 28px, 960px);
+        padding: 34px 0 76px;
+    }
+
+    .detail-heading {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .detail-heading h1,
+    .detail-state h1 {
+        font-size: 1.75rem;
+    }
+
+    .ordering-warning {
+        padding: 24px;
+    }
+
+    .detail-grid dl {
+        grid-template-columns: 1fr;
+    }
+
+    .detail-grid dl > div,
+    .detail-grid dl > div:nth-child(2n + 1),
+    .detail-grid dl > div:nth-last-child(-n + 2) {
+        min-height: 104px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        border-left: 1px solid var(--line);
+    }
+
+    .detail-grid dl > div:last-child {
+        border-bottom: 0;
+    }
+}

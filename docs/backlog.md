@@ -752,8 +752,15 @@ Delivery order:
    and bounded observation and incident history. Runtime continuity, the online
    zero-bot server state, empty incident and durable-work queues, and scheduled
    backup freshness remained healthy.
-   Commands, dead letters, and replay remain later Operator work and must
-   preserve the existing API policies and audit trail.
+   The third read-only repository slice adds bounded per-server command audit
+   history and cursor-based dead-letter list and detail views. It deliberately
+   omits command and event payloads and exposes no mutation controls. Reader,
+   Operator, no-role, not-found, API-client, browser token-boundary, and
+   responsive desktop/mobile checks cover the surface. Candidate publication,
+   production rollout, and live policy verification remain pending. Command
+   submission and dead-letter replay remain later Operator work and must
+   preserve the existing API policies, idempotency, concurrency protection,
+   and audit trail.
 7. **First SLO review**: after a complete forward-looking window, publish the
    reproducible sanitized result and report `API-01` as met or missed. Review the
    target without changing it to fit the observed result.
@@ -998,9 +1005,9 @@ Remaining portfolio gaps, in priority order:
   24-hour release sample is not a monthly uptime claim.
 - Add a bounded historical availability view to the deployed public dashboard
   without broadening its sanitized API or treating shadow data as an active SLO.
-- Publish and verify the second authenticated read-only portal slice, then add
-  guarded Operator workflows for commands, dead letters, and replay while
-  preserving authorization, idempotency, and audit contracts.
+- Publish and verify the third authenticated read-only command and dead-letter
+  inspection slice, then add guarded Operator command and replay workflows
+  while preserving authorization, idempotency, and audit contracts.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
 - A later versioned AMX Mod X/ReAPI event agent with a durable inbox, only after

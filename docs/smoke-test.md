@@ -63,11 +63,12 @@ container job also executes the deterministic tag-contract smoke cases.
 ## Browser Token Boundary
 
 The browser smoke starts the Web application on an ephemeral Kestrel port and
-uses Playwright Chromium to render the authenticated server list and detail
-pages. Its test-only sign-in fixture stores recognizable fake JWT sentinels in
-the server-side ticket. The check requires token-free response bodies and DOM
-content, empty local and session storage, and one opaque secure HTTP-only
-session cookie with the production attributes.
+uses Playwright Chromium to render the authenticated server, incident,
+command-history, and dead-letter routes. Its test-only sign-in fixture stores
+recognizable fake JWT sentinels in the server-side ticket. The check requires
+token- and payload-sentinel-free response bodies and DOM content, empty local
+and session storage, and one opaque secure HTTP-only session cookie with the
+production attributes.
 
 Run it from the repository root with PowerShell 7:
 
