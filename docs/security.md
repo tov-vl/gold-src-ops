@@ -220,6 +220,14 @@ returned `403`. Auth0 access-token lifetimes were restored to `3600/3600` after
 the bounded expiration check, and the dedicated test identity retained only the
 `Reader` role. Tokens and sanitized target evidence remain outside Git.
 
+The expanded production matrix passed against `v2.4.0-rc.3` from revision
+`cb4bf4f` at `2026-09-06T12:58:43Z`. It repeated the four `401` cases, Reader
+read, metrics, mutation, and no-role cases, and added explicit Operator read and
+authenticated invalid-mutation cases. All ten outcomes matched the HTTP
+contract. Auth0 access-token lifetimes were restored to `3600/3600`, and the
+dedicated test identity was restored to its direct `Reader` role. Tokens and
+target-specific evidence remain outside Git.
+
 The live foreign-issuer scenario uses an ephemeral RS256 key and therefore
 tests a foreign issuer and foreign signing authority together. It demonstrates
 that the public route fails closed, but does not attribute the rejection to one

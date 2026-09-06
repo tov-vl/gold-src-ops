@@ -135,6 +135,20 @@ public sealed class SecurityEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task Operator_invalid_registration_is_rejected_without_persisting_a_server()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(
+            principal: TestApiPrincipal.Operator("operator-42"));
+        using var client = factory.CreateClient();
+
+        var register = await client.PostAsJsonAsync("/api/servers", new { });
+        var servers = await client.GetFromJsonAsync<IReadOnlyList<ServerResponse>>("/api/servers");
+
+        register.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        servers.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task QueueCommand_uses_authenticated_subject_and_ignores_spoofed_requested_by()
     {
         const string subject = "operator-42";
