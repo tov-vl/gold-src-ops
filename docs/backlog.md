@@ -728,8 +728,11 @@ Delivery order:
    callbacks, the namespaced role claim in both token types, Reader and
    Operator rendering, no-role denial, logout, and process-local session
    invalidation across a controlled Web restart passed live verification. The
-   fresh invalid-token and role API matrix also passed; a dedicated automated
-   browser-storage assertion is the remaining pre-stable evidence item.
+   fresh invalid-token and role API matrix also passed. A dedicated
+   Kestrel-backed Playwright check now verifies empty browser storage,
+   token-free protected responses and DOM content, and the opaque secure
+   session-cookie contract. This closes the bounded token-boundary evidence
+   item; separate availability and release-readiness criteria remain.
    Incidents and history are the next read-only slice; commands, dead letters,
    and replay remain later Operator work and must preserve the existing API
    policies and audit trail.

@@ -70,7 +70,7 @@ internal sealed class ReaderWebApplicationFactory(string? role = WebSecurity.Rea
         });
     }
 
-    private sealed class FixtureReaderApiClient : IReaderApiClient
+    internal sealed class FixtureReaderApiClient : IReaderApiClient
     {
         private static readonly DateTimeOffset ObservedAtUtc =
             new(2026, 9, 4, 12, 0, 0, TimeSpan.Zero);

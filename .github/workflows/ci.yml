@@ -122,6 +122,44 @@ jobs:
       - name: Run Web container smoke test
         run: pwsh -NoProfile -File ./tools/smoke/web-container.ps1
 
+  browser-smoke:
+    name: Browser Smoke
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GOLDSRCOPS_RUN_BROWSER_TESTS: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore browser tests with NuGet audit
+        run: >-
+          dotnet restore tests/GoldSrcOps.WebTests/GoldSrcOps.WebTests.csproj
+          -p:AuditPipeline=true
+
+      - name: Build browser tests
+        run: >-
+          dotnet build tests/GoldSrcOps.WebTests/GoldSrcOps.WebTests.csproj
+          --no-restore
+
+      - name: Install Playwright Chromium
+        run: >-
+          pwsh tests/GoldSrcOps.WebTests/bin/Debug/net10.0/playwright.ps1
+          install --with-deps --only-shell chromium
+
+      - name: Verify browser token boundary
+        run: >-
+          dotnet test tests/GoldSrcOps.WebTests/GoldSrcOps.WebTests.csproj
+          --no-build
+          --filter FullyQualifiedName~BrowserTokenBoundaryTests
+
   publish-image:
     name: Publish Image
     if: >-
@@ -130,6 +168,7 @@ jobs:
     needs:
       - quality
       - container-smoke
+      - browser-smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -546,6 +585,7 @@ jobs:
     needs:
       - quality
       - container-smoke
+      - browser-smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
