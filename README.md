@@ -29,9 +29,13 @@ accumulates. The first sanitized public Blazor dashboard landed in
 packaging landed in
 [PR #84](https://github.com/tov-vl/gold-src-ops/pull/84), and the static-SSR
 release correction landed in
-[PR #85](https://github.com/tov-vl/gold-src-ops/pull/85). Signed candidate
-`v2.4.0-rc.2` was published, digest-verified, and deployed from revision
-`c173c27`; it is not yet a stable v2.4 release. The
+[PR #85](https://github.com/tov-vl/gold-src-ops/pull/85). The authenticated
+Reader portal landed in
+[PR #87](https://github.com/tov-vl/gold-src-ops/pull/87). Signed candidate
+`v2.4.0-rc.3` was published, digest-verified, and deployed from revision
+`cb4bf4f`; its complete tag workflow passed in
+[run #34026555320](https://github.com/tov-vl/gold-src-ops/actions/runs/34026555320).
+It is not yet a stable v2.4 release. The
 provider-independent monitoring contract is documented in
 [docs/v2.4-external-availability-monitoring.md](docs/v2.4-external-availability-monitoring.md),
 the conditional managed-provider choice is recorded in
@@ -49,6 +53,8 @@ closing the current availability implementation slice while shadow collection
 continues without blocking UI development. Production packaging and rollout
 evidence for the dashboard follows the fail-closed two-image contract in
 [docs/v2.4-public-dashboard-deployment.md](docs/v2.4-public-dashboard-deployment.md).
+The production OIDC boundary and live Reader/Operator evidence are recorded in
+[docs/v2.4-reader-portal.md](docs/v2.4-reader-portal.md).
 
 ## Highlights
 
@@ -127,6 +133,7 @@ published-image verification have passed.
 | v2.4 synthetic-monitoring rollout | [Synthetic-monitoring rollout](docs/v2.4-synthetic-monitoring-rollout.md) |
 | v2.4 normalized evidence pipeline | [Availability evidence exporter](docs/v2.4-availability-evidence-exporter.md) |
 | v2.4 public dashboard deployment | [Public dashboard deployment](docs/v2.4-public-dashboard-deployment.md) |
+| v2.4 authenticated Reader portal | [Reader portal](docs/v2.4-reader-portal.md) |
 | v2.3 production Compose contract | [Reference production Compose](ops/production/README.md) |
 | Production metrics path and operations | [Observability](docs/observability.md) |
 | PostgreSQL off-host backup and restore | [PostgreSQL backup](docs/postgresql-backup.md) |

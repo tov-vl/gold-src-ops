@@ -718,11 +718,18 @@ Delivery order:
    API policy matrix remains a pre-stable verification item but does not block
    operator UI development. Richer public availability history remains
    follow-up work. See `docs/v2.4-public-dashboard-deployment.md`.
-6. **Operator experience (in progress)**: the first authenticated Reader slice
-   adds OIDC login/logout, a server-side BFF session, server inventory, and
-   current server status without mutations. Production OIDC configuration and
-   live role verification remain before deployment. Incidents and history are
-   the next read-only slice; commands, dead letters, and replay remain later
+6. **Operator experience (first read-only slice deployed 2026-09-06)**: pull
+   request #87 added OIDC login/logout, a server-side BFF session, server
+   inventory, and current server status without mutations. Signed candidate
+   `v2.4.0-rc.3` and
+   [workflow 34026555320](https://github.com/tov-vl/gold-src-ops/actions/runs/34026555320)
+   published and verified both images from revision `cb4bf4f`. Production OIDC
+   callbacks, the namespaced role claim in both token types, Reader and
+   Operator rendering, no-role denial, logout, and process-local session
+   invalidation across a controlled Web restart passed live verification. A
+   fresh invalid-token API matrix and a dedicated automated browser-storage
+   assertion remain pre-stable evidence items. Incidents and history are the
+   next read-only slice; commands, dead letters, and replay remain later
    Operator work and must preserve the existing API policies and audit trail.
 7. **First SLO review**: after a complete forward-looking window, publish the
    reproducible sanitized result and report `API-01` as met or missed. Review the
