@@ -714,10 +714,11 @@ Delivery order:
    the static-SSR rendering contract. Signed candidate `v2.4.0-rc.2` and
    [workflow 33983719134](https://github.com/tov-vl/gold-src-ops/actions/runs/33983719134)
    published and verified both images from revision `c173c27`; the production
-   rollout and sanitized post-deployment checks passed. A fresh authenticated
-   API policy matrix remains a pre-stable verification item but does not block
-   operator UI development. Richer public availability history remains
-   follow-up work. See `docs/v2.4-public-dashboard-deployment.md`.
+   rollout and sanitized post-deployment checks passed. The fresh ten-case
+   authenticated API policy matrix passed against the public production route
+   on 2026-09-06. Richer public availability history remains follow-up work.
+   See `docs/v2.4-public-dashboard-deployment.md` and
+   `docs/v2.4-reader-portal.md`.
 6. **Operator experience (first read-only slice deployed 2026-09-06)**: pull
    request #87 added OIDC login/logout, a server-side BFF session, server
    inventory, and current server status without mutations. Signed candidate
@@ -726,11 +727,12 @@ Delivery order:
    published and verified both images from revision `cb4bf4f`. Production OIDC
    callbacks, the namespaced role claim in both token types, Reader and
    Operator rendering, no-role denial, logout, and process-local session
-   invalidation across a controlled Web restart passed live verification. A
-   fresh invalid-token API matrix and a dedicated automated browser-storage
-   assertion remain pre-stable evidence items. Incidents and history are the
-   next read-only slice; commands, dead letters, and replay remain later
-   Operator work and must preserve the existing API policies and audit trail.
+   invalidation across a controlled Web restart passed live verification. The
+   fresh invalid-token and role API matrix also passed; a dedicated automated
+   browser-storage assertion is the remaining pre-stable evidence item.
+   Incidents and history are the next read-only slice; commands, dead letters,
+   and replay remain later Operator work and must preserve the existing API
+   policies and audit trail.
 7. **First SLO review**: after a complete forward-looking window, publish the
    reproducible sanitized result and report `API-01` as met or missed. Review the
    target without changing it to fit the observed result.
