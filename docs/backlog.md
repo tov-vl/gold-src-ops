@@ -718,9 +718,12 @@ Delivery order:
    API policy matrix remains a pre-stable verification item but does not block
    operator UI development. Richer public availability history remains
    follow-up work. See `docs/v2.4-public-dashboard-deployment.md`.
-6. **Operator experience**: add authenticated Reader and Operator workflows for
-   servers, incidents, history, commands, dead letters, and replay without
-   weakening the existing API policies or audit trail.
+6. **Operator experience (in progress)**: the first authenticated Reader slice
+   adds OIDC login/logout, a server-side BFF session, server inventory, and
+   current server status without mutations. Production OIDC configuration and
+   live role verification remain before deployment. Incidents and history are
+   the next read-only slice; commands, dead letters, and replay remain later
+   Operator work and must preserve the existing API policies and audit trail.
 7. **First SLO review**: after a complete forward-looking window, publish the
    reproducible sanitized result and report `API-01` as met or missed. Review the
    target without changing it to fit the observed result.

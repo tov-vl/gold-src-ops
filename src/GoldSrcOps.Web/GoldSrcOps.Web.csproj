@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.7" />
     <ProjectReference Include="..\GoldSrcOps.Contracts\GoldSrcOps.Contracts.csproj" />
   </ItemGroup>
 
@@ -9,6 +10,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>GoldSrcOps.Web-31b919b1-24c8-49a1-a1d7-c1b28dcd4189</UserSecretsId>
   </PropertyGroup>
 
 </Project>

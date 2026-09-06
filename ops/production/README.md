@@ -47,10 +47,10 @@ that evidence and requires a new baseline for a subsequent soak claim.
   UDP `443`.
 - The API is reachable only through the private `edge` network. Its static proxy
   setting trusts forwarded headers from the configured Caddy address only.
-- The public Web host is reachable only through the same private `edge`
-  network, calls the anonymous API projection by service name, receives no
-  secrets, and has its own image-local liveness check. Caddy routes the API and
-  Web hostnames independently.
+- The Web host is reachable only through the same private `edge` network. It
+  calls anonymous and Reader API projections by service name and receives only
+  its OIDC and Data Protection secrets. Caddy routes the API and Web hostnames
+  independently.
 - PostgreSQL uses `network_mode: none` and exposes no TCP listener to another
   container or the host. The API reaches it through a shared Unix-domain socket.
 - The `operations` profile contains a one-shot migration service. It uses the
@@ -97,6 +97,9 @@ Create these separate secret files outside the repository:
 | `GOLDSRCOPS_DATABASE_CONNECTION_FILE` | Complete single-line Npgsql connection string using the shared Unix socket. |
 | `GOLDSRCOPS_RCON_PASSWORD_FILE` | Single-line RCON password for `GOLDSRCOPS_RCON_SECRET_ALIAS`. |
 | `GOLDSRCOPS_GRAFANA_ADMIN_PASSWORD_FILE` | Unique Grafana administrator password used only for private operator access. |
+| `GOLDSRCOPS_WEB_OIDC_CLIENT_SECRET_FILE` | Confidential OIDC Web-client secret. |
+| `GOLDSRCOPS_WEB_DATA_PROTECTION_CERTIFICATE_FILE` | PKCS #12 certificate and private key used to encrypt the Web key ring. |
+| `GOLDSRCOPS_WEB_DATA_PROTECTION_CERTIFICATE_PASSWORD_FILE` | Single-line password for the PKCS #12 file. |
 | `GOLDSRCOPS_RESTIC_PASSWORD_FILE` | Independent password for client-side backup encryption. |
 | `GOLDSRCOPS_RESTIC_ENVIRONMENT_FILE` | Repository-scoped S3-compatible backend credentials. |
 
@@ -104,9 +107,11 @@ Docker Compose implements file-backed secrets as bind mounts and cannot remap
 their ownership. On Linux, create the PostgreSQL password file with owner UID
 `0` and mode `0400`; create the database connection and RCON files with the API
 runtime UID `1654` and mode `0400`; create the Grafana password file with UID
-`472` and mode `0400`. The PostgreSQL password in the first two files must be the
-same. Keep all values out of shell history, source control, image layers, logs,
-and issue or pull-request text.
+`472` and mode `0400`. The three Web secret files also require UID `1654` and
+mode `0400`. Create `/var/lib/goldsrcops/data-protection` with UID `1654` and
+mode `0700`; this is the only writable Web state mount. The PostgreSQL password
+in the first two files must be the same. Keep all values out of shell history,
+source control, image layers, logs, and issue or pull-request text.
 
 The host also needs:
 
@@ -246,8 +251,8 @@ pwsh -NoProfile -File ./ops/production/preflight.ps1 `
 It renders Compose, requires immutable image digests, enforces runtime restart
 policies and bounded local logs, checks the public-port and Unix-socket
 boundaries, verifies both trusted proxy boundaries, proves the Web service has
-no secrets or published port, and checks secret file location
-and permissions without printing secret contents. It also uses the configured
+only its three scoped secrets and no published port, and checks secret file and
+key-ring-directory permissions without printing secret contents. It also uses the configured
 digest-pinned Caddy image to validate the tracked Caddyfile. Full deployment
 mode pulls the API image, verifies its non-root UID, and requires the
 image-contained secret-loading entrypoint and migration bundle. It also pulls

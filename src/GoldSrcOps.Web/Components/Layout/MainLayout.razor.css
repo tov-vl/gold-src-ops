@@ -12,10 +12,10 @@ footer {
 
 .topbar {
     min-height: 72px;
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
-    justify-content: space-between;
-    gap: 24px;
+    gap: 36px;
     border-bottom: 1px solid var(--line-strong);
 }
 
@@ -58,6 +58,85 @@ footer {
     text-transform: uppercase;
 }
 
+.primary-nav {
+    min-width: 0;
+    display: flex;
+    align-items: stretch;
+    align-self: stretch;
+    gap: 26px;
+}
+
+.primary-nav a {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    color: var(--ink-muted);
+    font-size: 0.84rem;
+    font-weight: 680;
+    text-decoration: none;
+}
+
+.primary-nav a.active {
+    color: var(--ink);
+}
+
+.primary-nav a.active::after {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    background: var(--signal-green);
+    content: "";
+}
+
+.primary-nav a:focus-visible,
+.session-button:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 4px;
+}
+
+.session-actions {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+}
+
+.session-actions form {
+    margin: 0;
+}
+
+.session-name {
+    max-width: 220px;
+    overflow: hidden;
+    color: var(--ink-muted);
+    font-size: 0.8rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.session-button {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.session-button:hover {
+    border-color: var(--ink-muted);
+}
+
 main {
     min-width: 0;
 }
@@ -81,6 +160,32 @@ footer {
 
     .topbar {
         min-height: 64px;
+        grid-template-columns: auto 1fr;
+        gap: 18px;
+        padding: 10px 0;
+    }
+
+    .brand > span:last-child,
+    .session-name {
+        display: none;
+    }
+
+    .primary-nav {
+        justify-self: start;
+        gap: 18px;
+    }
+
+    .session-actions {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: end;
+    }
+
+    .primary-nav {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        min-height: 34px;
+        width: 100%;
     }
 
     footer {

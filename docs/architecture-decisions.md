@@ -962,3 +962,56 @@ archive implementation and recovery, provider failure-detail and alert tests,
 and a complete 24-hour shadow run are required next. The effective configuration
 is in `docs/v2.4-synthetic-monitoring-rollout.md`; decision details and vendor
 references are in `docs/v2.4-synthetic-monitoring-provider-decision.md`.
+
+## Decision 21: Use a Server-Side OIDC BFF for the Operator Web UI
+
+Decision:
+
+Implement GoldSrcOps.Web as a confidential OIDC client and server-side BFF.
+Use authorization code with PKCE, retain ID and access tokens in a bounded
+server-side authentication ticket, and send only an opaque HTTP-only session
+cookie to the browser. Apply the `Reader` policy in Web and independently send
+the access token to GoldSrcOps.Api, which remains the final authorization
+boundary.
+
+Persist the ASP.NET Core Data Protection key ring in a dedicated writable host
+directory and encrypt it with an externally escrowed X.509 certificate. Keep
+the initial ticket store process-local and bounded to 1,024 sessions. A restart
+logs users out, and horizontal Web scaling is prohibited until a shared
+encrypted ticket store is selected.
+
+Decision date: 2026-09-05.
+
+Reasoning:
+
+- Static SSR does not require API tokens in browser storage or JavaScript.
+- An opaque server-side session reduces token exposure through cookie size,
+  browser tooling, and client-side application code.
+- The API still validates issuer, audience, lifetime, and role on every call,
+  so Web authorization cannot bypass the resource-server boundary.
+- Persistent encrypted Data Protection keys support controlled certificate
+  and host lifecycle without writing key material into the image or Git.
+- A process-local store is sufficient for the single-instance MVP and makes
+  restart behavior explicit instead of introducing Redis or another database
+  dependency before measured demand.
+
+Alternatives considered:
+
+- Store access tokens in browser local or session storage. Rejected because it
+  increases token exposure and is unnecessary for server-rendered pages.
+- Put serialized tokens directly in the authentication cookie. Rejected because
+  the browser would carry sensitive token material and large cookies on every
+  request even when protected with Data Protection.
+- Add a JavaScript SPA with a public-client flow. Deferred because the first
+  read-only workflows do not need client-side interactivity and the additional
+  token and CORS boundary would add risk without product value.
+- Introduce a shared Redis or PostgreSQL ticket store immediately. Deferred
+  until Web requires horizontal scaling or restart-persistent sessions.
+
+Implementation status:
+
+The first Reader slice implements login/logout, fail-closed disabled behavior,
+server inventory and status pages, bearer forwarding, a bounded in-memory
+ticket store, and an X.509-protected production key-ring contract. Production
+provider configuration and live role/callback verification remain rollout
+gates. The detailed contract is in `docs/v2.4-reader-portal.md`.

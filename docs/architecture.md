@@ -3,10 +3,10 @@
 The GoldSrcOps control plane is currently a modular monolith. The API host owns
 HTTP endpoints, background polling, command and alert dispatch, snapshot and
 outbox retention, persistence wiring, health checks, and metrics export in one
-deployable process. A separate Blazor Web host renders the public dashboard from
-a sanitized API projection. The internal boundaries still separate API
-contracts, application orchestration, domain rules, and infrastructure
-integrations.
+deployable process. A separate Blazor Web host renders the public dashboard and
+acts as a server-side OIDC BFF for protected Reader pages. The internal
+boundaries still separate API contracts, application orchestration, domain
+rules, and infrastructure integrations.
 
 ## System Overview
 
@@ -15,6 +15,7 @@ flowchart LR
     clients["Operators / API clients"]
     visitors["Public visitors"]
     web["GoldSrcOps.Web<br/>Blazor static SSR"]
+    identity["External OIDC provider"]
     collector["OpenTelemetry Collector"]
     prometheus["Prometheus"]
     grafana["Grafana"]
@@ -71,6 +72,9 @@ flowchart LR
     clients --> endpoints
     visitors --> web
     web -->|"server-side HTTP"| publicStatus
+    clients -->|"browser session"| web
+    web <-->|"OIDC code flow"| identity
+    web -->|"server-side bearer request"| endpoints
     telemetry -->|OTLP metrics| collector
     prometheus -->|scrapes| collector
     grafana --> prometheus
@@ -163,10 +167,12 @@ The API enforces the control-plane security boundary defined in
 ```mermaid
 flowchart LR
     client["Operator / API client"]
+    browser["Operator browser"]
     visitor["Public visitor"]
-    web["Blazor Web host"]
+    web["Blazor Web BFF"]
     identity["External OAuth 2.0 / OIDC provider"]
     authentication["JWT bearer authentication"]
+    webReader["Web Reader policy"]
     reader["Reader policy"]
     operatorPolicy["Operator policy"]
     reads["Read endpoints and /metrics"]
@@ -178,6 +184,11 @@ flowchart LR
     client -->|"OAuth/OIDC flow"| identity
     identity -->|"JWT access token"| client
     client -->|"Authorization: Bearer token"| authentication
+    browser -->|"opaque session cookie"| web
+    web -->|"authorization code + PKCE"| identity
+    identity -->|"ID and access tokens<br/>server-side only"| web
+    web --> webReader
+    webReader -->|"Bearer access token"| authentication
     authentication --> reader
     authentication --> operatorPolicy
     reader --> reads
@@ -188,10 +199,12 @@ flowchart LR
     web -->|"server-side request"| publicStatus
 ```
 
-GoldSrcOps remains a resource server and does not issue production tokens or
-store user accounts. Production token issuance belongs to an external identity
-provider. Local development uses project-specific tokens from
-`dotnet user-jwts` only.
+GoldSrcOps.Api remains a resource server and does not issue production tokens
+or store user accounts. GoldSrcOps.Web is a confidential OIDC client and BFF;
+production token issuance and user authentication still belong to the external
+identity provider. Its server-side session store retains tokens while the
+browser receives only an opaque session key. Local API development can still
+use project-specific tokens from `dotnet user-jwts`.
 
 The `Reader` policy permits read endpoints and metrics. The `Operator` policy
 permits all reads plus server, credential, and command mutations. The fallback

@@ -1,0 +1,136 @@
+@page "/operator/servers"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<Servers> Logger
+
+<PageTitle>Servers | GoldSrcOps</PageTitle>
+
+<div class="operator-page">
+    <header class="page-heading">
+        <div>
+            <p class="eyebrow">Reader portal</p>
+            <h1>Servers</h1>
+        </div>
+        @if (_overview is not null)
+        {
+            <div class="observation">
+                <span>Last fleet observation</span>
+                <strong>@FormatDateTime(_overview.LastCheckedAtUtc)</strong>
+            </div>
+        }
+    </header>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state load-state--error" role="alert">
+            <h2>Server data is unavailable</h2>
+            <p>The API did not return a usable Reader snapshot. Try again after the service recovers.</p>
+        </section>
+    }
+    else if (_overview is not null)
+    {
+        <section class="overview" aria-label="Fleet overview">
+            <article>
+                <span>Total</span>
+                <strong>@_overview.TotalServers</strong>
+            </article>
+            <article class="overview--online">
+                <span>Online</span>
+                <strong>@_overview.OnlineServers</strong>
+            </article>
+            <article class="overview--offline">
+                <span>Offline</span>
+                <strong>@_overview.OfflineServers</strong>
+            </article>
+            <article>
+                <span>Unknown</span>
+                <strong>@_overview.UnknownServers</strong>
+            </article>
+            <article class="overview--incidents">
+                <span>Open incidents</span>
+                <strong>@_overview.OpenIncidents</strong>
+            </article>
+        </section>
+
+        <section class="server-section" aria-labelledby="server-list-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Inventory</p>
+                    <h2 id="server-list-title">Controlled servers</h2>
+                </div>
+                <span>@EnabledSummary</span>
+            </div>
+
+            @if (_servers.Count == 0)
+            {
+                <div class="load-state">
+                    <h3>No servers configured</h3>
+                    <p>The Reader inventory is currently empty.</p>
+                </div>
+            }
+            else
+            {
+                <div class="server-table" role="table" aria-label="Controlled servers">
+                    <div class="server-row server-row--header" role="row">
+                        <span role="columnheader">Server</span>
+                        <span role="columnheader">Game</span>
+                        <span role="columnheader">Endpoint</span>
+                        <span role="columnheader">Polling</span>
+                        <span role="columnheader">State</span>
+                        <span role="columnheader"><span class="visually-hidden">Open</span></span>
+                    </div>
+                    @foreach (var server in _servers)
+                    {
+                        <div class="server-row" role="row">
+                            <span class="server-name" role="cell">@server.Name</span>
+                            <span role="cell">@server.Game</span>
+                            <code role="cell">@server.Host:@server.QueryPort</code>
+                            <span role="cell">@server.PollIntervalSeconds s</span>
+                            <span role="cell">
+                                <span class="state-label @(server.IsEnabled ? "state-label--enabled" : "state-label--disabled")">
+                                    @(server.IsEnabled ? "Enabled" : "Disabled")
+                                </span>
+                            </span>
+                            <span class="row-action" role="cell">
+                                <a href="@($"/operator/servers/{server.Id:D}")" aria-label="View status for @server.Name">View</a>
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private DashboardOverviewResponse? _overview;
+    private IReadOnlyList<ServerResponse> _servers = [];
+    private bool _loadFailed;
+
+    private string EnabledSummary =>
+        $"{_overview?.EnabledServers ?? 0} enabled, {_overview?.DisabledServers ?? 0} disabled";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var overviewTask = ReaderApiClient.GetOverviewAsync();
+            var serversTask = ReaderApiClient.GetServersAsync();
+            await Task.WhenAll(overviewTask, serversTask);
+
+            _overview = await overviewTask;
+            _servers = (await serversTask)
+                .OrderBy(static server => server.Name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load the Reader server inventory.");
+            _loadFailed = true;
+        }
+    }
+
+    private static string FormatDateTime(DateTimeOffset? value) => value is null
+        ? "Not available"
+        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture);
+}
