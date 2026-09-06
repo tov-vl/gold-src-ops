@@ -39,12 +39,14 @@ internal sealed class EfIncidentRepository : IIncidentRepository
 
     public async Task<IReadOnlyList<AvailabilityIncident>> ListByServerAsync(
         Guid serverId,
+        int limit,
         CancellationToken cancellationToken)
     {
         return await _dbContext.AvailabilityIncidents
             .AsNoTracking()
             .Where(x => x.ServerId == serverId)
             .OrderByDescending(x => x.OpenedAtUtc)
+            .Take(limit)
             .ToListAsync(cancellationToken);
     }
 

@@ -1,0 +1,144 @@
+@page "/operator/incidents"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<Incidents> Logger
+
+<PageTitle>Incidents | GoldSrcOps</PageTitle>
+
+<div class="incidents-page">
+    <header class="page-heading">
+        <div>
+            <p class="eyebrow">Reader portal</p>
+            <h1>Incidents</h1>
+        </div>
+        <p>Current availability exceptions across the controlled fleet.</p>
+    </header>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h2>Incident data is unavailable</h2>
+            <p>The API did not return a usable Reader snapshot. Try again after the service recovers.</p>
+        </section>
+    }
+    else
+    {
+        <section class="incident-summary" aria-label="Open incident summary">
+            <article class="summary--alert">
+                <span>Open incidents</span>
+                <strong>@_incidents.Count</strong>
+            </article>
+            <article>
+                <span>Affected servers</span>
+                <strong>@AffectedServerCount</strong>
+            </article>
+            <article>
+                <span>Oldest opened</span>
+                <strong class="summary-time">@FormatDateTime(OldestOpenedAtUtc)</strong>
+            </article>
+        </section>
+
+        <section class="incident-section" aria-labelledby="open-incidents-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Availability</p>
+                    <h2 id="open-incidents-title">Open incidents</h2>
+                </div>
+                <span>Newest first</span>
+            </div>
+
+            @if (_incidents.Count == 0)
+            {
+                <div class="empty-state">
+                    <h3>No open incidents</h3>
+                    <p>Every controlled server is currently free of active availability incidents.</p>
+                </div>
+            }
+            else
+            {
+                <div class="incident-table" role="table" aria-label="Open availability incidents">
+                    <div class="incident-row incident-row--header" role="row">
+                        <span role="columnheader">State</span>
+                        <span role="columnheader">Server</span>
+                        <span role="columnheader">Type</span>
+                        <span role="columnheader">Opened</span>
+                        <span role="columnheader">Failures</span>
+                        <span role="columnheader">Reason</span>
+                        <span role="columnheader"><span class="visually-hidden">Open</span></span>
+                    </div>
+                    @foreach (var incident in _incidents)
+                    {
+                        <div class="incident-row" role="row">
+                            <span role="cell">
+                                <span class="state-label">Open</span>
+                            </span>
+                            <span class="server-name" role="cell">
+                                <span class="cell-label">Server</span>
+                                @GetServerName(incident.ServerId)
+                            </span>
+                            <span role="cell">
+                                <span class="cell-label">Type</span>
+                                @incident.Type
+                            </span>
+                            <time role="cell" datetime="@incident.OpenedAtUtc.ToString("O", CultureInfo.InvariantCulture)">
+                                <span class="cell-label">Opened</span>
+                                @FormatDateTime(incident.OpenedAtUtc)
+                            </time>
+                            <span role="cell">
+                                <span class="cell-label">Failures</span>
+                                @incident.ConsecutiveFailures
+                            </span>
+                            <span class="reason" role="cell">
+                                <span class="cell-label">Reason</span>
+                                @incident.StartReason
+                            </span>
+                            <span class="row-action" role="cell">
+                                <a href="@($"/operator/servers/{incident.ServerId:D}/history#incident-{incident.Id:D}")"
+                                   aria-label="View incident history for @GetServerName(incident.ServerId)">View</a>
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AvailabilityIncidentResponse> _incidents = [];
+    private IReadOnlyDictionary<Guid, ServerResponse> _servers = new Dictionary<Guid, ServerResponse>();
+    private bool _loadFailed;
+
+    private int AffectedServerCount => _incidents.Select(static incident => incident.ServerId).Distinct().Count();
+
+    private DateTimeOffset? OldestOpenedAtUtc => _incidents.Count == 0
+        ? null
+        : _incidents.Min(static incident => incident.OpenedAtUtc);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var incidentsTask = ReaderApiClient.GetOpenIncidentsAsync();
+            var serversTask = ReaderApiClient.GetServersAsync();
+            await Task.WhenAll(incidentsTask, serversTask);
+
+            _incidents = (await incidentsTask)
+                .OrderByDescending(static incident => incident.OpenedAtUtc)
+                .ToArray();
+            _servers = (await serversTask).ToDictionary(static server => server.Id);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load open incidents for the Reader portal.");
+            _loadFailed = true;
+        }
+    }
+
+    private string GetServerName(Guid serverId) =>
+        _servers.TryGetValue(serverId, out var server) ? server.Name : "Unknown server";
+
+    private static string FormatDateTime(DateTimeOffset? value) => value is null
+        ? "Not available"
+        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+}

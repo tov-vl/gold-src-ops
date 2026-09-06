@@ -168,12 +168,20 @@ public static class ServerEndpoints
         return result is null ? TypedResults.NotFound() : TypedResults.Ok(Map(result));
     }
 
-    private static async Task<Ok<IReadOnlyList<AvailabilityIncidentResponse>>> ListServerIncidentsAsync(
-        Guid id,
-        IncidentsService incidents,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Ok<IReadOnlyList<AvailabilityIncidentResponse>>, ValidationProblem>>
+        ListServerIncidentsAsync(
+            Guid id,
+            int? limit,
+            IncidentsService incidents,
+            CancellationToken cancellationToken)
     {
-        var result = await incidents.ListByServerAsync(id, cancellationToken);
+        var errors = ValidateIncidentQuery(limit);
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        var result = await incidents.ListByServerAsync(id, limit, cancellationToken);
         return TypedResults.Ok<IReadOnlyList<AvailabilityIncidentResponse>>(result.Select(Map).ToArray());
     }
 
@@ -255,6 +263,18 @@ public static class ServerEndpoints
         if (limit is <= 0 or > MonitoringReadService.MaxSnapshotLimit)
         {
             errors["limit"] = [$"Limit must be between 1 and {MonitoringReadService.MaxSnapshotLimit}."];
+        }
+
+        return errors;
+    }
+
+    private static Dictionary<string, string[]> ValidateIncidentQuery(int? limit)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+
+        if (limit is <= 0 or > IncidentsService.MaxIncidentHistoryLimit)
+        {
+            errors["limit"] = [$"Limit must be between 1 and {IncidentsService.MaxIncidentHistoryLimit}."];
         }
 
         return errors;

@@ -55,6 +55,9 @@ evidence for the dashboard follows the fail-closed two-image contract in
 [docs/v2.4-public-dashboard-deployment.md](docs/v2.4-public-dashboard-deployment.md).
 The production OIDC boundary and live Reader/Operator evidence are recorded in
 [docs/v2.4-reader-portal.md](docs/v2.4-reader-portal.md).
+The second read-only portal slice now adds open-incident triage and bounded
+per-server observation and incident history in the repository; candidate
+publication and production verification remain pending.
 
 ## Highlights
 
@@ -78,7 +81,8 @@ The production OIDC boundary and live Reader/Operator evidence are recorded in
 - Repeatable Docker-based local startup, authenticated smoke test, and guarded
   owned-server RCON verification.
 - A separate Blazor Web App with an anonymous aggregate status view and an
-  OIDC-protected Reader portal for server inventory and current status.
+  OIDC-protected Reader portal for server inventory, current status, open
+  incidents, and bounded observation and incident history.
 
 ## Architecture Overview
 
@@ -313,10 +317,13 @@ API endpoints:
 - `GET /api/commands/{commandId}`
 - `GET /api/servers/{id}/status`
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=`
-- `GET /api/servers/{id}/incidents`
+- `GET /api/servers/{id}/incidents?limit=`
 - `GET /api/dashboard/overview`
 - `GET /api/incidents/open`
 - `GET /api/incidents/{id}`
+
+Per-server incident history defaults to 50 records and accepts an explicit
+`limit` from 1 through 200.
 
 After registering a server, the background poller will update `/api/servers/{id}/status` once the next polling pass succeeds.
 After repeated failed polls, the poller opens an availability incident. A later successful poll closes it.

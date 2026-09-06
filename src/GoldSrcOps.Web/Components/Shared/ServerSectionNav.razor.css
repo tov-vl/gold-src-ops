@@ -1,0 +1,36 @@
+.section-nav {
+    min-height: 52px;
+    display: flex;
+    align-items: stretch;
+    gap: 28px;
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.section-nav a {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    color: var(--ink-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.section-nav a.active {
+    color: var(--ink);
+}
+
+.section-nav a.active::after {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    background: var(--signal-green);
+    content: "";
+}
+
+.section-nav a:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 4px;
+}

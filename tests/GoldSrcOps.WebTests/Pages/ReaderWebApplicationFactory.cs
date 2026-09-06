@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
 using GoldSrcOps.Web.Security;
@@ -38,7 +39,9 @@ internal sealed class ReaderWebApplicationFactory(string? role = WebSecurity.Rea
     : WebApplicationFactory<Program>
 {
     public static readonly Guid ServerId = Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f");
+    public static readonly Guid OpenIncidentId = Guid.Parse("9307a87e-61cf-4901-8026-b301908431d6");
     public const string ServerName = "Reader fixture server";
+    public const string OpenIncidentReason = "A2S query timed out";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -106,6 +109,83 @@ internal sealed class ReaderWebApplicationFactory(string? role = WebSecurity.Rea
                     0)
                 : null);
 
+        public Task<IReadOnlyList<AvailabilityIncidentResponse>> GetOpenIncidentsAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<AvailabilityIncidentResponse>>([CreateOpenIncident()]);
+
+        public Task<IReadOnlyList<AvailabilityIncidentResponse>> GetServerIncidentsAsync(
+            Guid serverId,
+            int limit,
+            CancellationToken cancellationToken = default)
+        {
+            if (serverId != ServerId)
+            {
+                return Task.FromResult<IReadOnlyList<AvailabilityIncidentResponse>>([]);
+            }
+
+            IReadOnlyList<AvailabilityIncidentResponse> incidents =
+            [
+                CreateOpenIncident(),
+                new AvailabilityIncidentResponse(
+                    Guid.Parse("5e3fd38c-a3c8-4a2d-a8a2-ac8fd7b9a788"),
+                    ServerId,
+                    "Unreachable",
+                    ObservedAtUtc.AddHours(-3),
+                    ObservedAtUtc.AddHours(-2),
+                    "Connection refused",
+                    "Probe recovered",
+                    3)
+            ];
+
+            return Task.FromResult<IReadOnlyList<AvailabilityIncidentResponse>>(incidents.Take(limit).ToArray());
+        }
+
+        public Task<SnapshotHistoryResponse?> GetServerSnapshotsAsync(
+            Guid serverId,
+            int limit,
+            CancellationToken cancellationToken = default)
+        {
+            if (serverId != ServerId)
+            {
+                return Task.FromResult<SnapshotHistoryResponse?>(null);
+            }
+
+            PollSnapshotResponse[] snapshots =
+            [
+                new(
+                    Guid.Parse("dbe590f4-cf68-48b5-b865-8c1951a526bf"),
+                    ServerId,
+                    ObservedAtUtc,
+                    true,
+                    18,
+                    "de_dust2",
+                    0,
+                    20,
+                    0,
+                    "1.1.2.7/Stdio",
+                    null),
+                new(
+                    Guid.Parse("73e87c47-9aef-4a95-b10c-47d8751d381e"),
+                    ServerId,
+                    ObservedAtUtc.AddMinutes(-30),
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    OpenIncidentReason)
+            ];
+
+            return Task.FromResult<SnapshotHistoryResponse?>(new SnapshotHistoryResponse(
+                ServerId,
+                null,
+                null,
+                limit,
+                snapshots.Take(limit).ToArray()));
+        }
+
         private static ServerResponse CreateServer() => new(
             ServerId,
             ServerName,
@@ -117,6 +197,16 @@ internal sealed class ReaderWebApplicationFactory(string? role = WebSecurity.Rea
             30,
             "Reader fixture note",
             ObservedAtUtc.AddDays(-1));
+
+        private static AvailabilityIncidentResponse CreateOpenIncident() => new(
+            OpenIncidentId,
+            ServerId,
+            "Unreachable",
+            ObservedAtUtc.AddMinutes(-15),
+            null,
+            OpenIncidentReason,
+            null,
+            4);
     }
 
     private sealed class TestAuthenticationOptions : AuthenticationSchemeOptions
