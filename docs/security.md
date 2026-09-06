@@ -57,11 +57,14 @@ first.
 
 A Kestrel-backed Playwright test verifies this boundary in a real browser. It
 places recognizable fake JWT sentinels in the server-side authentication
-ticket, renders the protected list and detail pages, and asserts that response
-bodies, DOM content, local storage, and session storage expose no token. It also
-requires one opaque `__Host-GoldSrcOps.Web` cookie with `HttpOnly`, `Secure`,
-`SameSite=Lax`, and root-path attributes. Its sign-in fixture is registered only
-inside the test host and cannot be enabled in the production application.
+ticket, renders the protected server, incident, command-history, and dead-letter
+routes, and asserts that response bodies, DOM content, local storage, and
+session storage expose no token. Recognizable command and dead-letter payload
+sentinels independently verify that those raw payloads are not rendered. The
+test also requires one opaque `__Host-GoldSrcOps.Web` cookie with `HttpOnly`,
+`Secure`, `SameSite=Lax`, and root-path attributes. Its sign-in fixture is
+registered only inside the test host and cannot be enabled in the production
+application.
 
 Production startup fails unless authentication uses an HTTPS authority, a
 file-backed client secret, and a persistent X.509-protected Data Protection key

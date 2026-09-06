@@ -186,6 +186,9 @@ footer {
         grid-row: 2;
         min-height: 34px;
         width: 100%;
+        gap: 14px;
+        overflow-x: auto;
+        white-space: nowrap;
     }
 
     footer {

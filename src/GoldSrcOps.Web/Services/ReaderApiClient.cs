@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using GoldSrcOps.Contracts.Alerts;
+using GoldSrcOps.Contracts.Commands;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
@@ -49,6 +51,36 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
         var requestUri = AddLimit($"api/servers/{serverId:D}/snapshots", limit);
         return GetOptionalAsync<SnapshotHistoryResponse>(requestUri, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<CommandExecutionResponse>?> GetServerCommandsAsync(
+        Guid serverId,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        var requestUri = AddLimit($"api/servers/{serverId:D}/commands", limit);
+        return await GetOptionalAsync<CommandExecutionResponse[]>(requestUri, cancellationToken);
+    }
+
+    public Task<DeadLetterListResponse> GetDeadLettersAsync(
+        string? cursor,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        var requestUri = AddLimit("api/alert-delivery/dead-letters", limit);
+        if (cursor is not null)
+        {
+            requestUri = QueryHelpers.AddQueryString(requestUri, "cursor", cursor);
+        }
+
+        return GetRequiredAsync<DeadLetterListResponse>(requestUri, cancellationToken);
+    }
+
+    public Task<DeadLetterDetailResponse?> GetDeadLetterAsync(
+        Guid eventId,
+        CancellationToken cancellationToken = default) =>
+        GetOptionalAsync<DeadLetterDetailResponse>(
+            $"api/alert-delivery/dead-letters/{eventId:D}",
+            cancellationToken);
 
     private static string AddLimit(string requestUri, int limit) =>
         QueryHelpers.AddQueryString(

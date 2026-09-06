@@ -1,0 +1,179 @@
+@page "/operator/servers/{ServerId:guid}/commands"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<ServerCommands> Logger
+
+<PageTitle>@(_server is null ? "Command history" : $"{_server.Name} commands") | GoldSrcOps</PageTitle>
+
+<div class="commands-page">
+    <a class="back-link" href="/operator/servers">Back to servers</a>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h1>Command history is unavailable</h1>
+            <p>The API did not return a usable Reader snapshot.</p>
+        </section>
+    }
+    else if (_notFound)
+    {
+        <section class="load-state">
+            <h1>Server not found</h1>
+            <p>The requested server is not present in the Reader inventory.</p>
+        </section>
+    }
+    else if (_server is not null)
+    {
+        <header class="commands-heading">
+            <div>
+                <p class="eyebrow">Command audit</p>
+                <h1>@_server.Name</h1>
+                <p class="endpoint">@_server.Game · <code>@_server.Host:@_server.QueryPort</code></p>
+            </div>
+            <p>Recent audited command executions for this server, newest first.</p>
+        </header>
+
+        <ServerSectionNav ServerId="@ServerId" />
+
+        <section class="command-summary" aria-label="Command history summary">
+            <article>
+                <span>Commands</span>
+                <strong>@_commands.Count</strong>
+            </article>
+            <article class="summary--success">
+                <span>Succeeded</span>
+                <strong>@CountStatus("Succeeded")</strong>
+            </article>
+            <article class="summary--active">
+                <span>Active</span>
+                <strong>@ActiveCount</strong>
+            </article>
+            <article class="summary--failed">
+                <span>Failed</span>
+                <strong>@CountStatus("Failed")</strong>
+            </article>
+        </section>
+
+        <section class="command-section" aria-labelledby="command-history-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">RCON audit</p>
+                    <h2 id="command-history-title">Command history</h2>
+                </div>
+                <span>Up to @CommandLimit executions</span>
+            </div>
+
+            @if (_commands.Count == 0)
+            {
+                <div class="empty-state">
+                    <h3>No commands recorded</h3>
+                    <p>This server does not have any retained command executions.</p>
+                </div>
+            }
+            else
+            {
+                <div class="command-table" role="table" aria-label="Recent command executions">
+                    <div class="command-row command-row--header" role="row">
+                        <span role="columnheader">Status</span>
+                        <span role="columnheader">Command</span>
+                        <span role="columnheader">Requested</span>
+                        <span role="columnheader">Completed</span>
+                        <span role="columnheader">Requester</span>
+                        <span role="columnheader">Outcome</span>
+                    </div>
+                    @foreach (var command in _commands)
+                    {
+                        <div class="command-row" role="row">
+                            <span role="cell">
+                                <span class="status-label @GetStatusClass(command.Status)">@command.Status</span>
+                            </span>
+                            <strong role="cell"><span class="cell-label">Command</span>@command.Type</strong>
+                            <time role="cell" datetime="@command.RequestedAtUtc.ToString("O", CultureInfo.InvariantCulture)">
+                                <span class="cell-label">Requested</span>
+                                @FormatDateTime(command.RequestedAtUtc)
+                            </time>
+                            <span role="cell">
+                                <span class="cell-label">Completed</span>
+                                @FormatDateTime(command.CompletedAtUtc)
+                            </span>
+                            <span class="requester" role="cell">
+                                <span class="cell-label">Requester</span>
+                                @DisplayValue(command.RequestedBy)
+                            </span>
+                            <span class="outcome" role="cell">
+                                <span class="cell-label">Outcome</span>
+                                @GetOutcome(command)
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private const int CommandLimit = 100;
+
+    [Parameter]
+    public Guid ServerId { get; set; }
+
+    private ServerResponse? _server;
+    private IReadOnlyList<CommandExecutionResponse> _commands = [];
+    private bool _loadFailed;
+    private bool _notFound;
+
+    private int ActiveCount => _commands.Count(static command =>
+        string.Equals(command.Status, "Pending", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(command.Status, "Running", StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadFailed = false;
+        _notFound = false;
+        _server = null;
+        _commands = [];
+
+        try
+        {
+            var serverTask = ReaderApiClient.GetServerAsync(ServerId);
+            var commandsTask = ReaderApiClient.GetServerCommandsAsync(ServerId, CommandLimit);
+            await Task.WhenAll(serverTask, commandsTask);
+
+            _server = await serverTask;
+            var commands = await commandsTask;
+            _commands = commands?
+                .OrderByDescending(static command => command.RequestedAtUtc)
+                .ToArray() ?? [];
+            _notFound = _server is null || commands is null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load Reader command history for server {ServerId}.", ServerId);
+            _loadFailed = true;
+        }
+    }
+
+    private int CountStatus(string status) => _commands.Count(command =>
+        string.Equals(command.Status, status, StringComparison.OrdinalIgnoreCase));
+
+    private static string GetStatusClass(string status) => status.ToLowerInvariant() switch
+    {
+        "succeeded" => "status-label--success",
+        "failed" => "status-label--failed",
+        "running" => "status-label--active",
+        _ => "status-label--pending"
+    };
+
+    private static string GetOutcome(CommandExecutionResponse command) =>
+        DisplayValue(string.Equals(command.Status, "Failed", StringComparison.OrdinalIgnoreCase)
+            ? command.FailureReason
+            : command.ResultSummary);
+
+    private static string DisplayValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "Not available" : value;
+
+    private static string FormatDateTime(DateTimeOffset? value) => value is null
+        ? "Not available"
+        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+}

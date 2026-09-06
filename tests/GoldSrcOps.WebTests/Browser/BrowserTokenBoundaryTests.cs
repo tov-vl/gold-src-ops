@@ -19,9 +19,14 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         var detailPage = await VisitAsync($"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}");
         var historyPage = await VisitAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/history");
+        var commandsPage = await VisitAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands");
         var incidentsPage = await VisitAsync("/operator/incidents");
+        var deadLettersPage = await VisitAsync("/operator/dead-letters");
+        var deadLetterDetailPage = await VisitAsync(
+            $"/operator/dead-letters/{ReaderWebApplicationFactory.DeadLetterEventId:D}");
 
-        Page.Url.Should().EndWith("/operator/incidents");
+        Page.Url.Should().EndWith($"/operator/dead-letters/{ReaderWebApplicationFactory.DeadLetterEventId:D}");
         var stylesheetHrefs = await Page.EvaluateAsync<string[]>(
             "Array.from(document.styleSheets, sheet => sheet.href ?? '')");
         stylesheetHrefs.Should().Contain(
@@ -30,11 +35,27 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         listPage.Body.Should().Contain(ReaderWebApplicationFactory.ServerName);
         detailPage.Body.Should().Contain("Latest observation");
         historyPage.Body.Should().Contain("Recent observations");
+        commandsPage.Body.Should().Contain(ReaderWebApplicationFactory.CommandResultSummary);
         incidentsPage.Body.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
-        foreach (var page in new[] { listPage, detailPage, historyPage, incidentsPage })
+        deadLettersPage.Body.Should().Contain(ReaderWebApplicationFactory.DeadLetterLastError);
+        deadLetterDetailPage.Body.Should().Contain("Ordering warning");
+        foreach (var page in new[]
+                 {
+                     listPage,
+                     detailPage,
+                     historyPage,
+                     commandsPage,
+                     incidentsPage,
+                     deadLettersPage,
+                     deadLetterDetailPage
+                 })
         {
             AssertTokenFree(page.Body);
             AssertTokenFree(page.Dom);
+            page.Body.Should().NotContain(ReaderWebApplicationFactory.CommandPayloadSentinel);
+            page.Dom.Should().NotContain(ReaderWebApplicationFactory.CommandPayloadSentinel);
+            page.Body.Should().NotContain(ReaderWebApplicationFactory.DeadLetterPayloadSentinel);
+            page.Dom.Should().NotContain(ReaderWebApplicationFactory.DeadLetterPayloadSentinel);
         }
 
         var scriptVisibleCookies = await Page.EvaluateAsync<string>("document.cookie");

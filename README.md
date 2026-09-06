@@ -60,6 +60,10 @@ The production OIDC boundary and live Reader/Operator evidence are recorded in
 The second read-only portal slice now adds open-incident triage and bounded
 per-server observation and incident history. Candidate publication, production
 rollout, and live Reader/Operator verification passed on 2026-09-06.
+A third read-only repository slice adds per-server command audit history plus
+dead-letter list and detail views without rendering command or event payloads.
+It still awaits candidate publication and production verification; command
+submission and dead-letter replay remain API-only Operator workflows.
 
 ## Highlights
 
@@ -84,7 +88,8 @@ rollout, and live Reader/Operator verification passed on 2026-09-06.
   owned-server RCON verification.
 - A separate Blazor Web App with an anonymous aggregate status view and an
   OIDC-protected Reader portal for server inventory, current status, open
-  incidents, and bounded observation and incident history.
+  incidents, bounded observation and incident history, command audit history,
+  and dead-letter inspection.
 
 ## Architecture Overview
 
