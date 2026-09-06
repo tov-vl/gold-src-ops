@@ -31,10 +31,12 @@ packaging landed in
 release correction landed in
 [PR #85](https://github.com/tov-vl/gold-src-ops/pull/85). The authenticated
 Reader portal landed in
-[PR #87](https://github.com/tov-vl/gold-src-ops/pull/87). Signed candidate
-`v2.4.0-rc.3` was published, digest-verified, and deployed from revision
-`cb4bf4f`; its complete tag workflow passed in
-[run #34026555320](https://github.com/tov-vl/gold-src-ops/actions/runs/34026555320).
+[PR #87](https://github.com/tov-vl/gold-src-ops/pull/87), and its second
+read-only incident and history slice landed in
+[PR #91](https://github.com/tov-vl/gold-src-ops/pull/91). Signed candidate
+`v2.4.0-rc.4` was published, digest-verified, and deployed from revision
+`b275115`; its complete tag workflow passed in
+[run #34042350507](https://github.com/tov-vl/gold-src-ops/actions/runs/34042350507).
 It is not yet a stable v2.4 release. The
 provider-independent monitoring contract is documented in
 [docs/v2.4-external-availability-monitoring.md](docs/v2.4-external-availability-monitoring.md),
@@ -56,8 +58,8 @@ evidence for the dashboard follows the fail-closed two-image contract in
 The production OIDC boundary and live Reader/Operator evidence are recorded in
 [docs/v2.4-reader-portal.md](docs/v2.4-reader-portal.md).
 The second read-only portal slice now adds open-incident triage and bounded
-per-server observation and incident history in the repository; candidate
-publication and production verification remain pending.
+per-server observation and incident history. Candidate publication, production
+rollout, and live Reader/Operator verification passed on 2026-09-06.
 
 ## Highlights
 

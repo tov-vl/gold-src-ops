@@ -720,7 +720,7 @@ Delivery order:
    on 2026-09-06. Richer public availability history remains follow-up work.
    See `docs/v2.4-public-dashboard-deployment.md` and
    `docs/v2.4-reader-portal.md`.
-6. **Operator experience (second read-only repository slice implemented
+6. **Operator experience (second read-only production slice verified
    2026-09-06)**: pull
    request #87 added OIDC login/logout, a server-side BFF session, server
    inventory, and current server status without mutations. Signed candidate
@@ -741,7 +741,17 @@ Delivery order:
    layer, and applies it before EF Core materialization. Reader, Operator,
    no-role, API-boundary, browser token-boundary, and stylesheet-activation
    checks cover the new surface; desktop and mobile screenshots were reviewed
-   locally. Candidate publication and production verification remain pending.
+   locally. Pull request
+   [#91](https://github.com/tov-vl/gold-src-ops/pull/91) integrated the slice as
+   revision `b275115`. Signed candidate `v2.4.0-rc.4` and
+   [workflow 34042350507](https://github.com/tov-vl/gold-src-ops/actions/runs/34042350507)
+   passed all repository gates plus API and Web image publication and digest
+   verification. Production preflight, backup, the already-up-to-date migration
+   bundle, rollout, public health, and rollback preservation passed. Reader and
+   Operator rendered the server list, open incidents, current server detail,
+   and bounded observation and incident history. Runtime continuity, the online
+   zero-bot server state, empty incident and durable-work queues, and scheduled
+   backup freshness remained healthy.
    Commands, dead letters, and replay remain later Operator work and must
    preserve the existing API policies and audit trail.
 7. **First SLO review**: after a complete forward-looking window, publish the
