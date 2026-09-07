@@ -13,8 +13,10 @@ public sealed class MonitoringReadServiceTests
     [Fact]
     public async Task GetPublicA2sHistoryAsync_fills_missing_hourly_buckets_and_aggregates_observed_samples()
     {
-        var now = new DateTimeOffset(2026, 9, 7, 12, 30, 0, TimeSpan.Zero);
-        var fromUtc = now.AddHours(-24);
+        var expectedToUtc = new DateTimeOffset(2026, 9, 7, 12, 30, 0, TimeSpan.Zero);
+        // Seven ticks are below PostgreSQL's one-microsecond timestamp resolution.
+        var now = expectedToUtc.AddTicks(7);
+        var fromUtc = expectedToUtc.AddHours(-24);
         var repository = new Mock<IMonitoringReadRepository>(MockBehavior.Strict);
         var clock = new Mock<IClock>(MockBehavior.Strict);
         IReadOnlyList<PublicA2sBucketCountDto> counts =
@@ -27,7 +29,7 @@ public sealed class MonitoringReadServiceTests
         repository
             .Setup(x => x.ListPublicA2sBucketCountsAsync(
                 fromUtc,
-                now,
+                expectedToUtc,
                 TimeSpan.FromHours(1),
                 CancellationToken.None))
             .ReturnsAsync(counts);
@@ -39,7 +41,7 @@ public sealed class MonitoringReadServiceTests
 
         result.Window.Should().Be(PublicA2sHistoryWindow.Last24Hours);
         result.FromUtc.Should().Be(fromUtc);
-        result.ToUtc.Should().Be(now);
+        result.ToUtc.Should().Be(expectedToUtc);
         result.BucketMinutes.Should().Be(60);
         result.ObservedBuckets.Should().Be(3);
         result.TotalBuckets.Should().Be(24);

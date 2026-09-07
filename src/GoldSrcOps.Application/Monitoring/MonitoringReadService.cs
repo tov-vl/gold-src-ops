@@ -144,7 +144,7 @@ public sealed class MonitoringReadService
         CancellationToken cancellationToken)
     {
         var options = GetHistoryWindowOptions(window);
-        var toUtc = _clock.UtcNow.ToUniversalTime();
+        var toUtc = TruncateToMicrosecondPrecision(_clock.UtcNow);
         var fromUtc = toUtc.Subtract(options.Duration);
         var counts = await _repository.ListPublicA2sBucketCountsAsync(
             fromUtc,
@@ -207,6 +207,13 @@ public sealed class MonitoringReadService
         return serversRequiringAttention > 0 || openIncidents > 0
             ? PublicStatusState.Degraded
             : PublicStatusState.Operational;
+    }
+
+    private static DateTimeOffset TruncateToMicrosecondPrecision(DateTimeOffset value)
+    {
+        var utcValue = value.ToUniversalTime();
+        var truncatedTicks = utcValue.Ticks - utcValue.Ticks % TimeSpan.TicksPerMicrosecond;
+        return new DateTimeOffset(truncatedTicks, TimeSpan.Zero);
     }
 
     private static HistoryWindowOptions GetHistoryWindowOptions(PublicA2sHistoryWindow window) => window switch
