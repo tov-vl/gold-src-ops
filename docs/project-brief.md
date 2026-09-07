@@ -74,11 +74,12 @@ Current implementation:
 - Independent external availability shadow probes with a normalized exporter,
   create-only off-host archive, scheduled collection, and verified read-only
   recovery. The prospective `API-01` SLO remains `Draft`.
-- A separate .NET 10 Blazor Web App backed by an anonymous, cached, sanitized
-  aggregate status projection; server identities and operator data remain
-  private. Its production contract uses an independently digest-addressed,
-  secret-free container behind the shared Caddy ingress; target rollout
-  evidence remains pending.
+- A separate .NET 10 Blazor Web App backed by anonymous, cached, sanitized
+  current-status and bounded A2S-history projections; server identities and
+  operator data remain private. The deployed production candidate exposes the
+  current projection, while publication and rollout of the history slice remain
+  pending. The production contract uses an independently digest-addressed,
+  secret-free container behind the shared Caddy ingress.
 - A completed v1 readiness review with startup, migration, live polling,
   authenticated API, safe command, and metrics evidence in
   `docs/v1-readiness.md`.
@@ -132,8 +133,11 @@ mutable image alias.
 The project now operates the initial controlled external ReHLDS runtime and
 exports production metrics through a private OpenTelemetry Collector,
 Prometheus, and Grafana path. The accepted v2.3 release scope did not include a
-web experience. v2.4 now includes the first sanitized public dashboard, while
-the authenticated operator area remains a delivery gap. The completed v2.3 plan
+web experience. v2.4 now includes the sanitized public dashboard and an
+authenticated Reader/Operator portal with a narrowly guarded `say` workflow.
+The repository also contains the next bounded public A2S-history slice, whose
+release-candidate publication and production rollout remain pending. The
+completed v2.3 plan
 closed the deployment and recovery gaps before frontend or gameplay-agent work
 began. Slice 2 uses
 the provider-independent controlled game-server contract in
@@ -234,9 +238,9 @@ The project should evolve in stages:
   OpenTelemetry Collector.
 - v2.4: continue independent public API availability measurement and activate
   `API-01` prospectively only after its remaining gates pass. The off-host
-  evidence recovery path and first sanitized public Blazor dashboard are
-  complete; authenticated Reader/Operator workflows can advance while shadow
-  evidence accumulates.
+  evidence recovery path, sanitized public Blazor dashboard, and initial
+  Reader/Operator workflows are complete; bounded UI slices can advance while
+  shadow evidence accumulates.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

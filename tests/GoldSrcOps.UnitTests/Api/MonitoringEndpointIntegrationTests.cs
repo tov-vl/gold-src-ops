@@ -258,6 +258,22 @@ public sealed class MonitoringEndpointIntegrationTests
             LastObservedAtUtc: lastObservedAtUtc));
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("1h")]
+    [InlineData("30d")]
+    public async Task GetPublicA2sHistory_rejects_an_unsupported_window(string window)
+    {
+        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Anonymous);
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/public/a2s-history?window={Uri.EscapeDataString(window)}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("errors").TryGetProperty("window", out _).Should().BeTrue();
+    }
+
     private static Server CreateServer(string name, string host, DateTimeOffset createdAtUtc)
     {
         return new Server(

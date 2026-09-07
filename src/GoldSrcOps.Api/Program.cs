@@ -28,9 +28,16 @@ if (builder.Environment.IsDevelopment())
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddOutputCache(static options =>
+{
     options.AddPolicy(
         PublicStatusEndpoints.CachePolicyName,
-        static policy => policy.Expire(TimeSpan.FromSeconds(15))));
+        static policy => policy.Expire(TimeSpan.FromSeconds(15)));
+    options.AddPolicy(
+        PublicStatusEndpoints.A2sHistoryCachePolicyName,
+        static policy => policy
+            .Expire(TimeSpan.FromMinutes(1))
+            .SetVaryByQuery("window"));
+});
 var reverseProxyEnabled = ReverseProxyConfiguration.Configure(
     builder.Services,
     builder.Configuration);

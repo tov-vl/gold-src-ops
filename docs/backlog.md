@@ -717,7 +717,12 @@ Delivery order:
    published and verified both images from revision `c173c27`; the production
    rollout and sanitized post-deployment checks passed. The fresh ten-case
    authenticated API policy matrix passed against the public production route
-   on 2026-09-06. Richer public availability history remains follow-up work.
+   on 2026-09-06. A subsequent repository slice adds a cached anonymous A2S
+   history projection and static-SSR chart: 24 hourly buckets or 28 six-hour
+   buckets, explicit unknown gaps, aggregate-only percentages, strict query
+   validation, and no server or provider identifiers. Unit, API, real
+   PostgreSQL, client, and rendered-page coverage protect the boundary.
+   Publication and production rollout of that slice remain pending.
    See `docs/v2.4-public-dashboard-deployment.md` and
    `docs/v2.4-reader-portal.md`.
 6. **Operator experience (fourth production slice verified 2026-09-07)**: pull
@@ -1034,8 +1039,8 @@ Remaining portfolio gaps, in priority order:
   and activate `API-01` only for a new prospective window; archive and independent
   scheduled-segment recovery are already proved, while the completed v2.3
   24-hour release sample is not a monthly uptime claim.
-- Add a bounded historical availability view to the deployed public dashboard
-  without broadening its sanitized API or treating shadow data as an active SLO.
+- Publish and deploy the bounded public A2S history slice without treating its
+  application polling data as external API availability or an active SLO.
 - Extend guarded Operator workflows after the bounded Web `say` slice: keep
   higher-impact RCON commands out of the UI until their product need is clear,
   and add dead-letter replay with its existing durable idempotency and

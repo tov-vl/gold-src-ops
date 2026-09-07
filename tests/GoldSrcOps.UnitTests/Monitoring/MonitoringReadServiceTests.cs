@@ -1,5 +1,6 @@
 using AutoFixture.Xunit2;
 using AwesomeAssertions;
+using GoldSrcOps.Application.Common;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Domain.Servers;
 using GoldSrcOps.UnitTests.Helpers;
@@ -9,6 +10,100 @@ namespace GoldSrcOps.UnitTests.Monitoring;
 
 public sealed class MonitoringReadServiceTests
 {
+    [Fact]
+    public async Task GetPublicA2sHistoryAsync_fills_missing_hourly_buckets_and_aggregates_observed_samples()
+    {
+        var now = new DateTimeOffset(2026, 9, 7, 12, 30, 0, TimeSpan.Zero);
+        var fromUtc = now.AddHours(-24);
+        var repository = new Mock<IMonitoringReadRepository>(MockBehavior.Strict);
+        var clock = new Mock<IClock>(MockBehavior.Strict);
+        IReadOnlyList<PublicA2sBucketCountDto> counts =
+        [
+            new(fromUtc, SampleCount: 2, ReachableSampleCount: 1),
+            new(fromUtc.AddHours(2), SampleCount: 2, ReachableSampleCount: 0),
+            new(fromUtc.AddHours(23), SampleCount: 3, ReachableSampleCount: 3)
+        ];
+        clock.SetupGet(static x => x.UtcNow).Returns(now);
+        repository
+            .Setup(x => x.ListPublicA2sBucketCountsAsync(
+                fromUtc,
+                now,
+                TimeSpan.FromHours(1),
+                CancellationToken.None))
+            .ReturnsAsync(counts);
+        var sut = new MonitoringReadService(repository.Object, clock.Object);
+
+        var result = await sut.GetPublicA2sHistoryAsync(
+            PublicA2sHistoryWindow.Last24Hours,
+            CancellationToken.None);
+
+        result.Window.Should().Be(PublicA2sHistoryWindow.Last24Hours);
+        result.FromUtc.Should().Be(fromUtc);
+        result.ToUtc.Should().Be(now);
+        result.BucketMinutes.Should().Be(60);
+        result.ObservedBuckets.Should().Be(3);
+        result.TotalBuckets.Should().Be(24);
+        result.ObservedReachabilityPercent.Should().Be(57.1m);
+        result.Buckets.Should().HaveCount(24);
+        result.Buckets[0].Should().BeEquivalentTo(new PublicA2sBucketDto(
+            fromUtc,
+            PublicA2sBucketState.Degraded,
+            50m));
+        result.Buckets[1].Should().BeEquivalentTo(new PublicA2sBucketDto(
+            fromUtc.AddHours(1),
+            PublicA2sBucketState.Unknown,
+            ObservedReachabilityPercent: null));
+        result.Buckets[2].Should().BeEquivalentTo(new PublicA2sBucketDto(
+            fromUtc.AddHours(2),
+            PublicA2sBucketState.Unreachable,
+            0m));
+        result.Buckets[^1].Should().BeEquivalentTo(new PublicA2sBucketDto(
+            fromUtc.AddHours(23),
+            PublicA2sBucketState.Operational,
+            100m));
+        repository.VerifyAll();
+        repository.VerifyNoOtherCalls();
+        clock.VerifyGet(static x => x.UtcNow, Times.Once);
+        clock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetPublicA2sHistoryAsync_uses_twenty_eight_six_hour_buckets_for_seven_days()
+    {
+        var now = new DateTimeOffset(2026, 9, 7, 12, 30, 0, TimeSpan.Zero);
+        var fromUtc = now.AddDays(-7);
+        var repository = new Mock<IMonitoringReadRepository>(MockBehavior.Strict);
+        var clock = new Mock<IClock>(MockBehavior.Strict);
+        clock.SetupGet(static x => x.UtcNow).Returns(now);
+        repository
+            .Setup(x => x.ListPublicA2sBucketCountsAsync(
+                fromUtc,
+                now,
+                TimeSpan.FromHours(6),
+                CancellationToken.None))
+            .ReturnsAsync([]);
+        var sut = new MonitoringReadService(repository.Object, clock.Object);
+
+        var result = await sut.GetPublicA2sHistoryAsync(
+            PublicA2sHistoryWindow.Last7Days,
+            CancellationToken.None);
+
+        result.BucketMinutes.Should().Be(360);
+        result.ObservedBuckets.Should().Be(0);
+        result.TotalBuckets.Should().Be(28);
+        result.ObservedReachabilityPercent.Should().BeNull();
+        result.Buckets.Should().HaveCount(28)
+            .And.OnlyContain(static bucket =>
+                bucket.State == PublicA2sBucketState.Unknown &&
+                bucket.ObservedReachabilityPercent == null);
+        result.Buckets[0].StartedAtUtc.Should().Be(fromUtc);
+        result.Buckets[^1].StartedAtUtc.Should().Be(now.AddHours(-6));
+        repository.VerifyAll();
+        repository.VerifyNoOtherCalls();
+        clock.VerifyGet(static x => x.UtcNow, Times.Once);
+        clock.VerifyNoOtherCalls();
+    }
+
     [Theory]
     [AutoMoqData]
     public async Task GetDashboardOverviewAsync_counts_server_statuses_and_open_incidents(

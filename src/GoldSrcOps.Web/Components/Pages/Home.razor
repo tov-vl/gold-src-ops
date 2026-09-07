@@ -4,7 +4,7 @@
 
 <PageTitle>GoldSrcOps status</PageTitle>
 <HeadContent>
-    <meta name="description" content="Live public status for the GoldSrcOps monitored game-server fleet." />
+    <meta name="description" content="Live public status and A2S reachability history for the GoldSrcOps monitored game-server fleet." />
 </HeadContent>
 
 <div class="status-page">
@@ -20,108 +20,190 @@
             <div class="loading-signal" aria-hidden="true"></div>
             <div>
                 <p class="loading-title">Loading current status</p>
-                <p class="loading-copy">Reading the latest monitoring snapshot.</p>
-            </div>
-        </section>
-    }
-    else if (_status is null)
-    {
-        <section class="status-summary status-summary--unavailable" role="status">
-            <div class="summary-copy">
-                <span class="status-signal" aria-hidden="true"></span>
-                <div>
-                    <p class="status-kicker">Status unavailable</p>
-                    <h2>Monitoring data could not be reached</h2>
-                    <p>Please try again shortly. No last-known state is shown as current data.</p>
-                </div>
+                <p class="loading-copy">Reading the latest monitoring observations.</p>
             </div>
         </section>
     }
     else
     {
-        <section class="status-summary @SummaryClass" role="status">
-            <div class="summary-copy">
-                <span class="status-signal" aria-hidden="true"></span>
-                <div>
-                    <p class="status-kicker">@StatusLabel</p>
-                    <h2>@StatusHeading</h2>
-                    <p>@StatusDescription</p>
+        @if (_status is null)
+        {
+            <section class="status-summary status-summary--unavailable" role="status">
+                <div class="summary-copy">
+                    <span class="status-signal" aria-hidden="true"></span>
+                    <div>
+                        <p class="status-kicker">Status unavailable</p>
+                        <h2>Monitoring data could not be reached</h2>
+                        <p>Please try again shortly. No last-known state is shown as current data.</p>
+                    </div>
                 </div>
-            </div>
-
-            <div class="observation-time">
-                <span>Last observation</span>
-                @if (_status.LastObservedAtUtc is { } observedAtUtc)
-                {
-                    <time datetime="@observedAtUtc.ToString("O")">
-                        @observedAtUtc.ToUniversalTime().ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture)
-                    </time>
-                }
-                else
-                {
-                    <strong>Not available</strong>
-                }
-            </div>
-        </section>
-
-        <section class="fleet" aria-labelledby="fleet-title">
-            <div class="section-heading">
-                <div>
-                    <p class="eyebrow">Current snapshot</p>
-                    <h2 id="fleet-title">Monitored fleet</h2>
+            </section>
+        }
+        else
+        {
+            <section class="status-summary @SummaryClass" role="status">
+                <div class="summary-copy">
+                    <span class="status-signal" aria-hidden="true"></span>
+                    <div>
+                        <p class="status-kicker">@StatusLabel</p>
+                        <h2>@StatusHeading</h2>
+                        <p>@StatusDescription</p>
+                    </div>
                 </div>
-                <p>@FleetSummary</p>
+
+                <div class="observation-time">
+                    <span>Last observation</span>
+                    @if (_status.LastObservedAtUtc is { } observedAtUtc)
+                    {
+                        <time datetime="@observedAtUtc.ToString("O")">
+                            @observedAtUtc.ToUniversalTime().ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture)
+                        </time>
+                    }
+                    else
+                    {
+                        <strong>Not available</strong>
+                    }
+                </div>
+            </section>
+
+            <section class="fleet" aria-labelledby="fleet-title">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Current snapshot</p>
+                        <h2 id="fleet-title">Monitored fleet</h2>
+                    </div>
+                    <p>@FleetSummary</p>
+                </div>
+
+                <div class="fleet-meter" role="img" aria-label="@FleetSummary">
+                    @if (_status.MonitoredServers > 0)
+                    {
+                        <span class="fleet-meter__online" style="flex-grow: @_status.OnlineServers"></span>
+                        <span class="fleet-meter__attention" style="flex-grow: @_status.ServersRequiringAttention"></span>
+                    }
+                    else
+                    {
+                        <span class="fleet-meter__empty"></span>
+                    }
+                </div>
+
+                <div class="metrics">
+                    <article class="metric">
+                        <span class="metric-label">Monitored</span>
+                        <strong>@_status.MonitoredServers</strong>
+                        <span>enabled servers</span>
+                    </article>
+                    <article class="metric metric--online">
+                        <span class="metric-label">Online</span>
+                        <strong>@_status.OnlineServers</strong>
+                        <span>responding normally</span>
+                    </article>
+                    <article class="metric metric--attention">
+                        <span class="metric-label">Attention</span>
+                        <strong>@_status.ServersRequiringAttention</strong>
+                        <span>offline or awaiting data</span>
+                    </article>
+                    <article class="metric metric--incidents">
+                        <span class="metric-label">Open incidents</span>
+                        <strong>@_status.OpenIncidents</strong>
+                        <span>active availability events</span>
+                    </article>
+                </div>
+            </section>
+        }
+
+        <section class="history" aria-labelledby="history-title">
+            <div class="history-heading">
+                <div>
+                    <p class="eyebrow">Recorded game-server probes</p>
+                    <h2 id="history-title">A2S reachability history</h2>
+                </div>
+                <nav class="range-switch" aria-label="A2S history window">
+                    <a class="@GetRangeClass(PublicStatusClient.Last24HoursWindow)"
+                       href="/?range=24h"
+                       aria-current="@GetRangeAriaCurrent(PublicStatusClient.Last24HoursWindow)">24 hours</a>
+                    <a class="@GetRangeClass(PublicStatusClient.Last7DaysWindow)"
+                       href="/?range=7d"
+                       aria-current="@GetRangeAriaCurrent(PublicStatusClient.Last7DaysWindow)">7 days</a>
+                </nav>
             </div>
 
-            <div class="fleet-meter" role="img" aria-label="@FleetSummary">
-                @if (_status.MonitoredServers > 0)
-                {
-                    <span class="fleet-meter__online" style="flex-grow: @_status.OnlineServers"></span>
-                    <span class="fleet-meter__attention" style="flex-grow: @_status.ServersRequiringAttention"></span>
-                }
-                else
-                {
-                    <span class="fleet-meter__empty"></span>
-                }
-            </div>
+            @if (_history is null)
+            {
+                <div class="history-unavailable" role="status">
+                    <strong>A2S history unavailable</strong>
+                    <span>Current fleet status may still be available above.</span>
+                </div>
+            }
+            else
+            {
+                <div class="history-summary">
+                    <div>
+                        <span>Observed reachability</span>
+                        <strong>@HistoryPercentage</strong>
+                    </div>
+                    <div>
+                        <span>Observation coverage</span>
+                        <strong>@_history.ObservedBuckets of @_history.TotalBuckets buckets</strong>
+                    </div>
+                </div>
 
-            <div class="metrics">
-                <article class="metric">
-                    <span class="metric-label">Monitored</span>
-                    <strong>@_status.MonitoredServers</strong>
-                    <span>enabled servers</span>
-                </article>
-                <article class="metric metric--online">
-                    <span class="metric-label">Online</span>
-                    <strong>@_status.OnlineServers</strong>
-                    <span>responding normally</span>
-                </article>
-                <article class="metric metric--attention">
-                    <span class="metric-label">Attention</span>
-                    <strong>@_status.ServersRequiringAttention</strong>
-                    <span>offline or awaiting data</span>
-                </article>
-                <article class="metric metric--incidents">
-                    <span class="metric-label">Open incidents</span>
-                    <strong>@_status.OpenIncidents</strong>
-                    <span>active availability events</span>
-                </article>
-            </div>
+                <div class="history-chart"
+                     style="--history-columns: @_history.TotalBuckets"
+                     role="list"
+                     aria-label="@HistoryChartLabel">
+                    @foreach (var bucket in _history.Buckets)
+                    {
+                        <span class="history-bar history-bar--@NormalizeBucketState(bucket.State)"
+                              style="@GetBucketStyle(bucket)"
+                              role="listitem"
+                              title="@GetBucketLabel(bucket)"
+                              aria-label="@GetBucketLabel(bucket)"></span>
+                    }
+                </div>
+
+                <div class="history-axis" aria-hidden="true">
+                    <time datetime="@_history.FromUtc.ToString("O")">@FormatAxisTime(_history.FromUtc)</time>
+                    <span>@HistoryWindowLabel</span>
+                    <time datetime="@_history.ToUtc.ToString("O")">@FormatAxisTime(_history.ToUtc)</time>
+                </div>
+
+                <div class="history-legend" aria-label="Chart legend">
+                    <span><i class="legend-signal legend-signal--operational" aria-hidden="true"></i>All observed probes reached</span>
+                    <span><i class="legend-signal legend-signal--degraded" aria-hidden="true"></i>Mixed results</span>
+                    <span><i class="legend-signal legend-signal--unreachable" aria-hidden="true"></i>No observed probe reached</span>
+                    <span><i class="legend-signal legend-signal--unknown" aria-hidden="true"></i>No observations</span>
+                </div>
+            }
         </section>
 
         <section class="scope-note" aria-labelledby="scope-title">
             <h2 id="scope-title">What this page reports</h2>
             <p>
-                This public view shows aggregate availability only. Administrative endpoints,
-                server addresses, command history, and provider details remain private.
+                This public view shows aggregate fleet status and recorded A2S probe outcomes only.
+                Missing buckets are unknown and excluded from the observed percentage. A2S history is
+                not API uptime, does not activate or prove an SLO, and exposes no server addresses,
+                provider identifiers, command history, or administrative data.
             </p>
         </section>
     }
 </div>
 
 @code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "range")]
+    public string? Range { get; set; }
+
     private PublicStatusResponse? _status;
+    private PublicA2sHistoryResponse? _history;
     private bool _isLoading = true;
+
+    private string SelectedWindow => string.Equals(
+        Range,
+        PublicStatusClient.Last7DaysWindow,
+        StringComparison.Ordinal)
+        ? PublicStatusClient.Last7DaysWindow
+        : PublicStatusClient.Last24HoursWindow;
 
     private string SummaryClass => _status?.State switch
     {
@@ -155,7 +237,33 @@
         ? "No fleet data available."
         : $"{_status.OnlineServers} of {_status.MonitoredServers} monitored servers online.";
 
-    protected override async Task OnInitializedAsync()
+    private string HistoryPercentage => _history?.ObservedReachabilityPercent is { } percentage
+        ? $"{percentage.ToString("0.0", CultureInfo.InvariantCulture)}%"
+        : "No observations";
+
+    private string HistoryWindowLabel => string.Equals(
+        SelectedWindow,
+        PublicStatusClient.Last7DaysWindow,
+        StringComparison.Ordinal)
+        ? "Six-hour buckets"
+        : "Hourly buckets";
+
+    private string HistoryChartLabel => _history is null
+        ? "A2S reachability history is unavailable."
+        : $"A2S reachability from {FormatAxisTime(_history.FromUtc)} to {FormatAxisTime(_history.ToUtc)}; " +
+          $"{_history.ObservedBuckets} of {_history.TotalBuckets} buckets contain observations.";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _status = null;
+        _history = null;
+
+        await Task.WhenAll(LoadStatusAsync(), LoadHistoryAsync(SelectedWindow));
+        _isLoading = false;
+    }
+
+    private async Task LoadStatusAsync()
     {
         try
         {
@@ -165,9 +273,51 @@
         {
             Logger.LogWarning(exception, "Unable to load the public fleet status.");
         }
-        finally
+    }
+
+    private async Task LoadHistoryAsync(string window)
+    {
+        try
         {
-            _isLoading = false;
+            _history = await StatusClient.GetA2sHistoryAsync(window);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load the public A2S history for window {Window}.", window);
         }
     }
+
+    private string GetRangeClass(string window) => string.Equals(SelectedWindow, window, StringComparison.Ordinal)
+        ? "range-switch__link range-switch__link--active"
+        : "range-switch__link";
+
+    private string? GetRangeAriaCurrent(string window) =>
+        string.Equals(SelectedWindow, window, StringComparison.Ordinal) ? "page" : null;
+
+    private static string NormalizeBucketState(string state) => state switch
+    {
+        "operational" => "operational",
+        "degraded" => "degraded",
+        "unreachable" => "unreachable",
+        _ => "unknown"
+    };
+
+    private static string GetBucketStyle(PublicA2sBucketResponse bucket)
+    {
+        var height = Math.Clamp(bucket.ObservedReachabilityPercent ?? 8m, 0m, 100m);
+        return $"height: {height.ToString("0.#", CultureInfo.InvariantCulture)}%;";
+    }
+
+    private static string GetBucketLabel(PublicA2sBucketResponse bucket)
+    {
+        var startedAt = bucket.StartedAtUtc.ToUniversalTime()
+            .ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture);
+        var result = bucket.ObservedReachabilityPercent is { } percentage
+            ? $"{percentage.ToString("0.0", CultureInfo.InvariantCulture)} percent reachable"
+            : "no observations";
+        return $"Bucket starting {startedAt}: {result}.";
+    }
+
+    private static string FormatAxisTime(DateTimeOffset value) => value.ToUniversalTime()
+        .ToString("dd MMM, HH:mm 'UTC'", CultureInfo.InvariantCulture);
 }
