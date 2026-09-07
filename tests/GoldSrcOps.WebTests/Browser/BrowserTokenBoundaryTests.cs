@@ -128,7 +128,51 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 "document.documentElement.scrollWidth > document.documentElement.clientWidth");
             hasHorizontalOverflow.Should().BeFalse();
 
-            await CaptureScreenshotIfRequestedAsync(viewport);
+            await CaptureScreenshotIfRequestedAsync("operator-say", viewport);
+        }
+    }
+
+    [BrowserFact]
+    public async Task Public_A2s_history_fits_supported_windows_and_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+
+        foreach (var historyWindow in new[]
+                 {
+                     new HistoryWindow("24h", ExpectedBuckets: 24),
+                     new HistoryWindow("7d", ExpectedBuckets: 28)
+                 })
+        {
+            foreach (var viewport in new[]
+                     {
+                         new ViewportSize { Width = 1280, Height = 800 },
+                         new ViewportSize { Width = 390, Height = 844 }
+                     })
+            {
+                await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+                var response = await Page.GotoAsync(
+                    new Uri(baseAddress, $"/?range={historyWindow.Value}").AbsoluteUri,
+                    new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+                response.Should().NotBeNull();
+                response!.Ok.Should().BeTrue();
+                (await Page.Locator("section.history").IsVisibleAsync()).Should().BeTrue();
+                (await Page.Locator(".history-chart").IsVisibleAsync()).Should().BeTrue();
+                (await Page.Locator(".history-bar").CountAsync()).Should().Be(historyWindow.ExpectedBuckets);
+                (await Page.Locator(".range-switch__link[aria-current='page']").TextContentAsync())
+                    .Should().Contain(string.Equals(historyWindow.Value, "7d", StringComparison.Ordinal)
+                        ? "7 days"
+                        : "24 hours");
+                var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                    "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+                hasHorizontalOverflow.Should().BeFalse();
+
+                await CaptureScreenshotIfRequestedAsync(
+                    $"public-a2s-{historyWindow.Value}",
+                    viewport);
+            }
         }
     }
 
@@ -140,7 +184,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         sessionStorageLength.Should().Be(0);
     }
 
-    private async Task CaptureScreenshotIfRequestedAsync(ViewportSize viewport)
+    private async Task CaptureScreenshotIfRequestedAsync(string name, ViewportSize viewport)
     {
         var screenshotDirectory = Environment.GetEnvironmentVariable(ScreenshotDirectoryVariable);
         if (string.IsNullOrWhiteSpace(screenshotDirectory))
@@ -154,7 +198,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             FullPage = true,
             Path = Path.Combine(
                 screenshotDirectory,
-                $"operator-say-{viewport.Width}x{viewport.Height}.png")
+                $"{name}-{viewport.Width}x{viewport.Height}.png")
         });
     }
 
@@ -174,6 +218,8 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
     }
 
     private sealed record PageContent(string Body, string Dom);
+
+    private sealed record HistoryWindow(string Value, int ExpectedBuckets);
 
     [GeneratedRegex(
         @"(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?![A-Za-z0-9_-])",

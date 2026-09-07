@@ -13,6 +13,12 @@ public interface IMonitoringReadRepository
 
     Task<IReadOnlyList<DashboardServerStatusDto>> ListDashboardServerStatusesAsync(CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<PublicA2sBucketCountDto>> ListPublicA2sBucketCountsAsync(
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc,
+        TimeSpan bucketSize,
+        CancellationToken cancellationToken);
+
     Task<int> CountOpenIncidentsAsync(CancellationToken cancellationToken);
 
     Task<int> CountOpenIncidentsForEnabledServersAsync(CancellationToken cancellationToken);

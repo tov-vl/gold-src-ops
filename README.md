@@ -306,8 +306,8 @@ See [docs/rcon.md](docs/rcon.md) for secret-reference formats, dispatch flow,
 validated receive bounds, and current RCON limits.
 
 All control-plane API endpoints require an authenticated bearer token except
-for liveness, readiness, and the deliberately sanitized public status
-projection. Read endpoints and `/metrics` accept `Reader` or `Operator`;
+for liveness, readiness, and the deliberately sanitized public status and A2S
+history projections. Read endpoints and `/metrics` accept `Reader` or `Operator`;
 mutations require `Operator`. See
 [docs/security.md](docs/security.md) for the complete policy matrix and
 production configuration requirements.
@@ -317,6 +317,8 @@ API endpoints:
 - `GET /health/live` - lightweight liveness probe.
 - `GET /health/ready` - readiness probe that validates database connectivity.
 - `GET /api/public/status` - anonymous aggregate status for enabled servers.
+- `GET /api/public/a2s-history?window=24h|7d` - anonymous aggregate A2S history
+  for enabled servers, with missing time buckets reported as unknown.
 - `GET /metrics` - Prometheus scrape endpoint backed by OpenTelemetry metrics.
 - `POST /api/servers`
 - `GET /api/servers`
@@ -395,6 +397,12 @@ The public dashboard is available at `http://localhost:5123`. Development uses
 sanitized public projection; API access happens from the server-rendered web
 host. Its production image and hardened runtime contract are exercised with
 `pwsh -NoProfile -File .\tools\smoke\web-container.ps1`.
+
+The public page offers a 24-hour view with hourly buckets and a seven-day view
+with six-hour buckets. Percentages use only recorded A2S probes; missing buckets
+remain visible as unknown and are excluded from the percentage. This game-server
+reachability history is separate from external API uptime and does not activate
+or prove an SLO.
 
 The Reader portal is disabled by default. To exercise OIDC locally, configure
 a confidential Web client whose callback is

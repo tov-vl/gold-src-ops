@@ -47,6 +47,13 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
             services.AddSingleton(new WebAuthenticationState(Enabled: true));
             services.RemoveAll<IReaderApiClient>();
             services.AddSingleton<IReaderApiClient, ReaderWebApplicationFactory.FixtureReaderApiClient>();
+            var publicStatusHandler =
+                new PublicDashboardWebApplicationFactory.FixturePublicStatusHandler(statusUnavailable: false);
+            services.RemoveAll<PublicStatusClient>();
+            services.AddSingleton(new PublicStatusClient(new HttpClient(publicStatusHandler)
+            {
+                BaseAddress = new Uri("https://api.example.test/")
+            }));
             services.AddSingleton<IStartupFilter, BrowserSignInStartupFilter>();
         });
     }

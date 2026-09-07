@@ -72,6 +72,36 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<PublicA2sBucketCountDto>> ListPublicA2sBucketCountsAsync(
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc,
+        TimeSpan bucketSize,
+        CancellationToken cancellationToken)
+    {
+        var rows = await _dbContext.Database
+            .SqlQuery<PublicA2sBucketCountRow>($"""
+                SELECT
+                    date_bin({bucketSize}, p."CheckedAtUtc", {fromUtc}) AS "StartedAtUtc",
+                    COUNT(*)::integer AS "SampleCount",
+                    COUNT(*) FILTER (WHERE p."IsReachable")::integer AS "ReachableSampleCount"
+                FROM goldsrcops.poll_snapshots AS p
+                INNER JOIN goldsrcops.servers AS s ON s."Id" = p."ServerId"
+                WHERE s."IsEnabled"
+                  AND p."CheckedAtUtc" >= {fromUtc}
+                  AND p."CheckedAtUtc" < {toUtc}
+                GROUP BY 1
+                ORDER BY 1
+                """)
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(static row => new PublicA2sBucketCountDto(
+                row.StartedAtUtc,
+                row.SampleCount,
+                row.ReachableSampleCount))
+            .ToArray();
+    }
+
     public async Task<int> CountOpenIncidentsAsync(CancellationToken cancellationToken)
     {
         return await _dbContext.AvailabilityIncidents
@@ -87,5 +117,14 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
             where incident.ClosedAtUtc == null && server.IsEnabled
             select incident.Id)
             .CountAsync(cancellationToken);
+    }
+
+    private sealed class PublicA2sBucketCountRow
+    {
+        public DateTimeOffset StartedAtUtc { get; init; }
+
+        public int SampleCount { get; init; }
+
+        public int ReachableSampleCount { get; init; }
     }
 }
