@@ -127,6 +127,35 @@
     font-size: 0.78rem;
 }
 
+.section-actions {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.section-actions > span {
+    color: var(--ink-muted);
+    font-size: 0.78rem;
+}
+
+.section-actions a {
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    color: var(--ink);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.section-actions a:hover {
+    border-color: var(--ink-muted);
+    background: var(--surface);
+}
+
 .section-heading h2 {
     margin-bottom: 0;
     font-size: 1.65rem;
@@ -228,6 +257,28 @@
     border-bottom: 1px solid var(--line-strong);
 }
 
+.submission-result {
+    margin-top: 32px;
+    padding: 18px 20px;
+    border-left: 3px solid var(--signal-amber);
+    background: var(--surface);
+}
+
+.submission-result--success {
+    border-left-color: var(--signal-green);
+}
+
+.submission-result strong {
+    color: var(--ink);
+    font-size: 0.86rem;
+}
+
+.submission-result p {
+    margin: 7px 0 0;
+    color: var(--ink-muted);
+    line-height: 1.55;
+}
+
 .empty-state h3 {
     margin-bottom: 8px;
     font-size: 1.15rem;
@@ -283,6 +334,13 @@
         align-items: flex-start;
         flex-direction: column;
         gap: 14px;
+    }
+
+    .section-actions {
+        width: 100%;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
     }
 
     .commands-heading > p {

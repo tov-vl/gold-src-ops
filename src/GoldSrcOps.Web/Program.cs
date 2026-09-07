@@ -41,6 +41,12 @@ builder.Services.AddHttpClient<IReaderApiClient, ReaderApiClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(10);
 })
     .AddHttpMessageHandler<AccessTokenHandler>();
+builder.Services.AddHttpClient<IOperatorApiClient, OperatorApiClient>(client =>
+{
+    client.BaseAddress = apiBaseAddress;
+    client.Timeout = TimeSpan.FromSeconds(10);
+})
+    .AddHttpMessageHandler<AccessTokenHandler>();
 
 var app = builder.Build();
 
@@ -64,6 +70,7 @@ app.MapStaticAssets();
 app.MapHealthChecks("/health/live")
     .AllowAnonymous();
 app.MapAuthenticationEndpoints(authenticationEnabled);
+app.MapOperatorCommandEndpoints();
 app.MapRazorComponents<App>();
 
 app.Run();

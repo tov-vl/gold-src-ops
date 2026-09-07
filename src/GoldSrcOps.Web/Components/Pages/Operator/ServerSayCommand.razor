@@ -1,0 +1,172 @@
+@page "/operator/servers/{ServerId:guid}/commands/new"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IReaderApiClient ReaderApiClient
+@inject OperatorCommandConfirmationStore Confirmations
+@inject ILogger<ServerSayCommand> Logger
+
+<PageTitle>@(_server is null ? "Send message" : $"Message {_server.Name}") | GoldSrcOps</PageTitle>
+
+<div class="say-page">
+    <a class="back-link" href="@($"/operator/servers/{ServerId:D}/commands")">Back to command history</a>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h1>Command form is unavailable</h1>
+            <p>The API did not return a usable Reader snapshot.</p>
+        </section>
+    }
+    else if (_notFound)
+    {
+        <section class="load-state">
+            <h1>Server not found</h1>
+            <p>The requested server is not present in the Reader inventory.</p>
+        </section>
+    }
+    else if (_server is not null)
+    {
+        <header class="say-heading">
+            <div>
+                <p class="eyebrow">Operator action</p>
+                <h1>Broadcast message</h1>
+                <p class="target">@_server.Name · <code>@_server.Host:@_server.RconPort</code></p>
+            </div>
+            <p>Queue one audited <code>say</code> command for the selected server.</p>
+        </header>
+
+        <ServerSectionNav ServerId="@ServerId" />
+
+        <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
+            <Authorized>
+                @if (GetResultMessage() is { } resultMessage)
+                {
+                    <section class="result-state @GetResultClass()" role="alert">
+                        <strong>@resultMessage.Title</strong>
+                        <p>@resultMessage.Detail</p>
+                    </section>
+                }
+
+                @if (_confirmationToken is null)
+                {
+                    <section class="load-state" role="alert">
+                        <h2>Confirmation is temporarily unavailable</h2>
+                        <p>No command was submitted. Refresh after existing confirmations expire.</p>
+                    </section>
+                }
+                else
+                {
+                    <form class="say-form"
+                          method="post"
+                          action="@($"/operator/servers/{ServerId:D}/commands/say")">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ConfirmationToken" value="@_confirmationToken" />
+
+                        <div class="field-group">
+                            <label for="say-message">Message</label>
+                            <textarea id="say-message"
+                                      name="Message"
+                                      maxlength="512"
+                                      rows="5"
+                                      required
+                                      autocomplete="off"
+                                      spellcheck="true"></textarea>
+                            <span>Maximum 512 characters.</span>
+                        </div>
+
+                        <label class="confirmation-field" for="say-confirmed">
+                            <input id="say-confirmed"
+                                   name="Confirmed"
+                                   type="checkbox"
+                                   value="true"
+                                   required />
+                            <span>I verified the target and message. I will inspect command history before retrying an uncertain submission.</span>
+                        </label>
+
+                        <div class="form-actions">
+                            <button type="submit">Queue message</button>
+                            <a href="@($"/operator/servers/{ServerId:D}/commands")">Cancel</a>
+                        </div>
+                    </form>
+                }
+            </Authorized>
+            <NotAuthorized>
+                <section class="role-state">
+                    <p class="eyebrow">Read-only session</p>
+                    <h2>Operator role required</h2>
+                    <p>Your account can inspect command history but cannot submit commands.</p>
+                </section>
+            </NotAuthorized>
+        </AuthorizeView>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid ServerId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "result")]
+    public string? Result { get; set; }
+
+    private ServerResponse? _server;
+    private string? _confirmationToken;
+    private bool _loadFailed;
+    private bool _notFound;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadFailed = false;
+        _notFound = false;
+        _server = null;
+        _confirmationToken = null;
+
+        try
+        {
+            _server = await ReaderApiClient.GetServerAsync(ServerId);
+            _notFound = _server is null;
+            if (_notFound)
+            {
+                return;
+            }
+
+            var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            if (authenticationState.User.IsInRole(WebSecurity.OperatorRole) &&
+                WebSecurity.GetSubject(authenticationState.User) is { } subject)
+            {
+                _confirmationToken = Confirmations.Issue(subject, ServerId);
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to prepare Operator command form for server {ServerId}.", ServerId);
+            _loadFailed = true;
+        }
+    }
+
+    private ResultMessage? GetResultMessage() => Result switch
+    {
+        "invalid" => new ResultMessage(
+            "Submission was not accepted",
+            "Enter a message, confirm the action, and submit again."),
+        "confirmation-expired" => new ResultMessage(
+            "Confirmation expired",
+            "No command was submitted. Review the form and use the new confirmation."),
+        "credential-missing" => new ResultMessage(
+            "RCON credential is missing",
+            "No command was queued. Configure the server credential through the guarded API workflow."),
+        "rejected" => new ResultMessage(
+            "Request was rejected",
+            "No command was queued. Review the target and message before trying again."),
+        "server-not-found" => new ResultMessage(
+            "Server is no longer available",
+            "No command was queued. Return to the server inventory and refresh its state."),
+        _ => null
+    };
+
+    private string GetResultClass() => Result == "confirmation-expired"
+        ? "result-state--warning"
+        : "result-state--error";
+
+    private sealed record ResultMessage(string Title, string Detail);
+}

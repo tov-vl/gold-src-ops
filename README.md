@@ -65,7 +65,11 @@ rollout, and live Reader/Operator verification passed on 2026-09-06.
 A third read-only portal slice adds per-server command audit history plus
 dead-letter list and detail views without rendering command or event payloads.
 Candidate publication and production verification passed on 2026-09-07;
-command submission and dead-letter replay remain API-only Operator workflows.
+dead-letter replay remains an API-only Operator workflow. A fourth repository
+slice adds the first guarded mutation surface: an Operator-only form can queue
+one audited `say` command after antiforgery validation, explicit acknowledgement,
+and one-time server-side confirmation. Raw, restart, map-change, and dead-letter
+replay controls remain outside the Web UI.
 
 ## Highlights
 
@@ -406,6 +410,13 @@ dotnet user-secrets set --project .\src\GoldSrcOps.Web "Authentication:RoleClaim
 The identity provider must put the configured role claim in both the ID token
 used by Web and the access token validated by API. See
 [docs/v2.4-reader-portal.md](docs/v2.4-reader-portal.md).
+
+An account with the `Operator` role and a stable `sub` claim can open the
+command-history action for a controlled server and queue one `say` message.
+The Web host validates antiforgery state and consumes a subject- and
+server-bound confirmation once before forwarding the request. Because RCON
+cannot prove whether an uncertain transport outcome executed, the Web host
+never retries the submission automatically; inspect command history first.
 
 ## Local Smoke Flow
 

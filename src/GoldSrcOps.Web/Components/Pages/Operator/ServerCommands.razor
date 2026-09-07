@@ -35,6 +35,14 @@
 
         <ServerSectionNav ServerId="@ServerId" />
 
+        @if (GetResultMessage() is { } resultMessage)
+        {
+            <section class="submission-result @GetResultClass()" role="alert">
+                <strong>@resultMessage.Title</strong>
+                <p>@resultMessage.Detail</p>
+            </section>
+        }
+
         <section class="command-summary" aria-label="Command history summary">
             <article>
                 <span>Commands</span>
@@ -60,7 +68,12 @@
                     <p class="eyebrow">RCON audit</p>
                     <h2 id="command-history-title">Command history</h2>
                 </div>
-                <span>Up to @CommandLimit executions</span>
+                <div class="section-actions">
+                    <span>Up to @CommandLimit executions</span>
+                    <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
+                        <a href="@($"/operator/servers/{ServerId:D}/commands/new")">Broadcast message</a>
+                    </AuthorizeView>
+                </div>
             </div>
 
             @if (_commands.Count == 0)
@@ -117,6 +130,10 @@
 
     [Parameter]
     public Guid ServerId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "result")]
+    public string? Result { get; set; }
 
     private ServerResponse? _server;
     private IReadOnlyList<CommandExecutionResponse> _commands = [];
@@ -176,4 +193,21 @@
     private static string FormatDateTime(DateTimeOffset? value) => value is null
         ? "Not available"
         : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+
+    private ResultMessage? GetResultMessage() => Result switch
+    {
+        "queued" => new ResultMessage(
+            "Message queued",
+            "The audited command was accepted. Its latest state appears in command history."),
+        "unknown" => new ResultMessage(
+            "Submission outcome is uncertain",
+            "Inspect command history before submitting another message. The Web host did not retry the request."),
+        _ => null
+    };
+
+    private string GetResultClass() => Result == "queued"
+        ? "submission-result--success"
+        : "submission-result--warning";
+
+    private sealed record ResultMessage(string Title, string Detail);
 }

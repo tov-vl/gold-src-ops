@@ -119,6 +119,7 @@ public sealed class ReaderPortalIntegrationTests
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/history")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/commands")]
+    [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/commands/new")]
     [InlineData("/operator/dead-letters")]
     [InlineData("/operator/dead-letters/70d51faf-6029-4b1e-a922-b7a3ab8d1f84")]
     public async Task Signed_in_account_without_role_cannot_view_reader_data(string requestPath)
@@ -175,4 +176,5 @@ public sealed class ReaderPortalIntegrationTests
         body.Should().Contain("Dead letter not found");
         body.Should().NotContain(ReaderWebApplicationFactory.DeadLetterLastError);
     }
+
 }

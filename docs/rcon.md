@@ -145,6 +145,25 @@ Dispatcher settings live under `CommandDispatcher`:
 `InterruptedAfterSeconds` must be greater than the configured RCON timeout or
 the application rejects the configuration during startup.
 
+## Guarded Web Say Workflow
+
+The first Web mutation surface deliberately exposes only `say`; raw, restart,
+and map-change commands remain API-only. A Reader can inspect the same command
+history but does not receive the form. A Web Operator needs the exact
+`Operator` role and a stable `sub` claim, and the POST independently enforces
+that policy plus antiforgery validation.
+
+Before forwarding, the Web host validates the 512-character message and
+explicit acknowledgement, then atomically consumes a random confirmation bound
+to the current subject and server. The process-local store is capped at 1,024
+entries, expires confirmations after ten minutes, retains no message, and is
+cleared on restart. Reusing a confirmation cannot queue a second API request.
+
+The confirmation is a browser double-submit guard, not durable command
+idempotency. It is consumed before forwarding so an unknown HTTP outcome cannot
+be retried with the same form. The operator is redirected to durable command
+history and must inspect it before deciding whether a new command is safe.
+
 ## Lifecycle Logs
 
 Each claimed command emits structured lifecycle events for dispatch start and

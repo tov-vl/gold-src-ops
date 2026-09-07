@@ -39,8 +39,9 @@ tokens must never be accepted by a production deployment.
 The protected Blazor static-SSR pages use the OIDC authorization-code flow with
 PKCE and a cookie session. The identity provider must issue an ID token and API
 access token carrying the same configured application-role claim. Web applies
-its own `Reader` policy to the ID-token principal and sends the access token to
-the API only from server-side `HttpClient` calls.
+its own `Reader` and `Operator` policies to the ID-token principal and sends the
+access token to the API only from server-side `HttpClient` calls. The Web
+`Operator` policy requires both the exact role and a stable `sub` claim.
 
 `SaveTokens` stores tokens in authentication properties, but the cookie handler
 uses a bounded server-side ticket store. The browser cookie therefore contains
@@ -65,6 +66,14 @@ test also requires one opaque `__Host-GoldSrcOps.Web` cookie with `HttpOnly`,
 `Secure`, `SameSite=Lax`, and root-path attributes. Its sign-in fixture is
 registered only inside the test host and cannot be enabled in the production
 application.
+
+The guarded Web `say` form adds defense in depth at the browser boundary. The
+POST independently requires the Web `Operator` policy and antiforgery
+validation. A bounded process-local confirmation is random, short-lived, bound
+to subject and server, and consumed once before the API request; it stores no
+message or credential. It reduces accidental duplicate submissions but is not
+an idempotency guarantee. An uncertain API outcome is never retried
+automatically and directs the operator to the durable command history.
 
 Production startup fails unless authentication uses an HTTPS authority, a
 file-backed client secret, and a persistent X.509-protected Data Protection key
@@ -191,6 +200,7 @@ operation.
 | `POST /api/servers/{id}/commands/...` | `Operator` |
 | `GET /api/servers/{id}/commands` | `Reader` |
 | `GET /api/commands/{id}` | `Reader` |
+| `POST /operator/servers/{id}/commands/say` on Web | `Operator` plus antiforgery and one-time confirmation |
 | `GET /metrics` | `Reader` |
 | `GET /openapi/{documentName}.json` in Development | `Reader` |
 | `GET /health/live` | Anonymous |

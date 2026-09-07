@@ -8,6 +8,8 @@ namespace GoldSrcOps.WebTests.Browser;
 
 public sealed partial class BrowserTokenBoundaryTests : PageTest
 {
+    private const string ScreenshotDirectoryVariable = "GOLDSRCOPS_UI_SCREENSHOT_DIR";
+
     [BrowserFact]
     public async Task Authenticated_browser_receives_only_an_opaque_session_key()
     {
@@ -21,6 +23,8 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/history");
         var commandsPage = await VisitAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands");
+        var sayCommandPage = await VisitAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands/new");
         var incidentsPage = await VisitAsync("/operator/incidents");
         var deadLettersPage = await VisitAsync("/operator/dead-letters");
         var deadLetterDetailPage = await VisitAsync(
@@ -45,6 +49,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                      detailPage,
                      historyPage,
                      commandsPage,
+                     sayCommandPage,
                      incidentsPage,
                      deadLettersPage,
                      deadLetterDetailPage
@@ -90,12 +95,67 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         }
     }
 
+    [BrowserFact]
+    public async Task Operator_say_form_fits_supported_desktop_and_mobile_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(
+                    baseAddress,
+                    $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands/new")
+                    .AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("form.say-form").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("textarea[name='Message']").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("form.say-form button[type='submit']").IsVisibleAsync()).Should().BeTrue();
+            var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+            hasHorizontalOverflow.Should().BeFalse();
+
+            await CaptureScreenshotIfRequestedAsync(viewport);
+        }
+    }
+
     private async Task AssertBrowserStorageIsEmptyAsync()
     {
         var localStorageLength = await Page.EvaluateAsync<int>("localStorage.length");
         var sessionStorageLength = await Page.EvaluateAsync<int>("sessionStorage.length");
         localStorageLength.Should().Be(0);
         sessionStorageLength.Should().Be(0);
+    }
+
+    private async Task CaptureScreenshotIfRequestedAsync(ViewportSize viewport)
+    {
+        var screenshotDirectory = Environment.GetEnvironmentVariable(ScreenshotDirectoryVariable);
+        if (string.IsNullOrWhiteSpace(screenshotDirectory))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(screenshotDirectory);
+        await Page.ScreenshotAsync(new PageScreenshotOptions
+        {
+            FullPage = true,
+            Path = Path.Combine(
+                screenshotDirectory,
+                $"operator-say-{viewport.Width}x{viewport.Height}.png")
+        });
     }
 
     private static async Task<string> RequireResponseBodyAsync(IResponse? response)

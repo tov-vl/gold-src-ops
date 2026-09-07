@@ -64,7 +64,8 @@ container job also executes the deterministic tag-contract smoke cases.
 
 The browser smoke starts the Web application on an ephemeral Kestrel port and
 uses Playwright Chromium to render the authenticated server, incident,
-command-history, and dead-letter routes. Its test-only sign-in fixture stores
+command-history, guarded `say`, and dead-letter routes. Its test-only sign-in
+fixture stores
 recognizable fake JWT sentinels in the server-side ticket. The check requires
 token- and payload-sentinel-free response bodies and DOM content, empty local
 and session storage, and one opaque secure HTTP-only session cookie with the
@@ -91,6 +92,11 @@ Ordinary solution test runs skip this opt-in check so they do not implicitly
 download or launch a browser. GitHub Actions runs it in the separate
 `Browser Smoke` job after `Quality Gate`, installing only the headless Chromium
 shell and its runner dependencies.
+
+The browser suite also renders the guarded Operator `say` form at `1280x800`
+and `390x844`, verifies its controls are visible, and fails on horizontal
+overflow. Set `GOLDSRCOPS_UI_SCREENSHOT_DIR` to an ignored local directory when
+reviewable full-page screenshots are useful; CI does not set this variable.
 
 ## Host-Readiness Decisions
 

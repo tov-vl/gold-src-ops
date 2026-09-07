@@ -25,6 +25,7 @@ internal static class WebSecurityConfiguration
         services.AddSingleton(new WebAuthenticationState(settings.Enabled));
         services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddSingleton<InMemoryTicketStore>();
+        services.AddSingleton<OperatorCommandConfirmationStore>();
         services.AddHttpContextAccessor();
 
         var authentication = services
@@ -78,7 +79,15 @@ internal static class WebSecurityConfiguration
                 WebSecurity.ReaderPolicy,
                 static policy => policy
                     .RequireAuthenticatedUser()
-                    .RequireRole(WebSecurity.ReaderRole, WebSecurity.OperatorRole));
+                    .RequireRole(WebSecurity.ReaderRole, WebSecurity.OperatorRole))
+            .AddPolicy(
+                WebSecurity.OperatorPolicy,
+                static policy => policy
+                    .RequireAuthenticatedUser()
+                    .RequireRole(WebSecurity.OperatorRole)
+                    .RequireClaim(WebSecurity.SubjectClaim)
+                    .RequireAssertion(static context =>
+                        WebSecurity.GetSubject(context.User) is not null));
 
         if (!settings.Enabled)
         {

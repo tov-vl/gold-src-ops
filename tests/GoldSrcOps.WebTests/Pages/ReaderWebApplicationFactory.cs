@@ -38,9 +38,11 @@ internal sealed class DisabledAuthenticationWebApplicationFactory : WebApplicati
     }
 }
 
-internal sealed class ReaderWebApplicationFactory(string? role = WebSecurity.ReaderRole)
-    : WebApplicationFactory<Program>
+internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Program>
 {
+    private readonly string? role;
+    private readonly string? subject;
+
     public static readonly Guid ServerId = Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f");
     public static readonly Guid OpenIncidentId = Guid.Parse("9307a87e-61cf-4901-8026-b301908431d6");
     public static readonly Guid CommandId = Guid.Parse("17477e4e-97bb-4c50-a046-08fa5cd48dca");
@@ -51,6 +53,17 @@ internal sealed class ReaderWebApplicationFactory(string? role = WebSecurity.Rea
     public const string CommandPayloadSentinel = "fixture-command-payload-must-not-render";
     public const string DeadLetterLastError = "Webhook endpoint returned a terminal response";
     public const string DeadLetterPayloadSentinel = "fixture-dead-letter-payload-must-not-render";
+    public const string Subject = "reader-portal-fixture";
+
+    public FixtureOperatorApiClient OperatorApiClient { get; } = new();
+
+    public ReaderWebApplicationFactory(
+        string? role = WebSecurity.ReaderRole,
+        string? subject = Subject)
+    {
+        this.role = role;
+        this.subject = subject;
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -74,11 +87,17 @@ internal sealed class ReaderWebApplicationFactory(string? role = WebSecurity.Rea
                 })
                 .AddScheme<TestAuthenticationOptions, TestAuthenticationHandler>(
                     TestAuthenticationHandler.SchemeName,
-                    options => options.Role = role);
+                    options =>
+                    {
+                        options.Role = role;
+                        options.Subject = subject;
+                    });
             services.RemoveAll<WebAuthenticationState>();
             services.AddSingleton(new WebAuthenticationState(true));
             services.RemoveAll<IReaderApiClient>();
             services.AddSingleton<IReaderApiClient, FixtureReaderApiClient>();
+            services.RemoveAll<IOperatorApiClient>();
+            services.AddSingleton<IOperatorApiClient>(OperatorApiClient);
         });
     }
 
@@ -304,9 +323,43 @@ internal sealed class ReaderWebApplicationFactory(string? role = WebSecurity.Rea
             4);
     }
 
+    internal sealed class FixtureOperatorApiClient : IOperatorApiClient
+    {
+        private int callCount;
+
+        public int CallCount => Volatile.Read(ref callCount);
+
+        public Guid? LastServerId { get; private set; }
+
+        public string? LastMessage { get; private set; }
+
+        public OperatorCommandQueueResult Result { get; set; } = OperatorCommandQueueResult.Queued;
+
+        public Exception? ExceptionToThrow { get; set; }
+
+        public Task<OperatorCommandQueueResult> QueueSayAsync(
+            Guid serverId,
+            string message,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref callCount);
+            LastServerId = serverId;
+            LastMessage = message;
+
+            if (ExceptionToThrow is not null)
+            {
+                return Task.FromException<OperatorCommandQueueResult>(ExceptionToThrow);
+            }
+
+            return Task.FromResult(Result);
+        }
+    }
+
     private sealed class TestAuthenticationOptions : AuthenticationSchemeOptions
     {
         public string? Role { get; set; }
+
+        public string? Subject { get; set; }
     }
 
     private sealed class TestAuthenticationHandler(
@@ -320,7 +373,7 @@ internal sealed class ReaderWebApplicationFactory(string? role = WebSecurity.Rea
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
             var identity = new ClaimsIdentity(
-                CreateClaims(Options.Role),
+                CreateClaims(Options.Role, Options.Subject),
                 SchemeName,
                 ClaimTypes.Name,
                 ClaimTypes.Role);
@@ -334,9 +387,14 @@ internal sealed class ReaderWebApplicationFactory(string? role = WebSecurity.Rea
             return Task.CompletedTask;
         }
 
-        private static IEnumerable<Claim> CreateClaims(string? role)
+        private static IEnumerable<Claim> CreateClaims(string? role, string? subject)
         {
             yield return new Claim(ClaimTypes.Name, "Portal user");
+            if (!string.IsNullOrWhiteSpace(subject))
+            {
+                yield return new Claim(WebSecurity.SubjectClaim, subject);
+            }
+
             if (!string.IsNullOrWhiteSpace(role))
             {
                 yield return new Claim(ClaimTypes.Role, role);
