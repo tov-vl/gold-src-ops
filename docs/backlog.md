@@ -720,8 +720,7 @@ Delivery order:
    on 2026-09-06. Richer public availability history remains follow-up work.
    See `docs/v2.4-public-dashboard-deployment.md` and
    `docs/v2.4-reader-portal.md`.
-6. **Operator experience (third read-only production slice verified
-   2026-09-07)**: pull
+6. **Operator experience (fourth production slice verified 2026-09-07)**: pull
    request #87 added OIDC login/logout, a server-side BFF session, server
    inventory, and current server status without mutations. Signed candidate
    `v2.4.0-rc.3` and
@@ -780,6 +779,19 @@ Delivery order:
    uncertain command executed. Raw, restart, map-change, and dead-letter replay
    controls remain later Operator work and must preserve the existing API
    policies, concurrency protection, non-retry semantics, and audit trail.
+   Pull request [#95](https://github.com/tov-vl/gold-src-ops/pull/95)
+   integrated this fourth slice as revision `0635052`. Signed candidate
+   `v2.4.0-rc.6` and
+   [workflow 34119583632](https://github.com/tov-vl/gold-src-ops/actions/runs/34119583632)
+   passed all repository gates plus API and Web image publication and digest
+   verification. A fresh encrypted off-host backup and full repository check,
+   production preflight, the already-up-to-date migration bundle, isolated API
+   and Web recreation, public health, and owner-only `v2.4.0-rc.5` rollback
+   preservation passed. Reader concealment and the responsive Operator form
+   boundary passed live verification without submitting a production command.
+   Runtime and game-host continuity, the online zero-bot server state, empty
+   incident and durable-work queues, and scheduled backup freshness remained
+   healthy.
 7. **First SLO review**: after a complete forward-looking window, publish the
    reproducible sanitized result and report `API-01` as met or missed. Review the
    target without changing it to fit the observed result.

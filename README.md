@@ -35,10 +35,12 @@ Reader portal landed in
 read-only incident and history slice landed in
 [PR #91](https://github.com/tov-vl/gold-src-ops/pull/91). The third read-only
 command and dead-letter slice landed in
-[PR #93](https://github.com/tov-vl/gold-src-ops/pull/93). Signed candidate
-`v2.4.0-rc.5` was published, digest-verified, and deployed from revision
-`da3268a`; its complete tag workflow passed in
-[run #34101231881](https://github.com/tov-vl/gold-src-ops/actions/runs/34101231881).
+[PR #93](https://github.com/tov-vl/gold-src-ops/pull/93), and the first guarded
+Operator mutation landed in
+[PR #95](https://github.com/tov-vl/gold-src-ops/pull/95). Signed candidate
+`v2.4.0-rc.6` was published, digest-verified, and deployed from revision
+`0635052`; its complete tag workflow passed in
+[run #34119583632](https://github.com/tov-vl/gold-src-ops/actions/runs/34119583632).
 It is not yet a stable v2.4 release. The
 provider-independent monitoring contract is documented in
 [docs/v2.4-external-availability-monitoring.md](docs/v2.4-external-availability-monitoring.md),
@@ -68,8 +70,10 @@ Candidate publication and production verification passed on 2026-09-07;
 dead-letter replay remains an API-only Operator workflow. A fourth repository
 slice adds the first guarded mutation surface: an Operator-only form can queue
 one audited `say` command after antiforgery validation, explicit acknowledgement,
-and one-time server-side confirmation. Raw, restart, map-change, and dead-letter
-replay controls remain outside the Web UI.
+and one-time server-side confirmation. Its candidate rollout and live
+Reader/Operator boundary checks passed on 2026-09-07 without issuing a
+production command. Raw, restart, map-change, and dead-letter replay controls
+remain outside the Web UI.
 
 ## Highlights
 
