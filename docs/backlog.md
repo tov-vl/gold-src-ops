@@ -768,9 +768,18 @@ Delivery order:
    without payloads, token-shaped content, or mutation controls. Runtime and
    game-host continuity, the online zero-bot server state, empty incident and
    durable-work queues, and scheduled backup freshness remained healthy.
-   Command submission and dead-letter replay remain later Operator work and
-   must preserve the existing API policies, idempotency, concurrency
-   protection, and audit trail.
+   The fourth repository slice adds the first guarded mutation surface. An
+   Operator can queue only a `say` command through a dedicated static-SSR form;
+   Reader sessions receive no form, and the POST independently requires the
+   Operator policy plus a stable subject. Antiforgery validation, an explicit
+   acknowledgement, and a bounded one-time confirmation tied to subject and
+   server reduce accidental or duplicate browser submissions. The confirmation
+   is consumed before the API call, no message is retained in it, and an
+   uncertain API outcome redirects to command history without retrying. This is
+   deliberately not API-level idempotency: RCON still cannot prove whether an
+   uncertain command executed. Raw, restart, map-change, and dead-letter replay
+   controls remain later Operator work and must preserve the existing API
+   policies, concurrency protection, non-retry semantics, and audit trail.
 7. **First SLO review**: after a complete forward-looking window, publish the
    reproducible sanitized result and report `API-01` as met or missed. Review the
    target without changing it to fit the observed result.
@@ -1015,9 +1024,10 @@ Remaining portfolio gaps, in priority order:
   24-hour release sample is not a monthly uptime claim.
 - Add a bounded historical availability view to the deployed public dashboard
   without broadening its sanitized API or treating shadow data as an active SLO.
-- Add guarded Operator command and dead-letter replay workflows while
-  preserving authorization, idempotency, concurrency protection, and audit
-  contracts.
+- Extend guarded Operator workflows after the bounded Web `say` slice: keep
+  higher-impact RCON commands out of the UI until their product need is clear,
+  and add dead-letter replay with its existing durable idempotency and
+  concurrency contract.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
 - A later versioned AMX Mod X/ReAPI event agent with a durable inbox, only after

@@ -67,7 +67,8 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
                     var identity = new ClaimsIdentity(
                         [
                             new Claim(ClaimTypes.Name, "Browser boundary user"),
-                            new Claim(ClaimTypes.Role, WebSecurity.ReaderRole),
+                            new Claim(WebSecurity.SubjectClaim, "browser-boundary-user"),
+                            new Claim(ClaimTypes.Role, WebSecurity.OperatorRole),
                         ],
                         CookieAuthenticationDefaults.AuthenticationScheme,
                         ClaimTypes.Name,
