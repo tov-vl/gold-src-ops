@@ -33,10 +33,12 @@ release correction landed in
 Reader portal landed in
 [PR #87](https://github.com/tov-vl/gold-src-ops/pull/87), and its second
 read-only incident and history slice landed in
-[PR #91](https://github.com/tov-vl/gold-src-ops/pull/91). Signed candidate
-`v2.4.0-rc.4` was published, digest-verified, and deployed from revision
-`b275115`; its complete tag workflow passed in
-[run #34042350507](https://github.com/tov-vl/gold-src-ops/actions/runs/34042350507).
+[PR #91](https://github.com/tov-vl/gold-src-ops/pull/91). The third read-only
+command and dead-letter slice landed in
+[PR #93](https://github.com/tov-vl/gold-src-ops/pull/93). Signed candidate
+`v2.4.0-rc.5` was published, digest-verified, and deployed from revision
+`da3268a`; its complete tag workflow passed in
+[run #34101231881](https://github.com/tov-vl/gold-src-ops/actions/runs/34101231881).
 It is not yet a stable v2.4 release. The
 provider-independent monitoring contract is documented in
 [docs/v2.4-external-availability-monitoring.md](docs/v2.4-external-availability-monitoring.md),
@@ -60,10 +62,10 @@ The production OIDC boundary and live Reader/Operator evidence are recorded in
 The second read-only portal slice now adds open-incident triage and bounded
 per-server observation and incident history. Candidate publication, production
 rollout, and live Reader/Operator verification passed on 2026-09-06.
-A third read-only repository slice adds per-server command audit history plus
+A third read-only portal slice adds per-server command audit history plus
 dead-letter list and detail views without rendering command or event payloads.
-It still awaits candidate publication and production verification; command
-submission and dead-letter replay remain API-only Operator workflows.
+Candidate publication and production verification passed on 2026-09-07;
+command submission and dead-letter replay remain API-only Operator workflows.
 
 ## Highlights
 
