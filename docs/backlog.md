@@ -720,8 +720,8 @@ Delivery order:
    on 2026-09-06. Richer public availability history remains follow-up work.
    See `docs/v2.4-public-dashboard-deployment.md` and
    `docs/v2.4-reader-portal.md`.
-6. **Operator experience (second read-only production slice verified
-   2026-09-06)**: pull
+6. **Operator experience (third read-only production slice verified
+   2026-09-07)**: pull
    request #87 added OIDC login/logout, a server-side BFF session, server
    inventory, and current server status without mutations. Signed candidate
    `v2.4.0-rc.3` and
@@ -756,11 +756,21 @@ Delivery order:
    history and cursor-based dead-letter list and detail views. It deliberately
    omits command and event payloads and exposes no mutation controls. Reader,
    Operator, no-role, not-found, API-client, browser token-boundary, and
-   responsive desktop/mobile checks cover the surface. Candidate publication,
-   production rollout, and live policy verification remain pending. Command
-   submission and dead-letter replay remain later Operator work and must
-   preserve the existing API policies, idempotency, concurrency protection,
-   and audit trail.
+   responsive desktop/mobile checks cover the surface. Pull request
+   [#93](https://github.com/tov-vl/gold-src-ops/pull/93) integrated the slice as
+   revision `da3268a`. Signed candidate `v2.4.0-rc.5` and
+   [workflow 34101231881](https://github.com/tov-vl/gold-src-ops/actions/runs/34101231881)
+   passed all repository gates plus API and Web image publication and digest
+   verification. A fresh encrypted off-host backup and full repository check,
+   production preflight, the already-up-to-date migration bundle, isolated API
+   and Web recreation, public health, and rollback preservation passed on
+   2026-09-07. The live command-history and empty dead-letter routes rendered
+   without payloads, token-shaped content, or mutation controls. Runtime and
+   game-host continuity, the online zero-bot server state, empty incident and
+   durable-work queues, and scheduled backup freshness remained healthy.
+   Command submission and dead-letter replay remain later Operator work and
+   must preserve the existing API policies, idempotency, concurrency
+   protection, and audit trail.
 7. **First SLO review**: after a complete forward-looking window, publish the
    reproducible sanitized result and report `API-01` as met or missed. Review the
    target without changing it to fit the observed result.
@@ -1005,9 +1015,9 @@ Remaining portfolio gaps, in priority order:
   24-hour release sample is not a monthly uptime claim.
 - Add a bounded historical availability view to the deployed public dashboard
   without broadening its sanitized API or treating shadow data as an active SLO.
-- Publish and verify the third authenticated read-only command and dead-letter
-  inspection slice, then add guarded Operator command and replay workflows
-  while preserving authorization, idempotency, and audit contracts.
+- Add guarded Operator command and dead-letter replay workflows while
+  preserving authorization, idempotency, concurrency protection, and audit
+  contracts.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
 - A later versioned AMX Mod X/ReAPI event agent with a durable inbox, only after
