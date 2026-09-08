@@ -135,9 +135,8 @@ exports production metrics through a private OpenTelemetry Collector,
 Prometheus, and Grafana path. The accepted v2.3 release scope did not include a
 web experience. v2.4 now includes the sanitized public dashboard and an
 authenticated Reader/Operator portal with a narrowly guarded `say` workflow.
-The repository also contains the next bounded public A2S-history slice, whose
-release-candidate publication and production rollout remain pending. The
-completed v2.3 plan
+The bounded public A2S-history slice is also published and production-verified
+in `v2.4.0-rc.8`. The completed v2.3 plan
 closed the deployment and recovery gaps before frontend or gameplay-agent work
 began. Slice 2 uses
 the provider-independent controlled game-server contract in
