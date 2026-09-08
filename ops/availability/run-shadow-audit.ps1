@@ -47,6 +47,8 @@ $plan = [pscustomobject]@{
     IgnoredNonCanonicalAttempts = 0
     Availability = $null
     MeetsDraftTarget = $null
+    IdentityMatched = $false
+    PopulationComplete = $false
     Archived = $false
     RawEvidenceRetained = $false
 }
@@ -137,42 +139,41 @@ try {
         $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
         $reportStart = [DateTimeOffset]$report.window_start_utc
         $reportEnd = [DateTimeOffset]$report.window_end_utc
-        if ($reportStart -ne $windowStart -or
-            $reportEnd -ne $windowEnd -or
-            $report.monitor_revision -cne "v2-4-shadow-001" -or
-            $report.location -cne "Frankfurt" -or
-            [int]$report.expected_slot_count -ne 1440 -or
-            [int]$report.evaluated_slot_count -ne 1440 -or
-            [int]$report.pending_slot_count -ne 0 -or
-            [int]$report.missing_slot_count -ne 0 -or
-            ([int]$report.good_slot_count + [int]$report.bad_slot_count) -ne 1440) {
-            throw "The shadow report is incomplete or has an unexpected identity."
+        $plan.EvaluatedSlots = [int]$report.evaluated_slot_count
+        $plan.PendingSlots = [int]$report.pending_slot_count
+        $plan.GoodSlots = [int]$report.good_slot_count
+        $plan.BadSlots = [int]$report.bad_slot_count
+        $plan.MissingSlots = [int]$report.missing_slot_count
+        $plan.DuplicateRecords = [int]$report.duplicate_record_count
+        $plan.IgnoredNonCanonicalAttempts = [int]$report.ignored_non_canonical_attempt_count
+        $plan.Availability = if ($null -eq $report.availability) {
+            $null
+        }
+        else {
+            [decimal]$report.availability
+        }
+        $plan.MeetsDraftTarget = if ($null -eq $report.meets_target) {
+            $null
+        }
+        else {
+            [bool]$report.meets_target
         }
     }
     catch {
-        throw "Shadow audit failed: require exactly 1,440 mature slots with no missing data."
+        throw "Shadow audit failed: the sanitized evaluation report could not be parsed."
     }
 
-    $plan.Status = "Passed"
-    $plan.EvaluatedSlots = [int]$report.evaluated_slot_count
-    $plan.PendingSlots = [int]$report.pending_slot_count
-    $plan.GoodSlots = [int]$report.good_slot_count
-    $plan.BadSlots = [int]$report.bad_slot_count
-    $plan.MissingSlots = [int]$report.missing_slot_count
-    $plan.DuplicateRecords = [int]$report.duplicate_record_count
-    $plan.IgnoredNonCanonicalAttempts = [int]$report.ignored_non_canonical_attempt_count
-    $plan.Availability = if ($null -eq $report.availability) {
-        $null
-    }
-    else {
-        [decimal]$report.availability
-    }
-    $plan.MeetsDraftTarget = if ($null -eq $report.meets_target) {
-        $null
-    }
-    else {
-        [bool]$report.meets_target
-    }
+    $plan.IdentityMatched = $reportStart -eq $windowStart -and
+        $reportEnd -eq $windowEnd -and
+        $report.monitor_revision -ceq "v2-4-shadow-001" -and
+        $report.location -ceq "Frankfurt"
+    $plan.PopulationComplete = [int]$report.expected_slot_count -eq 1440 -and
+        $plan.EvaluatedSlots -eq 1440 -and
+        $plan.PendingSlots -eq 0 -and
+        $plan.MissingSlots -eq 0 -and
+        ($plan.GoodSlots + $plan.BadSlots) -eq 1440
+    $integrityPassed = $plan.IdentityMatched -and $plan.PopulationComplete
+    $plan.Status = if ($integrityPassed) { "Passed" } else { "Failed" }
 
     if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
         $availabilityText = if ($null -eq $plan.Availability) {
@@ -187,14 +188,16 @@ try {
             default { "pending" }
         }
 
+        $integrityText = if ($integrityPassed) { "passed" } else { "failed" }
         @(
             "## Availability shadow audit",
             "",
-            "- Evidence integrity: passed",
+            "- Evidence integrity: $integrityText",
             "- Window start: ``$($plan.WindowStartUtc)``",
             "- Window end: ``$($plan.WindowEndUtc)``",
-            "- Expected/evaluated/pending slots: ``1440/$($plan.EvaluatedSlots)/$($plan.PendingSlots)``",
+            "- Expected/evaluated/pending slots: ``$([int]$report.expected_slot_count)/$($plan.EvaluatedSlots)/$($plan.PendingSlots)``",
             "- Good/bad/missing slots: ``$($plan.GoodSlots)/$($plan.BadSlots)/$($plan.MissingSlots)``",
+            "- Identity matched: ``$($plan.IdentityMatched.ToString().ToLowerInvariant())``",
             "- Duplicate records: ``$($plan.DuplicateRecords)``",
             "- Diagnostic non-canonical attempts: ``$($plan.IgnoredNonCanonicalAttempts)``",
             "- Shadow availability: ``$availabilityText``",
@@ -203,6 +206,10 @@ try {
             "- Raw evidence: deleted after evaluation",
             "- SLO status: not activated or achieved by this audit") |
             Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+    }
+
+    if (-not $integrityPassed) {
+        throw "Shadow audit failed: identity matched=$($plan.IdentityMatched); expected/evaluated/pending/missing slots=$([int]$report.expected_slot_count)/$($plan.EvaluatedSlots)/$($plan.PendingSlots)/$($plan.MissingSlots)."
     }
 
     return $plan
