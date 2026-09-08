@@ -1068,13 +1068,10 @@ The released v1 baseline includes:
 Remaining portfolio gaps, in priority order:
 
 - Continue the active v2.4 Grafana Cloud shadow collection, prove alert routing,
-  and activate `API-01` only for a new prospective window; archive and independent
-  scheduled-segment recovery are already proved, while the completed v2.3
-  24-hour release sample is not a monthly uptime claim.
-- Publish and production-verify the bounded dead-letter replay Web workflow.
-  Keep higher-impact RCON commands out of the UI until their product need is
-  clear, while preserving the existing idempotency, concurrency, non-retry,
-  authorization, and audit contracts.
+  run the read-only 24-hour shadow audit, and activate `API-01` only for a new
+  prospective window. Archive and independent scheduled-segment recovery are
+  already proved, while the completed v2.3 24-hour release sample is not a
+  monthly uptime claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
 - A later versioned AMX Mod X/ReAPI event agent with a durable inbox, only after
