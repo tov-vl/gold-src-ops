@@ -805,6 +805,16 @@ Delivery order:
    Runtime and game-host continuity, the online zero-bot server state, empty
    incident and durable-work queues, and scheduled backup freshness remained
    healthy.
+   The fifth repository slice adds a guarded dead-letter replay surface. An
+   Operator can submit an individual replay with antiforgery validation,
+   explicit acknowledgement, and a bounded one-time confirmation tied to the
+   subject, event, and canonical idempotency request ID. The confirmation is
+   consumed before the API call; an unknown delivery outcome is shown without
+   automatic retry. Reader sessions can inspect the durable replay receipt but
+   receive no mutation form, and raw event payloads remain outside the browser
+   boundary. Local verification passed the solution build, all 450 non-browser
+   tests, and four responsive browser tests. Candidate publication and
+   production verification remain follow-up work.
 7. **First SLO review**: after a complete forward-looking window, publish the
    reproducible sanitized result and report `API-01` as met or missed. Review the
    target without changing it to fit the observed result.
@@ -1047,10 +1057,10 @@ Remaining portfolio gaps, in priority order:
   and activate `API-01` only for a new prospective window; archive and independent
   scheduled-segment recovery are already proved, while the completed v2.3
   24-hour release sample is not a monthly uptime claim.
-- Extend guarded Operator workflows after the bounded Web `say` slice: keep
-  higher-impact RCON commands out of the UI until their product need is clear,
-  and add dead-letter replay with its existing durable idempotency and
-  concurrency contract.
+- Publish and production-verify the bounded dead-letter replay Web workflow.
+  Keep higher-impact RCON commands out of the UI until their product need is
+  clear, while preserving the existing idempotency, concurrency, non-retry,
+  authorization, and audit contracts.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
 - A later versioned AMX Mod X/ReAPI event agent with a durable inbox, only after

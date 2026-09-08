@@ -1,0 +1,129 @@
+@page "/operator/replays/{RequestId:guid}"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<DeadLetterReplay> Logger
+
+<PageTitle>Replay receipt | GoldSrcOps</PageTitle>
+
+<div class="replay-page">
+    <a class="back-link" href="@GetBackPath()">Back to dead letters</a>
+
+    @if (_loadFailed)
+    {
+        <section class="receipt-state" role="alert">
+            <h1>Replay receipt is unavailable</h1>
+            <p>The API did not return a usable Reader record. Do not submit another replay yet.</p>
+        </section>
+    }
+    else if (_replay is null)
+    {
+        <section class="receipt-state @GetMissingStateClass()" role="alert">
+            <p class="eyebrow">Replay receipt</p>
+            <h1>@GetMissingStateTitle()</h1>
+            <p>@GetMissingStateDetail()</p>
+            <p class="request-id">Request <code>@RequestId</code></p>
+        </section>
+    }
+    else
+    {
+        <header class="receipt-heading">
+            <div>
+                <p class="eyebrow">Replay receipt</p>
+                <h1>Replay #@_replay.ReplayNumber</h1>
+                <p class="request-id">Request <code>@_replay.RequestId</code></p>
+            </div>
+            <span class="replay-state">@_replay.Status</span>
+        </header>
+
+        @if (string.Equals(Result, "unknown", StringComparison.Ordinal))
+        {
+            <section class="outcome-warning" role="status">
+                <strong>The submission response was not received</strong>
+                <p>The durable receipt confirms the request exists. The Web host did not retry it.</p>
+            </section>
+        }
+
+        <section class="receipt-grid" aria-label="Replay metadata">
+            <dl>
+                <div>
+                    <dt>Event</dt>
+                    <dd><a href="@($"/operator/dead-letters/{_replay.EventId:D}")">@_replay.EventId</a></dd>
+                </div>
+                <div>
+                    <dt>Requested</dt>
+                    <dd>@FormatDateTime(_replay.RequestedAtUtc)</dd>
+                </div>
+                <div>
+                    <dt>Requester</dt>
+                    <dd>@_replay.RequestedBy</dd>
+                </div>
+                <div>
+                    <dt>Previous attempts</dt>
+                    <dd>@_replay.PreviousAttemptCount</dd>
+                </div>
+                <div>
+                    <dt>Previously dead-lettered</dt>
+                    <dd>@FormatDateTime(_replay.PreviousDeadLetteredAtUtc)</dd>
+                </div>
+                <div>
+                    <dt>Next attempt</dt>
+                    <dd>@FormatDateTime(_replay.NextAttemptAtUtc)</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="reason-detail" aria-labelledby="replay-reason-title">
+            <p class="eyebrow">Audit note</p>
+            <h2 id="replay-reason-title">Reason for replay</h2>
+            <p>@_replay.Reason</p>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid RequestId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "result")]
+    public string? Result { get; set; }
+
+    private DeadLetterReplayResponse? _replay;
+    private bool _loadFailed;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadFailed = false;
+        _replay = null;
+
+        try
+        {
+            _replay = await ReaderApiClient.GetDeadLetterReplayAsync(RequestId);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load Reader replay receipt for request {RequestId}.", RequestId);
+            _loadFailed = true;
+        }
+    }
+
+    private string GetBackPath() => _replay is null
+        ? "/operator/dead-letters"
+        : $"/operator/dead-letters/{_replay.EventId:D}";
+
+    private string GetMissingStateTitle() => string.Equals(Result, "unknown", StringComparison.Ordinal)
+        ? "Outcome not yet confirmed"
+        : "Replay request not found";
+
+    private string GetMissingStateDetail() => string.Equals(Result, "unknown", StringComparison.Ordinal)
+        ? "The API has no durable receipt for this request. Check again before submitting a new replay."
+        : "The request is not present in retained replay history.";
+
+    private string GetMissingStateClass() => string.Equals(Result, "unknown", StringComparison.Ordinal)
+        ? "receipt-state--warning"
+        : string.Empty;
+
+    private static string FormatDateTime(DateTimeOffset? value) => value is null
+        ? "Not available"
+        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+}

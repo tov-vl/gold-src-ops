@@ -71,6 +71,7 @@ app.MapHealthChecks("/health/live")
     .AllowAnonymous();
 app.MapAuthenticationEndpoints(authenticationEnabled);
 app.MapOperatorCommandEndpoints();
+app.MapOperatorReplayEndpoints();
 app.MapRazorComponents<App>();
 
 app.Run();

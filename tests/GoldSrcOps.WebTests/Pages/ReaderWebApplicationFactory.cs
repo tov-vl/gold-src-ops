@@ -47,12 +47,14 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     public static readonly Guid OpenIncidentId = Guid.Parse("9307a87e-61cf-4901-8026-b301908431d6");
     public static readonly Guid CommandId = Guid.Parse("17477e4e-97bb-4c50-a046-08fa5cd48dca");
     public static readonly Guid DeadLetterEventId = Guid.Parse("70d51faf-6029-4b1e-a922-b7a3ab8d1f84");
+    public static readonly Guid ReplayRequestId = Guid.Parse("4fb7401c-802c-48b9-aa71-5e27619b0784");
     public const string ServerName = "Reader fixture server";
     public const string OpenIncidentReason = "A2S query timed out";
     public const string CommandResultSummary = "Command accepted by the server";
     public const string CommandPayloadSentinel = "fixture-command-payload-must-not-render";
     public const string DeadLetterLastError = "Webhook endpoint returned a terminal response";
     public const string DeadLetterPayloadSentinel = "fixture-dead-letter-payload-must-not-render";
+    public const string ReplayReason = "Receiver health was verified by the operator";
     public const string Subject = "reader-portal-fixture";
 
     public FixtureOperatorApiClient OperatorApiClient { get; } = new();
@@ -254,6 +256,23 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                     ObservedAtUtc.AddMinutes(-5))
                 : null);
 
+        public Task<DeadLetterReplayResponse?> GetDeadLetterReplayAsync(
+            Guid requestId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<DeadLetterReplayResponse?>(requestId == ReplayRequestId
+                ? new DeadLetterReplayResponse(
+                    ReplayRequestId,
+                    DeadLetterEventId,
+                    "operator-fixture",
+                    ObservedAtUtc.AddMinutes(-2),
+                    ReplayReason,
+                    2,
+                    5,
+                    ObservedAtUtc.AddMinutes(-15),
+                    "Pending",
+                    ObservedAtUtc.AddMinutes(-1))
+                : null);
+
         public Task<SnapshotHistoryResponse?> GetServerSnapshotsAsync(
             Guid serverId,
             int limit,
@@ -326,16 +345,29 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     internal sealed class FixtureOperatorApiClient : IOperatorApiClient
     {
         private int callCount;
+        private int replayCallCount;
 
         public int CallCount => Volatile.Read(ref callCount);
+
+        public int ReplayCallCount => Volatile.Read(ref replayCallCount);
 
         public Guid? LastServerId { get; private set; }
 
         public string? LastMessage { get; private set; }
 
+        public Guid? LastEventId { get; private set; }
+
+        public Guid? LastRequestId { get; private set; }
+
+        public string? LastReason { get; private set; }
+
         public OperatorCommandQueueResult Result { get; set; } = OperatorCommandQueueResult.Queued;
 
         public Exception? ExceptionToThrow { get; set; }
+
+        public OperatorReplayResult ReplayResult { get; set; } = OperatorReplayResult.Accepted;
+
+        public Exception? ReplayExceptionToThrow { get; set; }
 
         public Task<OperatorCommandQueueResult> QueueSayAsync(
             Guid serverId,
@@ -352,6 +384,25 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             }
 
             return Task.FromResult(Result);
+        }
+
+        public Task<OperatorReplayResult> ReplayDeadLetterAsync(
+            Guid eventId,
+            Guid requestId,
+            string reason,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref replayCallCount);
+            LastEventId = eventId;
+            LastRequestId = requestId;
+            LastReason = reason;
+
+            if (ReplayExceptionToThrow is not null)
+            {
+                return Task.FromException<OperatorReplayResult>(ReplayExceptionToThrow);
+            }
+
+            return Task.FromResult(ReplayResult);
         }
     }
 

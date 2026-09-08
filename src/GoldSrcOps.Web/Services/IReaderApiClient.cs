@@ -44,4 +44,8 @@ public interface IReaderApiClient
     Task<DeadLetterDetailResponse?> GetDeadLetterAsync(
         Guid eventId,
         CancellationToken cancellationToken = default);
+
+    Task<DeadLetterReplayResponse?> GetDeadLetterReplayAsync(
+        Guid requestId,
+        CancellationToken cancellationToken = default);
 }

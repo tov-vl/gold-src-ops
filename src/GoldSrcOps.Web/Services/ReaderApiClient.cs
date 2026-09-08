@@ -82,6 +82,13 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
             $"api/alert-delivery/dead-letters/{eventId:D}",
             cancellationToken);
 
+    public Task<DeadLetterReplayResponse?> GetDeadLetterReplayAsync(
+        Guid requestId,
+        CancellationToken cancellationToken = default) =>
+        GetOptionalAsync<DeadLetterReplayResponse>(
+            $"api/alert-delivery/replays/{requestId:D}",
+            cancellationToken);
+
     private static string AddLimit(string requestUri, int limit) =>
         QueryHelpers.AddQueryString(
             requestUri,

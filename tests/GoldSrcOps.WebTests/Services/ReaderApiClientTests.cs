@@ -62,18 +62,51 @@ public sealed class ReaderApiClientTests
         query["cursor"].Should().ContainSingle().Which.Should().Be(cursor);
     }
 
+    [Fact]
+    public async Task GetDeadLetterReplayAsync_maps_the_durable_receipt()
+    {
+        var requestId = Guid.Parse("85453d78-0e88-4b25-b376-c8991be0cbd5");
+        var response = new DeadLetterReplayResponse(
+            requestId,
+            Guid.Parse("5793519a-789e-4183-9a3b-2d0ec0f89763"),
+            "operator",
+            new DateTimeOffset(2026, 9, 8, 12, 0, 0, TimeSpan.Zero),
+            "Receiver recovered",
+            2,
+            5,
+            new DateTimeOffset(2026, 9, 8, 11, 0, 0, TimeSpan.Zero),
+            "Pending",
+            new DateTimeOffset(2026, 9, 8, 12, 1, 0, TimeSpan.Zero));
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(response)
+        });
+        using var httpClient = CreateHttpClient(capture);
+        var client = new ReaderApiClient(httpClient);
+
+        var result = await client.GetDeadLetterReplayAsync(requestId);
+
+        result.Should().Be(response);
+        capture.RequestUri.Should().Be(
+            new Uri($"https://api.example.test/api/alert-delivery/replays/{requestId:D}"));
+    }
+
     [Theory]
     [InlineData("commands")]
     [InlineData("dead-letter")]
+    [InlineData("replay")]
     public async Task Optional_reader_resource_returns_null_for_not_found(string resource)
     {
         var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
         using var httpClient = CreateHttpClient(capture);
         var client = new ReaderApiClient(httpClient);
 
-        object? result = string.Equals(resource, "commands", StringComparison.Ordinal)
-            ? await client.GetServerCommandsAsync(Guid.NewGuid(), 10)
-            : await client.GetDeadLetterAsync(Guid.NewGuid());
+        object? result = resource switch
+        {
+            "commands" => await client.GetServerCommandsAsync(Guid.NewGuid(), 10),
+            "dead-letter" => await client.GetDeadLetterAsync(Guid.NewGuid()),
+            _ => await client.GetDeadLetterReplayAsync(Guid.NewGuid())
+        };
 
         result.Should().BeNull();
     }
