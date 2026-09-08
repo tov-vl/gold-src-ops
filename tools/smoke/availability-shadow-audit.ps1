@@ -190,6 +190,7 @@ throw "Unexpected command '$command'."
     if ($result.Count -ne 1 -or $result[0].Status -cne "Passed" -or
         $result[0].ExpectedSlots -ne 1440 -or $result[0].EvaluatedSlots -ne 1440 -or
         $result[0].PendingSlots -ne 0 -or $result[0].MissingSlots -ne 0 -or
+        -not $result[0].IdentityMatched -or -not $result[0].PopulationComplete -or
         $result[0].Archived -or $result[0].RawEvidenceRetained) {
         throw "Successful shadow audit did not return the expected sanitized result."
     }
@@ -222,10 +223,16 @@ throw "Unexpected command '$command'."
     }
 
     foreach ($mode in @("wrong-slots", "pending", "missing")) {
+        Remove-Item -LiteralPath $summaryPath -Force -ErrorAction SilentlyContinue
         $env:GOLDSRCOPS_FAKE_AUDIT_MODE = $mode
         Assert-Fails `
             -Operation { & $auditPath @arguments } `
-            -ExpectedMessage "Shadow audit failed:*"
+            -ExpectedMessage "Shadow audit failed: identity matched=True; expected/evaluated/pending/missing slots=*"
+        $failureSummary = [IO.File]::ReadAllText($summaryPath)
+        if (-not $failureSummary.Contains("Evidence integrity: failed", [StringComparison]::Ordinal) -or
+            -not $failureSummary.Contains("Identity matched: ``true``", [StringComparison]::Ordinal)) {
+            throw "Incomplete shadow audit did not publish sanitized failure diagnostics."
+        }
         Assert-AuditDirectoriesCleaned
     }
 
