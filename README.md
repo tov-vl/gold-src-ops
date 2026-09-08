@@ -75,9 +75,13 @@ production command. A fifth repository slice adds an Operator-only replay form
 for individual dead letters and a Reader-visible durable replay receipt. It
 binds one-time confirmation to the subject, event, and idempotency request ID,
 consumes the confirmation before the API call, and never retries an uncertain
-outcome. Raw event payloads remain outside the browser boundary. Candidate
-publication and production verification of this fifth slice remain follow-up
-work; raw, restart, and map-change controls remain outside the Web UI.
+outcome. Raw event payloads remain outside the browser boundary. Publication
+and production verification of signed candidate `v2.4.0-rc.9` passed on
+2026-09-08.
+The rollout recreated only API and Web, retained runtime and game-host
+continuity, and exercised the live Operator boundary without creating or
+replaying a production dead letter. Raw, restart, and map-change controls remain
+outside the Web UI.
 
 ## Highlights
 
