@@ -26,6 +26,7 @@ internal static class WebSecurityConfiguration
         services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddSingleton<InMemoryTicketStore>();
         services.AddSingleton<OperatorCommandConfirmationStore>();
+        services.AddSingleton<OperatorReplayConfirmationStore>();
         services.AddHttpContextAccessor();
 
         var authentication = services

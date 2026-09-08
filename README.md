@@ -66,14 +66,18 @@ per-server observation and incident history. Candidate publication, production
 rollout, and live Reader/Operator verification passed on 2026-09-06.
 A third read-only portal slice adds per-server command audit history plus
 dead-letter list and detail views without rendering command or event payloads.
-Candidate publication and production verification passed on 2026-09-07;
-dead-letter replay remains an API-only Operator workflow. A fourth repository
-slice adds the first guarded mutation surface: an Operator-only form can queue
-one audited `say` command after antiforgery validation, explicit acknowledgement,
-and one-time server-side confirmation. Its candidate rollout and live
-Reader/Operator boundary checks passed on 2026-09-07 without issuing a
-production command. Raw, restart, map-change, and dead-letter replay controls
-remain outside the Web UI.
+Candidate publication and production verification passed on 2026-09-07. A
+fourth repository slice adds the first guarded mutation surface: an Operator-only
+form can queue one audited `say` command after antiforgery validation, explicit
+acknowledgement, and one-time server-side confirmation. Its candidate rollout
+and live Reader/Operator boundary checks passed on 2026-09-07 without issuing a
+production command. A fifth repository slice adds an Operator-only replay form
+for individual dead letters and a Reader-visible durable replay receipt. It
+binds one-time confirmation to the subject, event, and idempotency request ID,
+consumes the confirmation before the API call, and never retries an uncertain
+outcome. Raw event payloads remain outside the browser boundary. Candidate
+publication and production verification of this fifth slice remain follow-up
+work; raw, restart, and map-change controls remain outside the Web UI.
 
 ## Highlights
 

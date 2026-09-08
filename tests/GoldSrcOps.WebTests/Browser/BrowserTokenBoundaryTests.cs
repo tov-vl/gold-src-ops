@@ -29,8 +29,10 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         var deadLettersPage = await VisitAsync("/operator/dead-letters");
         var deadLetterDetailPage = await VisitAsync(
             $"/operator/dead-letters/{ReaderWebApplicationFactory.DeadLetterEventId:D}");
+        var replayReceiptPage = await VisitAsync(
+            $"/operator/replays/{ReaderWebApplicationFactory.ReplayRequestId:D}");
 
-        Page.Url.Should().EndWith($"/operator/dead-letters/{ReaderWebApplicationFactory.DeadLetterEventId:D}");
+        Page.Url.Should().EndWith($"/operator/replays/{ReaderWebApplicationFactory.ReplayRequestId:D}");
         var stylesheetHrefs = await Page.EvaluateAsync<string[]>(
             "Array.from(document.styleSheets, sheet => sheet.href ?? '')");
         stylesheetHrefs.Should().Contain(
@@ -43,6 +45,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         incidentsPage.Body.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
         deadLettersPage.Body.Should().Contain(ReaderWebApplicationFactory.DeadLetterLastError);
         deadLetterDetailPage.Body.Should().Contain("Ordering warning");
+        replayReceiptPage.Body.Should().Contain(ReaderWebApplicationFactory.ReplayReason);
         foreach (var page in new[]
                  {
                      listPage,
@@ -52,7 +55,8 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                      sayCommandPage,
                      incidentsPage,
                      deadLettersPage,
-                     deadLetterDetailPage
+                     deadLetterDetailPage,
+                     replayReceiptPage
                  })
         {
             AssertTokenFree(page.Body);
@@ -92,6 +96,43 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             var dom = await Page.ContentAsync();
             await AssertBrowserStorageIsEmptyAsync();
             return new PageContent(body, dom);
+        }
+    }
+
+    [BrowserFact]
+    public async Task Operator_replay_form_fits_supported_desktop_and_mobile_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(
+                    baseAddress,
+                    $"/operator/dead-letters/{ReaderWebApplicationFactory.DeadLetterEventId:D}")
+                    .AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("form.replay-form").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("textarea[name='Reason']").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("form.replay-form button[type='submit']").IsVisibleAsync()).Should().BeTrue();
+            var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+            hasHorizontalOverflow.Should().BeFalse();
+
+            await CaptureScreenshotIfRequestedAsync("operator-replay", viewport);
         }
     }
 

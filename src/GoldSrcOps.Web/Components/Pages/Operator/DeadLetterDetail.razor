@@ -1,6 +1,8 @@
 @page "/operator/dead-letters/{EventId:guid}"
 @attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IReaderApiClient ReaderApiClient
+@inject OperatorReplayConfirmationStore Confirmations
 @inject ILogger<DeadLetterDetail> Logger
 
 <PageTitle>Dead-letter detail | GoldSrcOps</PageTitle>
@@ -32,6 +34,14 @@
             </div>
             <span class="dead-letter-state"><span aria-hidden="true"></span>Dead letter</span>
         </header>
+
+        @if (GetResultMessage() is { } resultMessage)
+        {
+            <section class="result-state @GetResultClass()" role="alert">
+                <strong>@resultMessage.Title</strong>
+                <p>@resultMessage.Detail</p>
+            </section>
+        }
 
         @if (_deadLetter.HasNewerEvent)
         {
@@ -85,6 +95,73 @@
             <h2 id="last-error-title">Delivery cycle exhausted</h2>
             <p>@DisplayValue(_deadLetter.LastError)</p>
         </section>
+
+        <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
+            <Authorized>
+                @if (_confirmationToken is null || _requestId is null)
+                {
+                    <section class="role-state" role="alert">
+                        <h2>Replay confirmation is temporarily unavailable</h2>
+                        <p>No replay can be submitted. Refresh after existing confirmations expire.</p>
+                    </section>
+                }
+                else
+                {
+                    <form class="replay-form"
+                          method="post"
+                          action="@($"/operator/dead-letters/{EventId:D}/replay")">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ConfirmationToken" value="@_confirmationToken" />
+                        <input type="hidden" name="RequestId" value="@_requestId.Value.ToString("D")" />
+
+                        <div class="form-heading">
+                            <p class="eyebrow">Operator action</p>
+                            <h2>Replay delivery</h2>
+                            <p>
+                                Queue one audited delivery cycle. The current payload is retained by the API
+                                and is never returned to this browser.
+                            </p>
+                        </div>
+
+                        <div class="field-group">
+                            <label for="replay-reason">Reason</label>
+                            <textarea id="replay-reason"
+                                      name="Reason"
+                                      maxlength="500"
+                                      rows="4"
+                                      required
+                                      autocomplete="off"
+                                      spellcheck="true"></textarea>
+                            <span>Required audit note, maximum 500 characters.</span>
+                        </div>
+
+                        <label class="confirmation-field" for="replay-confirmed">
+                            <input id="replay-confirmed"
+                                   name="Confirmed"
+                                   type="checkbox"
+                                   value="true"
+                                   required />
+                            <span>
+                                I reviewed the ordering warning and will inspect the replay receipt before
+                                retrying an uncertain submission.
+                            </span>
+                        </label>
+
+                        <div class="form-actions">
+                            <button type="submit">Queue replay</button>
+                            <a href="/operator/dead-letters">Cancel</a>
+                        </div>
+                    </form>
+                }
+            </Authorized>
+            <NotAuthorized>
+                <section class="role-state">
+                    <p class="eyebrow">Read-only session</p>
+                    <h2>Operator role required</h2>
+                    <p>Your account can inspect delivery failures but cannot replay a dead letter.</p>
+                </section>
+            </NotAuthorized>
+        </AuthorizeView>
     }
 </div>
 
@@ -92,7 +169,13 @@
     [Parameter]
     public Guid EventId { get; set; }
 
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "result")]
+    public string? Result { get; set; }
+
     private DeadLetterDetailResponse? _deadLetter;
+    private Guid? _requestId;
+    private string? _confirmationToken;
     private bool _loadFailed;
     private bool _notFound;
 
@@ -101,11 +184,30 @@
         _loadFailed = false;
         _notFound = false;
         _deadLetter = null;
+        _requestId = null;
+        _confirmationToken = null;
 
         try
         {
             _deadLetter = await ReaderApiClient.GetDeadLetterAsync(EventId);
             _notFound = _deadLetter is null;
+            if (_notFound)
+            {
+                return;
+            }
+
+            var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            if (authenticationState.User.IsInRole(WebSecurity.OperatorRole) &&
+                WebSecurity.GetSubject(authenticationState.User) is { } subject)
+            {
+                var requestId = Guid.NewGuid();
+                var token = Confirmations.Issue(subject, EventId, requestId);
+                if (token is not null)
+                {
+                    _requestId = requestId;
+                    _confirmationToken = token;
+                }
+            }
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
         {
@@ -120,4 +222,30 @@
     private static string FormatDateTime(DateTimeOffset? value) => value is null
         ? "Not available"
         : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+
+    private ResultMessage? GetResultMessage() => Result switch
+    {
+        "invalid" => new ResultMessage(
+            "Replay was not accepted",
+            "Enter an audit reason, confirm the action, and submit again."),
+        "confirmation-expired" => new ResultMessage(
+            "Confirmation expired",
+            "No replay was submitted. Review the dead letter and use the new confirmation."),
+        "event-not-found" => new ResultMessage(
+            "Event is no longer available",
+            "No replay was queued. Return to the dead-letter list and refresh its state."),
+        "conflict" => new ResultMessage(
+            "Replay cannot start from the current state",
+            "The API rejected the replay safety checks. Refresh the dead letter before another attempt."),
+        "rejected" => new ResultMessage(
+            "Replay request was rejected",
+            "No replay was queued. Review the reason and event before trying again."),
+        _ => null
+    };
+
+    private string GetResultClass() => Result is "confirmation-expired" or "conflict"
+        ? "result-state--warning"
+        : "result-state--error";
+
+    private sealed record ResultMessage(string Title, string Detail);
 }

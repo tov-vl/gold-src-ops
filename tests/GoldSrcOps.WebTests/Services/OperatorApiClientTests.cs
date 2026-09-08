@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using AwesomeAssertions;
+using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
 using GoldSrcOps.Web.Services;
 
@@ -56,6 +57,62 @@ public sealed class OperatorApiClientTests
         exception.Which.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    [Fact]
+    public async Task ReplayDeadLetterAsync_posts_reason_and_idempotency_key()
+    {
+        var eventId = Guid.Parse("419bb150-112f-4f58-a6bf-162ca41a0895");
+        var requestId = Guid.Parse("418e3f0f-b52f-494f-99de-06b2b37e43ad");
+        const string reason = "Receiver health was verified";
+        var capture = new ReplayCaptureHandler(HttpStatusCode.Accepted);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.ReplayDeadLetterAsync(eventId, requestId, reason);
+
+        result.Should().Be(OperatorReplayResult.Accepted);
+        capture.Method.Should().Be(HttpMethod.Post);
+        capture.RequestUri.Should().Be(
+            new Uri($"https://api.example.test/api/alert-delivery/dead-letters/{eventId:D}/replay"));
+        capture.IdempotencyKey.Should().Be(requestId.ToString("D"));
+        capture.Request.Should().Be(new ReplayDeadLetterRequest(reason));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, (int)OperatorReplayResult.EventNotFound)]
+    [InlineData(HttpStatusCode.Conflict, (int)OperatorReplayResult.Conflict)]
+    [InlineData(HttpStatusCode.BadRequest, (int)OperatorReplayResult.Rejected)]
+    public async Task ReplayDeadLetterAsync_maps_expected_rejections(
+        HttpStatusCode statusCode,
+        int expected)
+    {
+        var capture = new ReplayCaptureHandler(statusCode);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.ReplayDeadLetterAsync(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Receiver recovered");
+
+        result.Should().Be((OperatorReplayResult)expected);
+    }
+
+    [Fact]
+    public async Task ReplayDeadLetterAsync_rejects_an_unexpected_status()
+    {
+        var capture = new ReplayCaptureHandler(HttpStatusCode.OK);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var action = () => client.ReplayDeadLetterAsync(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Receiver recovered");
+
+        var exception = await action.Should().ThrowAsync<HttpRequestException>();
+        exception.Which.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
     private static HttpClient CreateHttpClient(HttpMessageHandler handler) => new(handler)
     {
         BaseAddress = new Uri("https://api.example.test/")
@@ -76,6 +133,28 @@ public sealed class OperatorApiClientTests
             Method = request.Method;
             RequestUri = request.RequestUri;
             Request = await request.Content!.ReadFromJsonAsync<SayCommandRequest>(cancellationToken);
+            return new HttpResponseMessage(responseStatusCode);
+        }
+    }
+
+    private sealed class ReplayCaptureHandler(HttpStatusCode responseStatusCode) : HttpMessageHandler
+    {
+        public HttpMethod? Method { get; private set; }
+
+        public Uri? RequestUri { get; private set; }
+
+        public string? IdempotencyKey { get; private set; }
+
+        public ReplayDeadLetterRequest? Request { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Method = request.Method;
+            RequestUri = request.RequestUri;
+            IdempotencyKey = request.Headers.GetValues("Idempotency-Key").Single();
+            Request = await request.Content!.ReadFromJsonAsync<ReplayDeadLetterRequest>(cancellationToken);
             return new HttpResponseMessage(responseStatusCode);
         }
     }

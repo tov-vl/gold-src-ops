@@ -80,6 +80,9 @@ public sealed class ReaderPortalIntegrationTests
         using var deadLetterDetailResponse = await client.GetAsync(
             $"/operator/dead-letters/{ReaderWebApplicationFactory.DeadLetterEventId:D}");
         var deadLetterDetailBody = await deadLetterDetailResponse.Content.ReadAsStringAsync();
+        using var replayResponse = await client.GetAsync(
+            $"/operator/replays/{ReaderWebApplicationFactory.ReplayRequestId:D}");
+        var replayBody = await replayResponse.Content.ReadAsStringAsync();
 
         commandsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         commandsBody.Should().Contain("Command history");
@@ -93,6 +96,9 @@ public sealed class ReaderPortalIntegrationTests
         deadLetterDetailBody.Should().Contain("Ordering warning");
         deadLetterDetailBody.Should().Contain(ReaderWebApplicationFactory.DeadLetterLastError);
         deadLetterDetailBody.Should().NotContain(ReaderWebApplicationFactory.DeadLetterPayloadSentinel);
+        replayResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        replayBody.Should().Contain(ReaderWebApplicationFactory.ReplayReason);
+        replayBody.Should().NotContain(ReaderWebApplicationFactory.DeadLetterPayloadSentinel);
     }
 
     [Fact]
@@ -122,6 +128,7 @@ public sealed class ReaderPortalIntegrationTests
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/commands/new")]
     [InlineData("/operator/dead-letters")]
     [InlineData("/operator/dead-letters/70d51faf-6029-4b1e-a922-b7a3ab8d1f84")]
+    [InlineData("/operator/replays/4fb7401c-802c-48b9-aa71-5e27619b0784")]
     public async Task Signed_in_account_without_role_cannot_view_reader_data(string requestPath)
     {
         await using var factory = new ReaderWebApplicationFactory(role: null);
