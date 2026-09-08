@@ -813,8 +813,22 @@ Delivery order:
    automatic retry. Reader sessions can inspect the durable replay receipt but
    receive no mutation form, and raw event payloads remain outside the browser
    boundary. Local verification passed the solution build, all 450 non-browser
-   tests, and four responsive browser tests. Candidate publication and
-   production verification remain follow-up work.
+   tests, and four responsive browser tests. Pull request
+   [#100](https://github.com/tov-vl/gold-src-ops/pull/100) integrated the slice as
+   revision `2769d89`. Signed candidate `v2.4.0-rc.9` and
+   [workflow 34235947471](https://github.com/tov-vl/gold-src-ops/actions/runs/34235947471)
+   passed all repository gates plus API and Web image publication and digest
+   verification. A fresh encrypted off-host backup and full repository check,
+   the migration gate, isolated API and Web recreation, public health, and
+   rollback preservation passed on 2026-09-08. The live Operator dead-letter
+   route rendered its empty state, while anonymous API and Web requests failed
+   closed through the Bearer and OIDC boundaries. No production dead letter was
+   manufactured and no replay was submitted. Runtime and game-host continuity,
+   the online zero-bot server state, empty incident and durable-work queues, and
+   backup freshness remained healthy. A follow-up host-preflight correction now
+   accepts any-source SSH only on an explicitly declared private management
+   interface and still rejects the same rule on any other interface; the
+   corrected read-only target audit passed with owner-only evidence.
 7. **First SLO review**: after a complete forward-looking window, publish the
    reproducible sanitized result and report `API-01` as met or missed. Review the
    target without changing it to fit the observed result.

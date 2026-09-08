@@ -221,6 +221,7 @@ audit with dependency and runtime checks:
 ```powershell
 sudo pwsh -NoProfile -File ./ops/production/host-preflight.ps1 `
   -AdminIpv4Cidr 192.0.2.10/32 `
+  -ManagementSshInterface wg0 `
   -OperatorUser gsoadmin `
   -EnvironmentFile /etc/goldsrcops/deployment.env `
   -RequireExternalEndpoints `
@@ -230,11 +231,14 @@ sudo pwsh -NoProfile -File ./ops/production/host-preflight.ps1 `
 
 This additionally verifies HTTPS reachability of GHCR and the selected backup
 endpoint, successful retrieval of OIDC metadata, and the complete Caddy
-listener set. Evidence contains versions, capacity, port identifiers, and
-pass/fail results, but no host address, administrator CIDR, endpoint, or secret
-value. It must remain outside the repository and is atomically published with
-mode `0600` on Linux. The script changes no firewall, service, package, or
-Docker state.
+listener set. `ManagementSshInterface` permits an any-source SSH rule only when
+UFW scopes it to that exact private management interface; an equivalent rule on
+any other interface still fails closed. The tunnel peer allowlist remains the
+network-level authorization boundary. Evidence contains versions, capacity,
+port identifiers, and pass/fail results, but no host address, administrator
+CIDR, endpoint, or secret value. It must remain outside the repository and is
+atomically published with mode `0600` on Linux. The script changes no firewall,
+service, package, or Docker state.
 
 `tools/smoke/host-bootstrap.sh` checks plan-only behavior, input rejection, and
 shell syntax. `tools/smoke/host-preflight.ps1` exercises deterministic passing

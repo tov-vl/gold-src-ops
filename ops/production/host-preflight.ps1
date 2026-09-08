@@ -34,6 +34,9 @@ param(
     [ValidateRange(1, 65535)]
     [int]$SshPort = 22,
 
+    [ValidatePattern('\A[a-zA-Z0-9_.-]{1,15}\z')]
+    [string]$ManagementSshInterface,
+
     [ValidatePattern('\A[a-z_][a-z0-9_-]{0,31}\z')]
     [string]$OperatorUser = "gsoadmin",
 
@@ -255,7 +258,9 @@ function ConvertFrom-UfwStatus {
         [string]$ExpectedAdminCidr,
 
         [Parameter(Mandatory = $true)]
-        [int]$ExpectedSshPort
+        [int]$ExpectedSshPort,
+
+        [string]$ExpectedManagementSshInterface
     )
 
     $rules = [Collections.Generic.List[object]]::new()
@@ -288,12 +293,34 @@ function ConvertFrom-UfwStatus {
 
         return $Rule.To -match ("\A{0}/{1}(?:\s|\z)" -f $Port, $Protocol)
     }
+    $managementInterfacePattern = if ([string]::IsNullOrWhiteSpace(
+            $ExpectedManagementSshInterface)) {
+        $null
+    }
+    else {
+        [Regex]::Escape($ExpectedManagementSshInterface)
+    }
+    $isManagementInterfaceRule = {
+        param([object]$Rule)
+
+        if ($null -eq $managementInterfacePattern) {
+            return $false
+        }
+
+        return $Rule.To -match (
+            "\A{0}/tcp(?:\s+\(v6\))?\s+on\s+{1}(?:\s|\z)" -f
+                $ExpectedSshPort,
+                $managementInterfacePattern)
+    }
 
     $sshRules = @($rules | Where-Object { & $matchesPort $_ $ExpectedSshPort "tcp" })
     $restrictedSsh = @($sshRules | Where-Object {
             $_.From -eq $ExpectedAdminCidr -or $_.From -eq $expectedAdminAddress
         }).Count -gt 0
-    $unrestrictedSsh = @($sshRules | Where-Object { & $isAnySource $_.From }).Count -gt 0
+    $unrestrictedSsh = @($sshRules | Where-Object {
+            (& $isAnySource $_.From) -and
+            -not (& $isManagementInterfaceRule $_)
+        }).Count -gt 0
     $httpAllowed = @($rules | Where-Object {
             (& $matchesPort $_ 80 "tcp") -and (& $isAnySource $_.From)
         }).Count -gt 0
@@ -463,6 +490,8 @@ function Get-LiveObservation {
         [Parameter(Mandatory = $true)]
         [string]$ExpectedOperatorUser,
 
+        [string]$ExpectedManagementSshInterface,
+
         [string]$DeploymentEnvironmentFile
     )
 
@@ -526,7 +555,8 @@ function Get-LiveObservation {
         ConvertFrom-UfwStatus `
             -Status $ufwProbe.Output `
             -ExpectedAdminCidr $ExpectedAdminCidr `
-            -ExpectedSshPort $ExpectedSshPort
+            -ExpectedSshPort $ExpectedSshPort `
+            -ExpectedManagementSshInterface $ExpectedManagementSshInterface
     }
     else {
         [pscustomobject]@{
@@ -719,6 +749,7 @@ if ($PSCmdlet.ParameterSetName -eq "Live") {
         -ExpectedAdminCidr $AdminIpv4Cidr `
         -ExpectedSshPort $SshPort `
         -ExpectedOperatorUser $OperatorUser `
+        -ExpectedManagementSshInterface $ManagementSshInterface `
         -DeploymentEnvironmentFile $deploymentEnvironmentForProbe
     $source = "Live"
     $targetEvidence = $true
@@ -732,7 +763,8 @@ else {
         $firewall = ConvertFrom-UfwStatus `
             -Status (Get-Content -LiteralPath $resolvedUfwStatus -Raw) `
             -ExpectedAdminCidr $AdminIpv4Cidr `
-            -ExpectedSshPort $SshPort
+            -ExpectedSshPort $SshPort `
+            -ExpectedManagementSshInterface $ManagementSshInterface
         $observation.FirewallProvider = $firewall.Provider
         $observation.FirewallActive = $firewall.Active
         $observation.FirewallDefaultDenyIncoming = $firewall.DefaultDenyIncoming
@@ -802,7 +834,7 @@ Add-Check -Name "Default outbound policy" -Passed ([bool]$observation.FirewallDe
 $sshFirewallReady = [bool]$observation.FirewallSshRestricted -and
     -not [bool]$observation.FirewallSshUnrestricted
 Add-Check -Name "Restricted SSH" -Passed $sshFirewallReady -Detail $(
-    if ($sshFirewallReady) { "SSH is allowed only from the expected IPv4 /32." } else { "SSH is missing its /32 rule or is allowed from an unrestricted source." })
+    if ($sshFirewallReady) { "SSH is restricted to the expected IPv4 /32 and the optional management interface." } else { "SSH is missing its /32 rule or is allowed from an unrestricted public source." })
 $publicHttpsFirewallReady = [bool]$observation.FirewallHttpAllowed -and
     [bool]$observation.FirewallHttpsTcpAllowed -and
     [bool]$observation.FirewallHttpsUdpAllowed

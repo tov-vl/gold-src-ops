@@ -86,7 +86,9 @@ function Invoke-SnapshotCase {
         [Parameter(Mandatory = $true)]
         [bool]$ShouldPass,
 
-        [string]$UfwStatus
+        [string]$UfwStatus,
+
+        [string]$ManagementSshInterface
     )
 
     $safeName = $Name.ToLowerInvariant() -replace '[^a-z0-9]+', '-'
@@ -119,6 +121,10 @@ function Invoke-SnapshotCase {
         Set-Content -LiteralPath $ufwStatusFile -Value $UfwStatus -Encoding utf8NoBOM
         $arguments.Add("-UfwStatusFile")
         $arguments.Add($ufwStatusFile)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ManagementSshInterface)) {
+        $arguments.Add("-ManagementSshInterface")
+        $arguments.Add($ManagementSshInterface)
     }
 
     $output = @(& pwsh @arguments 2>&1)
@@ -207,6 +213,33 @@ To                         Action      From
         -Snapshot $unrestrictedSsh `
         -ShouldPass $false `
         -UfwStatus $unrestrictedSshUfwStatus
+
+    $managementSshUfwStatus = "$readyUfwStatus`n" + @'
+22/tcp on wg0              ALLOW IN    Anywhere
+22/tcp (v6) on wg0         ALLOW IN    Anywhere (v6)
+'@
+    Invoke-SnapshotCase `
+        -Name "management interface ssh" `
+        -Snapshot (New-ReadySnapshot) `
+        -ShouldPass $true `
+        -UfwStatus $managementSshUfwStatus `
+        -ManagementSshInterface "wg0"
+
+    Invoke-SnapshotCase `
+        -Name "undeclared management interface ssh" `
+        -Snapshot (New-ReadySnapshot) `
+        -ShouldPass $false `
+        -UfwStatus $managementSshUfwStatus
+
+    $publicInterfaceSshUfwStatus = "$managementSshUfwStatus`n" + @'
+22/tcp on eth0             ALLOW IN    Anywhere
+'@
+    Invoke-SnapshotCase `
+        -Name "unrestricted public interface ssh" `
+        -Snapshot (New-ReadySnapshot) `
+        -ShouldPass $false `
+        -UfwStatus $publicInterfaceSshUfwStatus `
+        -ManagementSshInterface "wg0"
 
     $rootSshLogin = New-ReadySnapshot
     $rootSshLogin["SshRootLoginDisabled"] = $false
