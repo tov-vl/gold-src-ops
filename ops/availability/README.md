@@ -129,6 +129,16 @@ with the prefix-scoped read credential and compares the recovered report. It
 does not receive the B2 writer credential, upload a GitHub artifact, or retain
 the temporary evidence files.
 
+Use the manual `Availability Shadow Audit` workflow to evaluate one completed,
+contiguous 24-hour primary window. Supply an exact UTC end minute at least five
+minutes old. The workflow builds the reviewed exporter revision, exports the
+fixed shadow identity with Metrics and Loki read credentials, requires exactly
+1,440 mature slots with no missing data, and emits only sanitized aggregate
+counts. It has no B2 credential, does not archive or upload an artifact, and
+deletes both the raw JSONL and evaluation report from the runner. A passing
+audit proves evidence completeness and stable evaluation for that bounded
+window; it does not activate `API-01` or establish that an SLO was achieved.
+
 Before starting a 24-hour shadow:
 
 1. review the pinned exporter revision and effective monitor revision;

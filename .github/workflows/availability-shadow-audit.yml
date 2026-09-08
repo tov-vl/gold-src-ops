@@ -1,0 +1,128 @@
+name: Availability Shadow Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      window_end_utc:
+        description: Exact completed UTC minute ending the 24-hour shadow window
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: availability-shadow-audit-v1
+  cancel-in-progress: false
+
+env:
+  CI: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  audit-primary:
+    name: Audit Primary Shadow Window
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: availability-evidence-shadow
+      deployment: false
+
+    steps:
+      - name: Checkout audit workflow revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify audit workflow revision
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]]; then
+            echo "::error title=Audit revision mismatch::The checked-out source does not match the dispatched main revision."
+            exit 1
+          fi
+
+          git fetch --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main"
+          if ! git merge-base --is-ancestor \
+            "$GITHUB_SHA" \
+            "refs/remotes/origin/main"; then
+            echo "::error title=Untrusted audit revision::The dispatched revision is not reachable from main."
+            exit 1
+          fi
+
+      - name: Checkout pinned exporter revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ vars.GOLDSRCOPS_AVAILABILITY_EXPORTER_REVISION }}
+          path: reviewed-exporter
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify pinned exporter revision
+        shell: bash
+        working-directory: reviewed-exporter
+        env:
+          EXPECTED_REVISION: ${{ vars.GOLDSRCOPS_AVAILABILITY_EXPORTER_REVISION }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$EXPECTED_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error title=Invalid exporter revision::The environment revision must be a 40-character lowercase commit SHA."
+            exit 1
+          fi
+
+          if [[ "$(git rev-parse HEAD)" != "$EXPECTED_REVISION" ]]; then
+            echo "::error title=Exporter revision mismatch::The checked-out source does not match the reviewed environment revision."
+            exit 1
+          fi
+
+          git fetch --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main"
+          if ! git merge-base --is-ancestor \
+            "$EXPECTED_REVISION" \
+            "refs/remotes/origin/main"; then
+            echo "::error title=Untrusted exporter revision::The reviewed exporter revision is not reachable from main."
+            exit 1
+          fi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+        with:
+          global-json-file: reviewed-exporter/global.json
+
+      - name: Restore exporter with NuGet audit
+        run: >-
+          dotnet restore
+          ./reviewed-exporter/src/GoldSrcOps.AvailabilityExporter/GoldSrcOps.AvailabilityExporter.csproj
+          -p:AuditPipeline=true
+
+      - name: Publish exporter
+        run: >-
+          dotnet publish
+          ./reviewed-exporter/src/GoldSrcOps.AvailabilityExporter/GoldSrcOps.AvailabilityExporter.csproj
+          --configuration Release
+          --no-restore
+          --output "$RUNNER_TEMP/availability-exporter"
+
+      - name: Audit completed primary shadow window
+        shell: pwsh
+        env:
+          REQUESTED_WINDOW_END_UTC: ${{ inputs.window_end_utc }}
+          GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE: ${{ secrets.GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE }}
+          GOLDSRCOPS_GRAFANA_METRICS_URL: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_URL }}
+          GOLDSRCOPS_GRAFANA_METRICS_USER: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_USER }}
+          GOLDSRCOPS_GRAFANA_METRICS_TOKEN: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_TOKEN }}
+          GOLDSRCOPS_GRAFANA_LOGS_URL: ${{ secrets.GOLDSRCOPS_GRAFANA_LOGS_URL }}
+          GOLDSRCOPS_GRAFANA_LOGS_USER: ${{ secrets.GOLDSRCOPS_GRAFANA_LOGS_USER }}
+          GOLDSRCOPS_GRAFANA_LOGS_TOKEN: ${{ secrets.GOLDSRCOPS_GRAFANA_LOGS_TOKEN }}
+        run: |
+          ./ops/availability/run-shadow-audit.ps1 `
+            -ExporterAssemblyPath "$env:RUNNER_TEMP/availability-exporter/GoldSrcOps.AvailabilityExporter.dll" `
+            -WindowEndUtc $env:REQUESTED_WINDOW_END_UTC
