@@ -707,7 +707,7 @@ Delivery order:
 4. **Activation**: pass a 24-hour shadow run, record the immutable activation
    tuple, and start the prospective 30-day `API-01` window without importing
    shadow or v2.3 soak samples.
-5. **Public experience (production candidate deployed 2026-09-05)**: the
+5. **Public experience (completed 2026-09-08)**: the
    compact Blazor Web App and anonymous, cached, deliberately sanitized
    current-status read model are implemented. Pull request #84 packaged the API
    and Web host as separately digest-addressed release artifacts and added the
@@ -717,12 +717,20 @@ Delivery order:
    published and verified both images from revision `c173c27`; the production
    rollout and sanitized post-deployment checks passed. The fresh ten-case
    authenticated API policy matrix passed against the public production route
-   on 2026-09-06. A subsequent repository slice adds a cached anonymous A2S
+   on 2026-09-06. A subsequent repository slice added a cached anonymous A2S
    history projection and static-SSR chart: 24 hourly buckets or 28 six-hour
    buckets, explicit unknown gaps, aggregate-only percentages, strict query
    validation, and no server or provider identifiers. Unit, API, real
    PostgreSQL, client, and rendered-page coverage protect the boundary.
-   Publication and production rollout of that slice remain pending.
+   Pull request [#98](https://github.com/tov-vl/gold-src-ops/pull/98)
+   corrected the PostgreSQL aggregate precision boundary. Signed candidate
+   `v2.4.0-rc.8` passed post-merge
+   [workflow 34200721648](https://github.com/tov-vl/gold-src-ops/actions/runs/34200721648)
+   and publication
+   [workflow 34201594544](https://github.com/tov-vl/gold-src-ops/actions/runs/34201594544).
+   The production rollout, exact-digest verification, public health, 24-hour
+   and seven-day history rendering, durable-state checks, and rollback
+   preservation all passed on 2026-09-08.
    See `docs/v2.4-public-dashboard-deployment.md` and
    `docs/v2.4-reader-portal.md`.
 6. **Operator experience (fourth production slice verified 2026-09-07)**: pull
@@ -1039,8 +1047,6 @@ Remaining portfolio gaps, in priority order:
   and activate `API-01` only for a new prospective window; archive and independent
   scheduled-segment recovery are already proved, while the completed v2.3
   24-hour release sample is not a monthly uptime claim.
-- Publish and deploy the bounded public A2S history slice without treating its
-  application polling data as external API availability or an active SLO.
 - Extend guarded Operator workflows after the bounded Web `say` slice: keep
   higher-impact RCON commands out of the UI until their product need is clear,
   and add dead-letter replay with its existing durable idempotency and
