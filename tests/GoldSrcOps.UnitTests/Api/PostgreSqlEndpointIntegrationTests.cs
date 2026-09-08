@@ -222,8 +222,10 @@ public sealed class PostgreSqlEndpointIntegrationTests
     [Trait("Category", "PostgreSqlIntegration")]
     public async Task GetPublicA2sHistory_returns_sanitized_aggregate_for_enabled_servers()
     {
-        var now = new DateTimeOffset(2026, 9, 7, 12, 30, 0, TimeSpan.Zero);
-        var fromUtc = now.AddHours(-24);
+        var expectedToUtc = new DateTimeOffset(2026, 9, 7, 12, 30, 0, TimeSpan.Zero);
+        // Seven ticks are below PostgreSQL's one-microsecond timestamp resolution.
+        var now = expectedToUtc.AddTicks(7);
+        var fromUtc = expectedToUtc.AddHours(-24);
         var clock = new TestClock(now);
         await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync(
             services =>
@@ -318,7 +320,7 @@ public sealed class PostgreSqlEndpointIntegrationTests
         history.Should().NotBeNull();
         history!.Window.Should().Be("24h");
         history.FromUtc.Should().Be(fromUtc);
-        history.ToUtc.Should().Be(now);
+        history.ToUtc.Should().Be(expectedToUtc);
         history.BucketMinutes.Should().Be(60);
         history.ObservedBuckets.Should().Be(2);
         history.TotalBuckets.Should().Be(24);
