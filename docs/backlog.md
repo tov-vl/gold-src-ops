@@ -706,16 +706,19 @@ Delivery order:
    evaluated all 1,440 mature slots but failed closed on one missing slot. Its
    99.93056% aggregate met the draft percentage target, while bounded read-only
    diagnosis found a check-specific cadence delay crossing a UTC-minute
-   boundary and no corresponding diagnostic-check interruption. The missing
-   slot remains bad by contract, so a fresh clean window is still required.
+   boundary and no corresponding diagnostic-check interruption.
    A second independent 24-hour audit in
    [run 34340321910](https://github.com/tov-vl/gold-src-ops/actions/runs/34340321910)
    produced the same aggregate and again failed closed on one missing primary
    minute. This time the cadence gap overlapped the diagnostic check in the same
    public location, while a second public location continued reporting
-   successful health. Before another full audit, resolve whether the provider
-   cadence can satisfy the current UTC-slot contract or select a different
-   primary location or provider. Do not rerun merely to obtain a chance pass.
+   successful health. Decision 22 resolves the contract mismatch without hiding
+   either observation: a mature missing slot remains bad but no longer makes an
+   otherwise complete 1,440-slot population invalid. The audit now fails
+   separately on evidence integrity and shadow-target attainment. Historical
+   runs retain their original failed status; after alert-route proof, run one
+   fresh 24-hour audit under the revised policy. Do not rerun the old revision
+   merely to obtain a chance pass.
    The sanitized setup and implementation records are in
    `docs/v2.4-synthetic-monitoring-rollout.md` and
    `docs/v2.4-availability-evidence-exporter.md`.

@@ -23,6 +23,8 @@ public sealed class AvailabilityEvaluatorTests
         result.BadSlotCount.Should().Be(1);
         result.MissingSlotCount.Should().Be(1);
         result.Outcomes.Missing.Should().Be(1);
+        result.AllowedBadSlotCount.Should().Be(7);
+        result.MeetsTarget.Should().BeTrue();
     }
 
     [Fact]

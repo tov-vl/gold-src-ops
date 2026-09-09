@@ -131,6 +131,12 @@ if ($command -eq "evaluate") {
     if ($env:GOLDSRCOPS_FAKE_AUDIT_MODE -eq "missing") {
         $good = 1439; $bad = 1; $missing = 1
     }
+    if ($env:GOLDSRCOPS_FAKE_AUDIT_MODE -eq "target-miss") {
+        $good = 1432; $bad = 8; $missing = 8
+    }
+    if ($env:GOLDSRCOPS_FAKE_AUDIT_MODE -eq "malformed-counts") {
+        $missing = 1
+    }
     $report = [ordered]@{
         evaluator_revision = "availability-evaluator-v1"
         window_start_utc = Get-Value "--window-start"
@@ -210,7 +216,7 @@ throw "Unexpected command '$command'."
     }
 
     $summary = [IO.File]::ReadAllText($summaryPath)
-    foreach ($required in @("Evidence integrity: passed", "1440/1440/0", "Archive writes: none",
+    foreach ($required in @("Shadow result: passed", "Evidence integrity: passed", "1440/1440/0", "Archive writes: none",
             "Raw evidence: deleted after evaluation", "not activated or achieved")) {
         if (-not $summary.Contains($required, [StringComparison]::Ordinal)) {
             throw "Shadow audit summary is missing '$required'."
@@ -222,7 +228,24 @@ throw "Unexpected command '$command'."
         }
     }
 
-    foreach ($mode in @("wrong-slots", "pending", "missing")) {
+    Remove-Item -LiteralPath $summaryPath -Force -ErrorAction SilentlyContinue
+    $env:GOLDSRCOPS_FAKE_AUDIT_MODE = "missing"
+    $missingResult = @(& $auditPath @arguments)
+    if ($missingResult.Count -ne 1 -or $missingResult[0].Status -cne "Passed" -or
+        $missingResult[0].MissingSlots -ne 1 -or $missingResult[0].BadSlots -ne 1 -or
+        -not $missingResult[0].PopulationComplete -or -not $missingResult[0].MeetsDraftTarget) {
+        throw "A mature missing slot within the draft budget must remain bad without invalidating evidence."
+    }
+    $missingSummary = [IO.File]::ReadAllText($summaryPath)
+    foreach ($required in @("Shadow result: passed", "Evidence integrity: passed",
+            "Good/bad/missing slots: ``1439/1/1``", "Draft target at shadow scale: ``met``")) {
+        if (-not $missingSummary.Contains($required, [StringComparison]::Ordinal)) {
+            throw "Missing-slot shadow summary is missing '$required'."
+        }
+    }
+    Assert-AuditDirectoriesCleaned
+
+    foreach ($mode in @("wrong-slots", "pending", "malformed-counts")) {
         Remove-Item -LiteralPath $summaryPath -Force -ErrorAction SilentlyContinue
         $env:GOLDSRCOPS_FAKE_AUDIT_MODE = $mode
         Assert-Fails `
@@ -235,6 +258,20 @@ throw "Unexpected command '$command'."
         }
         Assert-AuditDirectoriesCleaned
     }
+
+    Remove-Item -LiteralPath $summaryPath -Force -ErrorAction SilentlyContinue
+    $env:GOLDSRCOPS_FAKE_AUDIT_MODE = "target-miss"
+    Assert-Fails `
+        -Operation { & $auditPath @arguments } `
+        -ExpectedMessage "Shadow audit failed: draft target was not met; good/bad/missing slots=1432/8/8."
+    $targetFailureSummary = [IO.File]::ReadAllText($summaryPath)
+    foreach ($required in @("Shadow result: failed", "Evidence integrity: passed",
+            "Draft target at shadow scale: ``missed``")) {
+        if (-not $targetFailureSummary.Contains($required, [StringComparison]::Ordinal)) {
+            throw "Target-failure shadow summary is missing '$required'."
+        }
+    }
+    Assert-AuditDirectoriesCleaned
 
     $env:GOLDSRCOPS_FAKE_AUDIT_MODE = "export-fail"
     Assert-Fails `
@@ -315,7 +352,7 @@ throw "Unexpected command '$command'."
         }
     }
 
-    Write-Host "Availability shadow audit smoke passed: complete 24-hour contract, read-only workflow, sanitization, and cleanup."
+    Write-Host "Availability shadow audit smoke passed: complete 24-hour contract, missing-slot accounting, target enforcement, sanitization, and cleanup."
 }
 finally {
     foreach ($name in $environmentNames) {
