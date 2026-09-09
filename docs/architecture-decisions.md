@@ -1015,3 +1015,77 @@ server inventory and status pages, bearer forwarding, a bounded in-memory
 ticket store, and an X.509-protected production key-ring contract. Production
 provider configuration and live role/callback verification remain rollout
 gates. The detailed contract is in `docs/v2.4-reader-portal.md`.
+
+## Decision 22: Separate Missing Outcomes From Evidence Integrity
+
+Decision:
+
+Keep Grafana Cloud Synthetic Monitoring as the conditional `API-01` primary
+candidate and retain source-timestamp attribution to generated UTC-minute
+slots. After the five-minute grace period, a slot without a canonical source
+result is `missing` and bad. It consumes the shadow and later SLO error budget,
+but it does not by itself make an otherwise mature deterministic population
+incomplete.
+
+A 24-hour shadow audit passes only when the monitor identity matches, all 1,440
+expected slots are mature and evaluated, good plus bad equals 1,440, and the
+result meets the 99.5% shadow-scale target. Conflicting identity or duplicate
+data, pending slots, and malformed counts remain evidence-integrity failures.
+Do not move a delayed result to a different slot, infer success from another
+check or location, or exclude a missing slot from the denominator.
+
+Decision date: 2026-09-09.
+
+Reasoning:
+
+- Grafana defines a time point from the configured check frequency and
+  documents that provider-side disruptions can leave a time point without a
+  reported result. Its displayed uptime omits such points, while the GoldSrcOps
+  evaluator deliberately generates the expected denominator and counts them as
+  bad.
+- The open-source probe supports an execution offset within the configured
+  period and timestamps emitted metrics with the scheduler tick. Grafana does
+  not promise execution exactly at the start of each wall-clock UTC minute, so
+  top-of-minute alignment is not a valid provider gate.
+- The deterministic evaluator already treats one missing minute as one bad
+  minute and applies the seven-minute 24-hour error-budget boundary. Requiring
+  both that policy and zero missing minutes made the audit stricter than the
+  target it was intended to validate.
+- Both completed shadow attempts evaluated all 1,440 mature slots and met the
+  draft percentage target. Their cadence gaps remain real bad observations,
+  but neither produced conflicting identity, conflicting duplicates, or pending
+  data.
+- Moving the primary location would retain the same provider scheduling
+  semantics. Replacing the provider after two isolated in-budget gaps would
+  add cost and operational work without evidence that the current
+  provider-independent normalization is ambiguous.
+
+Alternatives considered:
+
+- Preserve the zero-missing activation gate. Rejected because it treats an
+  explicitly modeled bad outcome as missing evidence and can reject a window
+  that meets the unchanged draft target.
+- Reassign samples to the nearest phase-aligned slot. Rejected because the
+  exported metrics do not expose a contractual scheduled-at identifier that
+  would make such reassignment unambiguous; it could hide a skipped execution
+  or backfill a slot from a later attempt.
+- Promote the second public location or select another provider immediately.
+  Deferred. A location change does not alter Grafana's scheduling contract, and
+  the available diagnostic check does not yet provide a one-minute comparison
+  window. Provider replacement remains the exit path if a fresh audit misses
+  the target or source attribution becomes ambiguous.
+
+Implementation status:
+
+The shadow runner now separates evidence integrity from target attainment. Its
+contract smoke covers an in-budget missing minute as a passing bad outcome and
+an eight-minute target miss as a failing complete population. The audits from
+2026-09-08 and 2026-09-09 remain failed under their original workflow revision;
+they are not reclassified. Alert-route proof and one fresh forward-looking
+24-hour audit under the revised runner remain required before activation.
+
+References:
+
+- [Grafana Cloud uptime and reachability](https://grafana.com/docs/grafana-cloud/observe-and-act/testing/synthetic-monitoring/analyze-results/uptime-and-reachability/)
+- [Grafana Cloud Synthetic Monitoring introduction](https://grafana.com/docs/grafana-cloud/observe-and-act/testing/synthetic-monitoring/introduction/)
+- [Grafana Synthetic Monitoring agent scheduler](https://github.com/grafana/synthetic-monitoring-agent/blob/main/internal/scraper/scraper.go)

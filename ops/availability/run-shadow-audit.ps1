@@ -170,10 +170,17 @@ try {
     $plan.PopulationComplete = [int]$report.expected_slot_count -eq 1440 -and
         $plan.EvaluatedSlots -eq 1440 -and
         $plan.PendingSlots -eq 0 -and
-        $plan.MissingSlots -eq 0 -and
+        $plan.GoodSlots -ge 0 -and
+        $plan.BadSlots -ge 0 -and
+        $plan.MissingSlots -ge 0 -and
+        $plan.MissingSlots -le $plan.BadSlots -and
+        $plan.DuplicateRecords -ge 0 -and
+        $plan.IgnoredNonCanonicalAttempts -ge 0 -and
         ($plan.GoodSlots + $plan.BadSlots) -eq 1440
     $integrityPassed = $plan.IdentityMatched -and $plan.PopulationComplete
-    $plan.Status = if ($integrityPassed) { "Passed" } else { "Failed" }
+    $targetPassed = $plan.MeetsDraftTarget -eq $true
+    $auditPassed = $integrityPassed -and $targetPassed
+    $plan.Status = if ($auditPassed) { "Passed" } else { "Failed" }
 
     if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
         $availabilityText = if ($null -eq $plan.Availability) {
@@ -189,9 +196,11 @@ try {
         }
 
         $integrityText = if ($integrityPassed) { "passed" } else { "failed" }
+        $auditText = if ($auditPassed) { "passed" } else { "failed" }
         @(
             "## Availability shadow audit",
             "",
+            "- Shadow result: $auditText",
             "- Evidence integrity: $integrityText",
             "- Window start: ``$($plan.WindowStartUtc)``",
             "- Window end: ``$($plan.WindowEndUtc)``",
@@ -210,6 +219,10 @@ try {
 
     if (-not $integrityPassed) {
         throw "Shadow audit failed: identity matched=$($plan.IdentityMatched); expected/evaluated/pending/missing slots=$([int]$report.expected_slot_count)/$($plan.EvaluatedSlots)/$($plan.PendingSlots)/$($plan.MissingSlots)."
+    }
+
+    if (-not $targetPassed) {
+        throw "Shadow audit failed: draft target was not met; good/bad/missing slots=$($plan.GoodSlots)/$($plan.BadSlots)/$($plan.MissingSlots)."
     }
 
     return $plan

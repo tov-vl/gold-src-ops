@@ -76,22 +76,21 @@ schema, and activation lifecycle. `API-01` is still in the `Draft` stage.
 The following work remains before its official window can begin:
 
 - prove the custom alert route and its resolution behavior;
-- resolve the repeated public-probe cadence gaps against the UTC-minute slot
-  contract or select a different primary location or provider;
-- pass a fresh contiguous 24-hour shadow run with exactly 1,440 mature slots
-  and no missing data; and
+- pass a fresh contiguous 24-hour shadow run with exactly 1,440 mature,
+  evaluated slots and meet the shadow-scale target with every missing result
+  retained as bad; and
 - record the activation timestamp, owner, monitor and evaluator revisions,
   primary location, report query, and alert route.
 
 The complete shadow audits on 2026-09-08 and 2026-09-09 each evaluated all
-1,440 mature slots but failed the integrity gate because one bad slot was
-missing. Both 99.93056% aggregates met the draft percentage target, but a shadow
-percentage cannot override population completeness. Bounded follow-up evidence
-was consistent with public-probe scheduling delays across UTC-minute boundaries
-rather than demonstrated API outages. The second event affected both checks in
-one public location while an independent location continued reporting success.
-`API-01` therefore remains `Draft` pending a provider or slot-contract decision,
-a clean window, and alert-route proof.
+1,440 mature slots and recorded one bad `missing` slot. Both 99.93056%
+aggregates met the draft percentage target, but the workflow revision used by
+those runs treated any missing result as an integrity failure. Decision 22
+corrects that mismatch: an evaluated mature slot may be bad and missing without
+making the expected population incomplete. Bounded follow-up evidence remained
+consistent with public-probe scheduling delays rather than demonstrated API
+outages. The historical runs are not reclassified. `API-01` therefore remains
+`Draft` pending alert-route proof and a fresh audit under the revised policy.
 
 Shadow samples and the completed v2.3 soak do not enter the official
 denominator. The first met-or-missed decision can be made only after 30 complete
