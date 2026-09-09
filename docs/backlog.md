@@ -698,9 +698,12 @@ Delivery order:
    controlled DNS classification passed in
    [run 33964036998](https://github.com/tov-vl/gold-src-ops/actions/runs/33964036998)
    without B2 access or retained raw evidence. The current availability
-   implementation slice is now closed. Shadow collection continues while alert
-   tests and a fresh contiguous 24-hour activation window remain pending; those
-   gates block `API-01` activation, not UI development.
+   implementation slice is now closed. The isolated custom alert-route exercise
+   passed on 2026-09-09: the route delivered firing and resolved notifications,
+   the final three-bad/two-good hysteresis policy was observed, and the
+   temporary validation check was restored disabled. Shadow collection
+   continues while one fresh contiguous 24-hour activation window remains
+   pending; that gate blocks `API-01` activation, not UI development.
    The first complete audit in
    [run 34257679406](https://github.com/tov-vl/gold-src-ops/actions/runs/34257679406)
    evaluated all 1,440 mature slots but failed closed on one missing slot. Its
@@ -716,9 +719,9 @@ Delivery order:
    either observation: a mature missing slot remains bad but no longer makes an
    otherwise complete 1,440-slot population invalid. The audit now fails
    separately on evidence integrity and shadow-target attainment. Historical
-   runs retain their original failed status; after alert-route proof, run one
-   fresh 24-hour audit under the revised policy. Do not rerun the old revision
-   merely to obtain a chance pass.
+   runs retain their original failed status. Alert-route proof is complete; run
+   one fresh 24-hour audit under the revised policy. Do not rerun the old
+   revision merely to obtain a chance pass.
    The sanitized setup and implementation records are in
    `docs/v2.4-synthetic-monitoring-rollout.md` and
    `docs/v2.4-availability-evidence-exporter.md`.
@@ -1085,11 +1088,11 @@ The released v1 baseline includes:
 
 Remaining portfolio gaps, in priority order:
 
-- Continue the active v2.4 Grafana Cloud shadow collection, prove alert routing,
-  run the read-only 24-hour shadow audit, and activate `API-01` only for a new
-  prospective window. Archive and independent scheduled-segment recovery are
-  already proved, while the completed v2.3 24-hour release sample is not a
-  monthly uptime claim.
+- Continue the active v2.4 Grafana Cloud shadow collection, run one fresh
+  read-only 24-hour audit under Decision 22, and activate `API-01` only for a
+  new prospective window. Alert routing, archive, and independent
+  scheduled-segment recovery are already proved, while the completed v2.3
+  24-hour release sample is not a monthly uptime claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
 - A later versioned AMX Mod X/ReAPI event agent with a durable inbox, only after
