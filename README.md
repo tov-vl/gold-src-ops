@@ -38,9 +38,9 @@ command and dead-letter slice landed in
 [PR #93](https://github.com/tov-vl/gold-src-ops/pull/93), and the first guarded
 Operator mutation landed in
 [PR #95](https://github.com/tov-vl/gold-src-ops/pull/95). Signed candidate
-`v2.4.0-rc.6` was published, digest-verified, and deployed from revision
-`0635052`; its complete tag workflow passed in
-[run #34119583632](https://github.com/tov-vl/gold-src-ops/actions/runs/34119583632).
+`v2.4.0-rc.9` was published, digest-verified, and deployed from revision
+`2769d89`; its complete tag workflow passed in
+[run #34235947471](https://github.com/tov-vl/gold-src-ops/actions/runs/34235947471).
 It is not yet a stable v2.4 release. The
 provider-independent monitoring contract is documented in
 [docs/v2.4-external-availability-monitoring.md](docs/v2.4-external-availability-monitoring.md),
@@ -152,6 +152,7 @@ published-image verification have passed.
 | v2.1 dead-letter recovery release | [v2.1 release notes](docs/release-notes-v2.1.md) |
 | v2.2 RCON reliability release | [v2.2 release notes](docs/release-notes-v2.2.md) |
 | v2.3 reference deployment release | [v2.3 release notes](docs/release-notes-v2.3.md) |
+| v2.4 operator experience candidate | [v2.4 release notes](docs/release-notes-v2.4.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
@@ -183,6 +184,7 @@ published-image verification have passed.
 | v2 alert delivery evidence | [v2 readiness](docs/v2-readiness.md) |
 | v2.1 dead-letter recovery evidence | [v2.1 readiness](docs/v2.1-readiness.md) |
 | v2.2 RCON reliability evidence | [v2.2 readiness](docs/v2.2-readiness.md) |
+| v2.4 release-candidate evidence | [v2.4 readiness](docs/v2.4-readiness.md) |
 
 ## Prerequisites
 

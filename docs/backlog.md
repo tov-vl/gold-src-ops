@@ -726,8 +726,8 @@ Delivery order:
    `docs/v2.4-synthetic-monitoring-rollout.md` and
    `docs/v2.4-availability-evidence-exporter.md`.
 4. **Activation**: pass a 24-hour shadow run, record the immutable activation
-   tuple, and start the prospective 30-day `API-01` window without importing
-   shadow or v2.3 soak samples.
+   tuple, and start the prospective seven-day `API-01` window defined by
+   Decision 23 without importing shadow or v2.3 soak samples.
 5. **Public experience (completed 2026-09-08)**: the
    compact Blazor Web App and anonymous, cached, deliberately sanitized
    current-status read model are implemented. Pull request #84 packaged the API
@@ -850,9 +850,9 @@ Delivery order:
    accepts any-source SSH only on an explicitly declared private management
    interface and still rejects the same rule on any other interface; the
    corrected read-only target audit passed with owner-only evidence.
-7. **First SLO review**: after a complete forward-looking window, publish the
-   reproducible sanitized result and report `API-01` as met or missed. Review the
-   target without changing it to fit the observed result.
+7. **First SLO review**: after the complete forward-looking seven-day window,
+   publish the reproducible sanitized result and report `API-01` as met or
+   missed. Review the target without changing it to fit the observed result.
 
 Acceptance boundaries:
 
@@ -1092,7 +1092,7 @@ Remaining portfolio gaps, in priority order:
   read-only 24-hour audit under Decision 22, and activate `API-01` only for a
   new prospective window. Alert routing, archive, and independent
   scheduled-segment recovery are already proved, while the completed v2.3
-  24-hour release sample is not a monthly uptime claim.
+  24-hour release sample is not a seven-day availability SLO claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
 - A later versioned AMX Mod X/ReAPI event agent with a durable inbox, only after

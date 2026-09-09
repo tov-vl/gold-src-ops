@@ -73,13 +73,13 @@ Current implementation:
 - GitHub Actions quality gate for formatting, build, tests, and NuGet audit.
 - Independent external availability shadow probes with a normalized exporter,
   create-only off-host archive, scheduled collection, and verified read-only
-  recovery. The prospective `API-01` SLO remains `Draft`.
+  recovery. The prospective seven-day `API-01` SLO remains `Draft`.
 - A separate .NET 10 Blazor Web App backed by anonymous, cached, sanitized
   current-status and bounded A2S-history projections; server identities and
-  operator data remain private. The deployed production candidate exposes the
-  current projection, while publication and rollout of the history slice remain
-  pending. The production contract uses an independently digest-addressed,
-  secret-free container behind the shared Caddy ingress.
+  operator data remain private. The production candidate exposes both public
+  projections plus authenticated Reader views and guarded Operator `say` and
+  dead-letter replay workflows. The production contract uses an independently
+  digest-addressed, secret-free container behind the shared Caddy ingress.
 - A completed v1 readiness review with startup, migration, live polling,
   authenticated API, safe command, and metrics evidence in
   `docs/v1-readiness.md`.
@@ -134,9 +134,10 @@ The project now operates the initial controlled external ReHLDS runtime and
 exports production metrics through a private OpenTelemetry Collector,
 Prometheus, and Grafana path. The accepted v2.3 release scope did not include a
 web experience. v2.4 now includes the sanitized public dashboard and an
-authenticated Reader/Operator portal with a narrowly guarded `say` workflow.
-The bounded public A2S-history slice is also published and production-verified
-in `v2.4.0-rc.8`. The completed v2.3 plan
+authenticated Reader/Operator portal with narrowly guarded `say` and
+dead-letter replay workflows. The bounded public A2S-history and latest
+Operator slices are published and production-verified in `v2.4.0-rc.9`. The
+completed v2.3 plan
 closed the deployment and recovery gaps before frontend or gameplay-agent work
 began. Slice 2 uses
 the provider-independent controlled game-server contract in
@@ -239,7 +240,8 @@ The project should evolve in stages:
   `API-01` prospectively only after its remaining gates pass. The off-host
   evidence recovery path, sanitized public Blazor dashboard, and initial
   Reader/Operator workflows are complete; bounded UI slices can advance while
-  shadow evidence accumulates.
+  shadow evidence accumulates. Decision 23 uses a seven-day first objective
+  window for the MVP while retaining 45 days of normalized evidence.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
