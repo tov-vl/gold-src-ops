@@ -845,10 +845,11 @@ non-`200` responses are bad. Retries and additional probe locations are
 diagnostic and cannot replace or outvote the canonical primary result.
 
 Persist raw timestamped results and monitor revisions outside the production
-control plane for at least one complete 30-day window plus review margin. Keep
-provider secrets, account identifiers, and raw evidence outside Git; only the
-provider-independent contract, evaluator, and sanitized aggregates belong in
-the repository.
+control plane for at least 45 days. Keep provider secrets, account identifiers,
+and raw evidence outside Git; only the provider-independent contract,
+evaluator, and sanitized aggregates belong in the repository. Decision 23
+supersedes the original 30-day review period without reducing this retention
+boundary.
 
 Decision date: 2026-09-04.
 
@@ -888,10 +889,11 @@ Implementation status:
 Design accepted for v2.4. Decision 20 conditionally selects a preferred shadow
 provider, and three non-authoritative checks were configured on 2026-09-04. The
 normalized exporter, create-only JSONL format, expected-slot evaluator, and
-contract fixtures are implemented. No official activation timestamp exists,
-and `API-01` remains inactive. Live export proof, independent retention,
-provider failure-detail and alert tests, a 24-hour shadow validation, and one
-complete prospective 30-day window remain required. The full contract is in
+contract fixtures are implemented. Live export, independent archive and
+recovery, provider failure-detail access, and alert routing are proved. No
+official activation timestamp exists, and `API-01` remains inactive. The active
+fresh 24-hour shadow validation and one complete prospective window under
+Decision 23 remain. The full contract is in
 `docs/v2.4-external-availability-monitoring.md`.
 
 References:
@@ -957,11 +959,12 @@ Implementation status:
 Provider comparison completed. Account availability was validated and three
 non-authoritative shadow checks were configured on 2026-09-04 under sanitized
 monitor revision `v2-4-shadow-001`. The local normalized exporter and evaluator
-are implemented. `API-01` remains `Draft`: live Metrics API proof, independent
-archive implementation and recovery, provider failure-detail and alert tests,
-and a complete 24-hour shadow run are required next. The effective configuration
-is in `docs/v2.4-synthetic-monitoring-rollout.md`; decision details and vendor
-references are in `docs/v2.4-synthetic-monitoring-provider-decision.md`.
+are implemented. Live Metrics API access, independent archive and recovery,
+provider failure-detail access, and alert routing are proved. `API-01` remains
+`Draft` while the recorded fresh 24-hour shadow window accumulates. The
+effective configuration is in `docs/v2.4-synthetic-monitoring-rollout.md`;
+decision details and vendor references are in
+`docs/v2.4-synthetic-monitoring-provider-decision.md`.
 
 ## Decision 21: Use a Server-Side OIDC BFF for the Operator Web UI
 
@@ -1081,11 +1084,61 @@ The shadow runner now separates evidence integrity from target attainment. Its
 contract smoke covers an in-budget missing minute as a passing bad outcome and
 an eight-minute target miss as a failing complete population. The audits from
 2026-09-08 and 2026-09-09 remain failed under their original workflow revision;
-they are not reclassified. Alert-route proof and one fresh forward-looking
-24-hour audit under the revised runner remain required before activation.
+they are not reclassified. Alert-route proof is complete. The fresh
+forward-looking 24-hour window recorded for 2026-09-09 through 2026-09-10 is
+active and remains required before activation.
 
 References:
 
 - [Grafana Cloud uptime and reachability](https://grafana.com/docs/grafana-cloud/observe-and-act/testing/synthetic-monitoring/analyze-results/uptime-and-reachability/)
 - [Grafana Cloud Synthetic Monitoring introduction](https://grafana.com/docs/grafana-cloud/observe-and-act/testing/synthetic-monitoring/introduction/)
 - [Grafana Synthetic Monitoring agent scheduler](https://github.com/grafana/synthetic-monitoring-agent/blob/main/internal/scraper/scraper.go)
+
+## Decision 23: Use A Seven-Day API-01 Window For The MVP
+
+Decision:
+
+Shorten the proposed `API-01` objective from 30 rolling days to seven rolling
+days while retaining the 99.5% target, one-minute primary population, and all
+missing-data rules. A complete window contains 10,080 expected slots. At most
+50 bad minutes pass the target; 51 bad minutes fail it.
+
+The first official window begins only after the revised-policy 24-hour shadow
+passes and the immutable activation tuple is recorded. Shadow and v2.3 soak
+samples are not imported. Continue retaining normalized raw evidence for at
+least 45 days so several complete seven-day windows remain reproducible.
+
+Decision date: 2026-09-09.
+
+Reasoning:
+
+- Seven days is a bounded MVP feedback interval and avoids waiting a month for
+  the first met-or-missed result. Product work remains independent of that
+  review.
+- It still covers every day of the week and 10,080 independent minute slots,
+  which is sufficient for the initial operational hypothesis.
+- Keeping the target at 99.5% preserves the service expectation; recalculating
+  the integer budget prevents a fractional minute from weakening it.
+- The shorter rolling period reacts faster to both regressions and recovery,
+  but it also has more variance. A passing week is not evidence of long-term
+  reliability or high availability.
+- The existing 45-day archive remains useful for trend comparison and future
+  reconsideration of a longer objective window.
+
+Alternatives considered:
+
+- Keep the original 30-day window. Rejected for the first MVP review because it
+  delays feedback without changing the single-node architecture or improving
+  the measurement boundary.
+- Use only the 24-hour shadow as the objective window. Rejected because the
+  shadow validates measurement readiness and is too short to cover weekly
+  operating patterns.
+- Change the target to fit observed shadow results. Rejected. The 99.5% target
+  and bad-minute semantics remain unchanged.
+
+Implementation status:
+
+The SLO register, external-monitoring contract, roadmap, and release-closure
+documents use the seven-day window and 50-minute budget. `API-01` remains
+`Draft`; the active 24-hour shadow must pass before an activation timestamp is
+recorded.

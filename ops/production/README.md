@@ -21,10 +21,10 @@ encrypted PostgreSQL backup, full repository check, isolated restore rehearsal,
 all eight migrations, idempotent migration rerun, public HTTPS health, complete
 eight-scenario authorization matrix, and live runtime host audit have passed.
 The signed `v2.3.0-rc.5` image was deployed by its verified digest for the v2.3
-release evidence. The current `v2.4.0-rc.6` API and Web images were later
+release evidence. The current `v2.4.0-rc.9` API and Web images were later
 deployed by their verified digests after a fresh backup, full repository check,
 successful preflight, and already-up-to-date migration-bundle run; owner-only
-`v2.4.0-rc.5` references remain available for rollback. A guarded
+previous-candidate references remain available for rollback. A guarded
 daily backup schedule, scoped retention policy, and freshness probe are active
 on the target; the mandatory preview and first completed cycle passed.
 Core game-server integration has passed through the public API, including

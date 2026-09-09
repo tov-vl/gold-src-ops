@@ -1,8 +1,9 @@
 # GoldSrcOps Initial Service-Level Objectives
 
-Review date: 2026-09-04. Status: reviewed draft with terminal v2.3 SLI
-evidence, an accepted `API-01` measurement design, and a conditional provider
-selection; no objective is active or achieved.
+Review date: 2026-09-09. Status: reviewed draft with terminal v2.3 SLI
+evidence, an accepted `API-01` measurement design, a conditional provider
+selection, and the seven-day MVP review window in Decision 23; no objective is
+active or achieved.
 
 ## Purpose And Scope
 
@@ -10,7 +11,7 @@ This document defines the first reviewable SLI and SLO proposal for the
 single-node GoldSrcOps reference deployment and its one controlled GoldSrc
 endpoint. It is an operating hypothesis, not a release claim. The completed
 24-hour v2.3 soak supplies a bounded baseline only; it cannot establish a
-rolling monthly objective retroactively.
+rolling objective retroactively.
 
 An SLI is the measured ratio or duration. An SLO is the target applied to that
 SLI over a stated window. Release-soak bounds remain separate fail-closed
@@ -45,7 +46,7 @@ exist.
 
 | ID | Service behavior and SLI | Draft objective | Error budget | Activation gate |
 | --- | --- | --- | --- | --- |
-| `API-01` | External one-minute `GET /health/ready` probes are good when DNS and certificate validation succeed and the response is HTTP `200`; a missing sample is bad. | At least 99.5% good samples over 30 rolling days. | At most 216 bad minutes in a 30-day window. | The independent probe must satisfy the [v2.4 external availability contract](v2.4-external-availability-monitoring.md), record an activation tuple, and persist a complete prospective window. |
+| `API-01` | External one-minute `GET /health/ready` probes are good when DNS and certificate validation succeed and the response is HTTP `200`; a missing sample is bad. | At least 99.5% good samples over seven rolling days. | At most 50 bad minutes in a 10,080-minute window. | The independent probe must satisfy the [v2.4 external availability contract](v2.4-external-availability-monitoring.md), record an activation tuple, and persist a complete prospective window. |
 | `MON-01` | Poll coverage is durable snapshots divided by expected poll slots while each endpoint is enabled. A slot is good when its snapshot is persisted within two configured intervals plus 10 seconds. | At least 99.5% per endpoint over 30 rolling days. | At a 60-second interval, at most 216 missing slots per endpoint in 30 days. | A recording rule or durable evaluator must retain interval-level coverage rather than only a terminal aggregate. |
 | `MON-02` | Poll success is reachable persisted snapshots divided by all persisted attempts for each enabled endpoint. | At least 99.0% per endpoint over 30 rolling days. | At a 60-second interval, at most 432 failed attempts per endpoint in 30 days. | Endpoint identity and enabled intervals must be available to the query; provider and network failures remain in this composite SLI. |
 | `MON-03` | Poll freshness is good at each one-minute evaluation when the latest successful snapshot is no older than two configured intervals plus 10 seconds. | At least 99.5% per endpoint over 30 rolling days. | At most 216 stale evaluation minutes per endpoint in 30 days. | A continuous freshness query must exist; the terminal maximum-gap value alone is insufficient. |
@@ -68,14 +69,14 @@ a concrete service expectation and a continuous measurement population exist.
 
 ## API-01 Activation State
 
-Decision 19 and the
+Decisions 19, 22, and 23 plus the
 [v2.4 external availability contract](v2.4-external-availability-monitoring.md)
 define the primary probe, minute-slot population, missing-data behavior, result
 schema, and activation lifecycle. `API-01` is still in the `Draft` stage.
 
-The following work remains before its official window can begin:
+The alert route and its three-bad/two-good resolution behavior are proved. The
+following work remains before the official window can begin:
 
-- prove the custom alert route and its resolution behavior;
 - pass a fresh contiguous 24-hour shadow run with exactly 1,440 mature,
   evaluated slots and meet the shadow-scale target with every missing result
   retained as bad; and
@@ -90,11 +91,15 @@ corrects that mismatch: an evaluated mature slot may be bad and missing without
 making the expected population incomplete. Bounded follow-up evidence remained
 consistent with public-probe scheduling delays rather than demonstrated API
 outages. The historical runs are not reclassified. `API-01` therefore remains
-`Draft` pending alert-route proof and a fresh audit under the revised policy.
+`Draft` pending the fresh audit under the revised policy. Its fixed window runs
+from `2026-09-09T15:00:00Z` through `2026-09-10T15:00:00Z` and cannot be
+evaluated before the five-minute maturity grace period completes.
 
 Shadow samples and the completed v2.3 soak do not enter the official
-denominator. The first met-or-missed decision can be made only after 30 complete
-forward-looking days from the recorded activation timestamp.
+denominator. Under Decision 23, the first met-or-missed decision can be made
+only after seven complete forward-looking days from the recorded activation
+timestamp. This shorter MVP window has more variance and is not proof of
+long-term reliability.
 
 ## Terminal v2.3 SLI Record
 
