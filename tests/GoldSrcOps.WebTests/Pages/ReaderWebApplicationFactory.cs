@@ -42,6 +42,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 {
     private readonly string? role;
     private readonly string? subject;
+    private readonly bool serverEnabled;
 
     public static readonly Guid ServerId = Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f");
     public static readonly Guid OpenIncidentId = Guid.Parse("9307a87e-61cf-4901-8026-b301908431d6");
@@ -61,10 +62,12 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 
     public ReaderWebApplicationFactory(
         string? role = WebSecurity.ReaderRole,
-        string? subject = Subject)
+        string? subject = Subject,
+        bool serverEnabled = true)
     {
         this.role = role;
         this.subject = subject;
+        this.serverEnabled = serverEnabled;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -97,13 +100,13 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             services.RemoveAll<WebAuthenticationState>();
             services.AddSingleton(new WebAuthenticationState(true));
             services.RemoveAll<IReaderApiClient>();
-            services.AddSingleton<IReaderApiClient, FixtureReaderApiClient>();
+            services.AddSingleton<IReaderApiClient>(new FixtureReaderApiClient(serverEnabled));
             services.RemoveAll<IOperatorApiClient>();
             services.AddSingleton<IOperatorApiClient>(OperatorApiClient);
         });
     }
 
-    internal sealed class FixtureReaderApiClient : IReaderApiClient
+    internal sealed class FixtureReaderApiClient(bool serverEnabled = true) : IReaderApiClient
     {
         private static readonly DateTimeOffset ObservedAtUtc =
             new(2026, 9, 4, 12, 0, 0, TimeSpan.Zero);
@@ -319,14 +322,14 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                 snapshots.Take(limit).ToArray()));
         }
 
-        private static ServerResponse CreateServer() => new(
+        private ServerResponse CreateServer() => new(
             ServerId,
             ServerName,
             "cstrike",
             "game.example.test",
             27015,
             27015,
-            true,
+            serverEnabled,
             30,
             "Reader fixture note",
             ObservedAtUtc.AddDays(-1));
@@ -345,15 +348,22 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     internal sealed class FixtureOperatorApiClient : IOperatorApiClient
     {
         private int callCount;
+        private int monitoringCallCount;
         private int replayCallCount;
 
         public int CallCount => Volatile.Read(ref callCount);
 
         public int ReplayCallCount => Volatile.Read(ref replayCallCount);
 
+        public int MonitoringCallCount => Volatile.Read(ref monitoringCallCount);
+
         public Guid? LastServerId { get; private set; }
 
         public string? LastMessage { get; private set; }
+
+        public Guid? LastMonitoringServerId { get; private set; }
+
+        public bool? LastMonitoringEnabled { get; private set; }
 
         public Guid? LastEventId { get; private set; }
 
@@ -364,6 +374,11 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         public OperatorCommandQueueResult Result { get; set; } = OperatorCommandQueueResult.Queued;
 
         public Exception? ExceptionToThrow { get; set; }
+
+        public OperatorMonitoringUpdateResult MonitoringResult { get; set; } =
+            OperatorMonitoringUpdateResult.Updated;
+
+        public Exception? MonitoringExceptionToThrow { get; set; }
 
         public OperatorReplayResult ReplayResult { get; set; } = OperatorReplayResult.Accepted;
 
@@ -403,6 +418,23 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             }
 
             return Task.FromResult(ReplayResult);
+        }
+
+        public Task<OperatorMonitoringUpdateResult> SetMonitoringEnabledAsync(
+            Guid serverId,
+            bool enabled,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref monitoringCallCount);
+            LastMonitoringServerId = serverId;
+            LastMonitoringEnabled = enabled;
+
+            if (MonitoringExceptionToThrow is not null)
+            {
+                return Task.FromException<OperatorMonitoringUpdateResult>(MonitoringExceptionToThrow);
+            }
+
+            return Task.FromResult(MonitoringResult);
         }
     }
 

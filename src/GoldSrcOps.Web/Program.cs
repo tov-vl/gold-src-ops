@@ -72,6 +72,7 @@ app.MapHealthChecks("/health/live")
 app.MapAuthenticationEndpoints(authenticationEnabled);
 app.MapOperatorCommandEndpoints();
 app.MapOperatorReplayEndpoints();
+app.MapOperatorServerMonitoringEndpoints();
 app.MapRazorComponents<App>();
 
 app.Run();

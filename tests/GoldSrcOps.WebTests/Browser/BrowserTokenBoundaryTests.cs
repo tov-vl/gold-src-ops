@@ -25,6 +25,8 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands");
         var sayCommandPage = await VisitAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands/new");
+        var monitoringPage = await VisitAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/monitoring");
         var incidentsPage = await VisitAsync("/operator/incidents");
         var deadLettersPage = await VisitAsync("/operator/dead-letters");
         var deadLetterDetailPage = await VisitAsync(
@@ -53,6 +55,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                      historyPage,
                      commandsPage,
                      sayCommandPage,
+                     monitoringPage,
                      incidentsPage,
                      deadLettersPage,
                      deadLetterDetailPage,
@@ -170,6 +173,44 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             hasHorizontalOverflow.Should().BeFalse();
 
             await CaptureScreenshotIfRequestedAsync("operator-say", viewport);
+        }
+    }
+
+    [BrowserFact]
+    public async Task Operator_monitoring_form_fits_supported_desktop_and_mobile_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(
+                    baseAddress,
+                    $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/monitoring")
+                    .AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("form.monitoring-form").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("input[name='Confirmed']").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("form.monitoring-form button[type='submit']").IsVisibleAsync())
+                .Should().BeTrue();
+            var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+            hasHorizontalOverflow.Should().BeFalse();
+
+            await CaptureScreenshotIfRequestedAsync("operator-monitoring", viewport);
         }
     }
 

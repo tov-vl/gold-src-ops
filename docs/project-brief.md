@@ -242,6 +242,10 @@ The project should evolve in stages:
   Reader/Operator workflows are complete; bounded UI slices can advance while
   shadow evidence accumulates. Decision 23 uses a seven-day first objective
   window for the MVP while retaining 45 days of normalized evidence.
+- v2.5: extend the authenticated Operator portal with narrowly guarded server
+  lifecycle controls, beginning with pause and resume for scheduled monitoring.
+  Registration, sensitive configuration, and broader RCON controls remain
+  separate later slices.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

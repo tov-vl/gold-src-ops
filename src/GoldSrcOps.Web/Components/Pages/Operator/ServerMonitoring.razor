@@ -1,0 +1,203 @@
+@page "/operator/servers/{ServerId:guid}/monitoring"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IReaderApiClient ReaderApiClient
+@inject OperatorServerMonitoringConfirmationStore Confirmations
+@inject ILogger<ServerMonitoring> Logger
+
+<PageTitle>@(_server is null ? "Manage monitoring" : $"Monitor {_server.Name}") | GoldSrcOps</PageTitle>
+
+<div class="monitoring-page">
+    <a class="back-link" href="@($"/operator/servers/{ServerId:D}")">Back to server status</a>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h1>Monitoring control is unavailable</h1>
+            <p>The API did not return a usable Reader snapshot.</p>
+        </section>
+    }
+    else if (_notFound)
+    {
+        <section class="load-state">
+            <h1>Server not found</h1>
+            <p>The requested server is not present in the Reader inventory.</p>
+        </section>
+    }
+    else if (_server is not null)
+    {
+        <header class="monitoring-heading">
+            <div>
+                <p class="eyebrow">Monitoring lifecycle</p>
+                <h1>@ActionTitle</h1>
+                <p class="target">@_server.Name · <code>@_server.Host:@_server.QueryPort</code></p>
+            </div>
+            <p>@ActionSummary</p>
+        </header>
+
+        <ServerSectionNav ServerId="@ServerId" />
+
+        <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
+            <Authorized>
+                @if (GetResultMessage() is { } resultMessage)
+                {
+                    <section class="result-state @GetResultClass()" role="alert">
+                        <strong>@resultMessage.Title</strong>
+                        <p>@resultMessage.Detail</p>
+                    </section>
+                }
+
+                <dl class="lifecycle-summary" aria-label="Monitoring state change">
+                    <div>
+                        <dt>Current state</dt>
+                        <dd>@CurrentStateLabel</dd>
+                    </div>
+                    <div>
+                        <dt>Requested state</dt>
+                        <dd>@RequestedStateLabel</dd>
+                    </div>
+                    <div>
+                        <dt>Poll interval</dt>
+                        <dd>@_server.PollIntervalSeconds seconds</dd>
+                    </div>
+                </dl>
+
+                @if (_confirmationToken is null)
+                {
+                    <section class="load-state" role="alert">
+                        <h2>Confirmation is temporarily unavailable</h2>
+                        <p>No monitoring change was submitted. Refresh after existing confirmations expire.</p>
+                    </section>
+                }
+                else
+                {
+                    <form class="monitoring-form"
+                          method="post"
+                          action="@FormAction">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ConfirmationToken" value="@_confirmationToken" />
+
+                        <label class="confirmation-field" for="monitoring-confirmed">
+                            <input id="monitoring-confirmed"
+                                   name="Confirmed"
+                                   type="checkbox"
+                                   value="true"
+                                   required />
+                            <span>@ConfirmationText</span>
+                        </label>
+
+                        <div class="form-actions">
+                            <button class="@ActionButtonClass" type="submit">@ActionButtonLabel</button>
+                            <a href="@($"/operator/servers/{ServerId:D}")">Cancel</a>
+                        </div>
+                    </form>
+                }
+            </Authorized>
+            <NotAuthorized>
+                <section class="role-state">
+                    <p class="eyebrow">Read-only session</p>
+                    <h2>Operator role required</h2>
+                    <p>Your account can inspect monitoring state but cannot change it.</p>
+                </section>
+            </NotAuthorized>
+        </AuthorizeView>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid ServerId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "result")]
+    public string? Result { get; set; }
+
+    private ServerResponse? _server;
+    private string? _confirmationToken;
+    private OperatorServerMonitoringAction _action;
+    private bool _loadFailed;
+    private bool _notFound;
+
+    private string ActionTitle => _action == OperatorServerMonitoringAction.Disable
+        ? "Pause monitoring"
+        : "Resume monitoring";
+
+    private string ActionSummary => _action == OperatorServerMonitoringAction.Disable
+        ? "Stop scheduled A2S polling and new availability incident transitions for this server."
+        : "Resume scheduled A2S polling and availability incident evaluation for this server.";
+
+    private string CurrentStateLabel => _server?.IsEnabled == true ? "Enabled" : "Paused";
+
+    private string RequestedStateLabel => _action == OperatorServerMonitoringAction.Enable
+        ? "Enabled"
+        : "Paused";
+
+    private string ConfirmationText => _action == OperatorServerMonitoringAction.Disable
+        ? "I verified the target. I understand that no new observations or incident transitions will be produced until monitoring is resumed."
+        : "I verified the target and intend to resume scheduled A2S polling and incident evaluation.";
+
+    private string ActionButtonLabel => _action == OperatorServerMonitoringAction.Disable
+        ? "Pause monitoring"
+        : "Resume monitoring";
+
+    private string ActionButtonClass => _action == OperatorServerMonitoringAction.Disable
+        ? "action-button--danger"
+        : "action-button--primary";
+
+    private string FormAction =>
+        $"/operator/servers/{ServerId:D}/monitoring/{(_action == OperatorServerMonitoringAction.Enable ? "enable" : "disable")}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadFailed = false;
+        _notFound = false;
+        _server = null;
+        _confirmationToken = null;
+
+        try
+        {
+            _server = await ReaderApiClient.GetServerAsync(ServerId);
+            _notFound = _server is null;
+            if (_notFound)
+            {
+                return;
+            }
+
+            _action = _server!.IsEnabled
+                ? OperatorServerMonitoringAction.Disable
+                : OperatorServerMonitoringAction.Enable;
+
+            var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            if (authenticationState.User.IsInRole(WebSecurity.OperatorRole) &&
+                WebSecurity.GetSubject(authenticationState.User) is { } subject)
+            {
+                _confirmationToken = Confirmations.Issue(subject, ServerId, _action);
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to prepare monitoring control for server {ServerId}.", ServerId);
+            _loadFailed = true;
+        }
+    }
+
+    private ResultMessage? GetResultMessage() => Result switch
+    {
+        "invalid" => new ResultMessage(
+            "Change was not accepted",
+            "Confirm the monitoring state change and submit again."),
+        "confirmation-expired" => new ResultMessage(
+            "Confirmation expired",
+            "No monitoring change was submitted. Review the current state and use the new confirmation."),
+        "server-not-found" => new ResultMessage(
+            "Server is no longer available",
+            "No monitoring change was submitted. Return to the server inventory and refresh its state."),
+        _ => null
+    };
+
+    private string GetResultClass() => Result == "confirmation-expired"
+        ? "result-state--warning"
+        : "result-state--error";
+
+    private sealed record ResultMessage(string Title, string Detail);
+}

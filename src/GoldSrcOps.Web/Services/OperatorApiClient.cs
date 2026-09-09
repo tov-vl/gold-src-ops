@@ -36,6 +36,30 @@ internal sealed class OperatorApiClient(HttpClient httpClient) : IOperatorApiCli
         };
     }
 
+    public async Task<OperatorMonitoringUpdateResult> SetMonitoringEnabledAsync(
+        Guid serverId,
+        bool enabled,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"api/servers/{serverId:D}/{(enabled ? "enable" : "disable")}");
+        using var response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.OK => OperatorMonitoringUpdateResult.Updated,
+            HttpStatusCode.NotFound => OperatorMonitoringUpdateResult.ServerNotFound,
+            _ => throw new HttpRequestException(
+                "The server monitoring API returned an unexpected status code.",
+                inner: null,
+                response.StatusCode)
+        };
+    }
+
     public async Task<OperatorReplayResult> ReplayDeadLetterAsync(
         Guid eventId,
         Guid requestId,

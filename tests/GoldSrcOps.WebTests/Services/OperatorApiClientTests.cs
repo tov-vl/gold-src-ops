@@ -57,6 +57,52 @@ public sealed class OperatorApiClientTests
         exception.Which.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    [Theory]
+    [InlineData(true, "enable")]
+    [InlineData(false, "disable")]
+    public async Task SetMonitoringEnabledAsync_posts_only_the_requested_lifecycle_action(
+        bool enabled,
+        string actionSegment)
+    {
+        var serverId = Guid.Parse("3bb3ed44-2e10-442c-b1e1-62bb3f4a2b35");
+        var capture = new LifecycleCaptureHandler(HttpStatusCode.OK);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.SetMonitoringEnabledAsync(serverId, enabled);
+
+        result.Should().Be(OperatorMonitoringUpdateResult.Updated);
+        capture.Method.Should().Be(HttpMethod.Post);
+        capture.RequestUri.Should().Be(
+            new Uri($"https://api.example.test/api/servers/{serverId:D}/{actionSegment}"));
+        capture.HasContent.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SetMonitoringEnabledAsync_maps_a_missing_server()
+    {
+        var capture = new LifecycleCaptureHandler(HttpStatusCode.NotFound);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.SetMonitoringEnabledAsync(Guid.NewGuid(), enabled: true);
+
+        result.Should().Be(OperatorMonitoringUpdateResult.ServerNotFound);
+    }
+
+    [Fact]
+    public async Task SetMonitoringEnabledAsync_rejects_an_unexpected_status()
+    {
+        var capture = new LifecycleCaptureHandler(HttpStatusCode.Accepted);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var action = () => client.SetMonitoringEnabledAsync(Guid.NewGuid(), enabled: false);
+
+        var exception = await action.Should().ThrowAsync<HttpRequestException>();
+        exception.Which.StatusCode.Should().Be(HttpStatusCode.Accepted);
+    }
+
     [Fact]
     public async Task ReplayDeadLetterAsync_posts_reason_and_idempotency_key()
     {
@@ -156,6 +202,25 @@ public sealed class OperatorApiClientTests
             IdempotencyKey = request.Headers.GetValues("Idempotency-Key").Single();
             Request = await request.Content!.ReadFromJsonAsync<ReplayDeadLetterRequest>(cancellationToken);
             return new HttpResponseMessage(responseStatusCode);
+        }
+    }
+
+    private sealed class LifecycleCaptureHandler(HttpStatusCode responseStatusCode) : HttpMessageHandler
+    {
+        public HttpMethod? Method { get; private set; }
+
+        public Uri? RequestUri { get; private set; }
+
+        public bool HasContent { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Method = request.Method;
+            RequestUri = request.RequestUri;
+            HasContent = request.Content is not null;
+            return Task.FromResult(new HttpResponseMessage(responseStatusCode));
         }
     }
 }
