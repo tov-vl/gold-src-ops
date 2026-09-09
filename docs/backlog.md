@@ -701,6 +701,21 @@ Delivery order:
    implementation slice is now closed. Shadow collection continues while alert
    tests and a fresh contiguous 24-hour activation window remain pending; those
    gates block `API-01` activation, not UI development.
+   The first complete audit in
+   [run 34257679406](https://github.com/tov-vl/gold-src-ops/actions/runs/34257679406)
+   evaluated all 1,440 mature slots but failed closed on one missing slot. Its
+   99.93056% aggregate met the draft percentage target, while bounded read-only
+   diagnosis found a check-specific cadence delay crossing a UTC-minute
+   boundary and no corresponding diagnostic-check interruption. The missing
+   slot remains bad by contract, so a fresh clean window is still required.
+   A second independent 24-hour audit in
+   [run 34340321910](https://github.com/tov-vl/gold-src-ops/actions/runs/34340321910)
+   produced the same aggregate and again failed closed on one missing primary
+   minute. This time the cadence gap overlapped the diagnostic check in the same
+   public location, while a second public location continued reporting
+   successful health. Before another full audit, resolve whether the provider
+   cadence can satisfy the current UTC-slot contract or select a different
+   primary location or provider. Do not rerun merely to obtain a chance pass.
    The sanitized setup and implementation records are in
    `docs/v2.4-synthetic-monitoring-rollout.md` and
    `docs/v2.4-availability-evidence-exporter.md`.
