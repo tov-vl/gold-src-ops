@@ -3,12 +3,97 @@ using System.Net.Http.Json;
 using AwesomeAssertions;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
+using GoldSrcOps.Contracts.Servers;
+using GoldSrcOps.Web.Security;
 using GoldSrcOps.Web.Services;
 
 namespace GoldSrcOps.WebTests.Services;
 
 public sealed class OperatorApiClientTests
 {
+    [Fact]
+    public async Task RegisterServerAsync_posts_paused_contract_and_idempotency_key()
+    {
+        var requestId = Guid.Parse("a195195d-3ad8-49d1-9e5a-dd70a6957c90");
+        var server = new ServerResponse(
+            Guid.Parse("5edc0c9a-41f7-42b0-811c-93dc0eea98e7"),
+            "Public server",
+            "GoldSrc",
+            "game.example.test",
+            27015,
+            27016,
+            false,
+            60,
+            "Paused registration",
+            new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero));
+        var capture = new RegistrationCaptureHandler(HttpStatusCode.Created, server);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+        var draft = new OperatorServerRegistrationDraft(
+            requestId,
+            server.Name,
+            server.Host,
+            server.QueryPort,
+            server.RconPort,
+            server.PollIntervalSeconds,
+            server.Notes);
+
+        var result = await client.RegisterServerAsync(draft);
+
+        result.Should().Be(new OperatorServerRegistrationResult(
+            OperatorServerRegistrationResultKind.Created,
+            server));
+        capture.Method.Should().Be(HttpMethod.Post);
+        capture.RequestUri.Should().Be(new Uri("https://api.example.test/api/servers"));
+        capture.IdempotencyKey.Should().Be(requestId.ToString("D"));
+        capture.Request.Should().Be(new RegisterServerRequest(
+            server.Name,
+            server.Host,
+            server.QueryPort,
+            server.RconPort,
+            server.PollIntervalSeconds,
+            server.Notes,
+            IsEnabled: false));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.OK, (int)OperatorServerRegistrationResultKind.Idempotent)]
+    [InlineData(HttpStatusCode.Conflict, (int)OperatorServerRegistrationResultKind.Conflict)]
+    [InlineData(HttpStatusCode.BadRequest, (int)OperatorServerRegistrationResultKind.Rejected)]
+    public async Task RegisterServerAsync_maps_expected_results(
+        HttpStatusCode statusCode,
+        int expected)
+    {
+        var responseServer = statusCode == HttpStatusCode.OK
+            ? new ServerResponse(
+                Guid.NewGuid(),
+                "Server",
+                "GoldSrc",
+                "game.example.test",
+                27015,
+                null,
+                false,
+                60,
+                null,
+                DateTimeOffset.UtcNow)
+            : null;
+        var capture = new RegistrationCaptureHandler(statusCode, responseServer);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.RegisterServerAsync(new OperatorServerRegistrationDraft(
+            Guid.NewGuid(),
+            "Server",
+            "game.example.test",
+            27015,
+            null,
+            60,
+            null));
+
+        result.Kind.Should().Be((OperatorServerRegistrationResultKind)expected);
+        result.Server.Should().Be(responseServer);
+    }
+
     [Fact]
     public async Task QueueSayAsync_posts_only_the_say_contract()
     {
@@ -221,6 +306,35 @@ public sealed class OperatorApiClientTests
             RequestUri = request.RequestUri;
             HasContent = request.Content is not null;
             return Task.FromResult(new HttpResponseMessage(responseStatusCode));
+        }
+    }
+
+    private sealed class RegistrationCaptureHandler(
+        HttpStatusCode responseStatusCode,
+        ServerResponse? responseServer) : HttpMessageHandler
+    {
+        public HttpMethod? Method { get; private set; }
+
+        public Uri? RequestUri { get; private set; }
+
+        public string? IdempotencyKey { get; private set; }
+
+        public RegisterServerRequest? Request { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Method = request.Method;
+            RequestUri = request.RequestUri;
+            IdempotencyKey = request.Headers.GetValues("Idempotency-Key").Single();
+            Request = await request.Content!.ReadFromJsonAsync<RegisterServerRequest>(cancellationToken);
+            return new HttpResponseMessage(responseStatusCode)
+            {
+                Content = responseServer is null
+                    ? null
+                    : JsonContent.Create(responseServer)
+            };
         }
     }
 }

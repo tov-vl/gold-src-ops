@@ -9,4 +9,6 @@ public sealed record RegisterServerCommand(
     int QueryPort,
     int? RconPort,
     int PollIntervalSeconds,
-    string? Notes);
+    string? Notes,
+    bool IsEnabled = true,
+    Guid? RegistrationRequestId = null);

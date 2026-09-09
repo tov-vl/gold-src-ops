@@ -5,6 +5,28 @@ namespace GoldSrcOps.UnitTests.Servers;
 public sealed class ServerTests
 {
     [Fact]
+    public void Constructor_can_create_paused_server_with_registration_identity()
+    {
+        var requestId = Guid.NewGuid();
+        var createdAtUtc = new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero);
+        var server = new Server(
+            "Paused server",
+            GameServerKind.GoldSrc,
+            new ServerEndpoint("game.example.test", queryPort: 27015, rconPort: null),
+            pollIntervalSeconds: 60,
+            notes: null,
+            createdAtUtc,
+            isEnabled: false,
+            registrationRequestId: requestId,
+            registrationIntentHash: new string('A', Server.RegistrationIntentHashLength));
+
+        Assert.False(server.IsEnabled);
+        Assert.False(server.IsDueForPolling(createdAtUtc));
+        Assert.Equal(requestId, server.RegistrationRequestId);
+        Assert.Equal(new string('A', Server.RegistrationIntentHashLength), server.RegistrationIntentHash);
+    }
+
+    [Fact]
     public void UpdateDetails_replaces_editable_values_and_preserves_identity_state_and_created_time()
     {
         var createdAtUtc = new DateTimeOffset(2026, 4, 25, 12, 0, 0, TimeSpan.Zero);
@@ -100,6 +122,31 @@ public sealed class ServerTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new ServerEndpoint("127.0.0.1", queryPort, rconPort));
+    }
+
+    [Fact]
+    public void Registration_identity_rejects_missing_or_invalid_pair_values()
+    {
+        var endpoint = new ServerEndpoint("127.0.0.1", queryPort: 27015, rconPort: null);
+        var createdAtUtc = new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero);
+
+        Assert.Throws<ArgumentException>(() => new Server(
+            "Server",
+            GameServerKind.GoldSrc,
+            endpoint,
+            60,
+            null,
+            createdAtUtc,
+            registrationRequestId: Guid.NewGuid()));
+        Assert.Throws<ArgumentException>(() => new Server(
+            "Server",
+            GameServerKind.GoldSrc,
+            endpoint,
+            60,
+            null,
+            createdAtUtc,
+            registrationRequestId: Guid.NewGuid(),
+            registrationIntentHash: new string('z', Server.RegistrationIntentHashLength)));
     }
 
     private static Server CreateServer()

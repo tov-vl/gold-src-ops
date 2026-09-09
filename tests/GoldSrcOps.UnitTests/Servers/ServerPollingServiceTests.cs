@@ -301,10 +301,14 @@ public sealed class ServerPollingServiceTests
 
         public List<PollSnapshot> Snapshots { get; } = [];
 
-        public Task AddAsync(Server server, CancellationToken cancellationToken)
+        public Task<ServerRegistrationPersistenceResult> RegisterAsync(
+            Server server,
+            CancellationToken cancellationToken)
         {
             _servers.Add(server);
-            return Task.CompletedTask;
+            return Task.FromResult(new ServerRegistrationPersistenceResult(
+                WasCreated: true,
+                server));
         }
 
         public Task<Server?> GetAsync(Guid id, CancellationToken cancellationToken)

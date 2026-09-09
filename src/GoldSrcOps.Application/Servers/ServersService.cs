@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text.Json;
 using GoldSrcOps.Application.Common;
 using GoldSrcOps.Domain.Servers;
 
@@ -14,20 +16,41 @@ public sealed class ServersService
         _clock = clock;
     }
 
-    public async Task<ServerDto> RegisterAsync(RegisterServerCommand command, CancellationToken cancellationToken)
+    public async Task<RegisterServerResult> RegisterAsync(
+        RegisterServerCommand command,
+        CancellationToken cancellationToken)
     {
+        var endpoint = new ServerEndpoint(command.Host, command.QueryPort, command.RconPort);
+        var intentHash = command.RegistrationRequestId is null
+            ? null
+            : CreateRegistrationIntentHash(command, endpoint);
+        var createdAtUtc = _clock.UtcNow;
+        createdAtUtc = createdAtUtc.AddTicks(-(createdAtUtc.Ticks % TimeSpan.TicksPerMicrosecond));
         var server = new Server(
             command.Name,
             command.Game,
-            new ServerEndpoint(command.Host, command.QueryPort, command.RconPort),
+            endpoint,
             command.PollIntervalSeconds,
             command.Notes,
-            _clock.UtcNow);
+            createdAtUtc,
+            command.IsEnabled,
+            command.RegistrationRequestId,
+            intentHash);
 
-        await _servers.AddAsync(server, cancellationToken);
-        await _servers.SaveChangesAsync(cancellationToken);
+        var persistenceResult = await _servers.RegisterAsync(server, cancellationToken);
+        var persistedServer = persistenceResult.Server;
 
-        return Map(server);
+        if (persistenceResult.WasCreated)
+        {
+            return RegisterServerResult.Created(Map(persistedServer));
+        }
+
+        return string.Equals(
+            persistedServer.RegistrationIntentHash,
+            intentHash,
+            StringComparison.Ordinal)
+            ? RegisterServerResult.Idempotent(Map(persistedServer))
+            : RegisterServerResult.IdempotencyConflict();
     }
 
     public Task<ServerDto?> EnableAsync(Guid id, CancellationToken cancellationToken)
@@ -132,4 +155,35 @@ public sealed class ServersService
             server.PollIntervalSeconds,
             server.Notes,
             server.CreatedAtUtc);
+
+    private static string CreateRegistrationIntentHash(
+        RegisterServerCommand command,
+        ServerEndpoint endpoint)
+    {
+        var normalizedNotes = string.IsNullOrWhiteSpace(command.Notes)
+            ? null
+            : command.Notes.Trim();
+        var intent = new RegistrationIntent(
+            command.Name.Trim(),
+            command.Game,
+            endpoint.Host.ToUpperInvariant(),
+            endpoint.QueryPort,
+            endpoint.RconPort,
+            command.PollIntervalSeconds,
+            normalizedNotes,
+            command.IsEnabled);
+        var payload = JsonSerializer.SerializeToUtf8Bytes(intent);
+
+        return Convert.ToHexString(SHA256.HashData(payload));
+    }
+
+    private sealed record RegistrationIntent(
+        string Name,
+        GameServerKind Game,
+        string Host,
+        int QueryPort,
+        int? RconPort,
+        int PollIntervalSeconds,
+        string? Notes,
+        bool IsEnabled);
 }

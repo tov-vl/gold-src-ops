@@ -888,9 +888,27 @@ changing the backend contract or the v2.4 release boundary:
 - Focused client, confirmation-store, authorization, form-workflow, and
   responsive browser coverage protect the surface.
 
-Server registration, address and port editing, RCON credential management,
-restart, map-change, and raw command controls remain outside this slice. No
-v2.5 UI change is deployed before the v2.4 stable-publication gate completes.
+The second local v2.5 slice adds guarded registration of an existing server:
+
+- Only an authenticated Operator can discover, review, or submit the form.
+- The review stores validated connection details in a bounded server-side
+  confirmation tied to the authenticated subject. The final form carries only
+  antiforgery state, the one-time confirmation, and explicit acknowledgement.
+- The API creates the aggregate atomically in `Paused` state, so polling and
+  incident evaluation cannot begin between registration and a later lifecycle
+  decision. Enabling monitoring remains a separate confirmed action.
+- The registration sends a UUID `Idempotency-Key`. PostgreSQL persists its
+  intent fingerprint behind a unique index, returns the same server for the
+  same request, and rejects reuse for different values.
+- The form accepts an optional RCON port but never accepts or stores an RCON
+  credential. Credential setup remains a later, separate workflow.
+- An uncertain HTTP outcome is never retried automatically. The Operator is
+  returned to the inventory to reconcile the endpoint before taking another
+  action.
+
+Address and port editing, RCON credential management, restart, map-change, and
+raw command controls remain outside these first two slices. No v2.5 UI change
+is deployed before the v2.4 stable-publication gate completes.
 
 ## Current API Scope
 

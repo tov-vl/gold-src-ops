@@ -20,6 +20,14 @@
         }
     </header>
 
+    @if (Result == "registration-unknown")
+    {
+        <section class="inventory-result inventory-result--warning" role="alert">
+            <strong>Registration outcome is uncertain</strong>
+            <p>The Web host did not retry the request. Inspect the inventory before starting another registration.</p>
+        </section>
+    }
+
     @if (_loadFailed)
     {
         <section class="load-state load-state--error" role="alert">
@@ -58,7 +66,12 @@
                     <p class="eyebrow">Inventory</p>
                     <h2 id="server-list-title">Controlled servers</h2>
                 </div>
-                <span>@EnabledSummary</span>
+                <div class="section-meta">
+                    <span class="section-summary">@EnabledSummary</span>
+                    <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
+                        <a class="register-link" href="/operator/servers/new">Register server</a>
+                    </AuthorizeView>
+                </div>
             </div>
 
             @if (_servers.Count == 0)
@@ -88,7 +101,7 @@
                             <span role="cell">@server.PollIntervalSeconds s</span>
                             <span role="cell">
                                 <span class="state-label @(server.IsEnabled ? "state-label--enabled" : "state-label--disabled")">
-                                    @(server.IsEnabled ? "Enabled" : "Disabled")
+                                    @(server.IsEnabled ? "Enabled" : "Paused")
                                 </span>
                             </span>
                             <span class="row-action" role="cell">
@@ -103,6 +116,10 @@
 </div>
 
 @code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "result")]
+    public string? Result { get; set; }
+
     private DashboardOverviewResponse? _overview;
     private IReadOnlyList<ServerResponse> _servers = [];
     private bool _loadFailed;

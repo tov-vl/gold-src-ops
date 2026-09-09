@@ -1,11 +1,14 @@
 using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace GoldSrcOps.Infrastructure.Persistence;
 
 internal sealed class EfServerRepository : IServerRepository
 {
+    internal const string RegistrationRequestIdIndex = "ux_servers_registration_request_id";
+
     private readonly GoldSrcOpsDbContext _dbContext;
 
     public EfServerRepository(GoldSrcOpsDbContext dbContext)
@@ -13,9 +16,36 @@ internal sealed class EfServerRepository : IServerRepository
         _dbContext = dbContext;
     }
 
-    public async Task AddAsync(Server server, CancellationToken cancellationToken)
+    public async Task<ServerRegistrationPersistenceResult> RegisterAsync(
+        Server server,
+        CancellationToken cancellationToken)
     {
+        if (server.RegistrationRequestId is { } requestId &&
+            await FindRegistrationAsync(requestId, cancellationToken) is { } existing)
+        {
+            return new ServerRegistrationPersistenceResult(WasCreated: false, existing);
+        }
+
         await _dbContext.Servers.AddAsync(server, cancellationToken);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return new ServerRegistrationPersistenceResult(WasCreated: true, server);
+        }
+        catch (DbUpdateException exception) when (
+            server.RegistrationRequestId is { } duplicateRequestId &&
+            IsRegistrationRequestIdViolation(exception))
+        {
+            _dbContext.ChangeTracker.Clear();
+            existing = await FindRegistrationAsync(duplicateRequestId, cancellationToken);
+            if (existing is null)
+            {
+                throw;
+            }
+
+            return new ServerRegistrationPersistenceResult(WasCreated: false, existing);
+        }
     }
 
     public async Task<Server?> GetAsync(Guid id, CancellationToken cancellationToken)
@@ -59,4 +89,21 @@ internal sealed class EfServerRepository : IServerRepository
     {
         return _dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    private async Task<Server?> FindRegistrationAsync(
+        Guid requestId,
+        CancellationToken cancellationToken) =>
+        await _dbContext.Servers
+            .AsNoTracking()
+            .Include(server => server.CurrentState)
+            .SingleOrDefaultAsync(
+                server => server.RegistrationRequestId == requestId,
+                cancellationToken);
+
+    private static bool IsRegistrationRequestIdViolation(DbUpdateException exception) =>
+        exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: RegistrationRequestIdIndex
+        };
 }

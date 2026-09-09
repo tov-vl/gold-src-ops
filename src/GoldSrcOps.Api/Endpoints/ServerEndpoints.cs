@@ -7,11 +7,15 @@ using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 
 namespace GoldSrcOps.Api.Endpoints;
 
 public static class ServerEndpoints
 {
+    private const string RegistrationIdempotencyConflictCode =
+        "server_registration.idempotency_conflict";
+
     public static RouteGroupBuilder MapServerEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/servers").WithTags("Servers");
@@ -55,18 +59,34 @@ public static class ServerEndpoints
         return group;
     }
 
-    private static async Task<Results<Created<ServerResponse>, ValidationProblem>> RegisterAsync(
+    private static async Task<Results<Created<ServerResponse>, Ok<ServerResponse>, ValidationProblem, ProblemHttpResult>> RegisterAsync(
         RegisterServerRequest request,
+        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
         ServersService servers,
         CancellationToken cancellationToken)
     {
         var errors = Validate(request);
+        Guid? registrationRequestId = null;
+        if (idempotencyKey is not null)
+        {
+            if (!Guid.TryParseExact(idempotencyKey, "D", out var parsedRequestId) ||
+                parsedRequestId == Guid.Empty)
+            {
+                errors["Idempotency-Key"] =
+                    ["Idempotency-Key must be a non-empty UUID in canonical form."];
+            }
+            else
+            {
+                registrationRequestId = parsedRequestId;
+            }
+        }
+
         if (errors.Count > 0)
         {
             return TypedResults.ValidationProblem(errors);
         }
 
-        var server = await servers.RegisterAsync(
+        var result = await servers.RegisterAsync(
             new RegisterServerCommand(
                 request.Name,
                 GameServerKind.GoldSrc,
@@ -74,10 +94,31 @@ public static class ServerEndpoints
                 request.QueryPort,
                 request.RconPort,
                 request.PollIntervalSeconds ?? 60,
-                request.Notes),
+                request.Notes,
+                request.IsEnabled ?? true,
+                registrationRequestId),
             cancellationToken);
 
-        return TypedResults.Created($"/api/servers/{server.Id}", Map(server));
+        if (result.Kind == RegisterServerResultKind.IdempotencyConflict)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "The idempotency key was already used for a different server registration.",
+                extensions:
+                [
+                    new KeyValuePair<string, object?>(
+                        "code",
+                        RegistrationIdempotencyConflictCode)
+                ]);
+        }
+
+        var server = result.Server ?? throw new InvalidOperationException(
+            "A successful registration result must contain its server.");
+        var response = Map(server);
+
+        return result.Kind == RegisterServerResultKind.Created
+            ? TypedResults.Created($"/api/servers/{server.Id}", response)
+            : TypedResults.Ok(response);
     }
 
     private static async Task<Results<Ok<ServerResponse>, NotFound, ValidationProblem>> UpdateAsync(
@@ -191,7 +232,8 @@ public static class ServerEndpoints
             request.Name,
             request.Host,
             request.QueryPort,
-            request.RconPort);
+            request.RconPort,
+            request.Notes);
 
         if (request.PollIntervalSeconds is <= 0)
         {
@@ -207,7 +249,8 @@ public static class ServerEndpoints
             request.Name,
             request.Host,
             request.QueryPort,
-            request.RconPort);
+            request.RconPort,
+            request.Notes);
 
         if (request.PollIntervalSeconds <= 0)
         {
@@ -221,7 +264,8 @@ public static class ServerEndpoints
         string name,
         string host,
         int queryPort,
-        int? rconPort)
+        int? rconPort,
+        string? notes)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
 
@@ -229,10 +273,18 @@ public static class ServerEndpoints
         {
             errors["Name"] = ["Server name is required."];
         }
+        else if (name.Trim().Length > Server.MaxNameLength)
+        {
+            errors["Name"] = [$"Server name must not exceed {Server.MaxNameLength} characters."];
+        }
 
         if (string.IsNullOrWhiteSpace(host))
         {
             errors["Host"] = ["Host is required."];
+        }
+        else if (host.Trim().Length > ServerEndpoint.MaxHostLength)
+        {
+            errors["Host"] = [$"Host must not exceed {ServerEndpoint.MaxHostLength} characters."];
         }
 
         if (queryPort is < 1 or > 65535)
@@ -243,6 +295,11 @@ public static class ServerEndpoints
         if (rconPort is < 1 or > 65535)
         {
             errors["RconPort"] = ["RconPort must be between 1 and 65535."];
+        }
+
+        if (notes?.Trim().Length > Server.MaxNotesLength)
+        {
+            errors["Notes"] = [$"Notes must not exceed {Server.MaxNotesLength} characters."];
         }
 
         return errors;

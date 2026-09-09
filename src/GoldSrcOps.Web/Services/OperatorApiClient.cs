@@ -2,11 +2,66 @@ using System.Net;
 using System.Net.Http.Json;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
+using GoldSrcOps.Contracts.Servers;
+using GoldSrcOps.Web.Security;
 
 namespace GoldSrcOps.Web.Services;
 
 internal sealed class OperatorApiClient(HttpClient httpClient) : IOperatorApiClient
 {
+    public async Task<OperatorServerRegistrationResult> RegisterServerAsync(
+        OperatorServerRegistrationDraft draft,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/servers")
+        {
+            Content = JsonContent.Create(new RegisterServerRequest(
+                draft.Name,
+                draft.Host,
+                draft.QueryPort,
+                draft.RconPort,
+                draft.PollIntervalSeconds,
+                draft.Notes,
+                IsEnabled: false))
+        };
+        request.Headers.Add("Idempotency-Key", draft.RequestId.ToString("D"));
+
+        using var response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.Created or HttpStatusCode.OK)
+        {
+            var server = await response.Content.ReadFromJsonAsync<ServerResponse>(cancellationToken);
+            if (server is null)
+            {
+                throw new InvalidDataException(
+                    "The server registration API returned an empty success response.");
+            }
+
+            return new OperatorServerRegistrationResult(
+                response.StatusCode == HttpStatusCode.Created
+                    ? OperatorServerRegistrationResultKind.Created
+                    : OperatorServerRegistrationResultKind.Idempotent,
+                server);
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Conflict => new OperatorServerRegistrationResult(
+                OperatorServerRegistrationResultKind.Conflict,
+                Server: null),
+            HttpStatusCode.BadRequest => new OperatorServerRegistrationResult(
+                OperatorServerRegistrationResultKind.Rejected,
+                Server: null),
+            _ => throw new HttpRequestException(
+                "The server registration API returned an unexpected status code.",
+                inner: null,
+                response.StatusCode)
+        };
+    }
+
     public async Task<OperatorCommandQueueResult> QueueSayAsync(
         Guid serverId,
         string message,

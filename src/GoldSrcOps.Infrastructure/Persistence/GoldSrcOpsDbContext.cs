@@ -38,14 +38,22 @@ public sealed class GoldSrcOpsDbContext : DbContext
         {
             server.ToTable("servers");
             server.HasKey(x => x.Id);
-            server.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            server.Property(x => x.Name).HasMaxLength(Server.MaxNameLength).IsRequired();
             server.Property(x => x.Game).HasConversion<string>().HasMaxLength(32).IsRequired();
-            server.Property(x => x.Notes).HasMaxLength(2000);
+            server.Property(x => x.Notes).HasMaxLength(Server.MaxNotesLength);
             server.Property(x => x.CreatedAtUtc).IsRequired();
+            server.Property(x => x.RegistrationIntentHash)
+                .HasMaxLength(Server.RegistrationIntentHashLength);
+            server.HasIndex(x => x.RegistrationRequestId)
+                .IsUnique()
+                .HasDatabaseName(EfServerRepository.RegistrationRequestIdIndex);
 
             server.OwnsOne(x => x.Endpoint, endpoint =>
             {
-                endpoint.Property(x => x.Host).HasColumnName("host").HasMaxLength(255).IsRequired();
+                endpoint.Property(x => x.Host)
+                    .HasColumnName("host")
+                    .HasMaxLength(ServerEndpoint.MaxHostLength)
+                    .IsRequired();
                 endpoint.Property(x => x.QueryPort).HasColumnName("query_port").IsRequired();
                 endpoint.Property(x => x.RconPort).HasColumnName("rcon_port");
             });

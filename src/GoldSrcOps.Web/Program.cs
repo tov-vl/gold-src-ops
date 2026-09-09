@@ -73,6 +73,7 @@ app.MapAuthenticationEndpoints(authenticationEnabled);
 app.MapOperatorCommandEndpoints();
 app.MapOperatorReplayEndpoints();
 app.MapOperatorServerMonitoringEndpoints();
+app.MapOperatorServerRegistrationEndpoints();
 app.MapRazorComponents<App>();
 
 app.Run();

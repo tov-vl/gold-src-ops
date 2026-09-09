@@ -179,6 +179,9 @@
 
     private ResultMessage? GetResultMessage() => Result switch
     {
+        "server-registered" => new ResultMessage(
+            "Server registered in paused state",
+            "Review the endpoint below. Monitoring remains paused until an Operator enables it separately."),
         "monitoring-enabled" => new ResultMessage(
             "Monitoring resumed",
             "The API accepted the change. The monitoring state below was read after the update."),

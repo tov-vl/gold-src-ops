@@ -4,7 +4,9 @@ namespace GoldSrcOps.Application.Servers;
 
 public interface IServerRepository
 {
-    Task AddAsync(Server server, CancellationToken cancellationToken);
+    Task<ServerRegistrationPersistenceResult> RegisterAsync(
+        Server server,
+        CancellationToken cancellationToken);
 
     Task<Server?> GetAsync(Guid id, CancellationToken cancellationToken);
 

@@ -349,6 +349,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     {
         private int callCount;
         private int monitoringCallCount;
+        private int registrationCallCount;
         private int replayCallCount;
 
         public int CallCount => Volatile.Read(ref callCount);
@@ -357,6 +358,8 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 
         public int MonitoringCallCount => Volatile.Read(ref monitoringCallCount);
 
+        public int RegistrationCallCount => Volatile.Read(ref registrationCallCount);
+
         public Guid? LastServerId { get; private set; }
 
         public string? LastMessage { get; private set; }
@@ -364,6 +367,8 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         public Guid? LastMonitoringServerId { get; private set; }
 
         public bool? LastMonitoringEnabled { get; private set; }
+
+        public OperatorServerRegistrationDraft? LastRegistrationDraft { get; private set; }
 
         public Guid? LastEventId { get; private set; }
 
@@ -379,6 +384,23 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             OperatorMonitoringUpdateResult.Updated;
 
         public Exception? MonitoringExceptionToThrow { get; set; }
+
+        public OperatorServerRegistrationResult RegistrationResult { get; set; } =
+            new(
+                OperatorServerRegistrationResultKind.Created,
+                new ServerResponse(
+                    ServerId,
+                    ServerName,
+                    "GoldSrc",
+                    "game.example.test",
+                    27015,
+                    null,
+                    false,
+                    60,
+                    null,
+                    new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero)));
+
+        public Exception? RegistrationExceptionToThrow { get; set; }
 
         public OperatorReplayResult ReplayResult { get; set; } = OperatorReplayResult.Accepted;
 
@@ -399,6 +421,22 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             }
 
             return Task.FromResult(Result);
+        }
+
+        public Task<OperatorServerRegistrationResult> RegisterServerAsync(
+            OperatorServerRegistrationDraft draft,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref registrationCallCount);
+            LastRegistrationDraft = draft;
+
+            if (RegistrationExceptionToThrow is not null)
+            {
+                return Task.FromException<OperatorServerRegistrationResult>(
+                    RegistrationExceptionToThrow);
+            }
+
+            return Task.FromResult(RegistrationResult);
         }
 
         public Task<OperatorReplayResult> ReplayDeadLetterAsync(

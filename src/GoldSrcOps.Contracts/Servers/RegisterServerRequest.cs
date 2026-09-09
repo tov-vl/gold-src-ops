@@ -6,4 +6,5 @@ public sealed record RegisterServerRequest(
     int QueryPort,
     int? RconPort,
     int? PollIntervalSeconds,
-    string? Notes);
+    string? Notes,
+    bool? IsEnabled = null);
