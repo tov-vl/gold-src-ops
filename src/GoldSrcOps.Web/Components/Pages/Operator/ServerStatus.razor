@@ -38,6 +38,14 @@
 
         <ServerSectionNav ServerId="@ServerId" />
 
+        @if (GetResultMessage() is { } resultMessage)
+        {
+            <section class="monitoring-result @GetResultClass()" role="alert">
+                <strong>@resultMessage.Title</strong>
+                <p>@resultMessage.Detail</p>
+            </section>
+        }
+
         <section class="status-grid" aria-label="Latest server observation">
             <article class="status-primary">
                 <span>Latest observation</span>
@@ -72,6 +80,19 @@
             </dl>
         </section>
 
+        <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
+            <section class="monitoring-control" aria-labelledby="monitoring-control-title">
+                <div>
+                    <p class="eyebrow">Monitoring lifecycle</p>
+                    <h2 id="monitoring-control-title">
+                        @(_server.IsEnabled ? "Scheduled polling is enabled" : "Scheduled polling is paused")
+                    </h2>
+                    <p>Review the current state before changing scheduled polling for this server.</p>
+                </div>
+                <a href="@($"/operator/servers/{ServerId:D}/monitoring")">Manage monitoring</a>
+            </section>
+        </AuthorizeView>
+
         @if (!string.IsNullOrWhiteSpace(_status.FailureReason))
         {
             <section class="failure-detail" aria-labelledby="failure-title">
@@ -95,6 +116,10 @@
 @code {
     [Parameter]
     public Guid ServerId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "result")]
+    public string? Result { get; set; }
 
     private ServerResponse? _server;
     private ServerStatusResponse? _status;
@@ -151,4 +176,24 @@
     private static string FormatDateTime(DateTimeOffset? value) => value is null
         ? "Not available"
         : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+
+    private ResultMessage? GetResultMessage() => Result switch
+    {
+        "monitoring-enabled" => new ResultMessage(
+            "Monitoring resumed",
+            "The API accepted the change. The monitoring state below was read after the update."),
+        "monitoring-disabled" => new ResultMessage(
+            "Monitoring paused",
+            "The API accepted the change. The monitoring state below was read after the update."),
+        "monitoring-unknown" => new ResultMessage(
+            "Change outcome is uncertain",
+            "The Web host did not retry the request. Inspect the current monitoring state before submitting another change."),
+        _ => null
+    };
+
+    private string GetResultClass() => Result == "monitoring-unknown"
+        ? "monitoring-result--warning"
+        : "monitoring-result--success";
+
+    private sealed record ResultMessage(string Title, string Detail);
 }

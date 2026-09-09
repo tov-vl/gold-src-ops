@@ -872,6 +872,26 @@ Non-goals for the first v2.4 slices:
 - A custom monitoring service when a managed provider satisfies the contract.
 - Gameplay-agent ingestion, VIP entitlements, or payment processing.
 
+## Next v2.5 Milestone: Guarded Server Lifecycle UI
+
+The first local v2.5 slice extends the authenticated Operator portal without
+changing the backend contract or the v2.4 release boundary:
+
+- An Operator can pause or resume scheduled monitoring for an existing server.
+- A Reader can inspect the current monitoring state but receives no lifecycle
+  controls.
+- Each change requires antiforgery validation, explicit acknowledgement, and a
+  bounded one-time confirmation tied to the authenticated subject, server, and
+  requested final state.
+- An uncertain HTTP outcome is never retried automatically. The browser returns
+  to a freshly loaded server status so the operator can reconcile the result.
+- Focused client, confirmation-store, authorization, form-workflow, and
+  responsive browser coverage protect the surface.
+
+Server registration, address and port editing, RCON credential management,
+restart, map-change, and raw command controls remain outside this slice. No
+v2.5 UI change is deployed before the v2.4 stable-publication gate completes.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in

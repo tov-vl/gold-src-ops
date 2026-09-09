@@ -1,0 +1,265 @@
+.monitoring-page {
+    width: min(100% - 40px, 980px);
+    margin: 0 auto;
+    padding: 44px 0 96px;
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 34px;
+    color: var(--ink-muted);
+    font-size: 0.8rem;
+    font-weight: 680;
+    text-decoration: none;
+}
+
+.back-link:hover {
+    color: var(--ink);
+}
+
+.back-link::before {
+    margin-right: 8px;
+    content: "\2190";
+}
+
+.monitoring-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 32px;
+    padding-bottom: 34px;
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.monitoring-heading > p {
+    max-width: 42ch;
+    margin-bottom: 4px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    text-align: right;
+}
+
+.eyebrow {
+    margin-bottom: 10px;
+    color: var(--ink-muted);
+    font-size: 0.72rem;
+    font-weight: 760;
+    text-transform: uppercase;
+}
+
+.monitoring-heading h1,
+.load-state h1 {
+    margin-bottom: 14px;
+    font-size: 3rem;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+}
+
+.target {
+    margin-bottom: 0;
+    color: var(--ink-muted);
+    font-size: 0.86rem;
+}
+
+.target code {
+    color: var(--ink-soft);
+}
+
+.lifecycle-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 48px 0 0;
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.lifecycle-summary > div {
+    min-width: 0;
+    min-height: 108px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 24px;
+    border-right: 1px solid var(--line);
+}
+
+.lifecycle-summary > div:first-child {
+    border-left: 1px solid var(--line);
+}
+
+.lifecycle-summary dt {
+    color: var(--ink-muted);
+    font-size: 0.7rem;
+    font-weight: 720;
+    text-transform: uppercase;
+}
+
+.lifecycle-summary dd {
+    margin: 0;
+    color: var(--ink);
+    font-size: 1rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.monitoring-form,
+.role-state,
+.load-state {
+    margin-top: 38px;
+    padding: 30px 0;
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.confirmation-field {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+
+.confirmation-field input {
+    width: 18px;
+    height: 18px;
+    margin: 2px 0 0;
+    accent-color: var(--signal-blue);
+}
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-top: 30px;
+}
+
+.form-actions button {
+    min-height: 42px;
+    padding: 10px 18px;
+    border: 1px solid var(--ink);
+    border-radius: 4px;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 720;
+    cursor: pointer;
+}
+
+.action-button--primary {
+    background: var(--ink);
+    color: var(--surface);
+}
+
+.action-button--primary:hover {
+    background: var(--ink-soft);
+}
+
+.action-button--danger {
+    border-color: var(--signal-red);
+    background: var(--signal-red);
+    color: var(--surface);
+}
+
+.action-button--danger:hover {
+    filter: brightness(0.88);
+}
+
+.form-actions button:focus-visible,
+.form-actions a:focus-visible {
+    outline: 2px solid var(--signal-blue);
+    outline-offset: 3px;
+}
+
+.form-actions a {
+    color: var(--ink-muted);
+    font-size: 0.82rem;
+    font-weight: 680;
+    text-decoration: none;
+}
+
+.form-actions a:hover {
+    color: var(--ink);
+}
+
+.result-state {
+    margin-top: 34px;
+    padding: 18px 20px;
+    border-left: 3px solid var(--signal-red);
+    background: var(--surface);
+}
+
+.result-state--warning {
+    border-left-color: var(--signal-amber);
+}
+
+.result-state strong {
+    color: var(--ink);
+    font-size: 0.86rem;
+}
+
+.result-state p,
+.role-state p,
+.load-state p {
+    max-width: 66ch;
+    margin: 7px 0 0;
+    color: var(--ink-muted);
+    line-height: 1.6;
+}
+
+.role-state h2,
+.load-state h2 {
+    margin-bottom: 8px;
+    font-size: 1.4rem;
+}
+
+@media (max-width: 700px) {
+    .lifecycle-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .lifecycle-summary > div {
+        border-bottom: 1px solid var(--line);
+        border-left: 1px solid var(--line);
+    }
+
+    .lifecycle-summary > div:last-child {
+        border-bottom: 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .monitoring-page {
+        width: min(100% - 28px, 980px);
+        padding: 34px 0 76px;
+    }
+
+    .monitoring-heading {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .monitoring-heading > p {
+        text-align: left;
+    }
+
+    .monitoring-heading h1,
+    .load-state h1 {
+        font-size: 2.2rem;
+    }
+
+    .lifecycle-summary {
+        margin-top: 38px;
+    }
+
+    .form-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .form-actions button,
+    .form-actions a {
+        text-align: center;
+    }
+}

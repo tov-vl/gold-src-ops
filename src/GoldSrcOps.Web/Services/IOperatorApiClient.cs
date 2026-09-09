@@ -7,6 +7,11 @@ internal interface IOperatorApiClient
         string message,
         CancellationToken cancellationToken = default);
 
+    Task<OperatorMonitoringUpdateResult> SetMonitoringEnabledAsync(
+        Guid serverId,
+        bool enabled,
+        CancellationToken cancellationToken = default);
+
     Task<OperatorReplayResult> ReplayDeadLetterAsync(
         Guid eventId,
         Guid requestId,
@@ -28,4 +33,10 @@ internal enum OperatorCommandQueueResult
     ServerNotFound,
     MissingRconCredential,
     Rejected
+}
+
+internal enum OperatorMonitoringUpdateResult
+{
+    Updated,
+    ServerNotFound
 }
