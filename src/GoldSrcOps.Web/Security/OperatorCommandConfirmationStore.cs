@@ -14,10 +14,14 @@ internal sealed class OperatorCommandConfirmationStore(TimeProvider timeProvider
     private readonly Lock sync = new();
     private readonly Dictionary<string, Confirmation> confirmations = new(StringComparer.Ordinal);
 
-    public string? Issue(string subject, Guid serverId)
+    public string? Issue(
+        string subject,
+        Guid serverId,
+        OperatorCommandAction action)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(subject);
         ArgumentOutOfRangeException.ThrowIfEqual(serverId, Guid.Empty);
+        ValidateAction(action);
 
         var now = timeProvider.GetUtcNow();
 
@@ -36,16 +40,23 @@ internal sealed class OperatorCommandConfirmationStore(TimeProvider timeProvider
             }
             while (confirmations.ContainsKey(token));
 
-            confirmations.Add(token, new Confirmation(subject, serverId, now + Lifetime));
+            confirmations.Add(
+                token,
+                new Confirmation(subject, serverId, action, now + Lifetime));
             return token;
         }
     }
 
-    public bool TryConsume(string token, string subject, Guid serverId)
+    public bool TryConsume(
+        string token,
+        string subject,
+        Guid serverId,
+        OperatorCommandAction action)
     {
         ArgumentNullException.ThrowIfNull(token);
         ArgumentException.ThrowIfNullOrWhiteSpace(subject);
         ArgumentOutOfRangeException.ThrowIfEqual(serverId, Guid.Empty);
+        ValidateAction(action);
 
         if (token.Length != TokenLength)
         {
@@ -59,6 +70,7 @@ internal sealed class OperatorCommandConfirmationStore(TimeProvider timeProvider
             if (!confirmations.TryGetValue(token, out var confirmation) ||
                 confirmation.ExpiresAtUtc <= now ||
                 confirmation.ServerId != serverId ||
+                confirmation.Action != action ||
                 !string.Equals(confirmation.Subject, subject, StringComparison.Ordinal))
             {
                 if (confirmation is not null && confirmation.ExpiresAtUtc <= now)
@@ -71,6 +83,14 @@ internal sealed class OperatorCommandConfirmationStore(TimeProvider timeProvider
 
             confirmations.Remove(token);
             return true;
+        }
+    }
+
+    private static void ValidateAction(OperatorCommandAction action)
+    {
+        if (!Enum.IsDefined(action))
+        {
+            throw new ArgumentOutOfRangeException(nameof(action));
         }
     }
 
@@ -88,5 +108,12 @@ internal sealed class OperatorCommandConfirmationStore(TimeProvider timeProvider
     private sealed record Confirmation(
         string Subject,
         Guid ServerId,
+        OperatorCommandAction Action,
         DateTimeOffset ExpiresAtUtc);
+}
+
+internal enum OperatorCommandAction
+{
+    Say,
+    Restart
 }

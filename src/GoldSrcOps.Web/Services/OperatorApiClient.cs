@@ -97,6 +97,31 @@ internal sealed class OperatorApiClient(HttpClient httpClient) : IOperatorApiCli
         };
     }
 
+    public async Task<OperatorCommandQueueResult> QueueRestartAsync(
+        Guid serverId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"api/servers/{serverId:D}/commands/restart");
+        using var response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Created => OperatorCommandQueueResult.Queued,
+            HttpStatusCode.NotFound => OperatorCommandQueueResult.ServerNotFound,
+            HttpStatusCode.Conflict => OperatorCommandQueueResult.MissingRconCredential,
+            HttpStatusCode.BadRequest => OperatorCommandQueueResult.Rejected,
+            _ => throw new HttpRequestException(
+                "The command API returned an unexpected status code.",
+                inner: null,
+                response.StatusCode)
+        };
+    }
+
     public async Task<OperatorMonitoringUpdateResult> SetMonitoringEnabledAsync(
         Guid serverId,
         bool enabled,

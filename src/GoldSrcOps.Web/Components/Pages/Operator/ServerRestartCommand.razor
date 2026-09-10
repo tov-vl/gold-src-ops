@@ -1,0 +1,258 @@
+@page "/operator/servers/{ServerId:guid}/commands/restart"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IReaderApiClient ReaderApiClient
+@inject OperatorCommandConfirmationStore Confirmations
+@inject ILogger<ServerRestartCommand> Logger
+
+<PageTitle>@(_server is null ? "Restart server" : $"Restart {_server.Name}") | GoldSrcOps</PageTitle>
+
+<div class="restart-page">
+    <a class="back-link" href="@($"/operator/servers/{ServerId:D}/commands")">Back to command history</a>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h1>Restart review is unavailable</h1>
+            <p>The API did not return a usable Reader snapshot. No command can be submitted.</p>
+        </section>
+    }
+    else if (_notFound)
+    {
+        <section class="load-state">
+            <h1>Server not found</h1>
+            <p>The requested server is not present in the Reader inventory.</p>
+        </section>
+    }
+    else if (_server is not null)
+    {
+        <header class="restart-heading">
+            <div>
+                <p class="eyebrow">Disruptive Operator action</p>
+                <h1>Restart server</h1>
+                <p class="target">@_server.Name · <code>@_server.Host:@RconPort</code></p>
+            </div>
+            <p>Queue one audited restart through the existing per-server RCON dispatcher.</p>
+        </header>
+
+        <ServerSectionNav ServerId="@ServerId" />
+
+        @if (GetResultMessage() is { } resultMessage)
+        {
+            <section class="result-state @GetResultClass()" role="alert">
+                <strong>@resultMessage.Title</strong>
+                <p>@resultMessage.Detail</p>
+            </section>
+        }
+
+        <dl class="restart-summary" aria-label="Restart command review">
+            <div>
+                <dt>Command</dt>
+                <dd>Restart</dd>
+            </div>
+            <div>
+                <dt>Monitoring</dt>
+                <dd>@(_server.IsEnabled ? "Enabled" : "Paused")</dd>
+            </div>
+            <div>
+                <dt>RCON binding</dt>
+                <dd class="@(_rconConfigured ? "state-ready" : "state-blocked")">
+                    @(_rconConfigured ? "Configured" : "Missing")
+                </dd>
+            </div>
+            <div>
+                <dt>Incomplete commands</dt>
+                <dd class="@(_activeCommandCount == 0 ? "state-ready" : "state-blocked")">
+                    @_activeCommandCount
+                </dd>
+            </div>
+            <div>
+                <dt>Execution</dt>
+                <dd>Serialized per server</dd>
+            </div>
+            <div>
+                <dt>Automatic retry</dt>
+                <dd>Disabled</dd>
+            </div>
+        </dl>
+
+        <section class="impact-note" aria-labelledby="restart-impact-title">
+            <p class="eyebrow">Expected impact</p>
+            <h2 id="restart-impact-title">Players can disconnect and A2S can become briefly unreachable</h2>
+            <p>
+                The server may restart before returning an RCON acknowledgement. A timeout therefore does not prove
+                that the restart did not happen; reconcile command history and current status before any follow-up.
+            </p>
+        </section>
+
+        <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
+            <Authorized>
+                @if (!_rconConfigured)
+                {
+                    <section class="locked-state" aria-labelledby="restart-credential-title">
+                        <p class="eyebrow">Restart locked</p>
+                        <h2 id="restart-credential-title">Configure the RCON binding first</h2>
+                        <p>No restart can be queued while the server has no RCON credential metadata.</p>
+                        <a href="@($"/operator/servers/{ServerId:D}/credentials")">Review credential metadata</a>
+                    </section>
+                }
+                else if (_activeCommandCount > 0)
+                {
+                    <section class="locked-state" aria-labelledby="restart-command-title">
+                        <p class="eyebrow">Restart locked</p>
+                        <h2 id="restart-command-title">Wait for the current command to finish</h2>
+                        <p>A fresh submission check also blocks while any retained command is pending or running.</p>
+                        <a href="@($"/operator/servers/{ServerId:D}/commands")">Refresh command history</a>
+                    </section>
+                }
+                else if (_confirmationToken is null)
+                {
+                    <section class="load-state" role="alert">
+                        <h2>Confirmation is temporarily unavailable</h2>
+                        <p>No restart was submitted. Refresh after existing confirmations expire.</p>
+                    </section>
+                }
+                else
+                {
+                    <form class="restart-form"
+                          method="post"
+                          action="@($"/operator/servers/{ServerId:D}/commands/restart/queue")">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ConfirmationToken" value="@_confirmationToken" />
+
+                        <label class="confirmation-field" for="restart-confirmed">
+                            <input id="restart-confirmed"
+                                   name="Confirmed"
+                                   type="checkbox"
+                                   value="true"
+                                   required />
+                            <span>
+                                I verified the target and accept the player disconnect and temporary monitoring impact.
+                                I will inspect command history and current status before deliberately retrying an uncertain outcome.
+                            </span>
+                        </label>
+
+                        <div class="form-actions">
+                            <button type="submit">Queue restart</button>
+                            <a href="@($"/operator/servers/{ServerId:D}/commands")">Cancel</a>
+                        </div>
+                    </form>
+                }
+            </Authorized>
+            <NotAuthorized>
+                <section class="role-state">
+                    <p class="eyebrow">Read-only session</p>
+                    <h2>Operator role required</h2>
+                    <p>Your account can inspect restart readiness and command history but cannot submit commands.</p>
+                </section>
+            </NotAuthorized>
+        </AuthorizeView>
+    }
+</div>
+
+@code {
+    private const int CommandLimit = 100;
+
+    [Parameter]
+    public Guid ServerId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "result")]
+    public string? Result { get; set; }
+
+    private ServerResponse? _server;
+    private string? _confirmationToken;
+    private int _activeCommandCount;
+    private bool _rconConfigured;
+    private bool _loadFailed;
+    private bool _notFound;
+
+    private int RconPort => _server?.RconPort ?? _server?.QueryPort ?? 0;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadFailed = false;
+        _notFound = false;
+        _server = null;
+        _confirmationToken = null;
+        _activeCommandCount = 0;
+        _rconConfigured = false;
+
+        try
+        {
+            var serverTask = ReaderApiClient.GetServerAsync(ServerId);
+            var commandsTask = ReaderApiClient.GetServerCommandsAsync(ServerId, CommandLimit);
+            var credentialsTask = ReaderApiClient.GetServerCredentialsAsync(ServerId);
+            await Task.WhenAll(serverTask, commandsTask, credentialsTask);
+
+            _server = await serverTask;
+            var commands = await commandsTask;
+            var credentials = await credentialsTask;
+            _notFound = _server is null || commands is null || credentials is null;
+            if (_notFound)
+            {
+                return;
+            }
+
+            _activeCommandCount = commands!.Count(IsIncomplete);
+            _rconConfigured = credentials!.Any(static credential =>
+                credential.IsConfigured &&
+                string.Equals(credential.Kind, "RconPassword", StringComparison.Ordinal));
+
+            var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            if (_rconConfigured &&
+                _activeCommandCount == 0 &&
+                authenticationState.User.IsInRole(WebSecurity.OperatorRole) &&
+                WebSecurity.GetSubject(authenticationState.User) is { } subject)
+            {
+                _confirmationToken = Confirmations.Issue(
+                    subject,
+                    ServerId,
+                    OperatorCommandAction.Restart);
+            }
+        }
+        catch (Exception exception) when (
+            exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to prepare restart review for server {ServerId}.", ServerId);
+            _loadFailed = true;
+        }
+    }
+
+    private static bool IsIncomplete(CommandExecutionResponse command) =>
+        string.Equals(command.Status, "Pending", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(command.Status, "Running", StringComparison.OrdinalIgnoreCase);
+
+    private ResultMessage? GetResultMessage() => Result switch
+    {
+        "invalid" => new ResultMessage(
+            "Restart was not accepted",
+            "Acknowledge the reviewed operational impact before submitting."),
+        "confirmation-expired" => new ResultMessage(
+            "Confirmation expired",
+            "No restart was submitted. Review current readiness and use the new confirmation."),
+        "credential-missing" => new ResultMessage(
+            "RCON credential is missing",
+            "No restart was queued. Review the current credential metadata before trying again."),
+        "commands-in-progress" => new ResultMessage(
+            "A command is still in progress",
+            "No restart was queued. Wait for pending and running commands to reach a terminal state."),
+        "precondition-unavailable" => new ResultMessage(
+            "Restart readiness could not be refreshed",
+            "No restart was submitted. Reload the page before making another attempt."),
+        "rejected" => new ResultMessage(
+            "Restart was rejected",
+            "No restart was queued. Reload current server and command state before trying again."),
+        "server-not-found" => new ResultMessage(
+            "Server is no longer available",
+            "No restart was queued. Return to the server inventory and refresh its state."),
+        _ => null
+    };
+
+    private string GetResultClass() => Result is "confirmation-expired" or
+        "commands-in-progress" or "precondition-unavailable"
+            ? "result-state--warning"
+            : "result-state--error";
+
+    private sealed record ResultMessage(string Title, string Detail);
+}

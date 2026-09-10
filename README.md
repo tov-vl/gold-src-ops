@@ -80,8 +80,9 @@ and production verification of signed candidate `v2.4.0-rc.9` passed on
 2026-09-08.
 The rollout recreated only API and Web, retained runtime and game-host
 continuity, and exercised the live Operator boundary without creating or
-replaying a production dead letter. Raw, restart, and map-change controls remain
-outside the Web UI.
+replaying a production dead letter. The later v2.5 repository work now includes
+a guarded restart review, but it is not deployed as part of the v2.4 boundary.
+Raw and map-change controls remain outside the Web UI.
 
 ## Highlights
 

@@ -156,6 +156,11 @@
     background: var(--surface);
 }
 
+.section-actions a.action--danger {
+    border-color: color-mix(in srgb, var(--signal-red) 55%, var(--line-strong));
+    color: var(--signal-red);
+}
+
 .section-heading h2 {
     margin-bottom: 0;
     font-size: 1.65rem;

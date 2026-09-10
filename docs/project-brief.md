@@ -248,8 +248,10 @@ The project should evolve in stages:
   non-secret connection and polling metadata while monitoring is paused. It
   also covers alias-only RCON credential binding and rotation behind paused
   monitoring, no-incomplete-command, one-time-confirmation, and optimistic
-  concurrency guards. Restart, map-change, and raw RCON controls remain
-  separate later slices.
+  concurrency guards. A fifth slice adds a fixed restart review with sanitized
+  readiness, submit-time incomplete-command revalidation, command-bound
+  confirmation, per-server dispatch serialization, and no automatic retry.
+  Map-change and raw RCON controls remain separate later slices.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

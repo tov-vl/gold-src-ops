@@ -67,13 +67,14 @@ test also requires one opaque `__Host-GoldSrcOps.Web` cookie with `HttpOnly`,
 registered only inside the test host and cannot be enabled in the production
 application.
 
-The guarded Web `say` form adds defense in depth at the browser boundary. The
-POST independently requires the Web `Operator` policy and antiforgery
-validation. A bounded process-local confirmation is random, short-lived, bound
-to subject and server, and consumed once before the API request; it stores no
-message or credential. It reduces accidental duplicate submissions but is not
-an idempotency guarantee. An uncertain API outcome is never retried
-automatically and directs the operator to the durable command history.
+The guarded Web `say` and restart forms add defense in depth at the browser
+boundary. Their POST endpoints independently require the Web `Operator` policy
+and antiforgery validation. A bounded process-local confirmation is random,
+short-lived, bound to subject, server, and command action, and consumed once
+before the mutation request; it stores no message, credential, or token. It
+reduces accidental duplicate submissions and blocks cross-command token reuse,
+but is not an idempotency guarantee. An uncertain API outcome is never retried
+automatically and directs the operator to durable command history.
 
 Production startup fails unless authentication uses an HTTPS authority, a
 file-backed client secret, and a persistent X.509-protected Data Protection key
@@ -201,6 +202,7 @@ operation.
 | `GET /api/servers/{id}/commands` | `Reader` |
 | `GET /api/commands/{id}` | `Reader` |
 | `POST /operator/servers/{id}/commands/say` on Web | `Operator` plus antiforgery and one-time confirmation |
+| `POST /operator/servers/{id}/commands/restart/queue` on Web | `Operator` plus antiforgery, readiness refresh, and one-time command-bound confirmation |
 | `GET /metrics` | `Reader` |
 | `GET /openapi/{documentName}.json` in Development | `Reader` |
 | `GET /health/live` | Anonymous |

@@ -1,3 +1,4 @@
+using GoldSrcOps.Contracts.Commands;
 using GoldSrcOps.Web.Security;
 using GoldSrcOps.Web.Services;
 using Microsoft.AspNetCore.Antiforgery;
@@ -5,28 +6,29 @@ using Microsoft.AspNetCore.WebUtilities;
 
 namespace GoldSrcOps.Web.Endpoints;
 
-internal static class OperatorCommandEndpoints
+internal static class OperatorRestartEndpoints
 {
-    private const int MaxSayMessageLength = 512;
+    private const int CommandLimit = 100;
 
-    public static IEndpointRouteBuilder MapOperatorCommandEndpoints(
+    public static IEndpointRouteBuilder MapOperatorRestartEndpoints(
         this IEndpointRouteBuilder endpoints)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
 
         endpoints.MapPost(
-                "/operator/servers/{serverId:guid}/commands/say",
-                QueueSayAsync)
+                "/operator/servers/{serverId:guid}/commands/restart/queue",
+                QueueRestartAsync)
             .RequireAuthorization(WebSecurity.OperatorPolicy);
 
         return endpoints;
     }
 
-    private static async Task<IResult> QueueSayAsync(
+    private static async Task<IResult> QueueRestartAsync(
         Guid serverId,
         HttpContext context,
         IAntiforgery antiforgery,
         OperatorCommandConfirmationStore confirmations,
+        IReaderApiClient readerApiClient,
         IOperatorApiClient operatorApiClient,
         CancellationToken cancellationToken)
     {
@@ -44,12 +46,11 @@ internal static class OperatorCommandEndpoints
             return Results.BadRequest();
         }
 
-        SayCommandFormRequest request;
+        RestartCommandFormRequest request;
         try
         {
             var form = await context.Request.ReadFormAsync(cancellationToken);
-            request = new SayCommandFormRequest(
-                form["Message"].ToString().Trim(),
+            request = new RestartCommandFormRequest(
                 form["ConfirmationToken"].ToString(),
                 string.Equals(form["Confirmed"], "true", StringComparison.OrdinalIgnoreCase));
         }
@@ -58,9 +59,7 @@ internal static class OperatorCommandEndpoints
             return Results.BadRequest();
         }
 
-        if (request.Message.Length == 0 ||
-            request.Message.Length > MaxSayMessageLength ||
-            !request.Confirmed)
+        if (!request.Confirmed)
         {
             return RedirectToForm(serverId, "invalid");
         }
@@ -71,21 +70,44 @@ internal static class OperatorCommandEndpoints
                 request.ConfirmationToken,
                 subject,
                 serverId,
-                OperatorCommandAction.Say))
+                OperatorCommandAction.Restart))
         {
             return RedirectToForm(serverId, "confirmation-expired");
         }
 
         try
         {
-            var result = await operatorApiClient.QueueSayAsync(
+            var commands = await readerApiClient.GetServerCommandsAsync(
                 serverId,
-                request.Message,
+                CommandLimit,
                 cancellationToken);
+            if (commands is null)
+            {
+                return RedirectToForm(serverId, "server-not-found");
+            }
+
+            if (commands.Any(IsIncomplete))
+            {
+                return RedirectToForm(serverId, "commands-in-progress");
+            }
+        }
+        catch (Exception exception) when (
+            exception is HttpRequestException or InvalidDataException)
+        {
+            return RedirectToForm(serverId, "precondition-unavailable");
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return RedirectToForm(serverId, "precondition-unavailable");
+        }
+
+        try
+        {
+            var result = await operatorApiClient.QueueRestartAsync(serverId, cancellationToken);
 
             return result switch
             {
-                OperatorCommandQueueResult.Queued => RedirectToHistory(serverId, "queued"),
+                OperatorCommandQueueResult.Queued => RedirectToHistory(serverId, "restart-queued"),
                 OperatorCommandQueueResult.ServerNotFound => RedirectToForm(serverId, "server-not-found"),
                 OperatorCommandQueueResult.MissingRconCredential => RedirectToForm(serverId, "credential-missing"),
                 OperatorCommandQueueResult.Rejected => RedirectToForm(serverId, "rejected"),
@@ -94,17 +116,21 @@ internal static class OperatorCommandEndpoints
         }
         catch (HttpRequestException)
         {
-            return RedirectToHistory(serverId, "unknown");
+            return RedirectToHistory(serverId, "restart-unknown");
         }
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return RedirectToHistory(serverId, "unknown");
+            return RedirectToHistory(serverId, "restart-unknown");
         }
     }
 
+    private static bool IsIncomplete(CommandExecutionResponse command) =>
+        string.Equals(command.Status, "Pending", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(command.Status, "Running", StringComparison.OrdinalIgnoreCase);
+
     private static IResult RedirectToForm(Guid serverId, string result) =>
         Results.LocalRedirect(AddResult(
-            $"/operator/servers/{serverId:D}/commands/new",
+            $"/operator/servers/{serverId:D}/commands/restart",
             result));
 
     private static IResult RedirectToHistory(Guid serverId, string result) =>
@@ -115,8 +141,7 @@ internal static class OperatorCommandEndpoints
     private static string AddResult(string path, string result) =>
         QueryHelpers.AddQueryString(path, "result", result);
 
-    private sealed record SayCommandFormRequest(
-        string Message,
+    private sealed record RestartCommandFormRequest(
         string ConfirmationToken,
         bool Confirmed);
 }

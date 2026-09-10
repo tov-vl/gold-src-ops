@@ -145,6 +145,53 @@ public sealed class OperatorApiClientTests
         exception.Which.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    [Fact]
+    public async Task QueueRestartAsync_posts_only_the_restart_action()
+    {
+        var serverId = Guid.Parse("7ffecba6-623a-4e1b-897a-bf85cad55079");
+        var capture = new LifecycleCaptureHandler(HttpStatusCode.Created);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.QueueRestartAsync(serverId);
+
+        result.Should().Be(OperatorCommandQueueResult.Queued);
+        capture.Method.Should().Be(HttpMethod.Post);
+        capture.RequestUri.Should().Be(
+            new Uri($"https://api.example.test/api/servers/{serverId:D}/commands/restart"));
+        capture.HasContent.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, (int)OperatorCommandQueueResult.ServerNotFound)]
+    [InlineData(HttpStatusCode.Conflict, (int)OperatorCommandQueueResult.MissingRconCredential)]
+    [InlineData(HttpStatusCode.BadRequest, (int)OperatorCommandQueueResult.Rejected)]
+    public async Task QueueRestartAsync_maps_expected_rejections(
+        HttpStatusCode statusCode,
+        int expected)
+    {
+        var capture = new LifecycleCaptureHandler(statusCode);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.QueueRestartAsync(Guid.NewGuid());
+
+        result.Should().Be((OperatorCommandQueueResult)expected);
+    }
+
+    [Fact]
+    public async Task QueueRestartAsync_rejects_an_unexpected_status()
+    {
+        var capture = new LifecycleCaptureHandler(HttpStatusCode.OK);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var action = () => client.QueueRestartAsync(Guid.NewGuid());
+
+        var exception = await action.Should().ThrowAsync<HttpRequestException>();
+        exception.Which.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
     [Theory]
     [InlineData(true, "enable")]
     [InlineData(false, "disable")]
