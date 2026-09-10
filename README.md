@@ -22,9 +22,10 @@ all passed. Release notes and detailed evidence are available in
 [docs/release-notes-v2.3.md](docs/release-notes-v2.3.md) and
 [docs/v2.3-readiness.md](docs/v2.3-readiness.md).
 
-Active v2.4 work now advances independent external availability measurement and
-the web experience in parallel. `API-01` remains `Draft` while shadow evidence
-accumulates. The first sanitized public Blazor dashboard landed in
+The v2.4 release closure now has a passing independent 24-hour availability
+shadow audit. The immutable `API-01` activation tuple starts its prospective
+seven-day window at `2026-09-10T16:45:00Z`; no shadow sample is imported. The
+first sanitized public Blazor dashboard landed in
 [PR #82](https://github.com/tov-vl/gold-src-ops/pull/82), its production
 packaging landed in
 [PR #84](https://github.com/tov-vl/gold-src-ops/pull/84), and the static-SSR
@@ -41,7 +42,7 @@ Operator mutation landed in
 `v2.4.0-rc.9` was published, digest-verified, and deployed from revision
 `2769d89`; its complete tag workflow passed in
 [run #34235947471](https://github.com/tov-vl/gold-src-ops/actions/runs/34235947471).
-It is not yet a stable v2.4 release. The
+Stable v2.4 publication remains pending. The
 provider-independent monitoring contract is documented in
 [docs/v2.4-external-availability-monitoring.md](docs/v2.4-external-availability-monitoring.md),
 the conditional managed-provider choice is recorded in
@@ -55,8 +56,8 @@ Its independent GitHub-hosted scheduling contract and operator setup are in
 [ops/availability/README.md](ops/availability/README.md). Independent recovery
 of one scheduled segment passed in
 [run #33968872991](https://github.com/tov-vl/gold-src-ops/actions/runs/33968872991),
-closing the current availability implementation slice while shadow collection
-continues without blocking UI development. Production packaging and rollout
+closing the availability implementation slice. The first official `API-01`
+review is due only after `2026-09-17T16:50:00Z`. Production packaging and rollout
 evidence for the dashboard follows the fail-closed two-image contract in
 [docs/v2.4-public-dashboard-deployment.md](docs/v2.4-public-dashboard-deployment.md).
 The production OIDC boundary and live Reader/Operator evidence are recorded in
@@ -153,7 +154,7 @@ published-image verification have passed.
 | v2.1 dead-letter recovery release | [v2.1 release notes](docs/release-notes-v2.1.md) |
 | v2.2 RCON reliability release | [v2.2 release notes](docs/release-notes-v2.2.md) |
 | v2.3 reference deployment release | [v2.3 release notes](docs/release-notes-v2.3.md) |
-| v2.4 operator experience candidate | [v2.4 release notes](docs/release-notes-v2.4.md) |
+| v2.4 release closure | [v2.4 release notes](docs/release-notes-v2.4.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |

@@ -894,10 +894,10 @@ Design accepted for v2.4. Decision 20 conditionally selects a preferred shadow
 provider, and three non-authoritative checks were configured on 2026-09-04. The
 normalized exporter, create-only JSONL format, expected-slot evaluator, and
 contract fixtures are implemented. Live export, independent archive and
-recovery, provider failure-detail access, and alert routing are proved. No
-official activation timestamp exists, and `API-01` remains inactive. The active
-fresh 24-hour shadow validation and one complete prospective window under
-Decision 23 remain. The full contract is in
+recovery, provider failure-detail access, and alert routing are proved. The
+fresh Decision 22 audit passed with 1,440/1,440 good slots, and the immutable
+tuple activates `API-01` prospectively at `2026-09-10T16:45:00Z`. One complete
+prospective window under Decision 23 remains. The full contract is in
 `docs/v2.4-external-availability-monitoring.md`.
 
 References:
@@ -1090,7 +1090,8 @@ an eight-minute target miss as a failing complete population. The audits from
 2026-09-08 and 2026-09-09 remain failed under their original workflow revision;
 they are not reclassified. Alert-route proof is complete. The fresh
 forward-looking 24-hour window recorded for 2026-09-09 through 2026-09-10 is
-active and remains required before activation.
+complete. Its revised-policy audit passed with matching identity, a complete
+1,440-slot population, no bad or missing slots, and target attainment.
 
 References:
 
@@ -1143,6 +1144,7 @@ Alternatives considered:
 Implementation status:
 
 The SLO register, external-monitoring contract, roadmap, and release-closure
-documents use the seven-day window and 50-minute budget. `API-01` remains
-`Draft`; the active 24-hour shadow must pass before an activation timestamp is
-recorded.
+documents use the seven-day window and 50-minute budget. The shadow gate passed
+and the immutable tuple records `API-01` as `Collecting` from
+`2026-09-10T16:45:00Z`; no met-or-missed decision is permitted before the
+complete prospective window and maturity grace period end.
