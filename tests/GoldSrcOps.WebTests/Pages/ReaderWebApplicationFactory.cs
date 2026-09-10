@@ -404,6 +404,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     internal sealed class FixtureOperatorApiClient : IOperatorApiClient
     {
         private int callCount;
+        private int mapChangeCallCount;
         private int restartCallCount;
         private int monitoringCallCount;
         private int registrationCallCount;
@@ -412,6 +413,8 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         private int credentialUpdateCallCount;
 
         public int CallCount => Volatile.Read(ref callCount);
+
+        public int MapChangeCallCount => Volatile.Read(ref mapChangeCallCount);
 
         public int RestartCallCount => Volatile.Read(ref restartCallCount);
 
@@ -427,9 +430,13 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 
         public Guid? LastServerId { get; private set; }
 
+        public Guid? LastMapChangeServerId { get; private set; }
+
         public Guid? LastRestartServerId { get; private set; }
 
         public string? LastMessage { get; private set; }
+
+        public string? LastMap { get; private set; }
 
         public Guid? LastMonitoringServerId { get; private set; }
 
@@ -450,6 +457,11 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         public OperatorCommandQueueResult Result { get; set; } = OperatorCommandQueueResult.Queued;
 
         public Exception? ExceptionToThrow { get; set; }
+
+        public OperatorCommandQueueResult MapChangeResult { get; set; } =
+            OperatorCommandQueueResult.Queued;
+
+        public Exception? MapChangeExceptionToThrow { get; set; }
 
         public OperatorCommandQueueResult RestartResult { get; set; } =
             OperatorCommandQueueResult.Queued;
@@ -530,6 +542,24 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             }
 
             return Task.FromResult(Result);
+        }
+
+        public Task<OperatorCommandQueueResult> QueueMapChangeAsync(
+            Guid serverId,
+            string map,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref mapChangeCallCount);
+            LastMapChangeServerId = serverId;
+            LastMap = map;
+
+            if (MapChangeExceptionToThrow is not null)
+            {
+                return Task.FromException<OperatorCommandQueueResult>(
+                    MapChangeExceptionToThrow);
+            }
+
+            return Task.FromResult(MapChangeResult);
         }
 
         public Task<OperatorCommandQueueResult> QueueRestartAsync(

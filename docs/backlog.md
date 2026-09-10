@@ -962,8 +962,28 @@ The fifth local v2.5 slice adds guarded server restart:
 - Client, confirmation-store, authorization, submit-time precondition,
   workflow, token-boundary, and responsive browser tests cover the slice.
 
-Map-change and raw command controls remain outside these first five slices. No
-v2.5 UI change is deployed before the v2.4 stable-publication gate completes.
+The sixth local v2.5 slice adds guarded map change:
+
+- Reader sessions can inspect sanitized readiness and expected impact. Only an
+  Operator receives the map-name form and confirmation controls.
+- The API and Web form share a strict map-name allowlist: ASCII letters,
+  digits, underscores, and hyphens only, with an alphanumeric first and last
+  character. Command separators, embedded whitespace, paths, and control
+  characters are rejected before queueing; the Web form normalizes only
+  surrounding whitespace.
+- The Operator first enters a map name, then reviews a server-side draft. The
+  final POST carries only a bounded one-time token and explicit acknowledgement;
+  the map cannot be replaced through a forged confirmation field.
+- The confirmation is bound to subject, server, and normalized map, consumed
+  before the API call, and followed by a fresh incomplete-command check.
+- PostgreSQL remains the execution serialization boundary. The Web host never
+  retries an uncertain API or RCON outcome and directs the Operator to durable
+  command history and current status before a deliberate follow-up.
+- API, client, confirmation-store, authorization, forged-form, workflow,
+  token-boundary, and responsive browser tests cover the slice.
+
+Raw command controls remain outside these first six slices. No v2.5 UI change
+is deployed before the v2.4 stable-publication gate completes.
 
 ## Current API Scope
 

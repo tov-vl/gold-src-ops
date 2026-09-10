@@ -67,13 +67,15 @@ test also requires one opaque `__Host-GoldSrcOps.Web` cookie with `HttpOnly`,
 registered only inside the test host and cannot be enabled in the production
 application.
 
-The guarded Web `say` and restart forms add defense in depth at the browser
-boundary. Their POST endpoints independently require the Web `Operator` policy
-and antiforgery validation. A bounded process-local confirmation is random,
-short-lived, bound to subject, server, and command action, and consumed once
-before the mutation request; it stores no message, credential, or token. It
-reduces accidental duplicate submissions and blocks cross-command token reuse,
-but is not an idempotency guarantee. An uncertain API outcome is never retried
+The guarded Web `say`, restart, and map-change forms add defense in depth at the
+browser boundary. Their POST endpoints independently require the Web `Operator`
+policy and antiforgery validation. A bounded process-local confirmation is
+random, short-lived, bound to subject and server, and consumed once before the
+mutation request. Say and restart confirmations contain no command payload.
+Map change uses a dedicated confirmation that also binds the validated map, so
+the final form contains no mutable map field. Neither workflow stores a secret
+or bearer token. These guards reduce accidental duplicate submissions but are
+not a durable idempotency guarantee. An uncertain API outcome is never retried
 automatically and directs the operator to durable command history.
 
 Production startup fails unless authentication uses an HTTPS authority, a
@@ -203,6 +205,7 @@ operation.
 | `GET /api/commands/{id}` | `Reader` |
 | `POST /operator/servers/{id}/commands/say` on Web | `Operator` plus antiforgery and one-time confirmation |
 | `POST /operator/servers/{id}/commands/restart/queue` on Web | `Operator` plus antiforgery, readiness refresh, and one-time command-bound confirmation |
+| `POST /operator/servers/{id}/commands/change-map/queue` on Web | `Operator` plus antiforgery, readiness refresh, and one-time subject/server/map-bound confirmation |
 | `GET /metrics` | `Reader` |
 | `GET /openapi/{documentName}.json` in Development | `Reader` |
 | `GET /health/live` | Anonymous |

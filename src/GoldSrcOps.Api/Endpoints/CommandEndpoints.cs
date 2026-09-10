@@ -12,7 +12,6 @@ namespace GoldSrcOps.Api.Endpoints;
 
 public static class CommandEndpoints
 {
-    private const int MaxMapNameLength = 128;
     private const int MaxSayMessageLength = 512;
     private const string CredentialMonitoringMustBePausedCode =
         "rcon_credential.monitoring_must_be_paused";
@@ -295,7 +294,17 @@ public static class CommandEndpoints
     private static Dictionary<string, string[]> Validate(ChangeMapCommandRequest request)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
-        ValidateRequiredText(errors, nameof(request.Map), request.Map, MaxMapNameLength);
+        ValidateRequiredText(
+            errors,
+            nameof(request.Map),
+            request.Map,
+            ChangeMapCommandRequest.MaxMapNameLength);
+        if (!errors.ContainsKey(nameof(request.Map)) &&
+            !ChangeMapCommandRequest.IsValidMapName(request.Map))
+        {
+            errors[nameof(request.Map)] =
+                ["Map must use only ASCII letters, digits, underscores, or hyphens and start and end with a letter or digit."];
+        }
 
         return errors;
     }

@@ -166,6 +166,28 @@ public sealed class CommandEndpointIntegrationTests
         history.Should().ContainSingle().Which.Should().BeEquivalentTo(command);
     }
 
+    [Theory]
+    [InlineData("de_dust2;quit")]
+    [InlineData("de_dust2\nquit")]
+    [InlineData("../de_dust2")]
+    [InlineData("de dust2")]
+    [InlineData(" de_dust2 ")]
+    [InlineData("-de_dust2")]
+    [InlineData("de_dust2-")]
+    public async Task QueueMapChange_rejects_unsafe_map_name(string map)
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var server = await RegisterServerAsync(client);
+        await SetRconCredentialAsync(client, server.Id);
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/servers/{server.Id}/commands/change-map",
+            new ChangeMapCommandRequest(map));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     [Fact]
     public async Task Background_dispatcher_executes_pending_command_through_configured_executor()
     {

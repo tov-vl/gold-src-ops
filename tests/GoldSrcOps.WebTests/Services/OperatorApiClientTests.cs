@@ -146,6 +146,54 @@ public sealed class OperatorApiClientTests
     }
 
     [Fact]
+    public async Task QueueMapChangeAsync_posts_only_the_change_map_contract()
+    {
+        var serverId = Guid.Parse("a149e5c1-c20f-427f-80f5-f7a41fc19819");
+        const string map = "de_dust2";
+        var capture = new MapChangeCaptureHandler(HttpStatusCode.Created);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.QueueMapChangeAsync(serverId, map);
+
+        result.Should().Be(OperatorCommandQueueResult.Queued);
+        capture.Method.Should().Be(HttpMethod.Post);
+        capture.RequestUri.Should().Be(new Uri(
+            $"https://api.example.test/api/servers/{serverId:D}/commands/change-map"));
+        capture.Request.Should().Be(new ChangeMapCommandRequest(map));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, (int)OperatorCommandQueueResult.ServerNotFound)]
+    [InlineData(HttpStatusCode.Conflict, (int)OperatorCommandQueueResult.MissingRconCredential)]
+    [InlineData(HttpStatusCode.BadRequest, (int)OperatorCommandQueueResult.Rejected)]
+    public async Task QueueMapChangeAsync_maps_expected_rejections(
+        HttpStatusCode statusCode,
+        int expected)
+    {
+        var capture = new MapChangeCaptureHandler(statusCode);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.QueueMapChangeAsync(Guid.NewGuid(), "de_dust2");
+
+        result.Should().Be((OperatorCommandQueueResult)expected);
+    }
+
+    [Fact]
+    public async Task QueueMapChangeAsync_rejects_an_unexpected_status()
+    {
+        var capture = new MapChangeCaptureHandler(HttpStatusCode.OK);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var action = () => client.QueueMapChangeAsync(Guid.NewGuid(), "de_dust2");
+
+        var exception = await action.Should().ThrowAsync<HttpRequestException>();
+        exception.Which.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task QueueRestartAsync_posts_only_the_restart_action()
     {
         var serverId = Guid.Parse("7ffecba6-623a-4e1b-897a-bf85cad55079");
@@ -505,6 +553,26 @@ public sealed class OperatorApiClientTests
             Method = request.Method;
             RequestUri = request.RequestUri;
             Request = await request.Content!.ReadFromJsonAsync<SayCommandRequest>(cancellationToken);
+            return new HttpResponseMessage(responseStatusCode);
+        }
+    }
+
+    private sealed class MapChangeCaptureHandler(HttpStatusCode responseStatusCode) : HttpMessageHandler
+    {
+        public HttpMethod? Method { get; private set; }
+
+        public Uri? RequestUri { get; private set; }
+
+        public ChangeMapCommandRequest? Request { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Method = request.Method;
+            RequestUri = request.RequestUri;
+            Request = await request.Content!.ReadFromJsonAsync<ChangeMapCommandRequest>(
+                cancellationToken);
             return new HttpResponseMessage(responseStatusCode);
         }
     }

@@ -27,6 +27,8 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands/new");
         var restartCommandPage = await VisitAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands/restart");
+        var mapChangeCommandPage = await VisitAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands/change-map");
         var monitoringPage = await VisitAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/monitoring");
         var settingsPage = await VisitAsync(
@@ -63,6 +65,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                      commandsPage,
                      sayCommandPage,
                      restartCommandPage,
+                     mapChangeCommandPage,
                      monitoringPage,
                      settingsPage,
                      credentialsPage,
@@ -222,6 +225,55 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             hasHorizontalOverflow.Should().BeFalse();
 
             await CaptureScreenshotIfRequestedAsync("operator-restart", viewport);
+        }
+    }
+
+    [BrowserFact]
+    public async Task Operator_map_change_form_and_review_fit_supported_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(
+                    baseAddress,
+                    $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands/change-map")
+                    .AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("form.map-change-form").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("#map-name").IsVisibleAsync()).Should().BeTrue();
+            await Page.Locator("#map-name").FillAsync("viewport_map");
+            await Page.Locator("form.map-change-form button[type='submit']").ClickAsync();
+            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+            (await Page.Locator("section.review-section").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("form.map-change-confirmation").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("input[name='Confirmed']").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("form.map-change-confirmation input[name='Map']").CountAsync())
+                .Should().Be(0);
+            (await Page.Locator("form.map-change-confirmation input[name='Model.Map']").CountAsync())
+                .Should().Be(0);
+            (await Page.Locator("section.review-section").TextContentAsync())
+                .Should().Contain("viewport_map").And.Contain("changelevel");
+            var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+            hasHorizontalOverflow.Should().BeFalse();
+
+            await CaptureScreenshotIfRequestedAsync("operator-map-change-review", viewport);
         }
     }
 
