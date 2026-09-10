@@ -26,6 +26,7 @@ public sealed class ServerCredential
         }
 
         Id = Guid.NewGuid();
+        Revision = 1;
         ServerId = serverId;
         Kind = kind;
         SecretReference = NormalizeSecretReference(secretReference);
@@ -33,6 +34,8 @@ public sealed class ServerCredential
     }
 
     public Guid Id { get; private set; }
+
+    public long Revision { get; private set; }
 
     public Guid ServerId { get; private set; }
 
@@ -52,6 +55,7 @@ public sealed class ServerCredential
     {
         SecretReference = NormalizeSecretReference(secretReference);
         UpdatedAtUtc = updatedAtUtc;
+        Revision = checked(Revision + 1);
     }
 
     private static string NormalizeSecretReference(string secretReference)

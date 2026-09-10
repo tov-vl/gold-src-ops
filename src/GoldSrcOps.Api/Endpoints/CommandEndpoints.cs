@@ -14,6 +14,12 @@ public static class CommandEndpoints
 {
     private const int MaxMapNameLength = 128;
     private const int MaxSayMessageLength = 512;
+    private const string CredentialMonitoringMustBePausedCode =
+        "rcon_credential.monitoring_must_be_paused";
+    private const string CredentialCommandsInProgressCode =
+        "rcon_credential.commands_in_progress";
+    private const string CredentialRevisionConflictCode =
+        "rcon_credential.revision_conflict";
 
     public static IEndpointRouteBuilder MapCommandEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -56,7 +62,7 @@ public static class CommandEndpoints
         return endpoints;
     }
 
-    private static async Task<Results<Ok<ServerCredentialResponse>, NotFound, ValidationProblem>> SetRconCredentialAsync(
+    private static async Task<Results<Ok<ServerCredentialResponse>, NotFound, ValidationProblem, ProblemHttpResult>> SetRconCredentialAsync(
         Guid serverId,
         SetRconCredentialRequest request,
         ServerCredentialsService credentials,
@@ -68,12 +74,33 @@ public static class CommandEndpoints
             return TypedResults.ValidationProblem(errors);
         }
 
-        var credential = await credentials.SetAsync(
+        var result = await credentials.SetAsync(
             serverId,
-            new SetServerCredentialCommand(ServerCredentialKind.RconPassword, request.SecretAlias),
+            new SetServerCredentialCommand(
+                ServerCredentialKind.RconPassword,
+                request.SecretAlias,
+                request.ExpectedServerRevision,
+                request.ExpectedCredentialRevision),
             cancellationToken);
 
-        return credential is null ? TypedResults.NotFound() : TypedResults.Ok(Map(credential));
+        return result.Kind switch
+        {
+            SetServerCredentialResultKind.Updated => TypedResults.Ok(Map(
+                result.Credential ?? throw new InvalidOperationException(
+                    "A successful credential update must return credential metadata."))),
+            SetServerCredentialResultKind.NotFound => TypedResults.NotFound(),
+            SetServerCredentialResultKind.MonitoringEnabled => Conflict(
+                "Pause monitoring before changing the RCON credential binding.",
+                CredentialMonitoringMustBePausedCode),
+            SetServerCredentialResultKind.CommandsInProgress => Conflict(
+                "Wait for pending and running commands before changing the RCON credential binding.",
+                CredentialCommandsInProgressCode),
+            SetServerCredentialResultKind.RevisionConflict => Conflict(
+                "The server or credential changed after this form was loaded.",
+                CredentialRevisionConflictCode),
+            _ => throw new InvalidOperationException(
+                $"Unsupported credential update result '{result.Kind}'.")
+        };
     }
 
     private static async Task<Results<Ok<IReadOnlyList<ServerCredentialResponse>>, NotFound>> ListCredentialsAsync(
@@ -241,8 +268,29 @@ public static class CommandEndpoints
                 [$"SecretAlias must be at most {RconSecretReference.MaxAliasLength} characters, use ASCII letters, digits, '.', '_', or '-', and start and end with a letter or digit."];
         }
 
+        if (request.ExpectedServerRevision <= 0)
+        {
+            errors[nameof(request.ExpectedServerRevision)] =
+                ["ExpectedServerRevision must be positive."];
+        }
+
+        if (request.ExpectedCredentialRevision < 0)
+        {
+            errors[nameof(request.ExpectedCredentialRevision)] =
+                ["ExpectedCredentialRevision must not be negative."];
+        }
+
         return errors;
     }
+
+    private static ProblemHttpResult Conflict(string title, string code) =>
+        TypedResults.Problem(
+            statusCode: StatusCodes.Status409Conflict,
+            title: title,
+            extensions:
+            [
+                new KeyValuePair<string, object?>("code", code)
+            ]);
 
     private static Dictionary<string, string[]> Validate(ChangeMapCommandRequest request)
     {
@@ -301,6 +349,7 @@ public static class CommandEndpoints
         new(
             credential.Id,
             credential.ServerId,
+            credential.Revision,
             credential.Kind.ToString(),
             credential.IsConfigured,
             credential.CreatedAtUtc,

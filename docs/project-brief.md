@@ -245,9 +245,11 @@ The project should evolve in stages:
 - v2.5: extend the authenticated Operator portal with narrowly guarded server
   lifecycle controls. The local sequence now covers pause/resume, idempotent
   paused registration, and optimistic-concurrency-protected editing of
-  non-secret connection and polling metadata while monitoring is paused.
-  RCON credential management and broader RCON controls remain separate later
-  slices.
+  non-secret connection and polling metadata while monitoring is paused. It
+  also covers alias-only RCON credential binding and rotation behind paused
+  monitoring, no-incomplete-command, one-time-confirmation, and optimistic
+  concurrency guards. Restart, map-change, and raw RCON controls remain
+  separate later slices.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

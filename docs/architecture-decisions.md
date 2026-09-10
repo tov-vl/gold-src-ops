@@ -201,7 +201,11 @@ Implementation implication:
 - The credential API accepts a validated `secretAlias`, not a secret value or configuration key.
 - `ServerCredential.SecretReference` stores a canonical `rcon-secret://<alias>` value.
 - Aliases use a constrained ASCII format that cannot contain configuration-section separators.
-- Credential response contracts expose metadata only: id, server id, kind, configured flag, and timestamps.
+- Credential response contracts expose metadata only: id, server id, kind,
+  configured flag, revision, and timestamps.
+- Binding or rotation requires exact server and credential revisions, paused
+  monitoring, and no `Pending` or `Running` command. Concurrent or stale writes
+  fail closed instead of replacing a credential reference implicitly.
 - `CommandExecution` records are created as `Pending` and dispatched through `IRconCommandExecutor`.
 - `GoldSrcRconCommandExecutor` resolves credentials inside Infrastructure and calls the GoldSrc RCON client over UDP.
 - `ConfigurationSecretReferenceResolver` reads only `RconSecrets:<alias>`; legacy `env://`, `config://`, and `dev-secrets://` references are unsupported and must be replaced.

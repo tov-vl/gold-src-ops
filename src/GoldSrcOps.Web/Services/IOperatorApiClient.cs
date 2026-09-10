@@ -23,6 +23,10 @@ internal interface IOperatorApiClient
         OperatorServerUpdateDraft draft,
         CancellationToken cancellationToken = default);
 
+    Task<OperatorRconCredentialUpdateResult> SetRconCredentialAsync(
+        OperatorRconCredentialDraft draft,
+        CancellationToken cancellationToken = default);
+
     Task<OperatorReplayResult> ReplayDeadLetterAsync(
         Guid eventId,
         Guid requestId,
@@ -64,6 +68,20 @@ internal enum OperatorServerUpdateResultKind
 internal sealed record OperatorServerUpdateResult(
     OperatorServerUpdateResultKind Kind,
     ServerResponse? Server);
+
+internal enum OperatorRconCredentialUpdateResultKind
+{
+    Updated,
+    ServerNotFound,
+    MonitoringEnabled,
+    CommandsInProgress,
+    Conflict,
+    Rejected
+}
+
+internal sealed record OperatorRconCredentialUpdateResult(
+    OperatorRconCredentialUpdateResultKind Kind,
+    GoldSrcOps.Contracts.Credentials.ServerCredentialResponse? Credential);
 
 internal enum OperatorServerRegistrationResultKind
 {

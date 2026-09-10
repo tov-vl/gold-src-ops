@@ -14,31 +14,61 @@ public sealed class ServerCredentialsService
         _clock = clock;
     }
 
-    public async Task<ServerCredentialDto?> SetAsync(
+    public async Task<SetServerCredentialResult> SetAsync(
         Guid serverId,
         SetServerCredentialCommand command,
         CancellationToken cancellationToken)
     {
-        if (!await _credentials.ServerExistsAsync(serverId, cancellationToken))
+        var server = await _credentials.GetServerForUpdateAsync(serverId, cancellationToken);
+        if (server is null)
         {
-            return null;
+            return SetServerCredentialResult.NotFound();
+        }
+
+        if (server.Revision != command.ExpectedServerRevision)
+        {
+            return SetServerCredentialResult.RevisionConflict();
+        }
+
+        if (server.IsEnabled)
+        {
+            return SetServerCredentialResult.MonitoringEnabled();
+        }
+
+        if (await _credentials.HasIncompleteCommandsAsync(serverId, cancellationToken))
+        {
+            return SetServerCredentialResult.CommandsInProgress();
         }
 
         var secretReference = RconSecretReference.Create(command.SecretAlias);
         var credential = await _credentials.GetAsync(serverId, command.Kind, cancellationToken);
         if (credential is null)
         {
+            if (command.ExpectedCredentialRevision != 0)
+            {
+                return SetServerCredentialResult.RevisionConflict();
+            }
+
             credential = new ServerCredential(serverId, command.Kind, secretReference, _clock.UtcNow);
             await _credentials.AddAsync(credential, cancellationToken);
         }
         else
         {
+            if (credential.Revision != command.ExpectedCredentialRevision)
+            {
+                return SetServerCredentialResult.RevisionConflict();
+            }
+
             credential.UpdateSecretReference(secretReference, _clock.UtcNow);
         }
 
-        await _credentials.SaveChangesAsync(cancellationToken);
+        server.RecordCredentialChange();
+        if (!await _credentials.TrySaveChangesAsync(cancellationToken))
+        {
+            return SetServerCredentialResult.RevisionConflict();
+        }
 
-        return Map(credential);
+        return SetServerCredentialResult.Updated(Map(credential));
     }
 
     public async Task<IReadOnlyList<ServerCredentialDto>?> ListAsync(
@@ -58,6 +88,7 @@ public sealed class ServerCredentialsService
         new(
             credential.Id,
             credential.ServerId,
+            credential.Revision,
             credential.Kind,
             credential.IsConfigured,
             credential.CreatedAtUtc,

@@ -6,6 +6,10 @@ public interface IServerCredentialRepository
 {
     Task<bool> ServerExistsAsync(Guid serverId, CancellationToken cancellationToken);
 
+    Task<Server?> GetServerForUpdateAsync(Guid serverId, CancellationToken cancellationToken);
+
+    Task<bool> HasIncompleteCommandsAsync(Guid serverId, CancellationToken cancellationToken);
+
     Task AddAsync(ServerCredential credential, CancellationToken cancellationToken);
 
     Task<ServerCredential?> GetAsync(
@@ -17,5 +21,5 @@ public interface IServerCredentialRepository
         Guid serverId,
         CancellationToken cancellationToken);
 
-    Task SaveChangesAsync(CancellationToken cancellationToken);
+    Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken);
 }

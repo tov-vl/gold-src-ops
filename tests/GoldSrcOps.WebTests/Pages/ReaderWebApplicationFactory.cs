@@ -4,6 +4,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
+using GoldSrcOps.Contracts.Credentials;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
@@ -214,6 +215,23 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             return Task.FromResult<IReadOnlyList<CommandExecutionResponse>?>(commands.Take(limit).ToArray());
         }
 
+        public Task<IReadOnlyList<ServerCredentialResponse>?> GetServerCredentialsAsync(
+            Guid serverId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ServerCredentialResponse>?>(serverId == ServerId
+                ?
+                [
+                    new ServerCredentialResponse(
+                        Guid.Parse("c6b3cf17-c64c-4eaa-85ca-bd0224b28722"),
+                        ServerId,
+                        3,
+                        "RconPassword",
+                        true,
+                        ObservedAtUtc.AddDays(-1),
+                        ObservedAtUtc.AddHours(-2))
+                ]
+                : null);
+
         public Task<DeadLetterListResponse> GetDeadLettersAsync(
             string? cursor,
             int limit,
@@ -353,6 +371,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         private int registrationCallCount;
         private int replayCallCount;
         private int updateCallCount;
+        private int credentialUpdateCallCount;
 
         public int CallCount => Volatile.Read(ref callCount);
 
@@ -363,6 +382,8 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         public int RegistrationCallCount => Volatile.Read(ref registrationCallCount);
 
         public int UpdateCallCount => Volatile.Read(ref updateCallCount);
+
+        public int CredentialUpdateCallCount => Volatile.Read(ref credentialUpdateCallCount);
 
         public Guid? LastServerId { get; private set; }
 
@@ -375,6 +396,8 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         public OperatorServerRegistrationDraft? LastRegistrationDraft { get; private set; }
 
         public OperatorServerUpdateDraft? LastUpdateDraft { get; private set; }
+
+        public OperatorRconCredentialDraft? LastCredentialUpdateDraft { get; private set; }
 
         public Guid? LastEventId { get; private set; }
 
@@ -426,6 +449,20 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                     new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero)));
 
         public Exception? UpdateExceptionToThrow { get; set; }
+
+        public OperatorRconCredentialUpdateResult CredentialUpdateResult { get; set; } =
+            new(
+                OperatorRconCredentialUpdateResultKind.Updated,
+                new ServerCredentialResponse(
+                    Guid.Parse("c6b3cf17-c64c-4eaa-85ca-bd0224b28722"),
+                    ServerId,
+                    4,
+                    "RconPassword",
+                    true,
+                    new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 9, 10, 10, 0, 0, TimeSpan.Zero)));
+
+        public Exception? CredentialUpdateExceptionToThrow { get; set; }
 
         public OperatorReplayResult ReplayResult { get; set; } = OperatorReplayResult.Accepted;
 
@@ -496,6 +533,22 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             }
 
             return Task.FromResult(UpdateResult);
+        }
+
+        public Task<OperatorRconCredentialUpdateResult> SetRconCredentialAsync(
+            OperatorRconCredentialDraft draft,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref credentialUpdateCallCount);
+            LastCredentialUpdateDraft = draft;
+
+            if (CredentialUpdateExceptionToThrow is not null)
+            {
+                return Task.FromException<OperatorRconCredentialUpdateResult>(
+                    CredentialUpdateExceptionToThrow);
+            }
+
+            return Task.FromResult(CredentialUpdateResult);
         }
 
         public Task<OperatorMonitoringUpdateResult> SetMonitoringEnabledAsync(

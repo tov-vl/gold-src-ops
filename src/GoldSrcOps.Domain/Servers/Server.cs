@@ -146,6 +146,11 @@ public sealed class Server
         IncrementRevision();
     }
 
+    public void RecordCredentialChange()
+    {
+        IncrementRevision();
+    }
+
     public bool IsDueForPolling(DateTimeOffset nowUtc)
     {
         if (!IsEnabled)
