@@ -40,6 +40,14 @@ The credential API accepts a `secretAlias`, not a configuration path or secret
 value. GoldSrcOps validates the alias and stores a canonical
 `rcon-secret://<alias>` reference in `ServerCredential.SecretReference`.
 
+Binding or rotating that alias also requires the server revision and current
+credential revision displayed by the read APIs. Use credential revision `0`
+for a first-time binding. The write is accepted only while scheduled monitoring
+is paused and no command is `Pending` or `Running`. Server and credential
+optimistic-concurrency tokens reject stale or racing submissions; callers must
+reload metadata before making a new attempt and must not automatically retry an
+uncertain outcome.
+
 Aliases are limited to 128 ASCII letters, digits, `.`, `_`, and `-`, and must
 start and end with a letter or digit. Separators used by configuration sections
 are not allowed.

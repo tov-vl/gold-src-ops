@@ -339,7 +339,9 @@ API endpoints:
   revision or an active-monitoring conflict.
 - `POST /api/servers/{id}/enable`
 - `POST /api/servers/{id}/disable`
-- `PUT /api/servers/{id}/credentials/rcon`
+- `PUT /api/servers/{id}/credentials/rcon` - accepts only a secret alias plus
+  displayed server and credential revisions; monitoring must be paused and no
+  command may be `Pending` or `Running`.
 - `GET /api/servers/{id}/credentials`
 - `POST /api/servers/{id}/commands/change-map`
 - `POST /api/servers/{id}/commands/restart`
@@ -471,6 +473,7 @@ $body = @{
   rconPort = $null
   pollIntervalSeconds = 30
   notes = "Live smoke test target"
+  isEnabled = $false
 } | ConvertTo-Json
 
 $server = Invoke-RestMethod `
@@ -483,6 +486,7 @@ $server = Invoke-RestMethod `
 Invoke-RestMethod "$baseUrl/api/servers/$($server.id)" -Headers $headers
 
 $patch = @{
+  expectedRevision = $server.revision
   name = "CSOMOD Zombie Server"
   host = "server.csomod.com"
   queryPort = 27015
@@ -491,33 +495,35 @@ $patch = @{
   notes = "Updated smoke test target"
 } | ConvertTo-Json
 
-Invoke-RestMethod `
+$server = Invoke-RestMethod `
   -Method Patch `
   -Uri "$baseUrl/api/servers/$($server.id)" `
   -ContentType "application/json" `
   -Headers $headers `
   -Body $patch
 
-Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/disable" `
-  -Headers $headers
-Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable" `
-  -Headers $headers
 ```
 
-Queue a command without a local secret. The background dispatcher fails it
-safely unless both an RCON port and a resolvable secret reference are configured:
+Bind an RCON alias while monitoring is paused, then enable monitoring and queue
+a command without a local secret. The background dispatcher fails it safely
+unless both an RCON port and a resolvable secret reference are configured:
 
 ```powershell
 $credential = @{
+  expectedServerRevision = $server.revision
+  expectedCredentialRevision = 0
   secretAlias = "server_rcon"
 } | ConvertTo-Json
 
-Invoke-RestMethod `
+$boundCredential = Invoke-RestMethod `
   -Method Put `
   -Uri "$baseUrl/api/servers/$($server.id)/credentials/rcon" `
   -ContentType "application/json" `
   -Headers $headers `
   -Body $credential
+
+Invoke-RestMethod -Method Post -Uri "$baseUrl/api/servers/$($server.id)/enable" `
+  -Headers $headers
 
 $command = @{
   message = "hello from GoldSrcOps"

@@ -113,12 +113,18 @@ public sealed class GoldSrcOpsDbContext : DbContext
         {
             credential.ToTable("server_credentials");
             credential.HasKey(x => x.Id);
+            credential.Property(x => x.Revision)
+                .HasDefaultValue(1L)
+                .IsConcurrencyToken()
+                .IsRequired();
             credential.Property(x => x.Kind).HasConversion<string>().HasMaxLength(64).IsRequired();
             credential.Property(x => x.SecretReference)
                 .HasMaxLength(ServerCredential.MaxSecretReferenceLength)
                 .IsRequired();
             credential.Property(x => x.CreatedAtUtc).IsRequired();
-            credential.HasIndex(x => new { x.ServerId, x.Kind }).IsUnique();
+            credential.HasIndex(x => new { x.ServerId, x.Kind })
+                .IsUnique()
+                .HasDatabaseName(EfServerCredentialRepository.ServerKindIndex);
             credential.Ignore(x => x.IsConfigured);
             credential.HasOne(x => x.Server)
                 .WithMany()

@@ -1,11 +1,15 @@
 using GoldSrcOps.Application.Credentials;
+using GoldSrcOps.Domain.Commands;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace GoldSrcOps.Infrastructure.Persistence;
 
 internal sealed class EfServerCredentialRepository : IServerCredentialRepository
 {
+    internal const string ServerKindIndex = "ux_server_credentials_server_id_kind";
+
     private readonly GoldSrcOpsDbContext _dbContext;
 
     public EfServerCredentialRepository(GoldSrcOpsDbContext dbContext)
@@ -18,6 +22,27 @@ internal sealed class EfServerCredentialRepository : IServerCredentialRepository
         return await _dbContext.Servers
             .AsNoTracking()
             .AnyAsync(x => x.Id == serverId, cancellationToken);
+    }
+
+    public async Task<Server?> GetServerForUpdateAsync(
+        Guid serverId,
+        CancellationToken cancellationToken)
+    {
+        return await _dbContext.Servers
+            .FirstOrDefaultAsync(x => x.Id == serverId, cancellationToken);
+    }
+
+    public async Task<bool> HasIncompleteCommandsAsync(
+        Guid serverId,
+        CancellationToken cancellationToken)
+    {
+        return await _dbContext.CommandExecutions
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.ServerId == serverId &&
+                    (x.Status == CommandExecutionStatus.Pending ||
+                     x.Status == CommandExecutionStatus.Running),
+                cancellationToken);
     }
 
     public async Task AddAsync(ServerCredential credential, CancellationToken cancellationToken)
@@ -45,8 +70,27 @@ internal sealed class EfServerCredentialRepository : IServerCredentialRepository
             .ToListAsync(cancellationToken);
     }
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken)
+    public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
     {
-        return _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return false;
+        }
+        catch (DbUpdateException exception) when (IsServerKindViolation(exception))
+        {
+            return false;
+        }
     }
+
+    private static bool IsServerKindViolation(DbUpdateException exception) =>
+        exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: ServerKindIndex
+        };
 }

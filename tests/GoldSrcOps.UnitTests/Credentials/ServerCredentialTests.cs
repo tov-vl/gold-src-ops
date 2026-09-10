@@ -17,6 +17,7 @@ public sealed class ServerCredentialTests
             createdAtUtc);
 
         Assert.NotEqual(Guid.Empty, credential.Id);
+        Assert.Equal(1, credential.Revision);
         Assert.Equal(serverId, credential.ServerId);
         Assert.Equal(ServerCredentialKind.RconPassword, credential.Kind);
         Assert.Equal("rcon-secret://primary.server_1", credential.SecretReference);
@@ -38,6 +39,7 @@ public sealed class ServerCredentialTests
         credential.UpdateSecretReference(" RCON-SECRET://New_Alias ", updatedAtUtc);
 
         Assert.Equal("rcon-secret://new_alias", credential.SecretReference);
+        Assert.Equal(2, credential.Revision);
         Assert.Equal(updatedAtUtc, credential.UpdatedAtUtc);
     }
 

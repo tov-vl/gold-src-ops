@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using AwesomeAssertions;
 using GoldSrcOps.Application.Commands;
 using GoldSrcOps.Contracts.Commands;
@@ -19,7 +20,7 @@ public sealed class CommandEndpointIntegrationTests
         await using var factory = new GoldSrcOpsApiFactory();
         using var client = factory.CreateClient();
         var server = await RegisterServerAsync(client);
-        var request = new SetRconCredentialRequest("server_1_rcon");
+        var request = new SetRconCredentialRequest(1, 0, "server_1_rcon");
 
         var response = await client.PutAsJsonAsync($"/api/servers/{server.Id}/credentials/rcon", request);
 
@@ -31,6 +32,7 @@ public sealed class CommandEndpointIntegrationTests
         credential.Should().BeEquivalentTo(new
         {
             ServerId = server.Id,
+            Revision = 1L,
             Kind = "RconPassword",
             IsConfigured = true,
             UpdatedAtUtc = (DateTimeOffset?)null
@@ -49,9 +51,68 @@ public sealed class CommandEndpointIntegrationTests
 
         var response = await client.PutAsJsonAsync(
             $"/api/servers/{server.Id}/credentials/rcon",
-            new SetRconCredentialRequest(secretAlias));
+            new SetRconCredentialRequest(1, 0, secretAlias));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task SetRconCredential_requires_paused_monitoring()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var request = new RegisterServerRequest(
+            "Active server",
+            "127.0.0.1",
+            QueryPort: 27015,
+            RconPort: 27015,
+            PollIntervalSeconds: 30,
+            Notes: null,
+            IsEnabled: true);
+        var registerResponse = await client.PostAsJsonAsync("/api/servers", request);
+        var server = await registerResponse.Content.ReadFromJsonAsync<ServerResponse>();
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/servers/{server!.Id}/credentials/rcon",
+            new SetRconCredentialRequest(server.Revision, 0, "active_server"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await ReadProblemCodeAsync(response)).Should().Be(
+            "rcon_credential.monitoring_must_be_paused");
+    }
+
+    [Fact]
+    public async Task SetRconCredential_rejects_stale_revision_and_incomplete_command()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var server = await RegisterServerAsync(client);
+        var credential = await SetRconCredentialAsync(client, server.Id);
+
+        var staleResponse = await client.PutAsJsonAsync(
+            $"/api/servers/{server.Id}/credentials/rcon",
+            new SetRconCredentialRequest(2, 0, "rotated_alias"));
+        staleResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await ReadProblemCodeAsync(staleResponse)).Should().Be(
+            "rcon_credential.revision_conflict");
+
+        var queueResponse = await client.PostAsJsonAsync(
+            $"/api/servers/{server.Id}/commands/say",
+            new SayCommandRequest("hold rotation"));
+        queueResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var blockedResponse = await client.PutAsJsonAsync(
+            $"/api/servers/{server.Id}/credentials/rcon",
+            new SetRconCredentialRequest(2, credential.Revision, "rotated_alias"));
+        blockedResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await ReadProblemCodeAsync(blockedResponse)).Should().Be(
+            "rcon_credential.commands_in_progress");
+
+        var currentResponse = await client.GetAsync($"/api/servers/{server.Id}/credentials");
+        var currentJson = await currentResponse.Content.ReadAsStringAsync();
+        currentJson.Should().NotContain("server_rcon").And.NotContain("rotated_alias");
+        var current = await currentResponse.Content.ReadFromJsonAsync<ServerCredentialResponse[]>();
+        current.Should().ContainSingle().Which.Revision.Should().Be(1);
     }
 
     [Fact]
@@ -222,7 +283,8 @@ public sealed class CommandEndpointIntegrationTests
             QueryPort: 27015,
             RconPort: 27015,
             PollIntervalSeconds: 30,
-            Notes: null);
+            Notes: null,
+            IsEnabled: false);
         var response = await client.PostAsJsonAsync("/api/servers", request);
         response.EnsureSuccessStatusCode();
         var server = await response.Content.ReadFromJsonAsync<ServerResponse>();
@@ -230,11 +292,20 @@ public sealed class CommandEndpointIntegrationTests
         return server!;
     }
 
-    private static async Task SetRconCredentialAsync(HttpClient client, Guid serverId)
+    private static async Task<ServerCredentialResponse> SetRconCredentialAsync(
+        HttpClient client,
+        Guid serverId)
     {
         var response = await client.PutAsJsonAsync(
             $"/api/servers/{serverId}/credentials/rcon",
-            new SetRconCredentialRequest("server_rcon"));
+            new SetRconCredentialRequest(1, 0, "server_rcon"));
         response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ServerCredentialResponse>())!;
+    }
+
+    private static async Task<string?> ReadProblemCodeAsync(HttpResponseMessage response)
+    {
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return problem.GetProperty("code").GetString();
     }
 }

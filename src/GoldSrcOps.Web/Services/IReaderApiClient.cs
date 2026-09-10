@@ -1,5 +1,6 @@
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
+using GoldSrcOps.Contracts.Credentials;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
@@ -34,6 +35,10 @@ public interface IReaderApiClient
     Task<IReadOnlyList<CommandExecutionResponse>?> GetServerCommandsAsync(
         Guid serverId,
         int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ServerCredentialResponse>?> GetServerCredentialsAsync(
+        Guid serverId,
         CancellationToken cancellationToken = default);
 
     Task<DeadLetterListResponse> GetDeadLettersAsync(

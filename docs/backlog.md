@@ -922,9 +922,29 @@ The third local v2.5 slice adds guarded editing of a paused server:
 - API, PostgreSQL concurrency, client, authorization, confirmation-store,
   workflow, and responsive browser tests cover the slice.
 
-RCON credential management, restart, map-change, and raw command controls
-remain outside these first three slices. No v2.5 UI change is deployed before
-the v2.4 stable-publication gate completes.
+The fourth local v2.5 slice adds guarded RCON credential binding and rotation:
+
+- Reader sessions can inspect only whether the credential is configured, its
+  revision, and its timestamps. The current alias, secret reference, and raw
+  password never cross the API or browser read boundary.
+- Only an Operator can submit a validated deployment alias, and only while
+  scheduled monitoring is paused and no command is `Pending` or `Running`.
+- The review is bound to the authenticated subject, server, alias, displayed
+  server revision, and displayed credential revision. The final POST carries
+  only antiforgery state, the one-time confirmation, and explicit
+  acknowledgement.
+- Server and credential revisions provide optimistic concurrency. PostgreSQL
+  rejects stale or racing bindings, including concurrent first-time inserts,
+  without silently replacing the winner.
+- An uncertain HTTP outcome is never retried automatically. The page reloads
+  sanitized credential metadata so the Operator can reconcile before making a
+  new attempt.
+- Domain, API, PostgreSQL concurrency, client, authorization,
+  confirmation-store, workflow, and responsive browser tests cover the slice.
+
+Restart, map-change, and raw command controls remain outside these first four
+slices. No v2.5 UI change is deployed before the v2.4 stable-publication gate
+completes.
 
 ## Current API Scope
 

@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
+using GoldSrcOps.Contracts.Credentials;
 using GoldSrcOps.Contracts.Servers;
 using GoldSrcOps.Web.Security;
 
@@ -9,6 +11,10 @@ namespace GoldSrcOps.Web.Services;
 
 internal sealed class OperatorApiClient(HttpClient httpClient) : IOperatorApiClient
 {
+    private const string MonitoringMustBePausedCode =
+        "rcon_credential.monitoring_must_be_paused";
+    private const string CommandsInProgressCode = "rcon_credential.commands_in_progress";
+
     public async Task<OperatorServerRegistrationResult> RegisterServerAsync(
         OperatorServerRegistrationDraft draft,
         CancellationToken cancellationToken = default)
@@ -170,6 +176,65 @@ internal sealed class OperatorApiClient(HttpClient httpClient) : IOperatorApiCli
         };
     }
 
+    public async Task<OperatorRconCredentialUpdateResult> SetRconCredentialAsync(
+        OperatorRconCredentialDraft draft,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Put,
+            $"api/servers/{draft.ServerId:D}/credentials/rcon")
+        {
+            Content = JsonContent.Create(new SetRconCredentialRequest(
+                draft.ExpectedServerRevision,
+                draft.ExpectedCredentialRevision,
+                draft.SecretAlias))
+        };
+        using var response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            var credential = await response.Content.ReadFromJsonAsync<ServerCredentialResponse>(
+                cancellationToken);
+            if (credential is null ||
+                credential.ServerId != draft.ServerId ||
+                credential.Revision <= 0 ||
+                !credential.IsConfigured ||
+                !string.Equals(credential.Kind, "RconPassword", StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    "The credential API returned an invalid success response.");
+            }
+
+            return new OperatorRconCredentialUpdateResult(
+                OperatorRconCredentialUpdateResultKind.Updated,
+                credential);
+        }
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            return new OperatorRconCredentialUpdateResult(
+                await MapCredentialConflictAsync(response, cancellationToken),
+                Credential: null);
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.NotFound => new OperatorRconCredentialUpdateResult(
+                OperatorRconCredentialUpdateResultKind.ServerNotFound,
+                Credential: null),
+            HttpStatusCode.BadRequest => new OperatorRconCredentialUpdateResult(
+                OperatorRconCredentialUpdateResultKind.Rejected,
+                Credential: null),
+            _ => throw new HttpRequestException(
+                "The credential API returned an unexpected status code.",
+                inner: null,
+                response.StatusCode)
+        };
+    }
+
     public async Task<OperatorReplayResult> ReplayDeadLetterAsync(
         Guid eventId,
         Guid requestId,
@@ -200,5 +265,35 @@ internal sealed class OperatorApiClient(HttpClient httpClient) : IOperatorApiCli
                 inner: null,
                 response.StatusCode)
         };
+    }
+
+    private static async Task<OperatorRconCredentialUpdateResultKind> MapCredentialConflictAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var content = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var document = await JsonDocument.ParseAsync(
+                content,
+                cancellationToken: cancellationToken);
+            if (document.RootElement.TryGetProperty("code", out var code) &&
+                code.ValueKind == JsonValueKind.String)
+            {
+                return code.GetString() switch
+                {
+                    MonitoringMustBePausedCode =>
+                        OperatorRconCredentialUpdateResultKind.MonitoringEnabled,
+                    CommandsInProgressCode =>
+                        OperatorRconCredentialUpdateResultKind.CommandsInProgress,
+                    _ => OperatorRconCredentialUpdateResultKind.Conflict
+                };
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return OperatorRconCredentialUpdateResultKind.Conflict;
     }
 }

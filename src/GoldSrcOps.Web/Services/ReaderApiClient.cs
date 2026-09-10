@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
+using GoldSrcOps.Contracts.Credentials;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
@@ -60,6 +61,13 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
         var requestUri = AddLimit($"api/servers/{serverId:D}/commands", limit);
         return await GetOptionalAsync<CommandExecutionResponse[]>(requestUri, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<ServerCredentialResponse>?> GetServerCredentialsAsync(
+        Guid serverId,
+        CancellationToken cancellationToken = default) =>
+        await GetOptionalAsync<ServerCredentialResponse[]>(
+            $"api/servers/{serverId:D}/credentials",
+            cancellationToken);
 
     public Task<DeadLetterListResponse> GetDeadLettersAsync(
         string? cursor,

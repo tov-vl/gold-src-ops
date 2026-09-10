@@ -29,6 +29,8 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/monitoring");
         var settingsPage = await VisitAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/settings");
+        var credentialsPage = await VisitAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/credentials");
         var registrationPage = await VisitAsync("/operator/servers/new");
         var incidentsPage = await VisitAsync("/operator/incidents");
         var deadLettersPage = await VisitAsync("/operator/dead-letters");
@@ -60,6 +62,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                      sayCommandPage,
                      monitoringPage,
                      settingsPage,
+                     credentialsPage,
                      registrationPage,
                      incidentsPage,
                      deadLettersPage,
@@ -319,6 +322,53 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 ".map(element => `${element.tagName.toLowerCase()}.${element.className || ''} " +
                 "[${element.getBoundingClientRect().left},${element.getBoundingClientRect().right}]`)");
             overflowingElements.Should().BeEmpty();
+        }
+    }
+
+    [BrowserFact]
+    public async Task Operator_rcon_credential_form_and_review_fit_supported_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory(serverEnabled: false);
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(
+                    baseAddress,
+                    $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/credentials")
+                    .AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("form.credential-form").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("#credential-alias").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("input[type='password']").CountAsync()).Should().Be(0);
+            await Page.Locator("#credential-alias").FillAsync("viewport_server");
+            await Page.Locator("form.credential-form button[type='submit']").ClickAsync();
+            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+            (await Page.Locator("section.review-section").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("form.credential-confirmation").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("input[name='Confirmed']").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("input[type='password']").CountAsync()).Should().Be(0);
+            (await Page.Locator("section.review-section").TextContentAsync())
+                .Should().Contain("viewport_server").And.Contain("Raw secret");
+            var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+            hasHorizontalOverflow.Should().BeFalse();
+
+            await CaptureScreenshotIfRequestedAsync("operator-rcon-credential-review", viewport);
         }
     }
 

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using AwesomeAssertions;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
+using GoldSrcOps.Contracts.Credentials;
 using GoldSrcOps.Web.Services;
 using Microsoft.AspNetCore.WebUtilities;
 
@@ -10,6 +11,32 @@ namespace GoldSrcOps.WebTests.Services;
 
 public sealed class ReaderApiClientTests
 {
+    [Fact]
+    public async Task GetServerCredentialsAsync_maps_only_sanitized_metadata()
+    {
+        var serverId = Guid.Parse("6254f78a-5b16-41cf-aa9c-1167de84551a");
+        var credential = new ServerCredentialResponse(
+            Guid.Parse("df72cfde-7384-47f6-8ee9-9579404814e4"),
+            serverId,
+            3,
+            "RconPassword",
+            true,
+            new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero));
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new[] { credential })
+        });
+        using var httpClient = CreateHttpClient(capture);
+        var client = new ReaderApiClient(httpClient);
+
+        var result = await client.GetServerCredentialsAsync(serverId);
+
+        result.Should().ContainSingle().Which.Should().Be(credential);
+        capture.RequestUri.Should().Be(
+            new Uri($"https://api.example.test/api/servers/{serverId:D}/credentials"));
+    }
+
     [Fact]
     public async Task GetServerCommandsAsync_sends_limit_and_maps_response()
     {
@@ -95,6 +122,7 @@ public sealed class ReaderApiClientTests
     [InlineData("commands")]
     [InlineData("dead-letter")]
     [InlineData("replay")]
+    [InlineData("credentials")]
     public async Task Optional_reader_resource_returns_null_for_not_found(string resource)
     {
         var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
@@ -105,7 +133,8 @@ public sealed class ReaderApiClientTests
         {
             "commands" => await client.GetServerCommandsAsync(Guid.NewGuid(), 10),
             "dead-letter" => await client.GetDeadLetterAsync(Guid.NewGuid()),
-            _ => await client.GetDeadLetterReplayAsync(Guid.NewGuid())
+            "replay" => await client.GetDeadLetterReplayAsync(Guid.NewGuid()),
+            _ => await client.GetServerCredentialsAsync(Guid.NewGuid())
         };
 
         result.Should().BeNull();

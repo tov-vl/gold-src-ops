@@ -158,7 +158,7 @@ public sealed class SecurityEndpointIntegrationTests
         var server = await RegisterServerAsync(client);
         var credentialResponse = await client.PutAsJsonAsync(
             $"/api/servers/{server.Id}/credentials/rcon",
-            new SetRconCredentialRequest("server_rcon"));
+            new SetRconCredentialRequest(1, 0, "server_rcon"));
         credentialResponse.EnsureSuccessStatusCode();
 
         var response = await client.PostAsJsonAsync(
@@ -185,7 +185,8 @@ public sealed class SecurityEndpointIntegrationTests
             QueryPort: 27015,
             RconPort: 27015,
             PollIntervalSeconds: 30,
-            Notes: null);
+            Notes: null,
+            IsEnabled: false);
 
     private static async Task<ServerResponse> RegisterServerAsync(HttpClient client)
     {

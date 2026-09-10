@@ -5,6 +5,7 @@ namespace GoldSrcOps.Application.Credentials;
 public sealed record ServerCredentialDto(
     Guid Id,
     Guid ServerId,
+    long Revision,
     ServerCredentialKind Kind,
     bool IsConfigured,
     DateTimeOffset CreatedAtUtc,

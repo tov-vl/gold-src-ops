@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using AwesomeAssertions;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
+using GoldSrcOps.Contracts.Credentials;
 using GoldSrcOps.Contracts.Servers;
 using GoldSrcOps.Web.Security;
 using GoldSrcOps.Web.Services;
@@ -273,6 +274,99 @@ public sealed class OperatorApiClientTests
     }
 
     [Fact]
+    public async Task SetRconCredentialAsync_puts_only_alias_and_expected_revisions()
+    {
+        var draft = new OperatorRconCredentialDraft(
+            Guid.Parse("8d9bf6ce-0b6b-4863-b4cd-a8d937f03629"),
+            ExpectedServerRevision: 7,
+            ExpectedCredentialRevision: 3,
+            SecretAlias: "primary_server");
+        var updated = new ServerCredentialResponse(
+            Guid.Parse("43df3ae5-c7d5-46f7-8793-43d1f6bd26ca"),
+            draft.ServerId,
+            4,
+            "RconPassword",
+            true,
+            new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero));
+        var capture = new CredentialCaptureHandler(HttpStatusCode.OK, updated, problemCode: null);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.SetRconCredentialAsync(draft);
+
+        result.Should().Be(new OperatorRconCredentialUpdateResult(
+            OperatorRconCredentialUpdateResultKind.Updated,
+            updated));
+        capture.Method.Should().Be(HttpMethod.Put);
+        capture.RequestUri.Should().Be(new Uri(
+            $"https://api.example.test/api/servers/{draft.ServerId:D}/credentials/rcon"));
+        capture.Request.Should().Be(new SetRconCredentialRequest(
+            draft.ExpectedServerRevision,
+            draft.ExpectedCredentialRevision,
+            draft.SecretAlias));
+    }
+
+    [Theory]
+    [InlineData("rcon_credential.monitoring_must_be_paused", (int)OperatorRconCredentialUpdateResultKind.MonitoringEnabled)]
+    [InlineData("rcon_credential.commands_in_progress", (int)OperatorRconCredentialUpdateResultKind.CommandsInProgress)]
+    [InlineData("rcon_credential.revision_conflict", (int)OperatorRconCredentialUpdateResultKind.Conflict)]
+    [InlineData(null, (int)OperatorRconCredentialUpdateResultKind.Conflict)]
+    public async Task SetRconCredentialAsync_maps_conflict_code(
+        string? problemCode,
+        int expected)
+    {
+        var capture = new CredentialCaptureHandler(
+            HttpStatusCode.Conflict,
+            credential: null,
+            problemCode);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.SetRconCredentialAsync(CreateCredentialDraft());
+
+        result.Kind.Should().Be((OperatorRconCredentialUpdateResultKind)expected);
+        result.Credential.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, (int)OperatorRconCredentialUpdateResultKind.ServerNotFound)]
+    [InlineData(HttpStatusCode.BadRequest, (int)OperatorRconCredentialUpdateResultKind.Rejected)]
+    public async Task SetRconCredentialAsync_maps_expected_rejections(
+        HttpStatusCode statusCode,
+        int expected)
+    {
+        var capture = new CredentialCaptureHandler(statusCode, credential: null, problemCode: null);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.SetRconCredentialAsync(CreateCredentialDraft());
+
+        result.Kind.Should().Be((OperatorRconCredentialUpdateResultKind)expected);
+    }
+
+    [Fact]
+    public async Task SetRconCredentialAsync_rejects_invalid_success_payload()
+    {
+        var draft = CreateCredentialDraft();
+        var invalid = new ServerCredentialResponse(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            1,
+            "RconPassword",
+            true,
+            DateTimeOffset.UtcNow,
+            null);
+        var capture = new CredentialCaptureHandler(HttpStatusCode.OK, invalid, problemCode: null);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var action = () => client.SetRconCredentialAsync(draft);
+
+        await action.Should().ThrowAsync<InvalidDataException>();
+    }
+
+    [Fact]
     public async Task ReplayDeadLetterAsync_posts_reason_and_idempotency_key()
     {
         var eventId = Guid.Parse("419bb150-112f-4f58-a6bf-162ca41a0895");
@@ -342,6 +436,12 @@ public sealed class OperatorApiClientTests
         RconPort: null,
         PollIntervalSeconds: 60,
         Notes: null);
+
+    private static OperatorRconCredentialDraft CreateCredentialDraft() => new(
+        Guid.NewGuid(),
+        ExpectedServerRevision: 1,
+        ExpectedCredentialRevision: 0,
+        SecretAlias: "primary_server");
 
     private sealed class CaptureHandler(HttpStatusCode responseStatusCode) : HttpMessageHandler
     {
@@ -454,6 +554,36 @@ public sealed class OperatorApiClientTests
                 Content = responseServer is null
                     ? null
                     : JsonContent.Create(responseServer)
+            };
+        }
+    }
+
+    private sealed class CredentialCaptureHandler(
+        HttpStatusCode responseStatusCode,
+        ServerCredentialResponse? credential,
+        string? problemCode) : HttpMessageHandler
+    {
+        public HttpMethod? Method { get; private set; }
+
+        public Uri? RequestUri { get; private set; }
+
+        public SetRconCredentialRequest? Request { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Method = request.Method;
+            RequestUri = request.RequestUri;
+            Request = await request.Content!.ReadFromJsonAsync<SetRconCredentialRequest>(
+                cancellationToken);
+            return new HttpResponseMessage(responseStatusCode)
+            {
+                Content = credential is not null
+                    ? JsonContent.Create(credential)
+                    : problemCode is not null
+                        ? JsonContent.Create(new { code = problemCode })
+                        : new StringContent("{}")
             };
         }
     }

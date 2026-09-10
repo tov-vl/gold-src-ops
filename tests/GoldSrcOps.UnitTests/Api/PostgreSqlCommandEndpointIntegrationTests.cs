@@ -18,6 +18,54 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
 {
     [Fact]
     [Trait("Category", "PostgreSqlIntegration")]
+    public async Task Concurrent_credential_bindings_accept_exactly_one_revision()
+    {
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync();
+        using var firstClient = factory.CreateClient();
+        using var secondClient = factory.CreateClient();
+        var server = await RegisterServerAsync(firstClient);
+
+        var responses = await Task.WhenAll(
+            firstClient.PutAsJsonAsync(
+                $"/api/servers/{server.Id}/credentials/rcon",
+                new SetRconCredentialRequest(1, 0, "first_alias")),
+            secondClient.PutAsJsonAsync(
+                $"/api/servers/{server.Id}/credentials/rcon",
+                new SetRconCredentialRequest(1, 0, "second_alias")));
+
+        responses.Count(response => response.StatusCode == HttpStatusCode.OK).Should().Be(1);
+        responses.Count(response => response.StatusCode == HttpStatusCode.Conflict).Should().Be(1);
+
+        var persisted = await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var persistedServer = await dbContext.Servers
+                .AsNoTracking()
+                .SingleAsync(candidate => candidate.Id == server.Id);
+            var credential = await dbContext.ServerCredentials
+                .AsNoTracking()
+                .SingleAsync(candidate => candidate.ServerId == server.Id);
+            return new
+            {
+                ServerRevision = persistedServer.Revision,
+                CredentialRevision = credential.Revision,
+                credential.SecretReference
+            };
+        });
+
+        persisted.ServerRevision.Should().Be(2);
+        persisted.CredentialRevision.Should().Be(1);
+        persisted.SecretReference.Should().BeOneOf(
+            "rcon-secret://first_alias",
+            "rcon-secret://second_alias");
+
+        foreach (var response in responses)
+        {
+            response.Dispose();
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
     public async Task Command_dispatcher_persists_credentials_and_execution_status_through_postgresql_provider()
     {
         var executor = new CapturingRconCommandExecutor(RconCommandExecutionResult.Succeeded("postgres fake dispatch"));
@@ -28,7 +76,7 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
         });
         using var client = factory.CreateClient();
         var server = await RegisterServerAsync(client);
-        var credentialRequest = new SetRconCredentialRequest("server_1_rcon");
+        var credentialRequest = new SetRconCredentialRequest(1, 0, "server_1_rcon");
         var secretReference = RconSecretReference.Create(credentialRequest.SecretAlias);
         var credentialResponse = await client.PutAsJsonAsync(
             $"/api/servers/{server.Id}/credentials/rcon",
@@ -197,7 +245,7 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
     {
         var response = await client.PutAsJsonAsync(
             $"/api/servers/{serverId}/credentials/rcon",
-            new SetRconCredentialRequest(secretAlias));
+            new SetRconCredentialRequest(1, 0, secretAlias));
         response.EnsureSuccessStatusCode();
     }
 
@@ -225,7 +273,8 @@ public sealed class PostgreSqlCommandEndpointIntegrationTests
             QueryPort: port,
             RconPort: port,
             PollIntervalSeconds: 30,
-            Notes: null);
+            Notes: null,
+            IsEnabled: false);
         var response = await client.PostAsJsonAsync("/api/servers", request);
         response.EnsureSuccessStatusCode();
         var server = await response.Content.ReadFromJsonAsync<ServerResponse>();
