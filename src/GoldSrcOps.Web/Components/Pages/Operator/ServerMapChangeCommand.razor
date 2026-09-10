@@ -1,0 +1,394 @@
+@page "/operator/servers/{ServerId:guid}/commands/change-map"
+@using System.ComponentModel.DataAnnotations
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IReaderApiClient ReaderApiClient
+@inject OperatorMapChangeConfirmationStore Confirmations
+@inject ILogger<ServerMapChangeCommand> Logger
+
+<PageTitle>@(_server is null ? "Change map" : $"Change map on {_server.Name}") | GoldSrcOps</PageTitle>
+
+<div class="map-change-page">
+    <a class="back-link" href="@($"/operator/servers/{ServerId:D}/commands")">Back to command history</a>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h1>Map-change review is unavailable</h1>
+            <p>The API did not return a usable Reader snapshot. No command can be submitted.</p>
+        </section>
+    }
+    else if (_notFound)
+    {
+        <section class="load-state">
+            <h1>Server not found</h1>
+            <p>The requested server is not present in the Reader inventory.</p>
+        </section>
+    }
+    else if (_server is not null)
+    {
+        <header class="map-change-heading">
+            <div>
+                <p class="eyebrow">Guarded Operator action</p>
+                <h1>Change map</h1>
+                <p class="target">@_server.Name · <code>@_server.Host:@RconPort</code></p>
+            </div>
+            <p>Review one validated map name before queueing an audited <code>changelevel</code> command.</p>
+        </header>
+
+        <ServerSectionNav ServerId="@ServerId" />
+
+        @if (GetResultMessage() is { } resultMessage)
+        {
+            <section class="result-state @GetResultClass()" role="alert">
+                <strong>@resultMessage.Title</strong>
+                <p>@resultMessage.Detail</p>
+            </section>
+        }
+
+        <dl class="readiness-summary" aria-label="Map-change readiness">
+            <div>
+                <dt>Monitoring</dt>
+                <dd>@(_server.IsEnabled ? "Enabled" : "Paused")</dd>
+            </div>
+            <div>
+                <dt>RCON binding</dt>
+                <dd class="@(_rconConfigured ? "state-ready" : "state-blocked")">
+                    @(_rconConfigured ? "Configured" : "Missing")
+                </dd>
+            </div>
+            <div>
+                <dt>Incomplete commands</dt>
+                <dd class="@(_activeCommandCount == 0 ? "state-ready" : "state-blocked")">
+                    @_activeCommandCount
+                </dd>
+            </div>
+            <div>
+                <dt>Command boundary</dt>
+                <dd>Fixed changelevel</dd>
+            </div>
+            <div>
+                <dt>Execution</dt>
+                <dd>Serialized per server</dd>
+            </div>
+            <div>
+                <dt>Automatic retry</dt>
+                <dd>Disabled</dd>
+            </div>
+        </dl>
+
+        <section class="impact-note" aria-labelledby="map-change-impact-title">
+            <p class="eyebrow">Expected impact</p>
+            <h2 id="map-change-impact-title">Players transition to the requested map</h2>
+            <p>
+                GoldSrcOps validates the map name, but it cannot prove that the map is installed on the target.
+                An RCON timeout also does not prove that the command did not execute. Inspect command history and
+                current server status before deliberately trying again.
+            </p>
+        </section>
+
+        <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
+            <Authorized>
+                @if (!_rconConfigured)
+                {
+                    <section class="locked-state" aria-labelledby="map-change-credential-title">
+                        <p class="eyebrow">Map change locked</p>
+                        <h2 id="map-change-credential-title">Configure the RCON binding first</h2>
+                        <p>No map change can be queued while the server has no RCON credential metadata.</p>
+                        <a href="@($"/operator/servers/{ServerId:D}/credentials")">Review credential metadata</a>
+                    </section>
+                }
+                else if (_activeCommandCount > 0)
+                {
+                    <section class="locked-state" aria-labelledby="map-change-command-title">
+                        <p class="eyebrow">Map change locked</p>
+                        <h2 id="map-change-command-title">Wait for the current command to finish</h2>
+                        <p>A fresh submission check also blocks while any retained command is pending or running.</p>
+                        <a href="@($"/operator/servers/{ServerId:D}/commands")">Refresh command history</a>
+                    </section>
+                }
+                else if (_draft is not null && _confirmationToken is not null)
+                {
+                    <section class="review-section" aria-labelledby="map-change-review-title">
+                        <div class="section-heading">
+                            <p class="eyebrow">Review</p>
+                            <h2 id="map-change-review-title">Confirm map change</h2>
+                        </div>
+
+                        <dl class="review-summary">
+                            <div>
+                                <dt>Server</dt>
+                                <dd>@_server.Name</dd>
+                            </div>
+                            <div>
+                                <dt>Map</dt>
+                                <dd><code>@_draft.Map</code></dd>
+                            </div>
+                            <div>
+                                <dt>RCON command</dt>
+                                <dd><code>changelevel</code></dd>
+                            </div>
+                            <div>
+                                <dt>Incomplete commands</dt>
+                                <dd>Checked again on submit</dd>
+                            </div>
+                            <div>
+                                <dt>Dispatch</dt>
+                                <dd>Serialized per server</dd>
+                            </div>
+                            <div>
+                                <dt>Automatic retry</dt>
+                                <dd>Disabled</dd>
+                            </div>
+                        </dl>
+
+                        <form class="map-change-confirmation"
+                              method="post"
+                              action="@($"/operator/servers/{ServerId:D}/commands/change-map/queue")">
+                            <AntiforgeryToken />
+                            <input type="hidden" name="ConfirmationToken" value="@_confirmationToken" />
+
+                            <label class="confirmation-field" for="map-change-confirmed">
+                                <input id="map-change-confirmed"
+                                       name="Confirmed"
+                                       type="checkbox"
+                                       value="true"
+                                       required />
+                                <span>
+                                    I verified the server and map name. I accept the player transition and will inspect
+                                    durable command history before deliberately retrying an uncertain outcome.
+                                </span>
+                            </label>
+
+                            <div class="form-actions">
+                                <button type="submit">Queue map change</button>
+                                <a href="@($"/operator/servers/{ServerId:D}/commands/change-map")">Discard review</a>
+                            </div>
+                        </form>
+                    </section>
+                }
+                else
+                {
+                    <section class="edit-section" aria-labelledby="map-change-edit-title">
+                        <div class="section-heading">
+                            <p class="eyebrow">Target map</p>
+                            <h2 id="map-change-edit-title">Prepare map change</h2>
+                        </div>
+
+                        <EditForm Context="editContext"
+                                  FormName="map-change"
+                                  Model="Model"
+                                  OnValidSubmit="PrepareMapChangeAsync"
+                                  class="map-change-form">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="validation-summary" />
+
+                            <div class="field-group">
+                                <label for="map-name">Map name</label>
+                                <InputText id="map-name"
+                                           @bind-Value="Model!.Map"
+                                           maxlength="@ChangeMapCommandRequest.MaxMapNameLength"
+                                           autocomplete="off"
+                                           spellcheck="false"
+                                           placeholder="de_dust2" />
+                                <ValidationMessage For="@(() => Model!.Map)" />
+                                <p>
+                                    Use the installed map's filename without <code>.bsp</code>. Only ASCII letters,
+                                    digits, underscores, and hyphens are accepted.
+                                </p>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="submit">Review map change</button>
+                                <a href="@($"/operator/servers/{ServerId:D}/commands")">Cancel</a>
+                            </div>
+                        </EditForm>
+                    </section>
+                }
+            </Authorized>
+            <NotAuthorized>
+                <section class="role-state">
+                    <p class="eyebrow">Read-only session</p>
+                    <h2>Operator role required</h2>
+                    <p>Your account can inspect map-change readiness and command history but cannot submit commands.</p>
+                </section>
+            </NotAuthorized>
+        </AuthorizeView>
+    }
+</div>
+
+@code {
+    private const int CommandLimit = 100;
+
+    [Parameter]
+    public Guid ServerId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "result")]
+    public string? Result { get; set; }
+
+    [SupplyParameterFromForm(FormName = "map-change")]
+    private MapChangeFormModel? Model { get; set; }
+
+    private ServerResponse? _server;
+    private OperatorMapChangeDraft? _draft;
+    private string? _confirmationToken;
+    private int _activeCommandCount;
+    private bool _rconConfigured;
+    private bool _loadFailed;
+    private bool _notFound;
+
+    private int RconPort => _server?.RconPort ?? _server?.QueryPort ?? 0;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadFailed = false;
+        _notFound = false;
+        _server = null;
+        _draft = null;
+        _confirmationToken = null;
+        _activeCommandCount = 0;
+        _rconConfigured = false;
+
+        try
+        {
+            var serverTask = ReaderApiClient.GetServerAsync(ServerId);
+            var commandsTask = ReaderApiClient.GetServerCommandsAsync(ServerId, CommandLimit);
+            var credentialsTask = ReaderApiClient.GetServerCredentialsAsync(ServerId);
+            await Task.WhenAll(serverTask, commandsTask, credentialsTask);
+
+            _server = await serverTask;
+            var commands = await commandsTask;
+            var credentials = await credentialsTask;
+            _notFound = _server is null || commands is null || credentials is null;
+            if (_notFound)
+            {
+                return;
+            }
+
+            _activeCommandCount = commands!.Count(IsIncomplete);
+            _rconConfigured = credentials!.Any(static credential =>
+                credential.IsConfigured &&
+                string.Equals(credential.Kind, "RconPassword", StringComparison.Ordinal));
+            Model ??= new MapChangeFormModel();
+        }
+        catch (Exception exception) when (
+            exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(
+                exception,
+                "Unable to prepare map-change review for server {ServerId}.",
+                ServerId);
+            _loadFailed = true;
+        }
+    }
+
+    private async Task PrepareMapChangeAsync()
+    {
+        if (!_rconConfigured)
+        {
+            Result = "credential-missing";
+            return;
+        }
+
+        if (_activeCommandCount > 0)
+        {
+            Result = "commands-in-progress";
+            return;
+        }
+
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (!authenticationState.User.IsInRole(WebSecurity.OperatorRole))
+        {
+            return;
+        }
+
+        var subject = WebSecurity.GetSubject(authenticationState.User);
+        if (subject is null)
+        {
+            Result = "confirmation-unavailable";
+            return;
+        }
+
+        var map = Model!.Map.Trim();
+        if (!ChangeMapCommandRequest.IsValidMapName(map))
+        {
+            Result = "invalid";
+            return;
+        }
+
+        _draft = new OperatorMapChangeDraft(ServerId, map);
+        _confirmationToken = Confirmations.Issue(subject, _draft);
+        if (_confirmationToken is null)
+        {
+            _draft = null;
+            Result = "confirmation-unavailable";
+        }
+    }
+
+    private static bool IsIncomplete(CommandExecutionResponse command) =>
+        string.Equals(command.Status, "Pending", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(command.Status, "Running", StringComparison.OrdinalIgnoreCase);
+
+    private ResultMessage? GetResultMessage() => Result switch
+    {
+        "invalid" => new ResultMessage(
+            "Map change was not accepted",
+            "Enter a valid map name and acknowledge the reviewed operational impact."),
+        "confirmation-expired" => new ResultMessage(
+            "Confirmation expired",
+            "No map change was submitted. Enter the map name and create a new review."),
+        "confirmation-unavailable" => new ResultMessage(
+            "Confirmation is temporarily unavailable",
+            "No map change was submitted. Try again after existing confirmations expire."),
+        "credential-missing" => new ResultMessage(
+            "RCON credential is missing",
+            "No map change was queued. Review the current credential metadata before trying again."),
+        "commands-in-progress" => new ResultMessage(
+            "A command is still in progress",
+            "No map change was queued. Wait for pending and running commands to reach a terminal state."),
+        "precondition-unavailable" => new ResultMessage(
+            "Map-change readiness could not be refreshed",
+            "No map change was submitted. Reload the page before making another attempt."),
+        "rejected" => new ResultMessage(
+            "Map change was rejected",
+            "No map change was queued. Verify that the map name is valid and review current server state."),
+        "server-not-found" => new ResultMessage(
+            "Server is no longer available",
+            "No map change was queued. Return to the server inventory and refresh its state."),
+        _ => null
+    };
+
+    private string GetResultClass() => Result is "confirmation-expired" or
+        "confirmation-unavailable" or "commands-in-progress" or "precondition-unavailable"
+            ? "result-state--warning"
+            : "result-state--error";
+
+    private sealed class MapChangeFormModel : IValidatableObject
+    {
+        [Required(ErrorMessage = "Map name is required.")]
+        [StringLength(
+            ChangeMapCommandRequest.MaxMapNameLength,
+            ErrorMessage = "Map name must not exceed 128 characters.")]
+        public string Map { get; set; } = string.Empty;
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (string.IsNullOrWhiteSpace(Map))
+            {
+                yield break;
+            }
+
+            var normalizedMap = Map.Trim();
+            if (normalizedMap.Length <= ChangeMapCommandRequest.MaxMapNameLength &&
+                !ChangeMapCommandRequest.IsValidMapName(normalizedMap))
+            {
+                yield return new ValidationResult(
+                    "Use only ASCII letters, digits, underscores, or hyphens, starting and ending with a letter or digit.",
+                    [nameof(Map)]);
+            }
+        }
+    }
+
+    private sealed record ResultMessage(string Title, string Detail);
+}

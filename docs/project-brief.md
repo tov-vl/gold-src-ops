@@ -251,7 +251,10 @@ The project should evolve in stages:
   concurrency guards. A fifth slice adds a fixed restart review with sanitized
   readiness, submit-time incomplete-command revalidation, command-bound
   confirmation, per-server dispatch serialization, and no automatic retry.
-  Map-change and raw RCON controls remain separate later slices.
+  A sixth local slice adds a two-step map-change review with a strict map-name
+  allowlist, a subject/server/map-bound one-time confirmation, submit-time
+  incomplete-command revalidation, and no automatic retry. Raw RCON remains
+  outside the Web UI.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

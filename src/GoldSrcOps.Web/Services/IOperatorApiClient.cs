@@ -14,6 +14,11 @@ internal interface IOperatorApiClient
         string message,
         CancellationToken cancellationToken = default);
 
+    Task<OperatorCommandQueueResult> QueueMapChangeAsync(
+        Guid serverId,
+        string map,
+        CancellationToken cancellationToken = default);
+
     Task<OperatorCommandQueueResult> QueueRestartAsync(
         Guid serverId,
         CancellationToken cancellationToken = default);

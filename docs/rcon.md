@@ -155,12 +155,12 @@ the application rejects the configuration during startup.
 
 ## Guarded Web Say Workflow
 
-The first Web mutation surface deliberately exposes only `say`. A later v2.5
-slice adds a separately reviewed fixed restart action; raw and map-change
-commands remain API-only. A Reader can inspect the same command history but
-does not receive either submission form. A Web Operator needs the exact
-`Operator` role and a stable `sub` claim, and each POST independently enforces
-that policy plus antiforgery validation.
+The first Web mutation surface deliberately exposes only `say`. Later v2.5
+slices add separately reviewed fixed restart and map-change actions; raw RCON
+remains API-only. A Reader can inspect the same command history and action
+readiness but does not receive submission controls. A Web Operator needs the
+exact `Operator` role and a stable `sub` claim, and each POST independently
+enforces that policy plus antiforgery validation.
 
 Before forwarding, the Web host validates the 512-character message and
 explicit acknowledgement, then atomically consumes a random confirmation bound
@@ -202,6 +202,28 @@ process can restart before returning an RCON acknowledgement, so a timeout does
 not prove non-execution. The Web host never retries an uncertain API outcome
 and redirects the Operator to durable command history; current status must also
 be inspected before any deliberate follow-up.
+
+## Guarded Web Map-Change Workflow
+
+The map-change page uses the same sanitized readiness and submit-time
+incomplete-command checks as restart, but adds a two-step review. The first form
+accepts only a map filename without `.bsp`. The shared API contract permits
+ASCII letters, digits, underscores, and hyphens, requires an alphanumeric first
+and last character, and rejects embedded whitespace, paths, command separators,
+and control characters. The Web form normalizes only surrounding whitespace
+before creating the review; the direct API contract remains strict.
+
+After validation, the Web host keeps the normalized map in a bounded,
+short-lived confirmation bound to subject and server. The final form contains
+only the one-time token and explicit acknowledgement, so adding or replacing a
+browser `Map` field cannot change the reviewed command. The API receives the
+map recovered from the consumed server-side draft and independently applies the
+same allowlist.
+
+GoldSrcOps cannot prove that the named map is installed. A missing map or an
+RCON timeout can leave execution uncertain, so the Web host never retries and
+redirects the Operator to durable command history and current server status.
+Actual execution remains serialized per server.
 
 ## Lifecycle Logs
 

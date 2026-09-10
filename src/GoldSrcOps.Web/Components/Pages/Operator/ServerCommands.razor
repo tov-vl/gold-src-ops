@@ -72,6 +72,7 @@
                     <span>Up to @CommandLimit executions</span>
                     <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
                         <a href="@($"/operator/servers/{ServerId:D}/commands/new")">Broadcast message</a>
+                        <a href="@($"/operator/servers/{ServerId:D}/commands/change-map")">Change map</a>
                         <a class="action--danger"
                            href="@($"/operator/servers/{ServerId:D}/commands/restart")">Restart server</a>
                     </AuthorizeView>
@@ -210,10 +211,16 @@
         "restart-unknown" => new ResultMessage(
             "Restart outcome is uncertain",
             "Inspect command history and current server status before another restart. The Web host did not retry the request."),
+        "map-change-queued" => new ResultMessage(
+            "Map change queued",
+            "The audited map change was accepted. Its latest state appears in command history."),
+        "map-change-unknown" => new ResultMessage(
+            "Map change outcome is uncertain",
+            "Inspect command history and current server status before another map change. The Web host did not retry the request."),
         _ => null
     };
 
-    private string GetResultClass() => Result is "queued" or "restart-queued"
+    private string GetResultClass() => Result is "queued" or "restart-queued" or "map-change-queued"
         ? "submission-result--success"
         : "submission-result--warning";
 
