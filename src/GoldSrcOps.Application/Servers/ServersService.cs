@@ -53,17 +53,17 @@ public sealed class ServersService
             : RegisterServerResult.IdempotencyConflict();
     }
 
-    public Task<ServerDto?> EnableAsync(Guid id, CancellationToken cancellationToken)
+    public Task<SetServerEnabledResult> EnableAsync(Guid id, CancellationToken cancellationToken)
     {
         return SetEnabledAsync(id, isEnabled: true, cancellationToken);
     }
 
-    public Task<ServerDto?> DisableAsync(Guid id, CancellationToken cancellationToken)
+    public Task<SetServerEnabledResult> DisableAsync(Guid id, CancellationToken cancellationToken)
     {
         return SetEnabledAsync(id, isEnabled: false, cancellationToken);
     }
 
-    public async Task<ServerDto?> UpdateAsync(
+    public async Task<UpdateServerResult> UpdateAsync(
         Guid id,
         UpdateServerCommand command,
         CancellationToken cancellationToken)
@@ -71,7 +71,17 @@ public sealed class ServersService
         var server = await _servers.GetForUpdateAsync(id, cancellationToken);
         if (server is null)
         {
-            return null;
+            return UpdateServerResult.NotFound();
+        }
+
+        if (server.Revision != command.ExpectedRevision)
+        {
+            return UpdateServerResult.RevisionConflict();
+        }
+
+        if (server.IsEnabled)
+        {
+            return UpdateServerResult.MonitoringEnabled();
         }
 
         server.UpdateDetails(
@@ -80,9 +90,12 @@ public sealed class ServersService
             command.PollIntervalSeconds,
             command.Notes);
 
-        await _servers.SaveChangesAsync(cancellationToken);
+        if (!await _servers.TrySaveChangesAsync(cancellationToken))
+        {
+            return UpdateServerResult.RevisionConflict();
+        }
 
-        return Map(server);
+        return UpdateServerResult.Updated(Map(server));
     }
 
     public async Task<IReadOnlyList<ServerDto>> ListAsync(CancellationToken cancellationToken)
@@ -118,7 +131,7 @@ public sealed class ServersService
                 state.ConsecutiveFailures);
     }
 
-    private async Task<ServerDto?> SetEnabledAsync(
+    private async Task<SetServerEnabledResult> SetEnabledAsync(
         Guid id,
         bool isEnabled,
         CancellationToken cancellationToken)
@@ -126,7 +139,7 @@ public sealed class ServersService
         var server = await _servers.GetForUpdateAsync(id, cancellationToken);
         if (server is null)
         {
-            return null;
+            return SetServerEnabledResult.NotFound();
         }
 
         if (isEnabled)
@@ -138,14 +151,18 @@ public sealed class ServersService
             server.Disable();
         }
 
-        await _servers.SaveChangesAsync(cancellationToken);
+        if (!await _servers.TrySaveChangesAsync(cancellationToken))
+        {
+            return SetServerEnabledResult.RevisionConflict();
+        }
 
-        return Map(server);
+        return SetServerEnabledResult.Updated(Map(server));
     }
 
     private static ServerDto Map(Server server) =>
         new(
             server.Id,
+            server.Revision,
             server.Name,
             server.Game,
             server.Endpoint.Host,

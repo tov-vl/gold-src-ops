@@ -1,0 +1,407 @@
+@page "/operator/servers/{ServerId:guid}/settings"
+@using System.ComponentModel.DataAnnotations
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IReaderApiClient ReaderApiClient
+@inject OperatorServerUpdateConfirmationStore Confirmations
+@inject ILogger<ServerSettings> Logger
+
+<PageTitle>@(_server is null ? "Server configuration" : $"Configure {_server.Name}") | GoldSrcOps</PageTitle>
+
+<div class="settings-page">
+    <a class="back-link" href="@($"/operator/servers/{ServerId:D}")">Back to server status</a>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h1>Server configuration is unavailable</h1>
+            <p>The API did not return a usable Reader snapshot.</p>
+        </section>
+    }
+    else if (_notFound)
+    {
+        <section class="load-state">
+            <h1>Server not found</h1>
+            <p>The requested server is not present in the Reader inventory.</p>
+        </section>
+    }
+    else if (_server is not null)
+    {
+        <header class="settings-heading">
+            <div>
+                <p class="eyebrow">Server configuration</p>
+                <h1>@_server.Name</h1>
+                <p class="target">@_server.Game · <code>@_server.Host:@_server.QueryPort</code></p>
+            </div>
+            <p>Inspect connection and polling metadata. Updates are available only while monitoring is paused.</p>
+        </header>
+
+        <ServerSectionNav ServerId="@ServerId" />
+
+        @if (GetResultMessage() is { } resultMessage)
+        {
+            <section class="result-state @GetResultClass()" role="alert">
+                <strong>@resultMessage.Title</strong>
+                <p>@resultMessage.Detail</p>
+            </section>
+        }
+
+        <dl class="configuration-summary" aria-label="Current server configuration">
+            <div>
+                <dt>Host</dt>
+                <dd><code>@_server.Host</code></dd>
+            </div>
+            <div>
+                <dt>Query port</dt>
+                <dd>@_server.QueryPort</dd>
+            </div>
+            <div>
+                <dt>RCON port</dt>
+                <dd>@FormatPort(_server.RconPort)</dd>
+            </div>
+            <div>
+                <dt>Poll interval</dt>
+                <dd>@_server.PollIntervalSeconds seconds</dd>
+            </div>
+            <div>
+                <dt>Monitoring</dt>
+                <dd class="@(_server.IsEnabled ? "state-enabled" : "state-paused")">
+                    @(_server.IsEnabled ? "Enabled" : "Paused")
+                </dd>
+            </div>
+            <div>
+                <dt>Revision</dt>
+                <dd>@_server.Revision</dd>
+            </div>
+        </dl>
+
+        @if (!string.IsNullOrWhiteSpace(_server.Notes))
+        {
+            <section class="current-notes" aria-labelledby="current-notes-title">
+                <p class="eyebrow">Current notes</p>
+                <h2 id="current-notes-title">Inventory context</h2>
+                <p>@_server.Notes</p>
+            </section>
+        }
+
+        <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
+            <Authorized Context="authorizationContext">
+                @if (_server.IsEnabled)
+                {
+                    <section class="locked-state" aria-labelledby="configuration-locked-title">
+                        <p class="eyebrow">Protected state</p>
+                        <h2 id="configuration-locked-title">Pause monitoring before editing</h2>
+                        <p>Connection and polling metadata cannot change while scheduled probes are active.</p>
+                        <a href="@($"/operator/servers/{ServerId:D}/monitoring")">Manage monitoring</a>
+                    </section>
+                }
+                else if (_draft is not null && _confirmationToken is not null)
+                {
+                    <section class="review-section" aria-labelledby="settings-review-title">
+                        <div class="section-heading">
+                            <p class="eyebrow">Review</p>
+                            <h2 id="settings-review-title">Confirm configuration revision @_draft.ExpectedRevision</h2>
+                        </div>
+
+                        <dl class="review-summary">
+                            <div>
+                                <dt>Name</dt>
+                                <dd>@_draft.Name</dd>
+                            </div>
+                            <div>
+                                <dt>Game endpoint</dt>
+                                <dd><code>@_draft.Host:@_draft.QueryPort</code></dd>
+                            </div>
+                            <div>
+                                <dt>RCON port</dt>
+                                <dd>@FormatPort(_draft.RconPort)</dd>
+                            </div>
+                            <div>
+                                <dt>Poll interval</dt>
+                                <dd>@_draft.PollIntervalSeconds seconds</dd>
+                            </div>
+                            <div>
+                                <dt>Monitoring</dt>
+                                <dd class="state-paused">Remains paused</dd>
+                            </div>
+                            <div>
+                                <dt>RCON credential</dt>
+                                <dd>Unchanged</dd>
+                            </div>
+                        </dl>
+
+                        @if (!string.IsNullOrWhiteSpace(_draft.Notes))
+                        {
+                            <div class="notes-review">
+                                <span>Notes</span>
+                                <p>@_draft.Notes</p>
+                            </div>
+                        }
+
+                        <form class="settings-confirmation"
+                              method="post"
+                              action="@($"/operator/servers/{ServerId:D}/settings/apply")">
+                            <AntiforgeryToken />
+                            <input type="hidden" name="ConfirmationToken" value="@_confirmationToken" />
+
+                            <label class="confirmation-field" for="settings-confirmed">
+                                <input id="settings-confirmed"
+                                       name="Confirmed"
+                                       type="checkbox"
+                                       value="true"
+                                       required />
+                                <span>I verified the target and values. Monitoring must remain paused, and no RCON credential will be changed.</span>
+                            </label>
+
+                            <div class="form-actions">
+                                <button type="submit">Apply configuration</button>
+                                <a href="@($"/operator/servers/{ServerId:D}/settings")">Discard review</a>
+                            </div>
+                        </form>
+                    </section>
+                }
+                else
+                {
+                    <section class="edit-section" aria-labelledby="settings-edit-title">
+                        <div class="section-heading">
+                            <p class="eyebrow">Edit</p>
+                            <h2 id="settings-edit-title">Connection and polling metadata</h2>
+                        </div>
+
+                        <EditForm Context="editContext"
+                                  FormName="server-settings"
+                                  Model="Model"
+                                  OnValidSubmit="PrepareUpdateAsync"
+                                  class="settings-form">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="validation-summary" />
+                            <input type="hidden"
+                                   name="Model.ExpectedRevision"
+                                   value="@Model!.ExpectedRevision" />
+
+                            <div class="settings-grid">
+                                <div class="form-field form-field--wide">
+                                    <label for="server-name">Name</label>
+                                    <InputText id="server-name"
+                                               @bind-Value="Model!.Name"
+                                               maxlength="200"
+                                               autocomplete="off" />
+                                    <ValidationMessage For="@(() => Model!.Name)" />
+                                </div>
+
+                                <div class="form-field form-field--wide">
+                                    <label for="server-host">Host or IP address</label>
+                                    <InputText id="server-host"
+                                               @bind-Value="Model!.Host"
+                                               maxlength="255"
+                                               autocomplete="off"
+                                               spellcheck="false" />
+                                    <ValidationMessage For="@(() => Model!.Host)" />
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="query-port">Query port</label>
+                                    <InputNumber id="query-port" @bind-Value="Model!.QueryPort" />
+                                    <ValidationMessage For="@(() => Model!.QueryPort)" />
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="rcon-port">RCON port <span>optional</span></label>
+                                    <InputNumber id="rcon-port" @bind-Value="Model!.RconPort" />
+                                    <ValidationMessage For="@(() => Model!.RconPort)" />
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="poll-interval">Poll interval, seconds</label>
+                                    <InputNumber id="poll-interval" @bind-Value="Model!.PollIntervalSeconds" />
+                                    <ValidationMessage For="@(() => Model!.PollIntervalSeconds)" />
+                                </div>
+
+                                <div class="form-field form-field--wide">
+                                    <label for="server-notes">Notes <span>optional</span></label>
+                                    <InputTextArea id="server-notes"
+                                                   @bind-Value="Model!.Notes"
+                                                   maxlength="2000" />
+                                    <ValidationMessage For="@(() => Model!.Notes)" />
+                                </div>
+                            </div>
+
+                            <div class="edit-boundary">
+                                <strong>Non-secret settings only</strong>
+                                <p>This form does not read, display, replace, or clear an RCON credential.</p>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="submit">Review changes</button>
+                                <a href="@($"/operator/servers/{ServerId:D}")">Cancel</a>
+                            </div>
+                        </EditForm>
+                    </section>
+                }
+            </Authorized>
+            <NotAuthorized>
+                <section class="role-state">
+                    <p class="eyebrow">Read-only session</p>
+                    <h2>Operator role required</h2>
+                    <p>Your account can inspect server configuration but cannot change it.</p>
+                </section>
+            </NotAuthorized>
+        </AuthorizeView>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid ServerId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "result")]
+    public string? Result { get; set; }
+
+    [SupplyParameterFromForm(FormName = "server-settings")]
+    private SettingsFormModel? Model { get; set; }
+
+    private ServerResponse? _server;
+    private OperatorServerUpdateDraft? _draft;
+    private string? _confirmationToken;
+    private bool _loadFailed;
+    private bool _notFound;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadFailed = false;
+        _notFound = false;
+        _server = null;
+        _draft = null;
+        _confirmationToken = null;
+
+        try
+        {
+            _server = await ReaderApiClient.GetServerAsync(ServerId);
+            _notFound = _server is null;
+            if (_server is not null)
+            {
+                Model ??= SettingsFormModel.From(_server);
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load configuration for server {ServerId}.", ServerId);
+            _loadFailed = true;
+        }
+    }
+
+    private async Task PrepareUpdateAsync()
+    {
+        if (_server is null || _server.IsEnabled)
+        {
+            Result = "conflict";
+            return;
+        }
+
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var subject = WebSecurity.GetSubject(authenticationState.User);
+        if (subject is null)
+        {
+            Result = "confirmation-unavailable";
+            return;
+        }
+
+        _draft = new OperatorServerUpdateDraft(
+            ServerId,
+            Model!.ExpectedRevision,
+            Model.Name.Trim(),
+            Model.Host.Trim(),
+            Model.QueryPort,
+            Model.RconPort,
+            Model.PollIntervalSeconds,
+            string.IsNullOrWhiteSpace(Model.Notes) ? null : Model.Notes.Trim());
+        _confirmationToken = Confirmations.Issue(subject, _draft);
+        if (_confirmationToken is null)
+        {
+            _draft = null;
+            Result = "confirmation-unavailable";
+        }
+    }
+
+    private ResultMessage? GetResultMessage() => Result switch
+    {
+        "updated" => new ResultMessage(
+            "Configuration updated",
+            "The values below were read after the API accepted the change. Monitoring remains paused."),
+        "invalid" => new ResultMessage(
+            "Change was not accepted",
+            "Confirm the reviewed configuration before submitting it."),
+        "confirmation-expired" => new ResultMessage(
+            "Confirmation expired",
+            "No configuration change was submitted. Review the current values and create a new confirmation."),
+        "confirmation-unavailable" => new ResultMessage(
+            "Confirmation is temporarily unavailable",
+            "No configuration change was submitted. Try again after existing confirmations expire."),
+        "conflict" => new ResultMessage(
+            "Configuration changed",
+            "The update was not applied because the revision or monitoring state changed. Review the current values before trying again."),
+        "rejected" => new ResultMessage(
+            "Configuration was rejected",
+            "The API rejected the reviewed values. Check the current configuration and prepare a new update."),
+        "update-unknown" => new ResultMessage(
+            "Update outcome is uncertain",
+            "The Web host did not retry the request. The current values below were loaded for reconciliation."),
+        "server-not-found" => new ResultMessage(
+            "Server is no longer available",
+            "No configuration change was applied. Return to the server inventory."),
+        _ => null
+    };
+
+    private string GetResultClass() => Result switch
+    {
+        "updated" => "result-state--success",
+        "confirmation-expired" or "confirmation-unavailable" or "conflict" or "update-unknown" =>
+            "result-state--warning",
+        _ => "result-state--error"
+    };
+
+    private static string FormatPort(int? port) =>
+        port?.ToString(CultureInfo.InvariantCulture) ?? "Not set";
+
+    private sealed class SettingsFormModel
+    {
+        [Range(1, long.MaxValue, ErrorMessage = "Configuration revision must be positive.")]
+        public long ExpectedRevision { get; set; }
+
+        [Required(ErrorMessage = "Server name is required.")]
+        [StringLength(200, ErrorMessage = "Server name must not exceed 200 characters.")]
+        [RegularExpression(@".*\S.*", ErrorMessage = "Server name is required.")]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Host is required.")]
+        [StringLength(255, ErrorMessage = "Host must not exceed 255 characters.")]
+        [RegularExpression(@".*\S.*", ErrorMessage = "Host is required.")]
+        public string Host { get; set; } = string.Empty;
+
+        [Range(1, 65535, ErrorMessage = "Query port must be between 1 and 65535.")]
+        public int QueryPort { get; set; }
+
+        [Range(1, 65535, ErrorMessage = "RCON port must be between 1 and 65535.")]
+        public int? RconPort { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "Poll interval must be positive.")]
+        public int PollIntervalSeconds { get; set; }
+
+        [StringLength(2000, ErrorMessage = "Notes must not exceed 2000 characters.")]
+        public string? Notes { get; set; }
+
+        public static SettingsFormModel From(ServerResponse server) => new()
+        {
+            ExpectedRevision = server.Revision,
+            Name = server.Name,
+            Host = server.Host,
+            QueryPort = server.QueryPort,
+            RconPort = server.RconPort,
+            PollIntervalSeconds = server.PollIntervalSeconds,
+            Notes = server.Notes
+        };
+    }
+
+    private sealed record ResultMessage(string Title, string Detail);
+}

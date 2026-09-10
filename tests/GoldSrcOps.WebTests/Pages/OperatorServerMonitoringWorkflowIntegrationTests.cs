@@ -82,12 +82,16 @@ public sealed class OperatorServerMonitoringWorkflowIntegrationTests
         factory.OperatorApiClient.LastMonitoringEnabled.Should().Be(requestedEnabled);
     }
 
-    [Fact]
-    public async Task Missing_server_result_returns_to_the_form_without_retrying()
+    [Theory]
+    [InlineData((int)OperatorMonitoringUpdateResult.ServerNotFound, "server-not-found")]
+    [InlineData((int)OperatorMonitoringUpdateResult.Conflict, "monitoring-conflict")]
+    public async Task Api_rejection_returns_to_the_form_without_retrying(
+        int resultKind,
+        string result)
     {
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
         factory.OperatorApiClient.MonitoringResult =
-            OperatorMonitoringUpdateResult.ServerNotFound;
+            (OperatorMonitoringUpdateResult)resultKind;
         using var client = CreateNonRedirectingClient(factory);
         var form = await LoadMonitoringFormAsync(client, "disable");
 
@@ -95,7 +99,7 @@ public sealed class OperatorServerMonitoringWorkflowIntegrationTests
 
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
         response.Headers.Location.Should().Be(new Uri(
-            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/monitoring?result=server-not-found",
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/monitoring?result={result}",
             UriKind.Relative));
         factory.OperatorApiClient.MonitoringCallCount.Should().Be(1);
     }

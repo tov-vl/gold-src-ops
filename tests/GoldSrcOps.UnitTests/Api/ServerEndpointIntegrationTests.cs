@@ -26,6 +26,7 @@ public sealed class ServerEndpointIntegrationTests
         var server = await response.Content.ReadFromJsonAsync<ServerResponse>();
         Assert.NotNull(server);
         Assert.NotEqual(Guid.Empty, server.Id);
+        Assert.Equal(1, server.Revision);
         Assert.Equal("Dust2 Public", server.Name);
         Assert.Equal("GoldSrc", server.Game);
         Assert.Equal("127.0.0.1", server.Host);
@@ -201,12 +202,14 @@ public sealed class ServerEndpointIntegrationTests
             QueryPort: 27015,
             RconPort: null,
             PollIntervalSeconds: 30,
-            Notes: "before");
+            Notes: "before",
+            IsEnabled: false);
         var createResponse = await client.PostAsJsonAsync("/api/servers", createRequest);
         createResponse.EnsureSuccessStatusCode();
         var created = await createResponse.Content.ReadFromJsonAsync<ServerResponse>();
         Assert.NotNull(created);
         var updateRequest = new UpdateServerRequest(
+            created.Revision,
             "Inferno Public",
             "cs.example.local",
             QueryPort: 27016,
@@ -220,12 +223,13 @@ public sealed class ServerEndpointIntegrationTests
         var updated = await response.Content.ReadFromJsonAsync<ServerResponse>();
         Assert.NotNull(updated);
         Assert.Equal(created.Id, updated.Id);
+        Assert.Equal(created.Revision + 1, updated.Revision);
         Assert.Equal("Inferno Public", updated.Name);
         Assert.Equal("GoldSrc", updated.Game);
         Assert.Equal("cs.example.local", updated.Host);
         Assert.Equal(27016, updated.QueryPort);
         Assert.Equal(27017, updated.RconPort);
-        Assert.True(updated.IsEnabled);
+        Assert.False(updated.IsEnabled);
         Assert.Equal(45, updated.PollIntervalSeconds);
         Assert.Equal("after", updated.Notes);
         Assert.Equal(created.CreatedAtUtc, updated.CreatedAtUtc);
@@ -243,6 +247,7 @@ public sealed class ServerEndpointIntegrationTests
         await using var factory = new GoldSrcOpsApiFactory();
         using var client = factory.CreateClient();
         var request = new UpdateServerRequest(
+            ExpectedRevision: 1,
             "Missing Server",
             "localhost",
             QueryPort: 27015,
@@ -261,6 +266,7 @@ public sealed class ServerEndpointIntegrationTests
         await using var factory = new GoldSrcOpsApiFactory();
         using var client = factory.CreateClient();
         var request = new UpdateServerRequest(
+            ExpectedRevision: 0,
             " ",
             "",
             QueryPort: 0,
@@ -271,6 +277,80 @@ public sealed class ServerEndpointIntegrationTests
         var response = await client.PatchAsJsonAsync($"/api/servers/{Guid.NewGuid()}", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PatchServer_rejects_updates_while_monitoring_is_enabled()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/servers",
+            new RegisterServerRequest(
+                "Enabled server",
+                "game.example.test",
+                QueryPort: 27015,
+                RconPort: null,
+                PollIntervalSeconds: 30,
+                Notes: null));
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        Assert.NotNull(created);
+
+        var response = await client.PatchAsJsonAsync(
+            $"/api/servers/{created.Id}",
+            new UpdateServerRequest(
+                created.Revision,
+                "Edited server",
+                created.Host,
+                created.QueryPort,
+                created.RconPort,
+                created.PollIntervalSeconds,
+                created.Notes));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("server_update.monitoring_must_be_paused", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PatchServer_rejects_a_stale_configuration_revision()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/servers",
+            new RegisterServerRequest(
+                "Paused server",
+                "game.example.test",
+                QueryPort: 27015,
+                RconPort: null,
+                PollIntervalSeconds: 30,
+                Notes: null,
+                IsEnabled: false));
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        Assert.NotNull(created);
+        var firstUpdate = new UpdateServerRequest(
+            created.Revision,
+            "First edit",
+            created.Host,
+            created.QueryPort,
+            created.RconPort,
+            created.PollIntervalSeconds,
+            created.Notes);
+        using var accepted = await client.PatchAsJsonAsync(
+            $"/api/servers/{created.Id}",
+            firstUpdate);
+        accepted.EnsureSuccessStatusCode();
+
+        using var stale = await client.PatchAsJsonAsync(
+            $"/api/servers/{created.Id}",
+            firstUpdate with { Name = "Stale edit" });
+
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        var body = await stale.Content.ReadAsStringAsync();
+        Assert.Contains("server_update.revision_conflict", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -296,6 +376,7 @@ public sealed class ServerEndpointIntegrationTests
         var disabled = await disableResponse.Content.ReadFromJsonAsync<ServerResponse>();
         Assert.NotNull(disabled);
         Assert.False(disabled.IsEnabled);
+        Assert.Equal(created.Revision + 1, disabled.Revision);
 
         var enableResponse = await client.PostAsync($"/api/servers/{created.Id}/enable", content: null);
 
@@ -304,6 +385,7 @@ public sealed class ServerEndpointIntegrationTests
         Assert.NotNull(enabled);
         Assert.True(enabled.IsEnabled);
         Assert.Equal(created.Id, enabled.Id);
+        Assert.Equal(disabled.Revision + 1, enabled.Revision);
     }
 
     [Theory]

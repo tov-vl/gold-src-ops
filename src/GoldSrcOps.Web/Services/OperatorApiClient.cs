@@ -108,8 +108,63 @@ internal sealed class OperatorApiClient(HttpClient httpClient) : IOperatorApiCli
         {
             HttpStatusCode.OK => OperatorMonitoringUpdateResult.Updated,
             HttpStatusCode.NotFound => OperatorMonitoringUpdateResult.ServerNotFound,
+            HttpStatusCode.Conflict => OperatorMonitoringUpdateResult.Conflict,
             _ => throw new HttpRequestException(
                 "The server monitoring API returned an unexpected status code.",
+                inner: null,
+                response.StatusCode)
+        };
+    }
+
+    public async Task<OperatorServerUpdateResult> UpdateServerAsync(
+        OperatorServerUpdateDraft draft,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"api/servers/{draft.ServerId:D}")
+        {
+            Content = JsonContent.Create(new UpdateServerRequest(
+                draft.ExpectedRevision,
+                draft.Name,
+                draft.Host,
+                draft.QueryPort,
+                draft.RconPort,
+                draft.PollIntervalSeconds,
+                draft.Notes))
+        };
+        using var response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            var server = await response.Content.ReadFromJsonAsync<ServerResponse>(cancellationToken);
+            if (server is null || server.Id != draft.ServerId)
+            {
+                throw new InvalidDataException(
+                    "The server update API returned an invalid success response.");
+            }
+
+            return new OperatorServerUpdateResult(
+                OperatorServerUpdateResultKind.Updated,
+                server);
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.NotFound => new OperatorServerUpdateResult(
+                OperatorServerUpdateResultKind.ServerNotFound,
+                Server: null),
+            HttpStatusCode.Conflict => new OperatorServerUpdateResult(
+                OperatorServerUpdateResultKind.Conflict,
+                Server: null),
+            HttpStatusCode.BadRequest => new OperatorServerUpdateResult(
+                OperatorServerUpdateResultKind.Rejected,
+                Server: null),
+            _ => throw new HttpRequestException(
+                "The server update API returned an unexpected status code.",
                 inner: null,
                 response.StatusCode)
         };

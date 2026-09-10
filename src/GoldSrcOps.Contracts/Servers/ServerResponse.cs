@@ -2,6 +2,7 @@ namespace GoldSrcOps.Contracts.Servers;
 
 public sealed record ServerResponse(
     Guid Id,
+    long Revision,
     string Name,
     string Game,
     string Host,

@@ -1,8 +1,10 @@
 .section-nav {
     min-height: 52px;
     display: flex;
+    flex-wrap: wrap;
     align-items: stretch;
-    gap: 28px;
+    column-gap: clamp(14px, 3.5vw, 28px);
+    row-gap: 0;
     border-bottom: 1px solid var(--line-strong);
 }
 

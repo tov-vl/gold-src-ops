@@ -1,6 +1,7 @@
 namespace GoldSrcOps.Contracts.Servers;
 
 public sealed record UpdateServerRequest(
+    long ExpectedRevision,
     string Name,
     string Host,
     int QueryPort,

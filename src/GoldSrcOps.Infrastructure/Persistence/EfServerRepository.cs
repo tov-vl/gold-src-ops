@@ -85,9 +85,17 @@ internal sealed class EfServerRepository : IServerRepository
         await _dbContext.PollSnapshots.AddAsync(snapshot, cancellationToken);
     }
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken)
+    public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
     {
-        return _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return false;
+        }
     }
 
     private async Task<Server?> FindRegistrationAsync(

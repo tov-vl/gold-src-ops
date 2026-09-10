@@ -476,7 +476,8 @@ Expected result:
   `goldsrcops_commands_completed`. `goldsrcops_commands_dispatched` appears only
   when a command reaches the RCON executor; `goldsrcops_commands_recovered`
   appears only after interrupted-command recovery.
-- `PATCH /api/servers/{id}` updates editable server settings.
+- `PATCH /api/servers/{id}` updates editable server settings only for a paused
+  server and rejects stale `expectedRevision` values.
 - Disabled servers are skipped by polling, and re-enabled servers can be polled again.
 - Credential responses report metadata only and do not echo the secret alias or canonical reference.
 - Command responses derive `RequestedBy` from the authenticated token subject.

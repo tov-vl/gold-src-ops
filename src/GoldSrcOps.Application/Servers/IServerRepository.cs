@@ -18,5 +18,5 @@ public interface IServerRepository
 
     Task AddSnapshotAsync(PollSnapshot snapshot, CancellationToken cancellationToken);
 
-    Task SaveChangesAsync(CancellationToken cancellationToken);
+    Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken);
 }

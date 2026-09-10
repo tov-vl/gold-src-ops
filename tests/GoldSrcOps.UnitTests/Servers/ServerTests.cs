@@ -21,6 +21,7 @@ public sealed class ServerTests
             registrationIntentHash: new string('A', Server.RegistrationIntentHashLength));
 
         Assert.False(server.IsEnabled);
+        Assert.Equal(1, server.Revision);
         Assert.False(server.IsDueForPolling(createdAtUtc));
         Assert.Equal(requestId, server.RegistrationRequestId);
         Assert.Equal(new string('A', Server.RegistrationIntentHashLength), server.RegistrationIntentHash);
@@ -47,6 +48,7 @@ public sealed class ServerTests
             notes: " after ");
 
         Assert.Equal(id, server.Id);
+        Assert.Equal(2, server.Revision);
         Assert.Equal("Inferno Public", server.Name);
         Assert.Equal(GameServerKind.GoldSrc, server.Game);
         Assert.Equal("cs.example.local", server.Endpoint.Host);
@@ -78,16 +80,23 @@ public sealed class ServerTests
     {
         var nowUtc = new DateTimeOffset(2026, 4, 25, 12, 0, 0, TimeSpan.Zero);
         var server = CreateServer();
+        var initialRevision = server.Revision;
 
         server.Disable();
 
         Assert.False(server.IsEnabled);
         Assert.False(server.IsDueForPolling(nowUtc));
+        Assert.Equal(initialRevision + 1, server.Revision);
+
+        server.Disable();
+
+        Assert.Equal(initialRevision + 1, server.Revision);
 
         server.Enable();
 
         Assert.True(server.IsEnabled);
         Assert.True(server.IsDueForPolling(nowUtc));
+        Assert.Equal(initialRevision + 2, server.Revision);
     }
 
     [Fact]

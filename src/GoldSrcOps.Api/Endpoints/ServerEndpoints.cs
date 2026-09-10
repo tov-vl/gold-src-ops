@@ -15,6 +15,10 @@ public static class ServerEndpoints
 {
     private const string RegistrationIdempotencyConflictCode =
         "server_registration.idempotency_conflict";
+    private const string MonitoringMustBePausedCode =
+        "server_update.monitoring_must_be_paused";
+    private const string ServerRevisionConflictCode =
+        "server_update.revision_conflict";
 
     public static RouteGroupBuilder MapServerEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -121,7 +125,7 @@ public static class ServerEndpoints
             : TypedResults.Ok(response);
     }
 
-    private static async Task<Results<Ok<ServerResponse>, NotFound, ValidationProblem>> UpdateAsync(
+    private static async Task<Results<Ok<ServerResponse>, NotFound, ValidationProblem, ProblemHttpResult>> UpdateAsync(
         Guid id,
         UpdateServerRequest request,
         ServersService servers,
@@ -133,9 +137,10 @@ public static class ServerEndpoints
             return TypedResults.ValidationProblem(errors);
         }
 
-        var server = await servers.UpdateAsync(
+        var result = await servers.UpdateAsync(
             id,
             new UpdateServerCommand(
+                request.ExpectedRevision,
                 request.Name,
                 request.Host,
                 request.QueryPort,
@@ -144,25 +149,39 @@ public static class ServerEndpoints
                 request.Notes),
             cancellationToken);
 
-        return server is null ? TypedResults.NotFound() : TypedResults.Ok(Map(server));
+        return result.Kind switch
+        {
+            UpdateServerResultKind.Updated => TypedResults.Ok(Map(
+                result.Server ?? throw new InvalidOperationException(
+                    "A successful server update must return the server."))),
+            UpdateServerResultKind.NotFound => TypedResults.NotFound(),
+            UpdateServerResultKind.MonitoringEnabled => Conflict(
+                "Pause monitoring before editing server configuration.",
+                MonitoringMustBePausedCode),
+            UpdateServerResultKind.RevisionConflict => Conflict(
+                "The server changed after this configuration was loaded.",
+                ServerRevisionConflictCode),
+            _ => throw new InvalidOperationException(
+                $"Unsupported server update result '{result.Kind}'.")
+        };
     }
 
-    private static async Task<Results<Ok<ServerResponse>, NotFound>> EnableAsync(
+    private static async Task<Results<Ok<ServerResponse>, NotFound, ProblemHttpResult>> EnableAsync(
         Guid id,
         ServersService servers,
         CancellationToken cancellationToken)
     {
-        var server = await servers.EnableAsync(id, cancellationToken);
-        return server is null ? TypedResults.NotFound() : TypedResults.Ok(Map(server));
+        var result = await servers.EnableAsync(id, cancellationToken);
+        return MapEnabledResult(result);
     }
 
-    private static async Task<Results<Ok<ServerResponse>, NotFound>> DisableAsync(
+    private static async Task<Results<Ok<ServerResponse>, NotFound, ProblemHttpResult>> DisableAsync(
         Guid id,
         ServersService servers,
         CancellationToken cancellationToken)
     {
-        var server = await servers.DisableAsync(id, cancellationToken);
-        return server is null ? TypedResults.NotFound() : TypedResults.Ok(Map(server));
+        var result = await servers.DisableAsync(id, cancellationToken);
+        return MapEnabledResult(result);
     }
 
     private static async Task<Ok<IReadOnlyList<ServerResponse>>> ListAsync(
@@ -257,6 +276,11 @@ public static class ServerEndpoints
             errors[nameof(request.PollIntervalSeconds)] = ["PollIntervalSeconds must be positive."];
         }
 
+        if (request.ExpectedRevision <= 0)
+        {
+            errors[nameof(request.ExpectedRevision)] = ["ExpectedRevision must be positive."];
+        }
+
         return errors;
     }
 
@@ -340,6 +364,7 @@ public static class ServerEndpoints
     private static ServerResponse Map(ServerDto server) =>
         new(
             server.Id,
+            server.Revision,
             server.Name,
             server.Game.ToString(),
             server.Host,
@@ -349,6 +374,29 @@ public static class ServerEndpoints
             server.PollIntervalSeconds,
             server.Notes,
             server.CreatedAtUtc);
+
+    private static Results<Ok<ServerResponse>, NotFound, ProblemHttpResult> MapEnabledResult(
+        SetServerEnabledResult result) => result.Kind switch
+        {
+            SetServerEnabledResultKind.Updated => TypedResults.Ok(Map(
+                result.Server ?? throw new InvalidOperationException(
+                    "A successful monitoring update must return the server."))),
+            SetServerEnabledResultKind.NotFound => TypedResults.NotFound(),
+            SetServerEnabledResultKind.RevisionConflict => Conflict(
+                "The monitoring state changed concurrently. Reload it before trying again.",
+                ServerRevisionConflictCode),
+            _ => throw new InvalidOperationException(
+                $"Unsupported monitoring update result '{result.Kind}'.")
+        };
+
+    private static ProblemHttpResult Conflict(string title, string code) =>
+        TypedResults.Problem(
+            statusCode: StatusCodes.Status409Conflict,
+            title: title,
+            extensions:
+            [
+                new KeyValuePair<string, object?>("code", code)
+            ]);
 
     private static ServerStatusResponse Map(ServerStatusDto status) =>
         new(

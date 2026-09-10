@@ -334,7 +334,9 @@ API endpoints:
   creates the server atomically in a paused state.
 - `GET /api/servers`
 - `GET /api/servers/{id}`
-- `PATCH /api/servers/{id}`
+- `PATCH /api/servers/{id}` - requires the displayed `expectedRevision`, is
+  accepted only while monitoring is paused, and returns `409` for a stale
+  revision or an active-monitoring conflict.
 - `POST /api/servers/{id}/enable`
 - `POST /api/servers/{id}/disable`
 - `PUT /api/servers/{id}/credentials/rcon`
