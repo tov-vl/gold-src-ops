@@ -1,9 +1,8 @@
 # GoldSrcOps Initial Service-Level Objectives
 
-Review date: 2026-09-09. Status: reviewed draft with terminal v2.3 SLI
-evidence, an accepted `API-01` measurement design, a conditional provider
-selection, and the seven-day MVP review window in Decision 23; no objective is
-active or achieved.
+Review date: 2026-09-10. Status: the immutable `API-01` activation tuple is
+recorded for `2026-09-10T16:45:00Z`; its first prospective seven-day window
+starts at that boundary. No objective is achieved.
 
 ## Purpose And Scope
 
@@ -38,13 +37,14 @@ health into public API availability.
 - A budget breach triggers investigation and a change review. It never permits
   automatic RCON replay, deletion of durable work, or suppression of incidents.
 
-## Draft Objective Register
+## Objective Register
 
-All targets below are proposed and inactive. The activation gates prevent an
-objective from being marked healthy merely because its measurement does not yet
-exist.
+`API-01` is the only objective scheduled to enter `Collecting`. Every other
+target below remains a proposal and inactive. Activation gates prevent an
+objective from being marked healthy merely because its measurement does not
+yet exist.
 
-| ID | Service behavior and SLI | Draft objective | Error budget | Activation gate |
+| ID | Service behavior and SLI | Objective target | Error budget | Activation gate |
 | --- | --- | --- | --- | --- |
 | `API-01` | External one-minute `GET /health/ready` probes are good when DNS and certificate validation succeed and the response is HTTP `200`; a missing sample is bad. | At least 99.5% good samples over seven rolling days. | At most 50 bad minutes in a 10,080-minute window. | The independent probe must satisfy the [v2.4 external availability contract](v2.4-external-availability-monitoring.md), record an activation tuple, and persist a complete prospective window. |
 | `MON-01` | Poll coverage is durable snapshots divided by expected poll slots while each endpoint is enabled. A slot is good when its snapshot is persisted within two configured intervals plus 10 seconds. | At least 99.5% per endpoint over 30 rolling days. | At a 60-second interval, at most 216 missing slots per endpoint in 30 days. | A recording rule or durable evaluator must retain interval-level coverage rather than only a terminal aggregate. |
@@ -72,16 +72,21 @@ a concrete service expectation and a continuous measurement population exist.
 Decisions 19, 22, and 23 plus the
 [v2.4 external availability contract](v2.4-external-availability-monitoring.md)
 define the primary probe, minute-slot population, missing-data behavior, result
-schema, and activation lifecycle. `API-01` is still in the `Draft` stage.
+schema, and activation lifecycle. The final shadow gate passed and `API-01`
+enters `Collecting` at the recorded UTC-minute boundary below.
 
-The alert route and its three-bad/two-good resolution behavior are proved. The
-following work remains before the official window can begin:
-
-- pass a fresh contiguous 24-hour shadow run with exactly 1,440 mature,
-  evaluated slots and meet the shadow-scale target with every missing result
-  retained as bad; and
-- record the activation timestamp, owner, monitor and evaluator revisions,
-  primary location, report query, and alert route.
+| Activation property | Immutable value |
+| --- | --- |
+| Stage | `Collecting` |
+| Activation timestamp | `2026-09-10T16:45:00Z` |
+| Operational owner | `tov-vl` |
+| Primary location | Frankfurt, DE (AWS) |
+| Monitor revision | `v2-4-shadow-001` |
+| Evaluator revision | `752b1bccd421d141e761349de9b3166c1c1f541a` |
+| Report query contract | Canonical `probe_success` range query for job `goldsrcops-api-ready-primary-shadow`; the owner-only stable probe selector remains outside Git |
+| Alert route | `GoldSrcOps API availability` in `external-availability-1m`, matched through `notification_route=availability` to the dedicated contact point; three-bad/two-good hysteresis |
+| First complete window | `2026-09-10T16:45:00Z` through `2026-09-17T16:45:00Z` |
+| Earliest terminal review | `2026-09-17T16:50:00Z`, after the five-minute maturity grace period |
 
 The complete shadow audits on 2026-09-08 and 2026-09-09 each evaluated all
 1,440 mature slots and recorded one bad `missing` slot. Both 99.93056%
@@ -90,16 +95,18 @@ those runs treated any missing result as an integrity failure. Decision 22
 corrects that mismatch: an evaluated mature slot may be bad and missing without
 making the expected population incomplete. Bounded follow-up evidence remained
 consistent with public-probe scheduling delays rather than demonstrated API
-outages. The historical runs are not reclassified. `API-01` therefore remains
-`Draft` pending the fresh audit under the revised policy. Its fixed window runs
-from `2026-09-09T15:00:00Z` through `2026-09-10T15:00:00Z` and cannot be
-evaluated before the five-minute maturity grace period completes.
+outages. The historical runs are not reclassified. The fresh Decision 22 audit
+in [run 34495816614](https://github.com/tov-vl/gold-src-ops/actions/runs/34495816614)
+then evaluated 1,440 good slots with no bad, missing, pending, duplicate, or
+ignored non-canonical records. Identity and population integrity matched, the
+99.5% shadow target passed, and no raw evidence was retained or archived.
 
 Shadow samples and the completed v2.3 soak do not enter the official
 denominator. Under Decision 23, the first met-or-missed decision can be made
 only after seven complete forward-looking days from the recorded activation
 timestamp. This shorter MVP window has more variance and is not proof of
-long-term reliability.
+long-term reliability. Until that review, `Collecting` is not an achievement
+claim.
 
 ## Terminal v2.3 SLI Record
 

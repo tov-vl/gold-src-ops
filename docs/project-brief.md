@@ -73,7 +73,8 @@ Current implementation:
 - GitHub Actions quality gate for formatting, build, tests, and NuGet audit.
 - Independent external availability shadow probes with a normalized exporter,
   create-only off-host archive, scheduled collection, and verified read-only
-  recovery. The prospective seven-day `API-01` SLO remains `Draft`.
+  recovery. The immutable `API-01` tuple starts a prospective seven-day
+  `Collecting` window at `2026-09-10T16:45:00Z`; no achievement is claimed.
 - A separate .NET 10 Blazor Web App backed by anonymous, cached, sanitized
   current-status and bounded A2S-history projections; server identities and
   operator data remain private. The production candidate exposes both public
@@ -236,11 +237,12 @@ The project should evolve in stages:
 - v2.3: provider-independent reference production deployment, real external
   ReHLDS boundary, immutable delivery, and production OTLP metrics through an
   OpenTelemetry Collector.
-- v2.4: continue independent public API availability measurement and activate
-  `API-01` prospectively only after its remaining gates pass. The off-host
+- v2.4: continue independent public API availability measurement. The
+  revised-policy shadow gate passed and `API-01` begins its first prospective
+  seven-day window at `2026-09-10T16:45:00Z`. The off-host
   evidence recovery path, sanitized public Blazor dashboard, and initial
   Reader/Operator workflows are complete; bounded UI slices can advance while
-  shadow evidence accumulates. Decision 23 uses a seven-day first objective
+  official evidence accumulates. Decision 23 uses a seven-day first objective
   window for the MVP while retaining 45 days of normalized evidence.
 - v2.5: extend the authenticated Operator portal with narrowly guarded server
   lifecycle controls. The local sequence now covers pause/resume, idempotent

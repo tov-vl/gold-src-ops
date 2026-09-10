@@ -719,15 +719,18 @@ Delivery order:
    either observation: a mature missing slot remains bad but no longer makes an
    otherwise complete 1,440-slot population invalid. The audit now fails
    separately on evidence integrity and shadow-target attainment. Historical
-   runs retain their original failed status. Alert-route proof is complete; run
-   one fresh 24-hour audit under the revised policy. Do not rerun the old
-   revision merely to obtain a chance pass.
+   runs retain their original failed status. Alert-route proof is complete. The
+   fresh revised-policy audit passed in
+   [run 34495816614](https://github.com/tov-vl/gold-src-ops/actions/runs/34495816614)
+   with 1,440/1,440 good slots, matching identity and population integrity, and
+   no bad, missing, pending, duplicate, or ignored non-canonical records.
    The sanitized setup and implementation records are in
    `docs/v2.4-synthetic-monitoring-rollout.md` and
    `docs/v2.4-availability-evidence-exporter.md`.
-4. **Activation**: pass a 24-hour shadow run, record the immutable activation
-   tuple, and start the prospective seven-day `API-01` window defined by
-   Decision 23 without importing shadow or v2.3 soak samples.
+4. **Activation (recorded 2026-09-10)**: the immutable tuple starts the
+   prospective seven-day `API-01` window at `2026-09-10T16:45:00Z`, under
+   Decision 23, without importing shadow or v2.3 soak samples. The first
+   terminal review is permitted after `2026-09-17T16:50:00Z`.
 5. **Public experience (completed 2026-09-08)**: the
    compact Blazor Web App and anonymous, cached, deliberately sanitized
    current-status read model are implemented. Pull request #84 packaged the API
@@ -1201,11 +1204,11 @@ The released v1 baseline includes:
 
 Remaining portfolio gaps, in priority order:
 
-- Continue the active v2.4 Grafana Cloud shadow collection, run one fresh
-  read-only 24-hour audit under Decision 22, and activate `API-01` only for a
-  new prospective window. Alert routing, archive, and independent
-  scheduled-segment recovery are already proved, while the completed v2.3
-  24-hour release sample is not a seven-day availability SLO claim.
+- Complete the active prospective seven-day `API-01` window and publish its
+  first reproducible met-or-missed review without changing the target to fit
+  the result. Alert routing, archive, independent scheduled-segment recovery,
+  the revised-policy shadow audit, and activation are proved; neither the
+  shadow nor the completed v2.3 24-hour sample is an achieved SLO claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
 - A later versioned AMX Mod X/ReAPI event agent with a durable inbox, only after

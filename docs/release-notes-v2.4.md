@@ -1,7 +1,7 @@
 # GoldSrcOps v2.4.0 Release Notes
 
-Prepared: 2026-09-09. Status: release candidate deployed; stable publication
-pending.
+Prepared: 2026-09-10. Status: release-ready candidate deployed; stable
+publication pending.
 
 ## Overview
 
@@ -15,8 +15,9 @@ payloads, or alert-event payloads to the browser.
 The latest signed candidate is `v2.4.0-rc.9` from revision
 `2769d8961985db1da3d00037013aafb542e3cb8b`. Its API and Web images were
 published, digest-verified, deployed, and checked against the production
-authorization and continuity boundaries. Stable v2.4 remains pending the final
-fresh availability shadow audit and activation record.
+authorization and continuity boundaries. The final availability shadow audit
+passed and the prospective `API-01` activation tuple is recorded. Stable v2.4
+publication remains pending.
 
 ## Included In v2.4
 
@@ -54,19 +55,24 @@ fresh availability shadow audit and activation record.
 | API image digest | `sha256:cad281cf5760dacc7757dbcc5e09ff81ddca4607539e24d69cb6c7f653a05a70` |
 | Web image digest | `sha256:362bfce6a2025d1a9cec4845ab392515482650200e887dd4049c9870614b5fd5` |
 | Candidate workflow | [GitHub Actions run #34235947471](https://github.com/tov-vl/gold-src-ops/actions/runs/34235947471) |
+| Final shadow audit | [GitHub Actions run #34495816614](https://github.com/tov-vl/gold-src-ops/actions/runs/34495816614): 1,440/1,440 good slots, integrity passed, target met |
 | Production result | API and Web health, OIDC boundary, runtime continuity, controlled-server state, durable queues, and backup freshness passed |
 
 ## Availability And SLO Boundary
 
-`API-01` remains `Draft`. The final activation gate is the fresh 24-hour shadow
-window ending at `2026-09-10T15:00:00Z`, evaluated only after its five-minute
-maturity grace period. A passing result starts a new official denominator; no
-shadow or v2.3 soak sample is imported.
+The fresh 24-hour shadow window ending at `2026-09-10T15:00:00Z` passed after
+its five-minute maturity grace period. `API-01` enters `Collecting` at
+`2026-09-10T16:45:00Z`; no shadow or v2.3 soak sample is imported.
 
 Decision 23 changes the first objective to at least 99.5% good primary minutes
 over seven rolling days, with 10,080 expected slots and at most 50 bad minutes.
 Stable v2.4 publication may follow successful activation and does not imply
 that this prospective seven-day objective has already been achieved.
+
+The immutable activation tuple is recorded in
+[service-level objectives](service-level-objectives.md). Its first complete
+window ends at `2026-09-17T16:45:00Z` and cannot be reviewed before
+`2026-09-17T16:50:00Z`.
 
 ## Compatibility And Limits
 
@@ -84,15 +90,13 @@ that this prospective seven-day objective has already been achieved.
 
 ## Stable Publication Gate
 
-Before publishing `v2.4.0`:
+The recorded shadow window, revised-policy audit, activation tuple, and
+sanitized final evidence are complete. Before publishing `v2.4.0`:
 
-1. Complete the recorded shadow window and pass the revised-policy audit.
-2. Record the immutable `API-01` activation tuple and seven-day objective start.
-3. Replace the pending status in these release notes and
-   [v2.4 readiness](v2.4-readiness.md) with sanitized final evidence.
-4. Pass the repository checks and promote the verified candidate API and Web
-   artifacts through the signed stable-tag workflow.
-5. Verify the published images and publish the GitHub Release.
+1. Pass the repository checks for this release-closure record.
+2. Promote the verified candidate API and Web artifacts through the signed
+   stable-tag workflow.
+3. Verify the published images and publish the GitHub Release.
 
 ## References
 
