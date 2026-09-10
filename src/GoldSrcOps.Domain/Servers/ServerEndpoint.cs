@@ -2,6 +2,8 @@ namespace GoldSrcOps.Domain.Servers;
 
 public sealed class ServerEndpoint
 {
+    public const int MaxHostLength = 255;
+
     private ServerEndpoint()
     {
         Host = string.Empty;
@@ -10,6 +12,13 @@ public sealed class ServerEndpoint
     public ServerEndpoint(string host, int queryPort, int? rconPort)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
+
+        if (host.Trim().Length > MaxHostLength)
+        {
+            throw new ArgumentException(
+                $"Host must not exceed {MaxHostLength} characters.",
+                nameof(host));
+        }
 
         if (queryPort is < 1 or > 65535)
         {

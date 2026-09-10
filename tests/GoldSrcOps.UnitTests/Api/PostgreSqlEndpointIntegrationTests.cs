@@ -71,6 +71,49 @@ public sealed class PostgreSqlEndpointIntegrationTests
 
     [Fact]
     [Trait("Category", "PostgreSqlIntegration")]
+    public async Task Concurrent_registration_with_same_idempotency_key_creates_one_paused_server()
+    {
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync();
+        using var firstClient = factory.CreateClient();
+        using var secondClient = factory.CreateClient();
+        var requestId = Guid.NewGuid();
+        var request = new RegisterServerRequest(
+            "Concurrent registration",
+            "game.example.test",
+            QueryPort: 27015,
+            RconPort: null,
+            PollIntervalSeconds: 60,
+            Notes: null,
+            IsEnabled: false);
+
+        var firstTask = SendRegistrationAsync(firstClient, requestId, request);
+        var secondTask = SendRegistrationAsync(secondClient, requestId, request);
+        var responses = await Task.WhenAll(firstTask, secondTask);
+        using var firstResponse = responses[0];
+        using var secondResponse = responses[1];
+
+        responses.Select(static response => response.StatusCode)
+            .Should()
+            .BeEquivalentTo([HttpStatusCode.Created, HttpStatusCode.OK]);
+        var firstServer = await firstResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        var secondServer = await secondResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        firstServer.Should().NotBeNull();
+        secondServer.Should().BeEquivalentTo(firstServer);
+        firstServer!.IsEnabled.Should().BeFalse();
+
+        var persisted = await factory.ExecuteDbContextAsync(async dbContext => new
+        {
+            Servers = await dbContext.Servers
+                .CountAsync(server => server.RegistrationRequestId == requestId),
+            States = await dbContext.ServerCurrentStates
+                .CountAsync(state => state.ServerId == firstServer.Id)
+        });
+        persisted.Servers.Should().Be(1);
+        persisted.States.Should().Be(1);
+    }
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
     public async Task PatchServer_persists_editable_fields_through_postgresql_provider()
     {
         await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync();
@@ -349,6 +392,20 @@ public sealed class PostgreSqlEndpointIntegrationTests
             pollIntervalSeconds: 30,
             notes: null,
             createdAtUtc);
+    }
+
+    private static async Task<HttpResponseMessage> SendRegistrationAsync(
+        HttpClient client,
+        Guid requestId,
+        RegisterServerRequest request)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, "/api/servers")
+        {
+            Content = JsonContent.Create(request)
+        };
+        message.Headers.Add("Idempotency-Key", requestId.ToString("D"));
+
+        return await client.SendAsync(message);
     }
 
     private static string ToQueryValue(DateTimeOffset value)

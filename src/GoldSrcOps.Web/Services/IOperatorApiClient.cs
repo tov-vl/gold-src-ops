@@ -1,7 +1,14 @@
+using GoldSrcOps.Contracts.Servers;
+using GoldSrcOps.Web.Security;
+
 namespace GoldSrcOps.Web.Services;
 
 internal interface IOperatorApiClient
 {
+    Task<OperatorServerRegistrationResult> RegisterServerAsync(
+        OperatorServerRegistrationDraft draft,
+        CancellationToken cancellationToken = default);
+
     Task<OperatorCommandQueueResult> QueueSayAsync(
         Guid serverId,
         string message,
@@ -40,3 +47,15 @@ internal enum OperatorMonitoringUpdateResult
     Updated,
     ServerNotFound
 }
+
+internal enum OperatorServerRegistrationResultKind
+{
+    Created,
+    Idempotent,
+    Conflict,
+    Rejected
+}
+
+internal sealed record OperatorServerRegistrationResult(
+    OperatorServerRegistrationResultKind Kind,
+    ServerResponse? Server);

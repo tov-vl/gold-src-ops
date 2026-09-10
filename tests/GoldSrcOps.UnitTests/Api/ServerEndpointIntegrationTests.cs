@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using GoldSrcOps.Contracts.Servers;
+using Microsoft.EntityFrameworkCore;
 
 namespace GoldSrcOps.UnitTests.Api;
 
@@ -33,6 +34,125 @@ public sealed class ServerEndpointIntegrationTests
         Assert.True(server.IsEnabled);
         Assert.Equal(30, server.PollIntervalSeconds);
         Assert.Equal("integration test", server.Notes);
+    }
+
+    [Fact]
+    public async Task PostServer_can_register_paused_server_with_idempotency_key()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var requestId = Guid.NewGuid();
+        var request = new RegisterServerRequest(
+            "Paused server",
+            "game.example.test",
+            QueryPort: 27015,
+            RconPort: 27016,
+            PollIntervalSeconds: 60,
+            Notes: "Awaiting operator activation",
+            IsEnabled: false);
+
+        using var response = await SendRegistrationAsync(client, requestId, request);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var server = await response.Content.ReadFromJsonAsync<ServerResponse>();
+        Assert.NotNull(server);
+        Assert.False(server.IsEnabled);
+        Assert.Equal(27016, server.RconPort);
+
+        var registrationMetadata = await factory.ExecuteDbContextAsync(async dbContext =>
+            await dbContext.Servers
+                .Where(candidate => candidate.Id == server.Id)
+                .Select(candidate => new
+                {
+                    candidate.RegistrationRequestId,
+                    candidate.RegistrationIntentHash
+                })
+                .SingleAsync());
+        Assert.Equal(requestId, registrationMetadata.RegistrationRequestId);
+        Assert.Equal(64, registrationMetadata.RegistrationIntentHash?.Length);
+    }
+
+    [Fact]
+    public async Task PostServer_reuses_same_registration_for_same_idempotency_key_and_intent()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var requestId = Guid.NewGuid();
+        var request = new RegisterServerRequest(
+            "Idempotent server",
+            "game.example.test",
+            QueryPort: 27015,
+            RconPort: null,
+            PollIntervalSeconds: 60,
+            Notes: null,
+            IsEnabled: false);
+
+        using var firstResponse = await SendRegistrationAsync(client, requestId, request);
+        using var secondResponse = await SendRegistrationAsync(
+            client,
+            requestId,
+            request with { Host = "GAME.EXAMPLE.TEST" });
+
+        Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
+        var first = await firstResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        var second = await secondResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        Assert.NotNull(first);
+        Assert.Equal(first, second);
+
+        var serverCount = await factory.ExecuteDbContextAsync(async dbContext =>
+            await dbContext.Servers.CountAsync());
+        Assert.Equal(1, serverCount);
+    }
+
+    [Fact]
+    public async Task PostServer_rejects_reused_idempotency_key_for_different_intent()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var requestId = Guid.NewGuid();
+        var request = new RegisterServerRequest(
+            "First server",
+            "game.example.test",
+            QueryPort: 27015,
+            RconPort: null,
+            PollIntervalSeconds: 60,
+            Notes: null,
+            IsEnabled: false);
+
+        using var firstResponse = await SendRegistrationAsync(client, requestId, request);
+        using var conflictResponse = await SendRegistrationAsync(
+            client,
+            requestId,
+            request with { Name = "Different server" });
+
+        Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, conflictResponse.StatusCode);
+        var body = await conflictResponse.Content.ReadAsStringAsync();
+        Assert.Contains("server_registration.idempotency_conflict", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PostServer_rejects_malformed_idempotency_key()
+    {
+        await using var factory = new GoldSrcOpsApiFactory();
+        using var client = factory.CreateClient();
+        var request = new RegisterServerRequest(
+            "Invalid key server",
+            "game.example.test",
+            QueryPort: 27015,
+            RconPort: null,
+            PollIntervalSeconds: 60,
+            Notes: null);
+        using var message = new HttpRequestMessage(HttpMethod.Post, "/api/servers")
+        {
+            Content = JsonContent.Create(request)
+        };
+        message.Headers.Add("Idempotency-Key", "not-a-uuid");
+
+        using var response = await client.SendAsync(message);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -197,5 +317,19 @@ public sealed class ServerEndpointIntegrationTests
         var response = await client.PostAsync($"/api/servers/{Guid.NewGuid()}/{action}", content: null);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private static async Task<HttpResponseMessage> SendRegistrationAsync(
+        HttpClient client,
+        Guid requestId,
+        RegisterServerRequest request)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, "/api/servers")
+        {
+            Content = JsonContent.Create(request)
+        };
+        message.Headers.Add("Idempotency-Key", requestId.ToString("D"));
+
+        return await client.SendAsync(message);
     }
 }

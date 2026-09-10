@@ -1,0 +1,261 @@
+@page "/operator/servers/new"
+@using System.ComponentModel.DataAnnotations
+@attribute [Authorize(Policy = WebSecurity.OperatorPolicy)]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject OperatorServerRegistrationConfirmationStore Confirmations
+
+<PageTitle>Register server | GoldSrcOps</PageTitle>
+
+<div class="registration-page">
+    <a class="back-link" href="/operator/servers">Back to server inventory</a>
+
+    <header class="registration-heading">
+        <div>
+            <p class="eyebrow">Server inventory</p>
+            <h1>Register server</h1>
+        </div>
+        <p>Add an existing GoldSrc endpoint without starting monitoring or storing an RCON credential.</p>
+    </header>
+
+    @if (GetResultMessage() is { } resultMessage)
+    {
+        <section class="result-state @GetResultClass()" role="alert">
+            <strong>@resultMessage.Title</strong>
+            <p>@resultMessage.Detail</p>
+        </section>
+    }
+
+    @if (_draft is not null && _confirmationToken is not null)
+    {
+        <section class="review-section" aria-labelledby="registration-review-title">
+            <div class="section-heading">
+                <p class="eyebrow">Review</p>
+                <h2 id="registration-review-title">Confirm the paused registration</h2>
+            </div>
+
+            <dl class="registration-summary">
+                <div>
+                    <dt>Name</dt>
+                    <dd>@_draft.Name</dd>
+                </div>
+                <div>
+                    <dt>Game endpoint</dt>
+                    <dd><code>@_draft.Host:@_draft.QueryPort</code></dd>
+                </div>
+                <div>
+                    <dt>RCON port</dt>
+                    <dd>@(_draft.RconPort?.ToString(CultureInfo.InvariantCulture) ?? "Not set")</dd>
+                </div>
+                <div>
+                    <dt>Poll interval</dt>
+                    <dd>@_draft.PollIntervalSeconds seconds</dd>
+                </div>
+                <div>
+                    <dt>Initial state</dt>
+                    <dd><span class="paused-state">Paused</span></dd>
+                </div>
+                <div>
+                    <dt>RCON credential</dt>
+                    <dd>Not configured</dd>
+                </div>
+            </dl>
+
+            @if (!string.IsNullOrWhiteSpace(_draft.Notes))
+            {
+                <div class="notes-review">
+                    <span>Notes</span>
+                    <p>@_draft.Notes</p>
+                </div>
+            }
+
+            <form class="registration-confirmation"
+                  method="post"
+                  action="/operator/servers/registrations">
+                <AntiforgeryToken />
+                <input type="hidden" name="ConfirmationToken" value="@_confirmationToken" />
+
+                <label class="confirmation-field" for="registration-confirmed">
+                    <input id="registration-confirmed"
+                           name="Confirmed"
+                           type="checkbox"
+                           value="true"
+                           required />
+                    <span>I verified the endpoint and understand that monitoring remains paused until I enable it separately.</span>
+                </label>
+
+                <div class="form-actions">
+                    <button type="submit">Register paused server</button>
+                    <a href="/operator/servers/new">Edit details</a>
+                </div>
+            </form>
+        </section>
+    }
+    else
+    {
+        <section class="registration-section" aria-labelledby="registration-details-title">
+            <div class="section-heading">
+                <p class="eyebrow">Connection details</p>
+                <h2 id="registration-details-title">Existing server endpoint</h2>
+            </div>
+
+            <EditForm FormName="server-registration"
+                      Model="Model"
+                      OnValidSubmit="PrepareRegistrationAsync"
+                      class="registration-form">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="validation-summary" />
+
+                <div class="registration-grid">
+                    <div class="form-field form-field--wide">
+                        <label for="server-name">Name</label>
+                        <InputText id="server-name"
+                                   @bind-Value="Model!.Name"
+                                   maxlength="200"
+                                   autocomplete="off" />
+                        <ValidationMessage For="@(() => Model!.Name)" />
+                    </div>
+
+                    <div class="form-field form-field--wide">
+                        <label for="server-host">Host or IP address</label>
+                        <InputText id="server-host"
+                                   @bind-Value="Model!.Host"
+                                   maxlength="255"
+                                   autocomplete="off"
+                                   spellcheck="false" />
+                        <ValidationMessage For="@(() => Model!.Host)" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="query-port">Query port</label>
+                        <InputNumber id="query-port" @bind-Value="Model!.QueryPort" />
+                        <ValidationMessage For="@(() => Model!.QueryPort)" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="rcon-port">RCON port <span>optional</span></label>
+                        <InputNumber id="rcon-port" @bind-Value="Model!.RconPort" />
+                        <ValidationMessage For="@(() => Model!.RconPort)" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="poll-interval">Poll interval, seconds</label>
+                        <InputNumber id="poll-interval" @bind-Value="Model!.PollIntervalSeconds" />
+                        <ValidationMessage For="@(() => Model!.PollIntervalSeconds)" />
+                    </div>
+
+                    <div class="form-field form-field--wide">
+                        <label for="server-notes">Notes <span>optional</span></label>
+                        <InputTextArea id="server-notes"
+                                       @bind-Value="Model!.Notes"
+                                       maxlength="2000" />
+                        <ValidationMessage For="@(() => Model!.Notes)" />
+                    </div>
+                </div>
+
+                <div class="registration-boundary">
+                    <strong>Starts paused</strong>
+                    <p>Registration does not poll the endpoint and does not configure an RCON credential.</p>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit">Review registration</button>
+                    <a href="/operator/servers">Cancel</a>
+                </div>
+            </EditForm>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "result")]
+    public string? Result { get; set; }
+
+    [SupplyParameterFromForm(FormName = "server-registration")]
+    private RegistrationFormModel? Model { get; set; }
+
+    private OperatorServerRegistrationDraft? _draft;
+    private string? _confirmationToken;
+
+    protected override void OnInitialized()
+    {
+        Model ??= new RegistrationFormModel();
+    }
+
+    private async Task PrepareRegistrationAsync()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var subject = WebSecurity.GetSubject(authenticationState.User);
+        if (subject is null)
+        {
+            Result = "confirmation-unavailable";
+            return;
+        }
+
+        _draft = new OperatorServerRegistrationDraft(
+            Guid.NewGuid(),
+            Model!.Name.Trim(),
+            Model.Host.Trim(),
+            Model.QueryPort,
+            Model.RconPort,
+            Model.PollIntervalSeconds,
+            string.IsNullOrWhiteSpace(Model.Notes) ? null : Model.Notes.Trim());
+        _confirmationToken = Confirmations.Issue(subject, _draft);
+        if (_confirmationToken is null)
+        {
+            _draft = null;
+            Result = "confirmation-unavailable";
+        }
+    }
+
+    private ResultMessage? GetResultMessage() => Result switch
+    {
+        "invalid" => new ResultMessage(
+            "Registration was not accepted",
+            "Confirm the reviewed registration before submitting it."),
+        "confirmation-expired" => new ResultMessage(
+            "Confirmation expired",
+            "No server was registered. Review the details and create a new confirmation."),
+        "confirmation-unavailable" => new ResultMessage(
+            "Confirmation is temporarily unavailable",
+            "No server was registered. Try again after existing confirmations expire."),
+        "idempotency-conflict" => new ResultMessage(
+            "Registration key conflict",
+            "No second server was created. Reload the inventory before starting another registration."),
+        "rejected" => new ResultMessage(
+            "Registration was rejected",
+            "The API rejected the reviewed values. Check the endpoint details and submit a new registration."),
+        _ => null
+    };
+
+    private string GetResultClass() => Result is "confirmation-expired" or "confirmation-unavailable"
+        ? "result-state--warning"
+        : "result-state--error";
+
+    private sealed class RegistrationFormModel
+    {
+        [Required(ErrorMessage = "Server name is required.")]
+        [StringLength(200, ErrorMessage = "Server name must not exceed 200 characters.")]
+        [RegularExpression(@".*\S.*", ErrorMessage = "Server name is required.")]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Host is required.")]
+        [StringLength(255, ErrorMessage = "Host must not exceed 255 characters.")]
+        [RegularExpression(@".*\S.*", ErrorMessage = "Host is required.")]
+        public string Host { get; set; } = string.Empty;
+
+        [Range(1, 65535, ErrorMessage = "Query port must be between 1 and 65535.")]
+        public int QueryPort { get; set; } = 27015;
+
+        [Range(1, 65535, ErrorMessage = "RCON port must be between 1 and 65535.")]
+        public int? RconPort { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "Poll interval must be positive.")]
+        public int PollIntervalSeconds { get; set; } = 60;
+
+        [StringLength(2000, ErrorMessage = "Notes must not exceed 2000 characters.")]
+        public string? Notes { get; set; }
+    }
+
+    private sealed record ResultMessage(string Title, string Detail);
+}

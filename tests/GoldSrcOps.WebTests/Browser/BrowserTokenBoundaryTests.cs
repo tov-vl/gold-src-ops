@@ -27,6 +27,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands/new");
         var monitoringPage = await VisitAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/monitoring");
+        var registrationPage = await VisitAsync("/operator/servers/new");
         var incidentsPage = await VisitAsync("/operator/incidents");
         var deadLettersPage = await VisitAsync("/operator/dead-letters");
         var deadLetterDetailPage = await VisitAsync(
@@ -56,6 +57,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                      commandsPage,
                      sayCommandPage,
                      monitoringPage,
+                     registrationPage,
                      incidentsPage,
                      deadLettersPage,
                      deadLetterDetailPage,
@@ -211,6 +213,50 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             hasHorizontalOverflow.Should().BeFalse();
 
             await CaptureScreenshotIfRequestedAsync("operator-monitoring", viewport);
+        }
+    }
+
+    [BrowserFact]
+    public async Task Operator_registration_form_and_review_fit_supported_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(baseAddress, "/operator/servers/new").AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("form.registration-form").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("#server-name").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("#server-host").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("input[type='password']").CountAsync()).Should().Be(0);
+            await Page.Locator("#server-name").FillAsync("Viewport test server");
+            await Page.Locator("#server-host").FillAsync("game.example.test");
+            await Page.Locator("form.registration-form button[type='submit']").ClickAsync();
+            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+            (await Page.Locator("form.registration-confirmation").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("input[name='Confirmed']").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("form.registration-confirmation button[type='submit']").IsVisibleAsync())
+                .Should().BeTrue();
+            var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+            hasHorizontalOverflow.Should().BeFalse();
+
+            await CaptureScreenshotIfRequestedAsync("operator-registration-review", viewport);
         }
     }
 

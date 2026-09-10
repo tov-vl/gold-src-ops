@@ -330,7 +330,8 @@ API endpoints:
 - `GET /api/public/a2s-history?window=24h|7d` - anonymous aggregate A2S history
   for enabled servers, with missing time buckets reported as unknown.
 - `GET /metrics` - Prometheus scrape endpoint backed by OpenTelemetry metrics.
-- `POST /api/servers`
+- `POST /api/servers` - optional UUID `Idempotency-Key`; `isEnabled: false`
+  creates the server atomically in a paused state.
 - `GET /api/servers`
 - `GET /api/servers/{id}`
 - `PATCH /api/servers/{id}`
@@ -354,7 +355,10 @@ API endpoints:
 Per-server incident history defaults to 50 records and accepts an explicit
 `limit` from 1 through 200.
 
-After registering a server, the background poller will update `/api/servers/{id}/status` once the next polling pass succeeds.
+After registering an enabled server, the background poller will update
+`/api/servers/{id}/status` once the next polling pass succeeds. A paused
+registration remains out of polling and incident evaluation until an Operator
+enables it separately.
 After repeated failed polls, the poller opens an availability incident. A later successful poll closes it.
 Queued commands are claimed and executed automatically. Workers may process
 different servers in parallel, but PostgreSQL serialization permits only one
