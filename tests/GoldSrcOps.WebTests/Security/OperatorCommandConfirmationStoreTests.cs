@@ -14,11 +14,11 @@ public sealed class OperatorCommandConfirmationStoreTests
         var store = new OperatorCommandConfirmationStore(new StubTimeProvider(InitialTime));
         var serverId = Guid.NewGuid();
 
-        var token = store.Issue("operator", serverId);
+        var token = store.Issue("operator", serverId, OperatorCommandAction.Say);
 
         token.Should().HaveLength(OperatorCommandConfirmationStore.TokenLength);
-        store.TryConsume(token!, "operator", serverId).Should().BeTrue();
-        store.TryConsume(token!, "operator", serverId).Should().BeFalse();
+        store.TryConsume(token!, "operator", serverId, OperatorCommandAction.Say).Should().BeTrue();
+        store.TryConsume(token!, "operator", serverId, OperatorCommandAction.Say).Should().BeFalse();
     }
 
     [Fact]
@@ -26,11 +26,22 @@ public sealed class OperatorCommandConfirmationStoreTests
     {
         var store = new OperatorCommandConfirmationStore(new StubTimeProvider(InitialTime));
         var serverId = Guid.NewGuid();
-        var token = store.Issue("operator", serverId);
+        var token = store.Issue("operator", serverId, OperatorCommandAction.Say);
 
-        store.TryConsume(token!, "another-operator", serverId).Should().BeFalse();
-        store.TryConsume(token!, "operator", Guid.NewGuid()).Should().BeFalse();
-        store.TryConsume(token!, "operator", serverId).Should().BeTrue();
+        store.TryConsume(token!, "another-operator", serverId, OperatorCommandAction.Say).Should().BeFalse();
+        store.TryConsume(token!, "operator", Guid.NewGuid(), OperatorCommandAction.Say).Should().BeFalse();
+        store.TryConsume(token!, "operator", serverId, OperatorCommandAction.Say).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Confirmation_is_bound_to_the_command_action()
+    {
+        var store = new OperatorCommandConfirmationStore(new StubTimeProvider(InitialTime));
+        var serverId = Guid.NewGuid();
+        var token = store.Issue("operator", serverId, OperatorCommandAction.Say);
+
+        store.TryConsume(token!, "operator", serverId, OperatorCommandAction.Restart).Should().BeFalse();
+        store.TryConsume(token!, "operator", serverId, OperatorCommandAction.Say).Should().BeTrue();
     }
 
     [Fact]
@@ -39,10 +50,14 @@ public sealed class OperatorCommandConfirmationStoreTests
         var timeProvider = new StubTimeProvider(InitialTime);
         var store = new OperatorCommandConfirmationStore(timeProvider);
         var serverId = Guid.NewGuid();
-        var token = store.Issue("operator", serverId);
+        var token = store.Issue("operator", serverId, OperatorCommandAction.Restart);
         timeProvider.Advance(OperatorCommandConfirmationStore.Lifetime);
 
-        var consumed = store.TryConsume(token!, "operator", serverId);
+        var consumed = store.TryConsume(
+            token!,
+            "operator",
+            serverId,
+            OperatorCommandAction.Restart);
 
         consumed.Should().BeFalse();
     }
@@ -56,12 +71,12 @@ public sealed class OperatorCommandConfirmationStoreTests
 
         for (var index = 0; index < OperatorCommandConfirmationStore.Capacity; index++)
         {
-            store.Issue("operator", serverId).Should().NotBeNull();
+            store.Issue("operator", serverId, OperatorCommandAction.Say).Should().NotBeNull();
         }
 
-        store.Issue("operator", serverId).Should().BeNull();
+        store.Issue("operator", serverId, OperatorCommandAction.Restart).Should().BeNull();
         timeProvider.Advance(OperatorCommandConfirmationStore.Lifetime);
-        store.Issue("operator", serverId).Should().NotBeNull();
+        store.Issue("operator", serverId, OperatorCommandAction.Restart).Should().NotBeNull();
     }
 
     private sealed class StubTimeProvider(DateTimeOffset utcNow) : TimeProvider

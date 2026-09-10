@@ -942,9 +942,28 @@ The fourth local v2.5 slice adds guarded RCON credential binding and rotation:
 - Domain, API, PostgreSQL concurrency, client, authorization,
   confirmation-store, workflow, and responsive browser tests cover the slice.
 
-Restart, map-change, and raw command controls remain outside these first four
-slices. No v2.5 UI change is deployed before the v2.4 stable-publication gate
-completes.
+The fifth local v2.5 slice adds guarded server restart:
+
+- Reader sessions can inspect restart readiness, including monitoring state,
+  sanitized RCON binding state, and the count of incomplete commands. Only an
+  Operator receives the submission form.
+- The review is available only when an RCON binding exists and no retained
+  command is `Pending` or `Running`. The Web host refreshes the incomplete
+  command snapshot again immediately before forwarding the mutation.
+- Antiforgery validation, explicit acknowledgement, and a bounded one-time
+  confirmation tied to the subject, server, and `Restart` action prevent
+  ordinary double submission and cross-command token reuse.
+- The existing API queues only the fixed restart command. No raw command or
+  browser-provided RCON payload crosses this workflow, and PostgreSQL continues
+  to serialize actual command execution per server.
+- An uncertain HTTP or RCON outcome is never retried automatically. The
+  Operator returns to durable command history and current server status before
+  deciding whether a deliberate follow-up is safe.
+- Client, confirmation-store, authorization, submit-time precondition,
+  workflow, token-boundary, and responsive browser tests cover the slice.
+
+Map-change and raw command controls remain outside these first five slices. No
+v2.5 UI change is deployed before the v2.4 stable-publication gate completes.
 
 ## Current API Scope
 

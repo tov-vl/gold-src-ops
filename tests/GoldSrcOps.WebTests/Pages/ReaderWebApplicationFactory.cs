@@ -43,7 +43,6 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 {
     private readonly string? role;
     private readonly string? subject;
-    private readonly bool serverEnabled;
 
     public static readonly Guid ServerId = Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f");
     public static readonly Guid OpenIncidentId = Guid.Parse("9307a87e-61cf-4901-8026-b301908431d6");
@@ -59,16 +58,23 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     public const string ReplayReason = "Receiver health was verified by the operator";
     public const string Subject = "reader-portal-fixture";
 
+    public FixtureReaderApiClient ReaderApiClient { get; }
+
     public FixtureOperatorApiClient OperatorApiClient { get; } = new();
 
     public ReaderWebApplicationFactory(
         string? role = WebSecurity.ReaderRole,
         string? subject = Subject,
-        bool serverEnabled = true)
+        bool serverEnabled = true,
+        bool commandInProgress = false,
+        bool rconConfigured = true)
     {
         this.role = role;
         this.subject = subject;
-        this.serverEnabled = serverEnabled;
+        ReaderApiClient = new FixtureReaderApiClient(
+            serverEnabled,
+            commandInProgress,
+            rconConfigured);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -101,16 +107,21 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             services.RemoveAll<WebAuthenticationState>();
             services.AddSingleton(new WebAuthenticationState(true));
             services.RemoveAll<IReaderApiClient>();
-            services.AddSingleton<IReaderApiClient>(new FixtureReaderApiClient(serverEnabled));
+            services.AddSingleton<IReaderApiClient>(ReaderApiClient);
             services.RemoveAll<IOperatorApiClient>();
             services.AddSingleton<IOperatorApiClient>(OperatorApiClient);
         });
     }
 
-    internal sealed class FixtureReaderApiClient(bool serverEnabled = true) : IReaderApiClient
+    internal sealed class FixtureReaderApiClient(
+        bool serverEnabled = true,
+        bool commandInProgress = false,
+        bool rconConfigured = true) : IReaderApiClient
     {
         private static readonly DateTimeOffset ObservedAtUtc =
             new(2026, 9, 4, 12, 0, 0, TimeSpan.Zero);
+
+        public bool CommandInProgress { get; set; } = commandInProgress;
 
         public Task<DashboardOverviewResponse> GetOverviewAsync(
             CancellationToken cancellationToken = default) =>
@@ -184,7 +195,24 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                 return Task.FromResult<IReadOnlyList<CommandExecutionResponse>?>(null);
             }
 
-            IReadOnlyList<CommandExecutionResponse> commands =
+            var commands = new List<CommandExecutionResponse>();
+            if (CommandInProgress)
+            {
+                commands.Add(new CommandExecutionResponse(
+                    Guid.Parse("d59e885e-090b-4404-8954-d5d623ba13c8"),
+                    ServerId,
+                    "Say",
+                    "Running",
+                    CommandPayloadSentinel,
+                    "operator-fixture",
+                    ObservedAtUtc.AddMinutes(-1),
+                    ObservedAtUtc,
+                    null,
+                    null,
+                    null));
+            }
+
+            commands.AddRange(
             [
                 new(
                     CommandId,
@@ -210,15 +238,21 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                     ObservedAtUtc.AddMinutes(-43),
                     null,
                     "RCON acknowledgement timed out")
-            ];
+            ]);
 
             return Task.FromResult<IReadOnlyList<CommandExecutionResponse>?>(commands.Take(limit).ToArray());
         }
 
         public Task<IReadOnlyList<ServerCredentialResponse>?> GetServerCredentialsAsync(
             Guid serverId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<ServerCredentialResponse>?>(serverId == ServerId
+            CancellationToken cancellationToken = default)
+        {
+            if (serverId != ServerId)
+            {
+                return Task.FromResult<IReadOnlyList<ServerCredentialResponse>?>(null);
+            }
+
+            IReadOnlyList<ServerCredentialResponse> credentials = rconConfigured
                 ?
                 [
                     new ServerCredentialResponse(
@@ -230,7 +264,10 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                         ObservedAtUtc.AddDays(-1),
                         ObservedAtUtc.AddHours(-2))
                 ]
-                : null);
+                : [];
+
+            return Task.FromResult<IReadOnlyList<ServerCredentialResponse>?>(credentials);
+        }
 
         public Task<DeadLetterListResponse> GetDeadLettersAsync(
             string? cursor,
@@ -367,6 +404,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     internal sealed class FixtureOperatorApiClient : IOperatorApiClient
     {
         private int callCount;
+        private int restartCallCount;
         private int monitoringCallCount;
         private int registrationCallCount;
         private int replayCallCount;
@@ -374,6 +412,8 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         private int credentialUpdateCallCount;
 
         public int CallCount => Volatile.Read(ref callCount);
+
+        public int RestartCallCount => Volatile.Read(ref restartCallCount);
 
         public int ReplayCallCount => Volatile.Read(ref replayCallCount);
 
@@ -386,6 +426,8 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         public int CredentialUpdateCallCount => Volatile.Read(ref credentialUpdateCallCount);
 
         public Guid? LastServerId { get; private set; }
+
+        public Guid? LastRestartServerId { get; private set; }
 
         public string? LastMessage { get; private set; }
 
@@ -408,6 +450,11 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         public OperatorCommandQueueResult Result { get; set; } = OperatorCommandQueueResult.Queued;
 
         public Exception? ExceptionToThrow { get; set; }
+
+        public OperatorCommandQueueResult RestartResult { get; set; } =
+            OperatorCommandQueueResult.Queued;
+
+        public Exception? RestartExceptionToThrow { get; set; }
 
         public OperatorMonitoringUpdateResult MonitoringResult { get; set; } =
             OperatorMonitoringUpdateResult.Updated;
@@ -483,6 +530,21 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             }
 
             return Task.FromResult(Result);
+        }
+
+        public Task<OperatorCommandQueueResult> QueueRestartAsync(
+            Guid serverId,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref restartCallCount);
+            LastRestartServerId = serverId;
+
+            if (RestartExceptionToThrow is not null)
+            {
+                return Task.FromException<OperatorCommandQueueResult>(RestartExceptionToThrow);
+            }
+
+            return Task.FromResult(RestartResult);
         }
 
         public Task<OperatorServerRegistrationResult> RegisterServerAsync(

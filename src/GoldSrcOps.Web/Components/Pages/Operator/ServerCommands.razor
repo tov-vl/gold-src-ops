@@ -72,6 +72,8 @@
                     <span>Up to @CommandLimit executions</span>
                     <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
                         <a href="@($"/operator/servers/{ServerId:D}/commands/new")">Broadcast message</a>
+                        <a class="action--danger"
+                           href="@($"/operator/servers/{ServerId:D}/commands/restart")">Restart server</a>
                     </AuthorizeView>
                 </div>
             </div>
@@ -202,10 +204,16 @@
         "unknown" => new ResultMessage(
             "Submission outcome is uncertain",
             "Inspect command history before submitting another message. The Web host did not retry the request."),
+        "restart-queued" => new ResultMessage(
+            "Restart queued",
+            "The audited restart was accepted. Its latest state appears in command history."),
+        "restart-unknown" => new ResultMessage(
+            "Restart outcome is uncertain",
+            "Inspect command history and current server status before another restart. The Web host did not retry the request."),
         _ => null
     };
 
-    private string GetResultClass() => Result == "queued"
+    private string GetResultClass() => Result is "queued" or "restart-queued"
         ? "submission-result--success"
         : "submission-result--warning";
 

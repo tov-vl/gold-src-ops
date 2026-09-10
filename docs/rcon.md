@@ -155,22 +155,53 @@ the application rejects the configuration during startup.
 
 ## Guarded Web Say Workflow
 
-The first Web mutation surface deliberately exposes only `say`; raw, restart,
-and map-change commands remain API-only. A Reader can inspect the same command
-history but does not receive the form. A Web Operator needs the exact
-`Operator` role and a stable `sub` claim, and the POST independently enforces
+The first Web mutation surface deliberately exposes only `say`. A later v2.5
+slice adds a separately reviewed fixed restart action; raw and map-change
+commands remain API-only. A Reader can inspect the same command history but
+does not receive either submission form. A Web Operator needs the exact
+`Operator` role and a stable `sub` claim, and each POST independently enforces
 that policy plus antiforgery validation.
 
 Before forwarding, the Web host validates the 512-character message and
 explicit acknowledgement, then atomically consumes a random confirmation bound
-to the current subject and server. The process-local store is capped at 1,024
-entries, expires confirmations after ten minutes, retains no message, and is
-cleared on restart. Reusing a confirmation cannot queue a second API request.
+to the current subject, server, and `Say` action. The process-local store is
+capped at 1,024 entries, expires confirmations after ten minutes, retains no
+message, and is cleared on restart. Reusing a confirmation cannot queue a
+second API request or a different command type.
 
 The confirmation is a browser double-submit guard, not durable command
 idempotency. It is consumed before forwarding so an unknown HTTP outcome cannot
 be retried with the same form. The operator is redirected to durable command
 history and must inspect it before deciding whether a new command is safe.
+
+## Guarded Web Restart Workflow
+
+The restart page reads only the existing Reader projections. It displays the
+target, monitoring state, whether an RCON credential is configured, and the
+number of retained `Pending` or `Running` commands. It never reads or renders a
+secret alias, password, raw RCON text, or prior command payload. Reader sessions
+can inspect this readiness view, while only the Web `Operator` policy receives
+the form and can reach its POST endpoint.
+
+The form is issued only when the RCON binding is configured and the current
+bounded command history contains no incomplete command. After antiforgery and
+explicit-impact validation, the Web host atomically consumes a confirmation
+bound to the subject, server, and `Restart` action, then refreshes the command
+snapshot before forwarding. A newly observed incomplete command blocks the
+submission. The API independently validates server and credential existence,
+and the PostgreSQL claim protocol permits only one `Running` command per server.
+
+This is defense in depth, not durable command idempotency or an atomic
+queue-emptiness guarantee. Another authorized request can still enter the queue
+after the refreshed read and before this request. Actual dispatch remains
+serialized, and the one-time browser confirmation prevents ordinary double
+submission and cross-command reuse.
+
+Restart can disconnect players and temporarily make A2S unreachable. The game
+process can restart before returning an RCON acknowledgement, so a timeout does
+not prove non-execution. The Web host never retries an uncertain API outcome
+and redirects the Operator to durable command history; current status must also
+be inspected before any deliberate follow-up.
 
 ## Lifecycle Logs
 

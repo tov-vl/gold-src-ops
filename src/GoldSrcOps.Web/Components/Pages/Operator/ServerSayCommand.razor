@@ -134,7 +134,10 @@
             if (authenticationState.User.IsInRole(WebSecurity.OperatorRole) &&
                 WebSecurity.GetSubject(authenticationState.User) is { } subject)
             {
-                _confirmationToken = Confirmations.Issue(subject, ServerId);
+                _confirmationToken = Confirmations.Issue(
+                    subject,
+                    ServerId,
+                    OperatorCommandAction.Say);
             }
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)

@@ -14,6 +14,10 @@ internal interface IOperatorApiClient
         string message,
         CancellationToken cancellationToken = default);
 
+    Task<OperatorCommandQueueResult> QueueRestartAsync(
+        Guid serverId,
+        CancellationToken cancellationToken = default);
+
     Task<OperatorMonitoringUpdateResult> SetMonitoringEnabledAsync(
         Guid serverId,
         bool enabled,
