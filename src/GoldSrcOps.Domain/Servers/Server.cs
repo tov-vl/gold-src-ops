@@ -50,6 +50,7 @@ public sealed class Server
         ValidateRegistrationIntent(registrationRequestId, registrationIntentHash);
 
         Id = Guid.NewGuid();
+        Revision = 1;
         Name = normalizedName;
         Game = game;
         Endpoint = endpoint;
@@ -63,6 +64,8 @@ public sealed class Server
     }
 
     public Guid Id { get; private set; }
+
+    public long Revision { get; private set; }
 
     public string Name { get; private set; }
 
@@ -86,12 +89,24 @@ public sealed class Server
 
     public void Enable()
     {
+        if (IsEnabled)
+        {
+            return;
+        }
+
         IsEnabled = true;
+        IncrementRevision();
     }
 
     public void Disable()
     {
+        if (!IsEnabled)
+        {
+            return;
+        }
+
         IsEnabled = false;
+        IncrementRevision();
     }
 
     public void UpdateDetails(
@@ -128,6 +143,7 @@ public sealed class Server
         Endpoint = endpoint;
         PollIntervalSeconds = pollIntervalSeconds;
         Notes = normalizedNotes;
+        IncrementRevision();
     }
 
     public bool IsDueForPolling(DateTimeOffset nowUtc)
@@ -170,5 +186,10 @@ public sealed class Server
                 "Registration request ID and intent hash must form a valid idempotency pair.",
                 nameof(registrationRequestId));
         }
+    }
+
+    private void IncrementRevision()
+    {
+        Revision = checked(Revision + 1);
     }
 }

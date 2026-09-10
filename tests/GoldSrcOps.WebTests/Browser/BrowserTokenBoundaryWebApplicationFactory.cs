@@ -23,8 +23,11 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
     public const string IdTokenSentinel =
         "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJicm93c2VyLWlkIn0.c2lnbmF0dXJl";
 
-    public BrowserTokenBoundaryWebApplicationFactory()
+    private readonly bool serverEnabled;
+
+    public BrowserTokenBoundaryWebApplicationFactory(bool serverEnabled = true)
     {
+        this.serverEnabled = serverEnabled;
         UseKestrel(0);
     }
 
@@ -46,7 +49,8 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
             services.RemoveAll<WebAuthenticationState>();
             services.AddSingleton(new WebAuthenticationState(Enabled: true));
             services.RemoveAll<IReaderApiClient>();
-            services.AddSingleton<IReaderApiClient, ReaderWebApplicationFactory.FixtureReaderApiClient>();
+            services.AddSingleton<IReaderApiClient>(
+                new ReaderWebApplicationFactory.FixtureReaderApiClient(serverEnabled));
             var publicStatusHandler =
                 new PublicDashboardWebApplicationFactory.FixturePublicStatusHandler(statusUnavailable: false);
             services.RemoveAll<PublicStatusClient>();

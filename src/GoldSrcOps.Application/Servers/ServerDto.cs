@@ -4,6 +4,7 @@ namespace GoldSrcOps.Application.Servers;
 
 public sealed record ServerDto(
     Guid Id,
+    long Revision,
     string Name,
     GameServerKind Game,
     string Host,

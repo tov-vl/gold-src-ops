@@ -906,9 +906,25 @@ The second local v2.5 slice adds guarded registration of an existing server:
   returned to the inventory to reconcile the endpoint before taking another
   action.
 
-Address and port editing, RCON credential management, restart, map-change, and
-raw command controls remain outside these first two slices. No v2.5 UI change
-is deployed before the v2.4 stable-publication gate completes.
+The third local v2.5 slice adds guarded editing of a paused server:
+
+- Reader sessions can inspect connection and polling metadata. Only Operators
+  receive the edit form, and only while scheduled monitoring is paused.
+- The editable boundary is limited to name, host, query port, optional RCON
+  port, poll interval, and notes. RCON credentials are never read, rendered,
+  replaced, or cleared by this workflow.
+- Each review is bound to the authenticated subject, server, complete
+  non-secret draft, and displayed server revision. PostgreSQL optimistic
+  concurrency and a fresh monitoring-state check reject stale or racing writes.
+- Antiforgery validation, explicit acknowledgement, and a bounded one-time
+  confirmation protect the final POST. An uncertain HTTP outcome is not
+  retried; the page reloads current Reader data for reconciliation.
+- API, PostgreSQL concurrency, client, authorization, confirmation-store,
+  workflow, and responsive browser tests cover the slice.
+
+RCON credential management, restart, map-change, and raw command controls
+remain outside these first three slices. No v2.5 UI change is deployed before
+the v2.4 stable-publication gate completes.
 
 ## Current API Scope
 

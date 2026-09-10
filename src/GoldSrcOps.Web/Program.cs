@@ -74,6 +74,7 @@ app.MapOperatorCommandEndpoints();
 app.MapOperatorReplayEndpoints();
 app.MapOperatorServerMonitoringEndpoints();
 app.MapOperatorServerRegistrationEndpoints();
+app.MapOperatorServerUpdateEndpoints();
 app.MapRazorComponents<App>();
 
 app.Run();

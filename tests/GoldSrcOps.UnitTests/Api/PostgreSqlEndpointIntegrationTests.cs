@@ -124,12 +124,14 @@ public sealed class PostgreSqlEndpointIntegrationTests
             QueryPort: 27015,
             RconPort: null,
             PollIntervalSeconds: 30,
-            Notes: "before");
+            Notes: "before",
+            IsEnabled: false);
         var createResponse = await client.PostAsJsonAsync("/api/servers", createRequest);
         createResponse.EnsureSuccessStatusCode();
         var created = await createResponse.Content.ReadFromJsonAsync<ServerResponse>();
         created.Should().NotBeNull();
         var updateRequest = new UpdateServerRequest(
+            created.Revision,
             "Inferno Public",
             "cs.example.local",
             QueryPort: 27016,
@@ -176,6 +178,56 @@ public sealed class PostgreSqlEndpointIntegrationTests
 
     [Fact]
     [Trait("Category", "PostgreSqlIntegration")]
+    public async Task Concurrent_server_updates_with_the_same_revision_allow_one_winner()
+    {
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync();
+        using var firstClient = factory.CreateClient();
+        using var secondClient = factory.CreateClient();
+        var createResponse = await firstClient.PostAsJsonAsync(
+            "/api/servers",
+            new RegisterServerRequest(
+                "Concurrent update",
+                "game.example.test",
+                QueryPort: 27015,
+                RconPort: null,
+                PollIntervalSeconds: 30,
+                Notes: null,
+                IsEnabled: false));
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ServerResponse>();
+        created.Should().NotBeNull();
+        var firstRequest = new UpdateServerRequest(
+            created!.Revision,
+            "First contender",
+            created.Host,
+            created.QueryPort,
+            created.RconPort,
+            created.PollIntervalSeconds,
+            created.Notes);
+        var secondRequest = firstRequest with { Name = "Second contender" };
+
+        var responses = await Task.WhenAll(
+            firstClient.PatchAsJsonAsync($"/api/servers/{created.Id}", firstRequest),
+            secondClient.PatchAsJsonAsync($"/api/servers/{created.Id}", secondRequest));
+        using var firstResponse = responses[0];
+        using var secondResponse = responses[1];
+
+        responses.Select(static response => response.StatusCode)
+            .Should()
+            .BeEquivalentTo([HttpStatusCode.OK, HttpStatusCode.Conflict]);
+        var persisted = await factory.ExecuteDbContextAsync(async dbContext =>
+            await dbContext.Servers
+                .AsNoTracking()
+                .Where(server => server.Id == created.Id)
+                .Select(server => new { server.Name, server.Revision, server.IsEnabled })
+                .SingleAsync());
+        persisted.Name.Should().BeOneOf("First contender", "Second contender");
+        persisted.Revision.Should().Be(created.Revision + 1);
+        persisted.IsEnabled.Should().BeFalse();
+    }
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
     public async Task DisableServer_and_enableServer_persist_enabled_flag_through_postgresql_provider()
     {
         await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync();
@@ -198,9 +250,10 @@ public sealed class PostgreSqlEndpointIntegrationTests
         var disabled = await factory.ExecuteDbContextAsync(async dbContext =>
             await dbContext.Servers
                 .Where(x => x.Id == created.Id)
-                .Select(x => x.IsEnabled)
+                .Select(x => new { x.IsEnabled, x.Revision })
                 .SingleAsync());
-        disabled.Should().BeFalse();
+        disabled.IsEnabled.Should().BeFalse();
+        disabled.Revision.Should().Be(created.Revision + 1);
 
         var enableResponse = await client.PostAsync($"/api/servers/{created.Id}/enable", content: null);
 
@@ -208,9 +261,10 @@ public sealed class PostgreSqlEndpointIntegrationTests
         var enabled = await factory.ExecuteDbContextAsync(async dbContext =>
             await dbContext.Servers
                 .Where(x => x.Id == created.Id)
-                .Select(x => x.IsEnabled)
+                .Select(x => new { x.IsEnabled, x.Revision })
                 .SingleAsync());
-        enabled.Should().BeTrue();
+        enabled.IsEnabled.Should().BeTrue();
+        enabled.Revision.Should().Be(disabled.Revision + 1);
     }
 
     [Fact]

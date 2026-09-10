@@ -38,6 +38,10 @@ public sealed class GoldSrcOpsDbContext : DbContext
         {
             server.ToTable("servers");
             server.HasKey(x => x.Id);
+            server.Property(x => x.Revision)
+                .HasDefaultValue(1L)
+                .IsConcurrencyToken()
+                .IsRequired();
             server.Property(x => x.Name).HasMaxLength(Server.MaxNameLength).IsRequired();
             server.Property(x => x.Game).HasConversion<string>().HasMaxLength(32).IsRequired();
             server.Property(x => x.Notes).HasMaxLength(Server.MaxNotesLength);

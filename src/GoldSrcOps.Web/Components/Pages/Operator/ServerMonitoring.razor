@@ -192,6 +192,9 @@
         "server-not-found" => new ResultMessage(
             "Server is no longer available",
             "No monitoring change was submitted. Return to the server inventory and refresh its state."),
+        "monitoring-conflict" => new ResultMessage(
+            "Monitoring state changed",
+            "The request was not applied because another update won the race. Review the current state and confirm again."),
         _ => null
     };
 

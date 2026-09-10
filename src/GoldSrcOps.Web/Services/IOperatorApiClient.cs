@@ -19,6 +19,10 @@ internal interface IOperatorApiClient
         bool enabled,
         CancellationToken cancellationToken = default);
 
+    Task<OperatorServerUpdateResult> UpdateServerAsync(
+        OperatorServerUpdateDraft draft,
+        CancellationToken cancellationToken = default);
+
     Task<OperatorReplayResult> ReplayDeadLetterAsync(
         Guid eventId,
         Guid requestId,
@@ -45,8 +49,21 @@ internal enum OperatorCommandQueueResult
 internal enum OperatorMonitoringUpdateResult
 {
     Updated,
-    ServerNotFound
+    ServerNotFound,
+    Conflict
 }
+
+internal enum OperatorServerUpdateResultKind
+{
+    Updated,
+    ServerNotFound,
+    Conflict,
+    Rejected
+}
+
+internal sealed record OperatorServerUpdateResult(
+    OperatorServerUpdateResultKind Kind,
+    ServerResponse? Server);
 
 internal enum OperatorServerRegistrationResultKind
 {

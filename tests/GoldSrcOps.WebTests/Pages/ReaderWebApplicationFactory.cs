@@ -324,6 +324,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 
         private ServerResponse CreateServer() => new(
             ServerId,
+            7,
             ServerName,
             "cstrike",
             "game.example.test",
@@ -351,6 +352,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         private int monitoringCallCount;
         private int registrationCallCount;
         private int replayCallCount;
+        private int updateCallCount;
 
         public int CallCount => Volatile.Read(ref callCount);
 
@@ -359,6 +361,8 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         public int MonitoringCallCount => Volatile.Read(ref monitoringCallCount);
 
         public int RegistrationCallCount => Volatile.Read(ref registrationCallCount);
+
+        public int UpdateCallCount => Volatile.Read(ref updateCallCount);
 
         public Guid? LastServerId { get; private set; }
 
@@ -369,6 +373,8 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         public bool? LastMonitoringEnabled { get; private set; }
 
         public OperatorServerRegistrationDraft? LastRegistrationDraft { get; private set; }
+
+        public OperatorServerUpdateDraft? LastUpdateDraft { get; private set; }
 
         public Guid? LastEventId { get; private set; }
 
@@ -390,6 +396,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                 OperatorServerRegistrationResultKind.Created,
                 new ServerResponse(
                     ServerId,
+                    1,
                     ServerName,
                     "GoldSrc",
                     "game.example.test",
@@ -401,6 +408,24 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                     new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero)));
 
         public Exception? RegistrationExceptionToThrow { get; set; }
+
+        public OperatorServerUpdateResult UpdateResult { get; set; } =
+            new(
+                OperatorServerUpdateResultKind.Updated,
+                new ServerResponse(
+                    ServerId,
+                    8,
+                    ServerName,
+                    "GoldSrc",
+                    "game.example.test",
+                    27015,
+                    null,
+                    false,
+                    60,
+                    null,
+                    new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero)));
+
+        public Exception? UpdateExceptionToThrow { get; set; }
 
         public OperatorReplayResult ReplayResult { get; set; } = OperatorReplayResult.Accepted;
 
@@ -456,6 +481,21 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             }
 
             return Task.FromResult(ReplayResult);
+        }
+
+        public Task<OperatorServerUpdateResult> UpdateServerAsync(
+            OperatorServerUpdateDraft draft,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref updateCallCount);
+            LastUpdateDraft = draft;
+
+            if (UpdateExceptionToThrow is not null)
+            {
+                return Task.FromException<OperatorServerUpdateResult>(UpdateExceptionToThrow);
+            }
+
+            return Task.FromResult(UpdateResult);
         }
 
         public Task<OperatorMonitoringUpdateResult> SetMonitoringEnabledAsync(

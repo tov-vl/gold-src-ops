@@ -120,6 +120,9 @@ internal static class OperatorServerMonitoringEndpoints
                 OperatorMonitoringUpdateResult.ServerNotFound => RedirectToForm(
                     serverId,
                     "server-not-found"),
+                OperatorMonitoringUpdateResult.Conflict => RedirectToForm(
+                    serverId,
+                    "monitoring-conflict"),
                 _ => throw new InvalidOperationException(
                     $"Unsupported monitoring update result '{result}'.")
             };

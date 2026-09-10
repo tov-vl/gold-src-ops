@@ -17,6 +17,7 @@ public sealed class OperatorApiClientTests
         var requestId = Guid.Parse("a195195d-3ad8-49d1-9e5a-dd70a6957c90");
         var server = new ServerResponse(
             Guid.Parse("5edc0c9a-41f7-42b0-811c-93dc0eea98e7"),
+            1,
             "Public server",
             "GoldSrc",
             "game.example.test",
@@ -67,6 +68,7 @@ public sealed class OperatorApiClientTests
         var responseServer = statusCode == HttpStatusCode.OK
             ? new ServerResponse(
                 Guid.NewGuid(),
+                1,
                 "Server",
                 "GoldSrc",
                 "game.example.test",
@@ -163,16 +165,20 @@ public sealed class OperatorApiClientTests
         capture.HasContent.Should().BeFalse();
     }
 
-    [Fact]
-    public async Task SetMonitoringEnabledAsync_maps_a_missing_server()
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, (int)OperatorMonitoringUpdateResult.ServerNotFound)]
+    [InlineData(HttpStatusCode.Conflict, (int)OperatorMonitoringUpdateResult.Conflict)]
+    public async Task SetMonitoringEnabledAsync_maps_expected_rejections(
+        HttpStatusCode statusCode,
+        int expected)
     {
-        var capture = new LifecycleCaptureHandler(HttpStatusCode.NotFound);
+        var capture = new LifecycleCaptureHandler(statusCode);
         using var httpClient = CreateHttpClient(capture);
         var client = new OperatorApiClient(httpClient);
 
         var result = await client.SetMonitoringEnabledAsync(Guid.NewGuid(), enabled: true);
 
-        result.Should().Be(OperatorMonitoringUpdateResult.ServerNotFound);
+        result.Should().Be((OperatorMonitoringUpdateResult)expected);
     }
 
     [Fact]
@@ -183,6 +189,84 @@ public sealed class OperatorApiClientTests
         var client = new OperatorApiClient(httpClient);
 
         var action = () => client.SetMonitoringEnabledAsync(Guid.NewGuid(), enabled: false);
+
+        var exception = await action.Should().ThrowAsync<HttpRequestException>();
+        exception.Which.StatusCode.Should().Be(HttpStatusCode.Accepted);
+    }
+
+    [Fact]
+    public async Task UpdateServerAsync_patches_the_reviewed_revision_and_non_secret_fields()
+    {
+        var serverId = Guid.Parse("c1f3f963-8b8f-4ffd-a1f9-277d3d117ec9");
+        var draft = new OperatorServerUpdateDraft(
+            serverId,
+            ExpectedRevision: 7,
+            "Updated server",
+            "game-updated.example.test",
+            QueryPort: 27016,
+            RconPort: 27017,
+            PollIntervalSeconds: 45,
+            Notes: "Reviewed update");
+        var updated = new ServerResponse(
+            serverId,
+            8,
+            draft.Name,
+            "GoldSrc",
+            draft.Host,
+            draft.QueryPort,
+            draft.RconPort,
+            false,
+            draft.PollIntervalSeconds,
+            draft.Notes,
+            new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero));
+        var capture = new UpdateCaptureHandler(HttpStatusCode.OK, updated);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.UpdateServerAsync(draft);
+
+        result.Should().Be(new OperatorServerUpdateResult(
+            OperatorServerUpdateResultKind.Updated,
+            updated));
+        capture.Method.Should().Be(HttpMethod.Patch);
+        capture.RequestUri.Should().Be(
+            new Uri($"https://api.example.test/api/servers/{serverId:D}"));
+        capture.Request.Should().Be(new UpdateServerRequest(
+            draft.ExpectedRevision,
+            draft.Name,
+            draft.Host,
+            draft.QueryPort,
+            draft.RconPort,
+            draft.PollIntervalSeconds,
+            draft.Notes));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, (int)OperatorServerUpdateResultKind.ServerNotFound)]
+    [InlineData(HttpStatusCode.Conflict, (int)OperatorServerUpdateResultKind.Conflict)]
+    [InlineData(HttpStatusCode.BadRequest, (int)OperatorServerUpdateResultKind.Rejected)]
+    public async Task UpdateServerAsync_maps_expected_rejections(
+        HttpStatusCode statusCode,
+        int expected)
+    {
+        var capture = new UpdateCaptureHandler(statusCode, responseServer: null);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var result = await client.UpdateServerAsync(CreateUpdateDraft());
+
+        result.Kind.Should().Be((OperatorServerUpdateResultKind)expected);
+        result.Server.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdateServerAsync_rejects_an_unexpected_status()
+    {
+        var capture = new UpdateCaptureHandler(HttpStatusCode.Accepted, responseServer: null);
+        using var httpClient = CreateHttpClient(capture);
+        var client = new OperatorApiClient(httpClient);
+
+        var action = () => client.UpdateServerAsync(CreateUpdateDraft());
 
         var exception = await action.Should().ThrowAsync<HttpRequestException>();
         exception.Which.StatusCode.Should().Be(HttpStatusCode.Accepted);
@@ -248,6 +332,16 @@ public sealed class OperatorApiClientTests
     {
         BaseAddress = new Uri("https://api.example.test/")
     };
+
+    private static OperatorServerUpdateDraft CreateUpdateDraft() => new(
+        Guid.NewGuid(),
+        ExpectedRevision: 1,
+        "Server",
+        "game.example.test",
+        QueryPort: 27015,
+        RconPort: null,
+        PollIntervalSeconds: 60,
+        Notes: null);
 
     private sealed class CaptureHandler(HttpStatusCode responseStatusCode) : HttpMessageHandler
     {
@@ -329,6 +423,32 @@ public sealed class OperatorApiClientTests
             RequestUri = request.RequestUri;
             IdempotencyKey = request.Headers.GetValues("Idempotency-Key").Single();
             Request = await request.Content!.ReadFromJsonAsync<RegisterServerRequest>(cancellationToken);
+            return new HttpResponseMessage(responseStatusCode)
+            {
+                Content = responseServer is null
+                    ? null
+                    : JsonContent.Create(responseServer)
+            };
+        }
+    }
+
+    private sealed class UpdateCaptureHandler(
+        HttpStatusCode responseStatusCode,
+        ServerResponse? responseServer) : HttpMessageHandler
+    {
+        public HttpMethod? Method { get; private set; }
+
+        public Uri? RequestUri { get; private set; }
+
+        public UpdateServerRequest? Request { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Method = request.Method;
+            RequestUri = request.RequestUri;
+            Request = await request.Content!.ReadFromJsonAsync<UpdateServerRequest>(cancellationToken);
             return new HttpResponseMessage(responseStatusCode)
             {
                 Content = responseServer is null

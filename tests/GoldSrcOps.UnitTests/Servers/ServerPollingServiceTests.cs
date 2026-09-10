@@ -337,9 +337,9 @@ public sealed class ServerPollingServiceTests
             return Task.CompletedTask;
         }
 
-        public Task SaveChangesAsync(CancellationToken cancellationToken)
+        public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
         {
-            return Task.CompletedTask;
+            return Task.FromResult(true);
         }
     }
 
