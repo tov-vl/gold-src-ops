@@ -1,8 +1,9 @@
 # GoldSrcOps v2.5.0 Release Notes
 
-Status as of 2026-09-11: signed candidate `v2.5.0-rc.1` is published and its API
-and Web images are independently digest-verified. It has not been deployed, and
-no stable v2.5 release has been published.
+Status as of 2026-09-11: signed candidate `v2.5.0-rc.1` is published, its API
+and Web images are independently digest-verified, and the exact digests have
+passed production rollout plus Stage A read-only acceptance. No stable v2.5
+release has been published; Stage B and Stage C remain pending.
 
 ## Overview
 
@@ -16,7 +17,7 @@ The six repository slices are integrated in protected `main` through pull
 requests [#108](https://github.com/tov-vl/gold-src-ops/pull/108) through
 [#113](https://github.com/tov-vl/gold-src-ops/pull/113). They are not part of
 the signed `v2.4.0` application revision. Candidate publication is complete;
-production verification remains pending.
+the bounded production rollout and read-only authorization checks are complete.
 
 The repository baseline after the signed `v2.4.0` tag also carries forward
 operational maintenance completed on `main`: WireGuard-scoped SSH preflight
@@ -38,7 +39,24 @@ undeclared application behavior.
 
 The signed annotated tag targets the exact revision above. The successful tag
 workflow built the API and Web images independently, verified both published
-digests, and did not create a mutable stable alias or deploy the candidate.
+digests, and did not create a mutable stable alias. A later bounded production
+action deployed those exact digests without rebuilding them.
+
+## Production Candidate Evidence
+
+The 2026-09-11 digest-pinned rollout applied the serialized candidate migration
+bundle and recreated only API and Web. All seven control-plane containers and
+the game service remained at zero restarts, while public health, candidate
+metadata, A2S reachability, the zero-bot state, no open incidents or pending
+durable work, rollback retention, and backup freshness passed strict
+verification.
+
+Stage A then passed the ten-case live OIDC matrix and the Reader and Operator
+browser boundaries. Every v2.5 Operator review flow was opened without final
+submission, Reader mutation controls remained concealed, and the durable-state
+projection stayed identical to its baseline. Temporary test-only authorization
+settings were restored and re-read. Sanitized owner-only evidence remains
+outside Git; Stage B and Stage C mutations have not been performed.
 
 ## Included In v2.5
 

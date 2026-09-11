@@ -997,15 +997,17 @@ The sixth local v2.5 slice adds guarded map change:
   token-boundary, and responsive browser tests cover the slice.
 
 Raw command controls remain outside these first six slices. No v2.5 UI change
-was deployed before the v2.4 stable-publication gate completed, and none is
-production-deployed yet.
+was deployed before the v2.4 stable-publication gate completed. The exact
+`v2.5.0-rc.1` candidate is now production-deployed for bounded acceptance; no
+stable v2.5 release has been published.
 
 Release-candidate preparation and publication completed on 2026-09-11 after
 that gate passed. Signed candidate `v2.5.0-rc.1` was published from revision
 `c8000c090cb0de03f848ec4e999bcf4505332b93`; [workflow
 #34586962203](https://github.com/tov-vl/gold-src-ops/actions/runs/34586962203)
 passed `Quality Gate`, `Container Smoke`, `Browser Smoke`, and independent API
-and Web published-digest verification. The candidate remains undeployed.
+and Web published-digest verification. The candidate was subsequently deployed
+using those exact immutable digests.
 
 The scope remains frozen to these six slices until bounded production
 acceptance completes. On 2026-09-11, a fresh encrypted off-host PostgreSQL
@@ -1029,8 +1031,23 @@ Web digests without deploying them. The production database and runtime stayed
 unchanged, all seven container restart counts remained zero, and public health
 returned HTTP `200`.
 
-The next gate requires digest-pinned rollout, public and OIDC regression,
-read-only authorization checks, reversible lifecycle verification, and
+The digest-pinned rollout and Stage A read-only acceptance then passed on
+2026-09-11. The serialized candidate migration completed, only API and Web were
+recreated, and the other five control-plane services plus the game host kept
+their recorded identities. All seven containers and the game service remained
+at zero restarts. Public health, anonymous boundaries, exact candidate
+metadata, rollback-reference retention, A2S reachability, the online zero-bot
+state, no open incidents or pending durable work, and backup freshness passed
+the strict post-rollout checks.
+
+The ten-case live OIDC matrix passed Reader, Operator, missing-role,
+expired-token, issuer, and audience boundaries. Reader mutation controls were
+concealed, while every v2.5 Operator review flow rendered without final
+submission. The post-review durable-state projection exactly matched its
+baseline, and the temporary test-only role and token-lifetime settings were
+restored and re-read. Sanitized owner-only evidence remains outside Git.
+
+The remaining gates are Stage B reversible lifecycle verification and Stage C
 deliberately bounded restart and map-change checks. The write path does not
 create a disposable server record while no retirement workflow exists. See
 `docs/release-notes-v2.5.md` and `docs/v2.5-readiness.md`.
