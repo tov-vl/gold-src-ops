@@ -727,7 +727,7 @@ Delivery order:
    The sanitized setup and implementation records are in
    `docs/v2.4-synthetic-monitoring-rollout.md` and
    `docs/v2.4-availability-evidence-exporter.md`.
-4. **Activation (recorded 2026-09-10)**: the immutable tuple starts the
+4. **Activation (recorded 2026-09-10)**: the immutable tuple started the
    prospective seven-day `API-01` window at `2026-09-10T16:45:00Z`, under
    Decision 23, without importing shadow or v2.3 soak samples. The first
    terminal review is permitted after `2026-09-17T16:50:00Z`.
@@ -853,7 +853,18 @@ Delivery order:
    accepts any-source SSH only on an explicitly declared private management
    interface and still rejects the same rule on any other interface; the
    corrected read-only target audit passed with owner-only evidence.
-7. **First SLO review**: after the complete forward-looking seven-day window,
+7. **Stable release (published 2026-09-11)**: pull request
+   [#114](https://github.com/tov-vl/gold-src-ops/pull/114) recorded the immutable
+   activation tuple, and post-merge
+   [workflow 34501694808](https://github.com/tov-vl/gold-src-ops/actions/runs/34501694808)
+   passed. Signed annotated tag
+   [`v2.4.0`](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.4.0)
+   points to revision `2769d89`. Stable
+   [workflow 34504124988](https://github.com/tov-vl/gold-src-ops/actions/runs/34504124988)
+   promoted the exact API and Web digests verified for `v2.4.0-rc.9` on
+   2026-09-10, skipped both rebuild steps, and passed both published-digest
+   smoke tests. The GitHub Release was published on 2026-09-11.
+8. **First SLO review**: after the complete forward-looking seven-day window,
    publish the reproducible sanitized result and report `API-01` as met or
    missed. Review the target without changing it to fit the observed result.
 

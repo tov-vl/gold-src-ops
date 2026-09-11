@@ -6,25 +6,21 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.3.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.3.0)
+**Status:** [v2.4.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.4.0)
 is the current public release. Its signed annotated tag identifies application
-revision `58a74da` and promotes the exact digest exercised by the
-`v2.3.0-rc.5` reference deployment. Final evidence
-[pull request #68](https://github.com/tov-vl/gold-src-ops/pull/68), publication
-hardening [pull request #69](https://github.com/tov-vl/gold-src-ops/pull/69),
-their post-merge workflows
-[#33784710906](https://github.com/tov-vl/gold-src-ops/actions/runs/33784710906)
-and
-[#33787856532](https://github.com/tov-vl/gold-src-ops/actions/runs/33787856532),
-and the final publication workflow
-[#33788658773](https://github.com/tov-vl/gold-src-ops/actions/runs/33788658773)
+revision `2769d89` and promotes the exact API and Web image digests exercised by
+`v2.4.0-rc.9`, without rebuilding either image. Release-closure
+[pull request #114](https://github.com/tov-vl/gold-src-ops/pull/114), its
+[post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34501694808),
+and the stable
+[publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34504124988)
 all passed. Release notes and detailed evidence are available in
-[docs/release-notes-v2.3.md](docs/release-notes-v2.3.md) and
-[docs/v2.3-readiness.md](docs/v2.3-readiness.md).
+[docs/release-notes-v2.4.md](docs/release-notes-v2.4.md) and
+[docs/v2.4-readiness.md](docs/v2.4-readiness.md).
 
-The v2.4 release closure now has a passing independent 24-hour availability
-shadow audit. The immutable `API-01` activation tuple starts its prospective
-seven-day window at `2026-09-10T16:45:00Z`; no shadow sample is imported. The
+The v2.4 release has a passing independent 24-hour availability
+shadow audit. The immutable `API-01` activation tuple started its prospective
+seven-day window at `2026-09-10T16:45:00Z`; no shadow sample was imported. The
 first sanitized public Blazor dashboard landed in
 [PR #82](https://github.com/tov-vl/gold-src-ops/pull/82), its production
 packaging landed in
@@ -42,7 +38,9 @@ Operator mutation landed in
 `v2.4.0-rc.9` was published, digest-verified, and deployed from revision
 `2769d89`; its complete tag workflow passed in
 [run #34235947471](https://github.com/tov-vl/gold-src-ops/actions/runs/34235947471).
-Stable v2.4 publication remains pending. The
+Stable publication promoted those exact digests and passed in
+[run #34504124988](https://github.com/tov-vl/gold-src-ops/actions/runs/34504124988).
+The
 provider-independent monitoring contract is documented in
 [docs/v2.4-external-availability-monitoring.md](docs/v2.4-external-availability-monitoring.md),
 the conditional managed-provider choice is recorded in
@@ -154,7 +152,7 @@ published-image verification have passed.
 | v2.1 dead-letter recovery release | [v2.1 release notes](docs/release-notes-v2.1.md) |
 | v2.2 RCON reliability release | [v2.2 release notes](docs/release-notes-v2.2.md) |
 | v2.3 reference deployment release | [v2.3 release notes](docs/release-notes-v2.3.md) |
-| v2.4 release closure | [v2.4 release notes](docs/release-notes-v2.4.md) |
+| v2.4 release | [v2.4 release notes](docs/release-notes-v2.4.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
@@ -186,7 +184,7 @@ published-image verification have passed.
 | v2 alert delivery evidence | [v2 readiness](docs/v2-readiness.md) |
 | v2.1 dead-letter recovery evidence | [v2.1 readiness](docs/v2.1-readiness.md) |
 | v2.2 RCON reliability evidence | [v2.2 readiness](docs/v2.2-readiness.md) |
-| v2.4 release-candidate evidence | [v2.4 readiness](docs/v2.4-readiness.md) |
+| v2.4 release evidence | [v2.4 readiness](docs/v2.4-readiness.md) |
 
 ## Prerequisites
 
