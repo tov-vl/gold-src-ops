@@ -1012,17 +1012,28 @@ acceptance completes. On 2026-09-11, a fresh encrypted off-host PostgreSQL
 backup, authenticated `100%` repository data check, and network-isolated
 candidate restore passed. The exact candidate migration bundle produced 11 EF
 Core migration records, all 8 required application tables, and the expected
-single controlled-server record. Matching owner-only evidence remains outside
-Git; the temporary environment and recovery resources were removed, while the
-production database and runtime stayed unchanged.
+single controlled-server record. Reapplying the candidate migration bundle
+left all 11 migration records unchanged, and the retained previous v2.4 API
+passed liveness and readiness against the same migrated copy through a
+read-only database connection with background work disabled. The combined
+rehearsal completed in approximately 18 seconds; this is an observation, not
+an RTO commitment. Matching owner-only evidence remains outside Git, and all
+temporary recovery resources were removed.
 
-The next gate requires the candidate's already-up-to-date migration path,
-previous v2.4 runtime startup against the migrated rehearsal database,
-production preflight, digest-pinned rollout, read-only authorization checks,
-reversible lifecycle verification, and deliberately bounded restart and
-map-change checks. The write path does not create a disposable server record
-while no retirement workflow exists. See `docs/release-notes-v2.5.md` and
-`docs/v2.5-readiness.md`.
+The compatibility tooling merged in [pull request
+#119](https://github.com/tov-vl/gold-src-ops/pull/119) and passed its
+[post-merge workflow
+#34599354618](https://github.com/tov-vl/gold-src-ops/actions/runs/34599354618).
+Production preflight then passed against the exact recorded candidate API and
+Web digests without deploying them. The production database and runtime stayed
+unchanged, all seven container restart counts remained zero, and public health
+returned HTTP `200`.
+
+The next gate requires digest-pinned rollout, public and OIDC regression,
+read-only authorization checks, reversible lifecycle verification, and
+deliberately bounded restart and map-change checks. The write path does not
+create a disposable server record while no retirement workflow exists. See
+`docs/release-notes-v2.5.md` and `docs/v2.5-readiness.md`.
 
 The active `API-01` window continues independently. Candidate work does not
 pause or reset it, and any rollout-time bad or missing primary minute consumes
