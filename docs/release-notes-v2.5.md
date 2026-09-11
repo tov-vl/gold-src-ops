@@ -1,7 +1,8 @@
 # GoldSrcOps v2.5.0 Release Notes
 
-Status as of 2026-09-11: release-candidate preparation. No v2.5 candidate has
-been tagged or deployed, and no stable v2.5 release has been published.
+Status as of 2026-09-11: signed candidate `v2.5.0-rc.1` is published and its API
+and Web images are independently digest-verified. It has not been deployed, and
+no stable v2.5 release has been published.
 
 ## Overview
 
@@ -14,16 +15,30 @@ metadata, credentials, or the game-server process.
 The six repository slices are integrated in protected `main` through pull
 requests [#108](https://github.com/tov-vl/gold-src-ops/pull/108) through
 [#113](https://github.com/tov-vl/gold-src-ops/pull/113). They are not part of
-the signed `v2.4.0` application revision and have not yet completed candidate
-publication or production verification.
+the signed `v2.4.0` application revision. Candidate publication is complete;
+production verification remains pending.
 
 The repository baseline after the signed `v2.4.0` tag also carries forward
 operational maintenance completed on `main`: WireGuard-scoped SSH preflight
 hardening, availability shadow-audit tooling and policy alignment, and v2.4
 release and `API-01` evidence updates. These changes are part of the exact v2.5
 candidate diff, but do not expand the six-workflow product scope below. The
-candidate-head review must classify every post-v2.4 commit and reject any
+completed candidate-head review classified every post-v2.4 commit and found no
 undeclared application behavior.
+
+## Candidate Publication
+
+| Property | Candidate evidence |
+| --- | --- |
+| Candidate version | `v2.5.0-rc.1` |
+| Source revision | `c8000c090cb0de03f848ec4e999bcf4505332b93` |
+| API image digest | `sha256:ebbecc713e71e879f72234588274354efc8da9d08a266290e8bd1da8248c58da` |
+| Web image digest | `sha256:b59313b35ed6c408b952f6f0a31b3311918cd2d10c28759b6ab17a8478c7191d` |
+| Candidate workflow | [GitHub Actions run #34586962203](https://github.com/tov-vl/gold-src-ops/actions/runs/34586962203) |
+
+The signed annotated tag targets the exact revision above. The successful tag
+workflow built the API and Web images independently, verified both published
+digests, and did not create a mutable stable alias or deploy the candidate.
 
 ## Included In v2.5
 
@@ -77,18 +92,19 @@ database restore is reserved for a separately diagnosed migration failure.
 
 ## Candidate Acceptance Boundary
 
-`v2.5.0-rc.1` is acceptable for production evaluation only after:
+Repository closure and immutable candidate publication are complete: the exact
+candidate revision passed `Quality Gate`, `Container Smoke`, and `Browser
+Smoke`, and the signed tag published and independently verified both images.
 
-1. The exact candidate revision passes `Quality Gate`, `Container Smoke`, and
-   `Browser Smoke`.
-2. A signed candidate tag publishes and verifies independently
-   digest-addressed API and Web images.
-3. A fresh encrypted off-host backup, repository check, isolated restore
+`v2.5.0-rc.1` is acceptable for production evaluation only after the remaining
+gates pass:
+
+1. A fresh encrypted off-host backup, repository check, isolated restore
    rehearsal, production preflight, and same-image migration action pass.
-4. Public health, OIDC Reader/Operator/no-role boundaries, token-free browser
+2. Public health, OIDC Reader/Operator/no-role boundaries, token-free browser
    responses, durable queues, and controlled-server continuity pass before any
    mutation is submitted.
-5. Reversible lifecycle checks and deliberately approved disruptive command
+3. Reversible lifecycle checks and deliberately approved disruptive command
    checks complete in the order defined by
    [v2.5 release readiness](v2.5-readiness.md).
 
