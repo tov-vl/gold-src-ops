@@ -79,9 +79,14 @@ and production verification of signed candidate `v2.4.0-rc.9` passed on
 2026-09-08.
 The rollout recreated only API and Web, retained runtime and game-host
 continuity, and exercised the live Operator boundary without creating or
-replaying a production dead letter. The later v2.5 repository work now includes
-a guarded restart review and a two-step map-change review, but neither is
-deployed as part of the v2.4 boundary. Raw RCON remains outside the Web UI.
+replaying a production dead letter. The active v2.5 repository milestone now
+contains six guarded lifecycle slices: monitoring pause/resume, idempotent
+paused registration, paused non-secret editing, alias-only RCON credential
+binding, fixed restart, and a two-step map-change review. They are not deployed
+or released as part of the v2.4 boundary. Candidate scope and ordered acceptance
+are defined in [docs/release-notes-v2.5.md](docs/release-notes-v2.5.md) and
+[docs/v2.5-readiness.md](docs/v2.5-readiness.md). Raw RCON remains outside the
+Web UI.
 
 ## Highlights
 
@@ -140,6 +145,9 @@ The published v2.3 reference-deployment release is summarized in
 [docs/release-notes-v2.3.md](docs/release-notes-v2.3.md). Its bounded
 operational gate, repository checks, digest-preserving stable publication, and
 published-image verification have passed.
+The active v2.5 lifecycle milestone and its candidate boundary are summarized
+in [docs/release-notes-v2.5.md](docs/release-notes-v2.5.md) and
+[docs/v2.5-readiness.md](docs/v2.5-readiness.md).
 
 ## Documentation
 
@@ -153,6 +161,8 @@ published-image verification have passed.
 | v2.2 RCON reliability release | [v2.2 release notes](docs/release-notes-v2.2.md) |
 | v2.3 reference deployment release | [v2.3 release notes](docs/release-notes-v2.3.md) |
 | v2.4 release | [v2.4 release notes](docs/release-notes-v2.4.md) |
+| v2.5 candidate scope | [v2.5 release notes](docs/release-notes-v2.5.md) |
+| v2.5 release gates | [v2.5 readiness](docs/v2.5-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |

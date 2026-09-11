@@ -186,6 +186,15 @@ workflows, and final publication workflow
 [#33788658773](https://github.com/tov-vl/gold-src-ops/actions/runs/33788658773)
 passed before the stable GitHub Release was published.
 
+The active v2.5 milestone is repository-complete across six guarded lifecycle
+UI slices: monitoring pause/resume, idempotent paused registration,
+optimistic-concurrency-protected paused editing, alias-only RCON credential
+binding, fixed restart, and strictly validated map change. These changes are in
+protected `main` but are not part of the signed v2.4 revision and are not yet
+production-verified or published. Candidate scope, compatibility, ordered live
+acceptance, and rollback boundaries are defined in
+`docs/release-notes-v2.5.md` and `docs/v2.5-readiness.md`.
+
 ## MVP Goal
 
 Build a modular ASP.NET Core backend that can:
@@ -257,7 +266,9 @@ The project should evolve in stages:
   A sixth local slice adds a two-step map-change review with a strict map-name
   allowlist, a subject/server/map-bound one-time confirmation, submit-time
   incomplete-command revalidation, and no automatic retry. Raw RCON remains
-  outside the Web UI.
+  outside the Web UI. All six repository slices are integrated; the active
+  release-preparation step freezes this scope for `v2.5.0-rc.1` and requires
+  bounded production acceptance without waiting for or resetting `API-01`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
