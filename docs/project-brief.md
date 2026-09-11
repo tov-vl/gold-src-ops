@@ -124,20 +124,20 @@ GitHub Release publication are complete; the design and residual UDP limits are
 recorded in
 `docs/v2.2-rcon-response-reliability.md`.
 
-The current v2.3 release records one continuously operated single-node
+The current v2.4 release records one continuously operated single-node
 reference environment without claiming high availability, long-term
 reliability, or an achieved service-level objective. Stable and
 release-candidate image publication is implemented with digest-preserving
-promotion. Signed tag `v2.3.0` identifies application revision `58a74da` and
-promotes the immutable digest verified for `v2.3.0-rc.5`, without publishing a
-mutable image alias.
+promotion. Signed tag `v2.4.0` identifies application revision `2769d89` and
+promotes the immutable API and Web digests verified for `v2.4.0-rc.9`, without
+rebuilding the images or publishing a mutable image alias.
 The project now operates the initial controlled external ReHLDS runtime and
 exports production metrics through a private OpenTelemetry Collector,
 Prometheus, and Grafana path. The accepted v2.3 release scope did not include a
 web experience. v2.4 now includes the sanitized public dashboard and an
 authenticated Reader/Operator portal with narrowly guarded `say` and
 dead-letter replay workflows. The bounded public A2S-history and latest
-Operator slices are published and production-verified in `v2.4.0-rc.9`. The
+Operator slices are published and production-verified in stable `v2.4.0`. The
 completed v2.3 plan
 closed the deployment and recovery gaps before frontend or gameplay-agent work
 began. Slice 2 uses
@@ -237,8 +237,9 @@ The project should evolve in stages:
 - v2.3: provider-independent reference production deployment, real external
   ReHLDS boundary, immutable delivery, and production OTLP metrics through an
   OpenTelemetry Collector.
-- v2.4: continue independent public API availability measurement. The
-  revised-policy shadow gate passed and `API-01` begins its first prospective
+- v2.4: released the sanitized public dashboard, initial Reader/Operator
+  workflows, and independent public API availability measurement. The
+  revised-policy shadow gate passed and `API-01` began its first prospective
   seven-day window at `2026-09-10T16:45:00Z`. The off-host
   evidence recovery path, sanitized public Blazor dashboard, and initial
   Reader/Operator workflows are complete; bounded UI slices can advance while
