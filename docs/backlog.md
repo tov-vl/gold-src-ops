@@ -1008,12 +1008,21 @@ passed `Quality Gate`, `Container Smoke`, `Browser Smoke`, and independent API
 and Web published-digest verification. The candidate remains undeployed.
 
 The scope remains frozen to these six slices until bounded production
-acceptance completes. The next gate requires a fresh backup and isolated
-restore, same-image migrations, production preflight, digest-pinned rollout,
-read-only authorization checks, reversible lifecycle verification, and
-deliberately bounded restart and map-change checks. The write path does not
-create a disposable server record while no retirement workflow exists. See
-`docs/release-notes-v2.5.md` and `docs/v2.5-readiness.md`.
+acceptance completes. On 2026-09-11, a fresh encrypted off-host PostgreSQL
+backup, authenticated `100%` repository data check, and network-isolated
+candidate restore passed. The exact candidate migration bundle produced 11 EF
+Core migration records, all 8 required application tables, and the expected
+single controlled-server record. Matching owner-only evidence remains outside
+Git; the temporary environment and recovery resources were removed, while the
+production database and runtime stayed unchanged.
+
+The next gate requires the candidate's already-up-to-date migration path,
+previous v2.4 runtime startup against the migrated rehearsal database,
+production preflight, digest-pinned rollout, read-only authorization checks,
+reversible lifecycle verification, and deliberately bounded restart and
+map-change checks. The write path does not create a disposable server record
+while no retirement workflow exists. See `docs/release-notes-v2.5.md` and
+`docs/v2.5-readiness.md`.
 
 The active `API-01` window continues independently. Candidate work does not
 pause or reset it, and any rollout-time bad or missing primary minute consumes
