@@ -1000,16 +1000,20 @@ Raw command controls remain outside these first six slices. No v2.5 UI change
 was deployed before the v2.4 stable-publication gate completed, and none is
 production-deployed yet.
 
-Release-candidate preparation started on 2026-09-11 after that gate completed.
-The scope is frozen to these six slices for `v2.5.0-rc.1`; no seventh UI feature
-is added before candidate publication and bounded production acceptance. The
-candidate sequence requires exact-head repository checks, signed immutable API
-and Web images, fresh backup and isolated restore, same-image migrations,
-digest-pinned rollout, read-only authorization checks, reversible lifecycle
-verification, and deliberately bounded restart and map-change checks. The
-write path does not create a disposable server record while no retirement
-workflow exists. See `docs/release-notes-v2.5.md` and
-`docs/v2.5-readiness.md`.
+Release-candidate preparation and publication completed on 2026-09-11 after
+that gate passed. Signed candidate `v2.5.0-rc.1` was published from revision
+`c8000c090cb0de03f848ec4e999bcf4505332b93`; [workflow
+#34586962203](https://github.com/tov-vl/gold-src-ops/actions/runs/34586962203)
+passed `Quality Gate`, `Container Smoke`, `Browser Smoke`, and independent API
+and Web published-digest verification. The candidate remains undeployed.
+
+The scope remains frozen to these six slices until bounded production
+acceptance completes. The next gate requires a fresh backup and isolated
+restore, same-image migrations, production preflight, digest-pinned rollout,
+read-only authorization checks, reversible lifecycle verification, and
+deliberately bounded restart and map-change checks. The write path does not
+create a disposable server record while no retirement workflow exists. See
+`docs/release-notes-v2.5.md` and `docs/v2.5-readiness.md`.
 
 The active `API-01` window continues independently. Candidate work does not
 pause or reset it, and any rollout-time bad or missing primary minute consumes

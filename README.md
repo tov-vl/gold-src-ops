@@ -79,12 +79,17 @@ and production verification of signed candidate `v2.4.0-rc.9` passed on
 2026-09-08.
 The rollout recreated only API and Web, retained runtime and game-host
 continuity, and exercised the live Operator boundary without creating or
-replaying a production dead letter. The active v2.5 repository milestone now
-contains six guarded lifecycle slices: monitoring pause/resume, idempotent
-paused registration, paused non-secret editing, alias-only RCON credential
-binding, fixed restart, and a two-step map-change review. They are not deployed
-or released as part of the v2.4 boundary. Candidate scope and ordered acceptance
-are defined in [docs/release-notes-v2.5.md](docs/release-notes-v2.5.md) and
+replaying a production dead letter. The v2.5 repository milestone contains six
+guarded lifecycle slices: monitoring pause/resume, idempotent paused
+registration, paused non-secret editing, alias-only RCON credential binding,
+fixed restart, and a two-step map-change review. Signed candidate
+`v2.5.0-rc.1` was published from revision
+`c8000c090cb0de03f848ec4e999bcf4505332b93`; [workflow
+#34586962203](https://github.com/tov-vl/gold-src-ops/actions/runs/34586962203)
+passed the repository checks and independent API/Web digest verification. The
+candidate has not been deployed, and no stable v2.5 release has been published.
+Candidate scope and ordered acceptance are defined in
+[docs/release-notes-v2.5.md](docs/release-notes-v2.5.md) and
 [docs/v2.5-readiness.md](docs/v2.5-readiness.md). Raw RCON remains outside the
 Web UI.
 

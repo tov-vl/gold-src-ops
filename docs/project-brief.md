@@ -189,10 +189,12 @@ passed before the stable GitHub Release was published.
 The active v2.5 milestone is repository-complete across six guarded lifecycle
 UI slices: monitoring pause/resume, idempotent paused registration,
 optimistic-concurrency-protected paused editing, alias-only RCON credential
-binding, fixed restart, and strictly validated map change. These changes are in
-protected `main` but are not part of the signed v2.4 revision and are not yet
-production-verified or published. Candidate scope, compatibility, ordered live
-acceptance, and rollback boundaries are defined in
+binding, fixed restart, and strictly validated map change. Signed candidate
+`v2.5.0-rc.1` was published and independently digest-verified from revision
+`c8000c090cb0de03f848ec4e999bcf4505332b93` in GitHub Actions workflow
+[#34586962203](https://github.com/tov-vl/gold-src-ops/actions/runs/34586962203).
+It has not been deployed or promoted to a stable v2.5 release. Candidate scope,
+compatibility, ordered live acceptance, and rollback boundaries are defined in
 `docs/release-notes-v2.5.md` and `docs/v2.5-readiness.md`.
 
 ## MVP Goal
