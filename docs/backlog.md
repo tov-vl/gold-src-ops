@@ -655,7 +655,7 @@ Non-goals for v2.3:
   or payment processing.
 - Service extraction, a message broker, or multiple active polling workers.
 
-## Active v2.4 Milestone: Continuous Evidence And Operator Experience
+## Completed v2.4 Milestone: Continuous Evidence And Operator Experience
 
 v2.4 turns the bounded v2.3 deployment evidence into continuously reviewable
 operations data while the operator-facing web experience advances in parallel.
@@ -886,7 +886,7 @@ Non-goals for the first v2.4 slices:
 - A custom monitoring service when a managed provider satisfies the contract.
 - Gameplay-agent ingestion, VIP entitlements, or payment processing.
 
-## Next v2.5 Milestone: Guarded Server Lifecycle UI
+## Active v2.5 Milestone: Guarded Server Lifecycle UI
 
 The first local v2.5 slice extends the authenticated Operator portal without
 changing the backend contract or the v2.4 release boundary:
@@ -997,7 +997,23 @@ The sixth local v2.5 slice adds guarded map change:
   token-boundary, and responsive browser tests cover the slice.
 
 Raw command controls remain outside these first six slices. No v2.5 UI change
-is deployed before the v2.4 stable-publication gate completes.
+was deployed before the v2.4 stable-publication gate completed, and none is
+production-deployed yet.
+
+Release-candidate preparation started on 2026-09-11 after that gate completed.
+The scope is frozen to these six slices for `v2.5.0-rc.1`; no seventh UI feature
+is added before candidate publication and bounded production acceptance. The
+candidate sequence requires exact-head repository checks, signed immutable API
+and Web images, fresh backup and isolated restore, same-image migrations,
+digest-pinned rollout, read-only authorization checks, reversible lifecycle
+verification, and deliberately bounded restart and map-change checks. The
+write path does not create a disposable server record while no retirement
+workflow exists. See `docs/release-notes-v2.5.md` and
+`docs/v2.5-readiness.md`.
+
+The active `API-01` window continues independently. Candidate work does not
+pause or reset it, and any rollout-time bad or missing primary minute consumes
+the unchanged error budget.
 
 ## Current API Scope
 
