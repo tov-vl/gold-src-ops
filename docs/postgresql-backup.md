@@ -220,6 +220,25 @@ pwsh -NoProfile -File ./ops/production/postgres-restore-rehearsal.ps1 `
   -EvidenceFile /var/lib/goldsrcops/evidence/postgres-restore.json
 ```
 
+For a schema-bearing release, exercise the idempotent and application rollback
+paths in the same disposable restore:
+
+```powershell
+pwsh -NoProfile -File ./ops/production/postgres-restore-rehearsal.ps1 `
+  -EnvironmentFile /etc/goldsrcops/deployment.env `
+  -EvidenceFile /var/lib/goldsrcops/evidence/postgres-restore.json `
+  -ReapplyMigration `
+  -PreviousApiImage ghcr.io/example/api@sha256:<previous-digest>
+```
+
+Migration reapplication must leave the EF history count unchanged. The
+previous API receives a read-only connection to the migrated copy, starts with
+all background mutation paths and telemetry disabled, and must pass both local
+liveness and database readiness checks. The API and PostgreSQL remain without
+network egress, and no host port is published. In production, the previous API
+reference must be immutable, locally retained, and different from the
+candidate image. The evidence records whether both optional gates passed.
+
 Pass `-SnapshotId <full-or-unique-prefix>` to rehearse a specific recoverable
 snapshot. The rehearsal:
 
