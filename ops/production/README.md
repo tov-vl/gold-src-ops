@@ -300,6 +300,17 @@ pwsh -NoProfile -File ./ops/production/postgres-restore-rehearsal.ps1 `
   -EvidenceFile /var/lib/goldsrcops/evidence/postgres-restore.json
 ```
 
+Before a schema-bearing rollout, add `-ReapplyMigration` to verify the
+already-up-to-date bundle path on the restored database. Add
+`-PreviousApiImage <immutable-digest-reference>` to start the retained previous
+API against that migrated copy. The compatibility process receives a
+read-only database connection, has polling, command dispatch, retention, alert
+delivery, and telemetry disabled, and reaches PostgreSQL only through the
+disposable socket volume. Its `network=none` namespace is joined only by a
+local health probe, and no host port is published. Production requires the
+previous image to differ from the candidate image and to remain available in
+the local Docker image store.
+
 Before enabling the timer, run and review a non-destructive retention preview:
 
 ```powershell

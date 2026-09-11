@@ -6,9 +6,10 @@ Restores an encrypted PostgreSQL backup into an isolated disposable database.
 
 .DESCRIPTION
 Streams one recoverable restic snapshot into pg_restore, applies the migration
-bundle from the configured API image, validates the EF history and required
-GoldSrcOps tables, records optional sanitized evidence, and removes all
-decrypted disposable data before returning.
+bundle from the configured API image, optionally reapplies that bundle and
+starts a previous API image with a read-only database connection, validates the
+EF history and required GoldSrcOps tables, records optional sanitized evidence,
+and removes all decrypted disposable data before returning.
 #>
 
 [CmdletBinding()]
@@ -25,6 +26,10 @@ param(
 
     [ValidateRange(0, [int]::MaxValue)]
     [int]$ExpectedMinimumServerCount = 0,
+
+    [switch]$ReapplyMigration,
+
+    [string]$PreviousApiImage,
 
     [ValidateRange(10, 300)]
     [int]$StartupTimeoutSeconds = 120,
@@ -106,6 +111,84 @@ function Invoke-RehearsalSql {
     return $result.Output.Trim()
 }
 
+function Invoke-RehearsalMigration {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ContainerName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SocketVolume,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ApiImage,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ConnectionString
+    )
+
+    Invoke-NativeCapture -FilePath "docker" -Arguments @(
+        "run", "--rm",
+        "--name", $ContainerName,
+        "--network", "none",
+        "--read-only",
+        "--cap-drop", "ALL",
+        "--security-opt", "no-new-privileges",
+        "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m,mode=0700,uid=1654,gid=1654",
+        "--tmpfs", "/run/secrets:rw,noexec,nosuid,size=1m,mode=0700,uid=1654,gid=1654",
+        "--mount", "type=volume,source=$SocketVolume,target=/var/run/postgresql",
+        "--env", "DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net",
+        "--env", "REHEARSAL_CONNECTION=$ConnectionString",
+        "--entrypoint", "/bin/sh",
+        $ApiImage,
+        "-ec",
+        'umask 077; printf "%s" "$REHEARSAL_CONNECTION" > /run/secrets/database-connection; exec /app/api-entrypoint.sh migrate --no-color --prefix-output') | Out-Null
+}
+
+function Wait-RehearsalApiHealth {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ContainerName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ProbeImage,
+
+        [Parameter(Mandatory = $true)]
+        [int]$TimeoutSeconds
+    )
+
+    $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTimeOffset]::UtcNow -lt $deadline) {
+        $state = Invoke-NativeCapture `
+            -FilePath "docker" `
+            -Arguments @("inspect", "--format", "{{.State.Status}}", $ContainerName) `
+            -AllowFailure
+
+        if ($state.ExitCode -eq 0 -and $state.Output -eq "running") {
+            $probe = Invoke-NativeCapture -FilePath "docker" -Arguments @(
+                "run", "--rm", "--pull", "never",
+                "--network", "container:$ContainerName",
+                "--read-only",
+                "--cap-drop", "ALL",
+                "--security-opt", "no-new-privileges",
+                "--entrypoint", "/bin/sh",
+                $ProbeImage,
+                "-ec",
+                'wget -q -T 5 -O /dev/null http://127.0.0.1:8080/health/live && wget -q -T 5 -O /dev/null http://127.0.0.1:8080/health/ready') `
+                -AllowFailure
+            if ($probe.ExitCode -eq 0) {
+                return
+            }
+        }
+        elseif ($state.ExitCode -eq 0 -and $state.Output -in @("dead", "exited")) {
+            throw "Previous API stopped before its health checks passed."
+        }
+
+        Start-Sleep -Seconds 1
+    }
+
+    throw "Previous API health checks did not pass within $TimeoutSeconds seconds."
+}
+
 $configuration = Get-PostgresBackupConfiguration `
     -EnvironmentFile $EnvironmentFile `
     -LocalRepositoryPath $LocalRepositoryPath `
@@ -124,17 +207,29 @@ Assert-ImmutableBackupImage `
     -Image $apiImage `
     -Name "API" `
     -AllowLocalTestResources:$AllowLocalTestResources
+if (-not [string]::IsNullOrWhiteSpace($PreviousApiImage)) {
+    Assert-ImmutableBackupImage `
+        -Image $PreviousApiImage `
+        -Name "Previous API" `
+        -AllowLocalTestResources:$AllowLocalTestResources
+    Assert-BackupCondition `
+        -Condition ($AllowLocalTestResources -or $PreviousApiImage -cne $apiImage) `
+        -Message "Previous API image must differ from the candidate API image."
+}
 
 $lock = Enter-PostgresBackupLock -Path $LockFile
 $runId = [Guid]::NewGuid().ToString("N").Substring(0, 12)
 $postgresContainer = "goldsrcops-restore-postgres-$runId"
 $migrationContainer = "goldsrcops-restore-migration-$runId"
+$previousApiContainer = "goldsrcops-restore-previous-api-$runId"
 $resticContainer = "goldsrcops-restore-restic-$runId"
 $dataVolume = "goldsrcops-restore-data-$runId"
 $socketVolume = "goldsrcops-restore-socket-$runId"
 $postgresCreated = $false
 $dataVolumeCreated = $false
 $socketVolumeCreated = $false
+$migrationReapplicationVerified = $false
+$previousApiStartupVerified = $false
 $succeeded = $false
 
 try {
@@ -215,22 +310,29 @@ try {
     }
 
     $rehearsalConnection = "Host=/var/run/postgresql;Port=5432;Database=goldsrcops;Username=goldsrcops;SSL Mode=Disable;Timeout=5;Command Timeout=30"
-    Invoke-NativeCapture -FilePath "docker" -Arguments @(
-        "run", "--rm",
-        "--name", $migrationContainer,
-        "--network", "none",
-        "--read-only",
-        "--cap-drop", "ALL",
-        "--security-opt", "no-new-privileges",
-        "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m,mode=0700,uid=1654,gid=1654",
-        "--tmpfs", "/run/secrets:rw,noexec,nosuid,size=1m,mode=0700,uid=1654,gid=1654",
-        "--mount", "type=volume,source=$socketVolume,target=/var/run/postgresql",
-        "--env", "DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net",
-        "--env", "REHEARSAL_CONNECTION=$rehearsalConnection",
-        "--entrypoint", "/bin/sh",
-        $apiImage,
-        "-ec",
-        'umask 077; printf "%s" "$REHEARSAL_CONNECTION" > /run/secrets/database-connection; exec /app/api-entrypoint.sh migrate --no-color --prefix-output') | Out-Null
+    Invoke-RehearsalMigration `
+        -ContainerName $migrationContainer `
+        -SocketVolume $socketVolume `
+        -ApiImage $apiImage `
+        -ConnectionString $rehearsalConnection
+
+    $migrationCountAfterApply = [int](Invoke-RehearsalSql `
+            -ContainerName $postgresContainer `
+            -Sql 'SELECT COUNT(*) FROM public."__EFMigrationsHistory";')
+    if ($ReapplyMigration) {
+        Invoke-RehearsalMigration `
+            -ContainerName $migrationContainer `
+            -SocketVolume $socketVolume `
+            -ApiImage $apiImage `
+            -ConnectionString $rehearsalConnection
+        $migrationCountAfterReapplication = [int](Invoke-RehearsalSql `
+                -ContainerName $postgresContainer `
+                -Sql 'SELECT COUNT(*) FROM public."__EFMigrationsHistory";')
+        Assert-BackupCondition `
+            -Condition ($migrationCountAfterReapplication -eq $migrationCountAfterApply) `
+            -Message "Migration reapplication changed the EF Core migration history."
+        $migrationReapplicationVerified = $true
+    }
 
     $expectedTables = @(
         "availability_incidents",
@@ -271,13 +373,52 @@ try {
         -Condition ($serverCount -ge $ExpectedMinimumServerCount) `
         -Message "Restored server count is below the required rehearsal minimum."
 
+    if (-not [string]::IsNullOrWhiteSpace($PreviousApiImage)) {
+        Invoke-NativeCapture `
+            -FilePath "docker" `
+            -Arguments @("image", "inspect", $PreviousApiImage) | Out-Null
+        $readOnlyConnection = "$rehearsalConnection;Options=-c default_transaction_read_only=on"
+        Invoke-NativeCapture -FilePath "docker" -Arguments @(
+            "run", "--detach", "--pull", "never",
+            "--name", $previousApiContainer,
+            "--network", "none",
+            "--read-only",
+            "--cap-drop", "ALL",
+            "--security-opt", "no-new-privileges",
+            "--tmpfs", "/tmp:rw,noexec,nosuid,size=16m",
+            "--mount", "type=volume,source=$socketVolume,target=/var/run/postgresql",
+            "--env", "ASPNETCORE_ENVIRONMENT=Production",
+            "--env", "ASPNETCORE_HTTP_PORTS=8080",
+            "--env", "ConnectionStrings__GoldSrcOps=$readOnlyConnection",
+            "--env", "Authentication__Schemes__Bearer__ValidIssuer=https://rehearsal.invalid/",
+            "--env", "Authentication__Schemes__Bearer__ValidAudiences__0=goldsrcops-rehearsal",
+            "--env", "Polling__Enabled=false",
+            "--env", "CommandDispatcher__Enabled=false",
+            "--env", "SnapshotRetention__Enabled=false",
+            "--env", "AlertDelivery__Enabled=false",
+            "--env", "Telemetry__Otlp__Enabled=false",
+            "--env", "DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false",
+            "--entrypoint", "dotnet",
+            $PreviousApiImage,
+            "GoldSrcOps.Api.dll") | Out-Null
+        Wait-RehearsalApiHealth `
+            -ContainerName $previousApiContainer `
+            -ProbeImage $postgresImage `
+            -TimeoutSeconds $StartupTimeoutSeconds
+        $previousApiStartupVerified = $true
+    }
+
     Write-BackupEvidence -Path $EvidenceFile -Evidence @{
         Action = "PostgreSQLRestoreRehearsal"
         ApiImage = $apiImage
         CompletedAtUtc = [DateTimeOffset]::UtcNow.ToString("O")
         DatabaseSizeBytes = $databaseSizeBytes
         MigrationCount = $migrationCount
+        MigrationReapplicationVerified = $migrationReapplicationVerified
         PostgresImage = $postgresImage
+        PreviousApiDatabaseReadOnly = $previousApiStartupVerified
+        PreviousApiImage = $PreviousApiImage
+        PreviousApiStartupVerified = $previousApiStartupVerified
         RequiredTables = $expectedTables
         ResticImage = $configuration.ResticImage
         ServerCount = $serverCount
@@ -289,9 +430,15 @@ try {
     Write-Host "Encrypted PostgreSQL backup restore rehearsal passed."
     Write-Host "Snapshot: $($snapshot.id)"
     Write-Host "Migrations: $migrationCount; servers: $serverCount; database bytes: $databaseSizeBytes"
+    if ($migrationReapplicationVerified) {
+        Write-Host "Migration reapplication: passed"
+    }
+    if ($previousApiStartupVerified) {
+        Write-Host "Previous API read-only startup and health: passed"
+    }
 }
 finally {
-    foreach ($container in @($migrationContainer, $resticContainer)) {
+    foreach ($container in @($previousApiContainer, $migrationContainer, $resticContainer)) {
         $cleanup = Invoke-NativeCapture `
             -FilePath "docker" `
             -Arguments @("rm", "--force", $container) `

@@ -1187,6 +1187,8 @@ VALUES
     & ./ops/production/postgres-restore-rehearsal.ps1 `
         -EnvironmentFile $backupEnvironmentFile `
         -ExpectedMinimumServerCount 1 `
+        -ReapplyMigration `
+        -PreviousApiImage $imageTag `
         -LocalRepositoryPath $resticRepositoryDirectory `
         -EvidenceFile $restoreEvidenceFile `
         -AllowLocalTestResources
@@ -1199,6 +1201,15 @@ VALUES
 
     if ([int]$restoreEvidence.ServerCount -lt 1) {
         throw "Restore rehearsal did not recover the smoke server record."
+    }
+
+    if (-not [bool]$restoreEvidence.MigrationReapplicationVerified) {
+        throw "Restore rehearsal did not verify migration reapplication."
+    }
+
+    if (-not [bool]$restoreEvidence.PreviousApiDatabaseReadOnly -or
+        -not [bool]$restoreEvidence.PreviousApiStartupVerified) {
+        throw "Restore rehearsal did not verify read-only API startup."
     }
 
     Write-Host "Encrypted backup and restore rehearsal recovered snapshot $($restoreEvidence.SnapshotId)."
