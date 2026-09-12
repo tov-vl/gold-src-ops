@@ -1123,6 +1123,13 @@ triage view:
 - Production rollout remains a separate bounded step after review. It does not
   pause or reset the active `API-01` evidence window.
 
+The repository slice is integrated through
+[#124](https://github.com/tov-vl/gold-src-ops/pull/124). Candidate preparation
+is defined in `docs/v2.6-readiness.md`: publish signed `v2.6.0-rc.1`, deploy API
+and Web by verified digest, and run one 10-15 minute read-only production smoke.
+No backup/restore rehearsal, lifecycle mutation, OIDC reconfiguration, or new
+multi-day soak is required for this additive no-migration slice.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
