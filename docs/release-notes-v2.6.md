@@ -1,8 +1,10 @@
 # GoldSrcOps v2.6.0 Release Notes
 
-Status as of 2026-09-12: `v2.6.0-rc.1` is accepted in production. Repository
-checks, immutable API/Web publication, digest-pinned rollout, and the bounded
-read-only smoke passed; stable digest-preserving publication remains pending.
+Status as of 2026-09-12: stable
+[`v2.6.0`](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.6.0) is
+published. Its signed annotated tag targets the accepted `v2.6.0-rc.1`
+revision, and the stable workflow promoted and independently verified the exact
+candidate API and Web digests without rebuilding either image.
 
 ## Overview
 
@@ -83,6 +85,15 @@ passed without submitting a mutation. Reader-only concealment was reused from
 the exact-image Browser Smoke because production OIDC and authorization did not
 change; a fresh Reader-only production login was deliberately not claimed.
 
+## Stable Publication
+
+Signed stable tag `v2.6.0` targets the accepted candidate revision above.
+[Workflow #34706665424](https://github.com/tov-vl/gold-src-ops/actions/runs/34706665424)
+skipped both image build paths, promoted the exact verified API and Web digests,
+and independently smoke-tested both stable refs before the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.6.0)
+was published. No mutable `latest` alias was created.
+
 ## Known Limits
 
 - The fleet projection returns the complete configured fleet and does not yet
@@ -99,6 +110,8 @@ change; a fresh Reader-only production login was deliberately not claimed.
 
 ## References
 
+- [GoldSrcOps v2.6.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.6.0)
+- [Stable publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34706665424)
 - [v2.6 release readiness](v2.6-readiness.md)
 - [Project backlog](backlog.md)
 - [Project brief](project-brief.md)

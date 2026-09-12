@@ -293,8 +293,9 @@ The project should evolve in stages:
   first slice is integrated through pull request #124. Signed
   `v2.6.0-rc.1`, exact API/Web image publication, digest-pinned production
   rollout, and the bounded read-only smoke have passed without resetting
-  `API-01`; stable digest-preserving promotion remains. Exact evidence and claim
-  limits are recorded in `docs/v2.6-readiness.md`.
+  `API-01`. Signed stable `v2.6.0` promotes those exact candidate digests
+  without rebuilding and is published with its bounded evidence and claim
+  limits in `docs/v2.6-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
