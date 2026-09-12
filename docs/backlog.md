@@ -886,7 +886,7 @@ Non-goals for the first v2.4 slices:
 - A custom monitoring service when a managed provider satisfies the contract.
 - Gameplay-agent ingestion, VIP entitlements, or payment processing.
 
-## Active v2.5 Milestone: Guarded Server Lifecycle UI
+## Completed v2.5 Milestone: Guarded Server Lifecycle UI
 
 The first local v2.5 slice extends the authenticated Operator portal without
 changing the backend contract or the v2.4 release boundary:
@@ -999,7 +999,9 @@ The sixth local v2.5 slice adds guarded map change:
 Raw command controls remain outside these first six slices. No v2.5 UI change
 was deployed before the v2.4 stable-publication gate completed. The exact
 `v2.5.0-rc.1` candidate is production-deployed and has passed bounded
-acceptance; no stable v2.5 release has been published.
+acceptance. Stable
+[`v2.5.0`](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.5.0) is
+published.
 
 Release-candidate preparation and publication completed on 2026-09-11 after
 that gate passed. Signed candidate `v2.5.0-rc.1` was published from revision
@@ -1080,9 +1082,12 @@ dead letter, or incomplete command; backup evidence remained fresh. All seven
 control-plane containers retained their Stage C identities, images, and zero
 restart counts, while the game service retained its restart count, invocation,
 main process, and single owned UDP listener. Candidate acceptance is therefore
-complete. The next release action is exact-digest stable promotion without a
-rebuild. The write path still does not create a disposable server record while
-no retirement workflow exists. See `docs/release-notes-v2.5.md` and
+complete. Signed stable tag `v2.5.0` targets the accepted candidate revision;
+[workflow #34694005530](https://github.com/tov-vl/gold-src-ops/actions/runs/34694005530)
+promoted the exact API and Web digests without rebuilding, independently
+verified both stable refs, and preceded GitHub Release publication. The write
+path still does not create a disposable server record while no retirement
+workflow exists. See `docs/release-notes-v2.5.md` and
 `docs/v2.5-readiness.md`.
 
 The active `API-01` window continues independently. Candidate work does not

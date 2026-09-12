@@ -6,17 +6,17 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.4.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.4.0)
+**Status:** [v2.5.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.5.0)
 is the current public release. Its signed annotated tag identifies application
-revision `2769d89` and promotes the exact API and Web image digests exercised by
-`v2.4.0-rc.9`, without rebuilding either image. Release-closure
-[pull request #114](https://github.com/tov-vl/gold-src-ops/pull/114), its
-[post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34501694808),
+revision `c8000c0` and promotes the exact API and Web image digests exercised by
+`v2.5.0-rc.1`, without rebuilding either image. Release-closure
+[pull request #122](https://github.com/tov-vl/gold-src-ops/pull/122), its
+[post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34693410105),
 and the stable
-[publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34504124988)
+[publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34694005530)
 all passed. Release notes and detailed evidence are available in
-[docs/release-notes-v2.4.md](docs/release-notes-v2.4.md) and
-[docs/v2.4-readiness.md](docs/v2.4-readiness.md).
+[docs/release-notes-v2.5.md](docs/release-notes-v2.5.md) and
+[docs/v2.5-readiness.md](docs/v2.5-readiness.md).
 
 The v2.4 release has a passing independent 24-hour availability
 shadow audit. The immutable `API-01` activation tuple started its prospective
@@ -87,8 +87,12 @@ fixed restart, and a two-step map-change review. Signed candidate
 `c8000c090cb0de03f848ec4e999bcf4505332b93`; [workflow
 #34586962203](https://github.com/tov-vl/gold-src-ops/actions/runs/34586962203)
 passed the repository checks and independent API/Web digest verification. The
-candidate has not been deployed, and no stable v2.5 release has been published.
-Candidate scope and ordered acceptance are defined in
+candidate was deployed by exact digest and passed the bounded Stage A, B, and C
+production acceptance sequence. Stable
+[workflow #34694005530](https://github.com/tov-vl/gold-src-ops/actions/runs/34694005530)
+then promoted and independently verified those same digests without rebuilding;
+[v2.5.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.5.0) is
+published. Release scope and ordered acceptance are defined in
 [docs/release-notes-v2.5.md](docs/release-notes-v2.5.md) and
 [docs/v2.5-readiness.md](docs/v2.5-readiness.md). Raw RCON remains outside the
 Web UI.
@@ -150,7 +154,7 @@ The published v2.3 reference-deployment release is summarized in
 [docs/release-notes-v2.3.md](docs/release-notes-v2.3.md). Its bounded
 operational gate, repository checks, digest-preserving stable publication, and
 published-image verification have passed.
-The active v2.5 lifecycle milestone and its candidate boundary are summarized
+The published v2.5 lifecycle release and its acceptance boundary are summarized
 in [docs/release-notes-v2.5.md](docs/release-notes-v2.5.md) and
 [docs/v2.5-readiness.md](docs/v2.5-readiness.md).
 
@@ -166,8 +170,8 @@ in [docs/release-notes-v2.5.md](docs/release-notes-v2.5.md) and
 | v2.2 RCON reliability release | [v2.2 release notes](docs/release-notes-v2.2.md) |
 | v2.3 reference deployment release | [v2.3 release notes](docs/release-notes-v2.3.md) |
 | v2.4 release | [v2.4 release notes](docs/release-notes-v2.4.md) |
-| v2.5 candidate scope | [v2.5 release notes](docs/release-notes-v2.5.md) |
-| v2.5 release gates | [v2.5 readiness](docs/v2.5-readiness.md) |
+| v2.5 lifecycle release | [v2.5 release notes](docs/release-notes-v2.5.md) |
+| v2.5 release evidence | [v2.5 readiness](docs/v2.5-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |

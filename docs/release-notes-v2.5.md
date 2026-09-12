@@ -1,10 +1,12 @@
 # GoldSrcOps v2.5.0 Release Notes
 
-Status as of 2026-09-12: signed candidate `v2.5.0-rc.1` is published, its API
-and Web images are independently digest-verified, and the exact digests have
-passed production rollout plus Stage A read-only and Stage B reversible-state
-acceptance, outbox closure, and Stage C disruptive-command acceptance. No stable
-v2.5 release has been published; exact-digest promotion remains pending.
+Status as of 2026-09-12: stable
+[`v2.5.0`](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.5.0) is
+published. Its signed annotated tag targets the accepted `v2.5.0-rc.1`
+revision, and the stable workflow promoted and independently verified the exact
+candidate API and Web digests without rebuilding either image. Production
+rollout plus Stage A read-only, Stage B reversible-state, outbox closure, and
+Stage C disruptive-command acceptance are complete.
 
 ## Overview
 
@@ -16,10 +18,11 @@ metadata, credentials, or the game-server process.
 
 The six repository slices are integrated in protected `main` through pull
 requests [#108](https://github.com/tov-vl/gold-src-ops/pull/108) through
-[#113](https://github.com/tov-vl/gold-src-ops/pull/113). They are not part of
-the signed `v2.4.0` application revision. Candidate publication, the bounded
-production rollout, read-only authorization checks, and reversible-state
-and disruptive-command acceptance are complete.
+[#113](https://github.com/tov-vl/gold-src-ops/pull/113). They are published in
+stable `v2.5.0` and were not part of the signed `v2.4.0` application revision.
+Candidate publication, the bounded production rollout, read-only authorization
+checks, reversible-state and disruptive-command acceptance, and stable
+publication are complete.
 
 The repository baseline after the signed `v2.4.0` tag also carries forward
 operational maintenance completed on `main`: WireGuard-scoped SSH preflight
@@ -29,20 +32,28 @@ candidate diff, but do not expand the six-workflow product scope below. The
 completed candidate-head review classified every post-v2.4 commit and found no
 undeclared application behavior.
 
-## Candidate Publication
+## Artifact Publication
 
-| Property | Candidate evidence |
+| Property | Publication evidence |
 | --- | --- |
 | Candidate version | `v2.5.0-rc.1` |
+| Stable version | `v2.5.0` |
 | Source revision | `c8000c090cb0de03f848ec4e999bcf4505332b93` |
 | API image digest | `sha256:ebbecc713e71e879f72234588274354efc8da9d08a266290e8bd1da8248c58da` |
 | Web image digest | `sha256:b59313b35ed6c408b952f6f0a31b3311918cd2d10c28759b6ab17a8478c7191d` |
 | Candidate workflow | [GitHub Actions run #34586962203](https://github.com/tov-vl/gold-src-ops/actions/runs/34586962203) |
+| Stable workflow | [GitHub Actions run #34694005530](https://github.com/tov-vl/gold-src-ops/actions/runs/34694005530) |
+| GitHub Release | [GoldSrcOps v2.5.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.5.0) |
 
 The signed annotated tag targets the exact revision above. The successful tag
 workflow built the API and Web images independently, verified both published
 digests, and did not create a mutable stable alias. A later bounded production
 action deployed those exact digests without rebuilding them.
+
+The signed stable tag targets the same accepted revision. Its workflow skipped
+both build paths, promoted the exact verified API and Web digests, and
+independently smoke-tested both stable refs before the GitHub Release was
+published. No mutable `latest` alias was created.
 
 ## Production Candidate Evidence
 
@@ -143,14 +154,14 @@ both the forward migration and the previous v2.4 runtime against the migrated
 schema. Routine application rollback keeps the additive schema in place; a
 database restore is reserved for a separately diagnosed migration failure.
 
-## Candidate Acceptance Boundary
+## Release Acceptance Boundary
 
 Repository closure and immutable candidate publication are complete: the exact
 candidate revision passed `Quality Gate`, `Container Smoke`, and `Browser
 Smoke`, and the signed tag published and independently verified both images.
 
-The recovery, rollout, Stage A, Stage B, outbox closure, and Stage C gates are
-complete. Stable `v2.5.0` now requires only exact-digest publication:
+The recovery, rollout, Stage A, Stage B, outbox closure, Stage C, and stable
+publication gates are complete:
 
 1. Completed: a fresh encrypted off-host backup, repository check, isolated restore
    rehearsal, production preflight, and same-image migration action pass.
@@ -160,9 +171,11 @@ complete. Stable `v2.5.0` now requires only exact-digest publication:
 3. Completed: the deliberately approved disruptive restart, alternate-map
    change, separate original-map restore, and final empty-queue checks passed in
    the order defined by [v2.5 release readiness](v2.5-readiness.md).
-4. Pending: create the signed stable tag at the accepted candidate revision,
-   promote the exact verified API and Web digests without rebuilding, verify
-   publication, and publish the GitHub Release.
+4. Completed: signed stable tag `v2.5.0` targets the accepted candidate
+   revision; [workflow #34694005530](https://github.com/tov-vl/gold-src-ops/actions/runs/34694005530)
+   promoted the exact API and Web digests without rebuilding, independently
+   verified both stable refs, and preceded publication of the
+   [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.5.0).
 
 The live registration form may be rendered and authorization-tested without
 creating a disposable production record. Until the product has a reviewed
@@ -206,6 +219,8 @@ adoption.
 
 ## References
 
+- [GoldSrcOps v2.5.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.5.0)
+- [Stable publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34694005530)
 - [v2.5 release readiness](v2.5-readiness.md)
 - [Project backlog](backlog.md)
 - [RCON operations](rcon.md)

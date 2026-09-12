@@ -124,13 +124,17 @@ GitHub Release publication are complete; the design and residual UDP limits are
 recorded in
 `docs/v2.2-rcon-response-reliability.md`.
 
-The current v2.4 release records one continuously operated single-node
+The current v2.5 release records one continuously operated single-node
 reference environment without claiming high availability, long-term
 reliability, or an achieved service-level objective. Stable and
 release-candidate image publication is implemented with digest-preserving
-promotion. Signed tag `v2.4.0` identifies application revision `2769d89` and
-promotes the immutable API and Web digests verified for `v2.4.0-rc.9`, without
-rebuilding the images or publishing a mutable image alias.
+promotion. Signed tag `v2.5.0` identifies application revision `c8000c0` and
+promotes the immutable API and Web digests verified for `v2.5.0-rc.1`, without
+rebuilding the images or publishing a mutable image alias. Stable publication
+and both published-image checks passed in
+[#34694005530](https://github.com/tov-vl/gold-src-ops/actions/runs/34694005530)
+before the [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.5.0)
+was published.
 The project now operates the initial controlled external ReHLDS runtime and
 exports production metrics through a private OpenTelemetry Collector,
 Prometheus, and Grafana path. The accepted v2.3 release scope did not include a
@@ -186,7 +190,7 @@ workflows, and final publication workflow
 [#33788658773](https://github.com/tov-vl/gold-src-ops/actions/runs/33788658773)
 passed before the stable GitHub Release was published.
 
-The active v2.5 milestone is repository-complete across six guarded lifecycle
+The completed v2.5 milestone spans six guarded lifecycle
 UI slices: monitoring pause/resume, idempotent paused registration,
 optimistic-concurrency-protected paused editing, alias-only RCON credential
 binding, fixed restart, and strictly validated map change. Signed candidate
@@ -200,8 +204,10 @@ explicitly deferred. The inherited outbox records were closed through audited
 single replays after a recovered temporary-receiver boundary failure. Stage C
 then passed one restart, one alternate-map change, and a separate original-map
 restore with healthy zero-player/zero-bot polls and unchanged runtime
-continuity. Stable exact-digest promotion remains pending. Candidate scope,
-compatibility, live evidence, and rollback boundaries are defined in
+continuity. Signed stable tag `v2.5.0` then promoted those exact API and Web
+digests without rebuilding, both published-image checks passed, and the GitHub
+Release was published. Release scope, compatibility, live evidence, and
+rollback boundaries are defined in
 `docs/release-notes-v2.5.md` and `docs/v2.5-readiness.md`.
 
 ## MVP Goal
@@ -277,8 +283,9 @@ The project should evolve in stages:
   incomplete-command revalidation, and no automatic retry. Raw RCON remains
   outside the Web UI. All six repository slices are integrated, and
   `v2.5.0-rc.1` has passed its bounded production acceptance without waiting for
-  or resetting `API-01`. Exact-digest stable promotion is the next release
-  action.
+  or resetting `API-01`. Stable `v2.5.0` promotes those exact candidate digests
+  without rebuilding and is published with its bounded evidence and claim
+  limits.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
