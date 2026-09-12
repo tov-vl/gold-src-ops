@@ -6,25 +6,17 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.5.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.5.0)
+**Status:** [v2.6.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.6.0)
 is the current public release. Its signed annotated tag identifies application
-revision `c8000c0` and promotes the exact API and Web image digests exercised by
-`v2.5.0-rc.1`, without rebuilding either image. Release-closure
-[pull request #122](https://github.com/tov-vl/gold-src-ops/pull/122), its
-[post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34693410105),
-and the stable
-[publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34694005530)
+revision `b7c95be` and promotes the exact API and Web image digests exercised by
+`v2.6.0-rc.1`, without rebuilding either image. The candidate
+[workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34703040195),
+production-acceptance
+[pull request #126](https://github.com/tov-vl/gold-src-ops/pull/126), and stable
+[publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34706665424)
 all passed. Release notes and detailed evidence are available in
-[docs/release-notes-v2.5.md](docs/release-notes-v2.5.md) and
-[docs/v2.5-readiness.md](docs/v2.5-readiness.md).
-
-The v2.6 Fleet Triage slice is integrated in protected `main` through
-[pull request #124](https://github.com/tov-vl/gold-src-ops/pull/124). Candidate
-scope, the additive Reader contract, and the deliberately short read-only
-production gate are defined in
 [docs/release-notes-v2.6.md](docs/release-notes-v2.6.md) and
-[docs/v2.6-readiness.md](docs/v2.6-readiness.md). Signed candidate publication
-has not started.
+[docs/v2.6-readiness.md](docs/v2.6-readiness.md).
 
 The v2.4 release has a passing independent 24-hour availability
 shadow audit. The immutable `API-01` activation tuple started its prospective
@@ -165,6 +157,10 @@ published-image verification have passed.
 The published v2.5 lifecycle release and its acceptance boundary are summarized
 in [docs/release-notes-v2.5.md](docs/release-notes-v2.5.md) and
 [docs/v2.5-readiness.md](docs/v2.5-readiness.md).
+The published v2.6 Fleet Triage release and its deliberately short read-only
+acceptance boundary are summarized in
+[docs/release-notes-v2.6.md](docs/release-notes-v2.6.md) and
+[docs/v2.6-readiness.md](docs/v2.6-readiness.md).
 
 ## Documentation
 
@@ -180,7 +176,7 @@ in [docs/release-notes-v2.5.md](docs/release-notes-v2.5.md) and
 | v2.4 release | [v2.4 release notes](docs/release-notes-v2.4.md) |
 | v2.5 lifecycle release | [v2.5 release notes](docs/release-notes-v2.5.md) |
 | v2.5 release evidence | [v2.5 readiness](docs/v2.5-readiness.md) |
-| v2.6 Fleet Triage candidate | [v2.6 release notes](docs/release-notes-v2.6.md) |
+| v2.6 Fleet Triage release | [v2.6 release notes](docs/release-notes-v2.6.md) |
 | v2.6 release evidence | [v2.6 readiness](docs/v2.6-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |

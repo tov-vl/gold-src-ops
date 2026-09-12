@@ -1103,7 +1103,7 @@ major release milestone. Passive health and availability checks should run
 automatically; interactive user participation is limited to unavoidable OIDC or
 MFA ceremonies and separately approved irreversible or financial actions.
 
-## Current v2.6 Milestone: Fleet Triage
+## Completed v2.6 Milestone: Fleet Triage
 
 The first local v2.6 slice turns the Reader inventory into a bounded operational
 triage view:
@@ -1124,6 +1124,12 @@ triage view:
   deployed by exact API/Web digest, and retained after a 10 minute 38 second
   read-only production smoke. It did not pause or reset the active `API-01`
   evidence window.
+- Signed stable `v2.6.0` targets the same accepted revision. Stable
+  [workflow #34706665424](https://github.com/tov-vl/gold-src-ops/actions/runs/34706665424)
+  skipped both build paths, promoted the exact candidate API and Web digests,
+  and independently smoke-tested both stable refs before the
+  [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.6.0)
+  was published.
 
 The repository slice is integrated through
 [#124](https://github.com/tov-vl/gold-src-ops/pull/124), and its acceptance
@@ -1132,8 +1138,8 @@ Candidate publication, digest-pinned API/Web rollout, control-plane and game
 continuity, authenticated Fleet Triage checks, and owner-only evidence are
 complete as recorded in `docs/v2.6-readiness.md`. No backup/restore rehearsal,
 lifecycle mutation, OIDC reconfiguration, or new multi-day soak was required
-for this additive no-migration slice. The remaining v2.6 release step is stable
-digest-preserving promotion without rebuilding the accepted images.
+for this additive no-migration slice. Stable digest-preserving publication is
+complete, and no accepted image was rebuilt.
 
 ## Current API Scope
 
