@@ -290,9 +290,11 @@ The project should evolve in stages:
   projection and a static-rendered triage screen that prioritizes incidents,
   offline and stale observations, then supports state filters, search, and
   deterministic sorting without adding a migration or mutation surface. The
-  first slice is integrated through pull request #124; release-candidate scope
-  and a 10-15 minute read-only production smoke are defined in
-  `docs/v2.6-readiness.md`.
+  first slice is integrated through pull request #124. Signed
+  `v2.6.0-rc.1`, exact API/Web image publication, digest-pinned production
+  rollout, and the bounded read-only smoke have passed without resetting
+  `API-01`; stable digest-preserving promotion remains. Exact evidence and claim
+  limits are recorded in `docs/v2.6-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

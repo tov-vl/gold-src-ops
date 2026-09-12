@@ -1120,15 +1120,20 @@ triage view:
 - The slice adds no migration and no mutation surface. Unit, in-memory API,
   PostgreSQL translation, Reader authorization, API-client, static-rendering,
   and responsive browser checks define its repository acceptance boundary.
-- Production rollout remains a separate bounded step after review. It does not
-  pause or reset the active `API-01` evidence window.
+- The signed `v2.6.0-rc.1` candidate was published from revision `b7c95be`,
+  deployed by exact API/Web digest, and retained after a 10 minute 38 second
+  read-only production smoke. It did not pause or reset the active `API-01`
+  evidence window.
 
 The repository slice is integrated through
-[#124](https://github.com/tov-vl/gold-src-ops/pull/124). Candidate preparation
-is defined in `docs/v2.6-readiness.md`: publish signed `v2.6.0-rc.1`, deploy API
-and Web by verified digest, and run one 10-15 minute read-only production smoke.
-No backup/restore rehearsal, lifecycle mutation, OIDC reconfiguration, or new
-multi-day soak is required for this additive no-migration slice.
+[#124](https://github.com/tov-vl/gold-src-ops/pull/124), and its acceptance
+contract through [#125](https://github.com/tov-vl/gold-src-ops/pull/125).
+Candidate publication, digest-pinned API/Web rollout, control-plane and game
+continuity, authenticated Fleet Triage checks, and owner-only evidence are
+complete as recorded in `docs/v2.6-readiness.md`. No backup/restore rehearsal,
+lifecycle mutation, OIDC reconfiguration, or new multi-day soak was required
+for this additive no-migration slice. The remaining v2.6 release step is stable
+digest-preserving promotion without rebuilding the accepted images.
 
 ## Current API Scope
 
