@@ -1,8 +1,8 @@
 # GoldSrcOps v2.6.0 Release Notes
 
-Status as of 2026-09-12: release-candidate preparation. The Fleet Triage scope
-is integrated in protected `main`; signed `v2.6.0-rc.1` publication and its
-bounded production smoke remain pending.
+Status as of 2026-09-12: `v2.6.0-rc.1` is accepted in production. Repository
+checks, immutable API/Web publication, digest-pinned rollout, and the bounded
+read-only smoke passed; stable digest-preserving publication remains pending.
 
 ## Overview
 
@@ -65,6 +65,23 @@ reconfiguration, or a multi-day soak.
 
 The exact ordered gate and rollback rules are defined in
 [v2.6 release readiness](v2.6-readiness.md).
+
+The accepted candidate is revision
+`b7c95befe135d6ef644c4158b33cd8987aad5664`. Its API image digest is
+`sha256:5d26f931b06886b0d40be01f3bb719b3cde6b639516c443d8944ff550141bdd2`
+and its Web image digest is
+`sha256:e04069a86aa53c49c93151eae1bbb18d1287e31c65da3dfe107a7856917f3982`.
+The tag workflow and every publication verification job passed in
+[workflow #34703040195](https://github.com/tov-vl/gold-src-ops/actions/runs/34703040195).
+
+Production retained the candidate after a 10 minute 38 second read-only smoke.
+Public health, release identity, container and game-service continuity, A2S
+reachability, zero bots, empty incident and durable-work queues, and scheduled
+backup freshness passed. Authenticated Operator rendering, state filters,
+search, sorting, browser secret boundaries, and console cleanliness also
+passed without submitting a mutation. Reader-only concealment was reused from
+the exact-image Browser Smoke because production OIDC and authorization did not
+change; a fresh Reader-only production login was deliberately not claimed.
 
 ## Known Limits
 
