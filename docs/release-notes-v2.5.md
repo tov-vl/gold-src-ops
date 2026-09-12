@@ -1,9 +1,10 @@
 # GoldSrcOps v2.5.0 Release Notes
 
-Status as of 2026-09-11: signed candidate `v2.5.0-rc.1` is published, its API
+Status as of 2026-09-12: signed candidate `v2.5.0-rc.1` is published, its API
 and Web images are independently digest-verified, and the exact digests have
-passed production rollout plus Stage A read-only acceptance. No stable v2.5
-release has been published; Stage B and Stage C remain pending.
+passed production rollout plus Stage A read-only and Stage B reversible-state
+acceptance, outbox closure, and Stage C disruptive-command acceptance. No stable
+v2.5 release has been published; exact-digest promotion remains pending.
 
 ## Overview
 
@@ -16,8 +17,9 @@ metadata, credentials, or the game-server process.
 The six repository slices are integrated in protected `main` through pull
 requests [#108](https://github.com/tov-vl/gold-src-ops/pull/108) through
 [#113](https://github.com/tov-vl/gold-src-ops/pull/113). They are not part of
-the signed `v2.4.0` application revision. Candidate publication is complete;
-the bounded production rollout and read-only authorization checks are complete.
+the signed `v2.4.0` application revision. Candidate publication, the bounded
+production rollout, read-only authorization checks, and reversible-state
+and disruptive-command acceptance are complete.
 
 The repository baseline after the signed `v2.4.0` tag also carries forward
 operational maintenance completed on `main`: WireGuard-scoped SSH preflight
@@ -56,7 +58,40 @@ browser boundaries. Every v2.5 Operator review flow was opened without final
 submission, Reader mutation controls remained concealed, and the durable-state
 projection stayed identical to its baseline. Temporary test-only authorization
 settings were restored and re-read. Sanitized owner-only evidence remains
-outside Git; Stage B and Stage C mutations have not been performed.
+outside Git.
+
+Stage B then paused monitoring through a confirmed Web action, proved scheduled
+polling stopped without a new incident, rebound the independently available
+deployment alias once, and resumed through a fresh Web confirmation. The server
+and credential revisions advanced only as expected, endpoint metadata remained
+unchanged, and four subsequent scheduled polls were reachable with zero players
+and bots. The same-alias rebind used an authenticated Operator API fallback
+and the live Web submission is an explicit evidence deferral in the readiness
+document. Stage B added no incident, outbox, command, or dead-letter record. A
+recovered incident between Stage A and Stage B left two pending outbox records
+while alert delivery was disabled.
+
+Before Stage C, a temporary source-IP-protected receiver rejected the observed
+public boundary and both inherited records reached dead letter after one
+attempt. This recovered boundary failure did not use direct database mutation
+or an automatic retry. A replacement one-time header-protected HTTPS receiver
+denied unauthenticated public access, and an authenticated Operator replay was
+submitted exactly once for each record. Both became `Processed`, pending and
+dead-letter counts returned to zero, the replay audit delta was exactly two,
+and alert delivery was restored to disabled. The temporary receiver work
+recreated API and Caddy before the Stage C baseline without changing their
+candidate images.
+
+Stage C then completed in one bounded session. The fixed restart succeeded and
+was followed by three healthy scheduled polls. An installed alternate map was
+selected dynamically; its change succeeded and was followed by two healthy
+polls. A separate confirmed command restored the original map and was followed
+by two more. All observed polls were reachable with zero players and bots. The
+final audit found healthy public endpoints, fresh backup evidence, no open
+incident, no active outbox item, dead letter, or incomplete command, and
+unchanged container and game-service continuity from the Stage C baseline.
+Post-acceptance regression passed 11 focused PostgreSQL command and dead-letter
+replay tests plus 28 guarded restart and map-change Web workflow tests.
 
 ## Included In v2.5
 
@@ -114,17 +149,20 @@ Repository closure and immutable candidate publication are complete: the exact
 candidate revision passed `Quality Gate`, `Container Smoke`, and `Browser
 Smoke`, and the signed tag published and independently verified both images.
 
-`v2.5.0-rc.1` is acceptable for production evaluation only after the remaining
-gates pass:
+The recovery, rollout, Stage A, Stage B, outbox closure, and Stage C gates are
+complete. Stable `v2.5.0` now requires only exact-digest publication:
 
-1. A fresh encrypted off-host backup, repository check, isolated restore
+1. Completed: a fresh encrypted off-host backup, repository check, isolated restore
    rehearsal, production preflight, and same-image migration action pass.
-2. Public health, OIDC Reader/Operator/no-role boundaries, token-free browser
+2. Completed: public health, OIDC Reader/Operator/no-role boundaries, token-free browser
    responses, durable queues, and controlled-server continuity pass before any
    mutation is submitted.
-3. Reversible lifecycle checks and deliberately approved disruptive command
-   checks complete in the order defined by
-   [v2.5 release readiness](v2.5-readiness.md).
+3. Completed: the deliberately approved disruptive restart, alternate-map
+   change, separate original-map restore, and final empty-queue checks passed in
+   the order defined by [v2.5 release readiness](v2.5-readiness.md).
+4. Pending: create the signed stable tag at the accepted candidate revision,
+   promote the exact verified API and Web digests without rebuilding, verify
+   publication, and publish the GitHub Release.
 
 The live registration form may be rendered and authorization-tested without
 creating a disposable production record. Until the product has a reviewed
@@ -158,6 +196,13 @@ adoption.
 - No additional multi-day soak is required solely for these UI workflows. The
   bounded live acceptance requires healthy post-action polls and queue state;
   longer availability evidence continues through `API-01`.
+- Subsequent routine UI-only MVP slices default to CI, focused browser coverage,
+  and a 10-15 minute production smoke. Ordinary backend slices without schema
+  or infrastructure impact add focused integration checks but keep that short
+  live window. A 24-hour soak is reserved for host or network topology,
+  persistence and recovery, telemetry delivery, or a major release milestone.
+  Passive monitoring should be automated and require no continuous user
+  participation.
 
 ## References
 

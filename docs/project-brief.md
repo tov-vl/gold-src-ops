@@ -193,8 +193,15 @@ binding, fixed restart, and strictly validated map change. Signed candidate
 `v2.5.0-rc.1` was published and independently digest-verified from revision
 `c8000c090cb0de03f848ec4e999bcf4505332b93` in GitHub Actions workflow
 [#34586962203](https://github.com/tov-vl/gold-src-ops/actions/runs/34586962203).
-It has not been deployed or promoted to a stable v2.5 release. Candidate scope,
-compatibility, ordered live acceptance, and rollback boundaries are defined in
+Those exact API and Web digests are production-deployed. Stage A read-only and
+Stage B reversible-state acceptance have passed; the credential rebind used a
+documented authenticated Operator API fallback with live Web submission evidence
+explicitly deferred. The inherited outbox records were closed through audited
+single replays after a recovered temporary-receiver boundary failure. Stage C
+then passed one restart, one alternate-map change, and a separate original-map
+restore with healthy zero-player/zero-bot polls and unchanged runtime
+continuity. Stable exact-digest promotion remains pending. Candidate scope,
+compatibility, live evidence, and rollback boundaries are defined in
 `docs/release-notes-v2.5.md` and `docs/v2.5-readiness.md`.
 
 ## MVP Goal
@@ -268,9 +275,10 @@ The project should evolve in stages:
   A sixth local slice adds a two-step map-change review with a strict map-name
   allowlist, a subject/server/map-bound one-time confirmation, submit-time
   incomplete-command revalidation, and no automatic retry. Raw RCON remains
-  outside the Web UI. All six repository slices are integrated; the active
-  release-preparation step freezes this scope for `v2.5.0-rc.1` and requires
-  bounded production acceptance without waiting for or resetting `API-01`.
+  outside the Web UI. All six repository slices are integrated, and
+  `v2.5.0-rc.1` has passed its bounded production acceptance without waiting for
+  or resetting `API-01`. Exact-digest stable promotion is the next release
+  action.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
