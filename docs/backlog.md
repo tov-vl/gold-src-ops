@@ -998,8 +998,8 @@ The sixth local v2.5 slice adds guarded map change:
 
 Raw command controls remain outside these first six slices. No v2.5 UI change
 was deployed before the v2.4 stable-publication gate completed. The exact
-`v2.5.0-rc.1` candidate is now production-deployed for bounded acceptance; no
-stable v2.5 release has been published.
+`v2.5.0-rc.1` candidate is production-deployed and has passed bounded
+acceptance; no stable v2.5 release has been published.
 
 Release-candidate preparation and publication completed on 2026-09-11 after
 that gate passed. Signed candidate `v2.5.0-rc.1` was published from revision
@@ -1009,8 +1009,8 @@ passed `Quality Gate`, `Container Smoke`, `Browser Smoke`, and independent API
 and Web published-digest verification. The candidate was subsequently deployed
 using those exact immutable digests.
 
-The scope remains frozen to these six slices until bounded production
-acceptance completes. On 2026-09-11, a fresh encrypted off-host PostgreSQL
+The scope remained frozen to these six slices while bounded production
+acceptance ran. On 2026-09-11, a fresh encrypted off-host PostgreSQL
 backup, authenticated `100%` repository data check, and network-isolated
 candidate restore passed. The exact candidate migration bundle produced 11 EF
 Core migration records, all 8 required application tables, and the expected
@@ -1047,14 +1047,56 @@ submission. The post-review durable-state projection exactly matched its
 baseline, and the temporary test-only role and token-lifetime settings were
 restored and re-read. Sanitized owner-only evidence remains outside Git.
 
-The remaining gates are Stage B reversible lifecycle verification and Stage C
-deliberately bounded restart and map-change checks. The write path does not
-create a disposable server record while no retirement workflow exists. See
-`docs/release-notes-v2.5.md` and `docs/v2.5-readiness.md`.
+Stage B reversible-state acceptance passed on 2026-09-12. A confirmed pause
+advanced the server revision and held both the poll timestamp and snapshot count
+unchanged for more than three intervals. The independently available deployment
+alias was rebound once with the expected revisions, without changing endpoint
+metadata, and a fresh confirmed resume was followed by four reachable
+zero-player/zero-bot polls. The rebind used an authenticated Operator API
+fallback; the deferred live Web submission and narrowed evidence claim are
+recorded explicitly in `docs/v2.5-readiness.md`. Stage B added no incident,
+outbox, command, or dead-letter record, and both hosts retained their recorded
+process and restart continuity.
+
+A brief incident opened and recovered between Stage A and Stage B. Its two
+outbox records were deliberately dispositioned before Stage C. The first
+temporary receiver used a source-IP matcher that rejected the observed public
+boundary and moved both records to dead letter after one attempt. No database
+row was edited directly and no ambiguous delivery was retried automatically.
+After the boundary was replaced with a one-time header-protected HTTPS receiver,
+an authenticated Operator replay was submitted exactly once for each record.
+Both records reached `Processed`, the replay audit delta was exactly two,
+pending and dead-letter counts returned to zero, and alert delivery was restored
+to disabled. API and Caddy were temporarily recreated before the Stage C
+baseline, while their candidate images remained unchanged.
+
+Stage C disruptive-command acceptance passed on 2026-09-12. One fixed restart
+reached `Succeeded` and was followed by three healthy scheduled polls. One
+change to an installed alternate map reached `Succeeded` and was followed by
+two healthy polls; a separate confirmed command restored the original map and
+was followed by two more. Every observed poll remained reachable with zero
+players and bots. The final audit found no open incident, pending outbox work,
+dead letter, or incomplete command; backup evidence remained fresh. All seven
+control-plane containers retained their Stage C identities, images, and zero
+restart counts, while the game service retained its restart count, invocation,
+main process, and single owned UDP listener. Candidate acceptance is therefore
+complete. The next release action is exact-digest stable promotion without a
+rebuild. The write path still does not create a disposable server record while
+no retirement workflow exists. See `docs/release-notes-v2.5.md` and
+`docs/v2.5-readiness.md`.
 
 The active `API-01` window continues independently. Candidate work does not
 pause or reset it, and any rollout-time bad or missing primary minute consumes
 the unchanged error budget.
+
+For subsequent MVP slices, routine UI-only changes use CI, focused browser
+coverage, and one 10-15 minute bounded production smoke. Ordinary backend
+changes without schema or infrastructure impact add focused integration checks
+but keep the same short live window. A 24-hour soak is reserved for changes to
+host or network topology, persistence and recovery, telemetry delivery, or a
+major release milestone. Passive health and availability checks should run
+automatically; interactive user participation is limited to unavoidable OIDC or
+MFA ceremonies and separately approved irreversible or financial actions.
 
 ## Current API Scope
 
