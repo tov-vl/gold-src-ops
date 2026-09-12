@@ -289,7 +289,10 @@ The project should evolve in stages:
 - v2.6: improve daily fleet operations, beginning with one bounded Reader
   projection and a static-rendered triage screen that prioritizes incidents,
   offline and stale observations, then supports state filters, search, and
-  deterministic sorting without adding a migration or mutation surface.
+  deterministic sorting without adding a migration or mutation surface. The
+  first slice is integrated through pull request #124; release-candidate scope
+  and a 10-15 minute read-only production smoke are defined in
+  `docs/v2.6-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
