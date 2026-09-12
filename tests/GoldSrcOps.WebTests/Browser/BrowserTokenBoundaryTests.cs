@@ -117,6 +117,86 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
     }
 
     [BrowserFact]
+    public async Task Fleet_triage_fits_supported_desktop_and_mobile_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(baseAddress, "/operator/servers").AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator(".triage-tabs").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("input[name='q']").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("select[name='sort']").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator(".server-row:not(.server-row--header)").CountAsync()).Should().Be(4);
+            (await Page.Locator(".server-row--attention").CountAsync()).Should().Be(3);
+            var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+            hasHorizontalOverflow.Should().BeFalse();
+
+            await CaptureScreenshotIfRequestedAsync("fleet-triage", viewport);
+        }
+    }
+
+    [BrowserFact]
+    public async Task Fleet_triage_filters_and_preserves_an_accessible_active_view()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+        await Page.GotoAsync(
+            new Uri(baseAddress, "/operator/servers").AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        (await Page.Locator(".triage-tab[aria-current='page']").InnerTextAsync())
+            .Should().Contain("All");
+
+        await Page.Locator("input[name='q']").FillAsync("dust2");
+        await Page.Locator("select[name='sort']").SelectOptionAsync("name");
+        await Page.Locator("form.filter-bar button[type='submit']").ClickAsync();
+        await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+        Page.Url.Should().Contain("q=dust2");
+        Page.Url.Should().Contain("sort=name");
+        (await Page.Locator(".server-row:not(.server-row--header)").CountAsync()).Should().Be(1);
+        (await Page.Locator(".server-row:not(.server-row--header)").InnerTextAsync())
+            .Should().Contain(ReaderWebApplicationFactory.ServerName);
+
+        await Page.Locator(".filter-actions a").ClickAsync();
+        await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+        Page.Url.Should().EndWith("/operator/servers");
+
+        await Page.Locator("a[href='/operator/servers?state=attention']").ClickAsync();
+        await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+        Page.Url.Should().EndWith("/operator/servers?state=attention");
+        (await Page.Locator(".triage-tab[aria-current='page']").InnerTextAsync())
+            .Should().Contain("Attention");
+        (await Page.Locator(".server-row:not(.server-row--header)").CountAsync()).Should().Be(3);
+        (await Page.Locator(".server-row--attention").AllInnerTextsAsync())
+            .Should().Contain(text =>
+                text.Contains(ReaderWebApplicationFactory.PausedServerName, StringComparison.Ordinal) &&
+                text.Contains("Incident", StringComparison.Ordinal));
+    }
+
+    [BrowserFact]
     public async Task Operator_replay_form_fits_supported_desktop_and_mobile_viewports()
     {
         await using var factory = new BrowserTokenBoundaryWebApplicationFactory();

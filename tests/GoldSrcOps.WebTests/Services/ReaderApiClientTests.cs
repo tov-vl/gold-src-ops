@@ -4,6 +4,7 @@ using AwesomeAssertions;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
 using GoldSrcOps.Contracts.Credentials;
+using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Web.Services;
 using Microsoft.AspNetCore.WebUtilities;
 
@@ -11,6 +12,46 @@ namespace GoldSrcOps.WebTests.Services;
 
 public sealed class ReaderApiClientTests
 {
+    [Fact]
+    public async Task GetFleetOverviewAsync_maps_triage_projection()
+    {
+        var observedAtUtc = new DateTimeOffset(2026, 9, 12, 12, 0, 0, TimeSpan.Zero);
+        var response = new FleetOverviewResponse(
+            new DashboardOverviewResponse(1, 1, 0, 1, 0, 0, 0, observedAtUtc),
+            [
+                new FleetServerSummaryResponse(
+                    Guid.Parse("6254f78a-5b16-41cf-aa9c-1167de84551a"),
+                    "Dust2 Public",
+                    "GoldSrc",
+                    "game.example.test",
+                    27015,
+                    true,
+                    30,
+                    "Online",
+                    observedAtUtc,
+                    18,
+                    "de_dust2",
+                    4,
+                    20,
+                    0,
+                    0,
+                    0,
+                    false,
+                    false)
+            ]);
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(response)
+        });
+        using var httpClient = CreateHttpClient(capture);
+        var client = new ReaderApiClient(httpClient);
+
+        var result = await client.GetFleetOverviewAsync();
+
+        result.Should().BeEquivalentTo(response);
+        capture.RequestUri.Should().Be(new Uri("https://api.example.test/api/dashboard/fleet"));
+    }
+
     [Fact]
     public async Task GetServerCredentialsAsync_maps_only_sanitized_metadata()
     {

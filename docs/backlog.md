@@ -1103,6 +1103,26 @@ major release milestone. Passive health and availability checks should run
 automatically; interactive user participation is limited to unavoidable OIDC or
 MFA ceremonies and separately approved irreversible or financial actions.
 
+## Current v2.6 Milestone: Fleet Triage
+
+The first local v2.6 slice turns the Reader inventory into a bounded operational
+triage view:
+
+- `GET /api/dashboard/fleet` returns one ordered projection with aggregate
+  counts, current server state, latest bot count, open-incident count, and
+  freshness derived from the configured polling interval.
+- The contract omits notes, credentials, failure reasons, incident details,
+  command payloads, and other mutation or secret-bearing data.
+- `/operator/servers` uses that single Reader request, treats every open incident
+  as attention even when monitoring is paused, and then prioritizes offline,
+  stale, healthy, and paused rows. Query-driven state filters, search, and
+  sorting remain compatible with static server-side rendering.
+- The slice adds no migration and no mutation surface. Unit, in-memory API,
+  PostgreSQL translation, Reader authorization, API-client, static-rendering,
+  and responsive browser checks define its repository acceptance boundary.
+- Production rollout remains a separate bounded step after review. It does not
+  pause or reset the active `API-01` evidence window.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1127,6 +1147,7 @@ Monitoring:
 - `GET /api/servers/{id}/status`
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=`
 - `GET /api/dashboard/overview`
+- `GET /api/dashboard/fleet`
 
 Incidents:
 

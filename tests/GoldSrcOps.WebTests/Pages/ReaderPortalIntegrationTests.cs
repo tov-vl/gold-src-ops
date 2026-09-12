@@ -52,8 +52,23 @@ public sealed class ReaderPortalIntegrationTests
         var incidentsBody = await incidentsResponse.Content.ReadAsStringAsync();
 
         listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        listBody.Should().Contain("Fleet triage");
         listBody.Should().Contain("Controlled servers");
         listBody.Should().Contain(ReaderWebApplicationFactory.ServerName);
+        listBody.Should().Contain(ReaderWebApplicationFactory.OfflineServerName);
+        listBody.Should().Contain(ReaderWebApplicationFactory.StaleServerName);
+        listBody.IndexOf(
+                ReaderWebApplicationFactory.OfflineServerName,
+                StringComparison.Ordinal)
+            .Should().BeLessThan(listBody.IndexOf(
+                ReaderWebApplicationFactory.StaleServerName,
+                StringComparison.Ordinal));
+        listBody.IndexOf(
+                ReaderWebApplicationFactory.StaleServerName,
+                StringComparison.Ordinal)
+            .Should().BeLessThan(listBody.IndexOf(
+                ReaderWebApplicationFactory.ServerName,
+                StringComparison.Ordinal));
         listBody.Should().Contain("Sign out");
         detailResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         detailBody.Should().Contain("Latest observation");
@@ -64,6 +79,67 @@ public sealed class ReaderPortalIntegrationTests
         incidentsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         incidentsBody.Should().Contain("Open incidents");
         incidentsBody.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
+    }
+
+    [Fact]
+    public async Task Fleet_triage_filters_by_attention_and_searches_current_map()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var attentionResponse = await client.GetAsync("/operator/servers?state=attention");
+        var attentionBody = await attentionResponse.Content.ReadAsStringAsync();
+        using var searchResponse = await client.GetAsync("/operator/servers?q=dust2");
+        var searchBody = await searchResponse.Content.ReadAsStringAsync();
+
+        attentionResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        attentionBody.Should().Contain(ReaderWebApplicationFactory.OfflineServerName);
+        attentionBody.Should().Contain(ReaderWebApplicationFactory.StaleServerName);
+        attentionBody.Should().Contain(ReaderWebApplicationFactory.PausedServerName);
+        attentionBody.Should().NotContain(ReaderWebApplicationFactory.ServerName);
+        attentionBody.Should().Contain("1 open incident");
+        searchResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        searchBody.Should().Contain(ReaderWebApplicationFactory.ServerName);
+        searchBody.Should().Contain("de_dust2");
+        searchBody.Should().NotContain(ReaderWebApplicationFactory.OfflineServerName);
+        searchBody.Should().NotContain(ReaderWebApplicationFactory.StaleServerName);
+        searchBody.Should().NotContain(ReaderWebApplicationFactory.PausedServerName);
+    }
+
+    [Fact]
+    public async Task Fleet_triage_supports_name_sort_and_empty_results()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var sortedResponse = await client.GetAsync("/operator/servers?sort=name");
+        var sortedBody = await sortedResponse.Content.ReadAsStringAsync();
+        using var emptyResponse = await client.GetAsync("/operator/servers?q=no-such-server");
+        var emptyBody = await emptyResponse.Content.ReadAsStringAsync();
+
+        sortedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        sortedBody.IndexOf(
+                ReaderWebApplicationFactory.OfflineServerName,
+                StringComparison.Ordinal)
+            .Should().BeLessThan(sortedBody.IndexOf(
+                ReaderWebApplicationFactory.StaleServerName,
+                StringComparison.Ordinal));
+        sortedBody.IndexOf(
+                ReaderWebApplicationFactory.StaleServerName,
+                StringComparison.Ordinal)
+            .Should().BeLessThan(sortedBody.IndexOf(
+                ReaderWebApplicationFactory.PausedServerName,
+                StringComparison.Ordinal));
+        sortedBody.IndexOf(
+                ReaderWebApplicationFactory.PausedServerName,
+                StringComparison.Ordinal)
+            .Should().BeLessThan(sortedBody.IndexOf(
+                ReaderWebApplicationFactory.ServerName,
+                StringComparison.Ordinal));
+        emptyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        emptyBody.Should().Contain("No matching servers");
+        emptyBody.Should().Contain("Clear filters");
+        emptyBody.Should().NotContain(ReaderWebApplicationFactory.ServerName);
     }
 
     [Fact]

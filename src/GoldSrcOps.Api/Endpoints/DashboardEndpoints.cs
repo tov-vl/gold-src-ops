@@ -16,6 +16,9 @@ public static class DashboardEndpoints
         group.MapGet("/overview", GetOverviewAsync)
             .WithName("GetDashboardOverview");
 
+        group.MapGet("/fleet", GetFleetAsync)
+            .WithName("GetDashboardFleet");
+
         return group;
     }
 
@@ -25,6 +28,16 @@ public static class DashboardEndpoints
     {
         var result = await monitoring.GetDashboardOverviewAsync(cancellationToken);
         return TypedResults.Ok(Map(result));
+    }
+
+    private static async Task<Ok<FleetOverviewResponse>> GetFleetAsync(
+        MonitoringReadService monitoring,
+        CancellationToken cancellationToken)
+    {
+        var result = await monitoring.GetFleetOverviewAsync(cancellationToken);
+        return TypedResults.Ok(new FleetOverviewResponse(
+            Map(result.Overview),
+            result.Servers.Select(Map).ToArray()));
     }
 
     private static DashboardOverviewResponse Map(DashboardOverviewDto overview) =>
@@ -37,4 +50,25 @@ public static class DashboardEndpoints
             overview.UnknownServers,
             overview.OpenIncidents,
             overview.LastCheckedAtUtc);
+
+    private static FleetServerSummaryResponse Map(FleetServerSummaryDto server) =>
+        new(
+            server.ServerId,
+            server.Name,
+            server.Game.ToString(),
+            server.Host,
+            server.QueryPort,
+            server.IsEnabled,
+            server.PollIntervalSeconds,
+            server.Status.ToString(),
+            server.LastCheckedAtUtc,
+            server.LatencyMs,
+            server.CurrentMap,
+            server.Players,
+            server.MaxPlayers,
+            server.Bots,
+            server.ConsecutiveFailures,
+            server.OpenIncidents,
+            server.IsStale,
+            server.RequiresAttention);
 }

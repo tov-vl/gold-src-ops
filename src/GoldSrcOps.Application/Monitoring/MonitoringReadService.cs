@@ -89,6 +89,84 @@ public sealed class MonitoringReadService
             lastCheckedAtUtc);
     }
 
+    public async Task<FleetOverviewDto> GetFleetOverviewAsync(CancellationToken cancellationToken)
+    {
+        var states = await _repository.ListFleetServerStatesAsync(cancellationToken);
+        var nowUtc = _clock.UtcNow;
+        var servers = new FleetServerSummaryDto[states.Count];
+        var enabledServers = 0;
+        var onlineServers = 0;
+        var offlineServers = 0;
+        var unknownServers = 0;
+        var openIncidents = 0;
+        DateTimeOffset? lastCheckedAtUtc = null;
+
+        for (var index = 0; index < states.Count; index++)
+        {
+            var state = states[index];
+            var isStale = state.IsEnabled && IsStale(state, nowUtc);
+            var requiresAttention = state.OpenIncidents > 0 ||
+                (state.IsEnabled && (state.Status != ServerStatus.Online || isStale));
+
+            servers[index] = new FleetServerSummaryDto(
+                state.ServerId,
+                state.Name,
+                state.Game,
+                state.Host,
+                state.QueryPort,
+                state.IsEnabled,
+                state.PollIntervalSeconds,
+                state.Status,
+                state.LastCheckedAtUtc,
+                state.LatencyMs,
+                state.CurrentMap,
+                state.Players,
+                state.MaxPlayers,
+                state.Bots,
+                state.ConsecutiveFailures,
+                state.OpenIncidents,
+                isStale,
+                requiresAttention);
+
+            if (state.IsEnabled)
+            {
+                enabledServers++;
+            }
+
+            switch (state.Status)
+            {
+                case ServerStatus.Online:
+                    onlineServers++;
+                    break;
+                case ServerStatus.Offline:
+                    offlineServers++;
+                    break;
+                default:
+                    unknownServers++;
+                    break;
+            }
+
+            openIncidents += state.OpenIncidents;
+            if (state.LastCheckedAtUtc is not null &&
+                (lastCheckedAtUtc is null || state.LastCheckedAtUtc > lastCheckedAtUtc))
+            {
+                lastCheckedAtUtc = state.LastCheckedAtUtc;
+            }
+        }
+
+        var overview = new DashboardOverviewDto(
+            states.Count,
+            enabledServers,
+            states.Count - enabledServers,
+            onlineServers,
+            offlineServers,
+            unknownServers,
+            openIncidents,
+            lastCheckedAtUtc);
+
+        return new FleetOverviewDto(overview, servers);
+    }
+
     public async Task<PublicStatusDto> GetPublicStatusAsync(CancellationToken cancellationToken)
     {
         var servers = await _repository.ListDashboardServerStatusesAsync(cancellationToken);
@@ -207,6 +285,18 @@ public sealed class MonitoringReadService
         return serversRequiringAttention > 0 || openIncidents > 0
             ? PublicStatusState.Degraded
             : PublicStatusState.Operational;
+    }
+
+    private static bool IsStale(FleetServerStateDto state, DateTimeOffset nowUtc)
+    {
+        if (state.LastCheckedAtUtc is null)
+        {
+            return true;
+        }
+
+        var freshnessWindow = TimeSpan.FromSeconds(
+            checked((long)state.PollIntervalSeconds * 2 + 10));
+        return nowUtc - state.LastCheckedAtUtc > freshnessWindow;
     }
 
     private static DateTimeOffset TruncateToMicrosecondPrecision(DateTimeOffset value)
