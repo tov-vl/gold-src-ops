@@ -317,6 +317,83 @@ public sealed class PostgreSqlEndpointIntegrationTests
 
     [Fact]
     [Trait("Category", "PostgreSqlIntegration")]
+    public async Task GetDashboardFleet_correlates_latest_snapshot_and_open_incidents_using_postgresql_provider()
+    {
+        var now = new DateTimeOffset(2026, 9, 12, 12, 0, 0, TimeSpan.Zero);
+        var clock = new TestClock(now);
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync(services =>
+        {
+            services.RemoveAll<IClock>();
+            services.AddSingleton<IClock>(clock);
+        });
+        using var client = factory.CreateClient();
+        var serverId = await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var server = CreateServer("Fleet PostgreSQL", "127.0.0.4", now.AddHours(-1));
+            server.GetCurrentState(now).MarkOnline(
+                now.AddSeconds(-20),
+                16,
+                "de_nuke",
+                5,
+                24);
+            var closedIncident = AvailabilityIncident.Open(
+                server.Id,
+                now.AddHours(-1),
+                "earlier failure",
+                consecutiveFailures: 3);
+            closedIncident.Close(now.AddMinutes(-30), "probe recovered");
+
+            dbContext.Servers.Add(server);
+            dbContext.PollSnapshots.AddRange(
+                PollSnapshot.Reachable(
+                    server.Id,
+                    now.AddMinutes(-2),
+                    19,
+                    "de_train",
+                    3,
+                    24,
+                    4,
+                    null),
+                PollSnapshot.Reachable(
+                    server.Id,
+                    now.AddSeconds(-20),
+                    16,
+                    "de_nuke",
+                    5,
+                    24,
+                    0,
+                    null));
+            dbContext.AvailabilityIncidents.AddRange(
+                closedIncident,
+                AvailabilityIncident.Open(
+                    server.Id,
+                    now.AddMinutes(-5),
+                    "current failure",
+                    consecutiveFailures: 3));
+            await dbContext.SaveChangesAsync();
+
+            return server.Id;
+        });
+
+        var response = await client.GetAsync("/api/dashboard/fleet");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var fleet = await response.Content.ReadFromJsonAsync<FleetOverviewResponse>();
+        fleet.Should().NotBeNull();
+        fleet!.Servers.Should().ContainSingle();
+        fleet.Servers[0].Should().BeEquivalentTo(new
+        {
+            ServerId = serverId,
+            Bots = (int?)0,
+            OpenIncidents = 1,
+            IsStale = false,
+            RequiresAttention = true
+        });
+        fleet.Overview.OpenIncidents.Should().Be(1);
+    }
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
     public async Task GetPublicA2sHistory_returns_sanitized_aggregate_for_enabled_servers()
     {
         var expectedToUtc = new DateTimeOffset(2026, 9, 7, 12, 30, 0, TimeSpan.Zero);

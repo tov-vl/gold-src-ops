@@ -72,6 +72,39 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<FleetServerStateDto>> ListFleetServerStatesAsync(
+        CancellationToken cancellationToken)
+    {
+        return await _dbContext.Servers
+            .AsNoTracking()
+            .OrderBy(x => x.Name)
+            .ThenBy(x => x.Id)
+            .Select(x => new FleetServerStateDto(
+                x.Id,
+                x.Name,
+                x.Game,
+                x.Endpoint.Host,
+                x.Endpoint.QueryPort,
+                x.IsEnabled,
+                x.PollIntervalSeconds,
+                x.CurrentState == null ? ServerStatus.Unknown : x.CurrentState.Status,
+                x.CurrentState == null ? null : x.CurrentState.LastCheckedAtUtc,
+                x.CurrentState == null ? null : x.CurrentState.LatencyMs,
+                x.CurrentState == null ? null : x.CurrentState.CurrentMap,
+                x.CurrentState == null ? null : x.CurrentState.Players,
+                x.CurrentState == null ? null : x.CurrentState.MaxPlayers,
+                _dbContext.PollSnapshots
+                    .Where(snapshot => snapshot.ServerId == x.Id)
+                    .OrderByDescending(snapshot => snapshot.CheckedAtUtc)
+                    .ThenByDescending(snapshot => snapshot.Id)
+                    .Select(snapshot => snapshot.Bots)
+                    .FirstOrDefault(),
+                x.CurrentState == null ? 0 : x.CurrentState.ConsecutiveFailures,
+                _dbContext.AvailabilityIncidents.Count(incident =>
+                    incident.ServerId == x.Id && incident.ClosedAtUtc == null)))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<PublicA2sBucketCountDto>> ListPublicA2sBucketCountsAsync(
         DateTimeOffset fromUtc,
         DateTimeOffset toUtc,

@@ -144,6 +144,138 @@ public sealed class MonitoringReadServiceTests
 
     [Theory]
     [AutoMoqData]
+    public async Task GetFleetOverviewAsync_marks_stale_and_incident_rows_and_aggregates_one_projection(
+        [Frozen] Mock<IMonitoringReadRepository> repository,
+        [Frozen] Mock<IClock> clock,
+        MonitoringReadService sut)
+    {
+        var now = new DateTimeOffset(2026, 9, 12, 12, 0, 0, TimeSpan.Zero);
+        var healthyId = Guid.NewGuid();
+        var staleId = Guid.NewGuid();
+        var offlineId = Guid.NewGuid();
+        var pausedId = Guid.NewGuid();
+        IReadOnlyList<FleetServerStateDto> states =
+        [
+            new(
+                healthyId,
+                "Healthy",
+                GameServerKind.GoldSrc,
+                "healthy.example.test",
+                27015,
+                true,
+                30,
+                ServerStatus.Online,
+                now.AddSeconds(-20),
+                18,
+                "de_dust2",
+                4,
+                20,
+                0,
+                0,
+                0),
+            new(
+                staleId,
+                "Stale",
+                GameServerKind.GoldSrc,
+                "stale.example.test",
+                27016,
+                true,
+                30,
+                ServerStatus.Online,
+                now.AddSeconds(-71),
+                22,
+                "de_inferno",
+                6,
+                20,
+                1,
+                0,
+                0),
+            new(
+                offlineId,
+                "Offline",
+                GameServerKind.GoldSrc,
+                "offline.example.test",
+                27017,
+                true,
+                30,
+                ServerStatus.Offline,
+                now.AddSeconds(-10),
+                null,
+                null,
+                null,
+                null,
+                null,
+                3,
+                1),
+            new(
+                pausedId,
+                "Paused",
+                GameServerKind.GoldSrc,
+                "paused.example.test",
+                27018,
+                false,
+                30,
+                ServerStatus.Unknown,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                0,
+                2)
+        ];
+        repository
+            .Setup(static x => x.ListFleetServerStatesAsync(CancellationToken.None))
+            .ReturnsAsync(states);
+        clock.SetupGet(static x => x.UtcNow).Returns(now);
+
+        var result = await sut.GetFleetOverviewAsync(CancellationToken.None);
+
+        result.Overview.Should().BeEquivalentTo(new DashboardOverviewDto(
+            TotalServers: 4,
+            EnabledServers: 3,
+            DisabledServers: 1,
+            OnlineServers: 2,
+            OfflineServers: 1,
+            UnknownServers: 1,
+            OpenIncidents: 3,
+            LastCheckedAtUtc: now.AddSeconds(-10)));
+        result.Servers.Should().HaveCount(4);
+        result.Servers.Single(server => server.ServerId == healthyId)
+            .Should().BeEquivalentTo(new
+            {
+                Bots = (int?)0,
+                IsStale = false,
+                RequiresAttention = false
+            });
+        result.Servers.Single(server => server.ServerId == staleId)
+            .Should().BeEquivalentTo(new
+            {
+                Bots = (int?)1,
+                IsStale = true,
+                RequiresAttention = true
+            });
+        result.Servers.Single(server => server.ServerId == offlineId)
+            .Should().BeEquivalentTo(new
+            {
+                IsStale = false,
+                RequiresAttention = true
+            });
+        result.Servers.Single(server => server.ServerId == pausedId)
+            .Should().BeEquivalentTo(new
+            {
+                IsStale = false,
+                RequiresAttention = true
+            });
+        repository.Verify(static x => x.ListFleetServerStatesAsync(CancellationToken.None), Times.Once);
+        repository.VerifyNoOtherCalls();
+        clock.VerifyGet(static x => x.UtcNow, Times.Once);
+        clock.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [AutoMoqData]
     public async Task GetPublicStatusAsync_excludes_disabled_servers(
         [Frozen] Mock<IMonitoringReadRepository> repository,
         MonitoringReadService sut)

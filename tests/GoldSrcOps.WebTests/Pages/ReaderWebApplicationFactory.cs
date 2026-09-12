@@ -45,11 +45,17 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     private readonly string? subject;
 
     public static readonly Guid ServerId = Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f");
+    public static readonly Guid OfflineServerId = Guid.Parse("851718aa-1725-4b90-b5c3-61112952db35");
+    public static readonly Guid StaleServerId = Guid.Parse("9204994a-66f6-42af-90ca-96fb6f5a671f");
+    public static readonly Guid PausedServerId = Guid.Parse("4657e3aa-c7b0-4c8b-9a1f-fd9e37c88a7d");
     public static readonly Guid OpenIncidentId = Guid.Parse("9307a87e-61cf-4901-8026-b301908431d6");
     public static readonly Guid CommandId = Guid.Parse("17477e4e-97bb-4c50-a046-08fa5cd48dca");
     public static readonly Guid DeadLetterEventId = Guid.Parse("70d51faf-6029-4b1e-a922-b7a3ab8d1f84");
     public static readonly Guid ReplayRequestId = Guid.Parse("4fb7401c-802c-48b9-aa71-5e27619b0784");
     public const string ServerName = "Reader fixture server";
+    public const string OfflineServerName = "Bravo outage server";
+    public const string StaleServerName = "Charlie stale server";
+    public const string PausedServerName = "Delta maintenance server";
     public const string OpenIncidentReason = "A2S query timed out";
     public const string CommandResultSummary = "Command accepted by the server";
     public const string CommandPayloadSentinel = "fixture-command-payload-must-not-render";
@@ -126,6 +132,89 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         public Task<DashboardOverviewResponse> GetOverviewAsync(
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new DashboardOverviewResponse(1, 1, 0, 1, 0, 0, 0, ObservedAtUtc));
+
+        public Task<FleetOverviewResponse> GetFleetOverviewAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new FleetOverviewResponse(
+                new DashboardOverviewResponse(4, 3, 1, 2, 1, 1, 2, ObservedAtUtc),
+                [
+                    new FleetServerSummaryResponse(
+                        ServerId,
+                        ServerName,
+                        "GoldSrc",
+                        "game.example.test",
+                        27015,
+                        true,
+                        30,
+                        "Online",
+                        ObservedAtUtc,
+                        18,
+                        "de_dust2",
+                        0,
+                        20,
+                        0,
+                        0,
+                        0,
+                        false,
+                        false),
+                    new FleetServerSummaryResponse(
+                        OfflineServerId,
+                        OfflineServerName,
+                        "GoldSrc",
+                        "offline.example.test",
+                        27016,
+                        true,
+                        30,
+                        "Offline",
+                        ObservedAtUtc.AddMinutes(-5),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        4,
+                        1,
+                        false,
+                        true),
+                    new FleetServerSummaryResponse(
+                        StaleServerId,
+                        StaleServerName,
+                        "GoldSrc",
+                        "stale.example.test",
+                        27017,
+                        true,
+                        30,
+                        "Online",
+                        ObservedAtUtc.AddMinutes(-10),
+                        24,
+                        "de_inferno",
+                        3,
+                        20,
+                        0,
+                        0,
+                        0,
+                        true,
+                        true),
+                    new FleetServerSummaryResponse(
+                        PausedServerId,
+                        PausedServerName,
+                        "GoldSrc",
+                        "paused.example.test",
+                        27018,
+                        false,
+                        60,
+                        "Unknown",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        1,
+                        false,
+                        true)
+                ]));
 
         public Task<IReadOnlyList<ServerResponse>> GetServersAsync(
             CancellationToken cancellationToken = default) =>

@@ -17,6 +17,10 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
         CancellationToken cancellationToken = default) =>
         GetRequiredAsync<DashboardOverviewResponse>("api/dashboard/overview", cancellationToken);
 
+    public Task<FleetOverviewResponse> GetFleetOverviewAsync(
+        CancellationToken cancellationToken = default) =>
+        GetRequiredAsync<FleetOverviewResponse>("api/dashboard/fleet", cancellationToken);
+
     public async Task<IReadOnlyList<ServerResponse>> GetServersAsync(
         CancellationToken cancellationToken = default) =>
         await GetRequiredAsync<ServerResponse[]>("api/servers/", cancellationToken);

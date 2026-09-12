@@ -3,19 +3,19 @@
 @inject IReaderApiClient ReaderApiClient
 @inject ILogger<Servers> Logger
 
-<PageTitle>Servers | GoldSrcOps</PageTitle>
+<PageTitle>Fleet triage | GoldSrcOps</PageTitle>
 
 <div class="operator-page">
     <header class="page-heading">
         <div>
             <p class="eyebrow">Reader portal</p>
-            <h1>Servers</h1>
+            <h1>Fleet triage</h1>
         </div>
-        @if (_overview is not null)
+        @if (_fleet is not null)
         {
             <div class="observation">
                 <span>Last fleet observation</span>
-                <strong>@FormatDateTime(_overview.LastCheckedAtUtc)</strong>
+                <strong>@FormatDateTime(_fleet.Overview.LastCheckedAtUtc)</strong>
             </div>
         }
     </header>
@@ -31,39 +31,39 @@
     @if (_loadFailed)
     {
         <section class="load-state load-state--error" role="alert">
-            <h2>Server data is unavailable</h2>
+            <h2>Fleet data is unavailable</h2>
             <p>The API did not return a usable Reader snapshot. Try again after the service recovers.</p>
         </section>
     }
-    else if (_overview is not null)
+    else if (_fleet is not null)
     {
         <section class="overview" aria-label="Fleet overview">
             <article>
                 <span>Total</span>
-                <strong>@_overview.TotalServers</strong>
+                <strong>@_fleet.Overview.TotalServers</strong>
+            </article>
+            <article class="overview--attention">
+                <span>Attention</span>
+                <strong>@AttentionCount</strong>
             </article>
             <article class="overview--online">
-                <span>Online</span>
-                <strong>@_overview.OnlineServers</strong>
-            </article>
-            <article class="overview--offline">
-                <span>Offline</span>
-                <strong>@_overview.OfflineServers</strong>
+                <span>Healthy</span>
+                <strong>@HealthyCount</strong>
             </article>
             <article>
-                <span>Unknown</span>
-                <strong>@_overview.UnknownServers</strong>
+                <span>Paused</span>
+                <strong>@PausedCount</strong>
             </article>
             <article class="overview--incidents">
                 <span>Open incidents</span>
-                <strong>@_overview.OpenIncidents</strong>
+                <strong>@_fleet.Overview.OpenIncidents</strong>
             </article>
         </section>
 
         <section class="server-section" aria-labelledby="server-list-title">
             <div class="section-heading">
                 <div>
-                    <p class="eyebrow">Inventory</p>
+                    <p class="eyebrow">Operations</p>
                     <h2 id="server-list-title">Controlled servers</h2>
                 </div>
                 <div class="section-meta">
@@ -74,7 +74,7 @@
                 </div>
             </div>
 
-            @if (_servers.Count == 0)
+            @if (_fleet.Servers.Count == 0)
             {
                 <div class="load-state">
                     <h3>No servers configured</h3>
@@ -83,71 +83,374 @@
             }
             else
             {
-                <div class="server-table" role="table" aria-label="Controlled servers">
-                    <div class="server-row server-row--header" role="row">
-                        <span role="columnheader">Server</span>
-                        <span role="columnheader">Game</span>
-                        <span role="columnheader">Endpoint</span>
-                        <span role="columnheader">Polling</span>
-                        <span role="columnheader">State</span>
-                        <span role="columnheader"><span class="visually-hidden">Open</span></span>
+                <nav class="triage-tabs" aria-label="Fleet state">
+                    <a class="@GetTabClass("all")"
+                       href="@BuildStateHref("all")"
+                       aria-current="@GetAriaCurrent("all")">
+                        <span>All</span>
+                        <strong>@_fleet.Servers.Count</strong>
+                    </a>
+                    <a class="@GetTabClass("attention")"
+                       href="@BuildStateHref("attention")"
+                       aria-current="@GetAriaCurrent("attention")">
+                        <span>Attention</span>
+                        <strong>@AttentionCount</strong>
+                    </a>
+                    <a class="@GetTabClass("online")"
+                       href="@BuildStateHref("online")"
+                       aria-current="@GetAriaCurrent("online")">
+                        <span>Online</span>
+                        <strong>@OnlineCount</strong>
+                    </a>
+                    <a class="@GetTabClass("offline")"
+                       href="@BuildStateHref("offline")"
+                       aria-current="@GetAriaCurrent("offline")">
+                        <span>Offline</span>
+                        <strong>@OfflineCount</strong>
+                    </a>
+                    <a class="@GetTabClass("paused")"
+                       href="@BuildStateHref("paused")"
+                       aria-current="@GetAriaCurrent("paused")">
+                        <span>Paused</span>
+                        <strong>@PausedCount</strong>
+                    </a>
+                </nav>
+
+                <form class="filter-bar" method="get" aria-label="Fleet filters">
+                    <input type="hidden" name="state" value="@EffectiveState" />
+                    <label class="filter-field filter-field--search">
+                        <span>Search</span>
+                        <input type="search"
+                               name="q"
+                               value="@Search"
+                               placeholder="Name, endpoint, or map"
+                               autocomplete="off" />
+                    </label>
+                    <label class="filter-field">
+                        <span>Sort</span>
+                        <select name="sort">
+                            <option value="attention" selected="@IsSort("attention")">Attention first</option>
+                            <option value="name" selected="@IsSort("name")">Server name</option>
+                            <option value="recent" selected="@IsSort("recent")">Last observed</option>
+                        </select>
+                    </label>
+                    <div class="filter-actions">
+                        <button type="submit">Apply</button>
+                        @if (HasActiveFilters)
+                        {
+                            <a href="/operator/servers">Clear</a>
+                        }
                     </div>
-                    @foreach (var server in _servers)
-                    {
-                        <div class="server-row" role="row">
-                            <span class="server-name" role="cell">@server.Name</span>
-                            <span role="cell">@server.Game</span>
-                            <code role="cell">@server.Host:@server.QueryPort</code>
-                            <span role="cell">@server.PollIntervalSeconds s</span>
-                            <span role="cell">
-                                <span class="state-label @(server.IsEnabled ? "state-label--enabled" : "state-label--disabled")">
-                                    @(server.IsEnabled ? "Enabled" : "Paused")
-                                </span>
-                            </span>
-                            <span class="row-action" role="cell">
-                                <a href="@($"/operator/servers/{server.Id:D}")" aria-label="View status for @server.Name">View</a>
-                            </span>
+                </form>
+
+                @if (_servers.Count == 0)
+                {
+                    <div class="load-state">
+                        <h3>No matching servers</h3>
+                        <p>No fleet rows match the current view.</p>
+                        <a class="clear-results" href="/operator/servers">Clear filters</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="server-table" role="table" aria-label="Controlled servers">
+                        <div class="server-row server-row--header" role="row">
+                            <span role="columnheader">Server</span>
+                            <span role="columnheader">State</span>
+                            <span role="columnheader">Observation</span>
+                            <span role="columnheader">Map</span>
+                            <span role="columnheader">Population</span>
+                            <span role="columnheader"><span class="visually-hidden">Open</span></span>
                         </div>
-                    }
-                </div>
+                        @foreach (var server in _servers)
+                        {
+                            <div class="server-row @(server.RequiresAttention ? "server-row--attention" : null)" role="row">
+                                <span class="server-primary" role="cell">
+                                    <strong>@server.Name</strong>
+                                    <small>@server.Game</small>
+                                    <code>@server.Host:@server.QueryPort</code>
+                                </span>
+                                <span class="state-cell" role="cell">
+                                    <span class="state-label @GetStateClass(server)">@GetStateLabel(server)</span>
+                                    <small>@GetStateDetail(server)</small>
+                                </span>
+                                <span class="metric-cell" role="cell">
+                                    <strong>@FormatDateTime(server.LastCheckedAtUtc)</strong>
+                                    <small>@FormatLatency(server.LatencyMs)</small>
+                                </span>
+                                <span class="metric-cell" role="cell">
+                                    <strong>@(server.CurrentMap ?? "Not reported")</strong>
+                                    <small>@server.PollIntervalSeconds s interval</small>
+                                </span>
+                                <span class="metric-cell" role="cell">
+                                    <strong>@FormatPopulation(server)</strong>
+                                    <small>@FormatBots(server.Bots)</small>
+                                </span>
+                                <span class="row-action" role="cell">
+                                    <a href="@($"/operator/servers/{server.ServerId:D}")"
+                                       aria-label="Inspect @server.Name">Inspect</a>
+                                </span>
+                            </div>
+                        }
+                    </div>
+                }
             }
         </section>
     }
 </div>
 
 @code {
+    private static readonly string[] AllowedStates = ["all", "attention", "online", "offline", "paused"];
+    private static readonly string[] AllowedSorts = ["attention", "name", "recent"];
+
     [Parameter]
     [SupplyParameterFromQuery(Name = "result")]
     public string? Result { get; set; }
 
-    private DashboardOverviewResponse? _overview;
-    private IReadOnlyList<ServerResponse> _servers = [];
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Search { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "state")]
+    public string? State { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "sort")]
+    public string? Sort { get; set; }
+
+    private FleetOverviewResponse? _fleet;
+    private IReadOnlyList<FleetServerSummaryResponse> _servers = [];
     private bool _loadFailed;
 
-    private string EnabledSummary =>
-        $"{_overview?.EnabledServers ?? 0} enabled, {_overview?.DisabledServers ?? 0} disabled";
+    private string EffectiveState => NormalizeOption(State, AllowedStates, "all");
 
-    protected override async Task OnInitializedAsync()
+    private string EffectiveSort => NormalizeOption(Sort, AllowedSorts, "attention");
+
+    private string EnabledSummary =>
+        $"{_fleet?.Overview.EnabledServers ?? 0} enabled, {_fleet?.Overview.DisabledServers ?? 0} paused";
+
+    private int AttentionCount => _fleet?.Servers.Count(static server => server.RequiresAttention) ?? 0;
+
+    private int HealthyCount => _fleet?.Servers.Count(IsHealthy) ?? 0;
+
+    private int OnlineCount => _fleet?.Servers.Count(static server =>
+        server.IsEnabled && IsStatus(server, "Online") && !server.IsStale) ?? 0;
+
+    private int OfflineCount => _fleet?.Servers.Count(static server =>
+        server.IsEnabled && IsStatus(server, "Offline")) ?? 0;
+
+    private int PausedCount => _fleet?.Servers.Count(static server => !server.IsEnabled) ?? 0;
+
+    private bool HasActiveFilters =>
+        !string.IsNullOrWhiteSpace(Search) ||
+        EffectiveState != "all" ||
+        EffectiveSort != "attention";
+
+    protected override async Task OnParametersSetAsync()
     {
+        _loadFailed = false;
+
         try
         {
-            var overviewTask = ReaderApiClient.GetOverviewAsync();
-            var serversTask = ReaderApiClient.GetServersAsync();
-            await Task.WhenAll(overviewTask, serversTask);
-
-            _overview = await overviewTask;
-            _servers = (await serversTask)
-                .OrderBy(static server => server.Name, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            _fleet = await ReaderApiClient.GetFleetOverviewAsync();
+            _servers = ApplyFilters(_fleet.Servers);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
         {
-            Logger.LogWarning(exception, "Unable to load the Reader server inventory.");
+            Logger.LogWarning(exception, "Unable to load the Reader fleet triage view.");
+            _fleet = null;
+            _servers = [];
             _loadFailed = true;
         }
     }
 
+    private IReadOnlyList<FleetServerSummaryResponse> ApplyFilters(
+        IReadOnlyList<FleetServerSummaryResponse> servers)
+    {
+        IEnumerable<FleetServerSummaryResponse> filtered = servers;
+        var search = Search?.Trim();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            filtered = filtered.Where(server =>
+                server.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                server.Host.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (server.CurrentMap?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        filtered = EffectiveState switch
+        {
+            "attention" => filtered.Where(static server => server.RequiresAttention),
+            "online" => filtered.Where(static server =>
+                server.IsEnabled && IsStatus(server, "Online") && !server.IsStale),
+            "offline" => filtered.Where(static server =>
+                server.IsEnabled && IsStatus(server, "Offline")),
+            "paused" => filtered.Where(static server => !server.IsEnabled),
+            _ => filtered
+        };
+
+        filtered = EffectiveSort switch
+        {
+            "name" => filtered
+                .OrderBy(static server => server.Name, StringComparer.OrdinalIgnoreCase),
+            "recent" => filtered
+                .OrderByDescending(static server => server.LastCheckedAtUtc)
+                .ThenBy(static server => server.Name, StringComparer.OrdinalIgnoreCase),
+            _ => filtered
+                .OrderBy(GetTriageRank)
+                .ThenBy(static server => server.Name, StringComparer.OrdinalIgnoreCase)
+        };
+
+        return filtered.ToArray();
+    }
+
+    private string BuildStateHref(string state)
+    {
+        var query = new List<string>
+        {
+            $"state={Uri.EscapeDataString(state)}"
+        };
+        var search = Search?.Trim();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query.Add($"q={Uri.EscapeDataString(search)}");
+        }
+
+        if (EffectiveSort != "attention")
+        {
+            query.Add($"sort={Uri.EscapeDataString(EffectiveSort)}");
+        }
+
+        return $"/operator/servers?{string.Join("&", query)}";
+    }
+
+    private string GetTabClass(string state) => EffectiveState == state
+        ? "triage-tab triage-tab--active"
+        : "triage-tab";
+
+    private string? GetAriaCurrent(string state) => EffectiveState == state ? "page" : null;
+
+    private bool IsSort(string value) => EffectiveSort == value;
+
+    private static int GetTriageRank(FleetServerSummaryResponse server)
+    {
+        if (server.OpenIncidents > 0)
+        {
+            return 0;
+        }
+
+        if (!server.IsEnabled)
+        {
+            return 5;
+        }
+
+        if (IsStatus(server, "Offline"))
+        {
+            return 1;
+        }
+
+        if (server.IsStale)
+        {
+            return 2;
+        }
+
+        return IsStatus(server, "Unknown") ? 3 : 4;
+    }
+
+    private static string GetStateLabel(FleetServerSummaryResponse server)
+    {
+        if (server.OpenIncidents > 0)
+        {
+            return "Incident";
+        }
+
+        if (!server.IsEnabled)
+        {
+            return "Paused";
+        }
+
+        if (IsStatus(server, "Offline"))
+        {
+            return "Offline";
+        }
+
+        if (server.IsStale)
+        {
+            return "Stale";
+        }
+
+        return IsStatus(server, "Online") ? "Online" : "Unknown";
+    }
+
+    private static string GetStateClass(FleetServerSummaryResponse server) =>
+        GetStateLabel(server).ToLowerInvariant() switch
+        {
+            "incident" => "state-label--incident",
+            "offline" => "state-label--offline",
+            "stale" => "state-label--stale",
+            "online" => "state-label--online",
+            "paused" => "state-label--paused",
+            _ => "state-label--unknown"
+        };
+
+    private static string GetStateDetail(FleetServerSummaryResponse server)
+    {
+        if (server.OpenIncidents > 0)
+        {
+            return server.OpenIncidents == 1 ? "1 open incident" : $"{server.OpenIncidents} open incidents";
+        }
+
+        if (!server.IsEnabled)
+        {
+            return "Monitoring paused";
+        }
+
+        if (server.IsStale)
+        {
+            return "Observation overdue";
+        }
+
+        if (server.ConsecutiveFailures > 0)
+        {
+            return server.ConsecutiveFailures == 1
+                ? "1 consecutive failure"
+                : $"{server.ConsecutiveFailures} consecutive failures";
+        }
+
+        return "Current";
+    }
+
+    private static bool IsHealthy(FleetServerSummaryResponse server) =>
+        server.IsEnabled &&
+        IsStatus(server, "Online") &&
+        !server.IsStale &&
+        server.OpenIncidents == 0;
+
+    private static bool IsStatus(FleetServerSummaryResponse server, string status) =>
+        string.Equals(server.Status, status, StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeOption(string? value, string[] allowed, string fallback)
+    {
+        var normalized = value?.Trim().ToLowerInvariant();
+        return normalized is not null && allowed.Contains(normalized, StringComparer.Ordinal)
+            ? normalized
+            : fallback;
+    }
+
     private static string FormatDateTime(DateTimeOffset? value) => value is null
-        ? "Not available"
-        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture);
+        ? "Never"
+        : value.Value.ToUniversalTime().ToString("dd MMM, HH:mm 'UTC'", CultureInfo.InvariantCulture);
+
+    private static string FormatLatency(int? latencyMs) => latencyMs is null
+        ? "Latency unavailable"
+        : $"{latencyMs} ms";
+
+    private static string FormatPopulation(FleetServerSummaryResponse server) =>
+        server.Players is null || server.MaxPlayers is null
+            ? "Not reported"
+            : $"{server.Players} / {server.MaxPlayers}";
+
+    private static string FormatBots(int? bots) => bots is null
+        ? "Bots unavailable"
+        : bots == 1 ? "1 bot" : $"{bots} bots";
 }

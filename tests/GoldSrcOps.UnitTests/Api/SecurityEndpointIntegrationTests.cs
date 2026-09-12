@@ -47,6 +47,7 @@ public sealed class SecurityEndpointIntegrationTests
             client.GetAsync("/api/servers"),
             client.GetAsync("/api/incidents/open"),
             client.GetAsync("/api/dashboard/overview"),
+            client.GetAsync("/api/dashboard/fleet"),
             client.GetAsync("/api/alert-delivery/dead-letters"),
             client.GetAsync("/metrics"));
         var replay = await client.GetAsync($"/api/alert-delivery/replays/{ExistingId}");
