@@ -1184,7 +1184,7 @@ digests, and independently verified both stable references. The
 is published. Stable publication is complete, and no accepted image was
 rebuilt; details and claim limits are in `docs/v2.7-readiness.md`.
 
-## Active v2.8 Milestone: Server Trends
+## Completed v2.8 Milestone: Server Trends
 
 The first v2.8 product slice turns retained per-server A2S observations into a
 bounded Reader trend view:
@@ -1218,9 +1218,15 @@ durable-work queues, fresh backup evidence, and all four authenticated trend
 ranges. Reader-only concealment was reused from Browser Smoke on the exact Web
 image because OIDC and authorization were unchanged. No synthetic incident,
 backup/restore rehearsal, lifecycle mutation, RCON traffic, OIDC
-reconfiguration, or new multi-day soak was required. Stable `v2.8.0` is now the
-remaining digest-preserving promotion step; details and claim limits are in
-`docs/v2.8-readiness.md`.
+reconfiguration, or new multi-day soak was required.
+
+Signed stable `v2.8.0` targets the same accepted revision. Stable
+[workflow #34765576154](https://github.com/tov-vl/gold-src-ops/actions/runs/34765576154)
+skipped both image build paths, promoted the exact candidate API and Web
+digests, and independently verified both stable references. The
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.8.0)
+is published. Stable publication is complete, and no accepted image was
+rebuilt; details and claim limits are in `docs/v2.8-readiness.md`.
 
 ## Current API Scope
 
