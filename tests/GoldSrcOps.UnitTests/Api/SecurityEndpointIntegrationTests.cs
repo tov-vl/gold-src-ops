@@ -57,6 +57,17 @@ public sealed class SecurityEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task Reader_can_call_server_trend_endpoint()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/servers/{ExistingId}/trends?window=24h");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task Anonymous_client_can_call_health_and_public_status_only()
     {
         await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Anonymous);
@@ -66,6 +77,7 @@ public sealed class SecurityEndpointIntegrationTests
         var ready = await client.GetAsync("/health/ready");
         var publicStatus = await client.GetAsync("/api/public/status");
         var read = await client.GetAsync("/api/servers");
+        var serverTrend = await client.GetAsync($"/api/servers/{ExistingId}/trends?window=24h");
         var alertDeliveryRead = await client.GetAsync("/api/alert-delivery/dead-letters");
         var alertDeliveryDetail = await client.GetAsync(
             $"/api/alert-delivery/dead-letters/{ExistingId}");
@@ -81,6 +93,7 @@ public sealed class SecurityEndpointIntegrationTests
         ready.StatusCode.Should().Be(HttpStatusCode.OK);
         publicStatus.StatusCode.Should().Be(HttpStatusCode.OK);
         read.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        serverTrend.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryRead.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryDetail.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryReplay.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

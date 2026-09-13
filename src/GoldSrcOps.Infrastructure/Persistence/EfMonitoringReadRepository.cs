@@ -135,6 +135,45 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
             .ToArray();
     }
 
+    public async Task<IReadOnlyList<ServerTrendBucketAggregateDto>> ListServerTrendBucketAggregatesAsync(
+        Guid serverId,
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc,
+        TimeSpan bucketSize,
+        CancellationToken cancellationToken)
+    {
+        var rows = await _dbContext.Database
+            .SqlQuery<ServerTrendBucketAggregateRow>($"""
+                SELECT
+                    date_bin({bucketSize}, p."CheckedAtUtc", {fromUtc}) AS "StartedAtUtc",
+                    COUNT(*)::integer AS "SampleCount",
+                    COUNT(*) FILTER (WHERE p."IsReachable")::integer AS "ReachableSampleCount",
+                    COUNT(p."LatencyMs") FILTER (WHERE p."IsReachable")::integer AS "LatencySampleCount",
+                    COALESCE(SUM(p."LatencyMs") FILTER (WHERE p."IsReachable"), 0)::bigint
+                        AS "LatencyTotalMilliseconds",
+                    MAX(p."Players") FILTER (WHERE p."IsReachable") AS "PeakPlayers",
+                    MAX(p."Bots") FILTER (WHERE p."IsReachable") AS "PeakBots"
+                FROM goldsrcops.poll_snapshots AS p
+                WHERE p."ServerId" = {serverId}
+                  AND p."CheckedAtUtc" >= {fromUtc}
+                  AND p."CheckedAtUtc" < {toUtc}
+                GROUP BY 1
+                ORDER BY 1
+                """)
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(static row => new ServerTrendBucketAggregateDto(
+                row.StartedAtUtc,
+                row.SampleCount,
+                row.ReachableSampleCount,
+                row.LatencySampleCount,
+                row.LatencyTotalMilliseconds,
+                row.PeakPlayers,
+                row.PeakBots))
+            .ToArray();
+    }
+
     public async Task<int> CountOpenIncidentsAsync(CancellationToken cancellationToken)
     {
         return await _dbContext.AvailabilityIncidents
@@ -159,5 +198,22 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
         public int SampleCount { get; init; }
 
         public int ReachableSampleCount { get; init; }
+    }
+
+    private sealed class ServerTrendBucketAggregateRow
+    {
+        public DateTimeOffset StartedAtUtc { get; init; }
+
+        public int SampleCount { get; init; }
+
+        public int ReachableSampleCount { get; init; }
+
+        public int LatencySampleCount { get; init; }
+
+        public long LatencyTotalMilliseconds { get; init; }
+
+        public int? PeakPlayers { get; init; }
+
+        public int? PeakBots { get; init; }
     }
 }

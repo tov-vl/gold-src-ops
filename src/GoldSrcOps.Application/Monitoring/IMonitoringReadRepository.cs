@@ -21,6 +21,13 @@ public interface IMonitoringReadRepository
         TimeSpan bucketSize,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<ServerTrendBucketAggregateDto>> ListServerTrendBucketAggregatesAsync(
+        Guid serverId,
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc,
+        TimeSpan bucketSize,
+        CancellationToken cancellationToken);
+
     Task<int> CountOpenIncidentsAsync(CancellationToken cancellationToken);
 
     Task<int> CountOpenIncidentsForEnabledServersAsync(CancellationToken cancellationToken);

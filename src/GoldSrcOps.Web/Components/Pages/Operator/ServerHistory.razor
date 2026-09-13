@@ -30,28 +30,154 @@
                 <h1>@_server.Name</h1>
                 <p class="endpoint">@_server.Game · <code>@_server.Host:@_server.QueryPort</code></p>
             </div>
-            <p>Recent A2S observations and availability incidents, newest first.</p>
+            <p>Observed A2S reachability, latency, population, and durable availability incidents.</p>
         </header>
 
         <ServerSectionNav ServerId="@ServerId" />
 
-        <section class="history-summary" aria-label="History summary">
-            <article>
-                <span>Samples</span>
-                <strong>@_snapshots.Count</strong>
-            </article>
-            <article class="summary--online">
-                <span>Reachable</span>
-                <strong>@ReachableCount</strong>
-            </article>
-            <article class="summary--offline">
-                <span>Unreachable</span>
-                <strong>@UnreachableCount</strong>
-            </article>
-            <article class="summary--incidents">
-                <span>Incidents</span>
-                <strong>@_incidents.Count</strong>
-            </article>
+        <section class="trend-section" aria-labelledby="trend-title">
+            <div class="trend-heading">
+                <div>
+                    <p class="eyebrow">Recorded game-server probes</p>
+                    <h2 id="trend-title">Server trends</h2>
+                </div>
+                <nav class="range-switch" aria-label="Server trend window">
+                    <a class="@GetRangeClass(ServerTrendWindows.LastHour)"
+                       href="@GetRangeHref(ServerTrendWindows.LastHour)"
+                       aria-current="@GetRangeAriaCurrent(ServerTrendWindows.LastHour)">1 hour</a>
+                    <a class="@GetRangeClass(ServerTrendWindows.Last6Hours)"
+                       href="@GetRangeHref(ServerTrendWindows.Last6Hours)"
+                       aria-current="@GetRangeAriaCurrent(ServerTrendWindows.Last6Hours)">6 hours</a>
+                    <a class="@GetRangeClass(ServerTrendWindows.Last24Hours)"
+                       href="@GetRangeHref(ServerTrendWindows.Last24Hours)"
+                       aria-current="@GetRangeAriaCurrent(ServerTrendWindows.Last24Hours)">24 hours</a>
+                    <a class="@GetRangeClass(ServerTrendWindows.Last7Days)"
+                       href="@GetRangeHref(ServerTrendWindows.Last7Days)"
+                       aria-current="@GetRangeAriaCurrent(ServerTrendWindows.Last7Days)">7 days</a>
+                </nav>
+            </div>
+
+            @if (_trend is null)
+            {
+                <div class="trend-unavailable" role="status">
+                    <strong>Server trends unavailable</strong>
+                    <span>Recent observations and incidents may still be inspected below.</span>
+                </div>
+            }
+            else
+            {
+                <div class="trend-summary" aria-label="Trend summary">
+                    <article>
+                        <span>Observed reachability</span>
+                        <strong>@FormatPercentage(_trend.ObservedReachabilityPercent)</strong>
+                        <small>@_trend.ReachableSampleCount of @_trend.SampleCount probes reached</small>
+                    </article>
+                    <article>
+                        <span>Observation coverage</span>
+                        <strong>@_trend.ObservedBuckets / @_trend.TotalBuckets</strong>
+                        <small>@TrendBucketLabel</small>
+                    </article>
+                    <article>
+                        <span>Average latency</span>
+                        <strong>@FormatLatency(_trend.AverageLatencyMs)</strong>
+                        <small>reachable probes only</small>
+                    </article>
+                    <article>
+                        <span>Peak population</span>
+                        <strong>@FormatNumber(_trend.PeakPlayers)</strong>
+                        <small>players; @FormatNumber(_trend.PeakBots) bots reported</small>
+                    </article>
+                </div>
+
+                <div class="trend-panels">
+                    <article class="trend-panel">
+                        <div class="trend-panel__heading">
+                            <h3>Reachability</h3>
+                            <span>Observed probe success per bucket</span>
+                        </div>
+                        <div class="trend-chart"
+                             style="--trend-columns: @_trend.TotalBuckets"
+                             role="list"
+                             aria-label="@ReachabilityChartLabel">
+                            @foreach (var bucket in _trend.Buckets)
+                            {
+                                <span class="trend-bar trend-bar--reachability trend-bar--@NormalizeBucketState(bucket.State)"
+                                      style="@GetPercentageBarStyle(bucket.ObservedReachabilityPercent)"
+                                      role="listitem"
+                                      title="@GetReachabilityBucketLabel(bucket)"
+                                      aria-label="@GetReachabilityBucketLabel(bucket)"></span>
+                            }
+                        </div>
+                    </article>
+
+                    <article class="trend-panel">
+                        <div class="trend-panel__heading">
+                            <h3>Latency</h3>
+                            <span>Average for reachable probes</span>
+                        </div>
+                        <div class="trend-chart"
+                             style="--trend-columns: @_trend.TotalBuckets"
+                             role="list"
+                             aria-label="Average A2S latency by observed bucket.">
+                            @foreach (var bucket in _trend.Buckets)
+                            {
+                                <span class="trend-bar trend-bar--latency @(bucket.AverageLatencyMs is null ? "trend-bar--unknown" : null)"
+                                      style="@GetMetricBarStyle(bucket.AverageLatencyMs, MaximumAverageLatency)"
+                                      role="listitem"
+                                      title="@GetLatencyBucketLabel(bucket)"
+                                      aria-label="@GetLatencyBucketLabel(bucket)"></span>
+                            }
+                        </div>
+                    </article>
+
+                    <article class="trend-panel">
+                        <div class="trend-panel__heading">
+                            <h3>Population</h3>
+                            <span>Peak players and bots reported per bucket</span>
+                        </div>
+                        <div class="trend-chart trend-chart--population"
+                             style="--trend-columns: @_trend.TotalBuckets"
+                             role="list"
+                             aria-label="Peak reported players and bots by observed bucket.">
+                            @foreach (var bucket in _trend.Buckets)
+                            {
+                                <span class="population-pair @(bucket.PeakPlayers is null ? "population-pair--unknown" : null)"
+                                      role="listitem"
+                                      title="@GetPopulationBucketLabel(bucket)"
+                                      aria-label="@GetPopulationBucketLabel(bucket)">
+                                    <i class="population-bar population-bar--players"
+                                       style="@GetMetricBarStyle(bucket.PeakPlayers, MaximumPeakPlayers)"
+                                       aria-hidden="true"></i>
+                                    <i class="population-bar population-bar--bots"
+                                       style="@GetMetricBarStyle(bucket.PeakBots, MaximumPeakPlayers)"
+                                       aria-hidden="true"></i>
+                                </span>
+                            }
+                        </div>
+                    </article>
+                </div>
+
+                <div class="trend-axis" aria-hidden="true">
+                    <time datetime="@_trend.FromUtc.ToString("O", CultureInfo.InvariantCulture)">@FormatAxisTime(_trend.FromUtc)</time>
+                    <span>@TrendBucketLabel</span>
+                    <time datetime="@_trend.ToUtc.ToString("O", CultureInfo.InvariantCulture)">@FormatAxisTime(_trend.ToUtc)</time>
+                </div>
+
+                <div class="trend-legend" aria-label="Trend chart legend">
+                    <span><i class="legend-signal legend-signal--operational" aria-hidden="true"></i>All observed probes reached</span>
+                    <span><i class="legend-signal legend-signal--degraded" aria-hidden="true"></i>Mixed results</span>
+                    <span><i class="legend-signal legend-signal--unreachable" aria-hidden="true"></i>No observed probe reached</span>
+                    <span><i class="legend-signal legend-signal--latency" aria-hidden="true"></i>Average latency</span>
+                    <span><i class="legend-signal legend-signal--players" aria-hidden="true"></i>Peak players</span>
+                    <span><i class="legend-signal legend-signal--bots" aria-hidden="true"></i>Peak bots</span>
+                    <span><i class="legend-signal legend-signal--unknown" aria-hidden="true"></i>No observations</span>
+                </div>
+
+                <p class="trend-scope">
+                    Missing buckets are unknown and excluded from observed percentages and averages.
+                    These are recorded A2S probe outcomes, not service uptime or proof of an achieved SLO.
+                </p>
+            }
         </section>
 
         <section class="history-section" aria-labelledby="observations-title">
@@ -174,16 +300,65 @@
     [Parameter]
     public Guid ServerId { get; set; }
 
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "range")]
+    public string? Range { get; set; }
+
     private ServerResponse? _server;
+    private ServerTrendResponse? _trend;
     private IReadOnlyList<PollSnapshotResponse> _snapshots = [];
     private IReadOnlyList<AvailabilityIncidentResponse> _incidents = [];
     private bool _loadFailed;
     private bool _notFound;
 
-    private int ReachableCount => _snapshots.Count(static snapshot => snapshot.IsReachable);
-    private int UnreachableCount => _snapshots.Count - ReachableCount;
+    private string SelectedWindow => Range switch
+    {
+        ServerTrendWindows.LastHour => ServerTrendWindows.LastHour,
+        ServerTrendWindows.Last6Hours => ServerTrendWindows.Last6Hours,
+        ServerTrendWindows.Last7Days => ServerTrendWindows.Last7Days,
+        _ => ServerTrendWindows.Last24Hours
+    };
+
+    private string TrendBucketLabel => _trend?.BucketMinutes switch
+    {
+        5 => "5-minute buckets",
+        15 => "15-minute buckets",
+        60 => "Hourly buckets",
+        360 => "Six-hour buckets",
+        _ => "Time buckets"
+    };
+
+    private decimal MaximumAverageLatency => _trend?.Buckets
+        .Where(static bucket => bucket.AverageLatencyMs is not null)
+        .Select(static bucket => bucket.AverageLatencyMs!.Value)
+        .DefaultIfEmpty()
+        .Max() ?? 0m;
+
+    private int MaximumPeakPlayers => _trend?.Buckets
+        .Where(static bucket => bucket.PeakPlayers is not null)
+        .Select(static bucket => bucket.PeakPlayers!.Value)
+        .DefaultIfEmpty()
+        .Max() ?? 0;
+
+    private string ReachabilityChartLabel => _trend is null
+        ? "Server reachability trend is unavailable."
+        : $"Observed A2S reachability from {FormatAxisTime(_trend.FromUtc)} to " +
+          $"{FormatAxisTime(_trend.ToUtc)}; {_trend.ObservedBuckets} of " +
+          $"{_trend.TotalBuckets} buckets contain observations.";
 
     protected override async Task OnParametersSetAsync()
+    {
+        _server = null;
+        _trend = null;
+        _snapshots = [];
+        _incidents = [];
+        _loadFailed = false;
+        _notFound = false;
+
+        await Task.WhenAll(LoadPrimaryHistoryAsync(), LoadTrendAsync());
+    }
+
+    private async Task LoadPrimaryHistoryAsync()
     {
         try
         {
@@ -207,6 +382,71 @@
         }
     }
 
+    private async Task LoadTrendAsync()
+    {
+        try
+        {
+            _trend = await ReaderApiClient.GetServerTrendAsync(ServerId, SelectedWindow);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(
+                exception,
+                "Unable to load Reader trends for server {ServerId} and window {Window}.",
+                ServerId,
+                SelectedWindow);
+        }
+    }
+
+    private string GetRangeHref(string window) =>
+        $"/operator/servers/{ServerId:D}/history?range={window}";
+
+    private string GetRangeClass(string window) => string.Equals(SelectedWindow, window, StringComparison.Ordinal)
+        ? "range-switch__link range-switch__link--active"
+        : "range-switch__link";
+
+    private string? GetRangeAriaCurrent(string window) =>
+        string.Equals(SelectedWindow, window, StringComparison.Ordinal) ? "page" : null;
+
+    private static string NormalizeBucketState(string state) => state switch
+    {
+        "operational" => "operational",
+        "degraded" => "degraded",
+        "unreachable" => "unreachable",
+        _ => "unknown"
+    };
+
+    private static string GetPercentageBarStyle(decimal? percentage)
+    {
+        var height = Math.Clamp(percentage ?? 4m, 0m, 100m);
+        return $"height: {height.ToString("0.#", CultureInfo.InvariantCulture)}%;";
+    }
+
+    private static string GetMetricBarStyle(decimal? value, decimal maximum)
+    {
+        var height = value is null || maximum <= 0m
+            ? 0m
+            : Math.Clamp(value.Value * 100m / maximum, 0m, 100m);
+        return $"height: {height.ToString("0.#", CultureInfo.InvariantCulture)}%;";
+    }
+
+    private static string GetReachabilityBucketLabel(ServerTrendBucketResponse bucket)
+    {
+        var result = bucket.ObservedReachabilityPercent is { } percentage
+            ? $"{percentage.ToString("0.0", CultureInfo.InvariantCulture)} percent reachable; " +
+              $"{bucket.ReachableSampleCount} of {bucket.SampleCount} probes"
+            : "no observations";
+        return $"Bucket starting {FormatBucketTime(bucket.StartedAtUtc)}: {result}.";
+    }
+
+    private static string GetLatencyBucketLabel(ServerTrendBucketResponse bucket) =>
+        $"Bucket starting {FormatBucketTime(bucket.StartedAtUtc)}: " +
+        $"{(bucket.AverageLatencyMs is { } latency ? $"{latency.ToString("0.0", CultureInfo.InvariantCulture)} ms average latency" : "no latency observation")}.";
+
+    private static string GetPopulationBucketLabel(ServerTrendBucketResponse bucket) =>
+        $"Bucket starting {FormatBucketTime(bucket.StartedAtUtc)}: " +
+        $"{(bucket.PeakPlayers is { } players ? $"{players} peak players and {bucket.PeakBots ?? 0} peak bots" : "no population observation")}.";
+
     private static string DisplayValue(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "Not available" : value;
 
@@ -220,9 +460,23 @@
             ? snapshot.Players.Value.ToString(CultureInfo.InvariantCulture)
             : $"{snapshot.Players.Value}/{snapshot.MaxPlayers.Value}";
 
+    private static string FormatPercentage(decimal? percentage) => percentage is null
+        ? "No observations"
+        : $"{percentage.Value.ToString("0.0", CultureInfo.InvariantCulture)}%";
+
+    private static string FormatLatency(decimal? latencyMs) => latencyMs is null
+        ? "Not available"
+        : $"{latencyMs.Value.ToString("0.0", CultureInfo.InvariantCulture)} ms";
+
     private static string FormatLatency(int? latencyMs) => latencyMs is null
         ? "Not available"
         : $"{latencyMs.Value} ms";
 
     private static string FormatNumber(int? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "Not available";
+
+    private static string FormatBucketTime(DateTimeOffset value) => value.ToUniversalTime()
+        .ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture);
+
+    private static string FormatAxisTime(DateTimeOffset value) => value.ToUniversalTime()
+        .ToString("dd MMM, HH:mm 'UTC'", CultureInfo.InvariantCulture);
 }

@@ -512,6 +512,84 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                 filtered.Take(limit).ToArray()));
         }
 
+        public Task<ServerTrendResponse?> GetServerTrendAsync(
+            Guid serverId,
+            string window,
+            CancellationToken cancellationToken = default)
+        {
+            if (serverId != ServerId)
+            {
+                return Task.FromResult<ServerTrendResponse?>(null);
+            }
+
+            var (duration, bucketSize, totalBuckets) = window switch
+            {
+                ServerTrendWindows.LastHour => (TimeSpan.FromHours(1), TimeSpan.FromMinutes(5), 12),
+                ServerTrendWindows.Last6Hours => (TimeSpan.FromHours(6), TimeSpan.FromMinutes(15), 24),
+                ServerTrendWindows.Last24Hours => (TimeSpan.FromHours(24), TimeSpan.FromHours(1), 24),
+                ServerTrendWindows.Last7Days => (TimeSpan.FromDays(7), TimeSpan.FromHours(6), 28),
+                _ => throw new ArgumentException("Unsupported server trend window.", nameof(window))
+            };
+            var fromUtc = ObservedAtUtc.Subtract(duration);
+            var buckets = Enumerable.Range(0, totalBuckets)
+                .Select(index => index switch
+                {
+                    0 => new ServerTrendBucketResponse(
+                        fromUtc,
+                        "operational",
+                        SampleCount: 2,
+                        ReachableSampleCount: 2,
+                        ObservedReachabilityPercent: 100m,
+                        AverageLatencyMs: 18m,
+                        PeakPlayers: 7,
+                        PeakBots: 0),
+                    1 => new ServerTrendBucketResponse(
+                        fromUtc.Add(bucketSize),
+                        "degraded",
+                        SampleCount: 2,
+                        ReachableSampleCount: 1,
+                        ObservedReachabilityPercent: 50m,
+                        AverageLatencyMs: 24m,
+                        PeakPlayers: 10,
+                        PeakBots: 1),
+                    2 => new ServerTrendBucketResponse(
+                        fromUtc.AddTicks(bucketSize.Ticks * 2),
+                        "unreachable",
+                        SampleCount: 2,
+                        ReachableSampleCount: 0,
+                        ObservedReachabilityPercent: 0m,
+                        AverageLatencyMs: null,
+                        PeakPlayers: null,
+                        PeakBots: null),
+                    _ => new ServerTrendBucketResponse(
+                        fromUtc.AddTicks(bucketSize.Ticks * index),
+                        "unknown",
+                        SampleCount: 0,
+                        ReachableSampleCount: 0,
+                        ObservedReachabilityPercent: null,
+                        AverageLatencyMs: null,
+                        PeakPlayers: null,
+                        PeakBots: null)
+                })
+                .ToArray();
+
+            return Task.FromResult<ServerTrendResponse?>(new ServerTrendResponse(
+                ServerId,
+                window,
+                fromUtc,
+                ObservedAtUtc,
+                (int)bucketSize.TotalMinutes,
+                ObservedBuckets: 3,
+                totalBuckets,
+                SampleCount: 6,
+                ReachableSampleCount: 3,
+                ObservedReachabilityPercent: 50m,
+                AverageLatencyMs: 20m,
+                PeakPlayers: 10,
+                PeakBots: 1,
+                buckets));
+        }
+
         private ServerResponse CreateServer() => new(
             ServerId,
             7,

@@ -133,6 +133,34 @@ public sealed class MonitoringEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task GetServerTrend_returns_not_found_for_missing_server()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/servers/{Guid.NewGuid()}/trends?window=1h");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("2h")]
+    [InlineData("30d")]
+    public async Task GetServerTrend_rejects_an_unsupported_window(string window)
+    {
+        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(
+            $"/api/servers/{Guid.NewGuid()}/trends?window={Uri.EscapeDataString(window)}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("errors").TryGetProperty("window", out _).Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GetServerIncidents_returns_requested_recent_limit_in_reverse_chronological_order()
     {
         await using var factory = new GoldSrcOpsApiFactory();

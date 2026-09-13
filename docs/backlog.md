@@ -1184,6 +1184,30 @@ digests, and independently verified both stable references. The
 is published. Stable publication is complete, and no accepted image was
 rebuilt; details and claim limits are in `docs/v2.7-readiness.md`.
 
+## Active v2.8 Milestone: Server Trends
+
+The first v2.8 product slice turns retained per-server A2S observations into a
+bounded Reader trend view:
+
+- `GET /api/servers/{id}/trends?window=1h|6h|24h|7d` performs server-side
+  PostgreSQL bucket aggregation and returns 12 to 28 buckets rather than raw
+  multi-day snapshot history;
+- `/operator/servers/{id}/history` offers static-rendered range presets and
+  separate accessible tracks for observed reachability, average reachable-probe
+  latency, and peak reported player/bot counts;
+- missing buckets remain visibly unknown and are excluded from percentages and
+  averages;
+- the UI states that these metrics are recorded A2S probe outcomes, not service
+  uptime or evidence that an SLO has been achieved;
+- existing recent-observation and incident investigation paths remain intact.
+
+This is an additive Reader-only slice. It adds no migration, background job,
+OIDC change, secret handling, or mutation surface. Repository acceptance covers
+window semantics, weighted aggregates, response minimization, Reader policy,
+static HTML, browser token boundaries, and desktop/mobile overflow. A short
+read-only production smoke is sufficient after an eventual candidate rollout;
+this slice does not justify another soak or backup/restore rehearsal.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1207,6 +1231,7 @@ Monitoring:
 
 - `GET /api/servers/{id}/status`
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=`
+- `GET /api/servers/{id}/trends?window=1h|6h|24h|7d`
 - `GET /api/dashboard/overview`
 - `GET /api/dashboard/fleet`
 

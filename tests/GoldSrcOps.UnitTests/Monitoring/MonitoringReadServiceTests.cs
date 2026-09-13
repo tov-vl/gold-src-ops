@@ -106,6 +106,166 @@ public sealed class MonitoringReadServiceTests
         clock.VerifyNoOtherCalls();
     }
 
+    [Fact]
+    public async Task GetServerTrendAsync_fills_missing_buckets_and_aggregates_weighted_metrics()
+    {
+        var serverId = Guid.Parse("1af31109-48c1-40c4-ab6d-172012887116");
+        var expectedToUtc = new DateTimeOffset(2026, 9, 13, 12, 30, 0, TimeSpan.Zero);
+        var now = expectedToUtc.AddTicks(7);
+        var fromUtc = expectedToUtc.AddHours(-1);
+        var repository = new Mock<IMonitoringReadRepository>(MockBehavior.Strict);
+        var clock = new Mock<IClock>(MockBehavior.Strict);
+        IReadOnlyList<ServerTrendBucketAggregateDto> aggregates =
+        [
+            new(
+                fromUtc,
+                SampleCount: 2,
+                ReachableSampleCount: 1,
+                LatencySampleCount: 1,
+                LatencyTotalMilliseconds: 20,
+                PeakPlayers: 5,
+                PeakBots: 1),
+            new(
+                fromUtc.AddMinutes(10),
+                SampleCount: 3,
+                ReachableSampleCount: 3,
+                LatencySampleCount: 3,
+                LatencyTotalMilliseconds: 75,
+                PeakPlayers: 12,
+                PeakBots: 2),
+            new(
+                fromUtc.AddMinutes(55),
+                SampleCount: 1,
+                ReachableSampleCount: 0,
+                LatencySampleCount: 0,
+                LatencyTotalMilliseconds: 0,
+                PeakPlayers: null,
+                PeakBots: null)
+        ];
+        repository
+            .Setup(x => x.ServerExistsAsync(serverId, CancellationToken.None))
+            .ReturnsAsync(true);
+        clock.SetupGet(static x => x.UtcNow).Returns(now);
+        repository
+            .Setup(x => x.ListServerTrendBucketAggregatesAsync(
+                serverId,
+                fromUtc,
+                expectedToUtc,
+                TimeSpan.FromMinutes(5),
+                CancellationToken.None))
+            .ReturnsAsync(aggregates);
+        var sut = new MonitoringReadService(repository.Object, clock.Object);
+
+        var result = await sut.GetServerTrendAsync(
+            serverId,
+            ServerTrendWindow.LastHour,
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.Window.Should().Be(ServerTrendWindow.LastHour);
+        result.FromUtc.Should().Be(fromUtc);
+        result.ToUtc.Should().Be(expectedToUtc);
+        result.BucketMinutes.Should().Be(5);
+        result.ObservedBuckets.Should().Be(3);
+        result.TotalBuckets.Should().Be(12);
+        result.SampleCount.Should().Be(6);
+        result.ReachableSampleCount.Should().Be(4);
+        result.ObservedReachabilityPercent.Should().Be(66.7m);
+        result.AverageLatencyMs.Should().Be(23.8m);
+        result.PeakPlayers.Should().Be(12);
+        result.PeakBots.Should().Be(2);
+        result.Buckets.Should().HaveCount(12);
+        result.Buckets[0].Should().BeEquivalentTo(new ServerTrendBucketDto(
+            fromUtc,
+            ServerTrendBucketState.Degraded,
+            SampleCount: 2,
+            ReachableSampleCount: 1,
+            ObservedReachabilityPercent: 50m,
+            AverageLatencyMs: 20m,
+            PeakPlayers: 5,
+            PeakBots: 1));
+        result.Buckets[1].Should().BeEquivalentTo(new ServerTrendBucketDto(
+            fromUtc.AddMinutes(5),
+            ServerTrendBucketState.Unknown,
+            SampleCount: 0,
+            ReachableSampleCount: 0,
+            ObservedReachabilityPercent: null,
+            AverageLatencyMs: null,
+            PeakPlayers: null,
+            PeakBots: null));
+        result.Buckets[2].State.Should().Be(ServerTrendBucketState.Operational);
+        result.Buckets[^1].State.Should().Be(ServerTrendBucketState.Unreachable);
+        repository.VerifyAll();
+        repository.VerifyNoOtherCalls();
+        clock.VerifyGet(static x => x.UtcNow, Times.Once);
+        clock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetServerTrendAsync_uses_twenty_eight_six_hour_buckets_for_seven_days()
+    {
+        var serverId = Guid.Parse("1af31109-48c1-40c4-ab6d-172012887116");
+        var now = new DateTimeOffset(2026, 9, 13, 12, 30, 0, TimeSpan.Zero);
+        var fromUtc = now.AddDays(-7);
+        var repository = new Mock<IMonitoringReadRepository>(MockBehavior.Strict);
+        var clock = new Mock<IClock>(MockBehavior.Strict);
+        repository
+            .Setup(x => x.ServerExistsAsync(serverId, CancellationToken.None))
+            .ReturnsAsync(true);
+        clock.SetupGet(static x => x.UtcNow).Returns(now);
+        repository
+            .Setup(x => x.ListServerTrendBucketAggregatesAsync(
+                serverId,
+                fromUtc,
+                now,
+                TimeSpan.FromHours(6),
+                CancellationToken.None))
+            .ReturnsAsync([]);
+        var sut = new MonitoringReadService(repository.Object, clock.Object);
+
+        var result = await sut.GetServerTrendAsync(
+            serverId,
+            ServerTrendWindow.Last7Days,
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.BucketMinutes.Should().Be(360);
+        result.ObservedBuckets.Should().Be(0);
+        result.TotalBuckets.Should().Be(28);
+        result.ObservedReachabilityPercent.Should().BeNull();
+        result.AverageLatencyMs.Should().BeNull();
+        result.Buckets.Should().HaveCount(28)
+            .And.OnlyContain(static bucket => bucket.State == ServerTrendBucketState.Unknown);
+        result.Buckets[0].StartedAtUtc.Should().Be(fromUtc);
+        result.Buckets[^1].StartedAtUtc.Should().Be(now.AddHours(-6));
+        repository.VerifyAll();
+        repository.VerifyNoOtherCalls();
+        clock.VerifyGet(static x => x.UtcNow, Times.Once);
+        clock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetServerTrendAsync_returns_null_without_querying_when_server_does_not_exist()
+    {
+        var serverId = Guid.Parse("1af31109-48c1-40c4-ab6d-172012887116");
+        var repository = new Mock<IMonitoringReadRepository>(MockBehavior.Strict);
+        var clock = new Mock<IClock>(MockBehavior.Strict);
+        repository
+            .Setup(x => x.ServerExistsAsync(serverId, CancellationToken.None))
+            .ReturnsAsync(false);
+        var sut = new MonitoringReadService(repository.Object, clock.Object);
+
+        var result = await sut.GetServerTrendAsync(
+            serverId,
+            ServerTrendWindow.Last24Hours,
+            CancellationToken.None);
+
+        result.Should().BeNull();
+        repository.VerifyAll();
+        repository.VerifyNoOtherCalls();
+        clock.VerifyNoOtherCalls();
+    }
+
     [Theory]
     [AutoMoqData]
     public async Task GetDashboardOverviewAsync_counts_server_statuses_and_open_incidents(

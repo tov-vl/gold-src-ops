@@ -514,6 +514,172 @@ public sealed class PostgreSqlEndpointIntegrationTests
             ObservedReachabilityPercent: null));
     }
 
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
+    public async Task GetServerTrend_returns_bounded_server_aggregates_using_postgresql_provider()
+    {
+        var expectedToUtc = new DateTimeOffset(2026, 9, 13, 12, 30, 0, TimeSpan.Zero);
+        var now = expectedToUtc.AddTicks(7);
+        var fromUtc = expectedToUtc.AddHours(-1);
+        var clock = new TestClock(now);
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync(
+            services =>
+            {
+                services.RemoveAll<IClock>();
+                services.AddSingleton<IClock>(clock);
+            },
+            TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+        var serverId = await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var server = CreateServer(
+                "Private trend server sentinel",
+                "trend.private.example",
+                createdAtUtc: fromUtc.AddDays(-1));
+            var otherServer = CreateServer(
+                "Private other server sentinel",
+                "other.private.example",
+                createdAtUtc: fromUtc.AddDays(-1));
+            dbContext.Servers.AddRange(server, otherServer);
+            dbContext.PollSnapshots.AddRange(
+                PollSnapshot.Reachable(
+                    server.Id,
+                    fromUtc.AddMinutes(1),
+                    20,
+                    "private-map-sentinel",
+                    3,
+                    20,
+                    0,
+                    "private-version-sentinel"),
+                PollSnapshot.Unreachable(
+                    server.Id,
+                    fromUtc.AddMinutes(3),
+                    "private-failure-sentinel"),
+                PollSnapshot.Reachable(
+                    server.Id,
+                    fromUtc.AddMinutes(11),
+                    24,
+                    "private-map-sentinel",
+                    7,
+                    20,
+                    1,
+                    null),
+                PollSnapshot.Reachable(
+                    server.Id,
+                    fromUtc.AddMinutes(14),
+                    30,
+                    "private-map-sentinel",
+                    5,
+                    20,
+                    2,
+                    null),
+                PollSnapshot.Unreachable(
+                    server.Id,
+                    fromUtc.AddMinutes(26),
+                    "private-failure-sentinel"),
+                PollSnapshot.Reachable(
+                    otherServer.Id,
+                    fromUtc.AddMinutes(11),
+                    999,
+                    "other-map-sentinel",
+                    19,
+                    20,
+                    9,
+                    null),
+                PollSnapshot.Reachable(
+                    server.Id,
+                    fromUtc.AddSeconds(-1),
+                    15,
+                    "before-window-sentinel",
+                    1,
+                    20,
+                    0,
+                    null),
+                PollSnapshot.Unreachable(
+                    server.Id,
+                    now,
+                    "exclusive-end-sentinel"));
+            await dbContext.SaveChangesAsync();
+            return server.Id;
+        });
+
+        var response = await client.GetAsync($"/api/servers/{serverId:D}/trends?window=1h");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        payload.Should().NotContain("sentinel");
+        using var document = JsonDocument.Parse(payload);
+        document.RootElement
+            .EnumerateObject()
+            .Select(static property => property.Name)
+            .Should()
+            .BeEquivalentTo(
+                "serverId",
+                "window",
+                "fromUtc",
+                "toUtc",
+                "bucketMinutes",
+                "observedBuckets",
+                "totalBuckets",
+                "sampleCount",
+                "reachableSampleCount",
+                "observedReachabilityPercent",
+                "averageLatencyMs",
+                "peakPlayers",
+                "peakBots",
+                "buckets");
+        document.RootElement.GetProperty("buckets")[0]
+            .EnumerateObject()
+            .Select(static property => property.Name)
+            .Should()
+            .BeEquivalentTo(
+                "startedAtUtc",
+                "state",
+                "sampleCount",
+                "reachableSampleCount",
+                "observedReachabilityPercent",
+                "averageLatencyMs",
+                "peakPlayers",
+                "peakBots");
+
+        var trend = JsonSerializer.Deserialize<ServerTrendResponse>(payload, JsonSerializerOptions.Web);
+        trend.Should().NotBeNull();
+        trend!.ServerId.Should().Be(serverId);
+        trend.Window.Should().Be("1h");
+        trend.FromUtc.Should().Be(fromUtc);
+        trend.ToUtc.Should().Be(expectedToUtc);
+        trend.BucketMinutes.Should().Be(5);
+        trend.ObservedBuckets.Should().Be(3);
+        trend.TotalBuckets.Should().Be(12);
+        trend.SampleCount.Should().Be(5);
+        trend.ReachableSampleCount.Should().Be(3);
+        trend.ObservedReachabilityPercent.Should().Be(60m);
+        trend.AverageLatencyMs.Should().Be(24.7m);
+        trend.PeakPlayers.Should().Be(7);
+        trend.PeakBots.Should().Be(2);
+        trend.Buckets.Should().HaveCount(12);
+        trend.Buckets[0].Should().BeEquivalentTo(new ServerTrendBucketResponse(
+            fromUtc,
+            "degraded",
+            SampleCount: 2,
+            ReachableSampleCount: 1,
+            ObservedReachabilityPercent: 50m,
+            AverageLatencyMs: 20m,
+            PeakPlayers: 3,
+            PeakBots: 0));
+        trend.Buckets[1].State.Should().Be("unknown");
+        trend.Buckets[2].Should().BeEquivalentTo(new ServerTrendBucketResponse(
+            fromUtc.AddMinutes(10),
+            "operational",
+            SampleCount: 2,
+            ReachableSampleCount: 2,
+            ObservedReachabilityPercent: 100m,
+            AverageLatencyMs: 27m,
+            PeakPlayers: 7,
+            PeakBots: 2));
+        trend.Buckets[5].State.Should().Be("unreachable");
+    }
+
     private static Server CreateServer(string name, string host, DateTimeOffset createdAtUtc)
     {
         return new Server(
