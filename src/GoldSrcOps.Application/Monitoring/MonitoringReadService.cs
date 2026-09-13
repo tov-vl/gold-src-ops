@@ -7,6 +7,8 @@ public sealed class MonitoringReadService
 {
     public const int DefaultSnapshotLimit = 100;
     public const int MaxSnapshotLimit = 500;
+    public const int DefaultActivityLimit = 50;
+    public const int MaxActivityLimit = 100;
 
     private readonly IMonitoringReadRepository _repository;
     private readonly IClock _clock;
@@ -165,6 +167,16 @@ public sealed class MonitoringReadService
             lastCheckedAtUtc);
 
         return new FleetOverviewDto(overview, servers);
+    }
+
+    public async Task<OperationsActivityDto> GetOperationsActivityAsync(
+        int? limit,
+        CancellationToken cancellationToken)
+    {
+        var effectiveLimit = Math.Clamp(limit ?? DefaultActivityLimit, 1, MaxActivityLimit);
+        var items = await _repository.ListOperationsActivityAsync(effectiveLimit, cancellationToken);
+
+        return new OperationsActivityDto(effectiveLimit, items);
     }
 
     public async Task<PublicStatusDto> GetPublicStatusAsync(CancellationToken cancellationToken)

@@ -13,6 +13,10 @@ public interface IReaderApiClient
 
     Task<FleetOverviewResponse> GetFleetOverviewAsync(CancellationToken cancellationToken = default);
 
+    Task<OperationsActivityResponse> GetOperationsActivityAsync(
+        int limit,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ServerResponse>> GetServersAsync(CancellationToken cancellationToken = default);
 
     Task<ServerResponse?> GetServerAsync(Guid serverId, CancellationToken cancellationToken = default);

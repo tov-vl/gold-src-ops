@@ -21,6 +21,13 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
         CancellationToken cancellationToken = default) =>
         GetRequiredAsync<FleetOverviewResponse>("api/dashboard/fleet", cancellationToken);
 
+    public Task<OperationsActivityResponse> GetOperationsActivityAsync(
+        int limit,
+        CancellationToken cancellationToken = default) =>
+        GetRequiredAsync<OperationsActivityResponse>(
+            AddLimit("api/dashboard/activity", limit),
+            cancellationToken);
+
     public async Task<IReadOnlyList<ServerResponse>> GetServersAsync(
         CancellationToken cancellationToken = default) =>
         await GetRequiredAsync<ServerResponse[]>("api/servers/", cancellationToken);

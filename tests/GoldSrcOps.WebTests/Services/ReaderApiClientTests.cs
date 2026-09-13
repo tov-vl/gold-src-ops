@@ -15,6 +15,35 @@ namespace GoldSrcOps.WebTests.Services;
 public sealed class ReaderApiClientTests
 {
     [Fact]
+    public async Task GetOperationsActivityAsync_sends_the_bounded_limit()
+    {
+        var response = new OperationsActivityResponse(
+            25,
+            [
+                new OperationsActivityItemResponse(
+                    Guid.Parse("d83936ce-cc0c-47bd-b167-77094b9a4f57"),
+                    "Incident",
+                    Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f"),
+                    "Dust2 Public",
+                    "Unreachable",
+                    "Open",
+                    new DateTimeOffset(2026, 9, 13, 12, 0, 0, TimeSpan.Zero))
+            ]);
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(response)
+        });
+        using var httpClient = CreateHttpClient(capture);
+        var client = new ReaderApiClient(httpClient);
+
+        var result = await client.GetOperationsActivityAsync(25);
+
+        result.Should().BeEquivalentTo(response);
+        capture.RequestUri.Should().Be(
+            new Uri("https://api.example.test/api/dashboard/activity?limit=25"));
+    }
+
+    [Fact]
     public async Task GetFleetOverviewAsync_maps_triage_projection()
     {
         var observedAtUtc = new DateTimeOffset(2026, 9, 12, 12, 0, 0, TimeSpan.Zero);

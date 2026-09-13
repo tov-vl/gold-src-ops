@@ -1228,6 +1228,30 @@ digests, and independently verified both stable references. The
 is published. Stable publication is complete, and no accepted image was
 rebuilt; details and claim limits are in `docs/v2.8-readiness.md`.
 
+## Active v2.9 Milestone: Recent Operations Activity
+
+The first local v2.9 product slice adds one bounded Reader timeline for the
+latest operational changes across incidents and commands:
+
+- `GET /api/dashboard/activity?limit=` merges at most the requested number of
+  recent incident and command records in deterministic reverse-chronological
+  order;
+- the response contains only event identity, server identity and name,
+  category, state, and event time. Incident reasons, command payloads,
+  requesters, results, failures, and server addresses stay outside the
+  contract;
+- `/operator/activity` provides static-rendered All, Incidents, and Commands
+  views with direct navigation to incident investigation or per-server command
+  history;
+- the repository query materializes at most `2 * limit` source rows before the
+  final merge and caps the public limit at 100.
+
+This is an additive read-only slice. It adds no migration, worker, realtime
+connection, OIDC change, secret handling, or mutation surface. Repository
+acceptance covers response minimization, ordering and limit semantics, Reader
+authorization, static HTML filtering, browser token boundaries, and
+desktop/mobile overflow. It does not justify a new soak or recovery rehearsal.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1254,6 +1278,7 @@ Monitoring:
 - `GET /api/servers/{id}/trends?window=1h|6h|24h|7d`
 - `GET /api/dashboard/overview`
 - `GET /api/dashboard/fleet`
+- `GET /api/dashboard/activity?limit=`
 
 Incidents:
 

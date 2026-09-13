@@ -252,6 +252,38 @@ public sealed class ReaderPortalIntegrationTests
     }
 
     [Fact]
+    public async Task Reader_can_filter_recent_activity_without_sensitive_command_fields()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var allResponse = await client.GetAsync("/operator/activity");
+        var allBody = await allResponse.Content.ReadAsStringAsync();
+        using var incidentsResponse = await client.GetAsync("/operator/activity?kind=incidents");
+        var incidentsBody = await incidentsResponse.Content.ReadAsStringAsync();
+        using var commandsResponse = await client.GetAsync("/operator/activity?kind=commands");
+        var commandsBody = await commandsResponse.Content.ReadAsStringAsync();
+
+        allResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        allBody.Should().Contain("Incident and command timeline");
+        allBody.Should().Contain($"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}");
+        allBody.Should().Contain(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands");
+        allBody.Should().Contain(ReaderWebApplicationFactory.ServerName);
+        allBody.Should().NotContain(ReaderWebApplicationFactory.CommandPayloadSentinel);
+        allBody.Should().NotContain(ReaderWebApplicationFactory.CommandResultSummary);
+        allBody.Should().NotContain(ReaderWebApplicationFactory.OpenIncidentReason);
+        incidentsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        incidentsBody.Should().Contain("Server unreachable");
+        incidentsBody.Should().Contain("Availability recovered");
+        incidentsBody.Should().NotContain("Succeeded");
+        commandsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        commandsBody.Should().Contain("Say");
+        commandsBody.Should().Contain("Succeeded");
+        commandsBody.Should().NotContain("Server unreachable");
+    }
+
+    [Fact]
     public async Task Operator_can_view_reader_operations_data()
     {
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
@@ -259,18 +291,21 @@ public sealed class ReaderPortalIntegrationTests
 
         using var incidentsResponse = await client.GetAsync("/operator/incidents");
         var incidentsBody = await incidentsResponse.Content.ReadAsStringAsync();
+        using var activityResponse = await client.GetAsync("/operator/activity");
         using var commandsResponse = await client.GetAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands");
         using var deadLettersResponse = await client.GetAsync("/operator/dead-letters");
 
         incidentsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         incidentsBody.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
+        activityResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         commandsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         deadLettersResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Theory]
     [InlineData("/operator/servers")]
+    [InlineData("/operator/activity")]
     [InlineData("/operator/incidents")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/history")]

@@ -217,6 +217,41 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                         true)
                 ]));
 
+        public Task<OperationsActivityResponse> GetOperationsActivityAsync(
+            int limit,
+            CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<OperationsActivityItemResponse> items =
+            [
+                new(
+                    CommandId,
+                    "Command",
+                    ServerId,
+                    ServerName,
+                    "Say",
+                    "Succeeded",
+                    ObservedAtUtc.AddMinutes(-9)),
+                new(
+                    OpenIncidentId,
+                    "Incident",
+                    ServerId,
+                    ServerName,
+                    "Unreachable",
+                    "Open",
+                    ObservedAtUtc.AddMinutes(-15)),
+                new(
+                    ResolvedIncidentId,
+                    "Incident",
+                    ServerId,
+                    ServerName,
+                    "Unreachable",
+                    "Recovered",
+                    ObservedAtUtc.AddHours(-2))
+            ];
+
+            return Task.FromResult(new OperationsActivityResponse(limit, items.Take(limit).ToArray()));
+        }
+
         public Task<IReadOnlyList<ServerResponse>> GetServersAsync(
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<ServerResponse>>([CreateServer()]);
