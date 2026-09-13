@@ -6,25 +6,23 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.6.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.6.0)
+**Status:** [v2.7.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.7.0)
 is the current public release. Its signed annotated tag identifies application
-revision `b7c95be` and promotes the exact API and Web image digests exercised by
-`v2.6.0-rc.1`, without rebuilding either image. The candidate
-[workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34703040195),
+revision `4bcde09` and promotes the exact API and Web image digests exercised by
+`v2.7.0-rc.1`, without rebuilding either image. The candidate
+[workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34752528075),
 production-acceptance
-[pull request #126](https://github.com/tov-vl/gold-src-ops/pull/126), and stable
-[publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34706665424)
+[pull request #130](https://github.com/tov-vl/gold-src-ops/pull/130), and stable
+[publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34757277795)
 all passed. Release notes and detailed evidence are available in
-[docs/release-notes-v2.6.md](docs/release-notes-v2.6.md) and
-[docs/v2.6-readiness.md](docs/v2.6-readiness.md).
-
-The v2.7 Incident Investigation slice is integrated in protected `main` through
-[pull request #128](https://github.com/tov-vl/gold-src-ops/pull/128). Candidate
-scope, the existing Reader API composition, and the deliberately short
-read-only production gate are defined in
 [docs/release-notes-v2.7.md](docs/release-notes-v2.7.md) and
-[docs/v2.7-readiness.md](docs/v2.7-readiness.md). Signed candidate publication
-has not started.
+[docs/v2.7-readiness.md](docs/v2.7-readiness.md).
+
+The v2.7 Incident Investigation release gives Reader users a focused path from
+fleet attention to a durable incident and the bounded A2S observations nearest
+its opening and recovery boundaries. Its additive read-only scope, deliberately
+short production gate, and claim limits are recorded in the release notes and
+readiness record above.
 
 The v2.4 release has a passing independent 24-hour availability
 shadow audit. The immutable `API-01` activation tuple started its prospective
@@ -169,6 +167,10 @@ The published v2.6 Fleet Triage release and its deliberately short read-only
 acceptance boundary are summarized in
 [docs/release-notes-v2.6.md](docs/release-notes-v2.6.md) and
 [docs/v2.6-readiness.md](docs/v2.6-readiness.md).
+The published v2.7 Incident Investigation release and its bounded read-only
+acceptance evidence are summarized in
+[docs/release-notes-v2.7.md](docs/release-notes-v2.7.md) and
+[docs/v2.7-readiness.md](docs/v2.7-readiness.md).
 
 ## Documentation
 
@@ -186,7 +188,7 @@ acceptance boundary are summarized in
 | v2.5 release evidence | [v2.5 readiness](docs/v2.5-readiness.md) |
 | v2.6 Fleet Triage release | [v2.6 release notes](docs/release-notes-v2.6.md) |
 | v2.6 release evidence | [v2.6 readiness](docs/v2.6-readiness.md) |
-| v2.7 Incident Investigation candidate | [v2.7 release notes](docs/release-notes-v2.7.md) |
+| v2.7 Incident Investigation release | [v2.7 release notes](docs/release-notes-v2.7.md) |
 | v2.7 release evidence | [v2.7 readiness](docs/v2.7-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |

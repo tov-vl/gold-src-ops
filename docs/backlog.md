@@ -1141,7 +1141,7 @@ lifecycle mutation, OIDC reconfiguration, or new multi-day soak was required
 for this additive no-migration slice. Stable digest-preserving publication is
 complete, and no accepted image was rebuilt.
 
-## Active v2.7 Milestone: Incident Investigation
+## Completed v2.7 Milestone: Incident Investigation
 
 The first v2.7 slice turns the existing incident and snapshot Reader contracts
 into one bounded investigation path:
@@ -1174,9 +1174,15 @@ investigation path. Reader-only concealment was reused from Browser Smoke on
 the exact Web image because OIDC and authorization were unchanged. No incident
 manufacture,
 backup/restore rehearsal, lifecycle mutation, RCON traffic, OIDC
-reconfiguration, or new multi-day soak was required. Stable `v2.7.0` is now the
-remaining digest-preserving promotion step; details and claim limits are in
-`docs/v2.7-readiness.md`.
+reconfiguration, or new multi-day soak was required.
+
+Signed stable `v2.7.0` targets the same accepted revision. Stable
+[workflow #34757277795](https://github.com/tov-vl/gold-src-ops/actions/runs/34757277795)
+skipped both image build paths, promoted the exact candidate API and Web
+digests, and independently verified both stable references. The
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.7.0)
+is published. Stable publication is complete, and no accepted image was
+rebuilt; details and claim limits are in `docs/v2.7-readiness.md`.
 
 ## Current API Scope
 

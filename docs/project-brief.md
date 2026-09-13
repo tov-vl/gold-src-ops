@@ -304,9 +304,10 @@ The project should evolve in stages:
   slice is integrated through pull request #128. Signed `v2.7.0-rc.1`, exact
   API/Web image publication, digest-pinned production rollout, and the bounded
   read-only production smoke have passed; production retained the candidate.
-  Stable `v2.7.0` remains the digest-preserving promotion step, with evidence
-  and claim limits recorded in `docs/v2.7-readiness.md`. Product work remains
-  independent of the active `API-01` evidence window.
+  Signed stable `v2.7.0` promotes those exact candidate digests without
+  rebuilding and is published with its evidence and claim limits in
+  `docs/v2.7-readiness.md`. Product work remains independent of the active
+  `API-01` evidence window.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
