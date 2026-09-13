@@ -184,11 +184,18 @@ footer {
     .primary-nav {
         grid-column: 1 / -1;
         grid-row: 2;
+        display: grid;
+        grid-template-columns: repeat(3, max-content);
         min-height: 34px;
         width: 100%;
-        gap: 14px;
-        overflow-x: auto;
-        white-space: nowrap;
+        column-gap: 18px;
+        row-gap: 0;
+        overflow: visible;
+        white-space: normal;
+    }
+
+    .primary-nav a {
+        min-height: 34px;
     }
 
     footer {

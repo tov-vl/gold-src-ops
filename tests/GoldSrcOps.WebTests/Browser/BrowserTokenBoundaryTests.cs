@@ -36,6 +36,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         var credentialsPage = await VisitAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/credentials");
         var registrationPage = await VisitAsync("/operator/servers/new");
+        var activityPage = await VisitAsync("/operator/activity");
         var incidentsPage = await VisitAsync("/operator/incidents");
         var incidentDetailPage = await VisitAsync(
             $"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}");
@@ -55,6 +56,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         detailPage.Body.Should().Contain("Latest observation");
         historyPage.Body.Should().Contain("Recent observations");
         commandsPage.Body.Should().Contain(ReaderWebApplicationFactory.CommandResultSummary);
+        activityPage.Body.Should().Contain("Incident and command timeline");
         incidentsPage.Body.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
         incidentDetailPage.Body.Should().Contain("Boundary observations");
         deadLettersPage.Body.Should().Contain(ReaderWebApplicationFactory.DeadLetterLastError);
@@ -73,6 +75,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                      settingsPage,
                      credentialsPage,
                      registrationPage,
+                     activityPage,
                      incidentsPage,
                      incidentDetailPage,
                      deadLettersPage,
@@ -155,6 +158,41 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             hasHorizontalOverflow.Should().BeFalse();
 
             await CaptureScreenshotIfRequestedAsync("fleet-triage", viewport);
+        }
+    }
+
+    [BrowserFact]
+    public async Task Recent_activity_fits_supported_desktop_and_mobile_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(baseAddress, "/operator/activity").AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator(".activity-tabs").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator(".activity-row:not(.activity-row--header)").CountAsync()).Should().Be(3);
+            (await Page.Locator(".activity-row--incident").CountAsync()).Should().Be(2);
+            (await Page.Locator(".activity-row--command").CountAsync()).Should().Be(1);
+            var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+            hasHorizontalOverflow.Should().BeFalse();
+
+            await CaptureScreenshotIfRequestedAsync("recent-activity", viewport);
         }
     }
 

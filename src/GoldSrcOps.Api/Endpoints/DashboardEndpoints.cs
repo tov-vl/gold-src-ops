@@ -19,6 +19,9 @@ public static class DashboardEndpoints
         group.MapGet("/fleet", GetFleetAsync)
             .WithName("GetDashboardFleet");
 
+        group.MapGet("/activity", GetActivityAsync)
+            .WithName("GetDashboardActivity");
+
         return group;
     }
 
@@ -38,6 +41,26 @@ public static class DashboardEndpoints
         return TypedResults.Ok(new FleetOverviewResponse(
             Map(result.Overview),
             result.Servers.Select(Map).ToArray()));
+    }
+
+    private static async Task<Results<Ok<OperationsActivityResponse>, ValidationProblem>> GetActivityAsync(
+        int? limit,
+        MonitoringReadService monitoring,
+        CancellationToken cancellationToken)
+    {
+        if (limit is < 1 or > MonitoringReadService.MaxActivityLimit)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                ["limit"] =
+                    [$"Limit must be between 1 and {MonitoringReadService.MaxActivityLimit}."]
+            });
+        }
+
+        var result = await monitoring.GetOperationsActivityAsync(limit, cancellationToken);
+        return TypedResults.Ok(new OperationsActivityResponse(
+            result.Limit,
+            result.Items.Select(Map).ToArray()));
     }
 
     private static DashboardOverviewResponse Map(DashboardOverviewDto overview) =>
@@ -71,4 +94,14 @@ public static class DashboardEndpoints
             server.OpenIncidents,
             server.IsStale,
             server.RequiresAttention);
+
+    private static OperationsActivityItemResponse Map(OperationsActivityItemDto item) =>
+        new(
+            item.SourceId,
+            item.SourceType,
+            item.ServerId,
+            item.ServerName,
+            item.Category,
+            item.State,
+            item.OccurredAtUtc);
 }

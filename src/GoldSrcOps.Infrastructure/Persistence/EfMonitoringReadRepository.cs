@@ -1,4 +1,5 @@
 using GoldSrcOps.Application.Monitoring;
+using GoldSrcOps.Domain.Commands;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.EntityFrameworkCore;
 
@@ -105,6 +106,64 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<OperationsActivityItemDto>> ListOperationsActivityAsync(
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        var incidents = await _dbContext.AvailabilityIncidents
+            .AsNoTracking()
+            .OrderByDescending(x => x.ClosedAtUtc ?? x.OpenedAtUtc)
+            .ThenByDescending(x => x.Id)
+            .Take(limit)
+            .Select(x => new IncidentActivityRow(
+                x.Id,
+                x.ServerId,
+                x.Server.Name,
+                x.Type,
+                x.OpenedAtUtc,
+                x.ClosedAtUtc))
+            .ToListAsync(cancellationToken);
+
+        var commands = await _dbContext.CommandExecutions
+            .AsNoTracking()
+            .OrderByDescending(x => x.CompletedAtUtc ?? x.StartedAtUtc ?? x.RequestedAtUtc)
+            .ThenByDescending(x => x.Id)
+            .Take(limit)
+            .Select(x => new CommandActivityRow(
+                x.Id,
+                x.ServerId,
+                x.Server.Name,
+                x.Type,
+                x.Status,
+                x.RequestedAtUtc,
+                x.StartedAtUtc,
+                x.CompletedAtUtc))
+            .ToListAsync(cancellationToken);
+
+        return incidents
+            .Select(static incident => new OperationsActivityItemDto(
+                incident.SourceId,
+                "Incident",
+                incident.ServerId,
+                incident.ServerName,
+                incident.Type.ToString(),
+                incident.ClosedAtUtc is null ? "Open" : "Recovered",
+                incident.ClosedAtUtc ?? incident.OpenedAtUtc))
+            .Concat(commands.Select(static command => new OperationsActivityItemDto(
+                command.SourceId,
+                "Command",
+                command.ServerId,
+                command.ServerName,
+                command.Type.ToString(),
+                command.Status.ToString(),
+                command.CompletedAtUtc ?? command.StartedAtUtc ?? command.RequestedAtUtc)))
+            .OrderByDescending(static item => item.OccurredAtUtc)
+            .ThenBy(static item => item.SourceType, StringComparer.Ordinal)
+            .ThenBy(static item => item.SourceId)
+            .Take(limit)
+            .ToArray();
+    }
+
     public async Task<IReadOnlyList<PublicA2sBucketCountDto>> ListPublicA2sBucketCountsAsync(
         DateTimeOffset fromUtc,
         DateTimeOffset toUtc,
@@ -199,6 +258,24 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
 
         public int ReachableSampleCount { get; init; }
     }
+
+    private sealed record IncidentActivityRow(
+        Guid SourceId,
+        Guid ServerId,
+        string ServerName,
+        IncidentType Type,
+        DateTimeOffset OpenedAtUtc,
+        DateTimeOffset? ClosedAtUtc);
+
+    private sealed record CommandActivityRow(
+        Guid SourceId,
+        Guid ServerId,
+        string ServerName,
+        ServerCommandType Type,
+        CommandExecutionStatus Status,
+        DateTimeOffset RequestedAtUtc,
+        DateTimeOffset? StartedAtUtc,
+        DateTimeOffset? CompletedAtUtc);
 
     private sealed class ServerTrendBucketAggregateRow
     {

@@ -15,6 +15,10 @@ public interface IMonitoringReadRepository
 
     Task<IReadOnlyList<FleetServerStateDto>> ListFleetServerStatesAsync(CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<OperationsActivityItemDto>> ListOperationsActivityAsync(
+        int limit,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<PublicA2sBucketCountDto>> ListPublicA2sBucketCountsAsync(
         DateTimeOffset fromUtc,
         DateTimeOffset toUtc,

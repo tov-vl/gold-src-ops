@@ -11,6 +11,38 @@ namespace GoldSrcOps.UnitTests.Monitoring;
 public sealed class MonitoringReadServiceTests
 {
     [Fact]
+    public async Task GetOperationsActivityAsync_uses_the_default_bounded_limit()
+    {
+        var repository = new Mock<IMonitoringReadRepository>(MockBehavior.Strict);
+        var clock = new Mock<IClock>(MockBehavior.Strict);
+        IReadOnlyList<OperationsActivityItemDto> items =
+        [
+            new(
+                Guid.Parse("d83936ce-cc0c-47bd-b167-77094b9a4f57"),
+                "Incident",
+                Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f"),
+                "Dust2 Public",
+                "Unreachable",
+                "Open",
+                new DateTimeOffset(2026, 9, 13, 12, 0, 0, TimeSpan.Zero))
+        ];
+        repository
+            .Setup(x => x.ListOperationsActivityAsync(
+                MonitoringReadService.DefaultActivityLimit,
+                CancellationToken.None))
+            .ReturnsAsync(items);
+        var sut = new MonitoringReadService(repository.Object, clock.Object);
+
+        var result = await sut.GetOperationsActivityAsync(null, CancellationToken.None);
+
+        result.Limit.Should().Be(MonitoringReadService.DefaultActivityLimit);
+        result.Items.Should().BeSameAs(items);
+        repository.VerifyAll();
+        repository.VerifyNoOtherCalls();
+        clock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
     public async Task GetPublicA2sHistoryAsync_fills_missing_hourly_buckets_and_aggregates_observed_samples()
     {
         var expectedToUtc = new DateTimeOffset(2026, 9, 7, 12, 30, 0, TimeSpan.Zero);

@@ -1,0 +1,225 @@
+@page "/operator/activity"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<Activity> Logger
+
+<PageTitle>Recent activity | GoldSrcOps</PageTitle>
+
+<div class="activity-page">
+    <header class="page-heading">
+        <div>
+            <p class="eyebrow">Reader portal</p>
+            <h1>Recent activity</h1>
+        </div>
+        <div class="heading-meta">
+            <span>Latest event</span>
+            <strong>@FormatDateTime(LatestEventAtUtc)</strong>
+            <a href="@BuildKindHref(EffectiveKind)">Refresh</a>
+        </div>
+    </header>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h2>Activity is unavailable</h2>
+            <p>The API did not return a usable Reader snapshot. Try again after the service recovers.</p>
+        </section>
+    }
+    else if (_activity is not null)
+    {
+        <section class="activity-summary" aria-label="Recent activity summary">
+            <article>
+                <span>Events loaded</span>
+                <strong>@_activity.Items.Count</strong>
+            </article>
+            <article class="summary--incident">
+                <span>Incidents</span>
+                <strong>@IncidentCount</strong>
+            </article>
+            <article class="summary--command">
+                <span>Commands</span>
+                <strong>@CommandCount</strong>
+            </article>
+        </section>
+
+        <section class="activity-section" aria-labelledby="activity-list-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Operations</p>
+                    <h2 id="activity-list-title">Incident and command timeline</h2>
+                </div>
+                <span>Newest first, up to @_activity.Limit events</span>
+            </div>
+
+            <nav class="activity-tabs" aria-label="Activity type">
+                <a class="@GetTabClass("all")"
+                   href="@BuildKindHref("all")"
+                   aria-current="@GetAriaCurrent("all")">
+                    <span>All</span>
+                    <strong>@_activity.Items.Count</strong>
+                </a>
+                <a class="@GetTabClass("incidents")"
+                   href="@BuildKindHref("incidents")"
+                   aria-current="@GetAriaCurrent("incidents")">
+                    <span>Incidents</span>
+                    <strong>@IncidentCount</strong>
+                </a>
+                <a class="@GetTabClass("commands")"
+                   href="@BuildKindHref("commands")"
+                   aria-current="@GetAriaCurrent("commands")">
+                    <span>Commands</span>
+                    <strong>@CommandCount</strong>
+                </a>
+            </nav>
+
+            @if (_items.Count == 0)
+            {
+                <div class="empty-state">
+                    <h3>No matching activity</h3>
+                    <p>No incident or command events match the selected view.</p>
+                    @if (EffectiveKind != "all")
+                    {
+                        <a href="/operator/activity">Show all activity</a>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="activity-table" role="table" aria-label="Recent operations activity">
+                    <div class="activity-row activity-row--header" role="row">
+                        <span role="columnheader">Time</span>
+                        <span role="columnheader">Event</span>
+                        <span role="columnheader">Server</span>
+                        <span role="columnheader">State</span>
+                        <span role="columnheader"><span class="visually-hidden">Open</span></span>
+                    </div>
+                    @foreach (var item in _items)
+                    {
+                        <div class="activity-row @GetRowClass(item)" role="row">
+                            <time role="cell" datetime="@item.OccurredAtUtc.ToString("O", CultureInfo.InvariantCulture)">
+                                <span class="cell-label">Time</span>
+                                @FormatDateTime(item.OccurredAtUtc)
+                            </time>
+                            <span class="event-cell" role="cell">
+                                <span class="cell-label">Event</span>
+                                <strong>@GetEventLabel(item)</strong>
+                                <small>@item.SourceType</small>
+                            </span>
+                            <span class="server-cell" role="cell">
+                                <span class="cell-label">Server</span>
+                                @item.ServerName
+                            </span>
+                            <span role="cell">
+                                <span class="cell-label">State</span>
+                                <span class="state-label @GetStateClass(item.State)">@item.State</span>
+                            </span>
+                            <span class="row-action" role="cell">
+                                <a href="@GetActionHref(item)"
+                                   aria-label="@GetActionAriaLabel(item)">@GetActionLabel(item)</a>
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private const int ActivityLimit = 50;
+    private static readonly string[] AllowedKinds = ["all", "incidents", "commands"];
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "kind")]
+    public string? Kind { get; set; }
+
+    private OperationsActivityResponse? _activity;
+    private IReadOnlyList<OperationsActivityItemResponse> _items = [];
+    private bool _loadFailed;
+
+    private string EffectiveKind => NormalizeKind(Kind);
+
+    private int IncidentCount => _activity?.Items.Count(IsIncident) ?? 0;
+
+    private int CommandCount => _activity?.Items.Count(IsCommand) ?? 0;
+
+    private DateTimeOffset? LatestEventAtUtc => _activity?.Items.Count > 0
+        ? _activity.Items[0].OccurredAtUtc
+        : null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadFailed = false;
+
+        try
+        {
+            _activity = await ReaderApiClient.GetOperationsActivityAsync(ActivityLimit);
+            _items = EffectiveKind switch
+            {
+                "incidents" => _activity.Items.Where(IsIncident).ToArray(),
+                "commands" => _activity.Items.Where(IsCommand).ToArray(),
+                _ => _activity.Items
+            };
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load recent activity for the Reader portal.");
+            _activity = null;
+            _items = [];
+            _loadFailed = true;
+        }
+    }
+
+    private static bool IsIncident(OperationsActivityItemResponse item) =>
+        string.Equals(item.SourceType, "Incident", StringComparison.Ordinal);
+
+    private static bool IsCommand(OperationsActivityItemResponse item) =>
+        string.Equals(item.SourceType, "Command", StringComparison.Ordinal);
+
+    private static string NormalizeKind(string? value) =>
+        AllowedKinds.FirstOrDefault(kind => string.Equals(kind, value, StringComparison.OrdinalIgnoreCase)) ?? "all";
+
+    private string GetTabClass(string kind) =>
+        string.Equals(EffectiveKind, kind, StringComparison.Ordinal) ? "activity-tab activity-tab--active" : "activity-tab";
+
+    private string? GetAriaCurrent(string kind) =>
+        string.Equals(EffectiveKind, kind, StringComparison.Ordinal) ? "page" : null;
+
+    private static string BuildKindHref(string kind) => kind == "all"
+        ? "/operator/activity"
+        : $"/operator/activity?kind={kind}";
+
+    private static string GetRowClass(OperationsActivityItemResponse item) => IsIncident(item)
+        ? "activity-row--incident"
+        : "activity-row--command";
+
+    private static string GetEventLabel(OperationsActivityItemResponse item) => item.Category switch
+    {
+        "ChangeMap" => "Map change",
+        "Unreachable" => item.State == "Recovered" ? "Availability recovered" : "Server unreachable",
+        _ => item.Category
+    };
+
+    private static string GetStateClass(string state) => state switch
+    {
+        "Succeeded" or "Recovered" => "state-label--success",
+        "Pending" or "Running" => "state-label--warning",
+        "Failed" or "Open" => "state-label--critical",
+        _ => "state-label--neutral"
+    };
+
+    private static string GetActionHref(OperationsActivityItemResponse item) => IsIncident(item)
+        ? $"/operator/incidents/{item.SourceId:D}"
+        : $"/operator/servers/{item.ServerId:D}/commands";
+
+    private static string GetActionLabel(OperationsActivityItemResponse item) =>
+        IsIncident(item) ? "Inspect" : "History";
+
+    private static string GetActionAriaLabel(OperationsActivityItemResponse item) => IsIncident(item)
+        ? $"Inspect incident for {item.ServerName}"
+        : $"View command history for {item.ServerName}";
+
+    private static string FormatDateTime(DateTimeOffset? value) => value is null
+        ? "Not available"
+        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+}

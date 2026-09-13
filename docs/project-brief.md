@@ -321,6 +321,13 @@ The project should evolve in stages:
   Signed stable `v2.8.0` promotes those exact candidate digests without
   rebuilding and is published with its evidence and claim limits in
   `docs/v2.8-readiness.md`.
+- v2.9: begin with one bounded Reader activity timeline that combines recent
+  incident lifecycle and command-state records without exposing incident
+  reasons, command payloads, requesters, results, failure details, or server
+  addresses. The static-rendered page supports All, Incidents, and Commands
+  views and links into existing investigation and command-history paths. This
+  additive slice requires no migration, worker, realtime connection, OIDC
+  change, or mutation permission.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

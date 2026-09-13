@@ -5,8 +5,10 @@ using System.Text.Json;
 using AwesomeAssertions;
 using GoldSrcOps.Application.Common;
 using GoldSrcOps.Application.Incidents;
+using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
+using GoldSrcOps.Domain.Commands;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -15,6 +17,19 @@ namespace GoldSrcOps.UnitTests.Api;
 
 public sealed class MonitoringEndpointIntegrationTests
 {
+    private static readonly string[] ActivityRootProperties = ["limit", "items"];
+
+    private static readonly string[] ActivityItemProperties =
+    [
+        "sourceId",
+        "sourceType",
+        "serverId",
+        "serverName",
+        "category",
+        "state",
+        "occurredAtUtc"
+    ];
+
     private static readonly string[] FleetRootProperties = ["overview", "servers"];
 
     private static readonly string[] FleetOverviewProperties =
@@ -369,6 +384,121 @@ public sealed class MonitoringEndpointIntegrationTests
             IsStale = false,
             RequiresAttention = true
         });
+    }
+
+    [Fact]
+    public async Task GetDashboardActivity_returns_a_bounded_sanitized_cross_source_timeline()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+        var now = new DateTimeOffset(2026, 9, 13, 18, 0, 0, TimeSpan.Zero);
+        var seed = await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var server = CreateServer("Activity fixture", "private.example.test", now.AddDays(-1));
+            var recoveredIncident = AvailabilityIncident.Open(
+                server.Id,
+                now.AddMinutes(-20),
+                "private incident start reason",
+                consecutiveFailures: 3);
+            recoveredIncident.Close(now.AddMinutes(-3), "private incident recovery reason");
+            var openIncident = AvailabilityIncident.Open(
+                server.Id,
+                now.AddMinutes(-2),
+                "private current incident reason",
+                consecutiveFailures: 4);
+            var latestCommand = new CommandExecution(
+                server.Id,
+                ServerCommandType.Say,
+                "private command payload",
+                "private requester",
+                now.AddMinutes(-1.5));
+            latestCommand.MarkRunning(now.AddMinutes(-1.25));
+            latestCommand.MarkSucceeded(now.AddMinutes(-1), "private command result");
+            var excludedCommand = new CommandExecution(
+                server.Id,
+                ServerCommandType.Restart,
+                payload: null,
+                "private requester",
+                now.AddMinutes(-5));
+            excludedCommand.MarkFailed(now.AddMinutes(-4), "private command failure");
+
+            dbContext.Servers.Add(server);
+            dbContext.AvailabilityIncidents.AddRange(recoveredIncident, openIncident);
+            dbContext.CommandExecutions.AddRange(latestCommand, excludedCommand);
+            await dbContext.SaveChangesAsync();
+
+            return new
+            {
+                server.Id,
+                LatestCommandId = latestCommand.Id,
+                OpenIncidentId = openIncident.Id,
+                RecoveredIncidentId = recoveredIncident.Id,
+                ExcludedCommandId = excludedCommand.Id
+            };
+        });
+
+        var response = await client.GetAsync("/api/dashboard/activity?limit=3");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        payload.Should().NotContain("private.example.test");
+        payload.Should().NotContain("private incident");
+        payload.Should().NotContain("private command");
+        payload.Should().NotContain("private requester");
+        payload.Should().NotContain(seed.ExcludedCommandId.ToString());
+        using var document = JsonDocument.Parse(payload);
+        document.RootElement.EnumerateObject().Select(static property => property.Name)
+            .Should().BeEquivalentTo(ActivityRootProperties);
+        document.RootElement.GetProperty("items")[0].EnumerateObject()
+            .Select(static property => property.Name)
+            .Should().BeEquivalentTo(ActivityItemProperties);
+        var activity = JsonSerializer.Deserialize<OperationsActivityResponse>(payload, JsonSerializerOptions.Web);
+        activity.Should().NotBeNull();
+        activity!.Limit.Should().Be(3);
+        activity.Items.Should().HaveCount(3);
+        activity.Items.Select(static item => item.SourceId).Should().ContainInOrder(
+            seed.LatestCommandId,
+            seed.OpenIncidentId,
+            seed.RecoveredIncidentId);
+        activity.Items[0].Should().BeEquivalentTo(new
+        {
+            SourceId = seed.LatestCommandId,
+            SourceType = "Command",
+            ServerId = seed.Id,
+            ServerName = "Activity fixture",
+            Category = "Say",
+            State = "Succeeded",
+            OccurredAtUtc = now.AddMinutes(-1)
+        });
+        activity.Items[1].Should().BeEquivalentTo(new
+        {
+            SourceId = seed.OpenIncidentId,
+            SourceType = "Incident",
+            State = "Open",
+            OccurredAtUtc = now.AddMinutes(-2)
+        });
+        activity.Items[2].Should().BeEquivalentTo(new
+        {
+            SourceId = seed.RecoveredIncidentId,
+            SourceType = "Incident",
+            State = "Recovered",
+            OccurredAtUtc = now.AddMinutes(-3)
+        });
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(MonitoringReadService.MaxActivityLimit + 1)]
+    public async Task GetDashboardActivity_returns_validation_problem_for_invalid_limit(int limit)
+    {
+        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/dashboard/activity?limit={limit}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("errors").TryGetProperty("limit", out _).Should().BeTrue();
     }
 
     [Fact]

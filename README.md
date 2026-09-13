@@ -24,6 +24,11 @@ multi-day snapshot history to the browser. Its additive read-only scope,
 deliberately short production gate, and claim limits are recorded in the
 release notes and readiness record above.
 
+The next local v2.9 slice adds a bounded, sanitized Reader timeline across
+incident lifecycle and command-state records. It is deliberately read-only and
+does not change the current public release until the slice is integrated and
+accepted.
+
 The v2.4 release has a passing independent 24-hour availability
 shadow audit. The immutable `API-01` activation tuple started its prospective
 seven-day window at `2026-09-10T16:45:00Z`; no shadow sample was imported. The
@@ -127,7 +132,7 @@ Web UI.
 - A separate Blazor Web App with an anonymous aggregate status view and an
   OIDC-protected Reader portal for server inventory, current status, open
   incidents, bounded observation and incident history, command audit history,
-  and dead-letter inspection.
+  recent operations activity, and dead-letter inspection.
 
 ## Architecture Overview
 
@@ -396,6 +401,7 @@ API endpoints:
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=`
 - `GET /api/servers/{id}/incidents?limit=`
 - `GET /api/dashboard/overview`
+- `GET /api/dashboard/activity?limit=`
 - `GET /api/incidents/open`
 - `GET /api/incidents/{id}`
 
