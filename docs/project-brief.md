@@ -314,7 +314,9 @@ The project should evolve in stages:
   reachability, latency, and reported player/bot tracks. Missing buckets remain
   unknown, raw multi-day snapshots stay server-side, and the UI does not present
   probe outcomes as uptime or an achieved SLO. The slice is additive and
-  requires no migration, new worker, OIDC change, or mutation permission.
+  requires no migration, new worker, OIDC change, or mutation permission. It is
+  integrated through pull request #132; release-candidate scope and a 10-15
+  minute read-only production smoke are defined in `docs/v2.8-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

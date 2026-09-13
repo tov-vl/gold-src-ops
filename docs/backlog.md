@@ -1208,6 +1208,15 @@ static HTML, browser token boundaries, and desktop/mobile overflow. A short
 read-only production smoke is sufficient after an eventual candidate rollout;
 this slice does not justify another soak or backup/restore rehearsal.
 
+The repository slice is integrated through
+[#132](https://github.com/tov-vl/gold-src-ops/pull/132). Candidate preparation
+is defined in `docs/v2.8-readiness.md`: publish signed `v2.8.0-rc.1`, deploy API
+and Web by verified digest, and run one 10-15 minute read-only production smoke
+covering every trend window and the static-rendered history view. No synthetic
+incident, backup/restore rehearsal, lifecycle mutation, RCON traffic, OIDC
+reconfiguration, or new multi-day soak is required for this additive
+no-migration slice.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
