@@ -24,6 +24,13 @@ its opening and recovery boundaries. Its additive read-only scope, deliberately
 short production gate, and claim limits are recorded in the release notes and
 readiness record above.
 
+The v2.8 Server Trends slice is integrated in protected `main` through
+[pull request #132](https://github.com/tov-vl/gold-src-ops/pull/132). Candidate
+scope, the bounded Reader aggregate, and the short read-only production gate are
+defined in [docs/release-notes-v2.8.md](docs/release-notes-v2.8.md) and
+[docs/v2.8-readiness.md](docs/v2.8-readiness.md). Signed candidate publication
+has not started.
+
 The v2.4 release has a passing independent 24-hour availability
 shadow audit. The immutable `API-01` activation tuple started its prospective
 seven-day window at `2026-09-10T16:45:00Z`; no shadow sample was imported. The
@@ -190,6 +197,8 @@ acceptance evidence are summarized in
 | v2.6 release evidence | [v2.6 readiness](docs/v2.6-readiness.md) |
 | v2.7 Incident Investigation release | [v2.7 release notes](docs/release-notes-v2.7.md) |
 | v2.7 release evidence | [v2.7 readiness](docs/v2.7-readiness.md) |
+| v2.8 Server Trends candidate | [v2.8 release notes](docs/release-notes-v2.8.md) |
+| v2.8 release evidence | [v2.8 readiness](docs/v2.8-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
