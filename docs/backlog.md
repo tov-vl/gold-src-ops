@@ -1163,6 +1163,14 @@ into one bounded investigation path:
   or production configuration. It does not pause, reset, or reinterpret the
   active prospective `API-01` window.
 
+The repository slice is integrated through
+[#128](https://github.com/tov-vl/gold-src-ops/pull/128). Candidate preparation
+is defined in `docs/v2.7-readiness.md`: publish signed `v2.7.0-rc.1`, deploy API
+and Web by verified digest, and run one 10-15 minute read-only production smoke
+against an already-retained incident. No incident manufacture, backup/restore
+rehearsal, lifecycle mutation, RCON traffic, OIDC reconfiguration, or new
+multi-day soak is required for this additive no-migration slice.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
