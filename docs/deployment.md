@@ -433,6 +433,39 @@ prefer a forward fix. Restore the pre-migration backup only through an explicit
 database recovery procedure with the required write downtime and data-loss
 assessment.
 
+## Risk-Based Release Gates
+
+Release evidence should match the change's failure modes. Repeating every
+historical exercise for every additive UI change increases lead time without
+adding equivalent confidence. Use the highest applicable row; uncertainty
+selects the broader row.
+
+| Change class | Repository gate | Target-environment gate |
+| --- | --- | --- |
+| Documentation only | Validate the changed-file scope, final newlines, and all tracked local Markdown links. Keep the required `Quality Gate`, `Container Smoke`, and `Browser Smoke` results, but do not restore, build, or start application containers. | None. |
+| Additive read-only application change | Run the complete quality, container, and browser gates once on the PR, then publish immutable candidate images. | Run preflight, verify public health and the changed read surface, and collect three healthy post-rollout samples over at least three minutes. Preserve the previous digest for rollback. |
+| State-changing, authentication, worker, or schema change | Run the complete PR gates plus focused tests for the affected boundary. | Add the applicable migration, authorization, queue, command, or worker rehearsal. Database changes require a fresh backup and isolated restore/migration rehearsal. Authentication changes require the live Reader/Operator matrix. |
+| Infrastructure, recovery, or SLO-policy change | Run the complete PR gates and the contract test for the changed operational tool. | Perform the dedicated recovery or continuity exercise. A long soak or prospective SLO window remains independent evidence and does not block unrelated product development. |
+
+Feature implementation and its readiness record should normally share one PR.
+Production acceptance and stable-release documentation should normally share
+one short follow-up PR after the target checks pass. Split them only when a
+review boundary, an uncertain runtime result, or an independently revertible
+change justifies the extra cycle.
+
+Do not request a fresh interactive OIDC login when the identity boundary is
+unchanged and an existing valid session or non-interactive contract evidence is
+available. Never weaken immutable digest promotion, rollback preservation,
+migration serialization, or secret handling to shorten a release.
+
+The CI workflow runs feature work on the `pull_request` event rather than both
+the feature-branch `push` and `pull_request` events. A direct push to `main`, a
+release tag, and a manual release resume still run independently. New commits
+cancel only an older run for the same PR; main, tag, and manual runs are never
+cancelled by this policy. The documentation fast path is fail-closed: an empty
+or unresolved diff, a tag, a manual run, or any non-documentation path selects
+the complete gate.
+
 ## Verification
 
 Before publishing a candidate image, run:
@@ -442,14 +475,16 @@ pwsh -NoProfile -File .\tools\smoke\container.ps1
 pwsh -NoProfile -File .\tools\smoke\web-container.ps1
 ```
 
-The protected `main` workflow also requires both `Quality Gate` and
-`Container Smoke`. The latter validates plan-only host-bootstrap behavior and
-deterministic host-preflight decisions for service startup, time, capacity,
-SSH, firewall, port exposure, and external dependency failures. The image smoke
-flow also verifies Production webhook HTTPS validation, enabled alert-dispatch
-startup, log safety, an encrypted PostgreSQL backup, a full repository data
-check, and an isolated restore through the same image-contained migration
-bundle. On a release tag,
+The protected `main` workflow requires `Quality Gate`, `Container Smoke`, and
+`Browser Smoke`. Documentation-only changes retain those check names while the
+fail-closed scope and link validator replace application build and runtime
+work. For every other change, `Container Smoke` validates plan-only
+host-bootstrap behavior and deterministic host-preflight decisions for service
+startup, time, capacity, SSH, firewall, port exposure, and external dependency
+failures. The image smoke flow also verifies Production webhook HTTPS
+validation, enabled alert-dispatch startup, log safety, an encrypted PostgreSQL
+backup, a full repository data check, and an isolated restore through the same
+image-contained migration bundle. On a release tag,
 `Verify Published Image` then pulls the newly published artifact by digest and
 reruns the same smoke flow with exact OCI-label expectations. A production
 deployment still needs
