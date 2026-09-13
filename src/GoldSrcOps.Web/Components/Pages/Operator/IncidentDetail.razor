@@ -1,0 +1,340 @@
+@page "/operator/incidents/{IncidentId:guid}"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<IncidentDetail> Logger
+
+<PageTitle>@PageTitleText | GoldSrcOps</PageTitle>
+
+<div class="incident-detail-page">
+    <a class="back-link" href="/operator/incidents">Back to incidents</a>
+
+    @if (_loadFailed)
+    {
+        <section class="detail-state" role="alert">
+            <h1>Incident data is unavailable</h1>
+            <p>The API did not return a usable Reader record or observation context.</p>
+        </section>
+    }
+    else if (_notFound)
+    {
+        <section class="detail-state">
+            <h1>Incident not found</h1>
+            <p>The requested incident is not present in the retained Reader history.</p>
+        </section>
+    }
+    else if (_incident is not null)
+    {
+        <header class="incident-heading">
+            <div>
+                <p class="eyebrow">Incident investigation</p>
+                <h1>@ServerName</h1>
+                <p class="incident-reference">Incident <code>@_incident.Id.ToString("D")</code></p>
+            </div>
+            <span class="incident-state @IncidentStateClass">
+                <span aria-hidden="true"></span>
+                @IncidentStateLabel
+            </span>
+        </header>
+
+        <section class="incident-summary" aria-label="Incident summary">
+            <article>
+                <span>Opened</span>
+                <strong>@FormatDateTime(_incident.OpenedAtUtc)</strong>
+            </article>
+            <article>
+                <span>Closed</span>
+                <strong>@FormatClosedAt(_incident.ClosedAtUtc)</strong>
+            </article>
+            <article>
+                <span>Duration</span>
+                <strong>@FormatDuration(_incident.OpenedAtUtc, _incident.ClosedAtUtc)</strong>
+            </article>
+            <article class="summary--failures">
+                <span>Failure streak</span>
+                <strong>@_incident.ConsecutiveFailures</strong>
+            </article>
+        </section>
+
+        <section class="record-section" aria-labelledby="incident-record-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Durable record</p>
+                    <h2 id="incident-record-title">Incident record</h2>
+                </div>
+                <span>Read-only</span>
+            </div>
+
+            <dl class="record-grid">
+                <div>
+                    <dt>Type</dt>
+                    <dd>@_incident.Type</dd>
+                </div>
+                <div>
+                    <dt>Affected server</dt>
+                    <dd>@ServerName</dd>
+                </div>
+                <div class="record-grid__wide">
+                    <dt>Start reason</dt>
+                    <dd>@DisplayValue(_incident.StartReason)</dd>
+                </div>
+                <div class="record-grid__wide">
+                    <dt>Resolution</dt>
+                    <dd>@DisplayValue(_incident.EndReason)</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="server-context" aria-labelledby="server-context-title">
+            <div>
+                <p class="eyebrow">Current context</p>
+                <h2 id="server-context-title">Server now</h2>
+                <p>@CurrentServerDetail</p>
+            </div>
+            <span class="server-state @CurrentServerStateClass">@CurrentServerState</span>
+            @if (_server is not null)
+            {
+                <nav aria-label="Related server views">
+                    <a href="@($"/operator/servers/{_server.Id:D}")">Current status</a>
+                    <a href="@($"/operator/servers/{_server.Id:D}/history#incident-{_incident.Id:D}")">Full history</a>
+                </nav>
+            }
+        </section>
+
+        <section class="observations-section" aria-labelledby="boundary-observations-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">A2S evidence</p>
+                    <h2 id="boundary-observations-title">Boundary observations</h2>
+                </div>
+                <span>@BoundaryWindowLabel</span>
+            </div>
+
+            @if (_snapshots.Count == 0)
+            {
+                <div class="empty-state">
+                    <h3>No boundary observations retained</h3>
+                    <p>The incident record remains available, but no snapshots were returned for its bounded context windows.</p>
+                </div>
+            }
+            else
+            {
+                <div class="observation-table" role="table" aria-label="Incident boundary observations">
+                    <div class="observation-row observation-row--header" role="row">
+                        <span role="columnheader">Boundary</span>
+                        <span role="columnheader">Observed</span>
+                        <span role="columnheader">State</span>
+                        <span role="columnheader">Map</span>
+                        <span role="columnheader">Players</span>
+                        <span role="columnheader">Latency</span>
+                        <span role="columnheader">Result</span>
+                    </div>
+                    @foreach (var snapshot in _snapshots)
+                    {
+                        <div class="observation-row" role="row">
+                            <span role="cell">
+                                <span class="boundary-label @GetBoundaryClass(snapshot.CheckedAtUtc)">
+                                    @GetBoundaryLabel(snapshot.CheckedAtUtc)
+                                </span>
+                            </span>
+                            <time role="cell" datetime="@snapshot.CheckedAtUtc.ToString("O", CultureInfo.InvariantCulture)">
+                                <span class="cell-label">Observed</span>
+                                @FormatDateTime(snapshot.CheckedAtUtc)
+                            </time>
+                            <span role="cell">
+                                <span class="observation-state @(snapshot.IsReachable ? "observation-state--online" : "observation-state--offline")">
+                                    @(snapshot.IsReachable ? "Reachable" : "Unreachable")
+                                </span>
+                            </span>
+                            <span role="cell"><span class="cell-label">Map</span>@DisplayValue(snapshot.Map)</span>
+                            <span role="cell"><span class="cell-label">Players</span>@FormatPlayers(snapshot)</span>
+                            <span role="cell"><span class="cell-label">Latency</span>@FormatLatency(snapshot.LatencyMs)</span>
+                            <span class="result" role="cell">
+                                <span class="cell-label">Result</span>
+                                @(snapshot.IsReachable ? "Probe completed" : DisplayValue(snapshot.FailureReason))
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private const int BoundarySnapshotLimit = 50;
+    private static readonly TimeSpan BoundaryRadius = TimeSpan.FromMinutes(15);
+
+    [Parameter]
+    public Guid IncidentId { get; set; }
+
+    private AvailabilityIncidentResponse? _incident;
+    private ServerResponse? _server;
+    private ServerStatusResponse? _status;
+    private IReadOnlyList<PollSnapshotResponse> _snapshots = [];
+    private bool _loadFailed;
+    private bool _notFound;
+
+    private string PageTitleText => _server is null ? "Incident investigation" : $"{_server.Name} incident";
+
+    private string ServerName => _server?.Name ?? "Unknown server";
+
+    private string IncidentStateLabel => _incident?.ClosedAtUtc is null ? "Open" : "Resolved";
+
+    private string IncidentStateClass => _incident?.ClosedAtUtc is null
+        ? "incident-state--open"
+        : "incident-state--resolved";
+
+    private string CurrentServerState => string.IsNullOrWhiteSpace(_status?.Status)
+        ? "Not available"
+        : _status.Status;
+
+    private string CurrentServerStateClass => _status?.Status.ToLowerInvariant() switch
+    {
+        "online" => "server-state--online",
+        "offline" => "server-state--offline",
+        _ => "server-state--unknown"
+    };
+
+    private string CurrentServerDetail => _server is null
+        ? "The associated server is no longer present in the Reader inventory."
+        : _status is null
+            ? "Current monitoring state is not available for this server."
+            : $"Latest observation: {FormatDateTime(_status.LastCheckedAtUtc)}. " +
+              (_server.IsEnabled
+                  ? $"Scheduled polling runs every {_server.PollIntervalSeconds} seconds."
+                  : "Scheduled polling is paused.");
+
+    private string BoundaryWindowLabel => _incident?.ClosedAtUtc is null
+        ? "Opening ±15 minutes"
+        : "Opening and recovery ±15 minutes";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        ResetState();
+
+        try
+        {
+            _incident = await ReaderApiClient.GetIncidentAsync(IncidentId);
+            if (_incident is null)
+            {
+                _notFound = true;
+                return;
+            }
+
+            var serverTask = ReaderApiClient.GetServerAsync(_incident.ServerId);
+            var statusTask = ReaderApiClient.GetServerStatusAsync(_incident.ServerId);
+            var openingTask = ReaderApiClient.GetServerSnapshotsAsync(
+                _incident.ServerId,
+                _incident.OpenedAtUtc.Subtract(BoundaryRadius),
+                _incident.OpenedAtUtc.Add(BoundaryRadius),
+                BoundarySnapshotLimit);
+            Task<SnapshotHistoryResponse?>? recoveryTask = null;
+            if (_incident.ClosedAtUtc is { } closedAtUtc)
+            {
+                recoveryTask = ReaderApiClient.GetServerSnapshotsAsync(
+                    _incident.ServerId,
+                    closedAtUtc.Subtract(BoundaryRadius),
+                    closedAtUtc.Add(BoundaryRadius),
+                    BoundarySnapshotLimit);
+            }
+
+            var requests = new List<Task> { serverTask, statusTask, openingTask };
+            if (recoveryTask is not null)
+            {
+                requests.Add(recoveryTask);
+            }
+
+            await Task.WhenAll(requests);
+            _server = await serverTask;
+            _status = await statusTask;
+
+            var histories = new List<SnapshotHistoryResponse?> { await openingTask };
+            if (recoveryTask is not null)
+            {
+                histories.Add(await recoveryTask);
+            }
+
+            _snapshots = histories
+                .Where(static history => history is not null)
+                .SelectMany(static history => history!.Items)
+                .DistinctBy(static snapshot => snapshot.Id)
+                .OrderBy(static snapshot => snapshot.CheckedAtUtc)
+                .ToArray();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load Reader incident {IncidentId}.", IncidentId);
+            _loadFailed = true;
+        }
+    }
+
+    private void ResetState()
+    {
+        _incident = null;
+        _server = null;
+        _status = null;
+        _snapshots = [];
+        _loadFailed = false;
+        _notFound = false;
+    }
+
+    private string GetBoundaryLabel(DateTimeOffset checkedAtUtc)
+    {
+        if (_incident?.ClosedAtUtc is not { } closedAtUtc)
+        {
+            return "Opening";
+        }
+
+        var openingDistance = (checkedAtUtc - _incident.OpenedAtUtc).Duration();
+        var recoveryDistance = (checkedAtUtc - closedAtUtc).Duration();
+        return openingDistance <= recoveryDistance ? "Opening" : "Recovery";
+    }
+
+    private string GetBoundaryClass(DateTimeOffset checkedAtUtc) =>
+        GetBoundaryLabel(checkedAtUtc) == "Recovery"
+            ? "boundary-label--recovery"
+            : "boundary-label--opening";
+
+    private static string DisplayValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "Not available" : value;
+
+    private static string FormatClosedAt(DateTimeOffset? value) => value is null
+        ? "Ongoing"
+        : FormatDateTime(value);
+
+    private static string FormatDateTime(DateTimeOffset? value) => value is null
+        ? "Not available"
+        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+
+    private static string FormatDuration(DateTimeOffset openedAtUtc, DateTimeOffset? closedAtUtc)
+    {
+        var endedAtUtc = closedAtUtc ?? DateTimeOffset.UtcNow;
+        if (endedAtUtc <= openedAtUtc)
+        {
+            return "Less than 1m";
+        }
+
+        var duration = endedAtUtc - openedAtUtc;
+        if (duration.TotalDays >= 1)
+        {
+            return $"{(int)duration.TotalDays}d {duration.Hours}h";
+        }
+
+        if (duration.TotalHours >= 1)
+        {
+            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+        }
+
+        return $"{Math.Max(1, (int)Math.Ceiling(duration.TotalMinutes))}m";
+    }
+
+    private static string FormatPlayers(PollSnapshotResponse snapshot) => snapshot.Players is null
+        ? "Not available"
+        : snapshot.MaxPlayers is null
+            ? snapshot.Players.Value.ToString(CultureInfo.InvariantCulture)
+            : $"{snapshot.Players.Value}/{snapshot.MaxPlayers.Value}";
+
+    private static string FormatLatency(int? latencyMs) => latencyMs is null
+        ? "Not available"
+        : $"{latencyMs.Value} ms";
+}

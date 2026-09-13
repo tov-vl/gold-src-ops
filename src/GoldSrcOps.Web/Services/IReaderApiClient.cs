@@ -24,6 +24,10 @@ public interface IReaderApiClient
     Task<IReadOnlyList<AvailabilityIncidentResponse>> GetOpenIncidentsAsync(
         CancellationToken cancellationToken = default);
 
+    Task<AvailabilityIncidentResponse?> GetIncidentAsync(
+        Guid incidentId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<AvailabilityIncidentResponse>> GetServerIncidentsAsync(
         Guid serverId,
         int limit,
@@ -31,6 +35,13 @@ public interface IReaderApiClient
 
     Task<SnapshotHistoryResponse?> GetServerSnapshotsAsync(
         Guid serverId,
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<SnapshotHistoryResponse?> GetServerSnapshotsAsync(
+        Guid serverId,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
         int limit,
         CancellationToken cancellationToken = default);
 

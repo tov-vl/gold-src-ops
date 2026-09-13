@@ -49,6 +49,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     public static readonly Guid StaleServerId = Guid.Parse("9204994a-66f6-42af-90ca-96fb6f5a671f");
     public static readonly Guid PausedServerId = Guid.Parse("4657e3aa-c7b0-4c8b-9a1f-fd9e37c88a7d");
     public static readonly Guid OpenIncidentId = Guid.Parse("9307a87e-61cf-4901-8026-b301908431d6");
+    public static readonly Guid ResolvedIncidentId = Guid.Parse("5e3fd38c-a3c8-4a2d-a8a2-ac8fd7b9a788");
     public static readonly Guid CommandId = Guid.Parse("17477e4e-97bb-4c50-a046-08fa5cd48dca");
     public static readonly Guid DeadLetterEventId = Guid.Parse("70d51faf-6029-4b1e-a922-b7a3ab8d1f84");
     public static readonly Guid ReplayRequestId = Guid.Parse("4fb7401c-802c-48b9-aa71-5e27619b0784");
@@ -247,6 +248,16 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<AvailabilityIncidentResponse>>([CreateOpenIncident()]);
 
+        public Task<AvailabilityIncidentResponse?> GetIncidentAsync(
+            Guid incidentId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<AvailabilityIncidentResponse?>(incidentId switch
+            {
+                var id when id == OpenIncidentId => CreateOpenIncident(),
+                var id when id == ResolvedIncidentId => CreateResolvedIncident(),
+                _ => null
+            });
+
         public Task<IReadOnlyList<AvailabilityIncidentResponse>> GetServerIncidentsAsync(
             Guid serverId,
             int limit,
@@ -260,15 +271,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             IReadOnlyList<AvailabilityIncidentResponse> incidents =
             [
                 CreateOpenIncident(),
-                new AvailabilityIncidentResponse(
-                    Guid.Parse("5e3fd38c-a3c8-4a2d-a8a2-ac8fd7b9a788"),
-                    ServerId,
-                    "Unreachable",
-                    ObservedAtUtc.AddHours(-3),
-                    ObservedAtUtc.AddHours(-2),
-                    "Connection refused",
-                    "Probe recovered",
-                    3)
+                CreateResolvedIncident()
             ];
 
             return Task.FromResult<IReadOnlyList<AvailabilityIncidentResponse>>(incidents.Take(limit).ToArray());
@@ -423,6 +426,14 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         public Task<SnapshotHistoryResponse?> GetServerSnapshotsAsync(
             Guid serverId,
             int limit,
+            CancellationToken cancellationToken = default) =>
+            GetServerSnapshotsAsync(serverId, null, null, limit, cancellationToken);
+
+        public Task<SnapshotHistoryResponse?> GetServerSnapshotsAsync(
+            Guid serverId,
+            DateTimeOffset? fromUtc,
+            DateTimeOffset? toUtc,
+            int limit,
             CancellationToken cancellationToken = default)
         {
             if (serverId != ServerId)
@@ -455,15 +466,50 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                     null,
                     null,
                     null,
-                    OpenIncidentReason)
+                    OpenIncidentReason),
+                new(
+                    Guid.Parse("15c19b0a-080a-46cb-91a4-ec79ed7f80a2"),
+                    ServerId,
+                    ObservedAtUtc.AddHours(-2).AddMinutes(1),
+                    true,
+                    22,
+                    "de_inferno",
+                    0,
+                    20,
+                    0,
+                    "1.1.2.7/Stdio",
+                    null),
+                new(
+                    Guid.Parse("a581fe4a-0d07-4ec7-841f-39829116caf1"),
+                    ServerId,
+                    ObservedAtUtc.AddHours(-3).AddMinutes(-5),
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "Connection refused")
             ];
+
+            var filtered = snapshots.AsEnumerable();
+            if (fromUtc is not null)
+            {
+                filtered = filtered.Where(snapshot => snapshot.CheckedAtUtc >= fromUtc.Value);
+            }
+
+            if (toUtc is not null)
+            {
+                filtered = filtered.Where(snapshot => snapshot.CheckedAtUtc <= toUtc.Value);
+            }
 
             return Task.FromResult<SnapshotHistoryResponse?>(new SnapshotHistoryResponse(
                 ServerId,
-                null,
-                null,
+                fromUtc,
+                toUtc,
                 limit,
-                snapshots.Take(limit).ToArray()));
+                filtered.Take(limit).ToArray()));
         }
 
         private ServerResponse CreateServer() => new(
@@ -488,6 +534,16 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             OpenIncidentReason,
             null,
             4);
+
+        private static AvailabilityIncidentResponse CreateResolvedIncident() => new(
+            ResolvedIncidentId,
+            ServerId,
+            "Unreachable",
+            ObservedAtUtc.AddHours(-3),
+            ObservedAtUtc.AddHours(-2),
+            "Connection refused",
+            "Probe recovered",
+            3);
     }
 
     internal sealed class FixtureOperatorApiClient : IOperatorApiClient

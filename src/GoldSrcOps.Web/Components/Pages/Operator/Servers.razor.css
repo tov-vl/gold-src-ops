@@ -95,6 +95,23 @@
     color: var(--signal-red);
 }
 
+.overview-action {
+    align-self: flex-start;
+    color: var(--signal-blue);
+    font-size: 0.72rem;
+    font-weight: 720;
+    text-decoration: none;
+}
+
+.overview-action:hover {
+    text-decoration: underline;
+}
+
+.overview-action:focus-visible {
+    outline: 2px solid var(--signal-blue);
+    outline-offset: 3px;
+}
+
 .server-section {
     padding-top: 48px;
 }

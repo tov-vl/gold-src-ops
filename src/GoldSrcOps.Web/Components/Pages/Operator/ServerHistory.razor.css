@@ -149,7 +149,7 @@
 }
 
 .incident-row {
-    grid-template-columns: 84px minmax(150px, 1fr) minmax(150px, 1fr) 72px minmax(170px, 1.3fr) minmax(170px, 1.3fr);
+    grid-template-columns: 84px minmax(150px, 1fr) minmax(150px, 1fr) 72px minmax(160px, 1.2fr) minmax(160px, 1.2fr) 42px;
 }
 
 .observation-row--header,
@@ -198,6 +198,36 @@
 .result {
     overflow-wrap: anywhere;
     line-height: 1.45;
+}
+
+.row-action {
+    text-align: right;
+}
+
+.row-action a {
+    color: var(--signal-blue);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.row-action a:hover {
+    text-decoration: underline;
+}
+
+.row-action a:focus-visible {
+    outline: 2px solid var(--signal-blue);
+    outline-offset: 3px;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .cell-label {

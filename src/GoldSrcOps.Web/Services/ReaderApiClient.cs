@@ -39,6 +39,13 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
         CancellationToken cancellationToken = default) =>
         await GetRequiredAsync<AvailabilityIncidentResponse[]>("api/incidents/open", cancellationToken);
 
+    public Task<AvailabilityIncidentResponse?> GetIncidentAsync(
+        Guid incidentId,
+        CancellationToken cancellationToken = default) =>
+        GetOptionalAsync<AvailabilityIncidentResponse>(
+            $"api/incidents/{incidentId:D}",
+            cancellationToken);
+
     public async Task<IReadOnlyList<AvailabilityIncidentResponse>> GetServerIncidentsAsync(
         Guid serverId,
         int limit,
@@ -51,9 +58,33 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
     public Task<SnapshotHistoryResponse?> GetServerSnapshotsAsync(
         Guid serverId,
         int limit,
+        CancellationToken cancellationToken = default) =>
+        GetServerSnapshotsAsync(serverId, null, null, limit, cancellationToken);
+
+    public Task<SnapshotHistoryResponse?> GetServerSnapshotsAsync(
+        Guid serverId,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        int limit,
         CancellationToken cancellationToken = default)
     {
         var requestUri = AddLimit($"api/servers/{serverId:D}/snapshots", limit);
+        if (fromUtc is not null)
+        {
+            requestUri = QueryHelpers.AddQueryString(
+                requestUri,
+                "from",
+                fromUtc.Value.ToString("O", CultureInfo.InvariantCulture));
+        }
+
+        if (toUtc is not null)
+        {
+            requestUri = QueryHelpers.AddQueryString(
+                requestUri,
+                "to",
+                toUtc.Value.ToString("O", CultureInfo.InvariantCulture));
+        }
+
         return GetOptionalAsync<SnapshotHistoryResponse>(requestUri, cancellationToken);
     }
 
