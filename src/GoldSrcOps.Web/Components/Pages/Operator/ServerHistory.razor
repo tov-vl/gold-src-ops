@@ -134,6 +134,7 @@
                         <span role="columnheader">Failures</span>
                         <span role="columnheader">Start reason</span>
                         <span role="columnheader">Resolution</span>
+                        <span role="columnheader"><span class="visually-hidden">Open</span></span>
                     </div>
                     @foreach (var incident in _incidents)
                     {
@@ -154,6 +155,10 @@
                             <span role="cell"><span class="cell-label">Failures</span>@incident.ConsecutiveFailures</span>
                             <span class="result" role="cell"><span class="cell-label">Start reason</span>@incident.StartReason</span>
                             <span class="result" role="cell"><span class="cell-label">Resolution</span>@DisplayValue(incident.EndReason)</span>
+                            <span class="row-action" role="cell">
+                                <a href="@($"/operator/incidents/{incident.Id:D}")"
+                                   aria-label="Investigate incident opened @FormatDateTime(incident.OpenedAtUtc)">View</a>
+                            </span>
                         </div>
                     }
                 </div>

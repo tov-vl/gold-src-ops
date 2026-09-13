@@ -76,9 +76,53 @@ public sealed class ReaderPortalIntegrationTests
         historyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         historyBody.Should().Contain("Recent observations");
         historyBody.Should().Contain("Probe recovered");
+        historyBody.Should().Contain($"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}");
         incidentsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         incidentsBody.Should().Contain("Open incidents");
         incidentsBody.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
+    }
+
+    [Fact]
+    public async Task Reader_can_investigate_open_incident_with_bounded_observation_context()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var listResponse = await client.GetAsync("/operator/incidents");
+        var listBody = await listResponse.Content.ReadAsStringAsync();
+        using var detailResponse = await client.GetAsync(
+            $"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}");
+        var detailBody = await detailResponse.Content.ReadAsStringAsync();
+
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        listBody.Should().Contain($"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}");
+        detailResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        detailBody.Should().Contain("Incident investigation");
+        detailBody.Should().Contain("Incident record");
+        detailBody.Should().Contain("Boundary observations");
+        detailBody.Should().Contain(ReaderWebApplicationFactory.ServerName);
+        detailBody.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
+        detailBody.Should().Contain("Opening");
+        detailBody.Should().Contain("de_dust2");
+        detailBody.Should().NotContain(ReaderWebApplicationFactory.CommandPayloadSentinel);
+    }
+
+    [Fact]
+    public async Task Reader_can_investigate_resolved_incident_opening_and_recovery()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(
+            $"/operator/incidents/{ReaderWebApplicationFactory.ResolvedIncidentId:D}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Resolved");
+        body.Should().Contain("Connection refused");
+        body.Should().Contain("Probe recovered");
+        body.Should().Contain("Opening");
+        body.Should().Contain("Recovery");
     }
 
     [Fact]
@@ -229,6 +273,20 @@ public sealed class ReaderPortalIntegrationTests
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         body.Should().Contain("Server not found");
+        body.Should().NotContain(ReaderWebApplicationFactory.ServerName);
+    }
+
+    [Fact]
+    public async Task Missing_incident_returns_not_found_state()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync($"/operator/incidents/{Guid.NewGuid():D}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Incident not found");
         body.Should().NotContain(ReaderWebApplicationFactory.ServerName);
     }
 

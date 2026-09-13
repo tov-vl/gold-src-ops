@@ -296,6 +296,12 @@ The project should evolve in stages:
   `API-01`. Signed stable `v2.6.0` promotes those exact candidate digests
   without rebuilding and is published with its bounded evidence and claim
   limits in `docs/v2.6-readiness.md`.
+- v2.7: deepen Reader incident investigation without widening the mutation or
+  persistence boundary. The first slice adds a dedicated incident record,
+  current server context, and bounded A2S observations around the opening and
+  recovery boundaries by composing existing Reader endpoints. Fleet, incident,
+  and server-history navigation lead into the investigation view. Product work
+  remains independent of the active `API-01` evidence window.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

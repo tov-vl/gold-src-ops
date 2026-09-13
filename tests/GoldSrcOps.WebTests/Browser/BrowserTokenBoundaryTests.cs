@@ -37,6 +37,8 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/credentials");
         var registrationPage = await VisitAsync("/operator/servers/new");
         var incidentsPage = await VisitAsync("/operator/incidents");
+        var incidentDetailPage = await VisitAsync(
+            $"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}");
         var deadLettersPage = await VisitAsync("/operator/dead-letters");
         var deadLetterDetailPage = await VisitAsync(
             $"/operator/dead-letters/{ReaderWebApplicationFactory.DeadLetterEventId:D}");
@@ -54,6 +56,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         historyPage.Body.Should().Contain("Recent observations");
         commandsPage.Body.Should().Contain(ReaderWebApplicationFactory.CommandResultSummary);
         incidentsPage.Body.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
+        incidentDetailPage.Body.Should().Contain("Boundary observations");
         deadLettersPage.Body.Should().Contain(ReaderWebApplicationFactory.DeadLetterLastError);
         deadLetterDetailPage.Body.Should().Contain("Ordering warning");
         replayReceiptPage.Body.Should().Contain(ReaderWebApplicationFactory.ReplayReason);
@@ -71,6 +74,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                      credentialsPage,
                      registrationPage,
                      incidentsPage,
+                     incidentDetailPage,
                      deadLettersPage,
                      deadLetterDetailPage,
                      replayReceiptPage
@@ -142,6 +146,8 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             (await Page.Locator(".triage-tabs").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("input[name='q']").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("select[name='sort']").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("a.overview-action[href='/operator/incidents']").IsVisibleAsync())
+                .Should().BeTrue();
             (await Page.Locator(".server-row:not(.server-row--header)").CountAsync()).Should().Be(4);
             (await Page.Locator(".server-row--attention").CountAsync()).Should().Be(3);
             var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
@@ -194,6 +200,49 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             .Should().Contain(text =>
                 text.Contains(ReaderWebApplicationFactory.PausedServerName, StringComparison.Ordinal) &&
                 text.Contains("Incident", StringComparison.Ordinal));
+    }
+
+    [BrowserFact]
+    public async Task Incident_investigation_fits_supported_desktop_and_mobile_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(
+                    baseAddress,
+                    $"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}")
+                    .AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("section.incident-summary").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("section.record-section").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("section.observations-section").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator(".observation-row:not(.observation-row--header)").CountAsync())
+                .Should().Be(2);
+            var overflowingElements = await Page.EvaluateAsync<string[]>(
+                "Array.from(document.querySelectorAll('body *'))" +
+                ".filter(element => { const bounds = element.getBoundingClientRect(); " +
+                "return bounds.left < -0.5 || bounds.right > document.documentElement.clientWidth + 0.5; })" +
+                ".map(element => `${element.tagName.toLowerCase()}.${element.className || ''} " +
+                "[${element.getBoundingClientRect().left},${element.getBoundingClientRect().right}]`)");
+            overflowingElements.Should().BeEmpty();
+
+            await CaptureScreenshotIfRequestedAsync("incident-investigation", viewport);
+        }
     }
 
     [BrowserFact]

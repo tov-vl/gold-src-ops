@@ -93,8 +93,8 @@
                                 @incident.StartReason
                             </span>
                             <span class="row-action" role="cell">
-                                <a href="@($"/operator/servers/{incident.ServerId:D}/history#incident-{incident.Id:D}")"
-                                   aria-label="View incident history for @GetServerName(incident.ServerId)">View</a>
+                                <a href="@($"/operator/incidents/{incident.Id:D}")"
+                                   aria-label="Investigate incident for @GetServerName(incident.ServerId)">View</a>
                             </span>
                         </div>
                     }

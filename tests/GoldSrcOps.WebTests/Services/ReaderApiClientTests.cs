@@ -1,9 +1,11 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using AwesomeAssertions;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
 using GoldSrcOps.Contracts.Credentials;
+using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Web.Services;
 using Microsoft.AspNetCore.WebUtilities;
@@ -50,6 +52,60 @@ public sealed class ReaderApiClientTests
 
         result.Should().BeEquivalentTo(response);
         capture.RequestUri.Should().Be(new Uri("https://api.example.test/api/dashboard/fleet"));
+    }
+
+    [Fact]
+    public async Task GetIncidentAsync_maps_incident_detail()
+    {
+        var incidentId = Guid.Parse("9307a87e-61cf-4901-8026-b301908431d6");
+        var incident = new AvailabilityIncidentResponse(
+            incidentId,
+            Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f"),
+            "Unreachable",
+            new DateTimeOffset(2026, 9, 4, 11, 45, 0, TimeSpan.Zero),
+            null,
+            "A2S query timed out",
+            null,
+            4);
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(incident)
+        });
+        using var httpClient = CreateHttpClient(capture);
+        var client = new ReaderApiClient(httpClient);
+
+        var result = await client.GetIncidentAsync(incidentId);
+
+        result.Should().Be(incident);
+        capture.RequestUri.Should().Be(
+            new Uri($"https://api.example.test/api/incidents/{incidentId:D}"));
+    }
+
+    [Fact]
+    public async Task GetServerSnapshotsAsync_encodes_incident_context_window()
+    {
+        var serverId = Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f");
+        var fromUtc = new DateTimeOffset(2026, 9, 4, 11, 30, 0, TimeSpan.Zero);
+        var toUtc = new DateTimeOffset(2026, 9, 4, 12, 0, 0, TimeSpan.Zero);
+        var response = new SnapshotHistoryResponse(serverId, fromUtc, toUtc, 50, []);
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(response)
+        });
+        using var httpClient = CreateHttpClient(capture);
+        var client = new ReaderApiClient(httpClient);
+
+        var result = await client.GetServerSnapshotsAsync(serverId, fromUtc, toUtc, 50);
+
+        result.Should().BeEquivalentTo(response);
+        capture.RequestUri.Should().NotBeNull();
+        capture.RequestUri!.AbsolutePath.Should().Be($"/api/servers/{serverId:D}/snapshots");
+        var query = QueryHelpers.ParseQuery(capture.RequestUri.Query);
+        query["from"].Should().ContainSingle().Which.Should().Be(
+            fromUtc.ToString("O", CultureInfo.InvariantCulture));
+        query["to"].Should().ContainSingle().Which.Should().Be(
+            toUtc.ToString("O", CultureInfo.InvariantCulture));
+        query["limit"].Should().ContainSingle().Which.Should().Be("50");
     }
 
     [Fact]
@@ -164,6 +220,7 @@ public sealed class ReaderApiClientTests
     [InlineData("dead-letter")]
     [InlineData("replay")]
     [InlineData("credentials")]
+    [InlineData("incident")]
     public async Task Optional_reader_resource_returns_null_for_not_found(string resource)
     {
         var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
@@ -175,6 +232,7 @@ public sealed class ReaderApiClientTests
             "commands" => await client.GetServerCommandsAsync(Guid.NewGuid(), 10),
             "dead-letter" => await client.GetDeadLetterAsync(Guid.NewGuid()),
             "replay" => await client.GetDeadLetterReplayAsync(Guid.NewGuid()),
+            "incident" => await client.GetIncidentAsync(Guid.NewGuid()),
             _ => await client.GetServerCredentialsAsync(Guid.NewGuid())
         };
 

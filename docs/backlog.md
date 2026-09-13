@@ -1141,6 +1141,28 @@ lifecycle mutation, OIDC reconfiguration, or new multi-day soak was required
 for this additive no-migration slice. Stable digest-preserving publication is
 complete, and no accepted image was rebuilt.
 
+## Active v2.7 Milestone: Incident Investigation
+
+The first v2.7 slice turns the existing incident and snapshot Reader contracts
+into one bounded investigation path:
+
+- `/operator/incidents/{id}` renders one durable availability incident under
+  the Reader policy and handles missing or unavailable data without exposing a
+  mutation surface.
+- The Web API client composes `GET /api/incidents/{id}`, the associated server
+  and current status, and at most 50 snapshots from each 15-minute window around
+  incident opening and recovery. Overlapping snapshots are de-duplicated.
+- The page presents incident timing, failure streak, trigger and resolution,
+  current server context, and boundary observations. It does not claim a full
+  causal trace when retained snapshots are absent.
+- Fleet triage links to open-incident investigation, while the incident list
+  and per-server history link to the exact incident record.
+- API-client, static-rendering, missing-record, token-boundary, and responsive
+  browser coverage define the repository acceptance boundary.
+- The slice adds no migration, command, credential access, background worker,
+  or production configuration. It does not pause, reset, or reinterpret the
+  active prospective `API-01` window.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
