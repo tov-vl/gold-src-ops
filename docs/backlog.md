@@ -1209,13 +1209,18 @@ read-only production smoke is sufficient after an eventual candidate rollout;
 this slice does not justify another soak or backup/restore rehearsal.
 
 The repository slice is integrated through
-[#132](https://github.com/tov-vl/gold-src-ops/pull/132). Candidate preparation
-is defined in `docs/v2.8-readiness.md`: publish signed `v2.8.0-rc.1`, deploy API
-and Web by verified digest, and run one 10-15 minute read-only production smoke
-covering every trend window and the static-rendered history view. No synthetic
-incident, backup/restore rehearsal, lifecycle mutation, RCON traffic, OIDC
-reconfiguration, or new multi-day soak is required for this additive
-no-migration slice.
+[#132](https://github.com/tov-vl/gold-src-ops/pull/132). Signed
+`v2.8.0-rc.1`, exact API/Web image publication, digest-pinned production
+rollout, and a 10 minute 2 second read-only smoke have passed. The smoke retained
+the candidate after 11 successful samples, confirmed control-plane and game-host
+continuity, A2S reachability with zero bots, no new or open incidents, empty
+durable-work queues, fresh backup evidence, and all four authenticated trend
+ranges. Reader-only concealment was reused from Browser Smoke on the exact Web
+image because OIDC and authorization were unchanged. No synthetic incident,
+backup/restore rehearsal, lifecycle mutation, RCON traffic, OIDC
+reconfiguration, or new multi-day soak was required. Stable `v2.8.0` is now the
+remaining digest-preserving promotion step; details and claim limits are in
+`docs/v2.8-readiness.md`.
 
 ## Current API Scope
 
