@@ -1,8 +1,10 @@
 # GoldSrcOps v2.7.0 Release Notes
 
-Status as of 2026-09-13: release candidate accepted in production. Signed
-`v2.7.0-rc.1` publication, digest-pinned rollout, and bounded production smoke
-passed; digest-preserving stable publication remains pending.
+Status as of 2026-09-13: stable
+[`v2.7.0`](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.7.0) is
+published. Its signed annotated tag targets the accepted `v2.7.0-rc.1`
+revision, and the stable workflow promoted and independently verified the exact
+candidate API and Web digests without rebuilding either image.
 
 ## Overview
 
@@ -95,6 +97,15 @@ reused from the exact-image Browser Smoke because production OIDC and
 authorization did not change; a fresh Reader-only production login was
 deliberately not claimed.
 
+## Stable Publication
+
+Signed stable tag `v2.7.0` targets the accepted candidate revision above.
+[Workflow #34757277795](https://github.com/tov-vl/gold-src-ops/actions/runs/34757277795)
+skipped both image build paths, promoted the exact verified API and Web digests,
+and independently smoke-tested both stable refs before the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.7.0)
+was published. No mutable `latest` alias was created.
+
 ## Known Limits
 
 - Boundary observations provide nearby operational evidence, not a complete
@@ -113,6 +124,8 @@ deliberately not claimed.
 
 ## References
 
+- [GoldSrcOps v2.7.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.7.0)
+- [Stable publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34757277795)
 - [v2.7 release readiness](v2.7-readiness.md)
 - [Project backlog](backlog.md)
 - [Project brief](project-brief.md)
