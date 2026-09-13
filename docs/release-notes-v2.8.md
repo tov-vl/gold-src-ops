@@ -1,8 +1,10 @@
 # GoldSrcOps v2.8.0 Release Notes
 
-Status as of 2026-09-13: release candidate accepted in production. Signed
-`v2.8.0-rc.1` publication, digest-pinned rollout, and bounded production smoke
-passed; digest-preserving stable publication remains pending.
+Status as of 2026-09-13: stable
+[`v2.8.0`](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.8.0) is
+published. Its signed annotated tag targets the accepted `v2.8.0-rc.1`
+revision, and the stable workflow promoted and independently verified the exact
+candidate API and Web digests without rebuilding either image.
 
 ## Overview
 
@@ -99,6 +101,15 @@ authorization and concealment were reused from Browser Smoke on the exact Web
 image because OIDC and authorization were unchanged; a fresh Reader-only
 production login was deliberately not claimed.
 
+## Stable Publication
+
+Signed stable tag `v2.8.0` targets the accepted candidate revision above.
+[Workflow #34765576154](https://github.com/tov-vl/gold-src-ops/actions/runs/34765576154)
+skipped both image build paths, promoted the exact verified API and Web digests,
+and independently smoke-tested both stable refs before the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.8.0)
+was published. No mutable `latest` alias was created.
+
 ## Known Limits
 
 - The trends summarize recorded A2S probe outcomes. They are not service uptime,
@@ -115,8 +126,11 @@ production login was deliberately not claimed.
 
 ## References
 
+- [GoldSrcOps v2.8.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.8.0)
+- [Stable publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34765576154)
 - [v2.8 release readiness](v2.8-readiness.md)
 - [Server Trends pull request](https://github.com/tov-vl/gold-src-ops/pull/132)
+- [Production acceptance pull request](https://github.com/tov-vl/gold-src-ops/pull/134)
 - [Project backlog](backlog.md)
 - [Project brief](project-brief.md)
 - [v2.7.0 release notes](release-notes-v2.7.md)
