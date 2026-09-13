@@ -300,8 +300,11 @@ The project should evolve in stages:
   persistence boundary. The first slice adds a dedicated incident record,
   current server context, and bounded A2S observations around the opening and
   recovery boundaries by composing existing Reader endpoints. Fleet, incident,
-  and server-history navigation lead into the investigation view. Product work
-  remains independent of the active `API-01` evidence window.
+  and server-history navigation lead into the investigation view. The first
+  slice is integrated through pull request #128; release-candidate scope and a
+  10-15 minute read-only production smoke are defined in
+  `docs/v2.7-readiness.md`. Product work remains independent of the active
+  `API-01` evidence window.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
