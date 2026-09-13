@@ -1,8 +1,8 @@
 # GoldSrcOps v2.7.0 Release Notes
 
-Status as of 2026-09-13: release-candidate preparation. The Incident
-Investigation scope is integrated in protected `main`; signed `v2.7.0-rc.1`
-publication and its bounded production smoke remain pending.
+Status as of 2026-09-13: release candidate accepted in production. Signed
+`v2.7.0-rc.1` publication, digest-pinned rollout, and bounded production smoke
+passed; digest-preserving stable publication remains pending.
 
 ## Overview
 
@@ -75,6 +75,25 @@ session.
 The smoke does not repeat backup/restore, lifecycle commands, RCON traffic,
 OIDC reconfiguration, or a multi-day soak. The exact ordered gate and rollback
 rules are defined in [v2.7 release readiness](v2.7-readiness.md).
+
+The accepted candidate is revision
+`4bcde099fdb1a5688b6d664f6e8989674a221be3`. Its API image digest is
+`sha256:6658e45ef83ee371d7d466c4ede88b2a1f23f40ca7fbb9780ff42e976cbab6e4`
+and its Web image digest is
+`sha256:6c0f88910c39bb6b29dff3848ebb0a1aad255a680ef7ca644f7000b685317e37`.
+The tag workflow and every publication verification job passed in
+[workflow #34752528075](https://github.com/tov-vl/gold-src-ops/actions/runs/34752528075).
+
+Production retained the candidate after a 10 minute 1 second read-only smoke
+with 11 successful samples. Public health, release identity, container and
+game-service continuity, A2S reachability, zero bots, no new or open incidents,
+empty durable-work queues, and scheduled-backup freshness passed. An
+authenticated Operator session also navigated from fleet and history views to
+an existing resolved incident, verified the read-only investigation boundary,
+and exposed no browser secret or console error. Reader-only concealment was
+reused from the exact-image Browser Smoke because production OIDC and
+authorization did not change; a fresh Reader-only production login was
+deliberately not claimed.
 
 ## Known Limits
 

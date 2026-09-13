@@ -301,10 +301,12 @@ The project should evolve in stages:
   current server context, and bounded A2S observations around the opening and
   recovery boundaries by composing existing Reader endpoints. Fleet, incident,
   and server-history navigation lead into the investigation view. The first
-  slice is integrated through pull request #128; release-candidate scope and a
-  10-15 minute read-only production smoke are defined in
-  `docs/v2.7-readiness.md`. Product work remains independent of the active
-  `API-01` evidence window.
+  slice is integrated through pull request #128. Signed `v2.7.0-rc.1`, exact
+  API/Web image publication, digest-pinned production rollout, and the bounded
+  read-only production smoke have passed; production retained the candidate.
+  Stable `v2.7.0` remains the digest-preserving promotion step, with evidence
+  and claim limits recorded in `docs/v2.7-readiness.md`. Product work remains
+  independent of the active `API-01` evidence window.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

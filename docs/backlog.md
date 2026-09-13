@@ -1164,12 +1164,19 @@ into one bounded investigation path:
   active prospective `API-01` window.
 
 The repository slice is integrated through
-[#128](https://github.com/tov-vl/gold-src-ops/pull/128). Candidate preparation
-is defined in `docs/v2.7-readiness.md`: publish signed `v2.7.0-rc.1`, deploy API
-and Web by verified digest, and run one 10-15 minute read-only production smoke
-against an already-retained incident. No incident manufacture, backup/restore
-rehearsal, lifecycle mutation, RCON traffic, OIDC reconfiguration, or new
-multi-day soak is required for this additive no-migration slice.
+[#128](https://github.com/tov-vl/gold-src-ops/pull/128). Signed
+`v2.7.0-rc.1`, exact API/Web image publication, digest-pinned production
+rollout, and a 10 minute 1 second read-only smoke have passed. The smoke retained
+the candidate after 11 successful samples, confirmed control-plane and game-host
+continuity, A2S reachability with zero bots, no new or open incidents, empty
+durable-work queues, fresh backup evidence, and the authenticated read-only
+investigation path. Reader-only concealment was reused from Browser Smoke on
+the exact Web image because OIDC and authorization were unchanged. No incident
+manufacture,
+backup/restore rehearsal, lifecycle mutation, RCON traffic, OIDC
+reconfiguration, or new multi-day soak was required. Stable `v2.7.0` is now the
+remaining digest-preserving promotion step; details and claim limits are in
+`docs/v2.7-readiness.md`.
 
 ## Current API Scope
 
