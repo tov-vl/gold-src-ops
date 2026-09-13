@@ -2,7 +2,13 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
+    tags:
+      - "v*"
   pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       release_tag:
@@ -18,46 +24,120 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   CI: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_NOLOGO: true
 
 jobs:
-  quality:
-    name: Quality Gate
+  change-scope:
+    name: Change Scope
     runs-on: ubuntu-latest
+    outputs:
+      base_revision: ${{ steps.scope.outputs.base_revision }}
+      changed_count: ${{ steps.scope.outputs.changed_count }}
+      docs_only: ${{ steps.scope.outputs.docs_only }}
+      head_revision: ${{ steps.scope.outputs.head_revision }}
+      mode: ${{ steps.scope.outputs.mode }}
+      reason: ${{ steps.scope.outputs.reason }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve CI path
+        id: scope
+        shell: pwsh
+        env:
+          BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+          WORKFLOW_REF: ${{ github.ref }}
+        run: |
+          $result = ./tools/ci/resolve-change-scope.ps1 `
+            -EventName $env:EVENT_NAME `
+            -Ref $env:WORKFLOW_REF `
+            -BaseRevision $env:BASE_REVISION `
+            -HeadRevision $env:HEAD_REVISION `
+            -GitHubOutputPath $env:GITHUB_OUTPUT
+
+          @(
+            "## CI change scope"
+            ""
+            "- Mode: $($result.Mode)"
+            "- Changed paths: $($result.ChangedCount)"
+            "- Decision: $($result.Reason)"
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
+  quality:
+    name: Quality Gate
+    needs: change-scope
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Require resolved change scope
+        if: needs.change-scope.result != 'success'
+        shell: pwsh
+        run: throw "Change-scope resolution failed; refusing to select a reduced CI path."
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate changed documentation
+        if: needs.change-scope.outputs.docs_only == 'true'
+        shell: pwsh
+        env:
+          BASE_REVISION: ${{ needs.change-scope.outputs.base_revision }}
+          HEAD_REVISION: ${{ needs.change-scope.outputs.head_revision }}
+        run: >-
+          ./tools/ci/test-changed-documentation.ps1
+          -BaseRevision $env:BASE_REVISION
+          -HeadRevision $env:HEAD_REVISION
 
       - name: Setup .NET
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 
       - name: Print .NET info
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: dotnet --info
 
       - name: Restore with NuGet audit
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: dotnet restore GoldSrcOps.sln -p:AuditPipeline=true
 
       - name: Verify formatting
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: dotnet format GoldSrcOps.sln --verify-no-changes --verbosity minimal --no-restore
 
       - name: Build
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: dotnet build GoldSrcOps.sln --no-restore
 
       - name: Test
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: dotnet test GoldSrcOps.sln --no-build
 
       - name: Report vulnerable packages
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 
   container-smoke:
     name: Container Smoke
-    needs: quality
+    needs:
+      - change-scope
+      - quality
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -65,69 +145,98 @@ jobs:
 
     steps:
       - name: Checkout
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: actions/checkout@v6
 
+      - name: Confirm documentation-only fast path
+        if: needs.change-scope.outputs.docs_only == 'true'
+        shell: pwsh
+        run: Write-Host "Container execution is unnecessary for a validated documentation-only change."
+
       - name: Setup .NET
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 
       - name: Validate production Compose contract
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: >-
           pwsh -NoProfile -File ./ops/production/preflight.ps1
           -EnvironmentFile ./ops/production/deployment.env.example
           -ContractOnly
 
       - name: Validate image publication contract
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/image-publication.ps1
 
+      - name: Validate CI release fast path
+        if: needs.change-scope.outputs.docs_only != 'true'
+        run: pwsh -NoProfile -File ./tools/smoke/ci-release-fast-path.ps1
+
       - name: Validate host bootstrap and hardening
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: bash ./tools/smoke/host-bootstrap.sh
 
       - name: Validate game-server host bootstrap
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: bash ./tools/smoke/gameserver-host-bootstrap.sh
 
       - name: Validate game-server runtime installer
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: bash ./tools/smoke/gameserver-runtime-install.sh
 
       - name: Validate game-server runtime activation
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: bash ./tools/smoke/gameserver-runtime-activate.sh
 
       - name: Validate game-host soak-readiness evidence contract
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: bash ./tools/smoke/gameserver-soak-readiness.sh
 
       - name: Validate host-readiness preflight
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/host-preflight.ps1
 
       - name: Validate soak-readiness evidence contract
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/soak-readiness.ps1
 
       - name: Validate PostgreSQL backup schedule
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: |
           pwsh -NoProfile -File ./tools/smoke/postgres-backup-schedule.ps1
           bash ./tools/smoke/postgres-backup-schedule.sh
 
       - name: Validate availability evidence schedule
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/availability-evidence-schedule.ps1
 
       - name: Validate availability shadow audit
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/availability-shadow-audit.ps1
 
       - name: Validate diagnostic DNS proof
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/availability-dns-proof.ps1
 
       - name: Validate OIDC live-smoke contract
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/oidc-live-contract.ps1
 
       - name: Run API container smoke test
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/container.ps1
 
       - name: Run Web container smoke test
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/web-container.ps1
 
   browser-smoke:
     name: Browser Smoke
-    needs: quality
+    needs:
+      - change-scope
+      - quality
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -135,29 +244,40 @@ jobs:
 
     steps:
       - name: Checkout
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: actions/checkout@v6
 
+      - name: Confirm documentation-only fast path
+        if: needs.change-scope.outputs.docs_only == 'true'
+        shell: pwsh
+        run: Write-Host "Browser execution is unnecessary for a validated documentation-only change."
+
       - name: Setup .NET
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 
       - name: Restore browser tests with NuGet audit
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: >-
           dotnet restore tests/GoldSrcOps.WebTests/GoldSrcOps.WebTests.csproj
           -p:AuditPipeline=true
 
       - name: Build browser tests
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: >-
           dotnet build tests/GoldSrcOps.WebTests/GoldSrcOps.WebTests.csproj
           --no-restore
 
       - name: Install Playwright Chromium
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: >-
           pwsh tests/GoldSrcOps.WebTests/bin/Debug/net10.0/playwright.ps1
           install --with-deps --only-shell chromium
 
       - name: Verify browser token boundary
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: >-
           dotnet test tests/GoldSrcOps.WebTests/GoldSrcOps.WebTests.csproj
           --no-build
