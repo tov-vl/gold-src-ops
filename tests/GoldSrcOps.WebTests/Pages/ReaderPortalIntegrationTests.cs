@@ -74,12 +74,42 @@ public sealed class ReaderPortalIntegrationTests
         detailBody.Should().Contain("Latest observation");
         detailBody.Should().Contain("The latest A2S probe reached the server.");
         historyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        historyBody.Should().Contain("Server trends");
+        historyBody.Should().Contain("Observed reachability");
+        historyBody.Should().Contain("not service uptime or proof of an achieved SLO");
         historyBody.Should().Contain("Recent observations");
         historyBody.Should().Contain("Probe recovered");
         historyBody.Should().Contain($"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}");
         incidentsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         incidentsBody.Should().Contain("Open incidents");
         incidentsBody.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
+    }
+
+    [Theory]
+    [InlineData("1h", "5-minute buckets", 12)]
+    [InlineData("6h", "15-minute buckets", 24)]
+    [InlineData("24h", "Hourly buckets", 24)]
+    [InlineData("7d", "Six-hour buckets", 28)]
+    public async Task Reader_can_select_a_bounded_server_trend_window(
+        string range,
+        string bucketLabel,
+        int expectedBuckets)
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/history?range={range}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain(bucketLabel);
+        body.Should().Contain($"--trend-columns: {expectedBuckets}");
+        body.Should().Contain(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/history?range={range}");
+        body.Should().Contain("aria-current=\"page\"");
+        body.Should().Contain("Peak players");
+        body.Should().Contain("Peak bots");
     }
 
     [Fact]

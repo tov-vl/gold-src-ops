@@ -271,6 +271,99 @@ public sealed class MonitoringReadService
             buckets);
     }
 
+    public async Task<ServerTrendDto?> GetServerTrendAsync(
+        Guid serverId,
+        ServerTrendWindow window,
+        CancellationToken cancellationToken)
+    {
+        if (!await _repository.ServerExistsAsync(serverId, cancellationToken))
+        {
+            return null;
+        }
+
+        var options = GetServerTrendWindowOptions(window);
+        var toUtc = TruncateToMicrosecondPrecision(_clock.UtcNow);
+        var fromUtc = toUtc.Subtract(options.Duration);
+        var aggregates = await _repository.ListServerTrendBucketAggregatesAsync(
+            serverId,
+            fromUtc,
+            toUtc,
+            options.BucketSize,
+            cancellationToken);
+        var aggregatesByStart = aggregates.ToDictionary(static item => item.StartedAtUtc);
+        var buckets = new ServerTrendBucketDto[options.TotalBuckets];
+        var observedBuckets = 0;
+        var sampleCount = 0;
+        var reachableSampleCount = 0;
+        var latencySampleCount = 0;
+        long latencyTotalMilliseconds = 0;
+        int? peakPlayers = null;
+        int? peakBots = null;
+
+        for (var index = 0; index < buckets.Length; index++)
+        {
+            var startedAtUtc = fromUtc.AddTicks(options.BucketSize.Ticks * index);
+            if (!aggregatesByStart.TryGetValue(startedAtUtc, out var aggregate))
+            {
+                buckets[index] = new ServerTrendBucketDto(
+                    startedAtUtc,
+                    ServerTrendBucketState.Unknown,
+                    SampleCount: 0,
+                    ReachableSampleCount: 0,
+                    ObservedReachabilityPercent: null,
+                    AverageLatencyMs: null,
+                    PeakPlayers: null,
+                    PeakBots: null);
+                continue;
+            }
+
+            ValidateServerTrendAggregate(aggregate, fromUtc, toUtc, options.BucketSize);
+            observedBuckets++;
+            sampleCount = checked(sampleCount + aggregate.SampleCount);
+            reachableSampleCount = checked(reachableSampleCount + aggregate.ReachableSampleCount);
+            latencySampleCount = checked(latencySampleCount + aggregate.LatencySampleCount);
+            latencyTotalMilliseconds = checked(
+                latencyTotalMilliseconds + aggregate.LatencyTotalMilliseconds);
+            peakPlayers = MaxNullable(peakPlayers, aggregate.PeakPlayers);
+            peakBots = MaxNullable(peakBots, aggregate.PeakBots);
+
+            buckets[index] = new ServerTrendBucketDto(
+                startedAtUtc,
+                GetServerTrendBucketState(aggregate.ReachableSampleCount, aggregate.SampleCount),
+                aggregate.SampleCount,
+                aggregate.ReachableSampleCount,
+                CalculateReachabilityPercent(aggregate.ReachableSampleCount, aggregate.SampleCount),
+                CalculateAverageLatency(
+                    aggregate.LatencyTotalMilliseconds,
+                    aggregate.LatencySampleCount),
+                aggregate.PeakPlayers,
+                aggregate.PeakBots);
+        }
+
+        if (aggregatesByStart.Count != observedBuckets)
+        {
+            throw new InvalidOperationException("The server trend aggregate contains an unexpected bucket.");
+        }
+
+        return new ServerTrendDto(
+            serverId,
+            window,
+            fromUtc,
+            toUtc,
+            (int)options.BucketSize.TotalMinutes,
+            observedBuckets,
+            options.TotalBuckets,
+            sampleCount,
+            reachableSampleCount,
+            sampleCount == 0
+                ? null
+                : CalculateReachabilityPercent(reachableSampleCount, sampleCount),
+            CalculateAverageLatency(latencyTotalMilliseconds, latencySampleCount),
+            peakPlayers,
+            peakBots,
+            buckets);
+    }
+
     private static PublicStatusState GetPublicStatusState(
         int monitoredServers,
         int serversRequiringAttention,
@@ -319,6 +412,27 @@ public sealed class MonitoringReadService
         _ => throw new ArgumentOutOfRangeException(nameof(window), window, "Unsupported A2S history window.")
     };
 
+    private static HistoryWindowOptions GetServerTrendWindowOptions(ServerTrendWindow window) => window switch
+    {
+        ServerTrendWindow.LastHour => new(
+            Duration: TimeSpan.FromHours(1),
+            BucketSize: TimeSpan.FromMinutes(5),
+            TotalBuckets: 12),
+        ServerTrendWindow.Last6Hours => new(
+            Duration: TimeSpan.FromHours(6),
+            BucketSize: TimeSpan.FromMinutes(15),
+            TotalBuckets: 24),
+        ServerTrendWindow.Last24Hours => new(
+            Duration: TimeSpan.FromHours(24),
+            BucketSize: TimeSpan.FromHours(1),
+            TotalBuckets: 24),
+        ServerTrendWindow.Last7Days => new(
+            Duration: TimeSpan.FromDays(7),
+            BucketSize: TimeSpan.FromHours(6),
+            TotalBuckets: 28),
+        _ => throw new ArgumentOutOfRangeException(nameof(window), window, "Unsupported server trend window.")
+    };
+
     private static void ValidateBucketCount(PublicA2sBucketCountDto count)
     {
         if (count.SampleCount <= 0 ||
@@ -340,6 +454,57 @@ public sealed class MonitoringReadService
             ? PublicA2sBucketState.Operational
             : PublicA2sBucketState.Degraded;
     }
+
+    private static void ValidateServerTrendAggregate(
+        ServerTrendBucketAggregateDto aggregate,
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc,
+        TimeSpan bucketSize)
+    {
+        var offset = aggregate.StartedAtUtc - fromUtc;
+        if (aggregate.StartedAtUtc < fromUtc ||
+            aggregate.StartedAtUtc >= toUtc ||
+            offset.Ticks % bucketSize.Ticks != 0 ||
+            aggregate.SampleCount <= 0 ||
+            aggregate.ReachableSampleCount < 0 ||
+            aggregate.ReachableSampleCount > aggregate.SampleCount ||
+            aggregate.LatencySampleCount < 0 ||
+            aggregate.LatencySampleCount > aggregate.ReachableSampleCount ||
+            aggregate.LatencyTotalMilliseconds < 0 ||
+            aggregate.PeakPlayers < 0 ||
+            aggregate.PeakBots < 0)
+        {
+            throw new InvalidOperationException("The server trend aggregate contains invalid values.");
+        }
+    }
+
+    private static ServerTrendBucketState GetServerTrendBucketState(
+        int reachableSampleCount,
+        int sampleCount)
+    {
+        if (reachableSampleCount == 0)
+        {
+            return ServerTrendBucketState.Unreachable;
+        }
+
+        return reachableSampleCount == sampleCount
+            ? ServerTrendBucketState.Operational
+            : ServerTrendBucketState.Degraded;
+    }
+
+    private static decimal? CalculateAverageLatency(long latencyTotalMilliseconds, int latencySampleCount) =>
+        latencySampleCount == 0
+            ? null
+            : Math.Round(
+                latencyTotalMilliseconds * 1m / latencySampleCount,
+                decimals: 1,
+                MidpointRounding.AwayFromZero);
+
+    private static int? MaxNullable(int? current, int? candidate) => candidate is null
+        ? current
+        : current is null
+            ? candidate
+            : Math.Max(current.Value, candidate.Value);
 
     private static decimal CalculateReachabilityPercent(int reachableSampleCount, int sampleCount) =>
         Math.Round(

@@ -595,6 +595,59 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
     }
 
     [BrowserFact]
+    public async Task Server_trends_fit_supported_windows_and_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var historyWindow in new[]
+                 {
+                     new HistoryWindow("1h", ExpectedBuckets: 12),
+                     new HistoryWindow("7d", ExpectedBuckets: 28)
+                 })
+        {
+            foreach (var viewport in new[]
+                     {
+                         new ViewportSize { Width = 1280, Height = 800 },
+                         new ViewportSize { Width = 390, Height = 844 }
+                     })
+            {
+                await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+                var response = await Page.GotoAsync(
+                    new Uri(
+                        baseAddress,
+                        $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/history?range={historyWindow.Value}")
+                    .AbsoluteUri,
+                    new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+                response.Should().NotBeNull();
+                response!.Ok.Should().BeTrue();
+                (await Page.Locator("section.trend-section").IsVisibleAsync()).Should().BeTrue();
+                (await Page.Locator(".trend-panel").CountAsync()).Should().Be(3);
+                (await Page.Locator(".trend-bar--reachability").CountAsync())
+                    .Should().Be(historyWindow.ExpectedBuckets);
+                (await Page.Locator(".population-pair").CountAsync())
+                    .Should().Be(historyWindow.ExpectedBuckets);
+                (await Page.Locator(".range-switch__link[aria-current='page']").TextContentAsync())
+                    .Should().Contain(string.Equals(historyWindow.Value, "7d", StringComparison.Ordinal)
+                        ? "7 days"
+                        : "1 hour");
+                var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                    "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+                hasHorizontalOverflow.Should().BeFalse();
+
+                await CaptureScreenshotIfRequestedAsync(
+                    $"server-trends-{historyWindow.Value}",
+                    viewport);
+            }
+        }
+    }
+
+    [BrowserFact]
     public async Task Public_A2s_history_fits_supported_windows_and_viewports()
     {
         await using var factory = new BrowserTokenBoundaryWebApplicationFactory();

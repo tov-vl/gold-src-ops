@@ -109,6 +109,57 @@ public sealed class ReaderApiClientTests
     }
 
     [Fact]
+    public async Task GetServerTrendAsync_sends_the_selected_bounded_window()
+    {
+        var serverId = Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f");
+        var fromUtc = new DateTimeOffset(2026, 9, 6, 12, 0, 0, TimeSpan.Zero);
+        var toUtc = fromUtc.AddDays(7);
+        var response = new ServerTrendResponse(
+            serverId,
+            "7d",
+            fromUtc,
+            toUtc,
+            BucketMinutes: 360,
+            ObservedBuckets: 0,
+            TotalBuckets: 28,
+            SampleCount: 0,
+            ReachableSampleCount: 0,
+            ObservedReachabilityPercent: null,
+            AverageLatencyMs: null,
+            PeakPlayers: null,
+            PeakBots: null,
+            Buckets: []);
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(response)
+        });
+        using var httpClient = CreateHttpClient(capture);
+        var client = new ReaderApiClient(httpClient);
+
+        var result = await client.GetServerTrendAsync(serverId, ServerTrendWindows.Last7Days);
+
+        result.Should().BeEquivalentTo(response);
+        capture.RequestUri.Should().NotBeNull();
+        capture.RequestUri!.AbsolutePath.Should().Be($"/api/servers/{serverId:D}/trends");
+        var query = QueryHelpers.ParseQuery(capture.RequestUri.Query);
+        query["window"].Should().ContainSingle().Which.Should().Be("7d");
+    }
+
+    [Fact]
+    public async Task GetServerTrendAsync_rejects_an_unsupported_window_before_sending()
+    {
+        var capture = new CaptureHandler(_ => throw new InvalidOperationException("A request was sent."));
+        using var httpClient = CreateHttpClient(capture);
+        var client = new ReaderApiClient(httpClient);
+
+        var action = () => client.GetServerTrendAsync(Guid.NewGuid(), "30d");
+
+        await action.Should().ThrowAsync<ArgumentException>()
+            .WithParameterName("window");
+        capture.RequestUri.Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetServerCredentialsAsync_maps_only_sanitized_metadata()
     {
         var serverId = Guid.Parse("6254f78a-5b16-41cf-aa9c-1167de84551a");

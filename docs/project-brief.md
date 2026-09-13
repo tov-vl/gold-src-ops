@@ -308,6 +308,13 @@ The project should evolve in stages:
   rebuilding and is published with its evidence and claim limits in
   `docs/v2.7-readiness.md`. Product work remains independent of the active
   `API-01` evidence window.
+- v2.8: make retained per-server A2S observations useful for day-to-day trend
+  inspection. The first slice adds a bounded Reader aggregate for `1h`, `6h`,
+  `24h`, and `7d` windows and extends server history with static-rendered
+  reachability, latency, and reported player/bot tracks. Missing buckets remain
+  unknown, raw multi-day snapshots stay server-side, and the UI does not present
+  probe outcomes as uptime or an achieved SLO. The slice is additive and
+  requires no migration, new worker, OIDC change, or mutation permission.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

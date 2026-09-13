@@ -45,6 +45,11 @@ public interface IReaderApiClient
         int limit,
         CancellationToken cancellationToken = default);
 
+    Task<ServerTrendResponse?> GetServerTrendAsync(
+        Guid serverId,
+        string window,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<CommandExecutionResponse>?> GetServerCommandsAsync(
         Guid serverId,
         int limit,

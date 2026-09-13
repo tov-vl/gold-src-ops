@@ -88,6 +88,25 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
         return GetOptionalAsync<SnapshotHistoryResponse>(requestUri, cancellationToken);
     }
 
+    public Task<ServerTrendResponse?> GetServerTrendAsync(
+        Guid serverId,
+        string window,
+        CancellationToken cancellationToken = default)
+    {
+        if (!ServerTrendWindows.IsSupported(window))
+        {
+            throw new ArgumentException(
+                "Window must be one of '1h', '6h', '24h', or '7d'.",
+                nameof(window));
+        }
+
+        var requestUri = QueryHelpers.AddQueryString(
+            $"api/servers/{serverId:D}/trends",
+            "window",
+            window);
+        return GetOptionalAsync<ServerTrendResponse>(requestUri, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<CommandExecutionResponse>?> GetServerCommandsAsync(
         Guid serverId,
         int limit,

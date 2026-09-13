@@ -56,6 +56,10 @@ public static class ServerEndpoints
             .WithName("ListServerSnapshots")
             .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 
+        group.MapGet("/{id:guid}/trends", GetTrendAsync)
+            .WithName("GetServerTrend")
+            .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
+
         group.MapGet("/{id:guid}/incidents", ListServerIncidentsAsync)
             .WithName("ListServerIncidents")
             .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
@@ -228,6 +232,24 @@ public static class ServerEndpoints
         return result is null ? TypedResults.NotFound() : TypedResults.Ok(Map(result));
     }
 
+    private static async Task<Results<Ok<ServerTrendResponse>, NotFound, ValidationProblem>> GetTrendAsync(
+        Guid id,
+        string? window,
+        MonitoringReadService monitoring,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseTrendWindow(window, out var parsedWindow))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                ["window"] = ["Window must be one of '1h', '6h', '24h', or '7d'."]
+            });
+        }
+
+        var result = await monitoring.GetServerTrendAsync(id, parsedWindow, cancellationToken);
+        return result is null ? TypedResults.NotFound() : TypedResults.Ok(Map(result));
+    }
+
     private static async Task<Results<Ok<IReadOnlyList<AvailabilityIncidentResponse>>, ValidationProblem>>
         ListServerIncidentsAsync(
             Guid id,
@@ -361,6 +383,29 @@ public static class ServerEndpoints
         return errors;
     }
 
+    private static bool TryParseTrendWindow(string? value, out ServerTrendWindow window)
+    {
+        switch (value)
+        {
+            case "1h":
+                window = ServerTrendWindow.LastHour;
+                return true;
+            case "6h":
+                window = ServerTrendWindow.Last6Hours;
+                return true;
+            case null:
+            case "24h":
+                window = ServerTrendWindow.Last24Hours;
+                return true;
+            case "7d":
+                window = ServerTrendWindow.Last7Days;
+                return true;
+            default:
+                window = default;
+                return false;
+        }
+    }
+
     private static ServerResponse Map(ServerDto server) =>
         new(
             server.Id,
@@ -419,6 +464,48 @@ public static class ServerEndpoints
             history.ToUtc,
             history.Limit,
             history.Items.Select(Map).ToArray());
+
+    private static ServerTrendResponse Map(ServerTrendDto trend) =>
+        new(
+            trend.ServerId,
+            MapWindow(trend.Window),
+            trend.FromUtc,
+            trend.ToUtc,
+            trend.BucketMinutes,
+            trend.ObservedBuckets,
+            trend.TotalBuckets,
+            trend.SampleCount,
+            trend.ReachableSampleCount,
+            trend.ObservedReachabilityPercent,
+            trend.AverageLatencyMs,
+            trend.PeakPlayers,
+            trend.PeakBots,
+            trend.Buckets.Select(static bucket => new ServerTrendBucketResponse(
+                bucket.StartedAtUtc,
+                MapState(bucket.State),
+                bucket.SampleCount,
+                bucket.ReachableSampleCount,
+                bucket.ObservedReachabilityPercent,
+                bucket.AverageLatencyMs,
+                bucket.PeakPlayers,
+                bucket.PeakBots)).ToArray());
+
+    private static string MapWindow(ServerTrendWindow window) => window switch
+    {
+        ServerTrendWindow.LastHour => "1h",
+        ServerTrendWindow.Last6Hours => "6h",
+        ServerTrendWindow.Last24Hours => "24h",
+        ServerTrendWindow.Last7Days => "7d",
+        _ => throw new ArgumentOutOfRangeException(nameof(window), window, "Unsupported server trend window.")
+    };
+
+    private static string MapState(ServerTrendBucketState state) => state switch
+    {
+        ServerTrendBucketState.Operational => "operational",
+        ServerTrendBucketState.Degraded => "degraded",
+        ServerTrendBucketState.Unreachable => "unreachable",
+        _ => "unknown"
+    };
 
     private static PollSnapshotResponse Map(PollSnapshotDto snapshot) =>
         new(
