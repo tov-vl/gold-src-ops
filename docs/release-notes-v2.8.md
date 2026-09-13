@@ -1,8 +1,8 @@
 # GoldSrcOps v2.8.0 Release Notes
 
-Status as of 2026-09-13: release-candidate preparation. The Server Trends scope
-is integrated in protected `main`; signed `v2.8.0-rc.1` publication and its
-bounded production smoke remain pending.
+Status as of 2026-09-13: release candidate accepted in production. Signed
+`v2.8.0-rc.1` publication, digest-pinned rollout, and bounded production smoke
+passed; digest-preserving stable publication remains pending.
 
 ## Overview
 
@@ -79,6 +79,25 @@ substitution must be recorded without claiming a fresh Reader session.
 The smoke does not repeat backup/restore, lifecycle commands, RCON traffic,
 OIDC reconfiguration, or a multi-day soak. The exact ordered gate and rollback
 rules are defined in [v2.8 release readiness](v2.8-readiness.md).
+
+The accepted candidate is revision
+`decdc74c7009bfef6735a6896b6eab8b8545ed36`. Its API image digest is
+`sha256:9884cb0ff066dc5019d59871638a21e0ae8074e82d525b572a1819d5ab0c90e6`
+and its Web image digest is
+`sha256:8ae373510a3ab38c2e13d061b3d83f620b3d5f5b521ccd790f7959d697f8bbac`.
+The tag workflow and every publication verification job passed in
+[workflow #34763748960](https://github.com/tov-vl/gold-src-ops/actions/runs/34763748960).
+
+Production retained the candidate after a 10 minute 2 second read-only smoke
+with 11 successful samples. Public health, release identity, container and
+game-service continuity, A2S reachability, zero bots, no new or open incidents,
+empty durable-work queues, and scheduled-backup freshness passed. An existing
+authenticated Operator session rendered every fixed trend range with the
+required bucket shape, separate reachability, latency, and population tracks,
+and no trend mutation control, browser secret, or console error. Reader-only
+authorization and concealment were reused from Browser Smoke on the exact Web
+image because OIDC and authorization were unchanged; a fresh Reader-only
+production login was deliberately not claimed.
 
 ## Known Limits
 
