@@ -240,11 +240,26 @@ is parsed by the same strict .NET spool contract in unit tests. AMX Mod X does
 not expose a portable filesystem sync primitive, so buffered flush and close
 prove complete-file process handoff but not survival across host power loss.
 
+## Reader Projection
+
+`GET /api/servers/{serverId}/game-events?limit=` is a bounded human read model.
+It requires the existing Reader policy, accepts a limit from 1 through 100
+(default 50), and returns only retained `round.ended` records for the selected
+server, ordered by occurrence time and event ID descending. The response
+contains event type, occurrence time, map, and aggregate player/bot counts.
+
+The response deliberately omits event and source IDs, source sequence,
+contract version, receive time, intent hash, and raw inbox state. The Blazor
+route `/operator/servers/{serverId}/events` renders the same projection without
+mutation controls. This read path uses the existing inbox index and adds no
+schema migration. Local fixture and PostgreSQL tests prove query behavior, not
+production ingestion or host installation.
+
 ## Deferred Work
 
 Auth0 M2M provisioning, production migration and deployment, game-host
-installation, production event delivery, dead-letter replay, and any Reader
-projection require their own review and acceptance evidence. In particular,
-the sandbox compile and fixture do not prove host compatibility, directory
+installation, production event delivery, and dead-letter replay require their
+own review and acceptance evidence. In particular, the sandbox compile,
+fixture, and Reader projection do not prove host compatibility, directory
 ownership, power-loss durability, or successful gameplay delivery. A broker is
 deferred until observed load or ownership pressure justifies it.

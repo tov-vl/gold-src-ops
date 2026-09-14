@@ -1,0 +1,143 @@
+@page "/operator/servers/{ServerId:guid}/events"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<ServerEvents> Logger
+
+<PageTitle>@(_server is null ? "Gameplay events" : $"{_server.Name} events") | GoldSrcOps</PageTitle>
+
+<div class="events-page">
+    <a class="back-link" href="/operator/servers">Back to servers</a>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h1>Gameplay events are unavailable</h1>
+            <p>The API did not return a usable Reader snapshot.</p>
+        </section>
+    }
+    else if (_notFound)
+    {
+        <section class="load-state">
+            <h1>Server not found</h1>
+            <p>The requested server is not present in the Reader inventory.</p>
+        </section>
+    }
+    else if (_server is not null && _history is not null)
+    {
+        <header class="events-heading">
+            <div>
+                <p class="eyebrow">Gameplay record</p>
+                <h1>@_server.Name</h1>
+                <p class="endpoint">@_server.Game · <code>@_server.Host:@_server.QueryPort</code></p>
+            </div>
+            <p>Completed rounds reported by the game-event pipeline, newest first.</p>
+        </header>
+
+        <ServerSectionNav ServerId="@ServerId" />
+
+        <section class="event-section" aria-labelledby="event-history-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Round history</p>
+                    <h2 id="event-history-title">Recent gameplay events</h2>
+                </div>
+                <span>Up to @_history.Limit completed rounds</span>
+            </div>
+
+            @if (_history.Items.Count == 0)
+            {
+                <div class="empty-state">
+                    <h3>No completed rounds recorded</h3>
+                    <p>This server does not have any retained round-ended events.</p>
+                </div>
+            }
+            else
+            {
+                <div class="event-table" role="table" aria-label="Recent completed rounds">
+                    <div class="event-row event-row--header" role="row">
+                        <span role="columnheader">Event</span>
+                        <span role="columnheader">Occurred</span>
+                        <span role="columnheader">Map</span>
+                        <span role="columnheader">Players</span>
+                        <span role="columnheader">Bots</span>
+                    </div>
+                    @foreach (var item in _history.Items)
+                    {
+                        <div class="event-row" role="row">
+                            <strong role="cell">
+                                <span class="cell-label">Event</span>
+                                @FormatEventType(item.Type)
+                            </strong>
+                            <time role="cell" datetime="@item.OccurredAtUtc.ToString("O", CultureInfo.InvariantCulture)">
+                                <span class="cell-label">Occurred</span>
+                                @FormatDateTime(item.OccurredAtUtc)
+                            </time>
+                            <span role="cell">
+                                <span class="cell-label">Map</span>
+                                <code>@DisplayValue(item.Map)</code>
+                            </span>
+                            <span role="cell">
+                                <span class="cell-label">Players</span>
+                                @DisplayValue(item.Players)
+                            </span>
+                            <span role="cell">
+                                <span class="cell-label">Bots</span>
+                                @DisplayValue(item.Bots)
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private const int EventLimit = 100;
+
+    [Parameter]
+    public Guid ServerId { get; set; }
+
+    private ServerResponse? _server;
+    private GameEventHistoryResponse? _history;
+    private bool _loadFailed;
+    private bool _notFound;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadFailed = false;
+        _notFound = false;
+        _server = null;
+        _history = null;
+
+        try
+        {
+            var serverTask = ReaderApiClient.GetServerAsync(ServerId);
+            var eventsTask = ReaderApiClient.GetServerGameEventsAsync(ServerId, EventLimit);
+            await Task.WhenAll(serverTask, eventsTask);
+
+            _server = await serverTask;
+            _history = await eventsTask;
+            _notFound = _server is null || _history is null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load Reader gameplay events for server {ServerId}.", ServerId);
+            _loadFailed = true;
+        }
+    }
+
+    private static string FormatEventType(string type) => type switch
+    {
+        "round.ended" => "Round ended",
+        _ => "Gameplay event"
+    };
+
+    private static string DisplayValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "Not reported" : value;
+
+    private static string DisplayValue(int? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "Not reported";
+
+    private static string FormatDateTime(DateTimeOffset value) =>
+        value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+}

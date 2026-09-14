@@ -221,6 +221,7 @@ operation.
 | `POST /api/servers/{id}/commands/...` | `Operator` |
 | `GET /api/servers/{id}/commands` | `Reader` |
 | `GET /api/commands/{id}` | `Reader` |
+| `GET /api/servers/{id}/game-events` | `Reader`; bounded `round.ended` projection only |
 | `POST /api/servers/{id}/game-events` | `GameEventWriter`; route ID must match the token binding |
 | `POST /operator/servers/{id}/commands/say` on Web | `Operator` plus antiforgery and one-time confirmation |
 | `POST /operator/servers/{id}/commands/restart/queue` on Web | `Operator` plus antiforgery, readiness refresh, and one-time command-bound confirmation |

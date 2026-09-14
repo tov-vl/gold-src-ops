@@ -252,6 +252,26 @@ public sealed class ReaderPortalIntegrationTests
     }
 
     [Fact]
+    public async Task Reader_can_view_recent_gameplay_events_without_ingestion_metadata()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/events");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Recent gameplay events");
+        body.Should().Contain("Round ended");
+        body.Should().Contain(ReaderWebApplicationFactory.GameEventMap);
+        body.Should().NotContain("Source instance");
+        body.Should().NotContain("Sequence number");
+        body.Should().NotContain("Intent hash");
+        body.Should().NotContain("Received at");
+    }
+
+    [Fact]
     public async Task Reader_can_filter_recent_activity_without_sensitive_command_fields()
     {
         await using var factory = new ReaderWebApplicationFactory();
@@ -294,12 +314,15 @@ public sealed class ReaderPortalIntegrationTests
         using var activityResponse = await client.GetAsync("/operator/activity");
         using var commandsResponse = await client.GetAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands");
+        using var eventsResponse = await client.GetAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/events");
         using var deadLettersResponse = await client.GetAsync("/operator/dead-letters");
 
         incidentsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         incidentsBody.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
         activityResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         commandsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        eventsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         deadLettersResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
@@ -309,6 +332,7 @@ public sealed class ReaderPortalIntegrationTests
     [InlineData("/operator/incidents")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/history")]
+    [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/events")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/commands")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/commands/new")]
     [InlineData("/operator/dead-letters")]
@@ -362,6 +386,20 @@ public sealed class ReaderPortalIntegrationTests
         using var client = factory.CreateClient();
 
         using var response = await client.GetAsync($"/operator/servers/{Guid.NewGuid():D}/commands");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Server not found");
+        body.Should().NotContain(ReaderWebApplicationFactory.ServerName);
+    }
+
+    [Fact]
+    public async Task Missing_gameplay_event_history_returns_not_found_state()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync($"/operator/servers/{Guid.NewGuid():D}/events");
         var body = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);

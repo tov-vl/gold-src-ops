@@ -1334,6 +1334,16 @@ strict .NET importer cover the local contract. No plugin is installed, no
 production identity is provisioned, and neither migration nor delivery is
 activated.
 
+The fifth local slice adds a bounded Reader-only product projection over the
+accepted inbox contract. `GET /api/servers/{id}/game-events?limit=` returns only
+recent `round.ended` records, newest first, with occurrence time, map, and
+aggregate player/bot counts. It omits event/source identities, source sequence,
+receive time, intent hash, and raw persistence state. The Blazor `Events` view
+uses the same Reader policy and exposes no mutation controls. The query uses the
+existing server/occurrence index, so this slice adds no migration and does not
+provision an identity, install the producer, deliver a production event, or
+change either running host.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1386,6 +1396,7 @@ Alert delivery:
 
 Game events:
 
+- `GET /api/servers/{id}/game-events?limit=`
 - `POST /api/servers/{id}/game-events`
 
 Health and metrics:
@@ -1525,6 +1536,9 @@ Released automated baseline:
 - Domain, application, API, and PostgreSQL integration coverage for versioned
   game-event validation, machine authorization, server binding, idempotency,
   sequence conflicts, request bounds, metrics, and bounded retention.
+- Application, API, PostgreSQL, static-rendered Web, and browser coverage for
+  the bounded Reader-only round-event projection, minimal response fields,
+  authorization split, missing resources, and responsive desktop/mobile layout.
 - SQLite-backed agent coverage for persistent source identity, monotonic
   sequence allocation, capacity, lease recovery, exact-byte retry,
   retry/dead-letter transitions, receipt validation, HTTP classification, and
@@ -1586,11 +1600,10 @@ Remaining portfolio gaps, in priority order:
   shadow nor the completed v2.3 24-hour sample is an achieved SLO claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
-- Review the completed local v2.10 chain and choose the next product boundary:
-  a read-only gameplay-event projection or separately gated production
-  enablement. Provisioning machine credentials, deploying the migration,
-  installing on the game host, and sending production events remain separate
-  gates.
+- Review and release the local v2.10 Reader projection. Production enablement
+  remains a separate gate: provision machine credentials, deploy the migration,
+  install the producer on the game host, and prove bounded delivery before any
+  runtime gameplay claim.
 
 VIP entitlements and payment integration remain a separate, later milestone.
 The first entitlement experiment must stay sandbox-only and must not process

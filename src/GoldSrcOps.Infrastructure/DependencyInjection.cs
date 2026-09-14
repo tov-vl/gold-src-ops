@@ -82,6 +82,7 @@ public static class DependencyInjection
         services.AddScoped<IServerCredentialRepository, EfServerCredentialRepository>();
         services.AddScoped<ICommandExecutionRepository, EfCommandExecutionRepository>();
         services.AddScoped<IGameEventInboxRepository, EfGameEventInboxRepository>();
+        services.AddScoped<IGameEventReadRepository, EfGameEventReadRepository>();
         services.AddScoped<IGameEventInboxRetentionRepository, EfGameEventInboxRetentionRepository>();
         services.AddSingleton<ISecretReferenceResolver, ConfigurationSecretReferenceResolver>();
         services.AddSingleton<IGoldSrcRconClient>(_ =>
