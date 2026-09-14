@@ -1,8 +1,8 @@
 # GoldSrcOps v2.9.0 Release Notes
 
-Status as of 2026-09-14: release-candidate preparation. The Recent Operations
-Activity scope is integrated in protected `main`; signed `v2.9.0-rc.1`
-publication and its bounded production smoke remain pending.
+Status as of 2026-09-14: stable release published. Signed `v2.9.0-rc.1`
+publication, digest-pinned production acceptance, signed `v2.9.0` promotion,
+published-image verification, and the GitHub Release are complete.
 
 ## Overview
 
@@ -56,32 +56,39 @@ dashboard remains unchanged.
 - Rollback restores both v2.8 application images and leaves PostgreSQL, Caddy,
   telemetry services, retained records, and the game host unchanged.
 
-## Candidate Acceptance
+## Release Acceptance
 
 Repository acceptance covers limit validation, deterministic ordering and tie
 breaking, bounded source materialization, response minimization, Reader
 authorization, API-client URI construction, static HTML filtering, responsive
 navigation, and the browser token boundary. The complete `Quality Gate`,
-`Container Smoke`, and `Browser Smoke` passed for the product pull request.
+`Container Smoke`, and `Browser Smoke` passed for the product pull request and
+signed candidate workflow
+[#34822994088](https://github.com/tov-vl/gold-src-ops/actions/runs/34822994088).
 
-Production acceptance follows the additive read-only row in the risk-based
-release policy. One read-only session must collect at least three healthy
-post-rollout samples spanning at least three minutes. It verifies public health,
-release identity, the bounded activity API, all three static-rendered activity
-views, browser secret boundaries, A2S continuity, zero bots, durable-work and
-incident counts, unchanged restart counts, and backup freshness. It must not
-manufacture an incident or command, submit a mutation, or change monitoring
-cadence.
+The exact candidate API and Web digests were deployed together without a schema
+operation. Three healthy read-only samples spanning 405.61 seconds confirmed
+public health, release identity, recent reachable A2S state with zero bots,
+fresh backup evidence, unchanged control-plane and game-service continuity, and
+zero open incidents or pending durable work. The existing Operator session
+rendered six minimized events across All, Incidents, and Commands, with correct
+ordering, authorized detail links, no mutation control, no bearer-like browser
+value, and no console warning or error.
 
-A fresh Reader-only production login is not required when OIDC and
-authorization are unchanged and Reader concealment is covered by Browser Smoke
-on the exact immutable Web image. An existing valid Operator session or
-non-interactive contract evidence may be used, and the substitution must be
-recorded without claiming a fresh Reader session.
+OIDC and authorization were unchanged, so Reader-only concealment was reused
+from Browser Smoke on the exact immutable Web image; no fresh Reader login is
+claimed. The acceptance did not manufacture an incident or command and did not
+repeat backup/restore, lifecycle commands, RCON traffic, OIDC configuration, or
+a multi-hour or multi-day soak.
 
-The smoke does not repeat backup/restore, lifecycle commands, RCON traffic,
-OIDC reconfiguration, or a multi-hour or multi-day soak. The exact ordered gate
-and rollback rules are defined in [v2.9 release readiness](v2.9-readiness.md).
+Signed stable tag `v2.9.0` targets revision
+`1ad782e50722ac9fba681125ace4deda222ab16c`. Stable workflow
+[#34825735706](https://github.com/tov-vl/gold-src-ops/actions/runs/34825735706)
+skipped both image builds, promoted the exact accepted candidate digests, and
+independently smoke-tested both stable references. The bounded evidence supports
+this additive release, not a long-term reliability, high-availability, or
+achieved-SLO claim. Exact identity, evidence, and rollback details are in
+[v2.9 release readiness](v2.9-readiness.md).
 
 ## Known Limits
 
@@ -101,6 +108,7 @@ and rollback rules are defined in [v2.9 release readiness](v2.9-readiness.md).
 
 ## References
 
+- [GoldSrcOps v2.9.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.9.0)
 - [v2.9 release readiness](v2.9-readiness.md)
 - [Recent Operations Activity pull request](https://github.com/tov-vl/gold-src-ops/pull/137)
 - [Risk-based release gates pull request](https://github.com/tov-vl/gold-src-ops/pull/136)

@@ -327,9 +327,12 @@ The project should evolve in stages:
   addresses. The static-rendered page supports All, Incidents, and Commands
   views and links into existing investigation and command-history paths. This
   additive slice requires no migration, worker, realtime connection, OIDC
-  change, or mutation permission. It is integrated through pull request #137;
-  release-candidate scope and a minimum three-sample, three-minute read-only
-  production smoke are defined in `docs/v2.9-readiness.md`.
+  change, or mutation permission. It is integrated through pull request #137.
+  Signed `v2.9.0-rc.1`, exact API/Web publication, digest-pinned production
+  rollout, and three healthy read-only samples spanning 405.61 seconds passed;
+  production retained the candidate. Signed stable `v2.9.0` promotes the exact
+  candidate digests without rebuilding and is published with its evidence and
+  claim limits in `docs/v2.9-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

@@ -1228,9 +1228,9 @@ digests, and independently verified both stable references. The
 is published. Stable publication is complete, and no accepted image was
 rebuilt; details and claim limits are in `docs/v2.8-readiness.md`.
 
-## Active v2.9 Milestone: Recent Operations Activity
+## Completed v2.9 Milestone: Recent Operations Activity
 
-The first local v2.9 product slice adds one bounded Reader timeline for the
+The v2.9 product slice adds one bounded Reader timeline for the
 latest operational changes across incidents and commands:
 
 - `GET /api/dashboard/activity?limit=` merges at most the requested number of
@@ -1253,14 +1253,26 @@ authorization, static HTML filtering, browser token boundaries, and
 desktop/mobile overflow. It does not justify a new soak or recovery rehearsal.
 
 The repository slice is integrated through
-[#137](https://github.com/tov-vl/gold-src-ops/pull/137). Candidate preparation
-is defined in `docs/v2.9-readiness.md`: publish signed `v2.9.0-rc.1`, deploy API
-and Web by verified digest, and collect at least three healthy read-only
-production samples spanning at least three minutes while checking the bounded
-activity API and all three static-rendered views. No synthetic incident,
-backup/restore rehearsal, lifecycle mutation, RCON traffic, OIDC
-reconfiguration, or new multi-hour soak is required for this additive
-no-migration slice.
+[#137](https://github.com/tov-vl/gold-src-ops/pull/137). Signed
+`v2.9.0-rc.1`, exact API/Web image publication, digest-pinned production
+rollout, and three healthy read-only samples spanning 405.61 seconds have
+passed. The smoke retained the candidate, confirmed public health,
+control-plane and game-host continuity, A2S reachability with zero bots, fresh
+backup evidence, and zero open incidents or pending durable work. An existing
+Operator session verified six minimized activity events and all three
+static-rendered views without exposing a mutation or browser secret boundary.
+Reader-only concealment was reused from Browser Smoke on the exact Web image
+because OIDC and authorization were unchanged.
+
+Signed stable `v2.9.0` targets the same accepted revision. Stable
+[workflow #34825735706](https://github.com/tov-vl/gold-src-ops/actions/runs/34825735706)
+skipped both image build paths, promoted the exact candidate API and Web
+digests, and independently verified both stable references. The
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.9.0)
+is published. No synthetic incident, backup/restore rehearsal, lifecycle
+mutation, RCON traffic, OIDC reconfiguration, or new soak was required for this
+additive no-migration slice. Details and claim limits are in
+`docs/v2.9-readiness.md`.
 
 ## Current API Scope
 
