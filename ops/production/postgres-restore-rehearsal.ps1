@@ -337,6 +337,7 @@ try {
     $expectedTables = @(
         "availability_incidents",
         "command_executions",
+        "game_event_inbox",
         "outbox_messages",
         "outbox_replay_requests",
         "poll_snapshots",

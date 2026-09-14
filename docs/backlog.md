@@ -1274,7 +1274,7 @@ mutation, RCON traffic, OIDC reconfiguration, or new soak was required for this
 additive no-migration slice. Details and claim limits are in
 `docs/v2.9-readiness.md`.
 
-## Active v2.10 Milestone: Game Events Foundation And Sandbox Agent
+## Active v2.10 Release Milestone: Game Events Foundation And Sandbox Agent
 
 The first v2.10 slice establishes a bounded ingress boundary for future
 AMX Mod X/ReAPI agents without installing an agent or changing production:
@@ -1343,6 +1343,16 @@ uses the same Reader policy and exposes no mutation controls. The query uses the
 existing server/occurrence index, so this slice adds no migration and does not
 provision an identity, install the producer, deliver a production event, or
 change either running host.
+
+All five repository slices are integrated through pull requests #140-#144.
+Release-candidate preparation is defined in `docs/release-notes-v2.10.md` and
+`docs/v2.10-readiness.md`. Because the combined milestone contains one additive
+migration, candidate acceptance requires one fresh encrypted backup, a `100%`
+repository check, and one isolated restore/migration/previous-runtime rehearsal
+before a digest-pinned dormant API/Web rollout. The post-rollout check is a
+single 10-to-15-minute read-only smoke, not a new soak. Machine-client
+provisioning, game-host installation, delivery activation, and the first real
+event remain a separate pilot.
 
 ## Current API Scope
 
@@ -1600,10 +1610,12 @@ Remaining portfolio gaps, in priority order:
   shadow nor the completed v2.3 24-hour sample is an achieved SLO claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
-- Review and release the local v2.10 Reader projection. Production enablement
-  remains a separate gate: provision machine credentials, deploy the migration,
-  install the producer on the game host, and prove bounded delivery before any
-  runtime gameplay claim.
+- Complete the v2.10 candidate gate: merge the readiness and restore-rehearsal
+  contract, publish exact API/Web images, pass one fresh isolated migration
+  rehearsal, apply the additive migration, and retain the dormant candidate
+  after a 10-to-15-minute read-only smoke. Production machine credentials,
+  Worker and producer installation, and bounded delivery remain a separate
+  pilot before any runtime gameplay claim.
 
 VIP entitlements and payment integration remain a separate, later milestone.
 The first entitlement experiment must stay sandbox-only and must not process
