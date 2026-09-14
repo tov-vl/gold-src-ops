@@ -64,8 +64,10 @@ public sealed class SecurityEndpointIntegrationTests
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync($"/api/servers/{ExistingId}/trends?window=24h");
+        var gameEvents = await client.GetAsync($"/api/servers/{ExistingId}/game-events");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        gameEvents.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -80,6 +82,7 @@ public sealed class SecurityEndpointIntegrationTests
         var read = await client.GetAsync("/api/servers");
         var activity = await client.GetAsync("/api/dashboard/activity");
         var serverTrend = await client.GetAsync($"/api/servers/{ExistingId}/trends?window=24h");
+        var gameEvents = await client.GetAsync($"/api/servers/{ExistingId}/game-events");
         var alertDeliveryRead = await client.GetAsync("/api/alert-delivery/dead-letters");
         var alertDeliveryDetail = await client.GetAsync(
             $"/api/alert-delivery/dead-letters/{ExistingId}");
@@ -97,6 +100,7 @@ public sealed class SecurityEndpointIntegrationTests
         read.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         activity.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         serverTrend.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        gameEvents.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryRead.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryDetail.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryReplay.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -140,6 +144,7 @@ public sealed class SecurityEndpointIntegrationTests
         var read = await client.GetAsync("/api/servers");
         var alertDeliveryRead = await client.GetAsync("/api/alert-delivery/dead-letters");
         var replayRead = await client.GetAsync($"/api/alert-delivery/replays/{ExistingId}");
+        var gameEventsRead = await client.GetAsync($"/api/servers/{ExistingId}/game-events");
         var replayMutation = await client.PostAsJsonAsync(
             $"/api/alert-delivery/dead-letters/{ExistingId}/replay",
             new { reason = "endpoint restored" });
@@ -148,6 +153,7 @@ public sealed class SecurityEndpointIntegrationTests
         read.StatusCode.Should().Be(HttpStatusCode.OK);
         alertDeliveryRead.StatusCode.Should().Be(HttpStatusCode.OK);
         replayRead.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        gameEventsRead.StatusCode.Should().Be(HttpStatusCode.NotFound);
         replayMutation.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 

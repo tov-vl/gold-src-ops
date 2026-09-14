@@ -21,6 +21,8 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         var detailPage = await VisitAsync($"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}");
         var historyPage = await VisitAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/history");
+        var eventsPage = await VisitAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/events");
         var commandsPage = await VisitAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands");
         var sayCommandPage = await VisitAsync(
@@ -55,6 +57,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         listPage.Body.Should().Contain(ReaderWebApplicationFactory.ServerName);
         detailPage.Body.Should().Contain("Latest observation");
         historyPage.Body.Should().Contain("Recent observations");
+        eventsPage.Body.Should().Contain(ReaderWebApplicationFactory.GameEventMap);
         commandsPage.Body.Should().Contain(ReaderWebApplicationFactory.CommandResultSummary);
         activityPage.Body.Should().Contain("Incident and command timeline");
         incidentsPage.Body.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
@@ -67,6 +70,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                      listPage,
                      detailPage,
                      historyPage,
+                     eventsPage,
                      commandsPage,
                      sayCommandPage,
                      restartCommandPage,
@@ -682,6 +686,49 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                     $"server-trends-{historyWindow.Value}",
                     viewport);
             }
+        }
+    }
+
+    [BrowserFact]
+    public async Task Gameplay_events_fit_supported_desktop_and_mobile_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(
+                    baseAddress,
+                    $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/events")
+                    .AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("section.event-section").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator(".event-row:not(.event-row--header)").CountAsync()).Should().Be(2);
+            (await Page.Locator(".event-row").AllInnerTextsAsync())
+                .Should().Contain(text =>
+                    text.Contains(ReaderWebApplicationFactory.GameEventMap, StringComparison.Ordinal));
+            var overflowingElements = await Page.EvaluateAsync<string[]>(
+                "Array.from(document.querySelectorAll('body *'))" +
+                ".filter(element => { const bounds = element.getBoundingClientRect(); " +
+                "return bounds.left < -0.5 || bounds.right > document.documentElement.clientWidth + 0.5; })" +
+                ".map(element => `${element.tagName.toLowerCase()}.${element.className || ''} " +
+                "[${element.getBoundingClientRect().left},${element.getBoundingClientRect().right}]`)");
+            overflowingElements.Should().BeEmpty();
+
+            await CaptureScreenshotIfRequestedAsync("gameplay-events", viewport);
         }
     }
 

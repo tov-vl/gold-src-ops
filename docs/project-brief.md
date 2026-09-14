@@ -355,14 +355,18 @@ The project should evolve in stages:
   Mod X/ReAPI producer for one anonymous `round.ended` event, with a safe
   relative path, canonical UUID v4 file name, UTC conversion, owner-only file
   mode, complete-file rename, pinned compile smoke, and strict importer fixture.
-  No production identity, migration, runtime, or game-host state is changed.
+  The fifth local slice adds a bounded Reader-only `round.ended` projection and
+  responsive Blazor `Events` view. Only occurrence time, map, and aggregate
+  player/bot counts cross that read boundary; ingestion identities and inbox
+  metadata remain internal. It reuses the existing inbox index and adds no
+  migration. No production identity, runtime, or game-host state is changed.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
-- A later product experiment: build a product projection on top of the accepted
-  v2.10 inbox or separately gate production event delivery. Sandbox
-  entitlements may follow; real payments remain explicitly out of scope until
-  then.
+- A later product experiment: separately gate production event delivery behind
+  reviewed identity, migration, host-installation, and bounded-delivery
+  evidence. Sandbox entitlements may follow; real payments remain explicitly
+  out of scope until then.
 - Optional service extraction or a broker only if observed scaling, ownership,
   or failure-isolation pressure makes the modular monolith insufficient.
 

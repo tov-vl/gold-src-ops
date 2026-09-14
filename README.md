@@ -666,6 +666,13 @@ The output remains under ignored `artifacts/` and is not installed. See
 `samples/amxmodx-game-event-producer/README.md` for its default-off
 configuration, event semantics, and filesystem limitations.
 
+An authenticated Reader can inspect the bounded local product projection at
+`GET /api/servers/{serverId}/game-events?limit=50` or through the server's
+`Events` view. It contains only completed-round time, map, and aggregate
+player/bot counts; ingestion identities and raw inbox metadata remain internal.
+This view does not imply that the producer or delivery path is enabled in
+production.
+
 See `docs/game-events.md` for delivery classification, bounded configuration,
 spool crash recovery, and the boundary between this local sandbox and later
 production provisioning.

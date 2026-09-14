@@ -5,6 +5,7 @@ using System.Text.Json;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
 using GoldSrcOps.Contracts.Credentials;
+using GoldSrcOps.Contracts.GameEvents;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
@@ -60,6 +61,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     public const string OpenIncidentReason = "A2S query timed out";
     public const string CommandResultSummary = "Command accepted by the server";
     public const string CommandPayloadSentinel = "fixture-command-payload-must-not-render";
+    public const string GameEventMap = "de_train";
     public const string DeadLetterLastError = "Webhook endpoint returned a terminal response";
     public const string DeadLetterPayloadSentinel = "fixture-dead-letter-payload-must-not-render";
     public const string ReplayReason = "Receiver health was verified by the operator";
@@ -368,6 +370,36 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             ]);
 
             return Task.FromResult<IReadOnlyList<CommandExecutionResponse>?>(commands.Take(limit).ToArray());
+        }
+
+        public Task<GameEventHistoryResponse?> GetServerGameEventsAsync(
+            Guid serverId,
+            int limit,
+            CancellationToken cancellationToken = default)
+        {
+            if (serverId != ServerId)
+            {
+                return Task.FromResult<GameEventHistoryResponse?>(null);
+            }
+
+            IReadOnlyList<GameEventHistoryItemResponse> items =
+            [
+                new(
+                    "round.ended",
+                    ObservedAtUtc.AddMinutes(-2),
+                    GameEventMap,
+                    12,
+                    0),
+                new(
+                    "round.ended",
+                    ObservedAtUtc.AddMinutes(-14),
+                    "de_dust2",
+                    10,
+                    1)
+            ];
+
+            return Task.FromResult<GameEventHistoryResponse?>(
+                new GameEventHistoryResponse(ServerId, limit, items.Take(limit).ToArray()));
         }
 
         public Task<IReadOnlyList<ServerCredentialResponse>?> GetServerCredentialsAsync(

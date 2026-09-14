@@ -1206,10 +1206,12 @@ Implementation status:
 
 The local v2.10 foundation implements contract version 1, the server-bound
 authorization policy, durable inbox and constraints, race-safe idempotency,
-bounded retention, metrics, migration, and focused tests. Auth0 M2M
-provisioning, production migration and rollout, an AMX Mod X/ReAPI sender, and
-Reader projections remain separate follow-up slices. The wire contract is in
-`docs/game-events.md`.
+bounded retention, metrics, migration, and focused tests. A separate local
+slice now exposes only retained `round.ended` time, map, and aggregate
+population through the Reader policy; event/source identities and inbox
+metadata remain internal. Auth0 M2M provisioning, production migration and
+rollout, game-host installation, and production delivery remain separate
+follow-up gates. The wire and read contracts are in `docs/game-events.md`.
 
 ## Decision 25: Use A Durable Local File Spool Between The Game Plugin And Agent
 

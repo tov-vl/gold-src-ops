@@ -16,6 +16,11 @@ public static class GameEventEndpoints
 
     public static IEndpointRouteBuilder MapGameEventEndpoints(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapGet("/api/servers/{serverId:guid}/game-events", ListAsync)
+            .WithTags("Game Events")
+            .WithName("ListRecentGameEvents")
+            .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
+
         endpoints.MapPost("/api/servers/{serverId:guid}/game-events", IngestAsync)
             .WithTags("Game Events")
             .WithName("IngestGameEvent")
@@ -23,6 +28,28 @@ public static class GameEventEndpoints
             .RequireAuthorization(GoldSrcOpsSecurity.GameEventWriterPolicy);
 
         return endpoints;
+    }
+
+    private static async Task<Results<
+        Ok<GameEventHistoryResponse>,
+        NotFound,
+        ValidationProblem>> ListAsync(
+        Guid serverId,
+        int? limit,
+        GameEventReadService gameEvents,
+        CancellationToken cancellationToken)
+    {
+        if (limit is <= 0 or > GameEventReadService.MaxLimit)
+        {
+            return TypedResults.ValidationProblem(
+                new Dictionary<string, string[]>(StringComparer.Ordinal)
+                {
+                    ["limit"] = [$"Limit must be between 1 and {GameEventReadService.MaxLimit}."]
+                });
+        }
+
+        var result = await gameEvents.ListRecentRoundsAsync(serverId, limit, cancellationToken);
+        return result is null ? TypedResults.NotFound() : TypedResults.Ok(Map(result));
     }
 
     private static async Task<Results<
@@ -184,6 +211,19 @@ public static class GameEventEndpoints
             gameEvent.OccurredAtUtc,
             gameEvent.ReceivedAtUtc,
             gameEvent.Duplicate);
+
+    private static GameEventHistoryResponse Map(GameEventHistoryDto history) =>
+        new(
+            history.ServerId,
+            history.Limit,
+            history.Items
+                .Select(static item => new GameEventHistoryItemResponse(
+                    GameEventTypeContract.ToWireValue(item.Type),
+                    item.OccurredAtUtc,
+                    item.Map,
+                    item.Players,
+                    item.Bots))
+                .ToArray());
 
     private static ProblemHttpResult Conflict(string title, string code) =>
         TypedResults.Problem(

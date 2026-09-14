@@ -5,6 +5,7 @@ using AwesomeAssertions;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
 using GoldSrcOps.Contracts.Credentials;
+using GoldSrcOps.Contracts.GameEvents;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Web.Services;
@@ -245,6 +246,35 @@ public sealed class ReaderApiClientTests
     }
 
     [Fact]
+    public async Task GetServerGameEventsAsync_sends_limit_and_maps_the_bounded_projection()
+    {
+        var serverId = Guid.Parse("6db654a7-0cb8-429f-b315-6c31d87a52e7");
+        var response = new GameEventHistoryResponse(
+            serverId,
+            25,
+            [
+                new GameEventHistoryItemResponse(
+                    "round.ended",
+                    new DateTimeOffset(2026, 9, 14, 12, 0, 0, TimeSpan.Zero),
+                    "de_train",
+                    12,
+                    0)
+            ]);
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(response)
+        });
+        using var httpClient = CreateHttpClient(capture);
+        var client = new ReaderApiClient(httpClient);
+
+        var result = await client.GetServerGameEventsAsync(serverId, 25);
+
+        result.Should().BeEquivalentTo(response);
+        capture.RequestUri.Should().Be(
+            new Uri($"https://api.example.test/api/servers/{serverId:D}/game-events?limit=25"));
+    }
+
+    [Fact]
     public async Task GetDeadLettersAsync_encodes_cursor_and_limit()
     {
         const string cursor = "2026-09-04T12:00:00Z|event/id?batch=1";
@@ -297,6 +327,7 @@ public sealed class ReaderApiClientTests
 
     [Theory]
     [InlineData("commands")]
+    [InlineData("game-events")]
     [InlineData("dead-letter")]
     [InlineData("replay")]
     [InlineData("credentials")]
@@ -310,6 +341,7 @@ public sealed class ReaderApiClientTests
         object? result = resource switch
         {
             "commands" => await client.GetServerCommandsAsync(Guid.NewGuid(), 10),
+            "game-events" => await client.GetServerGameEventsAsync(Guid.NewGuid(), 10),
             "dead-letter" => await client.GetDeadLetterAsync(Guid.NewGuid()),
             "replay" => await client.GetDeadLetterReplayAsync(Guid.NewGuid()),
             "incident" => await client.GetIncidentAsync(Guid.NewGuid()),

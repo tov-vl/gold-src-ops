@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Commands;
 using GoldSrcOps.Contracts.Credentials;
+using GoldSrcOps.Contracts.GameEvents;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
@@ -122,6 +123,14 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
         var requestUri = AddLimit($"api/servers/{serverId:D}/commands", limit);
         return await GetOptionalAsync<CommandExecutionResponse[]>(requestUri, cancellationToken);
     }
+
+    public Task<GameEventHistoryResponse?> GetServerGameEventsAsync(
+        Guid serverId,
+        int limit,
+        CancellationToken cancellationToken = default) =>
+        GetOptionalAsync<GameEventHistoryResponse>(
+            AddLimit($"api/servers/{serverId:D}/game-events", limit),
+            cancellationToken);
 
     public async Task<IReadOnlyList<ServerCredentialResponse>?> GetServerCredentialsAsync(
         Guid serverId,

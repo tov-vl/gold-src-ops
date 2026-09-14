@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using AwesomeAssertions;
 using GoldSrcOps.Contracts.GameEvents;
 using GoldSrcOps.Domain.GameEvents;
@@ -92,9 +93,12 @@ public sealed class GameEventEndpointIntegrationTests
             $"/api/servers/{Guid.NewGuid()}/game-events",
             CreateRequest());
         using var humanRead = await client.GetAsync("/api/servers");
+        using var gameEventRead = await client.GetAsync(
+            $"/api/servers/{server.Id}/game-events");
 
         crossServer.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         humanRead.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        gameEventRead.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         var count = await factory.ExecuteDbContextAsync(async dbContext =>
             await dbContext.GameEventInbox.CountAsync());
         count.Should().Be(0);
@@ -118,6 +122,120 @@ public sealed class GameEventEndpointIntegrationTests
             CreateRequest());
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Human_reader_roles_can_read_only_a_bounded_round_projection(bool operatorRole)
+    {
+        var server = CreateServer();
+        var otherServer = CreateServer();
+        var principal = operatorRole
+            ? TestApiPrincipal.Operator()
+            : TestApiPrincipal.Reader();
+        await using var factory = new GoldSrcOpsApiFactory(principal: principal);
+        var occurredAtUtc = new DateTimeOffset(2026, 9, 14, 12, 0, 0, TimeSpan.Zero);
+        var olderRound = CreateEntry(
+            server.Id,
+            sequenceNumber: 1,
+            GameEventType.RoundEnded,
+            occurredAtUtc.AddMinutes(-10),
+            "de_dust2",
+            players: 10,
+            bots: 1);
+        var newerRound = CreateEntry(
+            server.Id,
+            sequenceNumber: 2,
+            GameEventType.RoundEnded,
+            occurredAtUtc,
+            "de_train",
+            players: 12,
+            bots: 0);
+        var excludedRoundStart = CreateEntry(
+            server.Id,
+            sequenceNumber: 3,
+            GameEventType.RoundStarted,
+            occurredAtUtc.AddMinutes(1),
+            "de_train",
+            players: 12,
+            bots: 0);
+        var excludedOtherServer = CreateEntry(
+            otherServer.Id,
+            sequenceNumber: 1,
+            GameEventType.RoundEnded,
+            occurredAtUtc.AddMinutes(2),
+            "de_nuke",
+            players: 8,
+            bots: 0);
+        await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            dbContext.Servers.AddRange(server, otherServer);
+            dbContext.GameEventInbox.AddRange(
+                olderRound,
+                newerRound,
+                excludedRoundStart,
+                excludedOtherServer);
+            await dbContext.SaveChangesAsync();
+        });
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(
+            $"/api/servers/{server.Id}/game-events?limit=2");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var history = JsonSerializer.Deserialize<GameEventHistoryResponse>(
+            body,
+            JsonSerializerOptions.Web);
+        history.Should().NotBeNull();
+        history!.ServerId.Should().Be(server.Id);
+        history.Limit.Should().Be(2);
+        history.Items.Select(static item => item.OccurredAtUtc).Should().Equal(
+            newerRound.OccurredAtUtc,
+            olderRound.OccurredAtUtc);
+        history.Items.Should().OnlyContain(static item => item.Type == "round.ended");
+        history.Items[0].Map.Should().Be("de_train");
+        history.Items[0].Players.Should().Be(12);
+        history.Items[0].Bots.Should().Be(0);
+
+        using var document = JsonDocument.Parse(body);
+        var firstItemProperties = document.RootElement
+            .GetProperty("items")[0]
+            .EnumerateObject()
+            .Select(static property => property.Name)
+            .ToArray();
+        firstItemProperties.Should().BeEquivalentTo(
+            ["type", "occurredAtUtc", "map", "players", "bots"]);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(101)]
+    public async Task Reader_projection_rejects_an_out_of_range_limit(int limit)
+    {
+        await using var factory = new GoldSrcOpsApiFactory(
+            principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(
+            $"/api/servers/{Guid.NewGuid()}/game-events?limit={limit}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("limit");
+    }
+
+    [Fact]
+    public async Task Reader_projection_returns_not_found_for_an_unknown_server()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(
+            principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(
+            $"/api/servers/{Guid.NewGuid()}/game-events");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -190,6 +308,28 @@ public sealed class GameEventEndpointIntegrationTests
             Map: "de_dust2",
             Players: 10,
             Bots: 0);
+
+    private static GameEventInboxEntry CreateEntry(
+        Guid serverId,
+        long sequenceNumber,
+        GameEventType type,
+        DateTimeOffset occurredAtUtc,
+        string? map,
+        int? players,
+        int? bots) =>
+        new(
+            Guid.NewGuid(),
+            serverId,
+            Guid.NewGuid(),
+            sequenceNumber,
+            GameEventInboxEntry.CurrentContractVersion,
+            type,
+            occurredAtUtc,
+            occurredAtUtc.AddSeconds(1),
+            map,
+            players,
+            bots,
+            new string('A', GameEventInboxEntry.MaxIntentHashLength));
 
     private static Task SeedServerAsync(GoldSrcOpsApiFactory factory, Server server) =>
         factory.ExecuteDbContextAsync(async dbContext =>

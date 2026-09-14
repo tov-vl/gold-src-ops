@@ -14,6 +14,50 @@ public sealed class PostgreSqlGameEventInboxIntegrationTests
 {
     [Fact]
     [Trait("Category", "PostgreSqlIntegration")]
+    public async Task Reader_projection_filters_orders_and_limits_with_PostgreSQL()
+    {
+        var server = CreateServer();
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync(
+            principal: TestApiPrincipal.Reader());
+        var occurredAtUtc = new DateTimeOffset(2026, 9, 14, 12, 0, 0, TimeSpan.Zero);
+        var olderRound = CreateRoundEntry(server.Id, 1, occurredAtUtc.AddMinutes(-5), "de_dust2");
+        var newerRound = CreateRoundEntry(server.Id, 2, occurredAtUtc, "de_train");
+        var excludedRoundStart = new GameEventInboxEntry(
+            Guid.NewGuid(),
+            server.Id,
+            Guid.NewGuid(),
+            sequenceNumber: 3,
+            GameEventInboxEntry.CurrentContractVersion,
+            GameEventType.RoundStarted,
+            occurredAtUtc.AddMinutes(1),
+            occurredAtUtc.AddMinutes(1).AddSeconds(1),
+            "de_train",
+            players: 12,
+            bots: 0,
+            new string('B', GameEventInboxEntry.MaxIntentHashLength));
+        await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            dbContext.Servers.Add(server);
+            dbContext.GameEventInbox.AddRange(olderRound, newerRound, excludedRoundStart);
+            await dbContext.SaveChangesAsync();
+        });
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(
+            $"/api/servers/{server.Id}/game-events?limit=1");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var history = await response.Content.ReadFromJsonAsync<GameEventHistoryResponse>();
+        history.Should().NotBeNull();
+        history!.Limit.Should().Be(1);
+        history.Items.Should().ContainSingle();
+        history.Items[0].OccurredAtUtc.Should().Be(newerRound.OccurredAtUtc);
+        history.Items[0].Map.Should().Be("de_train");
+        history.Items[0].Type.Should().Be("round.ended");
+    }
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
     public async Task Inbox_is_race_safe_idempotent_and_retained_in_bounded_batches()
     {
         var server = CreateServer();
@@ -128,5 +172,24 @@ public sealed class PostgreSqlGameEventInboxIntegrationTests
             map: null,
             players: null,
             bots: null,
+            new string('A', GameEventInboxEntry.MaxIntentHashLength));
+
+    private static GameEventInboxEntry CreateRoundEntry(
+        Guid serverId,
+        long sequenceNumber,
+        DateTimeOffset occurredAtUtc,
+        string map) =>
+        new(
+            Guid.NewGuid(),
+            serverId,
+            Guid.NewGuid(),
+            sequenceNumber,
+            GameEventInboxEntry.CurrentContractVersion,
+            GameEventType.RoundEnded,
+            occurredAtUtc,
+            occurredAtUtc.AddSeconds(1),
+            map,
+            players: 12,
+            bots: 0,
             new string('A', GameEventInboxEntry.MaxIntentHashLength));
 }

@@ -51,6 +51,7 @@ builder.Services.AddScoped<MonitoringReadService>();
 builder.Services.AddScoped<ServerCredentialsService>();
 builder.Services.AddScoped<CommandExecutionService>();
 builder.Services.AddScoped<GameEventIngestionService>();
+builder.Services.AddScoped<GameEventReadService>();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 var otlpMetricsOptions = OtlpMetricsOptions.FromConfiguration(builder.Configuration);
 builder.Services.AddHealthChecks()
