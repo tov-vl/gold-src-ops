@@ -1312,6 +1312,18 @@ responses, and incomplete configuration fail closed. Delivery remains disabled
 by default. This is local implementation evidence, not production rollout or
 game-host installation evidence.
 
+The third local slice adds a versioned file-spool IPC between a future game
+plugin and the companion Worker. A producer publishes one strict, anonymous,
+4 KiB source-event envelope through a complete-file rename. The importer uses
+bounded `incoming`, `processing`, `accepted`, and `rejected` states plus an
+exact-byte SQLite receipt committed with the outbox event. Restart recovery
+therefore reconciles the commit boundary without allocating a duplicate event
+or sequence. Temporary files are ignored, conflicting record-ID reuse is
+quarantined, transient queue or filesystem failures remain retryable, and logs
+expose aggregate counts only. Spool import remains disabled by default. The
+slice includes no AMX Mod X/ReAPI plugin, production identity, migration,
+deployment, game-host installation, or event delivery.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1564,11 +1576,10 @@ Remaining portfolio gaps, in priority order:
   shadow nor the completed v2.3 24-hour sample is an achieved SLO claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
-- Review and integrate the active v2.10 game-events foundation and sandbox
-  companion agent. Then design the narrow local AMX Mod X/ReAPI-to-agent IPC
-  adapter. Provisioning machine credentials, deploying the migration,
-  installing on the game host, and sending production events remain separate
-  gates.
+- Review and integrate the active v2.10 durable file-spool IPC. Then implement
+  one sandbox AMX Mod X/ReAPI producer against the fixed spool contract.
+  Provisioning machine credentials, deploying the migration, installing on the
+  game host, and sending production events remain separate gates.
 
 VIP entitlements and payment integration remain a separate, later milestone.
 The first entitlement experiment must stay sandbox-only and must not process

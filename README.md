@@ -640,17 +640,24 @@ Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/incidents" -Headers $heade
 ## Sandbox Game-Event Agent
 
 The v2.10 companion Worker keeps source identity, sequence allocation, and
-exact request bytes in a bounded local SQLite outbox. Delivery is disabled by
-default and no real machine credentials are included. Queue the repository
-fixture and inspect aggregate state with:
+exact request bytes in a bounded local SQLite outbox. Its durable local file
+spool lets a future game plugin publish bounded source events without owning
+OAuth credentials or HTTP retry state. Delivery and spool import are disabled
+by default, and no real machine credentials are included.
+
+Exercise the producer/import boundary with the repository fixture:
 
 ```powershell
-dotnet run --project .\src\GoldSrcOps.GameEventAgent -- enqueue --file "$PWD\samples\game-event-agent\round-ended.json"
+dotnet run --project .\src\GoldSrcOps.GameEventAgent -- spool-write --file "$PWD\samples\game-event-agent\round-ended.json"
+dotnet run --project .\src\GoldSrcOps.GameEventAgent -- import-spool
 dotnet run --project .\src\GoldSrcOps.GameEventAgent -- status
 ```
 
+`enqueue --file` remains available as a direct SQLite-outbox smoke command.
+
 See `docs/game-events.md` for delivery classification, bounded configuration,
-and the boundary between this local sandbox and later production provisioning.
+spool crash recovery, and the boundary between this local sandbox and later
+production provisioning.
 
 ## Run Tests
 

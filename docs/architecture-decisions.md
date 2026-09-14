@@ -1210,3 +1210,55 @@ bounded retention, metrics, migration, and focused tests. Auth0 M2M
 provisioning, production migration and rollout, an AMX Mod X/ReAPI sender, and
 Reader projections remain separate follow-up slices. The wire contract is in
 `docs/game-events.md`.
+
+## Decision 25: Use A Durable Local File Spool Between The Game Plugin And Agent
+
+Decision:
+
+Use one versioned, bounded file-spool envelope as the local IPC boundary between
+a future AMX Mod X/ReAPI plugin and `GoldSrcOps.GameEventAgent`. The producer
+writes and flushes a temporary file, then publishes it with a same-directory
+rename. The agent claims ready files through `incoming`, `processing`, and
+`accepted` states; invalid or conflicting records move to `rejected`.
+
+Commit the exact record SHA-256 and allocated outbox identity in the same
+SQLite transaction as the event. Keep that receipt until the accepted file is
+finalized. Import and delivery remain independently disabled by default.
+
+Decision date: 2026-09-14.
+
+Reasoning:
+
+- The game plugin only needs bounded local file creation. It does not receive
+  OAuth credentials, implement HTTP, or own delivery retry policy.
+- Complete-file publication prevents the consumer from parsing a partial
+  producer write. Fixed names and a strict 4 KiB versioned envelope make the
+  boundary testable and fail closed.
+- A transactionally stored exact-byte receipt distinguishes recovery after a
+  committed enqueue from a record-ID collision and prevents duplicate sequence
+  allocation across agent interruption.
+- Explicit filesystem states make deferred, rejected, and reconciliation work
+  observable without logging gameplay payloads.
+- The expected single-server MVP rate does not justify a broker or another
+  network listener.
+
+Alternatives considered:
+
+- Send UDP or an unacknowledged local datagram. Rejected because process
+  interruption and receiver downtime can silently lose events.
+- Give the plugin OAuth credentials and send HTTP directly. Rejected because
+  secret storage, token refresh, response classification, and retry state do
+  not belong in the game-server plugin.
+- Use a local socket with an in-memory handoff. Deferred until measured latency
+  requires it; durable restart recovery would still need a queue.
+- Introduce a broker. Deferred until observed throughput, multi-host fan-in, or
+  ownership boundaries justify its operational cost.
+
+Implementation status:
+
+The local v2.10 implementation includes the reference writer, bounded importer,
+SQLite schema migration and receipts, aggregate status, spool-only Worker mode,
+and focused crash-boundary tests. It does not include the AMX Mod X/ReAPI
+producer, production installation, credentials, migration rollout, or gameplay
+event delivery. The contract and state transitions are in
+`docs/game-events.md`.

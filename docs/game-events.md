@@ -1,8 +1,9 @@
 # Game Event Ingestion
 
 This document defines contract version 1 of the local v2.10 game-events
-foundation and the sandbox companion agent. Neither is evidence that an agent
-has been installed or that production accepts gameplay events.
+foundation, sandbox companion agent, and local file-spool IPC. None is evidence
+that an agent or plugin has been installed or that production accepts gameplay
+events.
 
 ## Endpoint And Identity
 
@@ -99,7 +100,7 @@ Metrics use only allowlisted event type and result labels:
 ## Sandbox Companion Agent
 
 `GoldSrcOps.GameEventAgent` is a separate .NET Worker process. It does not run
-inside the API or game server, and delivery is disabled by default. Its current
+inside the API or game server, and delivery is disabled by default. A direct
 test source accepts one bounded JSON file and creates the event ID, persistent
 source-instance ID, monotonic sequence, and exact request bytes inside one
 SQLite transaction:
@@ -108,6 +109,69 @@ SQLite transaction:
 dotnet run --project src/GoldSrcOps.GameEventAgent -- enqueue --file "$PWD/samples/game-event-agent/round-ended.json"
 dotnet run --project src/GoldSrcOps.GameEventAgent -- status
 ```
+
+## Local File-Spool IPC
+
+The third local slice separates the future game plugin from the companion
+agent with a durable, bounded file spool. The producer contract is a strict
+JSON envelope no larger than 4 KiB:
+
+```json
+{
+  "spoolVersion": 1,
+  "recordId": "77a456f5-e111-4736-a010-649c60e36bc0",
+  "event": {
+    "type": "round.ended",
+    "occurredAtUtc": "2026-09-14T09:00:00Z",
+    "map": "de_dust2",
+    "players": 12,
+    "bots": 0
+  }
+}
+```
+
+The file name must be the canonical lower-case `<recordId>.json`. Unknown JSON
+members, unsupported versions, mismatched names, invalid source events, empty
+records, and records over 4 KiB are rejected. The contract contains no OAuth
+material, player identity, address, chat text, arbitrary JSON, or RCON data.
+
+A producer writes `<recordId>.tmp`, flushes the complete file, and renames it
+within `incoming` to `<recordId>.json`. The importer ignores `.tmp` files and
+uses these states:
+
+1. Move `incoming/<recordId>.json` to `processing` to claim it.
+2. Insert the normalized event and an exact-byte SHA-256 receipt in the same
+   SQLite transaction.
+3. Move the claimed file to `accepted` after that transaction commits.
+4. Remove the receipt and then delete the accepted file.
+
+After interruption, a `processing` record with the same receipt is reconciled
+without allocating another event or sequence. An `accepted` record is only
+finalized; it is never enqueued again. Reusing one record ID with different
+bytes or supplying an invalid record moves the file to `rejected`. A full
+queue, exhausted receipt capacity, temporary SQLite contention, or a transient
+filesystem failure leaves the record retryable and reports it as deferred.
+Each import batch is bounded.
+
+On Unix, spool directories are set to owner-only `0700` and files created by
+the reference writer use `0600`. Reparse-point directories and records fail
+closed. Windows deployments must supply an equivalently restricted directory
+ACL. Logs and status expose only aggregate state. A healthy completed batch
+normally leaves `spool-receipts=0`.
+
+Exercise this boundary locally without enabling HTTP delivery:
+
+```powershell
+dotnet run --project src/GoldSrcOps.GameEventAgent -- spool-write --file "$PWD/samples/game-event-agent/round-ended.json"
+dotnet run --project src/GoldSrcOps.GameEventAgent -- import-spool
+dotnet run --project src/GoldSrcOps.GameEventAgent -- status
+```
+
+For a continuous spool-only sandbox process, set
+`GameEventAgent__Spool__Enabled=true` before `run`. Root path, one-to-sixty
+second import interval, and one-to-one-thousand record batch size are bounded
+configuration. `run` fails when both spool import and HTTP delivery are
+disabled.
 
 The SQLite queue uses WAL mode and a finite capacity. A dispatcher claims one
 event with a lease, so a process failure leaves it available for the same-byte
@@ -138,15 +202,16 @@ values before invoking `run`:
 - `GameEventAgent__Delivery__OAuth__Audience`.
 
 The API base URL and token endpoint must use HTTPS, except that loopback HTTP is
-allowed for a local synthetic server. Queue path, capacity, dispatch interval,
-lease, retry, request-timeout, maximum-attempt, and maximum-event-age settings
-have bounded defaults in `appsettings.json`.
+allowed for a local synthetic server. Queue path, capacity, spool interval and
+batch size, dispatch interval, lease, retry, request-timeout, maximum-attempt,
+and maximum-event-age settings have bounded defaults in `appsettings.json`.
 
 ## Deferred Work
 
-The next agent slice may add a narrow local IPC adapter so an AMX Mod X/ReAPI
-plugin only produces bounded source events and never owns OAuth or retry state.
-Auth0 M2M provisioning, production migration and deployment, game-host
-installation, production event delivery, dead-letter replay, and any Reader
-projection require their own review and acceptance evidence. A broker is
-deferred until observed load or ownership pressure justifies it.
+The next agent slice may implement a sandbox AMX Mod X/ReAPI producer for the
+versioned spool contract. The plugin must only create bounded source events and
+must never own OAuth or HTTP retry state. Auth0 M2M provisioning, production
+migration and deployment, game-host installation, production event delivery,
+dead-letter replay, and any Reader projection require their own review and
+acceptance evidence. A broker is deferred until observed load or ownership
+pressure justifies it.

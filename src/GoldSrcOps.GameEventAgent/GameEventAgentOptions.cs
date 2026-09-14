@@ -5,6 +5,7 @@ namespace GoldSrcOps.GameEventAgent;
 
 internal sealed record GameEventAgentOptions(
     GameEventQueueOptions Queue,
+    GameEventSpoolOptions Spool,
     GameEventDeliveryOptions? Delivery)
 {
     private const string SectionName = "GameEventAgent";
@@ -27,10 +28,21 @@ internal sealed record GameEventAgentOptions(
             TimeSpan.FromSeconds(
                 ReadInt(section, "DatabaseBusyTimeoutSeconds", 5, 1, 60)));
 
+        var spoolSection = section.GetSection("Spool");
+        var spool = new GameEventSpoolOptions(
+            ReadBool(spoolSection, "Enabled", defaultValue: false),
+            ResolvePath(
+                ReadString(spoolSection, "RootPath", "data/game-event-spool"),
+                contentRootPath,
+                "Spool:RootPath"),
+            TimeSpan.FromSeconds(
+                ReadInt(spoolSection, "ImportIntervalSeconds", 1, 1, 60)),
+            ReadInt(spoolSection, "BatchSize", 20, 1, 1_000));
+
         var deliverySection = section.GetSection("Delivery");
         if (!ReadBool(deliverySection, "Enabled", defaultValue: false))
         {
-            return new GameEventAgentOptions(queue, Delivery: null);
+            return new GameEventAgentOptions(queue, spool, Delivery: null);
         }
 
         var requestTimeout = TimeSpan.FromSeconds(
@@ -82,7 +94,7 @@ internal sealed record GameEventAgentOptions(
                 TimeSpan.FromSeconds(
                     ReadInt(oauthSection, "RefreshSkewSeconds", 60, 0, 600))));
 
-        return new GameEventAgentOptions(queue, delivery);
+        return new GameEventAgentOptions(queue, spool, delivery);
     }
 
     private static string ReadRequiredString(
@@ -233,6 +245,21 @@ internal sealed record GameEventQueueOptions(
     int Capacity,
     TimeSpan BusyTimeout,
     bool Pooling = true);
+
+internal sealed record GameEventSpoolOptions(
+    bool Enabled,
+    string RootPath,
+    TimeSpan ImportInterval,
+    int BatchSize)
+{
+    public string IncomingPath => Path.Combine(RootPath, "incoming");
+
+    public string ProcessingPath => Path.Combine(RootPath, "processing");
+
+    public string AcceptedPath => Path.Combine(RootPath, "accepted");
+
+    public string RejectedPath => Path.Combine(RootPath, "rejected");
+}
 
 internal sealed record GameEventDeliveryOptions(
     Guid ServerId,

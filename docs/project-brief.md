@@ -71,6 +71,10 @@ Current implementation:
 - Unit, API integration, deterministic polling, protocol, and PostgreSQL
   Testcontainers coverage.
 - GitHub Actions quality gate for formatting, build, tests, and NuGet audit.
+- A sandbox game-event companion Worker with a bounded SQLite WAL outbox,
+  exact-byte HTTP retries, external OAuth secret reference, and a versioned
+  local file spool that reconciles interrupted imports without duplicate
+  sequence allocation. Both spool import and delivery are disabled by default.
 - Independent external availability shadow probes with a normalized exporter,
   create-only off-host archive, scheduled collection, and verified read-only
   recovery. The immutable `API-01` tuple starts a prospective seven-day
@@ -344,8 +348,11 @@ The project should evolve in stages:
   expose gameplay data in the UI. The second local slice adds a sandboxed .NET
   companion Worker with a bounded SQLite outbox, persistent source identity and
   sequence, exact-byte retry, leased dispatch, client-credentials token cache,
-  and a file-backed test source. Delivery remains disabled by default; no
-  production identity, migration, runtime, or game-host state is changed.
+  and a file-backed test source. The third local slice adds a strict 4 KiB
+  file-spool envelope and crash-reconcilable `incoming`, `processing`,
+  `accepted`, and `rejected` state machine. Spool import and delivery remain
+  disabled by default; no production identity, migration, runtime, or game-host
+  state is changed.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

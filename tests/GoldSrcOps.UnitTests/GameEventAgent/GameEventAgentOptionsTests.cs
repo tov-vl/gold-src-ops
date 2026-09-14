@@ -17,6 +17,8 @@ public sealed class GameEventAgentOptionsTests
         result.Delivery.Should().BeNull();
         result.Queue.DatabasePath.Should().Be(Path.Combine(root, "data", "game-event-agent.db"));
         result.Queue.Capacity.Should().Be(10_000);
+        result.Spool.Enabled.Should().BeFalse();
+        result.Spool.RootPath.Should().Be(Path.Combine(root, "data", "game-event-spool"));
     }
 
     [Fact]
@@ -66,6 +68,48 @@ public sealed class GameEventAgentOptionsTests
             .WithMessage("*GameEventAgent:Delivery:LeaseSeconds*");
     }
 
+    [Fact]
+    public void FromConfiguration_accepts_bounded_spool_settings_without_delivery()
+    {
+        var root = Path.GetFullPath("agent-options-test-root");
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["GameEventAgent:Spool:Enabled"] = "true",
+                ["GameEventAgent:Spool:RootPath"] = "ipc",
+                ["GameEventAgent:Spool:ImportIntervalSeconds"] = "2",
+                ["GameEventAgent:Spool:BatchSize"] = "7"
+            })
+            .Build();
+
+        var result = GameEventAgentOptions.FromConfiguration(configuration, root);
+
+        result.Delivery.Should().BeNull();
+        result.Spool.Should().Be(new GameEventSpoolOptions(
+            Enabled: true,
+            Path.Combine(root, "ipc"),
+            TimeSpan.FromSeconds(2),
+            BatchSize: 7));
+    }
+
+    [Fact]
+    public void FromConfiguration_rejects_an_unbounded_spool_batch()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["GameEventAgent:Spool:BatchSize"] = "1001"
+            })
+            .Build();
+
+        var act = () => GameEventAgentOptions.FromConfiguration(
+            configuration,
+            Path.GetFullPath("agent-options-test-root"));
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*GameEventAgent:Spool:BatchSize*");
+    }
+
     private static IConfiguration BuildConfiguration(
         string apiBaseUrl,
         string tokenEndpoint,
@@ -74,7 +118,7 @@ public sealed class GameEventAgentOptionsTests
             .AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)
             {
                 ["GameEventAgent:Delivery:Enabled"] = "true",
-                ["GameEventAgent:Delivery:ServerId"] = "bd790c72-30f1-4dd9-9ec3-b79da8315227",
+                ["GameEventAgent:Delivery:ServerId"] = GameEventAgentTestData.ServerId.ToString("D"),
                 ["GameEventAgent:Delivery:ApiBaseUrl"] = apiBaseUrl,
                 ["GameEventAgent:Delivery:LeaseSeconds"] = leaseSeconds,
                 ["GameEventAgent:Delivery:RequestTimeoutSeconds"] = "10",
