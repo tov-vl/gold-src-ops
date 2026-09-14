@@ -2,6 +2,7 @@ using System.Security.Claims;
 using AwesomeAssertions;
 using GoldSrcOps.Api.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -84,6 +85,69 @@ public sealed class SecurityServiceCollectionExtensionsTests
             .IsInRole(GoldSrcOpsSecurity.ReaderRole)
             .Should()
             .BeTrue();
+    }
+
+    [Fact]
+    public async Task Validated_machine_claims_satisfy_only_the_game_event_writer_policy()
+    {
+        var serverId = Guid.NewGuid();
+        var signingKey = new SymmetricSecurityKey(new byte[32]);
+        await using var serviceProvider = CreateServiceProvider(CustomRoleClaimType, signingKey.Key);
+        var options = GetBearerOptions(serviceProvider);
+        var token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+        {
+            Audience = "goldsrcops-tests",
+            Claims = new Dictionary<string, object>(StringComparer.Ordinal)
+            {
+                [GoldSrcOpsSecurity.PermissionClaimType] =
+                    new[] { GoldSrcOpsSecurity.GameEventIngestPermission },
+                [GoldSrcOpsSecurity.ServerIdClaimType] = serverId.ToString("D"),
+            },
+            Expires = DateTime.UtcNow.AddMinutes(5),
+            Issuer = "goldsrcops-tests",
+            SigningCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256),
+            Subject = new ClaimsIdentity(
+            [
+                new Claim(GoldSrcOpsSecurity.SubjectClaimType, "game-agent-42"),
+            ]),
+        });
+        var validationResult = await new JsonWebTokenHandler()
+            .ValidateTokenAsync(token, options.TokenValidationParameters);
+        var principal = new ClaimsPrincipal(validationResult.ClaimsIdentity);
+        var authorization = serviceProvider.GetRequiredService<IAuthorizationService>();
+
+        var writer = await authorization.AuthorizeAsync(
+            principal,
+            resource: null,
+            GoldSrcOpsSecurity.GameEventWriterPolicy);
+        var reader = await authorization.AuthorizeAsync(
+            principal,
+            resource: null,
+            GoldSrcOpsSecurity.ReaderPolicy);
+        var operatorResult = await authorization.AuthorizeAsync(
+            principal,
+            resource: null,
+            GoldSrcOpsSecurity.OperatorPolicy);
+
+        validationResult.IsValid.Should().BeTrue();
+        writer.Succeeded.Should().BeTrue();
+        reader.Succeeded.Should().BeFalse();
+        operatorResult.Succeeded.Should().BeFalse();
+        GoldSrcOpsSecurity.TryGetBoundServerId(principal, out var boundServerId).Should().BeTrue();
+        boundServerId.Should().Be(serverId);
+    }
+
+    [Fact]
+    public void Server_binding_rejects_ambiguous_claims()
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(GoldSrcOpsSecurity.ServerIdClaimType, Guid.NewGuid().ToString("D")),
+            new Claim(GoldSrcOpsSecurity.ServerIdClaimType, Guid.NewGuid().ToString("D")),
+        ],
+        authenticationType: "test"));
+
+        GoldSrcOpsSecurity.TryGetBoundServerId(principal, out _).Should().BeFalse();
     }
 
     [Theory]
@@ -179,6 +243,7 @@ public sealed class SecurityServiceCollectionExtensionsTests
 
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
+        services.AddLogging();
         services.AddGoldSrcOpsSecurity(environment.Object);
 
         return services.BuildServiceProvider();

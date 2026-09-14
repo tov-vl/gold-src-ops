@@ -3,14 +3,17 @@ using GoldSrcOps.Application.Alerts;
 using GoldSrcOps.Application.Commands;
 using GoldSrcOps.Application.Common;
 using GoldSrcOps.Application.Credentials;
+using GoldSrcOps.Application.GameEvents;
 using GoldSrcOps.Application.Incidents;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Infrastructure.A2S;
 using GoldSrcOps.Infrastructure.Alerts;
 using GoldSrcOps.Infrastructure.Commands;
+using GoldSrcOps.Infrastructure.GameEvents;
 using GoldSrcOps.Infrastructure.Monitoring;
 using GoldSrcOps.Infrastructure.Persistence;
+using GoldSrcOps.Infrastructure.Persistence.GameEvents;
 using GoldSrcOps.Infrastructure.Persistence.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -39,6 +42,7 @@ public static class DependencyInjection
         var rconOptions = GoldSrcRconOptions.FromConfiguration(configuration);
         var dispatcherOptions = CommandDispatcherOptions.FromConfiguration(configuration);
         var snapshotRetentionOptions = SnapshotRetentionOptions.FromConfiguration(configuration);
+        var gameEventRetentionOptions = GameEventRetentionOptions.FromConfiguration(configuration);
         var alertDeliveryOptions = AlertDeliveryOptions.FromConfiguration(
             configuration,
             allowHttpEndpoint: environment.IsDevelopment());
@@ -53,6 +57,7 @@ public static class DependencyInjection
         services.AddSingleton(rconOptions);
         services.AddSingleton(dispatcherOptions);
         services.AddSingleton(snapshotRetentionOptions);
+        services.AddSingleton(gameEventRetentionOptions);
         services.AddSingleton(alertDeliveryOptions);
         services.AddSingleton(new ServerPollingSettings(
             pollingOptions.QueryTimeout,
@@ -61,6 +66,9 @@ public static class DependencyInjection
         services.AddSingleton(new SnapshotRetentionSettings(
             snapshotRetentionOptions.RetentionPeriod,
             snapshotRetentionOptions.BatchSize));
+        services.AddSingleton(new GameEventRetentionSettings(
+            gameEventRetentionOptions.RetentionPeriod,
+            gameEventRetentionOptions.BatchSize));
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IAlertDeliveryReadRepository, EfAlertDeliveryReadRepository>();
@@ -73,6 +81,8 @@ public static class DependencyInjection
         services.AddScoped<IPollSnapshotRetentionRepository, EfPollSnapshotRetentionRepository>();
         services.AddScoped<IServerCredentialRepository, EfServerCredentialRepository>();
         services.AddScoped<ICommandExecutionRepository, EfCommandExecutionRepository>();
+        services.AddScoped<IGameEventInboxRepository, EfGameEventInboxRepository>();
+        services.AddScoped<IGameEventInboxRetentionRepository, EfGameEventInboxRetentionRepository>();
         services.AddSingleton<ISecretReferenceResolver, ConfigurationSecretReferenceResolver>();
         services.AddSingleton<IGoldSrcRconClient>(_ =>
             new GoldSrcRconClient(Encoding.GetEncoding("windows-1251"), rconOptions));
@@ -80,6 +90,7 @@ public static class DependencyInjection
         services.AddScoped<CommandDispatcher>();
         services.AddScoped<ServerPollingService>();
         services.AddScoped<SnapshotRetentionService>();
+        services.AddScoped<GameEventRetentionService>();
         services.AddSingleton<IGoldSrcServerQueryClient>(_ =>
             new GoldSrcServerQueryClient(Encoding.GetEncoding("windows-1251")));
 
@@ -96,6 +107,11 @@ public static class DependencyInjection
         if (snapshotRetentionOptions.Enabled)
         {
             services.AddHostedService<SnapshotRetentionBackgroundService>();
+        }
+
+        if (gameEventRetentionOptions.Enabled)
+        {
+            services.AddHostedService<GameEventRetentionBackgroundService>();
         }
 
         if (alertDeliveryOptions.Enabled)

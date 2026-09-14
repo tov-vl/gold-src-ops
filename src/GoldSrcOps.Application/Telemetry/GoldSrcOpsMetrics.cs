@@ -1,6 +1,7 @@
 using System.Diagnostics.Metrics;
 using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Domain.Commands;
+using GoldSrcOps.Domain.GameEvents;
 
 namespace GoldSrcOps.Application.Telemetry;
 
@@ -28,6 +29,16 @@ public enum AlertReplayMetricResult
     Idempotent = 2,
     Conflict = 3,
     Invalid = 4
+}
+
+public enum GameEventIngestionMetricResult
+{
+    Accepted = 1,
+    Idempotent = 2,
+    EventIdConflict = 3,
+    SourceSequenceConflict = 4,
+    ServerNotFound = 5,
+    Rejected = 6
 }
 
 public static class GoldSrcOpsMetrics
@@ -113,6 +124,23 @@ public static class GoldSrcOpsMetrics
         "goldsrcops.snapshot_retention.duration",
         unit: "s",
         description: "Duration of snapshot retention cleanup runs by result.");
+
+    private static readonly Counter<int> GameEventIngestionRequests = Meter.CreateCounter<int>(
+        "goldsrcops.game_events.ingestion_requests",
+        description: "Number of completed game event ingestion requests by event type and result.");
+
+    private static readonly Counter<int> GameEventRetentionRuns = Meter.CreateCounter<int>(
+        "goldsrcops.game_events.retention_runs",
+        description: "Number of game event inbox retention cleanup runs by result.");
+
+    private static readonly Counter<int> GameEventsDeleted = Meter.CreateCounter<int>(
+        "goldsrcops.game_events.deleted",
+        description: "Number of expired game event inbox entries deleted.");
+
+    private static readonly Histogram<double> GameEventRetentionDuration = Meter.CreateHistogram<double>(
+        "goldsrcops.game_events.retention_duration",
+        unit: "s",
+        description: "Duration of game event inbox retention cleanup runs by result.");
 
     private static double _alertPendingCount;
 
@@ -266,6 +294,29 @@ public static class GoldSrcOpsMetrics
         SnapshotRetentionDuration.Record(duration.TotalSeconds, FailureResultTag);
     }
 
+    public static void RecordGameEventIngestion(
+        GameEventType eventType,
+        GameEventIngestionMetricResult result)
+    {
+        GameEventIngestionRequests.Add(
+            1,
+            new KeyValuePair<string, object?>("event_type", GameEventTypeValue(eventType)),
+            new KeyValuePair<string, object?>("result", GameEventIngestionResultValue(result)));
+    }
+
+    public static void RecordGameEventRetentionCompleted(int deletedEvents, TimeSpan duration)
+    {
+        GameEventRetentionRuns.Add(1, SuccessResultTag);
+        AddIfPositive(GameEventsDeleted, deletedEvents);
+        GameEventRetentionDuration.Record(duration.TotalSeconds, SuccessResultTag);
+    }
+
+    public static void RecordGameEventRetentionFailed(TimeSpan duration)
+    {
+        GameEventRetentionRuns.Add(1, FailureResultTag);
+        GameEventRetentionDuration.Record(duration.TotalSeconds, FailureResultTag);
+    }
+
     private static void AddIfPositive(
         Counter<int> counter,
         int value,
@@ -331,4 +382,32 @@ public static class GoldSrcOpsMetrics
                 "Alert replay metric result is not supported.")
         };
     }
+
+    private static string GameEventTypeValue(GameEventType eventType) => eventType switch
+    {
+        GameEventType.ServerStarted => "server_started",
+        GameEventType.ServerStopped => "server_stopped",
+        GameEventType.MapStarted => "map_started",
+        GameEventType.RoundStarted => "round_started",
+        GameEventType.RoundEnded => "round_ended",
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(eventType),
+            eventType,
+            "Game event type is not supported.")
+    };
+
+    private static string GameEventIngestionResultValue(GameEventIngestionMetricResult result) =>
+        result switch
+        {
+            GameEventIngestionMetricResult.Accepted => "accepted",
+            GameEventIngestionMetricResult.Idempotent => "idempotent",
+            GameEventIngestionMetricResult.EventIdConflict => "event_id_conflict",
+            GameEventIngestionMetricResult.SourceSequenceConflict => "source_sequence_conflict",
+            GameEventIngestionMetricResult.ServerNotFound => "server_not_found",
+            GameEventIngestionMetricResult.Rejected => "rejected",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(result),
+                result,
+                "Game event ingestion metric result is not supported.")
+        };
 }

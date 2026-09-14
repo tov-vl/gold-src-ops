@@ -7,9 +7,13 @@ internal static class GoldSrcOpsSecurity
 {
     public const string ReaderPolicy = "Reader";
     public const string OperatorPolicy = "Operator";
+    public const string GameEventWriterPolicy = "GameEventWriter";
     public const string ReaderRole = "Reader";
     public const string OperatorRole = "Operator";
     public const string SubjectClaimType = "sub";
+    public const string PermissionClaimType = "permissions";
+    public const string GameEventIngestPermission = "ingest:game-events";
+    public const string ServerIdClaimType = "https://goldsrcops.com/claims/server_id";
 
     public static string GetRequiredSubject(ClaimsPrincipal principal)
     {
@@ -43,5 +47,15 @@ internal static class GoldSrcOpsSecurity
 
         subject = normalized;
         return true;
+    }
+
+    public static bool TryGetBoundServerId(ClaimsPrincipal? principal, out Guid serverId)
+    {
+        serverId = Guid.Empty;
+        var claims = principal?.FindAll(ServerIdClaimType).ToArray() ?? [];
+
+        return claims.Length == 1 &&
+            Guid.TryParseExact(claims[0].Value, "D", out serverId) &&
+            serverId != Guid.Empty;
     }
 }

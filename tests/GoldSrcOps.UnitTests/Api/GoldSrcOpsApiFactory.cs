@@ -64,7 +64,8 @@ internal sealed class GoldSrcOpsApiFactory : WebApplicationFactory<Program>
                 ["CommandDispatcher:RecoveryIntervalSeconds"] = "1",
                 ["ConnectionStrings:GoldSrcOps"] = "Host=localhost;Database=goldsrcops_tests;Username=test;Password=test",
                 ["Polling:Enabled"] = "false",
-                ["SnapshotRetention:Enabled"] = "false"
+                ["SnapshotRetention:Enabled"] = "false",
+                ["GameEventRetention:Enabled"] = "false"
             });
 
             if (_configurationOverrides is not null)

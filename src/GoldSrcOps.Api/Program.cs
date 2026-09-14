@@ -4,6 +4,7 @@ using GoldSrcOps.Api.Security;
 using GoldSrcOps.Application.Alerts;
 using GoldSrcOps.Application.Commands;
 using GoldSrcOps.Application.Credentials;
+using GoldSrcOps.Application.GameEvents;
 using GoldSrcOps.Application.Incidents;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Application.Servers;
@@ -49,6 +50,7 @@ builder.Services.AddScoped<IncidentsService>();
 builder.Services.AddScoped<MonitoringReadService>();
 builder.Services.AddScoped<ServerCredentialsService>();
 builder.Services.AddScoped<CommandExecutionService>();
+builder.Services.AddScoped<GameEventIngestionService>();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 var otlpMetricsOptions = OtlpMetricsOptions.FromConfiguration(builder.Configuration);
 builder.Services.AddHealthChecks()
@@ -100,6 +102,7 @@ app.MapServerEndpoints();
 app.MapIncidentEndpoints();
 app.MapDashboardEndpoints();
 app.MapCommandEndpoints();
+app.MapGameEventEndpoints();
 
 app.Run();
 
