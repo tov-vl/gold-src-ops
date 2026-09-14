@@ -24,7 +24,7 @@ public sealed class GameEventDispatcherTests
         var summary = await sut.DispatchAvailableAsync(CancellationToken.None);
 
         summary.Acknowledged.Should().Be(1);
-        outbox.GetStatistics().Should().Be(new GameEventQueueStatistics(0, 0, 0, 2));
+        outbox.GetStatistics().Should().Be(new GameEventQueueStatistics(0, 0, 0, 0, 2));
     }
 
     [Fact]

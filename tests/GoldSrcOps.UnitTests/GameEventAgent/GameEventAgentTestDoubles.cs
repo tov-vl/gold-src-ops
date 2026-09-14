@@ -25,6 +25,29 @@ internal sealed class TemporaryAgentDatabase : IDisposable
     }
 }
 
+internal sealed class TemporaryAgentSpool : IDisposable
+{
+    private readonly string _rootPath = Path.Combine(
+        Path.GetTempPath(),
+        "goldsrcops-game-event-spool-tests",
+        Guid.NewGuid().ToString("N"));
+
+    public GameEventSpoolOptions CreateOptions(bool enabled = false, int batchSize = 20) =>
+        new(
+            enabled,
+            _rootPath,
+            TimeSpan.FromSeconds(1),
+            batchSize);
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_rootPath))
+        {
+            Directory.Delete(_rootPath, recursive: true);
+        }
+    }
+}
+
 internal sealed class TestTimeProvider(DateTimeOffset utcNow) : TimeProvider
 {
     public DateTimeOffset UtcNow { get; set; } = utcNow;
@@ -108,6 +131,9 @@ internal sealed class StubHttpMessageHandler(
 
 internal static class GameEventAgentTestData
 {
+    public static readonly Guid ServerId =
+        Guid.Parse("11111111-2222-4333-8444-555555555555");
+
     public static readonly DateTimeOffset NowUtc =
         new(2026, 9, 14, 10, 0, 0, TimeSpan.Zero);
 
@@ -121,7 +147,7 @@ internal static class GameEventAgentTestData
         TimeSpan? retryBaseDelay = null,
         TimeSpan? retryMaximumDelay = null) =>
         new(
-            Guid.Parse("bd790c72-30f1-4dd9-9ec3-b79da8315227"),
+            ServerId,
             new Uri("https://api.example.test/"),
             TimeSpan.FromSeconds(1),
             TimeSpan.FromSeconds(30),

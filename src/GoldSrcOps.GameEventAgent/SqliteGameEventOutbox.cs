@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Security.Cryptography;
 using GoldSrcOps.Contracts.GameEvents;
 using Microsoft.Data.Sqlite;
 
@@ -7,7 +8,7 @@ namespace GoldSrcOps.GameEventAgent;
 
 internal sealed class SqliteGameEventOutbox : IGameEventOutbox
 {
-    private const int SchemaVersion = 1;
+    private const int SchemaVersion = 2;
     private const int MaximumFailureCodeLength = 64;
 
     private static readonly ConcurrentDictionary<string, Lock> InitializationLocks = new(
@@ -66,12 +67,89 @@ internal sealed class SqliteGameEventOutbox : IGameEventOutbox
 
     public QueuedGameEvent Enqueue(GameEventSourceInput input, DateTimeOffset enqueuedAtUtc)
     {
+        var result = EnqueueCore(input, enqueuedAtUtc, spoolRecord: null);
+        return result.Queued ?? throw new InvalidOperationException(
+            "A direct game-event enqueue unexpectedly returned an existing spool receipt.");
+    }
+
+    public GameEventSpoolEnqueueResult EnqueueFromSpool(
+        Guid recordId,
+        byte[] contentSha256,
+        GameEventSourceInput input,
+        DateTimeOffset enqueuedAtUtc)
+    {
+        ValidateSpoolIdentity(recordId, contentSha256);
+        var result = EnqueueCore(
+            input,
+            enqueuedAtUtc,
+            new SpoolRecordIdentity(recordId, contentSha256));
+        return new GameEventSpoolEnqueueResult(
+            result.EventId,
+            result.SequenceNumber,
+            result.AlreadyQueued);
+    }
+
+    public void CompleteSpoolRecord(Guid recordId, byte[] contentSha256)
+    {
+        ValidateSpoolIdentity(recordId, contentSha256);
+        EnsureInitialized();
+
+        using var connection = OpenConnection();
+        using var transaction = connection.BeginTransaction(deferred: false);
+        var receipt = ReadSpoolReceipt(connection, transaction, recordId);
+        if (receipt is null)
+        {
+            transaction.Commit();
+            return;
+        }
+
+        if (!CryptographicOperations.FixedTimeEquals(receipt.ContentSha256, contentSha256))
+        {
+            throw new GameEventSpoolRecordConflictException();
+        }
+
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "DELETE FROM game_event_spool_receipt WHERE record_id = $record_id;";
+        command.Parameters.AddWithValue("$record_id", recordId.ToString("D"));
+        RequireSingleRow(command.ExecuteNonQuery(), "complete a game-event spool record");
+        transaction.Commit();
+    }
+
+    private EnqueueCoreResult EnqueueCore(
+        GameEventSourceInput input,
+        DateTimeOffset enqueuedAtUtc,
+        SpoolRecordIdentity? spoolRecord)
+    {
         EnsureInitialized();
         var nowUtc = enqueuedAtUtc.ToUniversalTime();
         var normalized = GameEventContractRules.ValidateAndNormalize(input, nowUtc);
 
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction(deferred: false);
+
+        if (spoolRecord is not null)
+        {
+            var receipt = ReadSpoolReceipt(connection, transaction, spoolRecord.RecordId);
+            if (receipt is not null)
+            {
+                if (!CryptographicOperations.FixedTimeEquals(
+                        receipt.ContentSha256,
+                        spoolRecord.ContentSha256))
+                {
+                    throw new GameEventSpoolRecordConflictException();
+                }
+
+                transaction.Commit();
+                return new EnqueueCoreResult(
+                    Queued: null,
+                    receipt.EventId,
+                    receipt.SequenceNumber,
+                    AlreadyQueued: true);
+            }
+
+            EnsureSpoolReceiptCapacity(connection, transaction);
+        }
 
         using (var countCommand = connection.CreateCommand())
         {
@@ -117,6 +195,11 @@ internal sealed class SqliteGameEventOutbox : IGameEventOutbox
 
         InsertEvent(connection, transaction, queued);
 
+        if (spoolRecord is not null)
+        {
+            InsertSpoolReceipt(connection, transaction, spoolRecord, queued);
+        }
+
         using (var sequenceCommand = connection.CreateCommand())
         {
             sequenceCommand.Transaction = transaction;
@@ -132,7 +215,11 @@ internal sealed class SqliteGameEventOutbox : IGameEventOutbox
         }
 
         transaction.Commit();
-        return queued;
+        return new EnqueueCoreResult(
+            queued,
+            queued.EventId,
+            queued.SequenceNumber,
+            AlreadyQueued: false);
     }
 
     public QueuedGameEvent? ClaimNext(DateTimeOffset nowUtc, TimeSpan leaseDuration)
@@ -284,6 +371,7 @@ internal sealed class SqliteGameEventOutbox : IGameEventOutbox
                 SUM(CASE WHEN status = $pending THEN 1 ELSE 0 END),
                 SUM(CASE WHEN status = $in_flight THEN 1 ELSE 0 END),
                 SUM(CASE WHEN status = $dead_letter THEN 1 ELSE 0 END),
+                (SELECT COUNT(*) FROM game_event_spool_receipt),
                 (SELECT next_sequence_number FROM agent_state WHERE singleton_id = 1)
             FROM game_event_outbox;
             """;
@@ -292,7 +380,7 @@ internal sealed class SqliteGameEventOutbox : IGameEventOutbox
         command.Parameters.AddWithValue("$dead_letter", (int)GameEventQueueStatus.DeadLetter);
 
         using var reader = command.ExecuteReader();
-        if (!reader.Read() || reader.IsDBNull(3))
+        if (!reader.Read() || reader.IsDBNull(4))
         {
             throw new InvalidOperationException("The game-event queue state is missing.");
         }
@@ -301,7 +389,8 @@ internal sealed class SqliteGameEventOutbox : IGameEventOutbox
             reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
             reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
             reader.IsDBNull(2) ? 0 : reader.GetInt32(2),
-            reader.GetInt64(3));
+            reader.GetInt32(3),
+            reader.GetInt64(4));
     }
 
     private static void EnsureSchema(SqliteConnection connection)
@@ -315,57 +404,71 @@ internal sealed class SqliteGameEventOutbox : IGameEventOutbox
                     $"The game-event queue schema version {currentVersion} is newer than supported version {SchemaVersion}."));
         }
 
-        if (currentVersion == SchemaVersion)
+        if (currentVersion == 0)
         {
-            transaction.Commit();
-            return;
+            using var createQueueCommand = connection.CreateCommand();
+            createQueueCommand.Transaction = transaction;
+            createQueueCommand.CommandText = """
+                CREATE TABLE agent_state (
+                    singleton_id INTEGER NOT NULL PRIMARY KEY CHECK (singleton_id = 1),
+                    source_instance_id TEXT NOT NULL,
+                    next_sequence_number INTEGER NOT NULL CHECK (next_sequence_number > 0)
+                );
+
+                CREATE TABLE game_event_outbox (
+                    event_id TEXT NOT NULL PRIMARY KEY,
+                    source_instance_id TEXT NOT NULL,
+                    sequence_number INTEGER NOT NULL UNIQUE CHECK (sequence_number > 0),
+                    contract_version INTEGER NOT NULL CHECK (contract_version > 0),
+                    event_type TEXT NOT NULL,
+                    occurred_at_utc TEXT NOT NULL,
+                    map TEXT NULL,
+                    players INTEGER NULL,
+                    bots INTEGER NULL,
+                    payload_json BLOB NOT NULL CHECK (length(payload_json) <= 4096),
+                    created_at_utc TEXT NOT NULL,
+                    status INTEGER NOT NULL,
+                    attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+                    next_attempt_at_utc TEXT NOT NULL,
+                    lease_until_utc TEXT NULL,
+                    last_failure_code TEXT NULL,
+                    CHECK ((players IS NULL AND bots IS NULL) OR (players IS NOT NULL AND bots IS NOT NULL)),
+                    CHECK (status IN (0, 1, 2))
+                );
+
+                CREATE INDEX ix_game_event_outbox_due
+                    ON game_event_outbox(status, next_attempt_at_utc, lease_until_utc, sequence_number);
+
+                INSERT INTO agent_state(singleton_id, source_instance_id, next_sequence_number)
+                VALUES (1, $source_instance_id, 1);
+
+                PRAGMA user_version = 1;
+                """;
+            createQueueCommand.Parameters.AddWithValue(
+                "$source_instance_id",
+                Guid.NewGuid().ToString("D"));
+            createQueueCommand.ExecuteNonQuery();
+            currentVersion = 1;
         }
 
-        using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = """
-            CREATE TABLE IF NOT EXISTS agent_state (
-                singleton_id INTEGER NOT NULL PRIMARY KEY CHECK (singleton_id = 1),
-                source_instance_id TEXT NOT NULL,
-                next_sequence_number INTEGER NOT NULL CHECK (next_sequence_number > 0)
-            );
+        if (currentVersion == 1)
+        {
+            using var createSpoolReceiptCommand = connection.CreateCommand();
+            createSpoolReceiptCommand.Transaction = transaction;
+            createSpoolReceiptCommand.CommandText = """
+                CREATE TABLE game_event_spool_receipt (
+                    record_id TEXT NOT NULL PRIMARY KEY,
+                    content_sha256 BLOB NOT NULL CHECK (length(content_sha256) = 32),
+                    event_id TEXT NOT NULL,
+                    sequence_number INTEGER NOT NULL CHECK (sequence_number > 0),
+                    ingested_at_utc TEXT NOT NULL
+                );
 
-            CREATE TABLE IF NOT EXISTS game_event_outbox (
-                event_id TEXT NOT NULL PRIMARY KEY,
-                source_instance_id TEXT NOT NULL,
-                sequence_number INTEGER NOT NULL UNIQUE CHECK (sequence_number > 0),
-                contract_version INTEGER NOT NULL CHECK (contract_version > 0),
-                event_type TEXT NOT NULL,
-                occurred_at_utc TEXT NOT NULL,
-                map TEXT NULL,
-                players INTEGER NULL,
-                bots INTEGER NULL,
-                payload_json BLOB NOT NULL CHECK (length(payload_json) <= 4096),
-                created_at_utc TEXT NOT NULL,
-                status INTEGER NOT NULL,
-                attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
-                next_attempt_at_utc TEXT NOT NULL,
-                lease_until_utc TEXT NULL,
-                last_failure_code TEXT NULL,
-                CHECK ((players IS NULL AND bots IS NULL) OR (players IS NOT NULL AND bots IS NOT NULL)),
-                CHECK (status IN (0, 1, 2))
-            );
+                PRAGMA user_version = 2;
+                """;
+            createSpoolReceiptCommand.ExecuteNonQuery();
+        }
 
-            CREATE INDEX IF NOT EXISTS ix_game_event_outbox_due
-                ON game_event_outbox(status, next_attempt_at_utc, lease_until_utc, sequence_number);
-
-            PRAGMA user_version = 1;
-            """;
-        command.ExecuteNonQuery();
-
-        using var stateCommand = connection.CreateCommand();
-        stateCommand.Transaction = transaction;
-        stateCommand.CommandText = """
-            INSERT OR IGNORE INTO agent_state(singleton_id, source_instance_id, next_sequence_number)
-            VALUES (1, $source_instance_id, 1);
-            """;
-        stateCommand.Parameters.AddWithValue("$source_instance_id", Guid.NewGuid().ToString("D"));
-        RequireSingleRow(stateCommand.ExecuteNonQuery(), "initialize the game-event source identity");
         transaction.Commit();
     }
 
@@ -425,6 +528,73 @@ internal sealed class SqliteGameEventOutbox : IGameEventOutbox
         }
 
         return new GameEventQueueState(sourceInstanceId, nextSequenceNumber);
+    }
+
+    private void EnsureSpoolReceiptCapacity(
+        SqliteConnection connection,
+        SqliteTransaction transaction)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT COUNT(*) FROM game_event_spool_receipt;";
+        var count = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+        if (count >= _options.Capacity)
+        {
+            throw new GameEventSpoolReceiptCapacityException(_options.Capacity);
+        }
+    }
+
+    private static SpoolReceipt? ReadSpoolReceipt(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        Guid recordId)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            SELECT content_sha256, event_id, sequence_number
+            FROM game_event_spool_receipt
+            WHERE record_id = $record_id;
+            """;
+        command.Parameters.AddWithValue("$record_id", recordId.ToString("D"));
+
+        using var reader = command.ExecuteReader();
+        return reader.Read()
+            ? new SpoolReceipt(
+                (byte[])reader.GetValue(0),
+                Guid.Parse(reader.GetString(1)),
+                reader.GetInt64(2))
+            : null;
+    }
+
+    private static void InsertSpoolReceipt(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        SpoolRecordIdentity spoolRecord,
+        QueuedGameEvent queued)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO game_event_spool_receipt(
+                record_id,
+                content_sha256,
+                event_id,
+                sequence_number,
+                ingested_at_utc)
+            VALUES (
+                $record_id,
+                $content_sha256,
+                $event_id,
+                $sequence_number,
+                $ingested_at_utc);
+            """;
+        command.Parameters.AddWithValue("$record_id", spoolRecord.RecordId.ToString("D"));
+        command.Parameters.Add("$content_sha256", SqliteType.Blob).Value = spoolRecord.ContentSha256;
+        command.Parameters.AddWithValue("$event_id", queued.EventId.ToString("D"));
+        command.Parameters.AddWithValue("$sequence_number", queued.SequenceNumber);
+        command.Parameters.AddWithValue("$ingested_at_utc", FormatTimestamp(queued.CreatedAtUtc));
+        RequireSingleRow(command.ExecuteNonQuery(), "record a game-event spool receipt");
     }
 
     private static void InsertEvent(
@@ -547,6 +717,20 @@ internal sealed class SqliteGameEventOutbox : IGameEventOutbox
         _ => throw new ArgumentOutOfRangeException(nameof(failure), failure, "Failure code is not supported.")
     };
 
+    private static void ValidateSpoolIdentity(Guid recordId, byte[] contentSha256)
+    {
+        if (recordId == Guid.Empty)
+        {
+            throw new ArgumentException("Spool record id must not be empty.", nameof(recordId));
+        }
+
+        ArgumentNullException.ThrowIfNull(contentSha256);
+        if (contentSha256.Length != 32)
+        {
+            throw new ArgumentException("Spool record content hash must contain 32 bytes.", nameof(contentSha256));
+        }
+    }
+
     private SqliteConnection OpenConnection()
     {
         var connection = new SqliteConnection(_connectionString);
@@ -576,4 +760,14 @@ internal sealed class SqliteGameEventOutbox : IGameEventOutbox
             throw new InvalidOperationException($"Could not {operation}; the queue state changed unexpectedly.");
         }
     }
+
+    private sealed record SpoolRecordIdentity(Guid RecordId, byte[] ContentSha256);
+
+    private sealed record SpoolReceipt(byte[] ContentSha256, Guid EventId, long SequenceNumber);
+
+    private sealed record EnqueueCoreResult(
+        QueuedGameEvent? Queued,
+        Guid EventId,
+        long SequenceNumber,
+        bool AlreadyQueued);
 }

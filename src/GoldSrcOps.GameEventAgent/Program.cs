@@ -47,7 +47,14 @@ internal static class GameEventAgentConsole
                     options.Queue,
                     enqueue.InputPath,
                     cancellationToken).ConfigureAwait(false),
-                ShowQueueStatusCommand => ShowStatus(options.Queue),
+                WriteSpoolRecordCommand writeSpool => await WriteSpoolRecordAsync(
+                    options.Spool,
+                    writeSpool.InputPath,
+                    cancellationToken).ConfigureAwait(false),
+                ImportSpoolCommand => await ImportSpoolAsync(
+                    options,
+                    cancellationToken).ConfigureAwait(false),
+                ShowQueueStatusCommand => ShowStatus(options),
                 _ => throw new InvalidOperationException("The game-event agent command is unsupported.")
             };
         }
@@ -70,34 +77,48 @@ internal static class GameEventAgentConsole
         GameEventAgentOptions options,
         CancellationToken cancellationToken)
     {
-        var delivery = options.Delivery ?? throw new InvalidOperationException(
-            "Game-event delivery is disabled. Set GameEventAgent:Delivery:Enabled to true after supplying the complete sandbox configuration.");
+        if (!options.Spool.Enabled && options.Delivery is null)
+        {
+            throw new InvalidOperationException(
+                "Game-event spool import and delivery are disabled. Enable at least one component after supplying its complete sandbox configuration.");
+        }
 
         builder.Services.AddSingleton(options.Queue);
-        builder.Services.AddSingleton(delivery);
-        builder.Services.AddSingleton(delivery.OAuth);
         builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
         builder.Services.AddSingleton<IGameEventOutbox, SqliteGameEventOutbox>();
-        builder.Services.AddSingleton<IGameEventAccessTokenProvider, ClientCredentialsAccessTokenProvider>();
-        builder.Services.AddSingleton<IGameEventDeliveryClient, GameEventDeliveryClient>();
-        builder.Services.AddSingleton<IRetryDelayPolicy, ExponentialRetryDelayPolicy>();
-        builder.Services.AddSingleton<GameEventDispatcher>();
-        builder.Services.AddHostedService<GameEventDeliveryWorker>();
 
-        builder.Services
-            .AddHttpClient(
-                ClientCredentialsAccessTokenProvider.HttpClientName,
-                client => client.Timeout = delivery.RequestTimeout)
-            .ConfigurePrimaryHttpMessageHandler(CreateHttpMessageHandler);
-        builder.Services
-            .AddHttpClient(
-                GameEventDeliveryClient.HttpClientName,
-                client =>
-                {
-                    client.BaseAddress = delivery.ApiBaseUri;
-                    client.Timeout = delivery.RequestTimeout;
-                })
-            .ConfigurePrimaryHttpMessageHandler(CreateHttpMessageHandler);
+        if (options.Spool.Enabled)
+        {
+            builder.Services.AddSingleton(options.Spool);
+            builder.Services.AddSingleton<GameEventSpoolImporter>();
+            builder.Services.AddHostedService<GameEventSpoolWorker>();
+        }
+
+        if (options.Delivery is GameEventDeliveryOptions delivery)
+        {
+            builder.Services.AddSingleton(delivery);
+            builder.Services.AddSingleton(delivery.OAuth);
+            builder.Services.AddSingleton<IGameEventAccessTokenProvider, ClientCredentialsAccessTokenProvider>();
+            builder.Services.AddSingleton<IGameEventDeliveryClient, GameEventDeliveryClient>();
+            builder.Services.AddSingleton<IRetryDelayPolicy, ExponentialRetryDelayPolicy>();
+            builder.Services.AddSingleton<GameEventDispatcher>();
+            builder.Services.AddHostedService<GameEventDeliveryWorker>();
+
+            builder.Services
+                .AddHttpClient(
+                    ClientCredentialsAccessTokenProvider.HttpClientName,
+                    client => client.Timeout = delivery.RequestTimeout)
+                .ConfigurePrimaryHttpMessageHandler(CreateHttpMessageHandler);
+            builder.Services
+                .AddHttpClient(
+                    GameEventDeliveryClient.HttpClientName,
+                    client =>
+                    {
+                        client.BaseAddress = delivery.ApiBaseUri;
+                        client.Timeout = delivery.RequestTimeout;
+                    })
+                .ConfigurePrimaryHttpMessageHandler(CreateHttpMessageHandler);
+        }
 
         using var host = builder.Build();
         await host.RunAsync(cancellationToken).ConfigureAwait(false);
@@ -106,6 +127,44 @@ internal static class GameEventAgentConsole
 
     private static async Task<int> EnqueueAsync(
         GameEventQueueOptions queueOptions,
+        string inputPath,
+        CancellationToken cancellationToken)
+    {
+        var input = await ReadSourceInputAsync(inputPath, cancellationToken).ConfigureAwait(false);
+
+        var outbox = new SqliteGameEventOutbox(queueOptions);
+        outbox.Initialize();
+        var queued = outbox.Enqueue(input, TimeProvider.System.GetUtcNow());
+        Console.WriteLine(FormattableString.Invariant(
+            $"Event queued: sequence {queued.SequenceNumber}, event {queued.EventId:D}."));
+        return 0;
+    }
+
+    private static async Task<int> WriteSpoolRecordAsync(
+        GameEventSpoolOptions spoolOptions,
+        string inputPath,
+        CancellationToken cancellationToken)
+    {
+        var input = await ReadSourceInputAsync(inputPath, cancellationToken).ConfigureAwait(false);
+        var writer = new GameEventSpoolWriter(spoolOptions, TimeProvider.System);
+        await writer.WriteAsync(input, cancellationToken).ConfigureAwait(false);
+        Console.WriteLine("Spool record written.");
+        return 0;
+    }
+
+    private static async Task<int> ImportSpoolAsync(
+        GameEventAgentOptions options,
+        CancellationToken cancellationToken)
+    {
+        var outbox = new SqliteGameEventOutbox(options.Queue);
+        var importer = new GameEventSpoolImporter(options.Spool, outbox, TimeProvider.System);
+        var result = await importer.ImportBatchAsync(cancellationToken).ConfigureAwait(false);
+        Console.WriteLine(FormattableString.Invariant(
+            $"Spool import: imported={result.Imported}, reconciled={result.Reconciled}, finalized={result.Finalized}, rejected={result.Rejected}, deferred={result.Deferred}."));
+        return result.Rejected == 0 && result.Deferred == 0 ? 0 : 1;
+    }
+
+    private static async Task<GameEventSourceInput> ReadSourceInputAsync(
         string inputPath,
         CancellationToken cancellationToken)
     {
@@ -124,27 +183,23 @@ internal static class GameEventAgentConsole
             FileShare.Read,
             bufferSize: 4 * 1024,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
-        var input = await JsonSerializer.DeserializeAsync<GameEventSourceInput>(
+        return await JsonSerializer.DeserializeAsync<GameEventSourceInput>(
             stream,
             GameEventJson.StrictSerializerOptions,
             cancellationToken).ConfigureAwait(false) ??
             throw new InvalidOperationException("The test-source input file contains no event.");
-
-        var outbox = new SqliteGameEventOutbox(queueOptions);
-        outbox.Initialize();
-        var queued = outbox.Enqueue(input, TimeProvider.System.GetUtcNow());
-        Console.WriteLine(FormattableString.Invariant(
-            $"Event queued: sequence {queued.SequenceNumber}, event {queued.EventId:D}."));
-        return 0;
     }
 
-    private static int ShowStatus(GameEventQueueOptions queueOptions)
+    private static int ShowStatus(GameEventAgentOptions options)
     {
-        var outbox = new SqliteGameEventOutbox(queueOptions);
+        var outbox = new SqliteGameEventOutbox(options.Queue);
         outbox.Initialize();
         var statistics = outbox.GetStatistics();
+        var spool = GameEventSpoolFileSystem.GetStatistics(options.Spool);
         Console.WriteLine(FormattableString.Invariant(
-            $"Queue status: pending={statistics.Pending}, in-flight={statistics.InFlight}, dead-letter={statistics.DeadLetter}, next-sequence={statistics.NextSequenceNumber}."));
+            $"Queue status: pending={statistics.Pending}, in-flight={statistics.InFlight}, dead-letter={statistics.DeadLetter}, spool-receipts={statistics.SpoolReceipts}, next-sequence={statistics.NextSequenceNumber}."));
+        Console.WriteLine(FormattableString.Invariant(
+            $"Spool status: ready={spool.Ready}, processing={spool.Processing}, accepted={spool.Accepted}, rejected={spool.Rejected}, temporary={spool.Temporary}."));
         return 0;
     }
 
@@ -167,6 +222,8 @@ internal static class GameEventAgentConsole
         Console.WriteLine("Commands:");
         Console.WriteLine("  run");
         Console.WriteLine("  enqueue --file <event.json>");
+        Console.WriteLine("  spool-write --file <event.json>");
+        Console.WriteLine("  import-spool");
         Console.WriteLine("  status");
         Console.WriteLine();
         Console.WriteLine("Delivery is disabled by default. Configure it through GameEventAgent__* environment variables.");
@@ -198,12 +255,22 @@ internal static class GameEventAgentCommandLine
             return true;
         }
 
+        if (args.Length == 1 && string.Equals(args[0], "import-spool", StringComparison.Ordinal))
+        {
+            command = new ImportSpoolCommand();
+            error = null;
+            return true;
+        }
+
         if (args.Length == 3 &&
-            string.Equals(args[0], "enqueue", StringComparison.Ordinal) &&
+            (string.Equals(args[0], "enqueue", StringComparison.Ordinal) ||
+                string.Equals(args[0], "spool-write", StringComparison.Ordinal)) &&
             string.Equals(args[1], "--file", StringComparison.Ordinal) &&
             !string.IsNullOrWhiteSpace(args[2]))
         {
-            command = new EnqueueAgentCommand(args[2]);
+            command = string.Equals(args[0], "enqueue", StringComparison.Ordinal)
+                ? new EnqueueAgentCommand(args[2])
+                : new WriteSpoolRecordCommand(args[2]);
             error = null;
             return true;
         }
@@ -219,5 +286,9 @@ internal abstract record GameEventAgentCommand;
 internal sealed record RunAgentCommand : GameEventAgentCommand;
 
 internal sealed record EnqueueAgentCommand(string InputPath) : GameEventAgentCommand;
+
+internal sealed record WriteSpoolRecordCommand(string InputPath) : GameEventAgentCommand;
+
+internal sealed record ImportSpoolCommand : GameEventAgentCommand;
 
 internal sealed record ShowQueueStatusCommand : GameEventAgentCommand;

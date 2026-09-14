@@ -7,6 +7,16 @@ internal sealed record GameEventSourceInput(
     int? Players,
     int? Bots);
 
+internal sealed record GameEventSpoolEnvelope(
+    short SpoolVersion,
+    Guid RecordId,
+    GameEventSourceInput Event);
+
+internal sealed record GameEventSpoolEnqueueResult(
+    Guid EventId,
+    long SequenceNumber,
+    bool AlreadyQueued);
+
 internal sealed record QueuedGameEvent(
     Guid EventId,
     Guid SourceInstanceId,
@@ -27,6 +37,7 @@ internal sealed record GameEventQueueStatistics(
     int Pending,
     int InFlight,
     int DeadLetter,
+    int SpoolReceipts,
     long NextSequenceNumber);
 
 internal enum GameEventQueueStatus
