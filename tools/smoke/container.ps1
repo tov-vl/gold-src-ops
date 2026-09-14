@@ -1203,6 +1203,11 @@ VALUES
         throw "Restore rehearsal did not recover the smoke server record."
     }
 
+    $requiredTables = @($restoreEvidence.RequiredTables)
+    if ($requiredTables -notcontains "game_event_inbox") {
+        throw "Restore rehearsal did not require the game-event inbox table."
+    }
+
     if (-not [bool]$restoreEvidence.MigrationReapplicationVerified) {
         throw "Restore rehearsal did not verify migration reapplication."
     }

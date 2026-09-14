@@ -24,6 +24,16 @@ detail routes. Its additive read-only scope passed three production samples over
 405.61 seconds while retaining control-plane and game-host continuity. This is
 short release evidence, not a long-term reliability or achieved-SLO claim.
 
+The five v2.10 game-event repository slices are integrated through pull
+requests #140 through #144. They add a bounded machine ingress and PostgreSQL
+inbox, a default-off sandbox Worker and file spool, a pinned AMX Mod X/ReAPI
+sample producer, and a minimized Reader Events view. Candidate publication,
+isolated migration rehearsal, and the dormant API/Web rollout remain pending.
+No production machine identity, game-host component, delivery path, or gameplay
+event has been activated. The release boundary is recorded in
+[docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
+[docs/v2.10-readiness.md](docs/v2.10-readiness.md).
+
 The v2.4 release has a passing independent 24-hour availability
 shadow audit. The immutable `API-01` activation tuple started its prospective
 seven-day window at `2026-09-10T16:45:00Z`; no shadow sample was imported. The
@@ -179,6 +189,9 @@ The published v2.9 Recent Operations Activity release and its bounded read-only
 acceptance evidence are summarized in
 [docs/release-notes-v2.9.md](docs/release-notes-v2.9.md) and
 [docs/v2.9-readiness.md](docs/v2.9-readiness.md).
+The v2.10 game-event repository scope and its pending release gate are
+summarized in [docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
+[docs/v2.10-readiness.md](docs/v2.10-readiness.md).
 
 ## Documentation
 
@@ -202,6 +215,8 @@ acceptance evidence are summarized in
 | v2.8 release evidence | [v2.8 readiness](docs/v2.8-readiness.md) |
 | v2.9 Recent Operations Activity release | [v2.9 release notes](docs/release-notes-v2.9.md) |
 | v2.9 release evidence | [v2.9 readiness](docs/v2.9-readiness.md) |
+| v2.10 game-event release | [v2.10 release notes](docs/release-notes-v2.10.md) |
+| v2.10 release evidence | [v2.10 readiness](docs/v2.10-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |

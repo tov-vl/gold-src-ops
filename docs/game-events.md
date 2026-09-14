@@ -262,4 +262,6 @@ installation, production event delivery, and dead-letter replay require their
 own review and acceptance evidence. In particular, the sandbox compile,
 fixture, and Reader projection do not prove host compatibility, directory
 ownership, power-loss durability, or successful gameplay delivery. A broker is
-deferred until observed load or ownership pressure justifies it.
+deferred until observed load or ownership pressure justifies it. The dormant
+candidate gate and the separate delivery-pilot boundary are defined in
+[v2.10 release readiness](v2.10-readiness.md).
