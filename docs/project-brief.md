@@ -351,14 +351,18 @@ The project should evolve in stages:
   and a file-backed test source. The third local slice adds a strict 4 KiB
   file-spool envelope and crash-reconcilable `incoming`, `processing`,
   `accepted`, and `rejected` state machine. Spool import and delivery remain
-  disabled by default; no production identity, migration, runtime, or game-host
-  state is changed.
+  disabled by default. The fourth local slice adds a default-off sandbox AMX
+  Mod X/ReAPI producer for one anonymous `round.ended` event, with a safe
+  relative path, canonical UUID v4 file name, UTC conversion, owner-only file
+  mode, complete-file rename, pinned compile smoke, and strict importer fixture.
+  No production identity, migration, runtime, or game-host state is changed.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
-- A later product experiment: build the sandboxed AMX Mod X/ReAPI sender and a
-  product projection on top of the accepted v2.10 inbox. Sandbox entitlements
-  may follow; real payments remain explicitly out of scope until then.
+- A later product experiment: build a product projection on top of the accepted
+  v2.10 inbox or separately gate production event delivery. Sandbox
+  entitlements may follow; real payments remain explicitly out of scope until
+  then.
 - Optional service extraction or a broker only if observed scaling, ownership,
   or failure-isolation pressure makes the modular monolith insufficient.
 

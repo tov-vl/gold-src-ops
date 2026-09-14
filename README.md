@@ -640,10 +640,10 @@ Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/incidents" -Headers $heade
 ## Sandbox Game-Event Agent
 
 The v2.10 companion Worker keeps source identity, sequence allocation, and
-exact request bytes in a bounded local SQLite outbox. Its durable local file
-spool lets a future game plugin publish bounded source events without owning
-OAuth credentials or HTTP retry state. Delivery and spool import are disabled
-by default, and no real machine credentials are included.
+exact request bytes in a bounded local SQLite outbox. Its local file spool lets
+the sandbox AMX Mod X/ReAPI sample publish bounded source events without owning
+OAuth credentials or HTTP retry state. The plugin, delivery, and spool import
+are disabled by default, and no real machine credentials are included.
 
 Exercise the producer/import boundary with the repository fixture:
 
@@ -654,6 +654,17 @@ dotnet run --project .\src\GoldSrcOps.GameEventAgent -- status
 ```
 
 `enqueue --file` remains available as a direct SQLite-outbox smoke command.
+
+Compile the sandbox game plugin with the pinned, hash-verified AMX Mod X and
+ReAPI toolchain:
+
+```powershell
+pwsh -NoProfile -File .\tools\smoke\amxx-game-event-producer.ps1
+```
+
+The output remains under ignored `artifacts/` and is not installed. See
+`samples/amxmodx-game-event-producer/README.md` for its default-off
+configuration, event semantics, and filesystem limitations.
 
 See `docs/game-events.md` for delivery classification, bounded configuration,
 spool crash recovery, and the boundary between this local sandbox and later

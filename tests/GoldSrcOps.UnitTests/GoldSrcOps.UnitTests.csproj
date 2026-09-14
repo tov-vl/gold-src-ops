@@ -38,6 +38,14 @@
     <None Update="Availability\Fixtures\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\samples\amxmodx-game-event-producer\fixtures\*.json"
+          Link="GameEventAgent\Fixtures\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\samples\amxmodx-game-event-producer\goldsrcops_game_events.sma"
+          Link="GameEventAgent\Fixtures\goldsrcops_game_events.sma">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

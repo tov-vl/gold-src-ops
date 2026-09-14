@@ -1258,7 +1258,8 @@ Implementation status:
 
 The local v2.10 implementation includes the reference writer, bounded importer,
 SQLite schema migration and receipts, aggregate status, spool-only Worker mode,
-and focused crash-boundary tests. It does not include the AMX Mod X/ReAPI
-producer, production installation, credentials, migration rollout, or gameplay
-event delivery. The contract and state transitions are in
-`docs/game-events.md`.
+focused crash-boundary tests, and one default-off sandbox AMX Mod X/ReAPI
+producer for `round.ended`. The producer has pinned compile evidence and a
+fixture accepted by the strict .NET importer, but no plugin is installed. It
+does not include production credentials, migration rollout, or gameplay event
+delivery. The contract and state transitions are in `docs/game-events.md`.
