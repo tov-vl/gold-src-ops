@@ -1274,7 +1274,7 @@ mutation, RCON traffic, OIDC reconfiguration, or new soak was required for this
 additive no-migration slice. Details and claim limits are in
 `docs/v2.9-readiness.md`.
 
-## Active v2.10 Milestone: Game Events Foundation
+## Active v2.10 Milestone: Game Events Foundation And Sandbox Agent
 
 The first v2.10 slice establishes a bounded ingress boundary for future
 AMX Mod X/ReAPI agents without installing an agent or changing production:
@@ -1299,6 +1299,18 @@ Auth0 M2M application, deploy the migration, install an AMX Mod X plugin, send
 production events, expose gameplay events to the Web UI, or introduce a broker.
 Those are separate rollout and product decisions after this contract is
 reviewed. The detailed contract is in `docs/game-events.md` and Decision 24.
+
+The second local slice adds `GoldSrcOps.GameEventAgent` as a separate sandbox
+Worker. Its file-backed test source atomically writes a generated event ID,
+persistent source identity, monotonic sequence, and exact serialized request to
+a bounded SQLite WAL outbox. Leased dispatch recovers after interruption,
+accepts only matching `202`/`200` receipts, retries bounded transient and
+identity-configuration failures, and preserves conflicts or exhausted entries
+in dead-letter state. OAuth client credentials are read from an external secret
+file and cached in memory; redirects, remote cleartext HTTP, oversized
+responses, and incomplete configuration fail closed. Delivery remains disabled
+by default. This is local implementation evidence, not production rollout or
+game-host installation evidence.
 
 ## Current API Scope
 
@@ -1491,6 +1503,10 @@ Released automated baseline:
 - Domain, application, API, and PostgreSQL integration coverage for versioned
   game-event validation, machine authorization, server binding, idempotency,
   sequence conflicts, request bounds, metrics, and bounded retention.
+- SQLite-backed agent coverage for persistent source identity, monotonic
+  sequence allocation, capacity, lease recovery, exact-byte retry,
+  retry/dead-letter transitions, receipt validation, HTTP classification, and
+  client-credentials token caching without external network calls.
 
 For v1.1:
 
@@ -1548,9 +1564,11 @@ Remaining portfolio gaps, in priority order:
   shadow nor the completed v2.3 24-hour sample is an achieved SLO claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
-- Complete the active v2.10 game-events foundation, then design a separately
-  sandboxed AMX Mod X/ReAPI agent with a local durable send queue. Provisioning
-  machine credentials and sending production events remain separate gates.
+- Review and integrate the active v2.10 game-events foundation and sandbox
+  companion agent. Then design the narrow local AMX Mod X/ReAPI-to-agent IPC
+  adapter. Provisioning machine credentials, deploying the migration,
+  installing on the game host, and sending production events remain separate
+  gates.
 
 VIP entitlements and payment integration remain a separate, later milestone.
 The first entitlement experiment must stay sandbox-only and must not process

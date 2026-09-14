@@ -47,6 +47,7 @@
     <ProjectReference Include="..\..\src\GoldSrcOps.Contracts\GoldSrcOps.Contracts.csproj" />
     <ProjectReference Include="..\..\src\GoldSrcOps.Domain\GoldSrcOps.Domain.csproj" />
     <ProjectReference Include="..\..\src\GoldSrcOps.Infrastructure\GoldSrcOps.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\GoldSrcOps.GameEventAgent\GoldSrcOps.GameEventAgent.csproj" />
   </ItemGroup>
 
 </Project>

@@ -341,7 +341,11 @@ The project should evolve in stages:
   PostgreSQL inbox supplies event-id idempotency, source-sequence conflict
   detection, 45-day bounded retention, and low-cardinality metrics. This first
   slice does not provision Auth0, deploy a migration, install a game plugin, or
-  expose gameplay data in the UI.
+  expose gameplay data in the UI. The second local slice adds a sandboxed .NET
+  companion Worker with a bounded SQLite outbox, persistent source identity and
+  sequence, exact-byte retry, leased dispatch, client-credentials token cache,
+  and a file-backed test source. Delivery remains disabled by default; no
+  production identity, migration, runtime, or game-host state is changed.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
