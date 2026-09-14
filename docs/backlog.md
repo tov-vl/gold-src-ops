@@ -1324,6 +1324,16 @@ expose aggregate counts only. Spool import remains disabled by default. The
 slice includes no AMX Mod X/ReAPI plugin, production identity, migration,
 deployment, game-host installation, or event delivery.
 
+The fourth local slice adds one default-off sandbox AMX Mod X/ReAPI producer
+for `round.ended`. It excludes setup and restart pseudo-rounds, validates the
+map allowlist, records only aggregate connected player and bot counts, derives
+UTC directly from Unix time, and publishes a lowercase UUID v4 envelope through
+an owner-only temporary-file permission check and same-directory rename. A
+pinned, hash-verified compiler smoke and a producer-shaped fixture parsed by the
+strict .NET importer cover the local contract. No plugin is installed, no
+production identity is provisioned, and neither migration nor delivery is
+activated.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1576,10 +1586,11 @@ Remaining portfolio gaps, in priority order:
   shadow nor the completed v2.3 24-hour sample is an achieved SLO claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
-- Review and integrate the active v2.10 durable file-spool IPC. Then implement
-  one sandbox AMX Mod X/ReAPI producer against the fixed spool contract.
-  Provisioning machine credentials, deploying the migration, installing on the
-  game host, and sending production events remain separate gates.
+- Review the completed local v2.10 chain and choose the next product boundary:
+  a read-only gameplay-event projection or separately gated production
+  enablement. Provisioning machine credentials, deploying the migration,
+  installing on the game host, and sending production events remain separate
+  gates.
 
 VIP entitlements and payment integration remain a separate, later milestone.
 The first entitlement experiment must stay sandbox-only and must not process

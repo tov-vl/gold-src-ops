@@ -112,7 +112,7 @@ dotnet run --project src/GoldSrcOps.GameEventAgent -- status
 
 ## Local File-Spool IPC
 
-The third local slice separates the future game plugin from the companion
+The third local slice separates the game plugin from the companion
 agent with a durable, bounded file spool. The producer contract is a strict
 JSON envelope no larger than 4 KiB:
 
@@ -206,12 +206,45 @@ allowed for a local synthetic server. Queue path, capacity, spool interval and
 batch size, dispatch interval, lease, retry, request-timeout, maximum-attempt,
 and maximum-event-age settings have bounded defaults in `appsettings.json`.
 
+## Sandbox AMX Mod X/ReAPI Producer
+
+`samples/amxmodx-game-event-producer/goldsrcops_game_events.sma` implements the
+producer side of spool version 1 for one event type, `round.ended`. It is
+disabled by default and observes post-call `RG_RoundEnd` hooks while excluding
+setup and restart pseudo-rounds. It emits at most one successful record before
+the next `RG_CSGameRules_RestartRound`.
+
+The record contains the current map plus aggregate connected player and bot
+counts; HLTV is excluded. Map names are validated against the API allowlist,
+the UUID v4 record ID is lowercase and canonical, and UTC is derived directly
+from Unix time rather than the host timezone. The configured `incoming` path
+must already exist, be relative to the mod directory, and contain no traversal
+or unsupported characters.
+
+Publication uses `<recordId>.tmp`, owner-only `0600` permissions, a buffered
+flush and close, an exact byte-count check, and same-directory rename to the
+canonical `<recordId>.json`. The plugin performs no network access and has no
+OAuth, HTTP retry, player identity, address, chat, RCON, or provider surface.
+Only aggregate emitted, failed, and ignored counts are exposed by the
+`goldsrcops_events_status` server command.
+
+Compile the source without installing it:
+
+```powershell
+pwsh -NoProfile -File ./tools/smoke/amxx-game-event-producer.ps1
+```
+
+The compile smoke pins and verifies AMX Mod X `1.10.0.5481` and ReAPI
+`5.24.0.300`; output stays below ignored `artifacts/`. A producer-shaped fixture
+is parsed by the same strict .NET spool contract in unit tests. AMX Mod X does
+not expose a portable filesystem sync primitive, so buffered flush and close
+prove complete-file process handoff but not survival across host power loss.
+
 ## Deferred Work
 
-The next agent slice may implement a sandbox AMX Mod X/ReAPI producer for the
-versioned spool contract. The plugin must only create bounded source events and
-must never own OAuth or HTTP retry state. Auth0 M2M provisioning, production
-migration and deployment, game-host installation, production event delivery,
-dead-letter replay, and any Reader projection require their own review and
-acceptance evidence. A broker is deferred until observed load or ownership
-pressure justifies it.
+Auth0 M2M provisioning, production migration and deployment, game-host
+installation, production event delivery, dead-letter replay, and any Reader
+projection require their own review and acceptance evidence. In particular,
+the sandbox compile and fixture do not prove host compatibility, directory
+ownership, power-loss durability, or successful gameplay delivery. A broker is
+deferred until observed load or ownership pressure justifies it.
