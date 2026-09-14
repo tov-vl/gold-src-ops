@@ -1,7 +1,7 @@
 # Game Event Ingestion
 
 This document defines contract version 1 of the local v2.10 game-events
-foundation. It is an API and persistence contract, not evidence that an agent
+foundation and the sandbox companion agent. Neither is evidence that an agent
 has been installed or that production accepts gameplay events.
 
 ## Endpoint And Identity
@@ -96,10 +96,57 @@ Metrics use only allowlisted event type and result labels:
 - `goldsrcops.game_events.deleted`;
 - `goldsrcops.game_events.retention_duration`.
 
+## Sandbox Companion Agent
+
+`GoldSrcOps.GameEventAgent` is a separate .NET Worker process. It does not run
+inside the API or game server, and delivery is disabled by default. Its current
+test source accepts one bounded JSON file and creates the event ID, persistent
+source-instance ID, monotonic sequence, and exact request bytes inside one
+SQLite transaction:
+
+```powershell
+dotnet run --project src/GoldSrcOps.GameEventAgent -- enqueue --file "$PWD/samples/game-event-agent/round-ended.json"
+dotnet run --project src/GoldSrcOps.GameEventAgent -- status
+```
+
+The SQLite queue uses WAL mode and a finite capacity. A dispatcher claims one
+event with a lease, so a process failure leaves it available for the same-byte
+retry after the lease expires. `202` and matching `200` receipts remove the
+entry. Conflicts, invalid requests, and invalid success receipts enter durable
+dead-letter state. Network errors, timeouts, throttling, server errors, token
+failures, forbidden bindings, and missing server registration use capped
+exponential retry; the attempt and event-age limits eventually dead-letter the
+entry rather than retry beyond the API idempotency-retention horizon.
+
+The Worker obtains OAuth tokens with the client-credentials grant. Configuration
+contains only `ClientSecretFile`; the secret itself must be stored outside the
+repository in an owner-readable file (`0600` on Unix). Remote cleartext HTTP endpoints,
+redirects, oversized responses, incomplete receipt identities, and incomplete
+delivery configuration fail closed. Logs and `status` contain aggregate queue
+outcomes, never tokens, secret contents, request bodies, map names, or player
+counts.
+
+To run a sandbox delivery loop, provide these environment-backed configuration
+values before invoking `run`:
+
+- `GameEventAgent__Delivery__Enabled=true`;
+- `GameEventAgent__Delivery__ServerId`;
+- `GameEventAgent__Delivery__ApiBaseUrl`;
+- `GameEventAgent__Delivery__OAuth__TokenEndpoint`;
+- `GameEventAgent__Delivery__OAuth__ClientId`;
+- `GameEventAgent__Delivery__OAuth__ClientSecretFile`;
+- `GameEventAgent__Delivery__OAuth__Audience`.
+
+The API base URL and token endpoint must use HTTPS, except that loopback HTTP is
+allowed for a local synthetic server. Queue path, capacity, dispatch interval,
+lease, retry, request-timeout, maximum-attempt, and maximum-event-age settings
+have bounded defaults in `appsettings.json`.
+
 ## Deferred Work
 
-The next slice may implement a sandboxed AMX Mod X/ReAPI sender with a local
-durable queue and bounded retry policy. Auth0 M2M provisioning, production
-migration and deployment, game-host installation, and any Reader projection
-require their own review and acceptance evidence. A broker is deferred until
-observed load or ownership pressure justifies it.
+The next agent slice may add a narrow local IPC adapter so an AMX Mod X/ReAPI
+plugin only produces bounded source events and never owns OAuth or retry state.
+Auth0 M2M provisioning, production migration and deployment, game-host
+installation, production event delivery, dead-letter replay, and any Reader
+projection require their own review and acceptance evidence. A broker is
+deferred until observed load or ownership pressure justifies it.

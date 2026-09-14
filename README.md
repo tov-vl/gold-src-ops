@@ -637,6 +637,21 @@ Invoke-RestMethod "$baseUrl/api/dashboard/overview" -Headers $headers
 Invoke-RestMethod "$baseUrl/api/servers/$($server.id)/incidents" -Headers $headers
 ```
 
+## Sandbox Game-Event Agent
+
+The v2.10 companion Worker keeps source identity, sequence allocation, and
+exact request bytes in a bounded local SQLite outbox. Delivery is disabled by
+default and no real machine credentials are included. Queue the repository
+fixture and inspect aggregate state with:
+
+```powershell
+dotnet run --project .\src\GoldSrcOps.GameEventAgent -- enqueue --file "$PWD\samples\game-event-agent\round-ended.json"
+dotnet run --project .\src\GoldSrcOps.GameEventAgent -- status
+```
+
+See `docs/game-events.md` for delivery classification, bounded configuration,
+and the boundary between this local sandbox and later production provisioning.
+
 ## Run Tests
 
 ```powershell
