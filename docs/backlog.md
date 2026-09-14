@@ -1252,6 +1252,16 @@ acceptance covers response minimization, ordering and limit semantics, Reader
 authorization, static HTML filtering, browser token boundaries, and
 desktop/mobile overflow. It does not justify a new soak or recovery rehearsal.
 
+The repository slice is integrated through
+[#137](https://github.com/tov-vl/gold-src-ops/pull/137). Candidate preparation
+is defined in `docs/v2.9-readiness.md`: publish signed `v2.9.0-rc.1`, deploy API
+and Web by verified digest, and collect at least three healthy read-only
+production samples spanning at least three minutes while checking the bounded
+activity API and all three static-rendered views. No synthetic incident,
+backup/restore rehearsal, lifecycle mutation, RCON traffic, OIDC
+reconfiguration, or new multi-hour soak is required for this additive
+no-migration slice.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in

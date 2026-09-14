@@ -327,7 +327,9 @@ The project should evolve in stages:
   addresses. The static-rendered page supports All, Incidents, and Commands
   views and links into existing investigation and command-history paths. This
   additive slice requires no migration, worker, realtime connection, OIDC
-  change, or mutation permission.
+  change, or mutation permission. It is integrated through pull request #137;
+  release-candidate scope and a minimum three-sample, three-minute read-only
+  production smoke are defined in `docs/v2.9-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
