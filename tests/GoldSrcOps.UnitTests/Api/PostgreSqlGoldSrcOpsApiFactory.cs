@@ -83,7 +83,8 @@ internal sealed class PostgreSqlGoldSrcOpsApiFactory : WebApplicationFactory<Pro
                 ["ConnectionStrings:GoldSrcOps"] = _database.GetConnectionString(),
                 ["CommandDispatcher:Enabled"] = "false",
                 ["Polling:Enabled"] = "false",
-                ["SnapshotRetention:Enabled"] = "false"
+                ["SnapshotRetention:Enabled"] = "false",
+                ["GameEventRetention:Enabled"] = "false"
             });
         });
 

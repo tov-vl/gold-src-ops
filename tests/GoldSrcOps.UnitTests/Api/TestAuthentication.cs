@@ -11,21 +11,33 @@ namespace GoldSrcOps.UnitTests.Api;
 internal sealed record TestApiPrincipal(
     bool IsAuthenticated,
     string? Subject,
-    IReadOnlyCollection<string> Roles)
+    IReadOnlyCollection<string> Roles,
+    IReadOnlyCollection<string> Permissions,
+    Guid? ServerId)
 {
-    public static TestApiPrincipal Anonymous { get; } = new(false, null, []);
+    public static TestApiPrincipal Anonymous { get; } = new(false, null, [], [], null);
 
     public static TestApiPrincipal Reader(string subject = "reader") =>
-        new(true, subject, [GoldSrcOpsSecurity.ReaderRole]);
+        new(true, subject, [GoldSrcOpsSecurity.ReaderRole], [], null);
 
     public static TestApiPrincipal Operator(string subject = "admin") =>
-        new(true, subject, [GoldSrcOpsSecurity.OperatorRole]);
+        new(true, subject, [GoldSrcOpsSecurity.OperatorRole], [], null);
+
+    public static TestApiPrincipal GameEventAgent(
+        Guid serverId,
+        string subject = "game-event-agent") =>
+        new(
+            true,
+            subject,
+            [],
+            [GoldSrcOpsSecurity.GameEventIngestPermission],
+            serverId);
 
     public static TestApiPrincipal WithoutRoles(string subject = "authenticated") =>
-        new(true, subject, []);
+        new(true, subject, [], [], null);
 
     public static TestApiPrincipal WithoutSubject() =>
-        new(true, null, [GoldSrcOpsSecurity.OperatorRole]);
+        new(true, null, [GoldSrcOpsSecurity.OperatorRole], [], null);
 }
 
 internal static class TestAuthentication
@@ -71,6 +83,14 @@ internal sealed class TestAuthenticationHandler(
         }
 
         claims.AddRange(testPrincipal.Roles.Select(static role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange(testPrincipal.Permissions.Select(static permission =>
+            new Claim(GoldSrcOpsSecurity.PermissionClaimType, permission)));
+        if (testPrincipal.ServerId is not null)
+        {
+            claims.Add(new Claim(
+                GoldSrcOpsSecurity.ServerIdClaimType,
+                testPrincipal.ServerId.Value.ToString("D")));
+        }
 
         var identity = new ClaimsIdentity(
             claims,

@@ -78,6 +78,14 @@ internal static class SecurityServiceCollectionExtensions
                 static policy => policy
                     .RequireAuthenticatedUser()
                     .RequireRole(GoldSrcOpsSecurity.OperatorRole))
+            .AddPolicy(
+                GoldSrcOpsSecurity.GameEventWriterPolicy,
+                static policy => policy
+                    .RequireAuthenticatedUser()
+                    .RequireClaim(
+                        GoldSrcOpsSecurity.PermissionClaimType,
+                        GoldSrcOpsSecurity.GameEventIngestPermission)
+                    .RequireClaim(GoldSrcOpsSecurity.ServerIdClaimType))
             .SetFallbackPolicy(
                 new AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()

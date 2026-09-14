@@ -1274,6 +1274,32 @@ mutation, RCON traffic, OIDC reconfiguration, or new soak was required for this
 additive no-migration slice. Details and claim limits are in
 `docs/v2.9-readiness.md`.
 
+## Active v2.10 Milestone: Game Events Foundation
+
+The first v2.10 slice establishes a bounded ingress boundary for future
+AMX Mod X/ReAPI agents without installing an agent or changing production:
+
+- `POST /api/servers/{id}/game-events` accepts contract version 1 with one
+  stable event ID, source-instance ID, monotonic source sequence, allowlisted
+  event type, occurrence time, optional map, and aggregate player/bot counts;
+- a dedicated OAuth machine permission, `ingest:game-events`, is separate from
+  the human `Reader` and `Operator` roles. A namespaced JWT claim binds each
+  machine token to exactly one canonical server ID;
+- the PostgreSQL inbox is idempotent by event ID and rejects reuse of one
+  `(ServerId, SourceInstanceId, SequenceNumber)` tuple;
+- the request body is limited to 4 KiB, map names are allowlisted, future clock
+  skew is bounded to five minutes, and the contract contains no player
+  identifier, chat text, IP address, provider ID, or arbitrary extension bag;
+- inbox retention uses server receive time, a 45-day default, bounded batches,
+  and low-cardinality ingestion and cleanup metrics.
+
+This local foundation includes the migration, API/application/domain layers,
+and focused in-memory and PostgreSQL verification. It does not provision an
+Auth0 M2M application, deploy the migration, install an AMX Mod X plugin, send
+production events, expose gameplay events to the Web UI, or introduce a broker.
+Those are separate rollout and product decisions after this contract is
+reviewed. The detailed contract is in `docs/game-events.md` and Decision 24.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1323,6 +1349,10 @@ Alert delivery:
 - `GET /api/alert-delivery/dead-letters/{eventId}`
 - `POST /api/alert-delivery/dead-letters/{eventId}/replay`
 - `GET /api/alert-delivery/replays/{requestId}`
+
+Game events:
+
+- `POST /api/servers/{id}/game-events`
 
 Health and metrics:
 
@@ -1406,11 +1436,26 @@ Health and metrics:
 - `ResultSummary`
 - `FailureReason`
 
+`GameEventInboxEntry`:
+
+- `Id`
+- `ServerId`
+- `SourceInstanceId`
+- `SequenceNumber`
+- `ContractVersion`
+- `Type`
+- `OccurredAtUtc`
+- `ReceivedAtUtc`
+- `Map`
+- `Players`
+- `Bots`
+- `IntentHash`
+
 Future entity candidates:
 
 - `PlayerSnapshot`
-- Versioned gameplay-event and durable-inbox models, only after the later
-  AMX Mod X/ReAPI agent boundary has its own accepted design.
+- A derived gameplay projection only after retained event data demonstrates a
+  concrete Reader or Operator workflow.
 
 Alert delivery state and replay audit are intentionally Infrastructure
 persistence models, not future Domain entities.
@@ -1443,6 +1488,9 @@ Released automated baseline:
 - Unit and API integration coverage for replay outcome metrics, Prometheus
   export, HTTP-validation accounting, sanitized lifecycle logs, cancellation,
   and fault redaction.
+- Domain, application, API, and PostgreSQL integration coverage for versioned
+  game-event validation, machine authorization, server binding, idempotency,
+  sequence conflicts, request bounds, metrics, and bounded retention.
 
 For v1.1:
 
@@ -1500,8 +1548,9 @@ Remaining portfolio gaps, in priority order:
   shadow nor the completed v2.3 24-hour sample is an achieved SLO claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
-- A later versioned AMX Mod X/ReAPI event agent with a durable inbox, only after
-  the production control plane and UI are established.
+- Complete the active v2.10 game-events foundation, then design a separately
+  sandboxed AMX Mod X/ReAPI agent with a local durable send queue. Provisioning
+  machine credentials and sending production events remain separate gates.
 
 VIP entitlements and payment integration remain a separate, later milestone.
 The first entitlement experiment must stay sandbox-only and must not process

@@ -1148,3 +1148,65 @@ documents use the seven-day window and 50-minute budget. The shadow gate passed
 and the immutable tuple records `API-01` as `Collecting` from
 `2026-09-10T16:45:00Z`; no met-or-missed decision is permitted before the
 complete prospective window and maturity grace period end.
+
+## Decision 24: Use A Server-Bound OAuth Writer And Durable Gameplay Inbox
+
+Decision:
+
+Introduce gameplay events through one versioned HTTP ingress in the existing
+modular monolith. Require a dedicated OAuth machine permission and exactly one
+namespaced server-binding claim; do not authorize the endpoint with the human
+`Reader` or `Operator` roles. Persist each accepted event in a PostgreSQL inbox
+with a stable event ID and a unique server/source/sequence tuple.
+
+Contract version 1 contains only an allowlisted event type, occurrence time,
+optional bounded map name, and optional aggregate player/bot counts. Limit the
+body to 4 KiB and reject timestamps more than five minutes in the future. Do
+not accept player identifiers, IP addresses, chat, arbitrary JSON, provider
+metadata, or game-console output. Retain inbox rows by server receive time for
+45 days by default and delete only one bounded batch per cleanup pass.
+
+Decision date: 2026-09-14.
+
+Reasoning:
+
+- OAuth issuer, audience, signature, lifetime, and subject validation reuse the
+  established resource-server boundary without creating another credential
+  protocol.
+- A separate permission prevents a compromised game-agent token from acquiring
+  human read or control-plane mutation access. The route/claim equality check
+  limits the same token to one registered server.
+- Stable event IDs make ambiguous HTTP delivery retryable. A unique monotonic
+  source sequence detects a restarted or misconfigured sender that reuses an
+  ordering position for different content.
+- PostgreSQL already owns durable control-plane state. An inbox transaction and
+  database constraints are sufficient for the expected MVP volume and keep
+  replay, backup, and migration behavior inside the existing operational model.
+- A narrow, anonymized contract preserves room for later projections without
+  collecting identity-bearing gameplay data before a concrete product need.
+- Receive-time retention cannot be bypassed by a sender with a stale or forged
+  occurrence timestamp.
+
+Alternatives considered:
+
+- Give each agent a custom API key. Rejected because it would create a second
+  authentication lifecycle, storage format, rotation path, and audit boundary.
+- Reuse the `Operator` role. Rejected because a game-host credential must not
+  inherit inventory reads, RCON operations, or administrative mutations.
+- Accept raw ReAPI payloads or arbitrary extensions. Rejected because it makes
+  validation, privacy, compatibility, and bounded storage unverifiable.
+- Introduce Kafka, RabbitMQ, or a separate ingestion service now. Deferred until
+  measured throughput, ownership, or failure-isolation pressure exceeds the
+  modular-monolith and PostgreSQL boundary.
+- Install the agent and provision production credentials in the same slice.
+  Rejected because repository contract acceptance must precede a new game-host
+  executable and production trust relationship.
+
+Implementation status:
+
+The local v2.10 foundation implements contract version 1, the server-bound
+authorization policy, durable inbox and constraints, race-safe idempotency,
+bounded retention, metrics, migration, and focused tests. Auth0 M2M
+provisioning, production migration and rollout, an AMX Mod X/ReAPI sender, and
+Reader projections remain separate follow-up slices. The wire contract is in
+`docs/game-events.md`.

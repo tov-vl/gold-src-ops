@@ -10,9 +10,10 @@ control plane.
   issuance.
 - A production deployment uses an external OAuth 2.0 / OpenID Connect identity
   provider to issue JWT access tokens.
-- The current deployment has one administrative domain. Authenticated
-  operators can act on every registered server; tenant and per-server access
-  control are out of scope.
+- The current deployment has one administrative domain. Authenticated human
+  operators can act on every registered server; tenant and per-server human
+  access control are out of scope. Game-event machine identities are a separate
+  boundary and are bound to exactly one registered server.
 - HTTPS is required outside local development because bearer tokens grant access
   to the API while they are valid.
 - RCON passwords remain outside PostgreSQL and API contracts as described in
@@ -159,6 +160,22 @@ Display names are not used as audit identity because they can change and need
 not be unique. Access tokens, raw claims collections, and authorization headers
 must not be written to logs or command history.
 
+### Game Event Machine Identity
+
+Game-event ingestion uses an OAuth client-credentials access token issued for
+the GoldSrcOps API audience. It does not reuse a user session, Web cookie,
+`Reader` role, or `Operator` role. The token must contain:
+
+- a stable `sub` claim;
+- a `permissions` claim containing the exact `ingest:game-events` value;
+- exactly one `https://goldsrcops.com/claims/server_id` claim containing the
+  canonical `D` representation of a non-empty server UUID.
+
+The route server ID must equal the bound claim. A valid machine token cannot
+read inventory, incidents, commands, metrics, or Web pages and cannot ingest
+for another server. The initial repository slice does not provision this
+identity in Auth0 or place a client secret on either production host.
+
 ## Authorization Policies
 
 The application uses policies rather than authorization checks inside endpoint
@@ -168,6 +185,7 @@ handlers.
 | --- | --- | --- |
 | `Reader` | `Reader` or `Operator` | Inspect server state, history, incidents, dead letters, replay records, command history, credential metadata, and metrics. |
 | `Operator` | `Operator` | Register or modify servers, configure RCON credentials, queue commands, and replay reviewed dead letters. |
+| `GameEventWriter` | OAuth permission `ingest:game-events` plus a server-binding claim | Ingest versioned events for the one bound server. |
 
 `Operator` includes read access through the `Reader` policy. ASP.NET Core does
 not provide implicit role inheritance, so the `Reader` policy must explicitly
@@ -203,6 +221,7 @@ operation.
 | `POST /api/servers/{id}/commands/...` | `Operator` |
 | `GET /api/servers/{id}/commands` | `Reader` |
 | `GET /api/commands/{id}` | `Reader` |
+| `POST /api/servers/{id}/game-events` | `GameEventWriter`; route ID must match the token binding |
 | `POST /operator/servers/{id}/commands/say` on Web | `Operator` plus antiforgery and one-time confirmation |
 | `POST /operator/servers/{id}/commands/restart/queue` on Web | `Operator` plus antiforgery, readiness refresh, and one-time command-bound confirmation |
 | `POST /operator/servers/{id}/commands/change-map/queue` on Web | `Operator` plus antiforgery, readiness refresh, and one-time subject/server/map-bound confirmation |
@@ -231,6 +250,9 @@ with a Reader token when scraping `/metrics`.
   `403 Forbidden`.
 - Authorization failures must not reveal token contents, expected secrets, or
   protected resource details.
+- An authenticated game-event writer receives `403` when its server binding
+  does not match the route. Human application roles receive `403` from the
+  machine ingress even when the user is an Operator.
 
 The target-environment authorization matrix is implemented by
 `tools/smoke/oidc-live.ps1` and documented in `docs/smoke-test.md`. It accepts
@@ -281,7 +303,10 @@ Unit and API integration tests prove that:
   and wrong audience;
 - the configured access-token clock skew remains bounded to 30 seconds;
 - invalid role-claim configuration fails options validation;
-- test authentication overrides exist only in the integration-test host.
+- test authentication overrides exist only in the integration-test host;
+- the game-event machine permission is isolated from human roles, a token is
+  limited to one server, and cross-server or human-role ingestion receives
+  `403` without persistence.
 
 ## References
 

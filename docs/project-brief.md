@@ -333,12 +333,21 @@ The project should evolve in stages:
   production retained the candidate. Signed stable `v2.9.0` promotes the exact
   candidate digests without rebuilding and is published with its evidence and
   claim limits in `docs/v2.9-readiness.md`.
+- v2.10: establish the local game-events foundation before writing or installing
+  an AMX Mod X/ReAPI agent. Contract version 1 contains only stable event and
+  source identities, a monotonic sequence, an allowlisted event type, bounded
+  timestamps, map, and aggregate player/bot counts. A dedicated OAuth M2M
+  permission and namespaced server binding are isolated from human roles. A
+  PostgreSQL inbox supplies event-id idempotency, source-sequence conflict
+  detection, 45-day bounded retention, and low-cardinality metrics. This first
+  slice does not provision Auth0, deploy a migration, install a game plugin, or
+  expose gameplay data in the UI.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
-- A later product experiment: versioned AMX Mod X/ReAPI gameplay events through
-  a durable inbox. Sandbox entitlements may follow; real payments remain
-  explicitly out of scope until then.
+- A later product experiment: build the sandboxed AMX Mod X/ReAPI sender and a
+  product projection on top of the accepted v2.10 inbox. Sandbox entitlements
+  may follow; real payments remain explicitly out of scope until then.
 - Optional service extraction or a broker only if observed scaling, ownership,
   or failure-isolation pressure makes the modular monolith insufficient.
 

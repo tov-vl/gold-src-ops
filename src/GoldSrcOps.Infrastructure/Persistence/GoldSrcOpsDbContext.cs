@@ -1,5 +1,7 @@
 using GoldSrcOps.Domain.Commands;
+using GoldSrcOps.Domain.GameEvents;
 using GoldSrcOps.Domain.Servers;
+using GoldSrcOps.Infrastructure.Persistence.GameEvents;
 using GoldSrcOps.Infrastructure.Persistence.Outbox;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,6 +26,8 @@ public sealed class GoldSrcOpsDbContext : DbContext
 
     public DbSet<CommandExecution> CommandExecutions => Set<CommandExecution>();
 
+    public DbSet<GameEventInboxEntry> GameEventInbox => Set<GameEventInboxEntry>();
+
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     internal DbSet<OutboxReplayRequest> OutboxReplayRequests => Set<OutboxReplayRequest>();
@@ -31,6 +35,7 @@ public sealed class GoldSrcOpsDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("goldsrcops");
+        modelBuilder.ApplyConfiguration(new GameEventInboxEntryConfiguration());
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
         modelBuilder.ApplyConfiguration(new OutboxReplayRequestConfiguration());
 
