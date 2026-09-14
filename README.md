@@ -24,10 +24,13 @@ multi-day snapshot history to the browser. Its additive read-only scope,
 deliberately short production gate, and claim limits are recorded in the
 release notes and readiness record above.
 
-The next local v2.9 slice adds a bounded, sanitized Reader timeline across
-incident lifecycle and command-state records. It is deliberately read-only and
-does not change the current public release until the slice is integrated and
-accepted.
+The v2.9 Recent Operations Activity slice is integrated in protected `main`
+through [pull request #137](https://github.com/tov-vl/gold-src-ops/pull/137).
+Candidate scope, the bounded Reader timeline, and the shortened read-only
+production gate are defined in
+[docs/release-notes-v2.9.md](docs/release-notes-v2.9.md) and
+[docs/v2.9-readiness.md](docs/v2.9-readiness.md). Signed candidate publication
+has not started, so v2.8.0 remains the current public release.
 
 The v2.4 release has a passing independent 24-hour availability
 shadow audit. The immutable `API-01` activation tuple started its prospective
@@ -180,6 +183,10 @@ The published v2.8 Server Trends release and its bounded read-only acceptance
 evidence are summarized in
 [docs/release-notes-v2.8.md](docs/release-notes-v2.8.md) and
 [docs/v2.8-readiness.md](docs/v2.8-readiness.md).
+The integrated v2.9 Recent Operations Activity candidate scope and its pending
+release gates are summarized in
+[docs/release-notes-v2.9.md](docs/release-notes-v2.9.md) and
+[docs/v2.9-readiness.md](docs/v2.9-readiness.md).
 
 ## Documentation
 
@@ -201,6 +208,8 @@ evidence are summarized in
 | v2.7 release evidence | [v2.7 readiness](docs/v2.7-readiness.md) |
 | v2.8 Server Trends release | [v2.8 release notes](docs/release-notes-v2.8.md) |
 | v2.8 release evidence | [v2.8 readiness](docs/v2.8-readiness.md) |
+| v2.9 Recent Operations Activity candidate | [v2.9 release notes](docs/release-notes-v2.9.md) |
+| v2.9 release evidence | [v2.9 readiness](docs/v2.9-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
