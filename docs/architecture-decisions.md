@@ -1265,3 +1265,53 @@ producer for `round.ended`. The producer has pinned compile evidence and a
 fixture accepted by the strict .NET importer, but no plugin is installed. It
 does not include production credentials, migration rollout, or gameplay event
 delivery. The contract and state transitions are in `docs/game-events.md`.
+
+## Decision 26: Activate The First Gameplay Event As A Reversible State Machine
+
+Decision:
+
+Cross the production game-event boundary through explicit `spool-only`,
+`capture`, `event-sealed`, `delivery`, and `delivered` stages. Keep producer and
+HTTP delivery independently gated, permit exactly one anonymous event, and use
+one active-rollback path for every failed mutating transition and the final
+rehearsal. Neither game nor agent service becomes boot-enabled.
+
+Before the first live-tree change, preserve the exact loader and dormant agent
+environment plus relevant ownership and service-continuity metadata. Require a
+server-bound M2M token containing exactly `ingest:game-events` and no human
+role. Restore the plugin-free game tree and active/disabled game service after
+the bounded pilot.
+
+Decision date: 2026-09-15.
+
+Reasoning:
+
+- Independent producer, spool, and delivery gates prevent one configuration
+  change from simultaneously introducing native modules, event creation, and a
+  remote write.
+- Sealing exactly one local event before delivery bounds duplication and
+  dead-letter exposure while retaining the real plugin-to-agent path.
+- One rollback implementation avoids different cleanup behavior after a local
+  failure, lost operator session, or successful pilot.
+- Exact-byte backups and content-addressed payload verification make the
+  plugin-free baseline recoverable without treating a reinstall as rollback.
+- Boot-disabled services preserve the existing manual restart boundary during
+  this first production experiment.
+
+Alternatives considered:
+
+- Enable producer, import, and delivery in one restart. Rejected because a
+  failed event would not identify which boundary failed and would broaden the
+  rollback surface.
+- Leave the pilot active after one event. Rejected because one success is not
+  evidence for unattended operation or long-term compatibility.
+- Use a separate ad hoc cleanup script. Rejected because it could drift from
+  the failure path and would not cover interruption during a transition.
+
+Implementation status:
+
+The local v2.11 workflow and deterministic smoke implement and validate this
+state machine without mutating either production host. Auth0 provisioning,
+external A2S and zero-bot gates, one real event, API receipt/idempotency and
+Reader evidence, and the target active-rollback rehearsal remain operational
+work. The complete procedure is in `docs/v2.11-game-event-pilot.md`.
