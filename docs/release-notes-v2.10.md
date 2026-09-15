@@ -1,9 +1,9 @@
 # GoldSrcOps v2.10.0 Release Notes
 
-Status as of 2026-09-14: release-candidate preparation. Five game-event
-repository slices are integrated in protected `main`; signed `v2.10.0-rc.1`
-publication, migration rehearsal, and the bounded production rollout remain
-pending.
+Status as of 2026-09-15: release candidate accepted. Signed `v2.10.0-rc.1`
+publication, fresh backup and isolated migration rehearsal, digest-pinned
+dormant production rollout, and bounded read-only acceptance are complete.
+Digest-preserving stable publication remains pending.
 
 ## Overview
 
@@ -13,11 +13,11 @@ ingress contract and PostgreSQL inbox, a sandbox companion Worker with a durable
 SQLite outbox, a crash-reconcilable file spool, a default-off AMX Mod X/ReAPI
 sample producer, and a read-only Events page.
 
-The production release does not enable that path. It does not provision an
-OAuth machine client, install the Worker or plugin on the game host, enable
-spool import or delivery, or claim that a production gameplay event was
-received. Those actions belong to a separate production pilot after the
-candidate is accepted.
+The accepted production candidate does not enable that path. It does not
+provision an OAuth machine client, install the Worker or plugin on the game
+host, enable spool import or delivery, or claim that a production gameplay
+event was received. Those actions belong to a separate production pilot and
+are not a hidden stable-release requirement.
 
 ## Included In v2.10
 
@@ -64,10 +64,10 @@ delete retained state.
 
 The migration is additive for the retained v2.9 runtime. Normal rollback keeps
 the new empty or retained table and restores the v2.9 API and Web images; the
-down migration is not an application rollback mechanism. Before production,
-the exact candidate migration bundle must be applied to an isolated restore of
-a fresh encrypted backup, reapplied to prove idempotency, and checked with the
-retained v2.9 API in read-only mode.
+down migration is not an application rollback mechanism. The exact candidate
+migration bundle was applied to an isolated restore of a fresh encrypted
+backup, reapplied without changing the migration inventory, and checked with
+the retained v2.9 API in read-only mode before production rollout.
 
 The API and Web remain the only container images published by the existing
 release workflow. The Worker and AMX Mod X sample are source artifacts in the
@@ -82,21 +82,37 @@ binding, inbox idempotency and conflict behavior, retention, SQLite outbox and
 spool recovery, exact-byte delivery, pinned AMX Mod X compilation, Reader
 projection minimization, static rendering, responsive layout, and the browser
 token boundary. Pull requests #140 through #144 passed the required repository
-checks for their exact revisions.
+checks for their exact revisions. Pull request #145 froze the release boundary,
+and signed candidate workflow
+[#34956379584](https://github.com/tov-vl/gold-src-ops/actions/runs/34956379584)
+built and independently verified both immutable images from revision
+`c5bb47d56a6c11dbecb037ba90cdb154fe9fc3f6`.
 
-The candidate gate adds one fresh encrypted production backup with a `100%`
-repository check and one network-isolated restore/migration rehearsal. The
-subsequent rollout applies the migration as a serialized one-shot action and
-recreates only API and Web from verified candidate digests. It must not
-provision a machine identity, install the game-host producer or Worker, enable
-delivery, or manufacture an inbox row.
+The accepted API digest is
+`sha256:bea38877af7294869369da9645ea0b59b20e4f3111a5bc713c664afc3ec45af0`;
+the accepted Web digest is
+`sha256:e18f254d0c8ef68f980d5100c6f38e097bcf6b9c38b3044996ba78e7e95aa193`.
+A fresh encrypted production backup passed a `100%` repository check. The
+network-isolated rehearsal applied the exact candidate bundle, verified all 12
+migrations and the new inbox schema, reapplied the bundle idempotently, and
+started the retained v2.9 API read-only against the migrated copy.
 
-Post-rollout acceptance is one 10-to-15-minute read-only smoke. It verifies
-health and exact release identity, the expected migration history, empty-state
-Reader behavior, authorization boundaries, browser minimization, A2S and
-runtime continuity, durable queues, incidents, and backup freshness. It does
-not repeat an OIDC matrix, disruptive command, recovery exercise, or
-multi-hour soak.
+Production preflight and the serialized migration passed, after which only API
+and Web were recreated from the exact candidate digests. Eleven healthy
+control-plane samples over 602 seconds and eight game-service continuity checks
+over 1,045 seconds confirmed public health, release and schema identity, fresh
+backup evidence, reachable A2S with zero bots, unchanged runtime continuity,
+and zero open incidents or pending durable work. The existing Operator session
+rendered the Events empty state with no mutation control, browser token, storage
+entry, or console error. The inbox remained empty and the game-event agent,
+spool import, and delivery remained disabled.
+
+This acceptance did not repeat the OIDC matrix, submit a disruptive command,
+run a multi-hour soak, or manufacture a gameplay event. It is short operational
+evidence for a dormant candidate, not proof of long-term reliability, high
+availability, production gameplay delivery, or an achieved SLO. Stable
+`v2.10.0` must promote the exact accepted digests without rebuilding them and
+independently smoke-test both stable references before release publication.
 
 The detailed ordered gate and rollback rules are defined in
 [v2.10 release readiness](v2.10-readiness.md).
