@@ -1345,12 +1345,25 @@ provision an identity, install the producer, deliver a production event, or
 change either running host.
 
 All five repository slices are integrated through pull requests #140-#144.
-Release-candidate preparation is defined in `docs/release-notes-v2.10.md` and
-`docs/v2.10-readiness.md`. Because the combined milestone contains one additive
-migration, candidate acceptance requires one fresh encrypted backup, a `100%`
+Candidate identity and acceptance evidence are recorded in
+`docs/release-notes-v2.10.md` and `docs/v2.10-readiness.md`. Because the
+combined milestone contains one additive
+migration, candidate acceptance included one fresh encrypted backup, a `100%`
 repository check, and one isolated restore/migration/previous-runtime rehearsal
-before a digest-pinned dormant API/Web rollout. The post-rollout check is a
-single 10-to-15-minute read-only smoke, not a new soak. Machine-client
+before a digest-pinned dormant API/Web rollout. Signed `v2.10.0-rc.1` targets
+revision `c5bb47d`; [workflow
+#34956379584](https://github.com/tov-vl/gold-src-ops/actions/runs/34956379584)
+built and independently verified the exact API and Web images. The candidate
+migration produced the expected 12-entry history and schema, reapplied
+idempotently, and remained compatible with retained v2.9 read-only startup.
+
+Production retained the exact candidate after 11 healthy control-plane samples
+over 602 seconds and eight game-service continuity checks over 1,045 seconds.
+Public health, release identity, A2S with zero bots, backup freshness, durable
+queues, incidents, the empty Reader Events view, and the disabled delivery
+boundary all passed. This is bounded dormant-release evidence rather than a
+soak, production gameplay-delivery result, long-term reliability claim, or
+achieved SLO. Stable `v2.10.0` promotion remains pending. Machine-client
 provisioning, game-host installation, delivery activation, and the first real
 event remain a separate pilot.
 
@@ -1610,12 +1623,11 @@ Remaining portfolio gaps, in priority order:
   shadow nor the completed v2.3 24-hour sample is an achieved SLO claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
-- Complete the v2.10 candidate gate: merge the readiness and restore-rehearsal
-  contract, publish exact API/Web images, pass one fresh isolated migration
-  rehearsal, apply the additive migration, and retain the dormant candidate
-  after a 10-to-15-minute read-only smoke. Production machine credentials,
-  Worker and producer installation, and bounded delivery remain a separate
-  pilot before any runtime gameplay claim.
+- Publish stable `v2.10.0` by signed, digest-preserving promotion of the accepted
+  candidate and independently smoke-test both stable references before the
+  GitHub Release. Production machine credentials, Worker and producer
+  installation, and bounded delivery remain a separate pilot before any
+  runtime gameplay claim; they do not block the stable dormant release.
 
 VIP entitlements and payment integration remain a separate, later milestone.
 The first entitlement experiment must stay sandbox-only and must not process

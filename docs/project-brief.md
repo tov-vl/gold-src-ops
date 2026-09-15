@@ -359,14 +359,18 @@ The project should evolve in stages:
   responsive Blazor `Events` view. Only occurrence time, map, and aggregate
   player/bot counts cross that read boundary; ingestion identities and inbox
   metadata remain internal. It reuses the existing inbox index and adds no
-  migration. No production identity, runtime, or game-host state is changed.
+  migration. The slice itself provisions no production identity or game-host
+  component.
   All five repository slices are integrated through pull requests #140-#144.
-  The `v2.10.0-rc.1` gate now requires exact candidate publication, one fresh
-  encrypted backup and isolated restore/migration rehearsal, then a dormant
-  API/Web rollout and a 10-to-15-minute read-only smoke. Production M2M
-  provisioning, Worker and plugin installation, delivery activation, and the
-  first real event remain a separate pilot and are not hidden stable-release
-  requirements.
+  Signed `v2.10.0-rc.1` now passes exact API/Web publication, a fresh encrypted
+  backup with isolated restore/migration and retained-v2.9 rehearsal, the
+  digest-pinned dormant rollout, and bounded production acceptance. Eleven
+  healthy control-plane samples over 602 seconds and eight game-service checks
+  over 1,045 seconds retained the candidate with zero bots, no pending durable
+  work, an empty Reader Events view, and all delivery paths disabled. Stable
+  digest-preserving promotion remains pending. Production M2M provisioning,
+  Worker and plugin installation, delivery activation, and the first real event
+  remain a separate pilot and are not hidden stable-release requirements.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

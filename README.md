@@ -27,10 +27,11 @@ short release evidence, not a long-term reliability or achieved-SLO claim.
 The five v2.10 game-event repository slices are integrated through pull
 requests #140 through #144. They add a bounded machine ingress and PostgreSQL
 inbox, a default-off sandbox Worker and file spool, a pinned AMX Mod X/ReAPI
-sample producer, and a minimized Reader Events view. Candidate publication,
-isolated migration rehearsal, and the dormant API/Web rollout remain pending.
-No production machine identity, game-host component, delivery path, or gameplay
-event has been activated. The release boundary is recorded in
+sample producer, and a minimized Reader Events view. Signed `v2.10.0-rc.1`, the
+isolated migration rehearsal, digest-pinned dormant rollout, and bounded
+production acceptance have passed; stable promotion remains pending. No
+production machine identity, game-host component, delivery path, or gameplay
+event has been activated. The release boundary and acceptance evidence are in
 [docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
 [docs/v2.10-readiness.md](docs/v2.10-readiness.md).
 
@@ -189,8 +190,9 @@ The published v2.9 Recent Operations Activity release and its bounded read-only
 acceptance evidence are summarized in
 [docs/release-notes-v2.9.md](docs/release-notes-v2.9.md) and
 [docs/v2.9-readiness.md](docs/v2.9-readiness.md).
-The v2.10 game-event repository scope and its pending release gate are
-summarized in [docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
+The accepted v2.10 game-event release candidate and its pending stable-promotion
+gate are summarized in
+[docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
 [docs/v2.10-readiness.md](docs/v2.10-readiness.md).
 
 ## Documentation
