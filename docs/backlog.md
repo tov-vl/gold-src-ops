@@ -1371,6 +1371,46 @@ digests, and independently smoke-tested both stable references before the
 was published. Machine-client provisioning, game-host installation, delivery
 activation, and the first real event remain a separate pilot.
 
+## Active v2.11 Milestone: Game-Event Pilot Readiness
+
+The first v2.11 slice turns the dormant v2.10 components into a reproducible,
+reviewable installation input without crossing the production activation
+boundary:
+
+- `GoldSrcOps.GameEventAgent` has a conditional .NET 10 `linux-x64`
+  self-contained single-file publish profile with native libraries embedded for
+  protected extraction;
+- one builder pins and verifies AMX Mod X `1.10.0.5481`, Metamod-R `1.3.0.149`,
+  and ReAPI `5.24.0.300`, compiles the producer, strips default plugins, and
+  writes an exact manifest for every payload file;
+- tracked-dirty development bundles are explicitly ineligible for production,
+  immutable output is not overwritten, and plan mode performs no download,
+  compile, or write;
+- the host installer verifies the external bundle digest, strict manifest,
+  component pins, archive safety, and all file hashes before storing a
+  content-addressed release beside the live runtime;
+- the installed agent environment keeps producer, spool import, and delivery
+  off, uses a separate systemd credential boundary, and leaves the unit
+  disabled and inactive;
+- installation never edits `liblist.gam`, copies plugin files into the live
+  game tree, provisions identity, or starts, stops, enables, or restarts a
+  service;
+- a pre-activation rollback removes only verified dormant files and refuses to
+  run after credentials, state, plugin activation, or service activation.
+
+The repository slice is covered by lightweight bundle and installer contract
+smokes in ordinary CI. Full toolchain download and bundle construction remain
+an explicit release/pilot operation so routine pull requests do not inherit a
+large latency penalty. The complete boundary and deferred activation checklist
+are in `docs/v2.11-game-event-pilot.md`.
+
+The next operational slice is still separately gated: provision one
+server-bound M2M identity, capture rollback inputs, apply the plugin overlay in
+a controlled restart window, enable spool import and producer one boundary at
+a time, deliver one anonymous event, prove idempotency and empty residual
+queues, and rehearse active rollback. Until that succeeds, v2.11 makes no claim
+that production gameplay delivery is active or reliable.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in

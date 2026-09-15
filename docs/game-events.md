@@ -258,10 +258,14 @@ production ingestion or host installation.
 ## Deferred Work
 
 Auth0 M2M provisioning, production migration and deployment, game-host
-installation, production event delivery, and dead-letter replay require their
+activation, production event delivery, and dead-letter replay require their
 own review and acceptance evidence. In particular, the sandbox compile,
 fixture, and Reader projection do not prove host compatibility, directory
 ownership, power-loss durability, or successful gameplay delivery. A broker is
 deferred until observed load or ownership pressure justifies it. The dormant
-candidate gate and the separate delivery-pilot boundary are defined in
-[v2.10 release readiness](v2.10-readiness.md).
+candidate gate and delivery-pilot boundary are defined in
+[v2.10 release readiness](v2.10-readiness.md). The v2.11
+[pilot-readiness bundle and installer](v2.11-game-event-pilot.md) make the
+component set reproducible and permit a default-off side-by-side installation;
+they still do not provision identity, modify the live game tree, activate a
+producer, or establish a production gameplay claim.

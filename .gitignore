@@ -24,6 +24,8 @@ mono_crash.*
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
+!tools/release/
+!tools/release/*.ps1
 [Rr]eleases/
 x64/
 x86/

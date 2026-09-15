@@ -17,6 +17,13 @@ all passed. Release notes and detailed evidence are available in
 [docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
 [docs/v2.10-readiness.md](docs/v2.10-readiness.md).
 
+The local v2.11 pilot-readiness work packages the Linux Worker and minimal
+plugin stack into one hash-addressed bundle and adds a strict, plan-first host
+installer. Installation remains dormant and leaves the running game tree
+unchanged; machine identity, activation, one real event, and active rollback
+are still separate gates. See
+[docs/v2.11-game-event-pilot.md](docs/v2.11-game-event-pilot.md).
+
 The v2.9 Recent Operations Activity release gives Reader users one bounded,
 sanitized timeline for recent incident lifecycle and command-state changes. It
 adds static All, Incidents, and Commands views with links to existing authorized
@@ -218,6 +225,7 @@ summarized in
 | v2.9 release evidence | [v2.9 readiness](docs/v2.9-readiness.md) |
 | v2.10 game-event release | [v2.10 release notes](docs/release-notes-v2.10.md) |
 | v2.10 release evidence | [v2.10 readiness](docs/v2.10-readiness.md) |
+| v2.11 game-event pilot readiness | [v2.11 pilot readiness](docs/v2.11-game-event-pilot.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
@@ -678,9 +686,22 @@ ReAPI toolchain:
 pwsh -NoProfile -File .\tools\smoke\amxx-game-event-producer.ps1
 ```
 
-The output remains under ignored `artifacts/` and is not installed. See
+Prepare the dormant Linux pilot bundle, first as a no-write plan and then from
+a tracked-clean revision:
+
+```powershell
+pwsh -NoProfile -File .\tools\release\build-game-event-pilot-bundle.ps1 -Plan
+pwsh -NoProfile -File .\tools\release\build-game-event-pilot-bundle.ps1 `
+  -BundleVersion 2.11.0-pilot.1
+```
+
+The output remains under ignored `artifacts/` and is not installed. The bundle
+contains no machine credential and all producer, spool-import, and delivery
+gates remain false. See
 `samples/amxmodx-game-event-producer/README.md` for its default-off
-configuration, event semantics, and filesystem limitations.
+configuration, event semantics, and filesystem limitations, and
+`docs/v2.11-game-event-pilot.md` for bundle verification, plan-only host
+installation, and the separate activation boundary.
 
 An authenticated Reader can inspect the bounded local product projection at
 `GET /api/servers/{serverId}/game-events?limit=50` or through the server's
