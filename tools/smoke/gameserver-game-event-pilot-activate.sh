@@ -311,6 +311,7 @@ if command -v jq >/dev/null 2>&1; then
         {path: "gameserver/cstrike/addons/amxmodx/configs/core.ini"},
         {path: "gameserver/cstrike/addons/amxmodx/configs/modules.ini"},
         {path: "gameserver/cstrike/addons/amxmodx/configs/plugins.ini"},
+        {path: "gameserver/cstrike/addons/amxmodx/data/csstats.amxx"},
         {path: "gameserver/cstrike/addons/amxmodx/dlls/amxmodx_mm_i386.so"},
         {path: "gameserver/cstrike/addons/amxmodx/modules/reapi_amxx_i386.so"},
         {path: "gameserver/cstrike/addons/amxmodx/plugins/goldsrcops_game_events.amxx"},
@@ -338,6 +339,14 @@ if command -v jq >/dev/null 2>&1; then
     expect_failure extra-plugin "$BASH" -c \
         'source "$1"; validate_overlay_manifest_scope "$2"' \
         _ "$activator" "$extra_plugin"
+
+    extra_data_amxx="$smoke_directory/overlay-manifest-extra-data-amxx.json"
+    jq '.payload += [{path: "gameserver/cstrike/addons/amxmodx/data/foreign.amxx"}]' \
+        "$overlay_manifest" > "$extra_data_amxx"
+    # shellcheck disable=SC2016
+    expect_failure extra-data-amxx "$BASH" -c \
+        'source "$1"; validate_overlay_manifest_scope "$2"' \
+        _ "$activator" "$extra_data_amxx"
 
     base64_url() {
         base64 | tr '/+' '_-' | tr -d '=\r\n'

@@ -493,7 +493,10 @@ validate_overlay_manifest_scope() {
             (.path | startswith("gameserver/cstrike/addons/amxmodx/"))) and
         ([.payload[] |
             select(.path | endswith(".amxx")) |
-            .path] == ["gameserver/cstrike/addons/amxmodx/plugins/goldsrcops_game_events.amxx"])
+            .path] | sort) == [
+                "gameserver/cstrike/addons/amxmodx/data/csstats.amxx",
+                "gameserver/cstrike/addons/amxmodx/plugins/goldsrcops_game_events.amxx"
+            ]
         ' "$manifest" >/dev/null ||
         fail "The installed pilot overlay escapes the two reviewed plugin roots."
 
