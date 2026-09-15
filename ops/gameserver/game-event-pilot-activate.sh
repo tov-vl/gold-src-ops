@@ -591,7 +591,8 @@ validate_pristine_game_tree() {
 
 verify_game_service() {
     local expect_plugins="$1"
-    local control_group listener_count listener_output listener_pid main_pid remaining restart_count
+    local control_group listener_count listener_output listener_pid remaining restart_count
+    local metamod_loaded=false amxx_loaded=false reapi_loaded=false
     declare -A listener_pids=()
 
     require_unit_active "$GAME_SERVICE_NAME"
@@ -617,17 +618,27 @@ verify_game_service() {
             fail "The game-server UDP listener process is unavailable."
         grep -Fq -- "$control_group" "/proc/$listener_pid/cgroup" ||
             fail "The configured UDP listener is outside the game service control group."
+        if [[ "$expect_plugins" == "true" ]]; then
+            [[ -r "/proc/$listener_pid/maps" ]] ||
+                fail "The game-server UDP listener process map is unavailable."
+            if grep -Fq "$live_metamod_root/metamod_i386.so" "/proc/$listener_pid/maps"; then
+                metamod_loaded=true
+            fi
+            if grep -Fq "$live_amxx_root/dlls/amxmodx_mm_i386.so" "/proc/$listener_pid/maps"; then
+                amxx_loaded=true
+            fi
+            if grep -Fq "$live_amxx_root/modules/reapi_amxx_i386.so" "/proc/$listener_pid/maps"; then
+                reapi_loaded=true
+            fi
+        fi
     done
 
     if [[ "$expect_plugins" == "true" ]]; then
-        main_pid="$(systemctl show "$GAME_SERVICE_NAME" --property=MainPID --value)"
-        [[ "$main_pid" =~ ^[1-9][0-9]*$ && -r "/proc/$main_pid/maps" ]] ||
-            fail "The game service process map is unavailable."
-        grep -Fq "$live_metamod_root/metamod_i386.so" "/proc/$main_pid/maps" ||
+        [[ "$metamod_loaded" == "true" ]] ||
             fail "Metamod-R was not loaded by the active game process."
-        grep -Fq "$live_amxx_root/dlls/amxmodx_mm_i386.so" "/proc/$main_pid/maps" ||
+        [[ "$amxx_loaded" == "true" ]] ||
             fail "AMX Mod X was not loaded by the active game process."
-        grep -Fq "$live_amxx_root/modules/reapi_amxx_i386.so" "/proc/$main_pid/maps" ||
+        [[ "$reapi_loaded" == "true" ]] ||
             fail "ReAPI was not loaded by the active game process."
     fi
 }
