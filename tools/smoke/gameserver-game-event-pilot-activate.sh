@@ -92,6 +92,55 @@ expect_failure invalid-manifest-mode "$BASH" -c \
 [[ "$(grep -Fc 'expected_mode="$(stat_mode_from_manifest "$payload_mode")"' "$activator")" == 2 ]] ||
     fail "Pilot payload metadata checks do not normalize manifest modes consistently."
 
+(
+    # shellcheck source=/dev/null
+    source "$activator"
+    fixture_listener_pid="$BASHPID"
+    fixture_control_group="$(awk -F: 'NR == 1 { print $3 }' "/proc/$fixture_listener_pid/cgroup")"
+    [[ -n "$fixture_control_group" ]] || fixture_control_group=/
+    # Consumed by the sourced verify_game_service function.
+    # shellcheck disable=SC2034
+    prepared_game_port=27015
+    # shellcheck disable=SC2034
+    live_metamod_root=/fixture/metamod
+    # shellcheck disable=SC2034
+    live_amxx_root=/fixture/amxmodx
+
+    # Called indirectly by verify_game_service.
+    # shellcheck disable=SC2329
+    systemctl() {
+        case "$1" in
+            is-active) printf '%s\n' active ;;
+            is-enabled) printf '%s\n' disabled ;;
+            show)
+                case "$3" in
+                    --property=NRestarts) printf '%s\n' 0 ;;
+                    --property=ControlGroup) printf '%s\n' "$fixture_control_group" ;;
+                    --property=MainPID) printf '%s\n' 1 ;;
+                    *) return 1 ;;
+                esac
+                ;;
+            *) return 1 ;;
+        esac
+    }
+    # Called indirectly by verify_game_service.
+    # shellcheck disable=SC2329
+    ss() {
+        printf 'fixture-listener pid=%s\n' "$fixture_listener_pid"
+    }
+    # Called indirectly by verify_game_service.
+    # shellcheck disable=SC2329
+    grep() {
+        local final_argument="${!#}"
+        if [[ "$final_argument" == "/proc/$fixture_listener_pid/maps" ]]; then
+            return 0
+        fi
+        command grep "$@"
+    }
+
+    verify_game_service true
+) || fail "Plugin verification did not inspect the UDP listener process map."
+
 overview_output="$smoke_directory/overview.out"
 "$BASH" "$activator" > "$overview_output"
 for expected in \
