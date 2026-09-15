@@ -1404,12 +1404,23 @@ an explicit release/pilot operation so routine pull requests do not inherit a
 large latency penalty. The complete boundary and deferred activation checklist
 are in `docs/v2.11-game-event-pilot.md`.
 
-The next operational slice is still separately gated: provision one
-server-bound M2M identity, capture rollback inputs, apply the plugin overlay in
-a controlled restart window, enable spool import and producer one boundary at
-a time, deliver one anonymous event, prove idempotency and empty residual
-queues, and rehearse active rollback. Until that succeeds, v2.11 makes no claim
-that production gameplay delivery is active or reliable.
+The second local v2.11 slice adds the separately gated activation and active
+rollback workflow. Its strict state machine preserves the exact pre-pilot
+loader and dormant environment, inspects the issued M2M token for one server
+binding and only `ingest:game-events`, starts spool-only, permits one bounded
+producer window, requires exactly one sealed event before delivery, and invokes
+the same rollback after any failed mutating transition. A deterministic smoke
+covers identity/state rejection, config rendering, ordering, secret transport,
+boot-disablement, and rollback structure. It performs no target mutation or
+production event.
+
+The next operational slice is still separately gated: provision the reviewed
+server-bound M2M identity, capture external rollback inputs, execute each state
+transition in a controlled restart window, prove A2S and zero bots at the named
+gates, verify one anonymous event through local completion plus API
+receipt/idempotency and Reader projection, then complete active rollback. Until
+that succeeds, v2.11 makes no claim that production gameplay delivery is active
+or reliable.
 
 ## Current API Scope
 

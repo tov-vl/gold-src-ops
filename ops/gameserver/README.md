@@ -1,11 +1,11 @@
 # Controlled Game-Server Operations
 
 This directory contains the provider-independent host foundation, pinned
-runtime installer, and first-start activation workflow for the controlled
-ReHLDS baseline.
+runtime installer, first-start activation, and default-off game-event pilot
+workflows for the controlled ReHLDS baseline.
 
-All three workflows are plan-only by default. Each plan must be reviewed from
-the same Git revision that will be applied to a paid host.
+Every mutating workflow is plan-only by default. Each plan must be reviewed
+from the same Git revision that will be applied to a paid host.
 
 ## Scope
 
@@ -350,8 +350,46 @@ The deterministic, no-host-change smoke is:
 bash ./tools/smoke/gameserver-game-event-pilot-install.sh
 ```
 
-Build inputs, expected state, rollback refusal conditions, and the deferred
-activation sequence are defined in
+Build inputs, expected state, rollback refusal conditions, and the separately
+gated activation sequence are defined in
+[`docs/v2.11-game-event-pilot.md`](../../docs/v2.11-game-event-pilot.md).
+
+## Game-Event Pilot Activation
+
+`game-event-pilot-activate.sh` is the separately gated all-or-nothing
+activation and active-rollback workflow. It:
+
+- requires the verified dormant release, the active/disabled plugin-free game
+  runtime, empty agent state, and a strict server-bound machine identity;
+- accepts the OAuth client secret through redirected stdin only and inspects an
+  issued Auth0 token for the exact audience, permission, server binding, and
+  absence of human roles before changing the game tree;
+- preserves the exact pre-pilot `liblist.gam`, dormant agent environment, game
+  invocation/restart baseline, non-secret identity, and parent-directory
+  metadata, then rechecks the baseline after token acquisition;
+- applies only the manifest-pinned overlay and starts in spool-only mode with
+  producer and delivery off;
+- exposes separate `--enable-producer`, `--seal-event`, and
+  `--enable-delivery` transitions, requiring exactly one local event before
+  delivery;
+- keeps both services disabled across boot and invokes the same active rollback
+  after a failed mutating transition or lost controlling session, including a
+  state/gate split caused by interruption between atomic writes;
+- restores the dormant pilot and original active game runtime, while retaining
+  owner-only recovery state instead of claiming success if restoration cannot
+  be proved.
+
+Review the complete plan and the deterministic repository contract:
+
+```bash
+bash ./ops/gameserver/game-event-pilot-activate.sh
+bash ./tools/smoke/gameserver-game-event-pilot-activate.sh
+```
+
+The script does not provision Auth0, manufacture a gameplay event, or replace
+external A2S, zero-bot, API receipt/idempotency, and Reader projection checks.
+The exact state machine, identity-file contract, apply commands, gates, and
+rollback sequence are documented in
 [`docs/v2.11-game-event-pilot.md`](../../docs/v2.11-game-event-pilot.md).
 
 ## Release-Soak Continuity
