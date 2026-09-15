@@ -302,6 +302,58 @@ parsing, exact-source and default-deny firewall gates, public/private rendering,
 activation order, disconnect rollback coverage, and the prohibition on service
 enablement or secret arguments.
 
+## Game-Event Pilot Installation
+
+`game-event-pilot-install.sh` prepares the separately reviewed v2.11 gameplay
+delivery pilot without changing the live Counter-Strike tree. The installer:
+
+- requires the reviewed active ReHLDS/ReGameDLL_CS runtime to remain
+  plugin-free;
+- accepts only a root-owned mode-`0600` bundle plus its separately supplied
+  lowercase SHA-256;
+- rejects unsafe archive entries, development manifests, pin drift, extra
+  files, and every size or digest mismatch;
+- installs the exact payload below a content-addressed release directory;
+- creates restricted local agent state, a default-off non-secret environment,
+  and a hardened systemd unit behind an absent activation marker and absent
+  systemd credential;
+- leaves the new unit disabled and inactive and does not edit `liblist.gam`,
+  copy the plugin overlay into the server, or restart either service.
+
+Review the generic plan:
+
+```bash
+bash ./ops/gameserver/game-event-pilot-install.sh
+```
+
+Apply only with the exact bundle path and digest reviewed for the pilot:
+
+```bash
+sudo --preserve-env=SSH_CONNECTION \
+  bash /tmp/game-event-pilot-install.sh \
+    --bundle /root/goldsrcops-game-event-pilot.zip \
+    --bundle-sha256 <reviewed-sha256> \
+    --apply
+```
+
+Before any activation, the same script supports a fail-closed rollback of only
+its unactivated files:
+
+```bash
+sudo --preserve-env=SSH_CONNECTION \
+  bash /tmp/game-event-pilot-install.sh --rollback --apply
+```
+
+The deterministic, no-host-change smoke is:
+
+```bash
+bash ./tools/smoke/gameserver-game-event-pilot-install.sh
+```
+
+Build inputs, expected state, rollback refusal conditions, and the deferred
+activation sequence are defined in
+[`docs/v2.11-game-event-pilot.md`](../../docs/v2.11-game-event-pilot.md).
+
 ## Release-Soak Continuity
 
 `soak-readiness.sh` performs the read-only game-host half of the v2.3 release

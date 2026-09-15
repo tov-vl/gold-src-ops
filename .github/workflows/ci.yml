@@ -190,6 +190,14 @@ jobs:
         if: needs.change-scope.outputs.docs_only != 'true'
         run: bash ./tools/smoke/gameserver-runtime-activate.sh
 
+      - name: Validate game-event pilot bundle contract
+        if: needs.change-scope.outputs.docs_only != 'true'
+        run: pwsh -NoProfile -File ./tools/smoke/game-event-pilot-bundle.ps1
+
+      - name: Validate game-event pilot installer
+        if: needs.change-scope.outputs.docs_only != 'true'
+        run: bash ./tools/smoke/gameserver-game-event-pilot-install.sh
+
       - name: Validate game-host soak-readiness evidence contract
         if: needs.change-scope.outputs.docs_only != 'true'
         run: bash ./tools/smoke/gameserver-soak-readiness.sh
