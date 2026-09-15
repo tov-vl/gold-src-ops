@@ -1,9 +1,9 @@
 # GoldSrcOps v2.10.0 Release Notes
 
-Status as of 2026-09-15: release candidate accepted. Signed `v2.10.0-rc.1`
+Status as of 2026-09-15: stable release published. Signed `v2.10.0-rc.1`
 publication, fresh backup and isolated migration rehearsal, digest-pinned
-dormant production rollout, and bounded read-only acceptance are complete.
-Digest-preserving stable publication remains pending.
+dormant production acceptance, signed `v2.10.0` promotion, published-image
+verification, and the GitHub Release are complete.
 
 ## Overview
 
@@ -110,9 +110,14 @@ spool import, and delivery remained disabled.
 This acceptance did not repeat the OIDC matrix, submit a disruptive command,
 run a multi-hour soak, or manufacture a gameplay event. It is short operational
 evidence for a dormant candidate, not proof of long-term reliability, high
-availability, production gameplay delivery, or an achieved SLO. Stable
-`v2.10.0` must promote the exact accepted digests without rebuilding them and
-independently smoke-test both stable references before release publication.
+availability, production gameplay delivery, or an achieved SLO. Signed stable
+tag `v2.10.0` targets revision
+`c5bb47d56a6c11dbecb037ba90cdb154fe9fc3f6`. Stable workflow
+[#34966981033](https://github.com/tov-vl/gold-src-ops/actions/runs/34966981033)
+skipped both image builds, promoted the exact accepted candidate digests, and
+independently smoke-tested both stable references before the GitHub Release was
+published. Stable publication preserves the bounded dormant claim above; it
+does not add production gameplay-delivery evidence.
 
 The detailed ordered gate and rollback rules are defined in
 [v2.10 release readiness](v2.10-readiness.md).
@@ -134,6 +139,7 @@ The detailed ordered gate and rollback rules are defined in
 
 ## References
 
+- [GoldSrcOps v2.10.0 GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.10.0)
 - [v2.10 release readiness](v2.10-readiness.md)
 - [Game-event contract and local agent](game-events.md)
 - [Game-event ingress foundation pull request](https://github.com/tov-vl/gold-src-ops/pull/140)

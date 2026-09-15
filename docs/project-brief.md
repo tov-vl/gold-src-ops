@@ -368,9 +368,14 @@ The project should evolve in stages:
   healthy control-plane samples over 602 seconds and eight game-service checks
   over 1,045 seconds retained the candidate with zero bots, no pending durable
   work, an empty Reader Events view, and all delivery paths disabled. Stable
-  digest-preserving promotion remains pending. Production M2M provisioning,
-  Worker and plugin installation, delivery activation, and the first real event
-  remain a separate pilot and are not hidden stable-release requirements.
+  `v2.10.0` targets the same accepted revision; stable
+  [workflow #34966981033](https://github.com/tov-vl/gold-src-ops/actions/runs/34966981033)
+  skipped both image builds, promoted the exact candidate digests, and verified
+  both stable references before the
+  [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.10.0)
+  was published. Production M2M provisioning, Worker and plugin installation,
+  delivery activation, and the first real event remain a separate pilot and
+  are not hidden stable-release requirements.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
