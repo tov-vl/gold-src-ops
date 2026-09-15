@@ -6,16 +6,16 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.9.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.9.0)
+**Status:** [v2.10.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.10.0)
 is the current public release. Its signed annotated tag identifies application
-revision `1ad782e` and promotes the exact API and Web image digests exercised by
-`v2.9.0-rc.1`, without rebuilding either image. The candidate
-[workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34822994088),
-bounded production acceptance, and stable
-[publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34825735706)
+revision `c5bb47d` and promotes the exact API and Web image digests exercised by
+`v2.10.0-rc.1`, without rebuilding either image. The candidate
+[workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34956379584),
+bounded dormant production acceptance, and stable
+[publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34966981033)
 all passed. Release notes and detailed evidence are available in
-[docs/release-notes-v2.9.md](docs/release-notes-v2.9.md) and
-[docs/v2.9-readiness.md](docs/v2.9-readiness.md).
+[docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
+[docs/v2.10-readiness.md](docs/v2.10-readiness.md).
 
 The v2.9 Recent Operations Activity release gives Reader users one bounded,
 sanitized timeline for recent incident lifecycle and command-state changes. It
@@ -24,14 +24,13 @@ detail routes. Its additive read-only scope passed three production samples over
 405.61 seconds while retaining control-plane and game-host continuity. This is
 short release evidence, not a long-term reliability or achieved-SLO claim.
 
-The five v2.10 game-event repository slices are integrated through pull
-requests #140 through #144. They add a bounded machine ingress and PostgreSQL
-inbox, a default-off sandbox Worker and file spool, a pinned AMX Mod X/ReAPI
-sample producer, and a minimized Reader Events view. Signed `v2.10.0-rc.1`, the
-isolated migration rehearsal, digest-pinned dormant rollout, and bounded
-production acceptance have passed; stable promotion remains pending. No
-production machine identity, game-host component, delivery path, or gameplay
-event has been activated. The release boundary and acceptance evidence are in
+The published v2.10 game-event release integrates five repository slices
+through pull requests #140 through #144. They add a bounded machine ingress and
+PostgreSQL inbox, a default-off sandbox Worker and file spool, a pinned AMX Mod
+X/ReAPI sample producer, and a minimized Reader Events view. The accepted
+production deployment remains dormant: no production machine identity,
+game-host component, delivery path, or gameplay event has been activated. The
+release boundary and candidate and stable publication evidence are in
 [docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
 [docs/v2.10-readiness.md](docs/v2.10-readiness.md).
 
@@ -190,8 +189,8 @@ The published v2.9 Recent Operations Activity release and its bounded read-only
 acceptance evidence are summarized in
 [docs/release-notes-v2.9.md](docs/release-notes-v2.9.md) and
 [docs/v2.9-readiness.md](docs/v2.9-readiness.md).
-The accepted v2.10 game-event release candidate and its pending stable-promotion
-gate are summarized in
+The published v2.10 game-event release and its dormant production boundary are
+summarized in
 [docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
 [docs/v2.10-readiness.md](docs/v2.10-readiness.md).
 

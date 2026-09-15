@@ -1274,7 +1274,7 @@ mutation, RCON traffic, OIDC reconfiguration, or new soak was required for this
 additive no-migration slice. Details and claim limits are in
 `docs/v2.9-readiness.md`.
 
-## Active v2.10 Release Milestone: Game Events Foundation And Sandbox Agent
+## Completed v2.10 Milestone: Game Events Foundation And Sandbox Agent
 
 The first v2.10 slice establishes a bounded ingress boundary for future
 AMX Mod X/ReAPI agents without installing an agent or changing production:
@@ -1363,9 +1363,13 @@ Public health, release identity, A2S with zero bots, backup freshness, durable
 queues, incidents, the empty Reader Events view, and the disabled delivery
 boundary all passed. This is bounded dormant-release evidence rather than a
 soak, production gameplay-delivery result, long-term reliability claim, or
-achieved SLO. Stable `v2.10.0` promotion remains pending. Machine-client
-provisioning, game-host installation, delivery activation, and the first real
-event remain a separate pilot.
+achieved SLO. Signed stable `v2.10.0` targets the same accepted revision. Stable
+[workflow #34966981033](https://github.com/tov-vl/gold-src-ops/actions/runs/34966981033)
+skipped both image build paths, promoted the exact candidate API and Web
+digests, and independently smoke-tested both stable references before the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.10.0)
+was published. Machine-client provisioning, game-host installation, delivery
+activation, and the first real event remain a separate pilot.
 
 ## Current API Scope
 
@@ -1623,11 +1627,10 @@ Remaining portfolio gaps, in priority order:
   shadow nor the completed v2.3 24-hour sample is an achieved SLO claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
-- Publish stable `v2.10.0` by signed, digest-preserving promotion of the accepted
-  candidate and independently smoke-test both stable references before the
-  GitHub Release. Production machine credentials, Worker and producer
-  installation, and bounded delivery remain a separate pilot before any
-  runtime gameplay claim; they do not block the stable dormant release.
+- Run a separately reviewed, bounded production game-event delivery pilot
+  before making any runtime gameplay claim. Production machine credentials,
+  Worker and producer installation, one anonymous event, and rollback evidence
+  remain outside the completed dormant v2.10 release.
 
 VIP entitlements and payment integration remain a separate, later milestone.
 The first entitlement experiment must stay sandbox-only and must not process
