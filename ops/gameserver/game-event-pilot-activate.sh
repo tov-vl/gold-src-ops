@@ -451,6 +451,12 @@ validate_directory_metadata() {
         fail "A required directory owner or mode has drifted."
 }
 
+stat_mode_from_manifest() {
+    local manifest_mode="$1"
+    [[ "$manifest_mode" =~ ^0[0-7]{3}$ ]] || fail "A manifest payload mode is invalid."
+    printf '%s\n' "${manifest_mode#0}"
+}
+
 verify_sha256() {
     local path="$1"
     local expected="$2"
@@ -509,7 +515,7 @@ validate_overlay_manifest_scope() {
 
 verify_release_payload() {
     local manifest_paths actual_paths duplicate_paths
-    local payload_path payload_length payload_sha payload_mode actual_length release_directory
+    local payload_path payload_length payload_sha payload_mode actual_length expected_mode release_directory
 
     verify_sha256 "$manifest_file" "$pilot_manifest_sha256"
     validate_file_metadata "$manifest_file" root "$service_group" 640
@@ -561,7 +567,8 @@ verify_release_payload() {
         [[ "$actual_length" == "$payload_length" ]] ||
             fail "An installed pilot payload length has drifted."
         verify_sha256 "$full_path" "$payload_sha"
-        [[ "$(stat -c '%U:%G:%a' "$full_path")" == "root:$service_group:$payload_mode" ]] ||
+        expected_mode="$(stat_mode_from_manifest "$payload_mode")"
+        [[ "$(stat -c '%U:%G:%a' "$full_path")" == "root:$service_group:$expected_mode" ]] ||
             fail "An installed pilot payload owner or mode has drifted."
     done < <(jq -r '.payload[] | [.path, .length, .sha256, .mode] | @tsv' "$manifest_file")
 
@@ -1149,7 +1156,7 @@ install_live_overlay() {
 }
 
 verify_live_overlay() {
-    local payload_path payload_sha payload_mode destination
+    local payload_path payload_sha payload_mode expected_mode destination
     [[ -d "$live_metamod_root" && ! -L "$live_metamod_root" ]] ||
         fail "The live Metamod-R root is missing or unsafe."
     [[ -d "$live_amxx_root" && ! -L "$live_amxx_root" ]] ||
@@ -1166,7 +1173,8 @@ verify_live_overlay() {
         else
             verify_sha256 "$destination" "$payload_sha"
         fi
-        [[ "$(stat -c '%U:%G:%a' "$destination")" == "root:$service_group:$payload_mode" ]] ||
+        expected_mode="$(stat_mode_from_manifest "$payload_mode")"
+        [[ "$(stat -c '%U:%G:%a' "$destination")" == "root:$service_group:$expected_mode" ]] ||
             fail "A live pilot payload owner or mode has drifted."
     done < <(jq -r '.payload[] | select(.path | startswith("gameserver/")) | [.path, .sha256, .mode] | @tsv' "$manifest_file")
 

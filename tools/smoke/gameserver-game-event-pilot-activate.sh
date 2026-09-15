@@ -79,6 +79,19 @@ EOF
 
 "$BASH" -n "$activator"
 
+(
+    # shellcheck source=/dev/null
+    source "$activator"
+    [[ "$(stat_mode_from_manifest 0640)" == 640 ]]
+    [[ "$(stat_mode_from_manifest 0750)" == 750 ]]
+)
+# shellcheck disable=SC2016
+expect_failure invalid-manifest-mode "$BASH" -c \
+    'source "$1"; stat_mode_from_manifest 640' _ "$activator"
+# shellcheck disable=SC2016
+[[ "$(grep -Fc 'expected_mode="$(stat_mode_from_manifest "$payload_mode")"' "$activator")" == 2 ]] ||
+    fail "Pilot payload metadata checks do not normalize manifest modes consistently."
+
 overview_output="$smoke_directory/overview.out"
 "$BASH" "$activator" > "$overview_output"
 for expected in \
