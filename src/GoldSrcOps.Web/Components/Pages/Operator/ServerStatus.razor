@@ -80,6 +80,50 @@
             </dl>
         </section>
 
+        <section class="latest-round" aria-labelledby="latest-round-title">
+            <div class="latest-round-heading">
+                <div>
+                    <p class="eyebrow">Gameplay record</p>
+                    <h2 id="latest-round-title">Latest completed round</h2>
+                </div>
+                <a href="@($"/operator/servers/{ServerId:D}/events")">View round history</a>
+            </div>
+
+            @if (_latestRoundUnavailable)
+            {
+                <p class="latest-round-state" role="status">Round history is temporarily unavailable.</p>
+            }
+            else if (_latestRound is null)
+            {
+                <p class="latest-round-state">No completed round has been reported.</p>
+            }
+            else
+            {
+                <dl class="latest-round-summary">
+                    <div>
+                        <dt>Completed</dt>
+                        <dd>
+                            <time datetime="@_latestRound.OccurredAtUtc.ToString("O", CultureInfo.InvariantCulture)">
+                                @FormatDateTime(_latestRound.OccurredAtUtc)
+                            </time>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Map</dt>
+                        <dd><code>@DisplayValue(_latestRound.Map)</code></dd>
+                    </div>
+                    <div>
+                        <dt>Players</dt>
+                        <dd>@DisplayValue(_latestRound.Players)</dd>
+                    </div>
+                    <div>
+                        <dt>Bots</dt>
+                        <dd>@DisplayValue(_latestRound.Bots)</dd>
+                    </div>
+                </dl>
+            }
+        </section>
+
         <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
             <section class="monitoring-control" aria-labelledby="monitoring-control-title">
                 <div>
@@ -114,6 +158,8 @@
 </div>
 
 @code {
+    private const int LatestRoundLimit = 1;
+
     [Parameter]
     public Guid ServerId { get; set; }
 
@@ -123,8 +169,10 @@
 
     private ServerResponse? _server;
     private ServerStatusResponse? _status;
+    private GameEventHistoryItemResponse? _latestRound;
     private bool _loadFailed;
     private bool _notFound;
+    private bool _latestRoundUnavailable;
 
     private string AvailabilityClass => _status?.Status.ToLowerInvariant() switch
     {
@@ -153,14 +201,23 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        _server = null;
+        _status = null;
+        _latestRound = null;
+        _loadFailed = false;
+        _notFound = false;
+        _latestRoundUnavailable = false;
+
         try
         {
             var serverTask = ReaderApiClient.GetServerAsync(ServerId);
             var statusTask = ReaderApiClient.GetServerStatusAsync(ServerId);
-            await Task.WhenAll(serverTask, statusTask);
+            var latestRoundTask = LoadLatestRoundAsync();
+            await Task.WhenAll(serverTask, statusTask, latestRoundTask);
 
             _server = await serverTask;
             _status = await statusTask;
+            _latestRound = await latestRoundTask;
             _notFound = _server is null || _status is null;
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
@@ -170,8 +227,26 @@
         }
     }
 
+    private async Task<GameEventHistoryItemResponse?> LoadLatestRoundAsync()
+    {
+        try
+        {
+            var history = await ReaderApiClient.GetServerGameEventsAsync(ServerId, LatestRoundLimit);
+            return history?.Items.FirstOrDefault();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load latest gameplay event for server {ServerId}.", ServerId);
+            _latestRoundUnavailable = true;
+            return null;
+        }
+    }
+
     private static string DisplayValue(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "Not available" : value;
+
+    private static string DisplayValue(int? value) =>
+        value?.ToString(CultureInfo.InvariantCulture) ?? "Not reported";
 
     private static string FormatDateTime(DateTimeOffset? value) => value is null
         ? "Not available"

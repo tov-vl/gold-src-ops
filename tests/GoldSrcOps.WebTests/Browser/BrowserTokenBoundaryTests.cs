@@ -690,6 +690,48 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
     }
 
     [BrowserFact]
+    public async Task Server_overview_latest_round_fits_supported_desktop_and_mobile_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(
+                    baseAddress,
+                    $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}")
+                    .AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("section.latest-round").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator(".latest-round-summary > div").CountAsync()).Should().Be(4);
+            (await Page.Locator(".latest-round-summary").TextContentAsync())
+                .Should().Contain(ReaderWebApplicationFactory.GameEventMap);
+            var overflowingElements = await Page.EvaluateAsync<string[]>(
+                "Array.from(document.querySelectorAll('body *'))" +
+                ".filter(element => { const bounds = element.getBoundingClientRect(); " +
+                "return bounds.left < -0.5 || bounds.right > document.documentElement.clientWidth + 0.5; })" +
+                ".map(element => `${element.tagName.toLowerCase()}.${element.className || ''} " +
+                "[${element.getBoundingClientRect().left},${element.getBoundingClientRect().right}]`)");
+            overflowingElements.Should().BeEmpty();
+
+            await CaptureScreenshotIfRequestedAsync("server-overview-latest-round", viewport);
+        }
+    }
+
+    [BrowserFact]
     public async Task Gameplay_events_fit_supported_desktop_and_mobile_viewports()
     {
         await using var factory = new BrowserTokenBoundaryWebApplicationFactory();

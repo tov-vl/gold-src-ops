@@ -1451,6 +1451,23 @@ zero bots, and no open incident appeared. This closes the bounded v2.11 pilot;
 it does not leave gameplay delivery active, establish long-term reliability or
 an achieved SLO, or authorize unattended rollout.
 
+## Active v2.12 Milestone: Latest Round Overview
+
+The first v2.12 slice makes the already retained gameplay record visible during
+ordinary server triage without widening the game-event runtime boundary:
+
+- the Reader server overview requests only the newest retained completed round
+  through the existing `GET /api/servers/{id}/game-events?limit=1` projection;
+- the compact summary shows occurrence time, map, aggregate players, and bots,
+  and links to the existing bounded Events history;
+- empty history is a normal state, while an unavailable gameplay projection is
+  isolated from the core A2S status so the server overview remains usable;
+- the slice adds no API contract, migration, worker, identity, production
+  activation, or mutation permission.
+
+Static-rendering integration coverage for populated, empty, and unavailable
+gameplay-history states defines the focused repository acceptance boundary.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1707,10 +1724,6 @@ Remaining portfolio gaps, in priority order:
   shadow nor the completed v2.3 24-hour sample is an achieved SLO claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
-- Run a separately reviewed, bounded production game-event delivery pilot
-  before making any runtime gameplay claim. Production machine credentials,
-  Worker and producer installation, one anonymous event, and rollback evidence
-  remain outside the completed dormant v2.10 release.
 
 VIP entitlements and payment integration remain a separate, later milestone.
 The first entitlement experiment must stay sandbox-only and must not process
