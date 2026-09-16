@@ -1,8 +1,8 @@
 # GoldSrcOps v2.13.0 Release Notes
 
-Status as of 2026-09-16: candidate preparation. The product slice is integrated
-in protected `main`; no v2.13 candidate tag, production rollout, stable tag, or
-GitHub Release has been published yet.
+Status as of 2026-09-16: release candidate accepted. Signed `v2.13.0-rc.1`
+publication, digest-pinned production rollout, and bounded production smoke are
+complete; stable digest-preserving publication remains pending.
 
 ## Overview
 
@@ -62,14 +62,25 @@ browser token boundary. `Change Scope`, `Quality Gate`, `Container Smoke`, and
 and post-merge workflow
 [#35131325453](https://github.com/tov-vl/gold-src-ops/actions/runs/35131325453).
 
-Release acceptance is intentionally shorter than the product test cycle. The
-signed candidate tag performs one complete immutable-image workflow. Production
-then receives only the exact API and Web digests and runs a three-sample,
-three-minute read-only smoke. It does not repeat a game-host soak, migration or
-restore rehearsal, pilot activation, Auth0 change, RCON action, alert-outbox
-investigation, or gameplay capture.
+Candidate workflow
+[#35137595122](https://github.com/tov-vl/gold-src-ops/actions/runs/35137595122)
+published and verified both immutable images from revision `cc80b74`. Production
+retained those exact digests after an API/Web-only rollout. Four healthy samples
+over 181 seconds verified public health, release identity, A2S continuity, zero
+bots, zero open or newly opened incidents, zero dead letters, zero incomplete
+commands, unchanged pending durable work, untouched-service continuity, and
+fresh backup evidence. A separate 442-second game-host check preserved the game
+service while the game-event agent remained inactive and boot-disabled.
 
-Candidate identity, rollout evidence, and stable publication remain pending.
+The authenticated production page rendered All, Incidents, Commands, and Rounds
+counts of 8/3/4/1. The retained gameplay row opened the existing Events history
+without exposing map, population, source identity, sequence, receipt time, or
+intent hash in Recent Activity. Browser storage contained no token, the page
+added no mutation control, and the browser reported no warning or error.
+
+The read-only baseline contained two reviewed deferred alert-outbox records with
+alert delivery disabled. The count remained exactly two in every sample; the
+release did not mutate or drain the queue. Stable publication remains pending.
 The exact ordered gate and rollback rules are defined in
 [v2.13 release readiness](v2.13-readiness.md).
 
@@ -93,6 +104,7 @@ The exact ordered gate and rollback rules are defined in
 - [Gameplay Activity Timeline pull request](https://github.com/tov-vl/gold-src-ops/pull/161)
 - [Product pull request workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35130507621)
 - [Product post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35131325453)
+- [Candidate publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35137595122)
 - [Project backlog](backlog.md)
 - [Project brief](project-brief.md)
 - [v2.12.0 release notes](release-notes-v2.12.md)

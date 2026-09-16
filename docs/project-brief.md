@@ -408,13 +408,15 @@ The project should evolve in stages:
   sequence, receipt time, and intent hash out of the activity response. It
   changes no schema or response shape and does not activate a producer,
   delivery path, worker, identity, or mutation permission. The product slice
-  is integrated through pull request #161; candidate publication remains
-  pending. Release readiness uses the documentation-only CI fast path followed
-  by one complete signed-tag image workflow, an API/Web-only rollout, and a
-  three-sample, three-minute read-only production smoke. It does not repeat a
-  game-host soak, migration or restore rehearsal, pilot activation, or new
-  gameplay capture. Candidate identity and claim limits are defined in
-  `docs/v2.13-readiness.md`.
+  is integrated through pull request #161. Signed candidate `v2.13.0-rc.1`
+  passed exact-digest publication, an API/Web-only rollout, four healthy
+  production samples over 181 seconds, authenticated Recent Activity and Events
+  verification, and a separate 442-second game-host continuity check. The two
+  reviewed deferred alert-outbox records remained unchanged with delivery
+  disabled. Stable digest-preserving publication remains pending. The release
+  did not repeat a game-host soak, migration or restore rehearsal, pilot
+  activation, alert-outbox mutation, or gameplay capture. Candidate identity
+  and claim limits are defined in `docs/v2.13-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

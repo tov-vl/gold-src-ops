@@ -1494,7 +1494,7 @@ catch-up work rather than deleted or assigned a fictitious terminal status.
 Alert delivery remains disabled until a permanent receiver can ingest that
 historical pair idempotently and in order without generating a stale page.
 
-## Candidate v2.13 Milestone: Gameplay Activity Timeline
+## Accepted v2.13 Candidate Milestone: Gameplay Activity Timeline
 
 The v2.13 product slice brings retained completed rounds into the existing
 Reader Recent Activity workflow:
@@ -1518,11 +1518,16 @@ desktop/mobile rendering.
 The product slice is integrated through pull request
 [#161](https://github.com/tov-vl/gold-src-ops/pull/161). Its pull request and
 post-merge workflows passed `Change Scope`, `Quality Gate`, `Container Smoke`,
-and `Browser Smoke`. Candidate publication remains pending. The release uses
-one signed-tag image workflow, an API/Web-only digest-pinned rollout, and a
-three-sample, three-minute read-only smoke; it does not repeat a game-host soak,
-migration or restore rehearsal, pilot activation, alert-outbox investigation,
-or gameplay capture. See `docs/release-notes-v2.13.md` and
+and `Browser Smoke`. Signed candidate `v2.13.0-rc.1` was published from revision
+`cc80b74`, deployed by exact API and Web digest, and retained after four healthy
+production samples over 181 seconds. Authenticated Recent Activity showed
+All/Incidents/Commands/Rounds counts of 8/3/4/1, the retained gameplay row linked
+to Events, and the minimized activity projection exposed no gameplay detail.
+A separate 442-second check preserved the game service and dormant event agent.
+Two reviewed deferred alert-outbox records remained unchanged with delivery
+disabled. Stable digest-preserving promotion remains pending. No game-host soak,
+migration or restore rehearsal, pilot activation, alert-outbox mutation, or
+gameplay capture was required. See `docs/release-notes-v2.13.md` and
 `docs/v2.13-readiness.md`.
 
 ## Current API Scope
