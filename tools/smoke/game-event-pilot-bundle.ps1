@@ -120,6 +120,8 @@ try {
         "producerEnabled = `$false",
         "spoolImportEnabled = `$false",
         "deliveryEnabled = `$false",
+        'run|verify-access-token',
+        'exec "$agent_directory/GoldSrcOps.GameEventAgent" "$agent_command"',
         "CreateFromDirectory",
         "Get-LowerSha256 `$bundlePath"
     )) {

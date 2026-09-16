@@ -447,6 +447,20 @@ umask 077
 readonly agent_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly credential_name="oauth-client-secret"
 
+if (($# > 1)); then
+    printf 'ERROR: the game-event agent launcher accepts at most one command.\n' >&2
+    exit 2
+fi
+
+agent_command="${1:-run}"
+case "$agent_command" in
+    run|verify-access-token) ;;
+    *)
+        printf 'ERROR: the game-event agent launcher command is unsupported.\n' >&2
+        exit 2
+        ;;
+esac
+
 if [[ -z "${CREDENTIALS_DIRECTORY:-}" ]]; then
     printf 'ERROR: systemd credentials directory is unavailable.\n' >&2
     exit 1
@@ -459,7 +473,7 @@ if [[ ! -f "$credential_path" || -L "$credential_path" ]]; then
 fi
 
 export GameEventAgent__Delivery__OAuth__ClientSecretFile="$credential_path"
-exec "$agent_directory/GoldSrcOps.GameEventAgent" run
+exec "$agent_directory/GoldSrcOps.GameEventAgent" "$agent_command"
 '@
 
     $payload = @(

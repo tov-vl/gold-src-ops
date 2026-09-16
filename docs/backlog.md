@@ -1414,6 +1414,17 @@ covers identity/state rejection, config rendering, ordering, secret transport,
 boot-disablement, and rollback structure. It performs no target mutation or
 production event.
 
+The first bounded production attempt reached spool-only operation, captured and
+sealed one anonymous round event, but did not deliver it. Seven scheduled
+delivery attempts produced no matching ingress request, durable inbox row, or
+Reader result. Explicit rollback restored the plugin-free game service and
+removed temporary pilot state; A2S, zero bots, restart continuity, durable
+queues, and incidents were healthy afterwards. A follow-up local hardening
+slice adds an access-token preflight under the exact delivery service account,
+credential, environment, HTTP stack, and systemd sandbox. A later production
+retry remains required and must pass that preflight before enabling the
+producer or asking a player to complete another round.
+
 The next operational slice is still separately gated: provision the reviewed
 server-bound M2M identity, capture external rollback inputs, execute each state
 transition in a controlled restart window, prove A2S and zero bots at the named
