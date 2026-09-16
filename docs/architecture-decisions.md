@@ -1311,7 +1311,15 @@ Alternatives considered:
 Implementation status:
 
 The local v2.11 workflow and deterministic smoke implement and validate this
-state machine without mutating either production host. Auth0 provisioning,
-external A2S and zero-bot gates, one real event, API receipt/idempotency and
-Reader evidence, and the target active-rollback rehearsal remain operational
-work. The complete procedure is in `docs/v2.11-game-event-pilot.md`.
+state machine. On 2026-09-16, a separately approved bounded production pilot
+passed the service-context OAuth preflight, external A2S and zero-bot gates,
+captured and sealed exactly one anonymous round event, received one HTTP `202`
+ingest response, and exposed one matching durable Reader result without a
+duplicate or dead letter. The same active rollback restored the exact
+plugin-free runtime and dormant-agent boundary with zero automatic restarts.
+
+This completes the operational evidence for the decision once. Gameplay-event
+delivery remains rolled back and disabled; the result is not evidence of
+long-term reliability, broad plugin compatibility, an achieved SLO, or
+authorization for unattended rollout. The complete procedure and bounded
+result are in `docs/v2.11-game-event-pilot.md`.
