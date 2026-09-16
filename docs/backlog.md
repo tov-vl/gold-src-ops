@@ -1425,6 +1425,15 @@ credential, environment, HTTP stack, and systemd sandbox. A later production
 retry remains required and must pass that preflight before enabling the
 producer or asking a player to complete another round.
 
+The next bounded activation reached the new service-context preflight and
+failed before any token-endpoint or API request because the agent treated
+systemd's ACL-backed `0440` credential as a generic group-readable file.
+Explicit rollback restored the plugin-free game service with zero automatic
+restarts and removed temporary identity, credential, activation, and plugin
+state. A narrow follow-up accepts that read-only mode only for an immediate,
+non-symlink file in the exact `$CREDENTIALS_DIRECTORY`; a rebuilt reviewed
+bundle and successful production preflight remain pending.
+
 The next operational slice is still separately gated: provision the reviewed
 server-bound M2M identity, capture external rollback inputs, execute each state
 transition in a controlled restart window, prove A2S and zero bots at the named
