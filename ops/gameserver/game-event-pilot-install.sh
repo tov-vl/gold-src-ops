@@ -670,6 +670,7 @@ WorkingDirectory=$state_root
 EnvironmentFile=$environment_file
 Environment=DOTNET_BUNDLE_EXTRACT_BASE_DIR=$state_root/dotnet-bundle
 LoadCredential=oauth-client-secret:$client_secret_file
+ExecStartPre=$selected_release/agent/run.sh verify-access-token
 ExecStart=$selected_release/agent/run.sh
 Restart=on-failure
 RestartSec=5s
@@ -729,6 +730,8 @@ prepare_rendered_files() {
         fail "The rendered pilot unit is missing its activation gate."
     grep -Fxq "LoadCredential=oauth-client-secret:$client_secret_file" "$rendered_unit" ||
         fail "The rendered pilot unit is missing systemd credential transport."
+    grep -Fxq "ExecStartPre=$release_path/agent/run.sh verify-access-token" "$rendered_unit" ||
+        fail "The rendered pilot unit is missing the service-context OAuth preflight."
     ! grep -Eiq 'Environment=.*(secret|password|token)=' "$rendered_unit" ||
         fail "The rendered pilot unit contains unsafe secret transport."
 }

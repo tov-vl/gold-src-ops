@@ -271,6 +271,7 @@ for expected in \
     'EnvironmentFile=/etc/goldsrcops/gameserver/game-event-agent.env' \
     'Environment=DOTNET_BUNDLE_EXTRACT_BASE_DIR=/var/lib/goldsrc/game-event-agent/dotnet-bundle' \
     'LoadCredential=oauth-client-secret:/etc/goldsrcops/gameserver/secrets/game-event-agent-client-secret' \
+    'ExecStartPre=/opt/goldsrcops/gameserver/game-event-pilot/releases/1111111111111111111111111111111111111111111111111111111111111111/agent/run.sh verify-access-token' \
     'ExecStart=/opt/goldsrcops/gameserver/game-event-pilot/releases/1111111111111111111111111111111111111111111111111111111111111111/agent/run.sh' \
     'Restart=on-failure' \
     'MemoryMax=256M' \

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -33,6 +34,8 @@ internal static class GameEventAgentConsole
         try
         {
             var builder = CreateApplicationBuilder();
+            PrepareConfigurationForCommand(builder.Configuration, command);
+
             var options = GameEventAgentOptions.FromConfiguration(
                 builder.Configuration,
                 builder.Environment.ContentRootPath);
@@ -54,6 +57,10 @@ internal static class GameEventAgentConsole
                 ImportSpoolCommand => await ImportSpoolAsync(
                     options,
                     cancellationToken).ConfigureAwait(false),
+                VerifyAccessTokenAgentCommand => await VerifyAccessTokenAsync(
+                    builder,
+                    options,
+                    cancellationToken).ConfigureAwait(false),
                 ShowQueueStatusCommand => ShowStatus(options),
                 _ => throw new InvalidOperationException("The game-event agent command is unsupported.")
             };
@@ -71,6 +78,16 @@ internal static class GameEventAgentConsole
             Args = [],
             ContentRootPath = AppContext.BaseDirectory
         });
+
+    internal static void PrepareConfigurationForCommand(
+        IConfiguration configuration,
+        GameEventAgentCommand command)
+    {
+        if (command is VerifyAccessTokenAgentCommand)
+        {
+            configuration["GameEventAgent:Delivery:Enabled"] = "true";
+        }
+    }
 
     private static async Task<int> RunWorkerAsync(
         HostApplicationBuilder builder,
@@ -96,19 +113,12 @@ internal static class GameEventAgentConsole
 
         if (options.Delivery is GameEventDeliveryOptions delivery)
         {
-            builder.Services.AddSingleton(delivery);
-            builder.Services.AddSingleton(delivery.OAuth);
-            builder.Services.AddSingleton<IGameEventAccessTokenProvider, ClientCredentialsAccessTokenProvider>();
+            AddAccessTokenProvider(builder.Services, delivery);
             builder.Services.AddSingleton<IGameEventDeliveryClient, GameEventDeliveryClient>();
             builder.Services.AddSingleton<IRetryDelayPolicy, ExponentialRetryDelayPolicy>();
             builder.Services.AddSingleton<GameEventDispatcher>();
             builder.Services.AddHostedService<GameEventDeliveryWorker>();
 
-            builder.Services
-                .AddHttpClient(
-                    ClientCredentialsAccessTokenProvider.HttpClientName,
-                    client => client.Timeout = delivery.RequestTimeout)
-                .ConfigurePrimaryHttpMessageHandler(CreateHttpMessageHandler);
             builder.Services
                 .AddHttpClient(
                     GameEventDeliveryClient.HttpClientName,
@@ -123,6 +133,40 @@ internal static class GameEventAgentConsole
         using var host = builder.Build();
         await host.RunAsync(cancellationToken).ConfigureAwait(false);
         return 0;
+    }
+
+    private static async Task<int> VerifyAccessTokenAsync(
+        HostApplicationBuilder builder,
+        GameEventAgentOptions options,
+        CancellationToken cancellationToken)
+    {
+        var delivery = options.Delivery ?? throw new InvalidOperationException(
+            "OAuth access-token preflight requires complete delivery configuration.");
+
+        builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+        AddAccessTokenProvider(builder.Services, delivery);
+
+        using var host = builder.Build();
+        _ = await host.Services
+            .GetRequiredService<IGameEventAccessTokenProvider>()
+            .GetAccessTokenAsync(cancellationToken)
+            .ConfigureAwait(false);
+        Console.WriteLine("OAuth access-token preflight passed.");
+        return 0;
+    }
+
+    private static void AddAccessTokenProvider(
+        IServiceCollection services,
+        GameEventDeliveryOptions delivery)
+    {
+        services.AddSingleton(delivery);
+        services.AddSingleton(delivery.OAuth);
+        services.AddSingleton<IGameEventAccessTokenProvider, ClientCredentialsAccessTokenProvider>();
+        services
+            .AddHttpClient(
+                ClientCredentialsAccessTokenProvider.HttpClientName,
+                client => client.Timeout = delivery.RequestTimeout)
+            .ConfigurePrimaryHttpMessageHandler(CreateHttpMessageHandler);
     }
 
     private static async Task<int> EnqueueAsync(
@@ -224,6 +268,7 @@ internal static class GameEventAgentConsole
         Console.WriteLine("  enqueue --file <event.json>");
         Console.WriteLine("  spool-write --file <event.json>");
         Console.WriteLine("  import-spool");
+        Console.WriteLine("  verify-access-token");
         Console.WriteLine("  status");
         Console.WriteLine();
         Console.WriteLine("Delivery is disabled by default. Configure it through GameEventAgent__* environment variables.");
@@ -262,6 +307,13 @@ internal static class GameEventAgentCommandLine
             return true;
         }
 
+        if (args.Length == 1 && string.Equals(args[0], "verify-access-token", StringComparison.Ordinal))
+        {
+            command = new VerifyAccessTokenAgentCommand();
+            error = null;
+            return true;
+        }
+
         if (args.Length == 3 &&
             (string.Equals(args[0], "enqueue", StringComparison.Ordinal) ||
                 string.Equals(args[0], "spool-write", StringComparison.Ordinal)) &&
@@ -290,5 +342,7 @@ internal sealed record EnqueueAgentCommand(string InputPath) : GameEventAgentCom
 internal sealed record WriteSpoolRecordCommand(string InputPath) : GameEventAgentCommand;
 
 internal sealed record ImportSpoolCommand : GameEventAgentCommand;
+
+internal sealed record VerifyAccessTokenAgentCommand : GameEventAgentCommand;
 
 internal sealed record ShowQueueStatusCommand : GameEventAgentCommand;
