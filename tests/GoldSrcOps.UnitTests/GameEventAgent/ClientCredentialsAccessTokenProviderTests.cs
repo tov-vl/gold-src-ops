@@ -78,6 +78,70 @@ public sealed class ClientCredentialsAccessTokenProviderTests : IDisposable
             .Which.Message.Should().NotContain("sandbox-secret-value");
     }
 
+    [Theory]
+    [InlineData(UnixFileMode.UserRead | UnixFileMode.UserWrite, false, true)]
+    [InlineData(UnixFileMode.UserRead | UnixFileMode.GroupRead, false, false)]
+    [InlineData(UnixFileMode.UserRead | UnixFileMode.GroupRead, true, true)]
+    [InlineData(UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.GroupWrite, true, false)]
+    [InlineData(UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead, true, false)]
+    public void IsSecretFileModeAccepted_applies_only_the_read_only_systemd_exception(
+        UnixFileMode mode,
+        bool isSystemdManagedCredential,
+        bool expected)
+    {
+        var result = ClientCredentialsAccessTokenProvider.IsSecretFileModeAccepted(
+            mode,
+            isSystemdManagedCredential);
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void IsSystemdManagedCredentialPath_accepts_only_an_immediate_file()
+    {
+        var credentialsDirectory = Path.Combine(_directoryPath, "credentials");
+        var nestedDirectory = Path.Combine(credentialsDirectory, "nested");
+        var siblingDirectory = Path.Combine(_directoryPath, "other");
+        Directory.CreateDirectory(nestedDirectory);
+        Directory.CreateDirectory(siblingDirectory);
+        var credentialPath = WriteText(Path.Combine(credentialsDirectory, "client-secret"));
+        var nestedPath = WriteText(Path.Combine(nestedDirectory, "client-secret"));
+        var siblingPath = WriteText(Path.Combine(siblingDirectory, "client-secret"));
+
+        ClientCredentialsAccessTokenProvider.IsSystemdManagedCredentialPath(
+                credentialPath,
+                credentialsDirectory)
+            .Should().BeTrue();
+        ClientCredentialsAccessTokenProvider.IsSystemdManagedCredentialPath(
+                nestedPath,
+                credentialsDirectory)
+            .Should().BeFalse();
+        ClientCredentialsAccessTokenProvider.IsSystemdManagedCredentialPath(
+                siblingPath,
+                credentialsDirectory)
+            .Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsSystemdManagedCredentialPath_rejects_a_symbolic_link()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var credentialsDirectory = Path.Combine(_directoryPath, "credentials");
+        Directory.CreateDirectory(credentialsDirectory);
+        var targetPath = WriteText(Path.Combine(_directoryPath, "target-secret"));
+        var credentialPath = Path.Combine(credentialsDirectory, "client-secret");
+        File.CreateSymbolicLink(credentialPath, targetPath);
+
+        ClientCredentialsAccessTokenProvider.IsSystemdManagedCredentialPath(
+                credentialPath,
+                credentialsDirectory)
+            .Should().BeFalse();
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_directoryPath))
@@ -93,5 +157,11 @@ public sealed class ClientCredentialsAccessTokenProviderTests : IDisposable
         {
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
+    }
+
+    private static string WriteText(string path)
+    {
+        File.WriteAllText(path, "sandbox-secret-value");
+        return path;
     }
 }

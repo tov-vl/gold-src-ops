@@ -208,6 +208,20 @@ internal sealed class ClientCredentialsAccessTokenProvider : IGameEventAccessTok
         }
 
         var mode = File.GetUnixFileMode(path);
+        var isSystemdManagedCredential = IsSystemdManagedCredentialPath(
+            path,
+            Environment.GetEnvironmentVariable("CREDENTIALS_DIRECTORY"));
+        if (!IsSecretFileModeAccepted(mode, isSystemdManagedCredential))
+        {
+            throw new GameEventTokenException(
+                "The OAuth client-secret file must be owner-only or a read-only systemd-managed credential.");
+        }
+    }
+
+    internal static bool IsSecretFileModeAccepted(
+        UnixFileMode mode,
+        bool isSystemdManagedCredential)
+    {
         const UnixFileMode prohibited =
             UnixFileMode.GroupRead |
             UnixFileMode.GroupWrite |
@@ -215,11 +229,62 @@ internal sealed class ClientCredentialsAccessTokenProvider : IGameEventAccessTok
             UnixFileMode.OtherRead |
             UnixFileMode.OtherWrite |
             UnixFileMode.OtherExecute;
-        if ((mode & UnixFileMode.UserRead) == UnixFileMode.None ||
-            (mode & prohibited) != UnixFileMode.None)
+
+        var isOwnerOnly =
+            (mode & UnixFileMode.UserRead) != UnixFileMode.None &&
+            (mode & prohibited) == UnixFileMode.None;
+        if (isOwnerOnly)
         {
-            throw new GameEventTokenException(
-                "The OAuth client-secret file must be readable by its owner and inaccessible to group and other users.");
+            return true;
+        }
+
+        const UnixFileMode aclBackedSystemdCredentialMode =
+            UnixFileMode.UserRead | UnixFileMode.GroupRead;
+        return isSystemdManagedCredential && mode == aclBackedSystemdCredentialMode;
+    }
+
+    internal static bool IsSystemdManagedCredentialPath(
+        string path,
+        string? credentialsDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(credentialsDirectory) ||
+            !Path.IsPathFullyQualified(path) ||
+            !Path.IsPathFullyQualified(credentialsDirectory))
+        {
+            return false;
+        }
+
+        try
+        {
+            var fullPath = Path.GetFullPath(path);
+            var fullCredentialsDirectory = Path.TrimEndingDirectorySeparator(
+                Path.GetFullPath(credentialsDirectory));
+            var comparison = OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+
+            if (!string.Equals(
+                    Path.GetDirectoryName(fullPath),
+                    fullCredentialsDirectory,
+                    comparison))
+            {
+                return false;
+            }
+
+            var secretInfo = new FileInfo(fullPath);
+            var directoryInfo = new DirectoryInfo(fullCredentialsDirectory);
+            return secretInfo.Exists &&
+                   secretInfo.LinkTarget is null &&
+                   directoryInfo.Exists &&
+                   directoryInfo.LinkTarget is null;
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException or
+                IOException or
+                NotSupportedException or
+                UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 
