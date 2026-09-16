@@ -24,11 +24,13 @@ activation, and plugin state was removed; the dormant agent remains inactive
 and boot-disabled. See
 [docs/v2.11-game-event-pilot.md](docs/v2.11-game-event-pilot.md).
 
-The v2.12 Latest Round Overview slice is integrated in protected `main`. It
+The v2.12 Latest Round Overview release candidate is accepted in production. It
 shows the newest retained completed round on the existing Reader server page
 through the bounded `limit=1` projection, without adding a migration, worker,
-identity, mutation, or production activation. Candidate identity and the short
-release gate are defined in
+identity, mutation, or game-event activation. Exact candidate images passed a
+four-sample, 182-second production smoke and a separate 692-second game-host
+continuity check; stable digest-preserving publication remains pending. Details
+and claim limits are defined in
 [docs/release-notes-v2.12.md](docs/release-notes-v2.12.md) and
 [docs/v2.12-readiness.md](docs/v2.12-readiness.md).
 
@@ -208,7 +210,7 @@ The published v2.10 game-event release and its dormant production boundary are
 summarized in
 [docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
 [docs/v2.10-readiness.md](docs/v2.10-readiness.md).
-The v2.12 Latest Round Overview candidate boundary is summarized in
+The accepted v2.12 Latest Round Overview candidate is summarized in
 [docs/release-notes-v2.12.md](docs/release-notes-v2.12.md) and
 [docs/v2.12-readiness.md](docs/v2.12-readiness.md).
 

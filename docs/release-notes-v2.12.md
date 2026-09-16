@@ -1,8 +1,8 @@
 # GoldSrcOps v2.12.0 Release Notes
 
-Status as of 2026-09-16: release-candidate preparation. The Latest Round
-Overview scope is integrated in protected `main`; signed `v2.12.0-rc.1`
-publication and its bounded production smoke remain pending.
+Status as of 2026-09-16: release candidate accepted. Signed `v2.12.0-rc.1`
+publication, digest-pinned production rollout, and bounded production smoke are
+complete; stable digest-preserving publication remains pending.
 
 ## Overview
 
@@ -64,12 +64,24 @@ responsive rendering; navigation to Events history; and the browser token
 boundary. `Change Scope`, `Quality Gate`, `Container Smoke`, and `Browser Smoke`
 passed for the product pull request and its post-merge workflow.
 
-Production acceptance follows the additive read-only row in the risk-based
-release policy. One read-only session must collect at least three healthy
-post-rollout samples spanning at least three minutes. It verifies public health,
-release identity, the latest-round summary, its bounded Events link, browser
-secret boundaries, A2S continuity, zero bots, durable-work and incident counts,
-unchanged restart counts, backup freshness, and the inactive game-event agent.
+Candidate workflow
+[#35106025207](https://github.com/tov-vl/gold-src-ops/actions/runs/35106025207)
+published and verified both immutable images from revision `93989c0`. Production
+retained those exact digests after an API/Web-only rollout. Four healthy samples
+over 182 seconds verified public health, release identity, A2S continuity, zero
+bots, zero open or newly opened incidents, zero dead letters, zero incomplete
+commands, unchanged restart counts, and fresh backup evidence. A separate
+692-second game-host check preserved the game service while the game-event agent
+remained inactive and boot-disabled.
+
+The authenticated production overview rendered the newest retained round and
+its bounded Events history using only the reviewed aggregate fields. No summary
+mutation control or browser console error appeared.
+
+The read-only baseline contained two pre-existing pending alert-outbox records
+with alert delivery disabled. The count remained exactly two in every sample;
+the release did not mutate or drain the queue. This is a recorded operational
+follow-up rather than a claim that durable work is empty.
 
 The smoke must not manufacture a gameplay event or projection failure, submit a
 mutation, reactivate the producer or delivery path, or change monitoring
@@ -87,6 +99,9 @@ The exact ordered gate and rollback rules are defined in
   activity are intentionally absent.
 - The retained v2.11 evidence covers one bounded event, not continuous producer
   or delivery operation.
+- Two pre-existing pending alert-outbox records remain with delivery disabled.
+  They did not grow during candidate acceptance and require separate operational
+  disposition.
 - Empty and unavailable states are operational UI states, not evidence of
   successful gameplay delivery.
 - The reference deployment remains single-node and does not claim high
@@ -97,6 +112,7 @@ The exact ordered gate and rollback rules are defined in
 
 - [v2.12 release readiness](v2.12-readiness.md)
 - [Latest Round Overview pull request](https://github.com/tov-vl/gold-src-ops/pull/156)
+- [Candidate publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35106025207)
 - [v2.11 bounded pilot](v2.11-game-event-pilot.md)
 - [Project backlog](backlog.md)
 - [Project brief](project-brief.md)

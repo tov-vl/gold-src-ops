@@ -1467,11 +1467,17 @@ ordinary server triage without widening the game-event runtime boundary:
 
 Static-rendering integration coverage for populated, empty, and unavailable
 gameplay-history states defines the focused repository acceptance boundary.
-The product slice is integrated through pull request #156. Candidate identity,
-the digest-pinned API/Web-only rollout, the three-minute minimum production
-smoke, rollback rules, and stable promotion gate are defined in
+The product slice is integrated through pull request #156. Signed candidate
+`v2.12.0-rc.1` was published from revision `93989c0`, deployed by exact API and
+Web digest, and retained after four healthy production samples over 182 seconds.
+The authenticated Latest Round and Events views passed, while a separate
+692-second check preserved the game service and inactive, boot-disabled event
+agent. Two pre-existing pending alert-outbox records remained unchanged with
+delivery disabled and are recorded as an operational follow-up; no queue state
+was mutated to pass the release gate. Stable digest-preserving promotion remains
+pending. Details, rollback rules, and claim limits are defined in
 `docs/release-notes-v2.12.md` and `docs/v2.12-readiness.md`. No backup/restore
-rehearsal, migration action, pilot reactivation, or long soak is required for
+rehearsal, migration action, pilot reactivation, or long soak was required for
 this additive read-only composition.
 
 ## Current API Scope
