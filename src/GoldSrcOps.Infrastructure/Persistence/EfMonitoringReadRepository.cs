@@ -1,5 +1,7 @@
+using GoldSrcOps.Application.GameEvents;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Domain.Commands;
+using GoldSrcOps.Domain.GameEvents;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.EntityFrameworkCore;
 
@@ -140,6 +142,20 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
                 x.CompletedAtUtc))
             .ToListAsync(cancellationToken);
 
+        var gameplayEvents = await _dbContext.GameEventInbox
+            .AsNoTracking()
+            .Where(x => x.Type == GameEventType.RoundEnded)
+            .OrderByDescending(x => x.OccurredAtUtc)
+            .ThenByDescending(x => x.Id)
+            .Take(limit)
+            .Select(x => new GameplayActivityRow(
+                x.Id,
+                x.ServerId,
+                x.Server.Name,
+                x.Type,
+                x.OccurredAtUtc))
+            .ToListAsync(cancellationToken);
+
         return incidents
             .Select(static incident => new OperationsActivityItemDto(
                 incident.SourceId,
@@ -157,6 +173,14 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
                 command.Type.ToString(),
                 command.Status.ToString(),
                 command.CompletedAtUtc ?? command.StartedAtUtc ?? command.RequestedAtUtc)))
+            .Concat(gameplayEvents.Select(static gameEvent => new OperationsActivityItemDto(
+                gameEvent.SourceId,
+                "Gameplay",
+                gameEvent.ServerId,
+                gameEvent.ServerName,
+                GameEventTypeContract.ToWireValue(gameEvent.Type),
+                "Recorded",
+                gameEvent.OccurredAtUtc)))
             .OrderByDescending(static item => item.OccurredAtUtc)
             .ThenBy(static item => item.SourceType, StringComparer.Ordinal)
             .ThenBy(static item => item.SourceId)
@@ -276,6 +300,13 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
         DateTimeOffset RequestedAtUtc,
         DateTimeOffset? StartedAtUtc,
         DateTimeOffset? CompletedAtUtc);
+
+    private sealed record GameplayActivityRow(
+        Guid SourceId,
+        Guid ServerId,
+        string ServerName,
+        GameEventType Type,
+        DateTimeOffset OccurredAtUtc);
 
     private sealed class ServerTrendBucketAggregateRow
     {

@@ -52,6 +52,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     public static readonly Guid OpenIncidentId = Guid.Parse("9307a87e-61cf-4901-8026-b301908431d6");
     public static readonly Guid ResolvedIncidentId = Guid.Parse("5e3fd38c-a3c8-4a2d-a8a2-ac8fd7b9a788");
     public static readonly Guid CommandId = Guid.Parse("17477e4e-97bb-4c50-a046-08fa5cd48dca");
+    public static readonly Guid GameEventId = Guid.Parse("63734d5f-f665-44b0-852d-357fe4286be2");
     public static readonly Guid DeadLetterEventId = Guid.Parse("70d51faf-6029-4b1e-a922-b7a3ab8d1f84");
     public static readonly Guid ReplayRequestId = Guid.Parse("4fb7401c-802c-48b9-aa71-5e27619b0784");
     public const string ServerName = "Reader fixture server";
@@ -231,6 +232,14 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
         {
             IReadOnlyList<OperationsActivityItemResponse> items =
             [
+                new(
+                    GameEventId,
+                    "Gameplay",
+                    ServerId,
+                    ServerName,
+                    "round.ended",
+                    "Recorded",
+                    ObservedAtUtc.AddMinutes(-5)),
                 new(
                     CommandId,
                     "Command",

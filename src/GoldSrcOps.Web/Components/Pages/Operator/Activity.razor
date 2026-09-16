@@ -40,13 +40,17 @@
                 <span>Commands</span>
                 <strong>@CommandCount</strong>
             </article>
+            <article class="summary--gameplay">
+                <span>Rounds</span>
+                <strong>@GameplayCount</strong>
+            </article>
         </section>
 
         <section class="activity-section" aria-labelledby="activity-list-title">
             <div class="section-heading">
                 <div>
                     <p class="eyebrow">Operations</p>
-                    <h2 id="activity-list-title">Incident and command timeline</h2>
+                    <h2 id="activity-list-title">Incident, command, and gameplay timeline</h2>
                 </div>
                 <span>Newest first, up to @_activity.Limit events</span>
             </div>
@@ -70,13 +74,19 @@
                     <span>Commands</span>
                     <strong>@CommandCount</strong>
                 </a>
+                <a class="@GetTabClass("gameplay")"
+                   href="@BuildKindHref("gameplay")"
+                   aria-current="@GetAriaCurrent("gameplay")">
+                    <span>Rounds</span>
+                    <strong>@GameplayCount</strong>
+                </a>
             </nav>
 
             @if (_items.Count == 0)
             {
                 <div class="empty-state">
                     <h3>No matching activity</h3>
-                    <p>No incident or command events match the selected view.</p>
+                    <p>No incident, command, or gameplay events match the selected view.</p>
                     @if (EffectiveKind != "all")
                     {
                         <a href="/operator/activity">Show all activity</a>
@@ -127,7 +137,7 @@
 
 @code {
     private const int ActivityLimit = 50;
-    private static readonly string[] AllowedKinds = ["all", "incidents", "commands"];
+    private static readonly string[] AllowedKinds = ["all", "incidents", "commands", "gameplay"];
 
     [Parameter]
     [SupplyParameterFromQuery(Name = "kind")]
@@ -142,6 +152,8 @@
     private int IncidentCount => _activity?.Items.Count(IsIncident) ?? 0;
 
     private int CommandCount => _activity?.Items.Count(IsCommand) ?? 0;
+
+    private int GameplayCount => _activity?.Items.Count(IsGameplay) ?? 0;
 
     private DateTimeOffset? LatestEventAtUtc => _activity?.Items.Count > 0
         ? _activity.Items[0].OccurredAtUtc
@@ -158,6 +170,7 @@
             {
                 "incidents" => _activity.Items.Where(IsIncident).ToArray(),
                 "commands" => _activity.Items.Where(IsCommand).ToArray(),
+                "gameplay" => _activity.Items.Where(IsGameplay).ToArray(),
                 _ => _activity.Items
             };
         }
@@ -176,6 +189,9 @@
     private static bool IsCommand(OperationsActivityItemResponse item) =>
         string.Equals(item.SourceType, "Command", StringComparison.Ordinal);
 
+    private static bool IsGameplay(OperationsActivityItemResponse item) =>
+        string.Equals(item.SourceType, "Gameplay", StringComparison.Ordinal);
+
     private static string NormalizeKind(string? value) =>
         AllowedKinds.FirstOrDefault(kind => string.Equals(kind, value, StringComparison.OrdinalIgnoreCase)) ?? "all";
 
@@ -189,35 +205,49 @@
         ? "/operator/activity"
         : $"/operator/activity?kind={kind}";
 
-    private static string GetRowClass(OperationsActivityItemResponse item) => IsIncident(item)
-        ? "activity-row--incident"
-        : "activity-row--command";
+    private static string GetRowClass(OperationsActivityItemResponse item) => item.SourceType switch
+    {
+        "Incident" => "activity-row--incident",
+        "Gameplay" => "activity-row--gameplay",
+        _ => "activity-row--command"
+    };
 
     private static string GetEventLabel(OperationsActivityItemResponse item) => item.Category switch
     {
         "ChangeMap" => "Map change",
+        "round.ended" => "Round ended",
         "Unreachable" => item.State == "Recovered" ? "Availability recovered" : "Server unreachable",
         _ => item.Category
     };
 
     private static string GetStateClass(string state) => state switch
     {
-        "Succeeded" or "Recovered" => "state-label--success",
+        "Succeeded" or "Recovered" or "Recorded" => "state-label--success",
         "Pending" or "Running" => "state-label--warning",
         "Failed" or "Open" => "state-label--critical",
         _ => "state-label--neutral"
     };
 
-    private static string GetActionHref(OperationsActivityItemResponse item) => IsIncident(item)
-        ? $"/operator/incidents/{item.SourceId:D}"
-        : $"/operator/servers/{item.ServerId:D}/commands";
+    private static string GetActionHref(OperationsActivityItemResponse item) => item.SourceType switch
+    {
+        "Incident" => $"/operator/incidents/{item.SourceId:D}",
+        "Gameplay" => $"/operator/servers/{item.ServerId:D}/events",
+        _ => $"/operator/servers/{item.ServerId:D}/commands"
+    };
 
-    private static string GetActionLabel(OperationsActivityItemResponse item) =>
-        IsIncident(item) ? "Inspect" : "History";
+    private static string GetActionLabel(OperationsActivityItemResponse item) => item.SourceType switch
+    {
+        "Incident" => "Inspect",
+        "Gameplay" => "Rounds",
+        _ => "History"
+    };
 
-    private static string GetActionAriaLabel(OperationsActivityItemResponse item) => IsIncident(item)
-        ? $"Inspect incident for {item.ServerName}"
-        : $"View command history for {item.ServerName}";
+    private static string GetActionAriaLabel(OperationsActivityItemResponse item) => item.SourceType switch
+    {
+        "Incident" => $"Inspect incident for {item.ServerName}",
+        "Gameplay" => $"View gameplay history for {item.ServerName}",
+        _ => $"View command history for {item.ServerName}"
+    };
 
     private static string FormatDateTime(DateTimeOffset? value) => value is null
         ? "Not available"

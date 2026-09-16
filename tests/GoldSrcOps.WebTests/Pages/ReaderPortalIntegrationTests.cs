@@ -337,16 +337,23 @@ public sealed class ReaderPortalIntegrationTests
         var incidentsBody = await incidentsResponse.Content.ReadAsStringAsync();
         using var commandsResponse = await client.GetAsync("/operator/activity?kind=commands");
         var commandsBody = await commandsResponse.Content.ReadAsStringAsync();
+        using var gameplayResponse = await client.GetAsync("/operator/activity?kind=gameplay");
+        var gameplayBody = await gameplayResponse.Content.ReadAsStringAsync();
 
         allResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        allBody.Should().Contain("Incident and command timeline");
+        allBody.Should().Contain("Incident, command, and gameplay timeline");
         allBody.Should().Contain($"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}");
         allBody.Should().Contain(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands");
+        allBody.Should().Contain(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/events");
+        allBody.Should().Contain("Round ended");
+        allBody.Should().Contain("Recorded");
         allBody.Should().Contain(ReaderWebApplicationFactory.ServerName);
         allBody.Should().NotContain(ReaderWebApplicationFactory.CommandPayloadSentinel);
         allBody.Should().NotContain(ReaderWebApplicationFactory.CommandResultSummary);
         allBody.Should().NotContain(ReaderWebApplicationFactory.OpenIncidentReason);
+        allBody.Should().NotContain(ReaderWebApplicationFactory.GameEventMap);
         incidentsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         incidentsBody.Should().Contain("Server unreachable");
         incidentsBody.Should().Contain("Availability recovered");
@@ -355,6 +362,11 @@ public sealed class ReaderPortalIntegrationTests
         commandsBody.Should().Contain("Say");
         commandsBody.Should().Contain("Succeeded");
         commandsBody.Should().NotContain("Server unreachable");
+        gameplayResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        gameplayBody.Should().Contain("Round ended");
+        gameplayBody.Should().Contain("Recorded");
+        gameplayBody.Should().NotContain("Server unreachable");
+        gameplayBody.Should().NotContain("Succeeded");
     }
 
     [Fact]
