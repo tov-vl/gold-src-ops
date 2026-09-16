@@ -9,6 +9,7 @@ using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Domain.Commands;
+using GoldSrcOps.Domain.GameEvents;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -421,15 +422,30 @@ public sealed class MonitoringEndpointIntegrationTests
                 "private requester",
                 now.AddMinutes(-5));
             excludedCommand.MarkFailed(now.AddMinutes(-4), "private command failure");
+            var gameplayEvent = new GameEventInboxEntry(
+                Guid.NewGuid(),
+                server.Id,
+                Guid.NewGuid(),
+                sequenceNumber: 1,
+                GameEventInboxEntry.CurrentContractVersion,
+                GameEventType.RoundEnded,
+                now.AddSeconds(-30),
+                now.AddSeconds(-25),
+                "private_activity_map",
+                players: 12,
+                bots: 0,
+                new string('C', GameEventInboxEntry.MaxIntentHashLength));
 
             dbContext.Servers.Add(server);
             dbContext.AvailabilityIncidents.AddRange(recoveredIncident, openIncident);
             dbContext.CommandExecutions.AddRange(latestCommand, excludedCommand);
+            dbContext.GameEventInbox.Add(gameplayEvent);
             await dbContext.SaveChangesAsync();
 
             return new
             {
                 server.Id,
+                GameplayEventId = gameplayEvent.Id,
                 LatestCommandId = latestCommand.Id,
                 OpenIncidentId = openIncident.Id,
                 RecoveredIncidentId = recoveredIncident.Id,
@@ -437,7 +453,7 @@ public sealed class MonitoringEndpointIntegrationTests
             };
         });
 
-        var response = await client.GetAsync("/api/dashboard/activity?limit=3");
+        var response = await client.GetAsync("/api/dashboard/activity?limit=4");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadAsStringAsync();
@@ -445,6 +461,8 @@ public sealed class MonitoringEndpointIntegrationTests
         payload.Should().NotContain("private incident");
         payload.Should().NotContain("private command");
         payload.Should().NotContain("private requester");
+        payload.Should().NotContain("private_activity_map");
+        payload.Should().NotContain(new string('C', GameEventInboxEntry.MaxIntentHashLength));
         payload.Should().NotContain(seed.ExcludedCommandId.ToString());
         using var document = JsonDocument.Parse(payload);
         document.RootElement.EnumerateObject().Select(static property => property.Name)
@@ -454,13 +472,24 @@ public sealed class MonitoringEndpointIntegrationTests
             .Should().BeEquivalentTo(ActivityItemProperties);
         var activity = JsonSerializer.Deserialize<OperationsActivityResponse>(payload, JsonSerializerOptions.Web);
         activity.Should().NotBeNull();
-        activity!.Limit.Should().Be(3);
-        activity.Items.Should().HaveCount(3);
+        activity!.Limit.Should().Be(4);
+        activity.Items.Should().HaveCount(4);
         activity.Items.Select(static item => item.SourceId).Should().ContainInOrder(
+            seed.GameplayEventId,
             seed.LatestCommandId,
             seed.OpenIncidentId,
             seed.RecoveredIncidentId);
         activity.Items[0].Should().BeEquivalentTo(new
+        {
+            SourceId = seed.GameplayEventId,
+            SourceType = "Gameplay",
+            ServerId = seed.Id,
+            ServerName = "Activity fixture",
+            Category = "round.ended",
+            State = "Recorded",
+            OccurredAtUtc = now.AddSeconds(-30)
+        });
+        activity.Items[1].Should().BeEquivalentTo(new
         {
             SourceId = seed.LatestCommandId,
             SourceType = "Command",
@@ -470,14 +499,14 @@ public sealed class MonitoringEndpointIntegrationTests
             State = "Succeeded",
             OccurredAtUtc = now.AddMinutes(-1)
         });
-        activity.Items[1].Should().BeEquivalentTo(new
+        activity.Items[2].Should().BeEquivalentTo(new
         {
             SourceId = seed.OpenIncidentId,
             SourceType = "Incident",
             State = "Open",
             OccurredAtUtc = now.AddMinutes(-2)
         });
-        activity.Items[2].Should().BeEquivalentTo(new
+        activity.Items[3].Should().BeEquivalentTo(new
         {
             SourceId = seed.RecoveredIncidentId,
             SourceType = "Incident",

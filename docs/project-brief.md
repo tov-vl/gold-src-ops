@@ -402,6 +402,12 @@ The project should evolve in stages:
   [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.12.0)
   are published. Candidate identity and claim limits are defined in
   `docs/v2.12-readiness.md`.
+- v2.13: include retained completed rounds in the bounded Reader Recent
+  Activity timeline. The slice adds a `Rounds` count and filter plus a link to
+  existing gameplay history while keeping map, population, source identity,
+  sequence, receipt time, and intent hash out of the activity response. It
+  changes no schema or response shape and does not activate a producer,
+  delivery path, worker, identity, or mutation permission.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

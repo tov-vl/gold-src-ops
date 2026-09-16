@@ -1494,6 +1494,27 @@ catch-up work rather than deleted or assigned a fictitious terminal status.
 Alert delivery remains disabled until a permanent receiver can ingest that
 historical pair idempotently and in order without generating a stale page.
 
+## Current v2.13 Slice: Gameplay Activity Timeline
+
+The v2.13 product slice brings retained completed rounds into the existing
+Reader Recent Activity workflow:
+
+- the bounded dashboard projection merges `round.ended` records with incidents
+  and commands before applying the requested global limit;
+- the projection exposes only event identity, source type, server identity and
+  name, category, recorded state, and occurrence time. Map, population, source
+  instance, sequence, receipt time, and intent hash remain outside this view;
+- the Reader UI adds a `Rounds` count and filter, visually distinguishes
+  gameplay rows, and links each row to the existing bounded Events history;
+- desktop and mobile layouts keep all four activity filters visible without
+  horizontal page overflow.
+
+This slice changes no database schema or response shape and adds no worker,
+identity, mutation permission, event producer, or delivery activation.
+Repository acceptance is bounded to cross-source ordering and sanitization,
+static Reader filtering, browser token-boundary coverage, and responsive
+desktop/mobile rendering.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in

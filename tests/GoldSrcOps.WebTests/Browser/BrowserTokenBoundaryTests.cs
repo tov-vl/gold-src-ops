@@ -59,7 +59,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         historyPage.Body.Should().Contain("Recent observations");
         eventsPage.Body.Should().Contain(ReaderWebApplicationFactory.GameEventMap);
         commandsPage.Body.Should().Contain(ReaderWebApplicationFactory.CommandResultSummary);
-        activityPage.Body.Should().Contain("Incident and command timeline");
+        activityPage.Body.Should().Contain("Incident, command, and gameplay timeline");
         incidentsPage.Body.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
         incidentDetailPage.Body.Should().Contain("Boundary observations");
         deadLettersPage.Body.Should().Contain(ReaderWebApplicationFactory.DeadLetterLastError);
@@ -189,9 +189,11 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
             (await Page.Locator(".activity-tabs").IsVisibleAsync()).Should().BeTrue();
-            (await Page.Locator(".activity-row:not(.activity-row--header)").CountAsync()).Should().Be(3);
+            (await Page.Locator(".activity-tab").CountAsync()).Should().Be(4);
+            (await Page.Locator(".activity-row:not(.activity-row--header)").CountAsync()).Should().Be(4);
             (await Page.Locator(".activity-row--incident").CountAsync()).Should().Be(2);
             (await Page.Locator(".activity-row--command").CountAsync()).Should().Be(1);
+            (await Page.Locator(".activity-row--gameplay").CountAsync()).Should().Be(1);
             var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
                 "document.documentElement.scrollWidth > document.documentElement.clientWidth");
             hasHorizontalOverflow.Should().BeFalse();
