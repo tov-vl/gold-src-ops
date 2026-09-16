@@ -1,8 +1,8 @@
 # GoldSrcOps v2.12.0 Release Notes
 
-Status as of 2026-09-16: release candidate accepted. Signed `v2.12.0-rc.1`
-publication, digest-pinned production rollout, and bounded production smoke are
-complete; stable digest-preserving publication remains pending.
+Status as of 2026-09-16: stable release published. Signed `v2.12.0` promotes
+the exact accepted `v2.12.0-rc.1` API and Web digests without rebuilding either
+image.
 
 ## Overview
 
@@ -91,6 +91,17 @@ commands, RCON traffic, OIDC reconfiguration, or a multi-hour or multi-day soak.
 The exact ordered gate and rollback rules are defined in
 [v2.12 release readiness](v2.12-readiness.md).
 
+## Stable Publication
+
+Signed stable tag `v2.12.0` targets accepted candidate revision `93989c0`.
+Stable workflow
+[#35111632801](https://github.com/tov-vl/gold-src-ops/actions/runs/35111632801)
+skipped both image build paths, promoted the exact API and Web candidate
+digests, and passed both published-image smoke jobs. Independent GHCR inspection
+confirmed that the stable references resolve to those same digests. The
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.12.0)
+is published.
+
 ## Known Limits
 
 - The summary shows only the newest retained completed round. It is not a live
@@ -113,6 +124,8 @@ The exact ordered gate and rollback rules are defined in
 - [v2.12 release readiness](v2.12-readiness.md)
 - [Latest Round Overview pull request](https://github.com/tov-vl/gold-src-ops/pull/156)
 - [Candidate publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35106025207)
+- [Stable publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35111632801)
+- [GitHub Release v2.12.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.12.0)
 - [v2.11 bounded pilot](v2.11-game-event-pilot.md)
 - [Project backlog](backlog.md)
 - [Project brief](project-brief.md)
