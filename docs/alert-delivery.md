@@ -168,6 +168,28 @@ dead-letter messages. Application rollback to v1.1 leaves the additive outbox
 table unused; returning to v2 resumes from persisted state. Do not down-migrate
 the outbox while messages may still be required.
 
+### Re-Enabling After A Disabled Interval
+
+Treat an existing pending backlog as durable work, not as configuration debris:
+
+1. Inspect bounded queue counts, event types, timestamps, attempt counts, claim
+   state, and linked incident state under a read-only transaction. Do not read
+   payloads merely to make an activation decision.
+2. Require zero active claims before activation and explain any dead letter,
+   missing incident, unexpected retry, or growth in the reviewed backlog.
+3. Review the permanent receiver's catch-up behavior. It must deduplicate by
+   `Idempotency-Key`, preserve the source event time, accept each incident's
+   chronological sequence, and avoid paging on a stale unavailable event when
+   its matching recovery is already queued.
+4. Enable one dispatcher only after that receiver boundary is ready, then
+   observe pending age, delivery outcomes, and dead letters until the reviewed
+   backlog reaches a terminal state.
+
+If the receiver cannot safely ingest historical work, keep delivery disabled
+and design a separate audited disposition capability. Do not delete pending
+rows, assign a fictitious `Processed` state, or use dead-letter replay for a
+message that has never failed delivery.
+
 ## Verification
 
 Run the production container contract from the repository root:
