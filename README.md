@@ -6,16 +6,13 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.10.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.10.0)
+**Status:** [v2.12.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.12.0)
 is the current public release. Its signed annotated tag identifies application
-revision `c5bb47d` and promotes the exact API and Web image digests exercised by
-`v2.10.0-rc.1`, without rebuilding either image. The candidate
-[workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34956379584),
-bounded dormant production acceptance, and stable
-[publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/34966981033)
-all passed. Release notes and detailed evidence are available in
-[docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
-[docs/v2.10-readiness.md](docs/v2.10-readiness.md).
+revision `93989c0` and promotes the exact API and Web image digests exercised by
+`v2.12.0-rc.1`, without rebuilding either image. Release notes and detailed
+evidence are available in
+[docs/release-notes-v2.12.md](docs/release-notes-v2.12.md) and
+[docs/v2.12-readiness.md](docs/v2.12-readiness.md).
 
 The bounded v2.11 pilot activated the reviewed game-event path for one anonymous
 completed-round event, verified the matching Reader projection, and then
@@ -36,6 +33,16 @@ promoted those exact API and Web digests without rebuilding, and
 published. Details and claim limits are defined in
 [docs/release-notes-v2.12.md](docs/release-notes-v2.12.md) and
 [docs/v2.12-readiness.md](docs/v2.12-readiness.md).
+
+The v2.13 Gameplay Activity Timeline slice is integrated through
+[PR #161](https://github.com/tov-vl/gold-src-ops/pull/161) and is in candidate
+preparation. It adds retained completed rounds to the existing bounded Reader
+Recent Activity workflow without changing the response shape, database schema,
+worker, identity, mutation boundary, producer, or delivery state. No v2.13 tag,
+production rollout, or stable release has been published yet. The minimized
+release path is defined in
+[docs/release-notes-v2.13.md](docs/release-notes-v2.13.md) and
+[docs/v2.13-readiness.md](docs/v2.13-readiness.md).
 
 The v2.9 Recent Operations Activity release gives Reader users one bounded,
 sanitized timeline for recent incident lifecycle and command-state changes. It
@@ -216,6 +223,9 @@ summarized in
 The published v2.12 Latest Round Overview release is summarized in
 [docs/release-notes-v2.12.md](docs/release-notes-v2.12.md) and
 [docs/v2.12-readiness.md](docs/v2.12-readiness.md).
+The integrated v2.13 Gameplay Activity Timeline candidate scope is summarized
+in [docs/release-notes-v2.13.md](docs/release-notes-v2.13.md) and
+[docs/v2.13-readiness.md](docs/v2.13-readiness.md).
 
 ## Documentation
 
@@ -244,6 +254,8 @@ The published v2.12 Latest Round Overview release is summarized in
 | v2.11 game-event pilot readiness | [v2.11 pilot readiness](docs/v2.11-game-event-pilot.md) |
 | v2.12 Latest Round Overview release | [v2.12 release notes](docs/release-notes-v2.12.md) |
 | v2.12 release evidence | [v2.12 readiness](docs/v2.12-readiness.md) |
+| v2.13 Gameplay Activity Timeline candidate | [v2.13 release notes](docs/release-notes-v2.13.md) |
+| v2.13 release readiness | [v2.13 readiness](docs/v2.13-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |

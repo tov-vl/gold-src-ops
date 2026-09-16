@@ -1494,7 +1494,7 @@ catch-up work rather than deleted or assigned a fictitious terminal status.
 Alert delivery remains disabled until a permanent receiver can ingest that
 historical pair idempotently and in order without generating a stale page.
 
-## Current v2.13 Slice: Gameplay Activity Timeline
+## Candidate v2.13 Milestone: Gameplay Activity Timeline
 
 The v2.13 product slice brings retained completed rounds into the existing
 Reader Recent Activity workflow:
@@ -1514,6 +1514,16 @@ identity, mutation permission, event producer, or delivery activation.
 Repository acceptance is bounded to cross-source ordering and sanitization,
 static Reader filtering, browser token-boundary coverage, and responsive
 desktop/mobile rendering.
+
+The product slice is integrated through pull request
+[#161](https://github.com/tov-vl/gold-src-ops/pull/161). Its pull request and
+post-merge workflows passed `Change Scope`, `Quality Gate`, `Container Smoke`,
+and `Browser Smoke`. Candidate publication remains pending. The release uses
+one signed-tag image workflow, an API/Web-only digest-pinned rollout, and a
+three-sample, three-minute read-only smoke; it does not repeat a game-host soak,
+migration or restore rehearsal, pilot activation, alert-outbox investigation,
+or gameplay capture. See `docs/release-notes-v2.13.md` and
+`docs/v2.13-readiness.md`.
 
 ## Current API Scope
 

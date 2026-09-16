@@ -407,7 +407,14 @@ The project should evolve in stages:
   existing gameplay history while keeping map, population, source identity,
   sequence, receipt time, and intent hash out of the activity response. It
   changes no schema or response shape and does not activate a producer,
-  delivery path, worker, identity, or mutation permission.
+  delivery path, worker, identity, or mutation permission. The product slice
+  is integrated through pull request #161; candidate publication remains
+  pending. Release readiness uses the documentation-only CI fast path followed
+  by one complete signed-tag image workflow, an API/Web-only rollout, and a
+  three-sample, three-minute read-only production smoke. It does not repeat a
+  game-host soak, migration or restore rehearsal, pilot activation, or new
+  gameplay capture. Candidate identity and claim limits are defined in
+  `docs/v2.13-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
