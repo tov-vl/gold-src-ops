@@ -377,15 +377,19 @@ The project should evolve in stages:
   delivery activation, and the first real event remain a separate pilot and
   are not hidden stable-release requirements.
 - v2.11: package the dormant game-event components as a pinned, immutable pilot
-  input before production activation. A conditional .NET publish creates a
-  self-contained Linux Worker; the bundle builder verifies AMX Mod X,
-  Metamod-R, and ReAPI, compiles the default-off producer, strips unrelated
-  plugins, and records source and payload hashes. A strict plan-first game-host
-  installer stores the release side by side, creates only restricted local
-  state and a disabled/inactive systemd unit, and offers fail-closed
-  pre-activation rollback. It does not provision identity, modify the live
-  game tree, restart a service, enable delivery, or send an event. Those remain
-  a separately reviewed controlled pilot.
+  input, then exercise the separately gated production path once. The bounded
+  pilot activated spool-only, captured one anonymous completed-round event,
+  delivered one accepted request, verified one matching durable Reader result,
+  and rolled back to the exact plugin-free game runtime. The temporary identity,
+  credential, activation, and plugin state was removed; the dormant bundle
+  remains installed with the agent inactive and boot-disabled. This is bounded
+  delivery evidence, not authorization for unattended operation or a
+  long-term reliability claim.
+- v2.12: surface the newest retained completed round on the existing Reader
+  server overview. The first slice composes the current game-event projection
+  with `limit=1`, keeps gameplay-history failure independent from the A2S status
+  view, and links to the full Events history. It adds no migration, worker,
+  identity, production activation, or mutation permission.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

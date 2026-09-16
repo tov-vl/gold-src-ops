@@ -132,6 +132,12 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 
         public bool CommandInProgress { get; set; } = commandInProgress;
 
+        public bool GameEventsUnavailable { get; set; }
+
+        public bool GameEventsEmpty { get; set; }
+
+        public int? LastGameEventLimit { get; private set; }
+
         public Task<DashboardOverviewResponse> GetOverviewAsync(
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new DashboardOverviewResponse(1, 1, 0, 1, 0, 0, 0, ObservedAtUtc));
@@ -377,12 +383,22 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             int limit,
             CancellationToken cancellationToken = default)
         {
+            LastGameEventLimit = limit;
+
+            if (GameEventsUnavailable)
+            {
+                return Task.FromException<GameEventHistoryResponse?>(
+                    new HttpRequestException("Fixture gameplay history is unavailable."));
+            }
+
             if (serverId != ServerId)
             {
                 return Task.FromResult<GameEventHistoryResponse?>(null);
             }
 
-            IReadOnlyList<GameEventHistoryItemResponse> items =
+            IReadOnlyList<GameEventHistoryItemResponse> items = GameEventsEmpty
+                ? []
+                :
             [
                 new(
                     "round.ended",

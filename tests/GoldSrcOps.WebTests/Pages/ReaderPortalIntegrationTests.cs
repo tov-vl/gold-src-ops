@@ -85,6 +85,60 @@ public sealed class ReaderPortalIntegrationTests
         incidentsBody.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
     }
 
+    [Fact]
+    public async Task Reader_server_status_includes_latest_completed_round()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Latest completed round");
+        body.Should().Contain("04 Sep 2026, 11:58:00 UTC");
+        body.Should().Contain(ReaderWebApplicationFactory.GameEventMap);
+        body.Should().Contain(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/events");
+        factory.ReaderApiClient.LastGameEventLimit.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Reader_server_status_keeps_a_calm_empty_gameplay_state()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        factory.ReaderApiClient.GameEventsEmpty = true;
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Latest observation");
+        body.Should().Contain("No completed round has been reported.");
+        body.Should().NotContain(ReaderWebApplicationFactory.GameEventMap);
+    }
+
+    [Fact]
+    public async Task Reader_server_status_remains_available_when_gameplay_history_fails()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        factory.ReaderApiClient.GameEventsUnavailable = true;
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(
+            $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Latest observation");
+        body.Should().Contain("The latest A2S probe reached the server.");
+        body.Should().Contain("Round history is temporarily unavailable.");
+        body.Should().NotContain("Server status is unavailable");
+    }
+
     [Theory]
     [InlineData("1h", "5-minute buckets", 12)]
     [InlineData("6h", "15-minute buckets", 24)]
