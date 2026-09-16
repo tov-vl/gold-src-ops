@@ -1485,6 +1485,15 @@ is published. Details, rollback rules, and claim limits are defined in
 rehearsal, migration action, pilot reactivation, or long soak was required for
 this additive read-only composition.
 
+The v2.12 alert-outbox follow-up completed on 2026-09-16 without a production
+mutation. Two read-only samples retained the same two pending records, zero
+processing or dead-letter records, zero open incidents, and zero incomplete
+commands. The rows are the unattempted `unavailable` and `recovered` pair for
+one closed 186.20-second incident, so they are retained as valid deferred
+catch-up work rather than deleted or assigned a fictitious terminal status.
+Alert delivery remains disabled until a permanent receiver can ingest that
+historical pair idempotently and in order without generating a stale page.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in

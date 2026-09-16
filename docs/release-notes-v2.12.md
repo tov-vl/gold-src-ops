@@ -83,6 +83,13 @@ with alert delivery disabled. The count remained exactly two in every sample;
 the release did not mutate or drain the queue. This is a recorded operational
 follow-up rather than a claim that durable work is empty.
 
+The post-release follow-up classified them as the complete, unattempted
+`unavailable` and `recovered` pair for one closed 186.20-second incident. They
+have no claim, delivery error, replay, or associated open incident. They remain
+valid deferred catch-up work until a permanent receiver can ingest the
+historical pair in order without generating a stale page; no row was deleted or
+rewritten to close the follow-up.
+
 The smoke must not manufacture a gameplay event or projection failure, submit a
 mutation, reactivate the producer or delivery path, or change monitoring
 cadence. Empty and unavailable behavior may be reused from Browser Smoke on the
@@ -111,8 +118,9 @@ is published.
 - The retained v2.11 evidence covers one bounded event, not continuous producer
   or delivery operation.
 - Two pre-existing pending alert-outbox records remain with delivery disabled.
-  They did not grow during candidate acceptance and require separate operational
-  disposition.
+  Read-only triage completed their operational disposition as a valid deferred
+  catch-up pair; future dispatcher activation must first prove safe historical
+  ingestion at the permanent receiver.
 - Empty and unavailable states are operational UI states, not evidence of
   successful gameplay delivery.
 - The reference deployment remains single-node and does not claim high
