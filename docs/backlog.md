@@ -1371,7 +1371,7 @@ digests, and independently smoke-tested both stable references before the
 was published. Machine-client provisioning, game-host installation, delivery
 activation, and the first real event remain a separate pilot.
 
-## Active v2.11 Milestone: Game-Event Pilot Readiness
+## Completed v2.11 Milestone: Bounded Game-Event Pilot
 
 The first v2.11 slice turns the dormant v2.10 components into a reproducible,
 reviewable installation input without crossing the production activation
@@ -1432,15 +1432,24 @@ Explicit rollback restored the plugin-free game service with zero automatic
 restarts and removed temporary identity, credential, activation, and plugin
 state. A narrow follow-up accepts that read-only mode only for an immediate,
 non-symlink file in the exact `$CREDENTIALS_DIRECTORY`; a rebuilt reviewed
-bundle and successful production preflight remain pending.
+bundle and successful production preflight were still pending at that point.
 
-The next operational slice is still separately gated: provision the reviewed
-server-bound M2M identity, capture external rollback inputs, execute each state
-transition in a controlled restart window, prove A2S and zero bots at the named
-gates, verify one anonymous event through local completion plus API
-receipt/idempotency and Reader projection, then complete active rollback. Until
-that succeeds, v2.11 makes no claim that production gameplay delivery is active
-or reliable.
+The third bounded activation used reviewed bundle `2.11.0-pilot.2` from source
+revision `ac34f21b3fc3332334e74fe745ca419023e895f0`. Its service-context OAuth
+preflight passed before player participation. Spool-only activation, external
+A2S, and the zero-bot gate passed; one controlled round produced and sealed
+exactly one anonymous event while HTTP delivery remained off. Delivery then
+made one ingest request that returned HTTP `202`, produced one durable inbox
+row and one matching Reader result, and left no duplicate, pending, in-flight,
+receipt, dead-letter, rejected, or temporary spool state.
+
+Explicit active rollback restored the exact plugin-free game runtime with zero
+automatic restarts, removed temporary identity, credential, activation, and
+plugin state, and left the dormant bundle installed with the agent inactive and
+boot-disabled. The control plane remained healthy, A2S remained reachable with
+zero bots, and no open incident appeared. This closes the bounded v2.11 pilot;
+it does not leave gameplay delivery active, establish long-term reliability or
+an achieved SLO, or authorize unattended rollout.
 
 ## Current API Scope
 
