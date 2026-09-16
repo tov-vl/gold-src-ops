@@ -389,9 +389,14 @@ The project should evolve in stages:
   server overview. The first slice composes the current game-event projection
   with `limit=1`, keeps gameplay-history failure independent from the A2S status
   view, and links to the full Events history. It adds no migration, worker,
-  identity, production activation, or mutation permission. The slice is
-  integrated through pull request #156; candidate identity and its short
-  API/Web-only production gate are defined in `docs/v2.12-readiness.md`.
+  identity, game-event activation, or mutation permission. The slice is
+  integrated through pull request #156. Signed candidate `v2.12.0-rc.1` passed
+  exact-digest publication, API/Web-only rollout, four healthy production
+  samples over 182 seconds, authenticated Reader verification, and a separate
+  692-second game-host continuity check. Two pre-existing pending alert-outbox
+  records remained unchanged with delivery disabled and are an explicit
+  operational follow-up. Stable digest-preserving publication remains pending;
+  candidate identity and claim limits are defined in `docs/v2.12-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
