@@ -34,13 +34,14 @@ published. Details and claim limits are defined in
 [docs/release-notes-v2.12.md](docs/release-notes-v2.12.md) and
 [docs/v2.12-readiness.md](docs/v2.12-readiness.md).
 
-The v2.13 Gameplay Activity Timeline slice is integrated through
-[PR #161](https://github.com/tov-vl/gold-src-ops/pull/161) and is in candidate
-preparation. It adds retained completed rounds to the existing bounded Reader
+The v2.13 Gameplay Activity Timeline release candidate is accepted in
+production. It adds retained completed rounds to the existing bounded Reader
 Recent Activity workflow without changing the response shape, database schema,
-worker, identity, mutation boundary, producer, or delivery state. No v2.13 tag,
-production rollout, or stable release has been published yet. The minimized
-release path is defined in
+worker, identity, mutation boundary, producer, or delivery state. Exact API and
+Web images passed four healthy production samples over 181 seconds, authenticated
+Reader verification, and a separate 442-second game-host continuity check.
+Stable digest-preserving publication remains pending. The minimized release path
+is defined in
 [docs/release-notes-v2.13.md](docs/release-notes-v2.13.md) and
 [docs/v2.13-readiness.md](docs/v2.13-readiness.md).
 
@@ -223,8 +224,8 @@ summarized in
 The published v2.12 Latest Round Overview release is summarized in
 [docs/release-notes-v2.12.md](docs/release-notes-v2.12.md) and
 [docs/v2.12-readiness.md](docs/v2.12-readiness.md).
-The integrated v2.13 Gameplay Activity Timeline candidate scope is summarized
-in [docs/release-notes-v2.13.md](docs/release-notes-v2.13.md) and
+The accepted v2.13 Gameplay Activity Timeline candidate is summarized in
+[docs/release-notes-v2.13.md](docs/release-notes-v2.13.md) and
 [docs/v2.13-readiness.md](docs/v2.13-readiness.md).
 
 ## Documentation
@@ -254,7 +255,7 @@ in [docs/release-notes-v2.13.md](docs/release-notes-v2.13.md) and
 | v2.11 game-event pilot readiness | [v2.11 pilot readiness](docs/v2.11-game-event-pilot.md) |
 | v2.12 Latest Round Overview release | [v2.12 release notes](docs/release-notes-v2.12.md) |
 | v2.12 release evidence | [v2.12 readiness](docs/v2.12-readiness.md) |
-| v2.13 Gameplay Activity Timeline candidate | [v2.13 release notes](docs/release-notes-v2.13.md) |
+| v2.13 Gameplay Activity Timeline release candidate | [v2.13 release notes](docs/release-notes-v2.13.md) |
 | v2.13 release readiness | [v2.13 readiness](docs/v2.13-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
