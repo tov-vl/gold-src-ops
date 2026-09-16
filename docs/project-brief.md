@@ -395,8 +395,13 @@ The project should evolve in stages:
   samples over 182 seconds, authenticated Reader verification, and a separate
   692-second game-host continuity check. Two pre-existing pending alert-outbox
   records remained unchanged with delivery disabled and are an explicit
-  operational follow-up. Stable digest-preserving publication remains pending;
-  candidate identity and claim limits are defined in `docs/v2.12-readiness.md`.
+  operational follow-up. Signed stable `v2.12.0` promotes the exact accepted API
+  and Web digests without rebuilding;
+  [workflow #35111632801](https://github.com/tov-vl/gold-src-ops/actions/runs/35111632801)
+  and the
+  [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.12.0)
+  are published. Candidate identity and claim limits are defined in
+  `docs/v2.12-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

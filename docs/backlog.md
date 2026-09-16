@@ -1451,7 +1451,7 @@ zero bots, and no open incident appeared. This closes the bounded v2.11 pilot;
 it does not leave gameplay delivery active, establish long-term reliability or
 an achieved SLO, or authorize unattended rollout.
 
-## Active v2.12 Milestone: Latest Round Overview
+## Completed v2.12 Milestone: Latest Round Overview
 
 The first v2.12 slice makes the already retained gameplay record visible during
 ordinary server triage without widening the game-event runtime boundary:
@@ -1474,8 +1474,13 @@ The authenticated Latest Round and Events views passed, while a separate
 692-second check preserved the game service and inactive, boot-disabled event
 agent. Two pre-existing pending alert-outbox records remained unchanged with
 delivery disabled and are recorded as an operational follow-up; no queue state
-was mutated to pass the release gate. Stable digest-preserving promotion remains
-pending. Details, rollback rules, and claim limits are defined in
+was mutated to pass the release gate. Signed stable `v2.12.0` targets the same
+accepted revision. Stable
+[workflow #35111632801](https://github.com/tov-vl/gold-src-ops/actions/runs/35111632801)
+skipped both image builds, promoted and independently verified the exact
+candidate digests, and the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.12.0)
+is published. Details, rollback rules, and claim limits are defined in
 `docs/release-notes-v2.12.md` and `docs/v2.12-readiness.md`. No backup/restore
 rehearsal, migration action, pilot reactivation, or long soak was required for
 this additive read-only composition.
