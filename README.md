@@ -17,12 +17,20 @@ all passed. Release notes and detailed evidence are available in
 [docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
 [docs/v2.10-readiness.md](docs/v2.10-readiness.md).
 
-The local v2.11 pilot-readiness work packages the Linux Worker and minimal
-plugin stack into one hash-addressed bundle and adds a strict, plan-first host
-installer. Installation remains dormant and leaves the running game tree
-unchanged; machine identity, activation, one real event, and active rollback
-are still separate gates. See
+The bounded v2.11 pilot activated the reviewed game-event path for one anonymous
+completed-round event, verified the matching Reader projection, and then
+restored the exact plugin-free game runtime. Temporary identity, credential,
+activation, and plugin state was removed; the dormant agent remains inactive
+and boot-disabled. See
 [docs/v2.11-game-event-pilot.md](docs/v2.11-game-event-pilot.md).
+
+The v2.12 Latest Round Overview slice is integrated in protected `main`. It
+shows the newest retained completed round on the existing Reader server page
+through the bounded `limit=1` projection, without adding a migration, worker,
+identity, mutation, or production activation. Candidate identity and the short
+release gate are defined in
+[docs/release-notes-v2.12.md](docs/release-notes-v2.12.md) and
+[docs/v2.12-readiness.md](docs/v2.12-readiness.md).
 
 The v2.9 Recent Operations Activity release gives Reader users one bounded,
 sanitized timeline for recent incident lifecycle and command-state changes. It
@@ -200,6 +208,9 @@ The published v2.10 game-event release and its dormant production boundary are
 summarized in
 [docs/release-notes-v2.10.md](docs/release-notes-v2.10.md) and
 [docs/v2.10-readiness.md](docs/v2.10-readiness.md).
+The v2.12 Latest Round Overview candidate boundary is summarized in
+[docs/release-notes-v2.12.md](docs/release-notes-v2.12.md) and
+[docs/v2.12-readiness.md](docs/v2.12-readiness.md).
 
 ## Documentation
 
@@ -226,6 +237,8 @@ summarized in
 | v2.10 game-event release | [v2.10 release notes](docs/release-notes-v2.10.md) |
 | v2.10 release evidence | [v2.10 readiness](docs/v2.10-readiness.md) |
 | v2.11 game-event pilot readiness | [v2.11 pilot readiness](docs/v2.11-game-event-pilot.md) |
+| v2.12 Latest Round Overview release | [v2.12 release notes](docs/release-notes-v2.12.md) |
+| v2.12 release evidence | [v2.12 readiness](docs/v2.12-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |

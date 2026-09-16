@@ -389,7 +389,9 @@ The project should evolve in stages:
   server overview. The first slice composes the current game-event projection
   with `limit=1`, keeps gameplay-history failure independent from the A2S status
   view, and links to the full Events history. It adds no migration, worker,
-  identity, production activation, or mutation permission.
+  identity, production activation, or mutation permission. The slice is
+  integrated through pull request #156; candidate identity and its short
+  API/Web-only production gate are defined in `docs/v2.12-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
