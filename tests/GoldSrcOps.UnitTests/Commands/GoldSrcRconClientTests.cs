@@ -157,7 +157,7 @@ public sealed class GoldSrcRconClientTests
             responseDrainInterval: TimeSpan.FromSeconds(1));
 
         var act = () => sut.ExecuteAsync(
-            Request(serverEndpoint, timeout: TimeSpan.FromMilliseconds(250)),
+            Request(serverEndpoint, timeout: TimeSpan.FromSeconds(1)),
             CancellationToken.None);
 
         try

@@ -20,7 +20,9 @@ preserves the selected window across server filters, event-type tabs, refresh,
 and empty-result navigation. API clients that omit `window` retain the existing
 bounded latest-events behavior. The slice changes no response body, database
 schema, authorization policy, worker, identity, mutation boundary, or
-production runtime.
+production runtime. Server-section navigation opens the same `24h` view already
+scoped to that server, while incident investigation links directly to its
+server-scoped incident activity.
 
 The bounded v2.11 pilot activated the reviewed game-event path for one anonymous
 completed-round event, verified the matching Reader projection, and then

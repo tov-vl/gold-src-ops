@@ -95,6 +95,9 @@
             {
                 <nav aria-label="Related server views">
                     <a href="@($"/operator/servers/{_server.Id:D}")">Current status</a>
+                    <a href="@($"/operator/activity?kind=incidents&serverId={_server.Id:D}&range=24h")">
+                        Recent incidents
+                    </a>
                     <a href="@($"/operator/servers/{_server.Id:D}/history#incident-{_incident.Id:D}")">Full history</a>
                 </nav>
             }

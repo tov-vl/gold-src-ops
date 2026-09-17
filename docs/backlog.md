@@ -1594,6 +1594,9 @@ Reader Recent Activity workflow:
 - the static-rendered Reader UI defaults to `24h` and preserves the selected
   range across server filtering, event-type tabs, refresh, clear-server, and
   empty-result navigation;
+- every server section exposes a predictable `24h` server-scoped Activity entry
+  point, and incident investigation links to the corresponding server-scoped
+  incident view without broadening authorization or exposing new data;
 - invalid windows return a validation problem instead of silently widening the
   query;
 - focused service, API, PostgreSQL, Reader client, static-rendering, and

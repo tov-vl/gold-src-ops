@@ -449,7 +449,9 @@ The project should evolve in stages:
   Effective incident, command, and gameplay times are filtered before each
   source limit. The response body and sanitized read boundary remain unchanged,
   and the slice adds no migration, authorization change, worker, identity,
-  mutation permission, or production activation.
+  mutation permission, or production activation. Server-section and incident
+  investigation links provide direct entry into the matching server and source
+  context without adding a new endpoint or client-side state.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
