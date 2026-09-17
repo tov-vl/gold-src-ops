@@ -312,6 +312,11 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             (await Page.Locator("section.observations-section").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator(".observation-row:not(.observation-row--header)").CountAsync())
                 .Should().Be(2);
+            var relatedActivityLink = Page.Locator(
+                "nav[aria-label='Related server views'] a",
+                new PageLocatorOptions { HasText = "Recent incidents" });
+            (await relatedActivityLink.GetAttributeAsync("href")).Should().Be(
+                $"/operator/activity?kind=incidents&serverId={ReaderWebApplicationFactory.ServerId:D}&range=24h");
             var overflowingElements = await Page.EvaluateAsync<string[]>(
                 "Array.from(document.querySelectorAll('body *'))" +
                 ".filter(element => { const bounds = element.getBoundingClientRect(); " +
@@ -321,6 +326,16 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             overflowingElements.Should().BeEmpty();
 
             await CaptureScreenshotIfRequestedAsync("incident-investigation", viewport);
+
+            await relatedActivityLink.ClickAsync();
+            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            Page.Url.Should().Contain("kind=incidents");
+            Page.Url.Should().Contain($"serverId={ReaderWebApplicationFactory.ServerId:D}");
+            Page.Url.Should().Contain("range=24h");
+            (await Page.Locator(".activity-tab[aria-current='page']").InnerTextAsync())
+                .Should().Contain("Incidents");
+            (await Page.Locator("select[name='serverId']").InputValueAsync())
+                .Should().Be(ReaderWebApplicationFactory.ServerId.ToString("D"));
         }
     }
 
@@ -756,6 +771,10 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             (await Page.Locator(".latest-round-summary > div").CountAsync()).Should().Be(4);
             (await Page.Locator(".latest-round-summary").TextContentAsync())
                 .Should().Contain(ReaderWebApplicationFactory.GameEventMap);
+            (await Page.Locator(".section-nav a", new PageLocatorOptions { HasText = "Activity" })
+                    .GetAttributeAsync("href"))
+                .Should().Be(
+                    $"/operator/activity?serverId={ReaderWebApplicationFactory.ServerId:D}&range=24h");
             var overflowingElements = await Page.EvaluateAsync<string[]>(
                 "Array.from(document.querySelectorAll('body *'))" +
                 ".filter(element => { const bounds = element.getBoundingClientRect(); " +

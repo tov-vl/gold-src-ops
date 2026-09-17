@@ -73,6 +73,8 @@ public sealed class ReaderPortalIntegrationTests
         detailResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         detailBody.Should().Contain("Latest observation");
         detailBody.Should().Contain("The latest A2S probe reached the server.");
+        detailBody.Should().Contain(
+            $"/operator/activity?serverId={ReaderWebApplicationFactory.ServerId:D}&amp;range=24h");
         historyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         historyBody.Should().Contain("Server trends");
         historyBody.Should().Contain("Observed reachability");
@@ -80,6 +82,8 @@ public sealed class ReaderPortalIntegrationTests
         historyBody.Should().Contain("Recent observations");
         historyBody.Should().Contain("Probe recovered");
         historyBody.Should().Contain($"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}");
+        historyBody.Should().Contain(
+            $"/operator/activity?serverId={ReaderWebApplicationFactory.ServerId:D}&amp;range=24h");
         incidentsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         incidentsBody.Should().Contain("Open incidents");
         incidentsBody.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
@@ -188,6 +192,8 @@ public sealed class ReaderPortalIntegrationTests
         detailBody.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
         detailBody.Should().Contain("Opening");
         detailBody.Should().Contain("de_dust2");
+        detailBody.Should().Contain(
+            $"/operator/activity?kind=incidents&amp;serverId={ReaderWebApplicationFactory.ServerId:D}&amp;range=24h");
         detailBody.Should().NotContain(ReaderWebApplicationFactory.CommandPayloadSentinel);
     }
 

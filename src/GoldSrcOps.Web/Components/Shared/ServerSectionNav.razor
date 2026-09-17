@@ -1,5 +1,6 @@
 <nav class="section-nav" aria-label="Server views">
     <NavLink href="@($"/operator/servers/{ServerId:D}")" Match="NavLinkMatch.All">Overview</NavLink>
+    <NavLink href="@($"/operator/activity?serverId={ServerId:D}&range=24h")">Activity</NavLink>
     <NavLink href="@($"/operator/servers/{ServerId:D}/history")">History</NavLink>
     <NavLink href="@($"/operator/servers/{ServerId:D}/events")">Events</NavLink>
     <NavLink href="@($"/operator/servers/{ServerId:D}/commands")">Commands</NavLink>
