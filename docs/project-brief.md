@@ -490,6 +490,16 @@ The project should evolve in stages:
   restore rehearsal, pilot activation, Auth0 change, RCON action,
   alert-outbox investigation, or gameplay capture. Candidate identity and
   claim limits are defined in `docs/v2.16-readiness.md`.
+- v2.17: add a Reader-facing Alert Delivery Overview over the existing durable
+  outbox. The aggregate-only endpoint reports configured delivery state,
+  pending, processing, and dead-letter counts, oldest pending time, and an
+  explicit observation time without exposing payloads, errors, addresses, or
+  credentials. The static-rendered page distinguishes clear, active, paused,
+  and action-required states and links to the bounded dead-letter workflow.
+  Pull request #177 integrated the additive API/Web slice without a migration,
+  worker, identity, mutation permission, delivery activation, or game-host
+  change. Candidate publication and bounded R1 production acceptance remain
+  pending; scope and claim limits are defined in `docs/v2.17-readiness.md`.
 - The first complete `API-01` SLO review window is published alongside the
   existing controlled failure/recovery evidence. A short video and a small
   evidence-based postmortem remain a later portfolio milestone.
