@@ -1,8 +1,8 @@
 # GoldSrcOps v2.14.0 Release Notes
 
-Status as of 2026-09-17: candidate preparation. The product slice is integrated
-in protected `main`; no v2.14 candidate tag, production rollout, stable tag, or
-GitHub Release has been published yet.
+Status as of 2026-09-17: stable release published. Signed `v2.14.0` promotes
+the exact accepted `v2.14.0-rc.1` API and Web digests without rebuilding either
+image.
 
 ## Overview
 
@@ -67,16 +67,38 @@ workflow
 and post-merge workflow
 [#35205688559](https://github.com/tov-vl/gold-src-ops/actions/runs/35205688559).
 
-Release acceptance follows the R1 path in the version-neutral
-[release process](release-process.md). The signed candidate tag performs one
-complete immutable-image workflow. Production then receives only the exact API
-and Web digests and runs a three-sample, three-minute read-only smoke. It does
-not repeat a game-host soak, migration or restore rehearsal, pilot activation,
-Auth0 change, RCON action, alert-outbox investigation, or gameplay capture.
+Candidate workflow
+[#35209067745](https://github.com/tov-vl/gold-src-ops/actions/runs/35209067745)
+published and verified both immutable images from revision `c5402de`. Production
+retained those exact digests after an API/Web-only rollout. Three healthy
+samples over 181 seconds verified public health, release identity, A2S
+continuity, zero bots, zero open or newly opened incidents, zero dead letters,
+zero incomplete commands, unchanged pending durable work, untouched-service
+continuity, and fresh backup evidence. A separate 234-second game-host check
+preserved the game service while the game-event agent remained inactive and
+boot-disabled.
 
-Candidate identity, rollout evidence, and stable publication remain pending.
-The exact ordered gate and rollback rules are defined in
-[v2.14 release readiness](v2.14-readiness.md).
+The authenticated production page rendered scoped All, Incidents, Commands,
+and Rounds counts of 8/3/4/1. Each type filter showed only its own source,
+Refresh preserved both scopes, and `Clear server` removed only the server scope.
+Browser storage contained no token-like entry, the page exposed no mutation
+control, and the browser reported no warning or error.
+
+The read-only baseline contained two reviewed deferred alert-outbox records with
+alert delivery disabled. The count remained exactly two in every sample; the
+release did not mutate or drain the queue. The exact ordered gate and rollback
+rules are defined in [v2.14 release readiness](v2.14-readiness.md).
+
+## Stable Publication
+
+Signed stable tag `v2.14.0` targets accepted candidate revision `c5402de`.
+Stable workflow
+[#35212041218](https://github.com/tov-vl/gold-src-ops/actions/runs/35212041218)
+skipped both image build paths, promoted the exact API and Web candidate
+digests, and passed both published-image smoke jobs. Independent GHCR
+inspection confirmed that the stable references resolve to those same digests.
+The [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.14.0)
+is published.
 
 ## Known Limits
 
@@ -96,6 +118,11 @@ The exact ordered gate and rollback rules are defined in
 - [Scoped Activity Investigation pull request](https://github.com/tov-vl/gold-src-ops/pull/166)
 - [Product pull request workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35204950777)
 - [Product post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35205688559)
+- [Release readiness pull request](https://github.com/tov-vl/gold-src-ops/pull/167)
+- [Readiness post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35208624054)
+- [Candidate publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35209067745)
+- [Stable publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35212041218)
+- [GitHub Release v2.14.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.14.0)
 - [Release process](release-process.md)
 - [Project backlog](backlog.md)
 - [Project brief](project-brief.md)

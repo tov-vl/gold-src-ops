@@ -1534,7 +1534,7 @@ is published. No game-host soak, migration or restore rehearsal, pilot
 activation, alert-outbox mutation, or gameplay capture was required. See
 `docs/release-notes-v2.13.md` and `docs/v2.13-readiness.md`.
 
-## Candidate v2.14 Milestone: Scoped Activity Investigation
+## Completed v2.14 Milestone: Scoped Activity Investigation
 
 The v2.14 product slice makes the bounded Reader Recent Activity timeline useful
 for investigating one controlled server without widening the read boundary:
@@ -1563,12 +1563,22 @@ and responsive Chromium behavior on desktop and mobile.
 The product slice is integrated through pull request
 [#166](https://github.com/tov-vl/gold-src-ops/pull/166). Its pull request and
 post-merge workflows passed `Change Scope`, `Quality Gate`, `Container Smoke`,
-and `Browser Smoke`. Candidate publication remains pending. As an R1 additive
-read-only release, v2.14 uses one signed-tag image workflow, an API/Web-only
-digest-pinned rollout, and a three-sample, three-minute read-only smoke. It does
-not repeat a game-host soak, migration or restore rehearsal, pilot activation,
-alert-outbox investigation, Auth0 change, RCON action, or gameplay capture. See
-`docs/release-notes-v2.14.md` and `docs/v2.14-readiness.md`.
+and `Browser Smoke`. Signed candidate `v2.14.0-rc.1` was published from revision
+`c5402de`, deployed by exact API and Web digest, and retained after three healthy
+production samples over 181 seconds. Authenticated Recent Activity showed
+scoped All/Incidents/Commands/Rounds counts of 8/3/4/1; type tabs, Refresh, and
+`Clear server` preserved the intended query scope. A separate 234-second check
+preserved the game service and dormant event agent. Two reviewed deferred
+alert-outbox records remained unchanged with delivery disabled. Signed stable
+`v2.14.0` targets the same accepted revision. Stable
+[workflow #35212041218](https://github.com/tov-vl/gold-src-ops/actions/runs/35212041218)
+skipped both image builds, promoted and independently verified the exact
+candidate digests, and the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.14.0)
+is published. No game-host soak, migration or restore rehearsal, pilot
+activation, alert-outbox mutation, Auth0 change, RCON action, or gameplay
+capture was required. See `docs/release-notes-v2.14.md` and
+`docs/v2.14-readiness.md`.
 
 ## Current API Scope
 
