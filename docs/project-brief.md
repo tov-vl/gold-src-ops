@@ -428,7 +428,14 @@ The project should evolve in stages:
   and the static-rendered UI preserves the selected server across tabs and
   refreshes. The response remains sanitized and unchanged. This slice adds no
   migration, authorization change, worker, identity, mutation permission, or
-  production activation.
+  production activation. The product slice is integrated through pull request
+  #166. Candidate publication remains pending. Release readiness uses the
+  documentation-only CI fast path followed by one complete signed-tag image
+  workflow, an API/Web-only rollout, and a three-sample, three-minute read-only
+  production smoke. It does not repeat a game-host soak, migration or restore
+  rehearsal, pilot activation, Auth0 change, RCON action, or gameplay capture.
+  Candidate identity and claim limits are defined in
+  `docs/v2.14-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
