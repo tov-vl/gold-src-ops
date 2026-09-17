@@ -727,10 +727,14 @@ Delivery order:
    The sanitized setup and implementation records are in
    `docs/v2.4-synthetic-monitoring-rollout.md` and
    `docs/v2.4-availability-evidence-exporter.md`.
-4. **Activation (recorded 2026-09-10)**: the immutable tuple started the
+4. **Activation and first review (completed 2026-09-17)**: the immutable tuple started the
    prospective seven-day `API-01` window at `2026-09-10T16:45:00Z`, under
-   Decision 23, without importing shadow or v2.3 soak samples. The first
-   terminal review is permitted after `2026-09-17T16:50:00Z`.
+   Decision 23, without importing shadow or v2.3 soak samples. The terminal
+   review evaluated all 10,080 prospective minutes: 10,072 good, eight bad,
+   five of those missing, and no pending or duplicate slots. Availability was
+   99.92063%, so the first window met the 99.5% target with 42 of 50 error-budget
+   minutes remaining. The reproducible evidence is recorded in
+   `docs/service-level-objectives.md`.
 5. **Public experience (completed 2026-09-08)**: the
    compact Blazor Web App and anonymous, cached, deliberately sanitized
    current-status read model are implemented. Pull request #84 packaged the API
@@ -864,9 +868,10 @@ Delivery order:
    promoted the exact API and Web digests verified for `v2.4.0-rc.9` on
    2026-09-10, skipped both rebuild steps, and passed both published-digest
    smoke tests. The GitHub Release was published on 2026-09-11.
-8. **First SLO review**: after the complete forward-looking seven-day window,
-   publish the reproducible sanitized result and report `API-01` as met or
-   missed. Review the target without changing it to fit the observed result.
+8. **First SLO review (completed 2026-09-17)**: the complete forward-looking
+   seven-day window evaluated 10,080/10,080 minutes and reported `API-01` met at
+   99.92063% without changing the 99.5% target. The sanitized per-day evidence
+   and short-window caveat are published in `docs/service-level-objectives.md`.
 
 Acceptance boundaries:
 
@@ -1918,13 +1923,12 @@ The released v1 baseline includes:
 - A few meaningful tests.
 - A short section explaining trade-offs.
 
+The first prospective seven-day `API-01` review is complete and met the
+unchanged 99.5% target. Its short-window result remains operational evidence,
+not proof of long-term reliability; rolling collection continues.
+
 Remaining portfolio gaps, in priority order:
 
-- Complete the active prospective seven-day `API-01` window and publish its
-  first reproducible met-or-missed review without changing the target to fit
-  the result. Alert routing, archive, independent scheduled-segment recovery,
-  the revised-policy shadow audit, and activation are proved; neither the
-  shadow nor the completed v2.3 24-hour sample is an achieved SLO claim.
 - A concise video walkthrough and a small evidence-based postmortem covering
   the completed controlled failure/recovery exercise.
 

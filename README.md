@@ -97,6 +97,10 @@ release boundary and candidate and stable publication evidence are in
 The v2.4 release has a passing independent 24-hour availability
 shadow audit. The immutable `API-01` activation tuple started its prospective
 seven-day window at `2026-09-10T16:45:00Z`; no shadow sample was imported. The
+first complete window evaluated all 10,080 prospective minutes at 99.92063%
+availability and met the unchanged 99.5% target. The reproducible sanitized
+result is recorded in
+[docs/service-level-objectives.md](docs/service-level-objectives.md). The
 first sanitized public Blazor dashboard landed in
 [PR #82](https://github.com/tov-vl/gold-src-ops/pull/82), its production
 packaging landed in
@@ -131,8 +135,8 @@ Its independent GitHub-hosted scheduling contract and operator setup are in
 of one scheduled segment passed in
 [run #33968872991](https://github.com/tov-vl/gold-src-ops/actions/runs/33968872991),
 closing the availability implementation slice. The first official `API-01`
-review is due only after `2026-09-17T16:50:00Z`. Production packaging and rollout
-evidence for the dashboard follows the fail-closed two-image contract in
+review completed after its `2026-09-17T16:50:00Z` maturity boundary. Production
+packaging and rollout evidence for the dashboard follows the fail-closed two-image contract in
 [docs/v2.4-public-dashboard-deployment.md](docs/v2.4-public-dashboard-deployment.md).
 The production OIDC boundary and live Reader/Operator evidence are recorded in
 [docs/v2.4-reader-portal.md](docs/v2.4-reader-portal.md).
