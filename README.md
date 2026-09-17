@@ -14,6 +14,14 @@ evidence are available in
 [docs/release-notes-v2.14.md](docs/release-notes-v2.14.md) and
 [docs/v2.14-readiness.md](docs/v2.14-readiness.md).
 
+The first v2.15 product slice bounds Reader Recent Activity by an explicit
+`1h`, `6h`, `24h`, or `7d` window. The Reader page defaults to `24h` and
+preserves the selected window across server filters, event-type tabs, refresh,
+and empty-result navigation. API clients that omit `window` retain the existing
+bounded latest-events behavior. The slice changes no response body, database
+schema, authorization policy, worker, identity, mutation boundary, or
+production runtime.
+
 The bounded v2.11 pilot activated the reviewed game-event path for one anonymous
 completed-round event, verified the matching Reader projection, and then
 restored the exact plugin-free game runtime. Temporary identity, credential,
@@ -480,7 +488,7 @@ API endpoints:
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=`
 - `GET /api/servers/{id}/incidents?limit=`
 - `GET /api/dashboard/overview`
-- `GET /api/dashboard/activity?limit=&serverId=&kind=all|incidents|commands|gameplay`
+- `GET /api/dashboard/activity?limit=&serverId=&kind=all|incidents|commands|gameplay&window=1h|6h|24h|7d`
 - `GET /api/incidents/open`
 - `GET /api/incidents/{id}`
 

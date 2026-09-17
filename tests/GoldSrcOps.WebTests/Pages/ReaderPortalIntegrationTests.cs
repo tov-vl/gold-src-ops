@@ -340,7 +340,7 @@ public sealed class ReaderPortalIntegrationTests
         using var gameplayResponse = await client.GetAsync("/operator/activity?kind=gameplay");
         var gameplayBody = await gameplayResponse.Content.ReadAsStringAsync();
         using var scopedGameplayResponse = await client.GetAsync(
-            $"/operator/activity?kind=gameplay&serverId={ReaderWebApplicationFactory.ServerId:D}");
+            $"/operator/activity?kind=gameplay&serverId={ReaderWebApplicationFactory.ServerId:D}&range=6h");
         var scopedGameplayBody = await scopedGameplayResponse.Content.ReadAsStringAsync();
 
         allResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -375,7 +375,10 @@ public sealed class ReaderPortalIntegrationTests
         scopedGameplayBody.Should().Contain(ReaderWebApplicationFactory.ServerName);
         scopedGameplayBody.Should().Contain("Clear server");
         scopedGameplayBody.Should().Contain(
-            $"kind=commands&amp;serverId={ReaderWebApplicationFactory.ServerId:D}");
+            $"kind=commands&amp;serverId={ReaderWebApplicationFactory.ServerId:D}&amp;range=6h");
+        scopedGameplayBody.Should().Contain("class=\"activity-range__link activity-range__link--active\"");
+        scopedGameplayBody.Should().Contain(
+            $"kind=gameplay&amp;serverId={ReaderWebApplicationFactory.ServerId:D}&amp;range=24h");
         scopedGameplayBody.Should().Contain("Round ended");
         scopedGameplayBody.Should().NotContain("Server unreachable");
         scopedGameplayBody.Should().NotContain("Succeeded");

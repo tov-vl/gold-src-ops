@@ -47,6 +47,7 @@ public static class DashboardEndpoints
         int? limit,
         Guid? serverId,
         string? kind,
+        string? window,
         MonitoringReadService monitoring,
         CancellationToken cancellationToken)
     {
@@ -67,10 +68,19 @@ public static class DashboardEndpoints
             });
         }
 
+        if (!TryParseActivityWindow(window, out var activityWindow))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                ["window"] = ["Window must be one of: 1h, 6h, 24h, 7d."]
+            });
+        }
+
         var result = await monitoring.GetOperationsActivityAsync(
             limit,
             serverId,
             source,
+            activityWindow,
             cancellationToken);
         return TypedResults.Ok(new OperationsActivityResponse(
             result.Limit,
@@ -97,6 +107,23 @@ public static class DashboardEndpoints
         };
 
         return source is not null;
+    }
+
+    private static bool TryParseActivityWindow(
+        string? value,
+        out OperationsActivityWindow? window)
+    {
+        window = value switch
+        {
+            null => null,
+            "1h" => OperationsActivityWindow.LastHour,
+            "6h" => OperationsActivityWindow.Last6Hours,
+            "24h" => OperationsActivityWindow.Last24Hours,
+            "7d" => OperationsActivityWindow.Last7Days,
+            _ => null
+        };
+
+        return value is null || window is not null;
     }
 
     private static DashboardOverviewResponse Map(DashboardOverviewDto overview) =>

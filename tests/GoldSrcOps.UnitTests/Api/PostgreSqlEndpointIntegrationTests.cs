@@ -6,6 +6,8 @@ using AwesomeAssertions;
 using GoldSrcOps.Application.Common;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Contracts.Servers;
+using GoldSrcOps.Domain.Commands;
+using GoldSrcOps.Domain.GameEvents;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -512,6 +514,153 @@ public sealed class PostgreSqlEndpointIntegrationTests
             fromUtc.AddHours(2),
             "unknown",
             ObservedReachabilityPercent: null));
+    }
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
+    public async Task GetDashboardActivity_filters_all_sources_by_window_using_postgresql_provider()
+    {
+        var expectedToUtc = new DateTimeOffset(2026, 9, 17, 12, 30, 0, TimeSpan.Zero);
+        var clock = new TestClock(expectedToUtc.AddTicks(7));
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync(
+            services =>
+            {
+                services.RemoveAll<IClock>();
+                services.AddSingleton<IClock>(clock);
+            },
+            TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+        var seed = await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var server = CreateServer(
+                "Activity PostgreSQL",
+                "activity.private.example",
+                expectedToUtc.AddDays(-1));
+
+            var recentIncident = AvailabilityIncident.Open(
+                server.Id,
+                expectedToUtc.AddHours(-2),
+                "private recent incident start sentinel",
+                consecutiveFailures: 3);
+            recentIncident.Close(
+                expectedToUtc.AddMinutes(-20),
+                "private recent incident close sentinel");
+            var oldIncident = AvailabilityIncident.Open(
+                server.Id,
+                expectedToUtc.AddHours(-3),
+                "private old incident start sentinel",
+                consecutiveFailures: 3);
+            oldIncident.Close(
+                expectedToUtc.AddHours(-2),
+                "private old incident close sentinel");
+            var futureIncident = AvailabilityIncident.Open(
+                server.Id,
+                expectedToUtc.AddMinutes(1),
+                "private future incident sentinel",
+                consecutiveFailures: 3);
+
+            var recentCommand = new CommandExecution(
+                server.Id,
+                ServerCommandType.Say,
+                "private recent command payload sentinel",
+                "private requester sentinel",
+                expectedToUtc.AddHours(-2));
+            recentCommand.MarkRunning(expectedToUtc.AddMinutes(-15));
+            recentCommand.MarkSucceeded(
+                expectedToUtc.AddMinutes(-10),
+                "private recent command result sentinel");
+            var oldCommand = new CommandExecution(
+                server.Id,
+                ServerCommandType.Restart,
+                payload: null,
+                "private requester sentinel",
+                expectedToUtc.AddHours(-3));
+            oldCommand.MarkFailed(
+                expectedToUtc.AddHours(-2),
+                "private old command failure sentinel");
+            var futureCommand = new CommandExecution(
+                server.Id,
+                ServerCommandType.Say,
+                "private future command payload sentinel",
+                "private requester sentinel",
+                expectedToUtc.AddMinutes(1));
+
+            var recentGameplay = new GameEventInboxEntry(
+                Guid.NewGuid(),
+                server.Id,
+                Guid.NewGuid(),
+                sequenceNumber: 1,
+                GameEventInboxEntry.CurrentContractVersion,
+                GameEventType.RoundEnded,
+                expectedToUtc.AddMinutes(-5),
+                expectedToUtc.AddMinutes(-4),
+                "private_recent_map_sentinel",
+                players: 12,
+                bots: 0,
+                new string('A', GameEventInboxEntry.MaxIntentHashLength));
+            var oldGameplay = new GameEventInboxEntry(
+                Guid.NewGuid(),
+                server.Id,
+                Guid.NewGuid(),
+                sequenceNumber: 1,
+                GameEventInboxEntry.CurrentContractVersion,
+                GameEventType.RoundEnded,
+                expectedToUtc.AddHours(-2),
+                expectedToUtc.AddHours(-2).AddMinutes(1),
+                "private_old_map_sentinel",
+                players: 8,
+                bots: 0,
+                new string('B', GameEventInboxEntry.MaxIntentHashLength));
+            var futureGameplay = new GameEventInboxEntry(
+                Guid.NewGuid(),
+                server.Id,
+                Guid.NewGuid(),
+                sequenceNumber: 1,
+                GameEventInboxEntry.CurrentContractVersion,
+                GameEventType.RoundEnded,
+                expectedToUtc.AddMinutes(1),
+                expectedToUtc.AddMinutes(2),
+                "private_future_map_sentinel",
+                players: 6,
+                bots: 0,
+                new string('F', GameEventInboxEntry.MaxIntentHashLength));
+
+            dbContext.Servers.Add(server);
+            dbContext.AvailabilityIncidents.AddRange(recentIncident, oldIncident, futureIncident);
+            dbContext.CommandExecutions.AddRange(recentCommand, oldCommand, futureCommand);
+            dbContext.GameEventInbox.AddRange(recentGameplay, oldGameplay, futureGameplay);
+            await dbContext.SaveChangesAsync();
+
+            return new
+            {
+                RecentIncidentId = recentIncident.Id,
+                RecentCommandId = recentCommand.Id,
+                RecentGameplayId = recentGameplay.Id,
+                ExcludedIds = new[]
+                {
+                    oldIncident.Id,
+                    futureIncident.Id,
+                    oldCommand.Id,
+                    futureCommand.Id,
+                    oldGameplay.Id,
+                    futureGameplay.Id
+                }
+            };
+        });
+
+        var response = await client.GetAsync("/api/dashboard/activity?limit=20&window=1h");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        payload.Should().NotContain("private");
+        var activity = JsonSerializer.Deserialize<OperationsActivityResponse>(payload, JsonSerializerOptions.Web);
+        activity.Should().NotBeNull();
+        activity!.Items.Select(static item => item.SourceId).Should().ContainInOrder(
+            seed.RecentGameplayId,
+            seed.RecentCommandId,
+            seed.RecentIncidentId);
+        activity.Items.Should().HaveCount(3);
+        activity.Items.Select(static item => item.SourceId).Should().NotContain(seed.ExcludedIds);
     }
 
     [Fact]

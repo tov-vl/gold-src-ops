@@ -32,6 +32,8 @@ public sealed class MonitoringReadServiceTests
                 MonitoringReadService.DefaultActivityLimit,
                 serverId,
                 OperationsActivitySource.Gameplay,
+                null,
+                null,
                 CancellationToken.None))
             .ReturnsAsync(items);
         var sut = new MonitoringReadService(repository.Object, clock.Object);
@@ -40,12 +42,50 @@ public sealed class MonitoringReadServiceTests
             null,
             serverId,
             OperationsActivitySource.Gameplay,
+            null,
             CancellationToken.None);
 
         result.Limit.Should().Be(MonitoringReadService.DefaultActivityLimit);
         result.Items.Should().BeSameAs(items);
         repository.VerifyAll();
         repository.VerifyNoOtherCalls();
+        clock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetOperationsActivityAsync_forwards_the_requested_utc_window()
+    {
+        var expectedToUtc = new DateTimeOffset(2026, 9, 17, 12, 30, 0, TimeSpan.Zero);
+        // Seven ticks are below PostgreSQL's one-microsecond timestamp resolution.
+        var now = expectedToUtc.AddTicks(7);
+        var expectedFromUtc = expectedToUtc.AddHours(-6);
+        var repository = new Mock<IMonitoringReadRepository>(MockBehavior.Strict);
+        var clock = new Mock<IClock>(MockBehavior.Strict);
+        IReadOnlyList<OperationsActivityItemDto> items = [];
+        clock.SetupGet(static x => x.UtcNow).Returns(now);
+        repository
+            .Setup(x => x.ListOperationsActivityAsync(
+                12,
+                null,
+                null,
+                expectedFromUtc,
+                expectedToUtc,
+                CancellationToken.None))
+            .ReturnsAsync(items);
+        var sut = new MonitoringReadService(repository.Object, clock.Object);
+
+        var result = await sut.GetOperationsActivityAsync(
+            12,
+            null,
+            null,
+            OperationsActivityWindow.Last6Hours,
+            CancellationToken.None);
+
+        result.Limit.Should().Be(12);
+        result.Items.Should().BeSameAs(items);
+        repository.VerifyAll();
+        repository.VerifyNoOtherCalls();
+        clock.VerifyAll();
         clock.VerifyNoOtherCalls();
     }
 

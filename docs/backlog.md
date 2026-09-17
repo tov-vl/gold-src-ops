@@ -1580,6 +1580,30 @@ activation, alert-outbox mutation, Auth0 change, RCON action, or gameplay
 capture was required. See `docs/release-notes-v2.14.md` and
 `docs/v2.14-readiness.md`.
 
+## Active v2.15 Milestone: Bounded Activity Windows
+
+The first v2.15 product slice adds an explicit investigation horizon to the
+Reader Recent Activity workflow:
+
+- `GET /api/dashboard/activity` accepts optional, validated
+  `window=1h|6h|24h|7d`; omitting it preserves the existing API behavior for
+  current clients;
+- incidents, commands, and completed rounds are constrained by their effective
+  event time before each source query applies `Take(limit)`, followed by the
+  existing deterministic global newest-first limit;
+- the static-rendered Reader UI defaults to `24h` and preserves the selected
+  range across server filtering, event-type tabs, refresh, clear-server, and
+  empty-result navigation;
+- invalid windows return a validation problem instead of silently widening the
+  query;
+- focused service, API, PostgreSQL, Reader client, static-rendering, and
+  responsive Chromium coverage protects the window contract and sanitized
+  response boundary.
+
+This additive slice changes no response body, database schema, authorization
+policy, worker, identity, mutation permission, production runtime, or event
+delivery state. It does not itself start a candidate or production release.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1606,7 +1630,7 @@ Monitoring:
 - `GET /api/servers/{id}/trends?window=1h|6h|24h|7d`
 - `GET /api/dashboard/overview`
 - `GET /api/dashboard/fleet`
-- `GET /api/dashboard/activity?limit=&serverId=&kind=all|incidents|commands|gameplay`
+- `GET /api/dashboard/activity?limit=&serverId=&kind=all|incidents|commands|gameplay&window=1h|6h|24h|7d`
 
 Incidents:
 

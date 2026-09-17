@@ -188,6 +188,10 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
+            (await Page.Locator(".activity-range").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator(".activity-range__link").CountAsync()).Should().Be(4);
+            (await Page.Locator(".activity-range__link[aria-current='page']").InnerTextAsync())
+                .Should().Be("24h");
             (await Page.Locator(".activity-tabs").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("select[name='serverId']").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator(".activity-tab").CountAsync()).Should().Be(4);
@@ -196,11 +200,20 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             (await Page.Locator(".activity-row--command").CountAsync()).Should().Be(1);
             (await Page.Locator(".activity-row--gameplay").CountAsync()).Should().Be(1);
 
+            await Page.Locator(".activity-range__link")
+                .Filter(new LocatorFilterOptions { HasText = "6h" })
+                .ClickAsync();
+            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            Page.Url.Should().Contain("range=6h");
+            (await Page.Locator(".activity-range__link[aria-current='page']").InnerTextAsync())
+                .Should().Be("6h");
+
             await Page.Locator("select[name='serverId']")
                 .SelectOptionAsync(ReaderWebApplicationFactory.ServerId.ToString("D"));
             await Page.Locator("form.activity-filter button[type='submit']").ClickAsync();
             await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
             Page.Url.Should().Contain($"serverId={ReaderWebApplicationFactory.ServerId:D}");
+            Page.Url.Should().Contain("range=6h");
 
             await Page.Locator(".activity-tab")
                 .Filter(new LocatorFilterOptions { HasText = "Rounds" })
@@ -208,10 +221,13 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
             Page.Url.Should().Contain("kind=gameplay");
             Page.Url.Should().Contain($"serverId={ReaderWebApplicationFactory.ServerId:D}");
+            Page.Url.Should().Contain("range=6h");
             (await Page.Locator("select[name='serverId']").InputValueAsync())
                 .Should().Be(ReaderWebApplicationFactory.ServerId.ToString("D"));
             (await Page.Locator(".activity-tab[aria-current='page']").InnerTextAsync())
                 .Should().Contain("Rounds");
+            (await Page.Locator(".heading-meta a").GetAttributeAsync("href"))
+                .Should().Contain("range=6h");
             (await Page.Locator(".activity-row:not(.activity-row--header)").CountAsync()).Should().Be(1);
             var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
                 "document.documentElement.scrollWidth > document.documentElement.clientWidth");

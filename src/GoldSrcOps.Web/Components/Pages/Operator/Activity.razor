@@ -52,14 +52,30 @@
                     <p class="eyebrow">Operations</p>
                     <h2 id="activity-list-title">Incident, command, and gameplay timeline</h2>
                 </div>
-                <span>Newest first, up to @_activity.Limit events</span>
+                <span>@GetRangeLabel(EffectiveRange), newest first, up to @_activity.Limit events</span>
             </div>
+
+            <nav class="activity-range" aria-label="Activity window">
+                <a class="@GetRangeClass("1h")"
+                   href="@BuildRangeHref("1h")"
+                   aria-current="@GetRangeAriaCurrent("1h")">1h</a>
+                <a class="@GetRangeClass("6h")"
+                   href="@BuildRangeHref("6h")"
+                   aria-current="@GetRangeAriaCurrent("6h")">6h</a>
+                <a class="@GetRangeClass("24h")"
+                   href="@BuildRangeHref("24h")"
+                   aria-current="@GetRangeAriaCurrent("24h")">24h</a>
+                <a class="@GetRangeClass("7d")"
+                   href="@BuildRangeHref("7d")"
+                   aria-current="@GetRangeAriaCurrent("7d")">7d</a>
+            </nav>
 
             <form class="activity-filter" method="get" aria-label="Activity filters">
                 @if (EffectiveKind != "all")
                 {
                     <input type="hidden" name="kind" value="@EffectiveKind" />
                 }
+                <input type="hidden" name="range" value="@EffectiveRange" />
                 <label class="activity-filter-field">
                     <span>Server</span>
                     <select name="serverId">
@@ -76,7 +92,7 @@
                     <button type="submit">Apply</button>
                     @if (ServerId is not null)
                     {
-                        <a href="@BuildActivityHref(EffectiveKind, null)">Clear server</a>
+                        <a href="@BuildActivityHref(EffectiveKind, null, EffectiveRange)">Clear server</a>
                     }
                 </div>
             </form>
@@ -112,7 +128,7 @@
             {
                 <div class="empty-state">
                     <h3>No matching activity</h3>
-                    <p>No incident, command, or gameplay events match the selected view.</p>
+                    <p>No incident, command, or gameplay events match the selected view and time window.</p>
                     @if (EffectiveKind != "all")
                     {
                         <a href="@BuildKindHref("all")">Show all activity</a>
@@ -163,7 +179,9 @@
 
 @code {
     private const int ActivityLimit = 50;
+    private const string DefaultRange = "24h";
     private static readonly string[] AllowedKinds = ["all", "incidents", "commands", "gameplay"];
+    private static readonly string[] AllowedRanges = ["1h", "6h", DefaultRange, "7d"];
 
     [Parameter]
     [SupplyParameterFromQuery(Name = "kind")]
@@ -173,12 +191,18 @@
     [SupplyParameterFromQuery(Name = "serverId")]
     public Guid? ServerId { get; set; }
 
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "range")]
+    public string? Range { get; set; }
+
     private OperationsActivityResponse? _activity;
     private IReadOnlyList<OperationsActivityItemResponse> _items = [];
     private IReadOnlyList<ServerResponse> _servers = [];
     private bool _loadFailed;
 
     private string EffectiveKind => NormalizeKind(Kind);
+
+    private string EffectiveRange => NormalizeRange(Range);
 
     private int IncidentCount => _activity?.Items.Count(IsIncident) ?? 0;
 
@@ -199,10 +223,17 @@
 
         try
         {
-            var summaryTask = ReaderApiClient.GetOperationsActivityAsync(ActivityLimit, ServerId);
+            var summaryTask = ReaderApiClient.GetOperationsActivityAsync(
+                ActivityLimit,
+                ServerId,
+                window: EffectiveRange);
             var itemsTask = EffectiveKind == "all"
                 ? summaryTask
-                : ReaderApiClient.GetOperationsActivityAsync(ActivityLimit, ServerId, EffectiveKind);
+                : ReaderApiClient.GetOperationsActivityAsync(
+                    ActivityLimit,
+                    ServerId,
+                    EffectiveKind,
+                    EffectiveRange);
             var serversTask = ReaderApiClient.GetServersAsync();
 
             await Task.WhenAll(summaryTask, itemsTask, serversTask);
@@ -236,17 +267,31 @@
     private static string NormalizeKind(string? value) =>
         AllowedKinds.FirstOrDefault(kind => string.Equals(kind, value, StringComparison.OrdinalIgnoreCase)) ?? "all";
 
+    private static string NormalizeRange(string? value) =>
+        AllowedRanges.FirstOrDefault(range => string.Equals(range, value, StringComparison.OrdinalIgnoreCase)) ??
+        DefaultRange;
+
     private string GetTabClass(string kind) =>
         string.Equals(EffectiveKind, kind, StringComparison.Ordinal) ? "activity-tab activity-tab--active" : "activity-tab";
 
     private string? GetAriaCurrent(string kind) =>
         string.Equals(EffectiveKind, kind, StringComparison.Ordinal) ? "page" : null;
 
-    private string BuildKindHref(string kind) => BuildActivityHref(kind, ServerId);
+    private string BuildKindHref(string kind) => BuildActivityHref(kind, ServerId, EffectiveRange);
 
-    private static string BuildActivityHref(string kind, Guid? serverId)
+    private string BuildRangeHref(string range) => BuildActivityHref(EffectiveKind, ServerId, range);
+
+    private string GetRangeClass(string range) =>
+        string.Equals(EffectiveRange, range, StringComparison.Ordinal)
+            ? "activity-range__link activity-range__link--active"
+            : "activity-range__link";
+
+    private string? GetRangeAriaCurrent(string range) =>
+        string.Equals(EffectiveRange, range, StringComparison.Ordinal) ? "page" : null;
+
+    private static string BuildActivityHref(string kind, Guid? serverId, string range)
     {
-        var parameters = new List<string>(2);
+        var parameters = new List<string>(3);
         if (kind != "all")
         {
             parameters.Add($"kind={kind}");
@@ -257,10 +302,18 @@
             parameters.Add($"serverId={serverId.Value:D}");
         }
 
-        return parameters.Count == 0
-            ? "/operator/activity"
-            : $"/operator/activity?{string.Join('&', parameters)}";
+        parameters.Add($"range={range}");
+
+        return $"/operator/activity?{string.Join('&', parameters)}";
     }
+
+    private static string GetRangeLabel(string range) => range switch
+    {
+        "1h" => "Past hour",
+        "6h" => "Past 6 hours",
+        "7d" => "Past 7 days",
+        _ => "Past 24 hours"
+    };
 
     private static string GetRowClass(OperationsActivityItemResponse item) => item.SourceType switch
     {
