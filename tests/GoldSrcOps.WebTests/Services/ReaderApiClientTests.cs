@@ -16,7 +16,7 @@ namespace GoldSrcOps.WebTests.Services;
 public sealed class ReaderApiClientTests
 {
     [Fact]
-    public async Task GetOperationsActivityAsync_sends_the_bounded_limit_and_filters()
+    public async Task GetOperationsActivityAsync_sends_the_bounded_limit_filters_and_cursor()
     {
         var serverId = Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f");
         var response = new OperationsActivityResponse(
@@ -38,7 +38,12 @@ public sealed class ReaderApiClientTests
         using var httpClient = CreateHttpClient(capture);
         var client = new ReaderApiClient(httpClient);
 
-        var result = await client.GetOperationsActivityAsync(25, serverId, "gameplay", "6h");
+        var result = await client.GetOperationsActivityAsync(
+            25,
+            serverId,
+            "gameplay",
+            "6h",
+            "opaque-page-cursor");
 
         result.Should().BeEquivalentTo(response);
         capture.RequestUri.Should().NotBeNull();
@@ -48,6 +53,7 @@ public sealed class ReaderApiClientTests
         query["serverId"].Should().ContainSingle().Which.Should().Be(serverId.ToString("D"));
         query["kind"].Should().ContainSingle().Which.Should().Be("gameplay");
         query["window"].Should().ContainSingle().Which.Should().Be("6h");
+        query["cursor"].Should().ContainSingle().Which.Should().Be("opaque-page-cursor");
     }
 
     [Fact]
