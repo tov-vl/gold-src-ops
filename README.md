@@ -6,13 +6,13 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.13.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.13.0)
+**Status:** [v2.14.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.14.0)
 is the current public release. Its signed annotated tag identifies application
-revision `cc80b74` and promotes the exact API and Web image digests exercised by
-`v2.13.0-rc.1`, without rebuilding either image. Release notes and detailed
+revision `c5402de` and promotes the exact API and Web image digests exercised by
+`v2.14.0-rc.1`, without rebuilding either image. Release notes and detailed
 evidence are available in
-[docs/release-notes-v2.13.md](docs/release-notes-v2.13.md) and
-[docs/v2.13-readiness.md](docs/v2.13-readiness.md).
+[docs/release-notes-v2.14.md](docs/release-notes-v2.14.md) and
+[docs/v2.14-readiness.md](docs/v2.14-readiness.md).
 
 The bounded v2.11 pilot activated the reviewed game-event path for one anonymous
 completed-round event, verified the matching Reader projection, and then
@@ -48,13 +48,17 @@ published. The minimized release path is defined in
 [docs/release-notes-v2.13.md](docs/release-notes-v2.13.md) and
 [docs/v2.13-readiness.md](docs/v2.13-readiness.md).
 
-The v2.14 Scoped Activity Investigation slice is integrated through
-[PR #166](https://github.com/tov-vl/gold-src-ops/pull/166) and is in candidate
-preparation. It adds optional controlled-server and event-type filters to the
+The v2.14 Scoped Activity Investigation release is published and accepted in
+production. It adds optional controlled-server and event-type filters to the
 bounded Reader Recent Activity workflow without changing the response body,
 database schema, authorization policy, worker, identity, mutation boundary, or
-event-delivery state. No v2.14 tag, production rollout, or stable release has
-been published yet. The reduced R1 release path is defined in
+event-delivery state. Exact API and Web images passed three healthy production
+samples over 181 seconds, authenticated Reader filtering, and a separate
+234-second game-host continuity check. Stable workflow
+[#35212041218](https://github.com/tov-vl/gold-src-ops/actions/runs/35212041218)
+promoted those exact API and Web digests without rebuilding, and
+[v2.14.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.14.0) is
+published. The reduced R1 release path is defined in
 [docs/release-notes-v2.14.md](docs/release-notes-v2.14.md) and
 [docs/v2.14-readiness.md](docs/v2.14-readiness.md).
 
@@ -240,8 +244,8 @@ The published v2.12 Latest Round Overview release is summarized in
 The published v2.13 Gameplay Activity Timeline release is summarized in
 [docs/release-notes-v2.13.md](docs/release-notes-v2.13.md) and
 [docs/v2.13-readiness.md](docs/v2.13-readiness.md).
-The integrated v2.14 Scoped Activity Investigation candidate scope is
-summarized in [docs/release-notes-v2.14.md](docs/release-notes-v2.14.md) and
+The published v2.14 Scoped Activity Investigation release is summarized in
+[docs/release-notes-v2.14.md](docs/release-notes-v2.14.md) and
 [docs/v2.14-readiness.md](docs/v2.14-readiness.md).
 
 ## Documentation
@@ -273,8 +277,8 @@ summarized in [docs/release-notes-v2.14.md](docs/release-notes-v2.14.md) and
 | v2.12 release evidence | [v2.12 readiness](docs/v2.12-readiness.md) |
 | v2.13 Gameplay Activity Timeline release | [v2.13 release notes](docs/release-notes-v2.13.md) |
 | v2.13 release evidence | [v2.13 readiness](docs/v2.13-readiness.md) |
-| v2.14 Scoped Activity Investigation candidate | [v2.14 release notes](docs/release-notes-v2.14.md) |
-| v2.14 release readiness | [v2.14 readiness](docs/v2.14-readiness.md) |
+| v2.14 Scoped Activity Investigation release | [v2.14 release notes](docs/release-notes-v2.14.md) |
+| v2.14 release evidence | [v2.14 readiness](docs/v2.14-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |

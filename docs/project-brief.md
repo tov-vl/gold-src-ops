@@ -429,13 +429,19 @@ The project should evolve in stages:
   refreshes. The response remains sanitized and unchanged. This slice adds no
   migration, authorization change, worker, identity, mutation permission, or
   production activation. The product slice is integrated through pull request
-  #166. Candidate publication remains pending. Release readiness uses the
-  documentation-only CI fast path followed by one complete signed-tag image
-  workflow, an API/Web-only rollout, and a three-sample, three-minute read-only
-  production smoke. It does not repeat a game-host soak, migration or restore
-  rehearsal, pilot activation, Auth0 change, RCON action, or gameplay capture.
-  Candidate identity and claim limits are defined in
-  `docs/v2.14-readiness.md`.
+  #166. Signed candidate `v2.14.0-rc.1` passed exact-digest publication, an
+  API/Web-only rollout, three healthy samples over 181 seconds, authenticated
+  scoped Reader verification, and a separate 234-second game-service continuity
+  check. Two reviewed deferred alert-outbox records remained unchanged with
+  delivery disabled. Signed stable `v2.14.0` promotes the exact accepted API and
+  Web digests without rebuilding;
+  [workflow #35212041218](https://github.com/tov-vl/gold-src-ops/actions/runs/35212041218)
+  and the
+  [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.14.0)
+  are published. The release did not repeat a game-host soak, migration or
+  restore rehearsal, pilot activation, alert-outbox mutation, Auth0 change,
+  RCON action, or gameplay capture. Candidate identity and claim limits are
+  defined in `docs/v2.14-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
