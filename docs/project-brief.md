@@ -422,6 +422,13 @@ The project should evolve in stages:
   restore rehearsal, pilot activation, alert-outbox mutation, or gameplay
   capture. Candidate identity and claim limits are defined in
   `docs/v2.13-readiness.md`.
+- v2.14: scope the bounded Reader Recent Activity investigation by controlled
+  server and event type. The optional `serverId` and validated
+  `all|incidents|commands|gameplay` filters execute before each source limit,
+  and the static-rendered UI preserves the selected server across tabs and
+  refreshes. The response remains sanitized and unchanged. This slice adds no
+  migration, authorization change, worker, identity, mutation permission, or
+  production activation.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

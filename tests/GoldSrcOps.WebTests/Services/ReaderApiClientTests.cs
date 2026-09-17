@@ -16,15 +16,16 @@ namespace GoldSrcOps.WebTests.Services;
 public sealed class ReaderApiClientTests
 {
     [Fact]
-    public async Task GetOperationsActivityAsync_sends_the_bounded_limit()
+    public async Task GetOperationsActivityAsync_sends_the_bounded_limit_and_filters()
     {
+        var serverId = Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f");
         var response = new OperationsActivityResponse(
             25,
             [
                 new OperationsActivityItemResponse(
                     Guid.Parse("d83936ce-cc0c-47bd-b167-77094b9a4f57"),
                     "Incident",
-                    Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f"),
+                    serverId,
                     "Dust2 Public",
                     "Unreachable",
                     "Open",
@@ -37,11 +38,15 @@ public sealed class ReaderApiClientTests
         using var httpClient = CreateHttpClient(capture);
         var client = new ReaderApiClient(httpClient);
 
-        var result = await client.GetOperationsActivityAsync(25);
+        var result = await client.GetOperationsActivityAsync(25, serverId, "gameplay");
 
         result.Should().BeEquivalentTo(response);
-        capture.RequestUri.Should().Be(
-            new Uri("https://api.example.test/api/dashboard/activity?limit=25"));
+        capture.RequestUri.Should().NotBeNull();
+        capture.RequestUri!.AbsolutePath.Should().Be("/api/dashboard/activity");
+        var query = QueryHelpers.ParseQuery(capture.RequestUri.Query);
+        query["limit"].Should().ContainSingle().Which.Should().Be("25");
+        query["serverId"].Should().ContainSingle().Which.Should().Be(serverId.ToString("D"));
+        query["kind"].Should().ContainSingle().Which.Should().Be("gameplay");
     }
 
     [Fact]

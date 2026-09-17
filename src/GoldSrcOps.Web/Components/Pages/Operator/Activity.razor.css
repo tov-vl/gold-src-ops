@@ -120,6 +120,87 @@
     font-size: 1.65rem;
 }
 
+.activity-filter {
+    display: grid;
+    grid-template-columns: minmax(240px, 420px) auto;
+    align-items: end;
+    gap: 14px;
+    padding: 16px;
+    border-top: 1px solid var(--line-strong);
+    background: var(--surface);
+}
+
+.activity-filter-field {
+    min-width: 0;
+    display: grid;
+    gap: 6px;
+}
+
+.activity-filter-field > span {
+    color: var(--ink-muted);
+    font-size: 0.68rem;
+    font-weight: 720;
+    text-transform: uppercase;
+}
+
+.activity-filter-field select {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--surface-raised);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.82rem;
+}
+
+.activity-filter-field select:focus {
+    border-color: var(--signal-blue);
+    outline: 2px solid color-mix(in srgb, var(--signal-blue) 24%, transparent);
+    outline-offset: 1px;
+}
+
+.activity-filter-actions {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.activity-filter-actions button {
+    min-height: 40px;
+    padding: 8px 15px;
+    border: 1px solid var(--ink);
+    border-radius: 4px;
+    background: var(--ink);
+    color: var(--surface);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 720;
+    cursor: pointer;
+}
+
+.activity-filter-actions button:hover {
+    background: var(--ink-soft);
+}
+
+.activity-filter-actions a {
+    color: var(--signal-blue);
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.activity-filter-actions a:hover {
+    text-decoration: underline;
+}
+
+.activity-filter-actions a:focus-visible {
+    outline: 2px solid var(--signal-blue);
+    outline-offset: 3px;
+}
+
 .activity-tabs {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -381,6 +462,10 @@
 
     .activity-tabs {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .activity-filter {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .activity-tab:nth-child(2n) {

@@ -45,6 +45,8 @@ public static class DashboardEndpoints
 
     private static async Task<Results<Ok<OperationsActivityResponse>, ValidationProblem>> GetActivityAsync(
         int? limit,
+        Guid? serverId,
+        string? kind,
         MonitoringReadService monitoring,
         CancellationToken cancellationToken)
     {
@@ -57,10 +59,44 @@ public static class DashboardEndpoints
             });
         }
 
-        var result = await monitoring.GetOperationsActivityAsync(limit, cancellationToken);
+        if (!TryParseActivitySource(kind, out var source))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                ["kind"] = ["Kind must be one of: all, incidents, commands, gameplay."]
+            });
+        }
+
+        var result = await monitoring.GetOperationsActivityAsync(
+            limit,
+            serverId,
+            source,
+            cancellationToken);
         return TypedResults.Ok(new OperationsActivityResponse(
             result.Limit,
             result.Items.Select(Map).ToArray()));
+    }
+
+    private static bool TryParseActivitySource(
+        string? kind,
+        out OperationsActivitySource? source)
+    {
+        if (string.IsNullOrWhiteSpace(kind) ||
+            string.Equals(kind.Trim(), "all", StringComparison.OrdinalIgnoreCase))
+        {
+            source = null;
+            return true;
+        }
+
+        source = kind.Trim().ToLowerInvariant() switch
+        {
+            "incidents" => OperationsActivitySource.Incident,
+            "commands" => OperationsActivitySource.Command,
+            "gameplay" => OperationsActivitySource.Gameplay,
+            _ => null
+        };
+
+        return source is not null;
     }
 
     private static DashboardOverviewResponse Map(DashboardOverviewDto overview) =>

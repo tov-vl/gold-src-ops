@@ -515,6 +515,92 @@ public sealed class MonitoringEndpointIntegrationTests
         });
     }
 
+    [Fact]
+    public async Task GetDashboardActivity_applies_server_and_kind_before_the_limit()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+        var now = new DateTimeOffset(2026, 9, 14, 12, 0, 0, TimeSpan.Zero);
+        var seed = await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var targetServer = CreateServer("Target activity server", "target.example.test", now.AddDays(-1));
+            var otherServer = CreateServer("Other activity server", "other.example.test", now.AddDays(-1));
+            var newerTargetCommand = new CommandExecution(
+                targetServer.Id,
+                ServerCommandType.Say,
+                "private command payload",
+                "private requester",
+                now.AddMinutes(-1));
+            var targetGameplayEvent = new GameEventInboxEntry(
+                Guid.NewGuid(),
+                targetServer.Id,
+                Guid.NewGuid(),
+                sequenceNumber: 1,
+                GameEventInboxEntry.CurrentContractVersion,
+                GameEventType.RoundEnded,
+                now.AddMinutes(-10),
+                now.AddMinutes(-9),
+                "private_target_map",
+                players: 8,
+                bots: 0,
+                new string('D', GameEventInboxEntry.MaxIntentHashLength));
+            var newerOtherGameplayEvent = new GameEventInboxEntry(
+                Guid.NewGuid(),
+                otherServer.Id,
+                Guid.NewGuid(),
+                sequenceNumber: 1,
+                GameEventInboxEntry.CurrentContractVersion,
+                GameEventType.RoundEnded,
+                now.AddSeconds(-30),
+                now.AddSeconds(-25),
+                "private_other_map",
+                players: 4,
+                bots: 0,
+                new string('E', GameEventInboxEntry.MaxIntentHashLength));
+
+            dbContext.Servers.AddRange(targetServer, otherServer);
+            dbContext.CommandExecutions.Add(newerTargetCommand);
+            dbContext.GameEventInbox.AddRange(targetGameplayEvent, newerOtherGameplayEvent);
+            await dbContext.SaveChangesAsync();
+
+            return new
+            {
+                TargetServerId = targetServer.Id,
+                TargetGameplayEventId = targetGameplayEvent.Id
+            };
+        });
+
+        var response = await client.GetAsync(
+            $"/api/dashboard/activity?limit=1&serverId={seed.TargetServerId:D}&kind=gameplay");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var activity = await response.Content.ReadFromJsonAsync<OperationsActivityResponse>();
+        activity.Should().NotBeNull();
+        activity!.Items.Should().ContainSingle().Which.Should().BeEquivalentTo(new
+        {
+            SourceId = seed.TargetGameplayEventId,
+            SourceType = "Gameplay",
+            ServerId = seed.TargetServerId,
+            ServerName = "Target activity server",
+            Category = "round.ended",
+            State = "Recorded",
+            OccurredAtUtc = now.AddMinutes(-10)
+        });
+    }
+
+    [Fact]
+    public async Task GetDashboardActivity_returns_validation_problem_for_invalid_kind()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/dashboard/activity?kind=raw-rcon");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("errors").TryGetProperty("kind", out _).Should().BeTrue();
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(MonitoringReadService.MaxActivityLimit + 1)]

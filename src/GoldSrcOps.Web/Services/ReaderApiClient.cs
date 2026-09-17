@@ -24,10 +24,23 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
 
     public Task<OperationsActivityResponse> GetOperationsActivityAsync(
         int limit,
-        CancellationToken cancellationToken = default) =>
-        GetRequiredAsync<OperationsActivityResponse>(
-            AddLimit("api/dashboard/activity", limit),
-            cancellationToken);
+        Guid? serverId = null,
+        string? kind = null,
+        CancellationToken cancellationToken = default)
+    {
+        var requestUri = AddLimit("api/dashboard/activity", limit);
+        if (serverId is not null)
+        {
+            requestUri = QueryHelpers.AddQueryString(requestUri, "serverId", serverId.Value.ToString("D"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(kind))
+        {
+            requestUri = QueryHelpers.AddQueryString(requestUri, "kind", kind);
+        }
+
+        return GetRequiredAsync<OperationsActivityResponse>(requestUri, cancellationToken);
+    }
 
     public async Task<IReadOnlyList<ServerResponse>> GetServersAsync(
         CancellationToken cancellationToken = default) =>

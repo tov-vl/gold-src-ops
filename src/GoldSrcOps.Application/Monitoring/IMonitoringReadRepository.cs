@@ -17,6 +17,8 @@ public interface IMonitoringReadRepository
 
     Task<IReadOnlyList<OperationsActivityItemDto>> ListOperationsActivityAsync(
         int limit,
+        Guid? serverId,
+        OperationsActivitySource? source,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<PublicA2sBucketCountDto>> ListPublicA2sBucketCountsAsync(

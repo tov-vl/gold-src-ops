@@ -461,7 +461,7 @@ API endpoints:
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=`
 - `GET /api/servers/{id}/incidents?limit=`
 - `GET /api/dashboard/overview`
-- `GET /api/dashboard/activity?limit=`
+- `GET /api/dashboard/activity?limit=&serverId=&kind=all|incidents|commands|gameplay`
 - `GET /api/incidents/open`
 - `GET /api/incidents/{id}`
 

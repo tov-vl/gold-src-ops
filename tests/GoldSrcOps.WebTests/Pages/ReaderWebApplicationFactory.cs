@@ -228,6 +228,8 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 
         public Task<OperationsActivityResponse> GetOperationsActivityAsync(
             int limit,
+            Guid? serverId = null,
+            string? kind = null,
             CancellationToken cancellationToken = default)
         {
             IReadOnlyList<OperationsActivityItemResponse> items =
@@ -265,6 +267,28 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                     "Recovered",
                     ObservedAtUtc.AddHours(-2))
             ];
+
+            if (serverId is not null)
+            {
+                items = items.Where(item => item.ServerId == serverId.Value).ToArray();
+            }
+
+            items = kind?.ToLowerInvariant() switch
+            {
+                "incidents" => items.Where(item => string.Equals(
+                    item.SourceType,
+                    "Incident",
+                    StringComparison.Ordinal)).ToArray(),
+                "commands" => items.Where(item => string.Equals(
+                    item.SourceType,
+                    "Command",
+                    StringComparison.Ordinal)).ToArray(),
+                "gameplay" => items.Where(item => string.Equals(
+                    item.SourceType,
+                    "Gameplay",
+                    StringComparison.Ordinal)).ToArray(),
+                _ => items
+            };
 
             return Task.FromResult(new OperationsActivityResponse(limit, items.Take(limit).ToArray()));
         }

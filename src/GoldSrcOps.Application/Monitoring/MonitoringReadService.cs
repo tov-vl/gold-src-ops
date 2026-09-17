@@ -171,10 +171,16 @@ public sealed class MonitoringReadService
 
     public async Task<OperationsActivityDto> GetOperationsActivityAsync(
         int? limit,
+        Guid? serverId,
+        OperationsActivitySource? source,
         CancellationToken cancellationToken)
     {
         var effectiveLimit = Math.Clamp(limit ?? DefaultActivityLimit, 1, MaxActivityLimit);
-        var items = await _repository.ListOperationsActivityAsync(effectiveLimit, cancellationToken);
+        var items = await _repository.ListOperationsActivityAsync(
+            effectiveLimit,
+            serverId,
+            source,
+            cancellationToken);
 
         return new OperationsActivityDto(effectiveLimit, items);
     }
