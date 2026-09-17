@@ -312,6 +312,25 @@ public sealed class ReaderPortalIntegrationTests
     }
 
     [Fact]
+    public async Task Reader_can_view_alert_delivery_status_without_sensitive_delivery_data()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/operator/alert-delivery");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Alert delivery");
+        body.Should().Contain("Action required");
+        body.Should().Contain("04 Sep 2026, 11:48:00 UTC");
+        body.Should().Contain("/operator/dead-letters");
+        body.Should().NotContain(ReaderWebApplicationFactory.DeadLetterPayloadSentinel);
+        body.Should().NotContain("WebhookUrl");
+        body.Should().NotContain("Authorization");
+    }
+
+    [Fact]
     public async Task Reader_can_view_recent_gameplay_events_without_ingestion_metadata()
     {
         await using var factory = new ReaderWebApplicationFactory();
@@ -431,6 +450,7 @@ public sealed class ReaderPortalIntegrationTests
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands");
         using var eventsResponse = await client.GetAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/events");
+        using var alertDeliveryResponse = await client.GetAsync("/operator/alert-delivery");
         using var deadLettersResponse = await client.GetAsync("/operator/dead-letters");
 
         incidentsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -438,6 +458,7 @@ public sealed class ReaderPortalIntegrationTests
         activityResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         commandsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         eventsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        alertDeliveryResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         deadLettersResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
@@ -450,6 +471,7 @@ public sealed class ReaderPortalIntegrationTests
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/events")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/commands")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/commands/new")]
+    [InlineData("/operator/alert-delivery")]
     [InlineData("/operator/dead-letters")]
     [InlineData("/operator/dead-letters/70d51faf-6029-4b1e-a922-b7a3ab8d1f84")]
     [InlineData("/operator/replays/4fb7401c-802c-48b9-aa71-5e27619b0784")]

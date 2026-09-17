@@ -42,6 +42,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         var incidentsPage = await VisitAsync("/operator/incidents");
         var incidentDetailPage = await VisitAsync(
             $"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}");
+        var alertDeliveryPage = await VisitAsync("/operator/alert-delivery");
         var deadLettersPage = await VisitAsync("/operator/dead-letters");
         var deadLetterDetailPage = await VisitAsync(
             $"/operator/dead-letters/{ReaderWebApplicationFactory.DeadLetterEventId:D}");
@@ -62,6 +63,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         activityPage.Body.Should().Contain("Incident, command, and gameplay timeline");
         incidentsPage.Body.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
         incidentDetailPage.Body.Should().Contain("Boundary observations");
+        alertDeliveryPage.Body.Should().Contain("Action required");
         deadLettersPage.Body.Should().Contain(ReaderWebApplicationFactory.DeadLetterLastError);
         deadLetterDetailPage.Body.Should().Contain("Ordering warning");
         replayReceiptPage.Body.Should().Contain(ReaderWebApplicationFactory.ReplayReason);
@@ -82,6 +84,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                      activityPage,
                      incidentsPage,
                      incidentDetailPage,
+                     alertDeliveryPage,
                      deadLettersPage,
                      deadLetterDetailPage,
                      replayReceiptPage
@@ -162,6 +165,41 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             hasHorizontalOverflow.Should().BeFalse();
 
             await CaptureScreenshotIfRequestedAsync("fleet-triage", viewport);
+        }
+    }
+
+    [BrowserFact]
+    public async Task Alert_delivery_overview_fits_supported_desktop_and_mobile_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(baseAddress, "/operator/alert-delivery").AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("section.delivery-summary").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("section.queue-section").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("section.dead-letter-section a").GetAttributeAsync("href"))
+                .Should().Be("/operator/dead-letters");
+            var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+            hasHorizontalOverflow.Should().BeFalse();
+
+            await CaptureScreenshotIfRequestedAsync("alert-delivery-overview", viewport);
         }
     }
 

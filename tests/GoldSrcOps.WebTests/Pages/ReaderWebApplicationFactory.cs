@@ -523,6 +523,16 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             return Task.FromResult<IReadOnlyList<ServerCredentialResponse>?>(credentials);
         }
 
+        public Task<AlertDeliveryStatusResponse> GetAlertDeliveryStatusAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AlertDeliveryStatusResponse(
+                IsEnabled: true,
+                PendingCount: 4,
+                ProcessingCount: 1,
+                DeadLetterCount: 1,
+                ObservedAtUtc.AddMinutes(-12),
+                ObservedAtUtc));
+
         public Task<DeadLetterListResponse> GetDeadLettersAsync(
             string? cursor,
             int limit,

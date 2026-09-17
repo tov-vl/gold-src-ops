@@ -1,6 +1,7 @@
 using AutoFixture.Xunit2;
 using AwesomeAssertions;
 using GoldSrcOps.Application.Alerts;
+using GoldSrcOps.Application.Common;
 using GoldSrcOps.UnitTests.Helpers;
 using Moq;
 
@@ -8,6 +9,39 @@ namespace GoldSrcOps.UnitTests.Alerts;
 
 public sealed class AlertDeliveryReadServiceTests
 {
+    [Fact]
+    public async Task GetStatusAsync_combines_configuration_queue_statistics_and_observation_time()
+    {
+        var observedAtUtc = new DateTimeOffset(2026, 9, 17, 18, 22, 0, TimeSpan.Zero);
+        var oldestPendingAtUtc = observedAtUtc.AddMinutes(-12);
+        var repository = new Mock<IAlertDeliveryReadRepository>(MockBehavior.Strict);
+        var clock = new Mock<IClock>(MockBehavior.Strict);
+        repository
+            .Setup(static candidate => candidate.GetStatusAsync(CancellationToken.None))
+            .ReturnsAsync(new AlertDeliveryQueueStatistics(
+                PendingCount: 3,
+                ProcessingCount: 1,
+                DeadLetterCount: 2,
+                oldestPendingAtUtc));
+        clock.SetupGet(static candidate => candidate.UtcNow).Returns(observedAtUtc);
+        var sut = new AlertDeliveryReadService(
+            repository.Object,
+            new AlertDeliveryStatusSettings(IsEnabled: true),
+            clock.Object);
+
+        var result = await sut.GetStatusAsync(CancellationToken.None);
+
+        result.Should().Be(new AlertDeliveryStatusDto(
+            IsEnabled: true,
+            PendingCount: 3,
+            ProcessingCount: 1,
+            DeadLetterCount: 2,
+            oldestPendingAtUtc,
+            observedAtUtc));
+        repository.VerifyAll();
+        clock.VerifyAll();
+    }
+
     [Theory]
     [AutoMoqData]
     public async Task ListDeadLettersAsync_returns_a_stable_next_position(

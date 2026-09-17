@@ -12,6 +12,35 @@ internal sealed class EfAlertDeliveryReadRepository : IAlertDeliveryReadReposito
         _dbContext = dbContext;
     }
 
+    public async Task<AlertDeliveryQueueStatistics> GetStatusAsync(
+        CancellationToken cancellationToken)
+    {
+        var statistics = await _dbContext.OutboxMessages
+            .AsNoTracking()
+            .GroupBy(static _ => 1)
+            .Select(group => new
+            {
+                PendingCount = group.LongCount(message =>
+                    message.Status == OutboxMessageStatus.Pending),
+                ProcessingCount = group.LongCount(message =>
+                    message.Status == OutboxMessageStatus.Processing),
+                DeadLetterCount = group.LongCount(message =>
+                    message.Status == OutboxMessageStatus.DeadLetter),
+                OldestPendingAtUtc = group
+                    .Where(message => message.Status == OutboxMessageStatus.Pending)
+                    .Min(message => (DateTimeOffset?)message.OccurredAtUtc)
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return statistics is null
+            ? new AlertDeliveryQueueStatistics(0, 0, 0, OldestPendingAtUtc: null)
+            : new AlertDeliveryQueueStatistics(
+                statistics.PendingCount,
+                statistics.ProcessingCount,
+                statistics.DeadLetterCount,
+                statistics.OldestPendingAtUtc);
+    }
+
     public async Task<IReadOnlyList<DeadLetterListItemDto>> ListDeadLettersAsync(
         DeadLetterPagePosition? position,
         int maxCount,

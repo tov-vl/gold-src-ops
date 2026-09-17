@@ -164,6 +164,12 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
             $"api/servers/{serverId:D}/credentials",
             cancellationToken);
 
+    public Task<AlertDeliveryStatusResponse> GetAlertDeliveryStatusAsync(
+        CancellationToken cancellationToken = default) =>
+        GetRequiredAsync<AlertDeliveryStatusResponse>(
+            "api/alert-delivery/status",
+            cancellationToken);
+
     public Task<DeadLetterListResponse> GetDeadLettersAsync(
         string? cursor,
         int limit,
