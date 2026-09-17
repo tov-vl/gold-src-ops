@@ -1627,7 +1627,7 @@ activation, alert-outbox mutation, Auth0 change, RCON action, or gameplay
 capture was required. See `docs/release-notes-v2.15.md` and
 `docs/v2.15-readiness.md`.
 
-## Integrated v2.16 Milestone: Bounded Activity Pagination
+## Completed v2.16 Milestone: Bounded Activity Pagination
 
 The v2.16 product slice extends the Reader Recent Activity investigation
 without turning it into an unbounded history endpoint:
@@ -1652,9 +1652,24 @@ authorization-policy change, worker, identity, mutation permission, game-host
 runtime, or event-delivery activation. Pull request
 [#173](https://github.com/tov-vl/gold-src-ops/pull/173) integrated the product
 revision after `Change Scope`, `Quality Gate`, `Container Smoke`, and `Browser
-Smoke` passed. The post-merge workflow passed the same four gates. Candidate
-publication and bounded R1 production evidence remain separate follow-up
-stages; see `docs/release-notes-v2.16.md` and `docs/v2.16-readiness.md`.
+Smoke` passed. The post-merge workflow passed the same four gates. Signed
+candidate `v2.16.0-rc.1` was published from revision `545909f`, deployed by
+exact API and Web digest, and retained after four healthy production samples
+over 182 seconds. An authenticated Reader session rendered six natural `7d`
+events; the fixed 50-item page therefore exposed no pagination control. A
+bounded API cycle accepted a canonical cursor, rejected malformed and
+mismatched-scope cursors, and verified filter resets without manufacturing
+production data. Two reviewed deferred alert-outbox records remained unchanged
+with delivery disabled. Signed stable `v2.16.0` targets the same accepted
+revision. Stable
+[workflow #35252019303](https://github.com/tov-vl/gold-src-ops/actions/runs/35252019303)
+skipped both image builds, promoted and independently verified the exact
+candidate digests, and the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.16.0)
+is published. No game-host soak, migration or restore rehearsal, pilot
+activation, alert-outbox mutation, Auth0 change, RCON action, or gameplay
+capture was required. See `docs/release-notes-v2.16.md` and
+`docs/v2.16-readiness.md`.
 
 ## Current API Scope
 
