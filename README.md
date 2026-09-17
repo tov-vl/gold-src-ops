@@ -6,28 +6,28 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.15.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.15.0)
+**Status:** [v2.16.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.16.0)
 is the current public release. Its signed annotated tag identifies application
-revision `fd63e15` and promotes the exact API and Web image digests exercised by
-`v2.15.0-rc.1`, without rebuilding either image. Release notes and detailed
+revision `545909f` and promotes the exact API and Web image digests exercised by
+`v2.16.0-rc.1`, without rebuilding either image. Release notes and detailed
 evidence are available in
-[docs/release-notes-v2.15.md](docs/release-notes-v2.15.md) and
-[docs/v2.15-readiness.md](docs/v2.15-readiness.md).
+[docs/release-notes-v2.16.md](docs/release-notes-v2.16.md) and
+[docs/v2.16-readiness.md](docs/v2.16-readiness.md).
 
-The v2.15 Bounded Activity Windows slices are integrated through
-[PR #169](https://github.com/tov-vl/gold-src-ops/pull/169) and
-[PR #170](https://github.com/tov-vl/gold-src-ops/pull/170) and are published.
-Reader Recent Activity supports explicit `1h`, `6h`, `24h`, and
-`7d` windows, defaults to `24h`, and preserves range, server, and event-type
-scope through navigation. Server and incident views provide direct scoped entry
-points. The release changes no response body, database schema, authorization
-policy, worker, identity, mutation boundary, or game-host runtime. Exact images
-passed four healthy production samples over 182 seconds and authenticated
-window and context navigation. Stable workflow
-[#35227905125](https://github.com/tov-vl/gold-src-ops/actions/runs/35227905125)
-promoted those accepted digests without rebuilding. The reduced R1 path is
-defined in [docs/release-notes-v2.15.md](docs/release-notes-v2.15.md) and
-[docs/v2.15-readiness.md](docs/v2.15-readiness.md).
+The v2.16 Bounded Activity Pagination slice is integrated through
+[PR #173](https://github.com/tov-vl/gold-src-ops/pull/173) and is published.
+Reader Recent Activity supports bounded older/newer traversal with versioned
+opaque cursors bound to the selected server, event type, time window, limit,
+and fixed UTC upper boundary. Malformed and cross-scope cursors fail validation,
+and changing a filter returns to the newest page. The release adds no migration,
+worker, identity, mutation boundary, or game-host change. Exact images passed
+four healthy production samples over 182 seconds. Six natural retained events
+did not expose the fixed 50-item UI pagination controls, so acceptance verified
+the cursor cycle and scope resets without manufacturing data. Stable workflow
+[#35252019303](https://github.com/tov-vl/gold-src-ops/actions/runs/35252019303)
+promoted the accepted API and Web digests without rebuilding. The reduced R1
+path is defined in [docs/release-notes-v2.16.md](docs/release-notes-v2.16.md)
+and [docs/v2.16-readiness.md](docs/v2.16-readiness.md).
 
 The bounded v2.11 pilot activated the reviewed game-event path for one anonymous
 completed-round event, verified the matching Reader projection, and then
@@ -265,8 +265,8 @@ The published v2.14 Scoped Activity Investigation release is summarized in
 The integrated v2.15 Bounded Activity Windows candidate scope is summarized in
 [docs/release-notes-v2.15.md](docs/release-notes-v2.15.md) and
 [docs/v2.15-readiness.md](docs/v2.15-readiness.md).
-The integrated v2.16 Bounded Activity Pagination candidate scope is summarized
-in [docs/release-notes-v2.16.md](docs/release-notes-v2.16.md) and
+The published v2.16 Bounded Activity Pagination release is summarized in
+[docs/release-notes-v2.16.md](docs/release-notes-v2.16.md) and
 [docs/v2.16-readiness.md](docs/v2.16-readiness.md).
 
 ## Documentation
@@ -302,7 +302,7 @@ in [docs/release-notes-v2.16.md](docs/release-notes-v2.16.md) and
 | v2.14 release evidence | [v2.14 readiness](docs/v2.14-readiness.md) |
 | v2.15 Bounded Activity Windows candidate | [v2.15 release notes](docs/release-notes-v2.15.md) |
 | v2.15 release readiness | [v2.15 readiness](docs/v2.15-readiness.md) |
-| v2.16 Bounded Activity Pagination candidate | [v2.16 release notes](docs/release-notes-v2.16.md) |
+| v2.16 Bounded Activity Pagination release | [v2.16 release notes](docs/release-notes-v2.16.md) |
 | v2.16 release readiness | [v2.16 readiness](docs/v2.16-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
@@ -914,13 +914,13 @@ The spike follows Valve's documented A2S server query format:
 
 The public repository is configured with private vulnerability reporting,
 Dependabot security updates, and a protected `main` workflow. The current
-[GoldSrcOps v2.9.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.9.0)
-adds the bounded Recent Operations Activity timeline. Its signed stable tag
-promotes the exact API and Web digests accepted from the release candidate; no
-image was rebuilt after production acceptance. Detailed evidence and explicit
-claim limits are recorded in
-[docs/v2.9-readiness.md](docs/v2.9-readiness.md), while
-[v2.8.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.8.0) is the
+[GoldSrcOps v2.16.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.16.0)
+adds bounded pagination to the Reader Recent Activity investigation. Its signed
+stable tag promotes the exact API and Web digests accepted from the release
+candidate; no image was rebuilt after production acceptance. Detailed evidence
+and explicit claim limits are recorded in
+[docs/v2.16-readiness.md](docs/v2.16-readiness.md), while
+[v2.15.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.15.0) is the
 preceding stable release.
 
 ## License

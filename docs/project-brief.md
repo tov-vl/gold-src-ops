@@ -473,8 +473,18 @@ The project should evolve in stages:
   `Newer` and `Older` links while preserving active scope and resets to the
   newest page when a filter changes. The additive API/Web slice is integrated
   through pull request #173 and adds no migration, authorization change,
-  worker, identity, mutation permission, or game-host change. Candidate
-  publication and bounded R1 production acceptance remain pending; scope and
+  worker, identity, mutation permission, or game-host change. Signed candidate
+  `v2.16.0-rc.1` passed immutable publication, an API/Web-only exact-digest
+  rollout, four healthy samples over 182 seconds, and bounded cursor and Reader
+  checks within the six-event natural-data limit. Two reviewed deferred
+  alert-outbox records remained unchanged with delivery disabled. Signed stable
+  `v2.16.0` promotes the exact accepted API and Web digests without rebuilding;
+  [workflow #35252019303](https://github.com/tov-vl/gold-src-ops/actions/runs/35252019303)
+  and the
+  [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.16.0)
+  are published. The release did not repeat a game-host soak, migration or
+  restore rehearsal, pilot activation, Auth0 change, RCON action,
+  alert-outbox investigation, or gameplay capture. Candidate identity and
   claim limits are defined in `docs/v2.16-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small

@@ -1,8 +1,8 @@
 # GoldSrcOps v2.16.0 Release Notes
 
-Status as of 2026-09-17: candidate preparation. The Bounded Activity
-Pagination product slice is integrated in protected `main`; no v2.16 candidate
-tag, production rollout, stable tag, or GitHub Release has been published yet.
+Status as of 2026-09-17: stable release published. Signed `v2.16.0` promotes
+the exact accepted `v2.16.0-rc.1` API and Web digests without rebuilding either
+image. The GitHub Release and bounded production evidence are complete.
 
 ## Overview
 
@@ -89,8 +89,38 @@ and Web digests and runs a three-sample, three-minute read-only smoke. It does
 not repeat a game-host soak, migration or restore rehearsal, pilot activation,
 Auth0 change, RCON action, alert-outbox investigation, or gameplay capture.
 
-Candidate identity, rollout evidence, and stable publication remain pending.
-The exact ordered gate and rollback rules are defined in
+Release-readiness pull request
+[#174](https://github.com/tov-vl/gold-src-ops/pull/174) and its post-merge
+workflow
+[#35238998893](https://github.com/tov-vl/gold-src-ops/actions/runs/35238998893)
+passed the fail-closed documentation path. Signed candidate `v2.16.0-rc.1`
+targets revision `545909f1540300aa4dd0320326e7328b8fe53d39`; workflow
+[#35244049314](https://github.com/tov-vl/gold-src-ops/actions/runs/35244049314)
+published and independently verified immutable API and Web images.
+
+Production retained those exact digests after API/Web-only recreation. Four
+healthy samples over 182 seconds preserved public API and Web health, exact
+candidate identity, A2S reachability, zero bots, zero container and game-service
+restarts, no open or newly opened incidents, no dead letters or incomplete
+commands, and fresh scheduled-backup evidence. The two reviewed deferred
+alert-outbox records remained unchanged while delivery stayed disabled.
+
+An existing authenticated Reader session rendered six natural events in the
+`7d` window. That data did not exceed the fixed 50-item Reader page, so the UI
+correctly exposed no `Older` or `Newer` control and no production events were
+manufactured. A bounded API cycle accepted a canonical cursor, rejected
+malformed and mismatched-scope cursors, and confirmed that event type, range,
+and server changes reset pagination. Exact-image Browser Smoke passed the token
+boundary. The browser automation sandbox could not directly inspect production
+browser storage, so this release makes no independent storage-content claim.
+
+Signed stable tag `v2.16.0` targets the accepted candidate revision. Stable
+workflow
+[#35252019303](https://github.com/tov-vl/gold-src-ops/actions/runs/35252019303)
+skipped both image builds, promoted and independently verified the exact
+candidate digests, and published the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.16.0).
+No rollback was required. The exact evidence and claim limits are defined in
 [v2.16 release readiness](v2.16-readiness.md).
 
 ## Known Limits
@@ -120,6 +150,11 @@ The exact ordered gate and rollback rules are defined in
 - [Bounded Activity Pagination pull request](https://github.com/tov-vl/gold-src-ops/pull/173)
 - [Product pull request workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35236516265)
 - [Product post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35237410591)
+- [Release readiness pull request](https://github.com/tov-vl/gold-src-ops/pull/174)
+- [Readiness post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35238998893)
+- [Candidate publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35244049314)
+- [Stable publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35252019303)
+- [GitHub Release v2.16.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.16.0)
 - [Release process](release-process.md)
 - [Project backlog](backlog.md)
 - [Project brief](project-brief.md)
