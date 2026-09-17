@@ -1,5 +1,10 @@
 # Container Deployment
 
+For the end-to-end operator sequence, approval boundary, parallel work, and
+evidence closure, use the [Release Process Runbook](release-process.md). This
+document remains the technical contract for image publication, rollout,
+migrations, and rollback.
+
 This document defines the current container deployment contract. It is
 platform-neutral: release tags publish production images to GitHub Container
 Registry (GHCR), and `ops/production` now supplies the provider-independent first

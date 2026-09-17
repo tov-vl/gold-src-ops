@@ -282,6 +282,7 @@ The published v2.13 Gameplay Activity Timeline release is summarized in
 | Dead-letter inspection and replay contract | [Dead-letter replay design](docs/dead-letter-replay.md) |
 | Authentication and endpoint policies | [Security](docs/security.md) |
 | Vulnerability reporting | [Security policy](.github/SECURITY.md) |
+| End-to-end release process and approval model | [Release process runbook](docs/release-process.md) |
 | Container rollout, migrations, and rollback | [Deployment](docs/deployment.md) |
 | RCON safety and recovery | [RCON operations](docs/rcon.md) |
 | v2.2 RCON response reliability | [RCON response design](docs/v2.2-rcon-response-reliability.md) |
