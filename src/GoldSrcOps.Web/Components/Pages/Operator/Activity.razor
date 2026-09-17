@@ -55,6 +55,32 @@
                 <span>Newest first, up to @_activity.Limit events</span>
             </div>
 
+            <form class="activity-filter" method="get" aria-label="Activity filters">
+                @if (EffectiveKind != "all")
+                {
+                    <input type="hidden" name="kind" value="@EffectiveKind" />
+                }
+                <label class="activity-filter-field">
+                    <span>Server</span>
+                    <select name="serverId">
+                        <option value="" selected="@(ServerId is null)">All servers</option>
+                        @foreach (var server in _servers)
+                        {
+                            <option value="@server.Id.ToString("D")" selected="@(ServerId == server.Id)">
+                                @server.Name
+                            </option>
+                        }
+                    </select>
+                </label>
+                <div class="activity-filter-actions">
+                    <button type="submit">Apply</button>
+                    @if (ServerId is not null)
+                    {
+                        <a href="@BuildActivityHref(EffectiveKind, null)">Clear server</a>
+                    }
+                </div>
+            </form>
+
             <nav class="activity-tabs" aria-label="Activity type">
                 <a class="@GetTabClass("all")"
                    href="@BuildKindHref("all")"
@@ -89,7 +115,7 @@
                     <p>No incident, command, or gameplay events match the selected view.</p>
                     @if (EffectiveKind != "all")
                     {
-                        <a href="/operator/activity">Show all activity</a>
+                        <a href="@BuildKindHref("all")">Show all activity</a>
                     }
                 </div>
             }
@@ -143,8 +169,13 @@
     [SupplyParameterFromQuery(Name = "kind")]
     public string? Kind { get; set; }
 
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "serverId")]
+    public Guid? ServerId { get; set; }
+
     private OperationsActivityResponse? _activity;
     private IReadOnlyList<OperationsActivityItemResponse> _items = [];
+    private IReadOnlyList<ServerResponse> _servers = [];
     private bool _loadFailed;
 
     private string EffectiveKind => NormalizeKind(Kind);
@@ -162,23 +193,33 @@
     protected override async Task OnParametersSetAsync()
     {
         _loadFailed = false;
+        _activity = null;
+        _items = [];
+        _servers = [];
 
         try
         {
-            _activity = await ReaderApiClient.GetOperationsActivityAsync(ActivityLimit);
-            _items = EffectiveKind switch
-            {
-                "incidents" => _activity.Items.Where(IsIncident).ToArray(),
-                "commands" => _activity.Items.Where(IsCommand).ToArray(),
-                "gameplay" => _activity.Items.Where(IsGameplay).ToArray(),
-                _ => _activity.Items
-            };
+            var summaryTask = ReaderApiClient.GetOperationsActivityAsync(ActivityLimit, ServerId);
+            var itemsTask = EffectiveKind == "all"
+                ? summaryTask
+                : ReaderApiClient.GetOperationsActivityAsync(ActivityLimit, ServerId, EffectiveKind);
+            var serversTask = ReaderApiClient.GetServersAsync();
+
+            await Task.WhenAll(summaryTask, itemsTask, serversTask);
+
+            _activity = await summaryTask;
+            _items = (await itemsTask).Items;
+            _servers = (await serversTask)
+                .OrderBy(static server => server.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static server => server.Id)
+                .ToArray();
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
         {
             Logger.LogWarning(exception, "Unable to load recent activity for the Reader portal.");
             _activity = null;
             _items = [];
+            _servers = [];
             _loadFailed = true;
         }
     }
@@ -201,9 +242,25 @@
     private string? GetAriaCurrent(string kind) =>
         string.Equals(EffectiveKind, kind, StringComparison.Ordinal) ? "page" : null;
 
-    private static string BuildKindHref(string kind) => kind == "all"
-        ? "/operator/activity"
-        : $"/operator/activity?kind={kind}";
+    private string BuildKindHref(string kind) => BuildActivityHref(kind, ServerId);
+
+    private static string BuildActivityHref(string kind, Guid? serverId)
+    {
+        var parameters = new List<string>(2);
+        if (kind != "all")
+        {
+            parameters.Add($"kind={kind}");
+        }
+
+        if (serverId is not null)
+        {
+            parameters.Add($"serverId={serverId.Value:D}");
+        }
+
+        return parameters.Count == 0
+            ? "/operator/activity"
+            : $"/operator/activity?{string.Join('&', parameters)}";
+    }
 
     private static string GetRowClass(OperationsActivityItemResponse item) => item.SourceType switch
     {

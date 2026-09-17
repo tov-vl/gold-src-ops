@@ -1534,6 +1534,31 @@ is published. No game-host soak, migration or restore rehearsal, pilot
 activation, alert-outbox mutation, or gameplay capture was required. See
 `docs/release-notes-v2.13.md` and `docs/v2.13-readiness.md`.
 
+## Current v2.14 Slice: Scoped Activity Investigation
+
+The v2.14 product slice makes the bounded Reader Recent Activity timeline useful
+for investigating one controlled server without widening the read boundary:
+
+- `GET /api/dashboard/activity` accepts optional `serverId` and validated
+  `kind=all|incidents|commands|gameplay` filters while retaining the existing
+  sanitized response shape;
+- server and source filters are applied to each source query before its bounded
+  `Take(limit)`, followed by the existing global newest-first limit, so newer
+  unrelated records cannot displace an older matching event;
+- the static-rendered Activity page adds a server selector and preserves that
+  scope across type tabs, refresh, clear, and empty-result navigation;
+- summary and tab counts remain based on one all-source bounded snapshot for
+  the selected server, while a selected type uses a separate bounded source
+  query for the timeline rows;
+- invalid activity kinds return a validation problem instead of silently
+  broadening the query.
+
+This additive slice changes no database schema, response body, authorization
+policy, worker, identity, mutation permission, production runtime, or event
+delivery state. Focused repository acceptance covers filter forwarding,
+pre-limit PostgreSQL filtering, query-string encoding, static Reader rendering,
+and responsive Chromium behavior on desktop and mobile.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1560,7 +1585,7 @@ Monitoring:
 - `GET /api/servers/{id}/trends?window=1h|6h|24h|7d`
 - `GET /api/dashboard/overview`
 - `GET /api/dashboard/fleet`
-- `GET /api/dashboard/activity?limit=`
+- `GET /api/dashboard/activity?limit=&serverId=&kind=all|incidents|commands|gameplay`
 
 Incidents:
 

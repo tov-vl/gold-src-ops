@@ -110,51 +110,81 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
 
     public async Task<IReadOnlyList<OperationsActivityItemDto>> ListOperationsActivityAsync(
         int limit,
+        Guid? serverId,
+        OperationsActivitySource? source,
         CancellationToken cancellationToken)
     {
-        var incidents = await _dbContext.AvailabilityIncidents
-            .AsNoTracking()
-            .OrderByDescending(x => x.ClosedAtUtc ?? x.OpenedAtUtc)
-            .ThenByDescending(x => x.Id)
-            .Take(limit)
-            .Select(x => new IncidentActivityRow(
-                x.Id,
-                x.ServerId,
-                x.Server.Name,
-                x.Type,
-                x.OpenedAtUtc,
-                x.ClosedAtUtc))
-            .ToListAsync(cancellationToken);
+        IReadOnlyList<IncidentActivityRow> incidents = [];
+        if (source is null or OperationsActivitySource.Incident)
+        {
+            var query = _dbContext.AvailabilityIncidents.AsNoTracking();
+            if (serverId is not null)
+            {
+                query = query.Where(x => x.ServerId == serverId.Value);
+            }
 
-        var commands = await _dbContext.CommandExecutions
-            .AsNoTracking()
-            .OrderByDescending(x => x.CompletedAtUtc ?? x.StartedAtUtc ?? x.RequestedAtUtc)
-            .ThenByDescending(x => x.Id)
-            .Take(limit)
-            .Select(x => new CommandActivityRow(
-                x.Id,
-                x.ServerId,
-                x.Server.Name,
-                x.Type,
-                x.Status,
-                x.RequestedAtUtc,
-                x.StartedAtUtc,
-                x.CompletedAtUtc))
-            .ToListAsync(cancellationToken);
+            incidents = await query
+                .OrderByDescending(x => x.ClosedAtUtc ?? x.OpenedAtUtc)
+                .ThenByDescending(x => x.Id)
+                .Take(limit)
+                .Select(x => new IncidentActivityRow(
+                    x.Id,
+                    x.ServerId,
+                    x.Server.Name,
+                    x.Type,
+                    x.OpenedAtUtc,
+                    x.ClosedAtUtc))
+                .ToListAsync(cancellationToken);
+        }
 
-        var gameplayEvents = await _dbContext.GameEventInbox
-            .AsNoTracking()
-            .Where(x => x.Type == GameEventType.RoundEnded)
-            .OrderByDescending(x => x.OccurredAtUtc)
-            .ThenByDescending(x => x.Id)
-            .Take(limit)
-            .Select(x => new GameplayActivityRow(
-                x.Id,
-                x.ServerId,
-                x.Server.Name,
-                x.Type,
-                x.OccurredAtUtc))
-            .ToListAsync(cancellationToken);
+        IReadOnlyList<CommandActivityRow> commands = [];
+        if (source is null or OperationsActivitySource.Command)
+        {
+            var query = _dbContext.CommandExecutions.AsNoTracking();
+            if (serverId is not null)
+            {
+                query = query.Where(x => x.ServerId == serverId.Value);
+            }
+
+            commands = await query
+                .OrderByDescending(x => x.CompletedAtUtc ?? x.StartedAtUtc ?? x.RequestedAtUtc)
+                .ThenByDescending(x => x.Id)
+                .Take(limit)
+                .Select(x => new CommandActivityRow(
+                    x.Id,
+                    x.ServerId,
+                    x.Server.Name,
+                    x.Type,
+                    x.Status,
+                    x.RequestedAtUtc,
+                    x.StartedAtUtc,
+                    x.CompletedAtUtc))
+                .ToListAsync(cancellationToken);
+        }
+
+        IReadOnlyList<GameplayActivityRow> gameplayEvents = [];
+        if (source is null or OperationsActivitySource.Gameplay)
+        {
+            var query = _dbContext.GameEventInbox
+                .AsNoTracking()
+                .Where(x => x.Type == GameEventType.RoundEnded);
+            if (serverId is not null)
+            {
+                query = query.Where(x => x.ServerId == serverId.Value);
+            }
+
+            gameplayEvents = await query
+                .OrderByDescending(x => x.OccurredAtUtc)
+                .ThenByDescending(x => x.Id)
+                .Take(limit)
+                .Select(x => new GameplayActivityRow(
+                    x.Id,
+                    x.ServerId,
+                    x.Server.Name,
+                    x.Type,
+                    x.OccurredAtUtc))
+                .ToListAsync(cancellationToken);
+        }
 
         return incidents
             .Select(static incident => new OperationsActivityItemDto(

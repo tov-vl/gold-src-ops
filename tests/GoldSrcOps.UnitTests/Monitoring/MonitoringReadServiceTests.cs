@@ -11,16 +11,17 @@ namespace GoldSrcOps.UnitTests.Monitoring;
 public sealed class MonitoringReadServiceTests
 {
     [Fact]
-    public async Task GetOperationsActivityAsync_uses_the_default_bounded_limit()
+    public async Task GetOperationsActivityAsync_uses_the_default_bounded_limit_and_forwards_filters()
     {
         var repository = new Mock<IMonitoringReadRepository>(MockBehavior.Strict);
         var clock = new Mock<IClock>(MockBehavior.Strict);
+        var serverId = Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f");
         IReadOnlyList<OperationsActivityItemDto> items =
         [
             new(
                 Guid.Parse("d83936ce-cc0c-47bd-b167-77094b9a4f57"),
                 "Incident",
-                Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f"),
+                serverId,
                 "Dust2 Public",
                 "Unreachable",
                 "Open",
@@ -29,11 +30,17 @@ public sealed class MonitoringReadServiceTests
         repository
             .Setup(x => x.ListOperationsActivityAsync(
                 MonitoringReadService.DefaultActivityLimit,
+                serverId,
+                OperationsActivitySource.Gameplay,
                 CancellationToken.None))
             .ReturnsAsync(items);
         var sut = new MonitoringReadService(repository.Object, clock.Object);
 
-        var result = await sut.GetOperationsActivityAsync(null, CancellationToken.None);
+        var result = await sut.GetOperationsActivityAsync(
+            null,
+            serverId,
+            OperationsActivitySource.Gameplay,
+            CancellationToken.None);
 
         result.Limit.Should().Be(MonitoringReadService.DefaultActivityLimit);
         result.Items.Should().BeSameAs(items);

@@ -339,6 +339,9 @@ public sealed class ReaderPortalIntegrationTests
         var commandsBody = await commandsResponse.Content.ReadAsStringAsync();
         using var gameplayResponse = await client.GetAsync("/operator/activity?kind=gameplay");
         var gameplayBody = await gameplayResponse.Content.ReadAsStringAsync();
+        using var scopedGameplayResponse = await client.GetAsync(
+            $"/operator/activity?kind=gameplay&serverId={ReaderWebApplicationFactory.ServerId:D}");
+        var scopedGameplayBody = await scopedGameplayResponse.Content.ReadAsStringAsync();
 
         allResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         allBody.Should().Contain("Incident, command, and gameplay timeline");
@@ -367,6 +370,15 @@ public sealed class ReaderPortalIntegrationTests
         gameplayBody.Should().Contain("Recorded");
         gameplayBody.Should().NotContain("Server unreachable");
         gameplayBody.Should().NotContain("Succeeded");
+        scopedGameplayResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        scopedGameplayBody.Should().Contain("name=\"serverId\"");
+        scopedGameplayBody.Should().Contain(ReaderWebApplicationFactory.ServerName);
+        scopedGameplayBody.Should().Contain("Clear server");
+        scopedGameplayBody.Should().Contain(
+            $"kind=commands&amp;serverId={ReaderWebApplicationFactory.ServerId:D}");
+        scopedGameplayBody.Should().Contain("Round ended");
+        scopedGameplayBody.Should().NotContain("Server unreachable");
+        scopedGameplayBody.Should().NotContain("Succeeded");
     }
 
     [Fact]
