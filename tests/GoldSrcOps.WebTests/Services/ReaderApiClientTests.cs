@@ -309,6 +309,30 @@ public sealed class ReaderApiClientTests
     }
 
     [Fact]
+    public async Task GetAlertDeliveryStatusAsync_maps_the_aggregate_snapshot()
+    {
+        var response = new AlertDeliveryStatusResponse(
+            IsEnabled: true,
+            PendingCount: 4,
+            ProcessingCount: 1,
+            DeadLetterCount: 2,
+            new DateTimeOffset(2026, 9, 17, 18, 10, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 9, 17, 18, 22, 0, TimeSpan.Zero));
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(response)
+        });
+        using var httpClient = CreateHttpClient(capture);
+        var client = new ReaderApiClient(httpClient);
+
+        var result = await client.GetAlertDeliveryStatusAsync();
+
+        result.Should().Be(response);
+        capture.RequestUri.Should().Be(
+            new Uri("https://api.example.test/api/alert-delivery/status"));
+    }
+
+    [Fact]
     public async Task GetDeadLetterReplayAsync_maps_the_durable_receipt()
     {
         var requestId = Guid.Parse("85453d78-0e88-4b25-b376-c8991be0cbd5");

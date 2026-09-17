@@ -25,6 +25,9 @@ public static class AlertDeliveryEndpoints
             .WithTags("Alert Delivery")
             .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 
+        group.MapGet("/status", GetStatusAsync)
+            .WithName("GetAlertDeliveryStatus");
+
         group.MapGet("/dead-letters", ListDeadLettersAsync)
             .WithName("ListDeadLetterMessages");
 
@@ -39,6 +42,21 @@ public static class AlertDeliveryEndpoints
             .WithName("GetDeadLetterReplay");
 
         return group;
+    }
+
+    private static async Task<Ok<AlertDeliveryStatusResponse>> GetStatusAsync(
+        AlertDeliveryReadService alertDelivery,
+        CancellationToken cancellationToken)
+    {
+        var status = await alertDelivery.GetStatusAsync(cancellationToken);
+
+        return TypedResults.Ok(new AlertDeliveryStatusResponse(
+            status.IsEnabled,
+            status.PendingCount,
+            status.ProcessingCount,
+            status.DeadLetterCount,
+            status.OldestPendingAtUtc,
+            status.ObservedAtUtc));
     }
 
     private static async Task<Results<Ok<DeadLetterListResponse>, ValidationProblem>> ListDeadLettersAsync(

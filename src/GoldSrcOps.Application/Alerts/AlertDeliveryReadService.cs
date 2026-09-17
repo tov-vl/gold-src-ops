@@ -1,3 +1,5 @@
+using GoldSrcOps.Application.Common;
+
 namespace GoldSrcOps.Application.Alerts;
 
 public sealed class AlertDeliveryReadService
@@ -6,10 +8,31 @@ public sealed class AlertDeliveryReadService
     public const int MaxDeadLetterLimit = 200;
 
     private readonly IAlertDeliveryReadRepository _repository;
+    private readonly AlertDeliveryStatusSettings _settings;
+    private readonly IClock _clock;
 
-    public AlertDeliveryReadService(IAlertDeliveryReadRepository repository)
+    public AlertDeliveryReadService(
+        IAlertDeliveryReadRepository repository,
+        AlertDeliveryStatusSettings settings,
+        IClock clock)
     {
         _repository = repository;
+        _settings = settings;
+        _clock = clock;
+    }
+
+    public async Task<AlertDeliveryStatusDto> GetStatusAsync(
+        CancellationToken cancellationToken)
+    {
+        var statistics = await _repository.GetStatusAsync(cancellationToken);
+
+        return new AlertDeliveryStatusDto(
+            _settings.IsEnabled,
+            statistics.PendingCount,
+            statistics.ProcessingCount,
+            statistics.DeadLetterCount,
+            statistics.OldestPendingAtUtc,
+            _clock.UtcNow);
     }
 
     public async Task<DeadLetterPageDto> ListDeadLettersAsync(

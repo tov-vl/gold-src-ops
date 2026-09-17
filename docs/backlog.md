@@ -1676,6 +1676,29 @@ activation, alert-outbox mutation, Auth0 change, RCON action, or gameplay
 capture was required. See `docs/release-notes-v2.16.md` and
 `docs/v2.16-readiness.md`.
 
+## In-progress v2.17 Milestone: Alert Delivery Overview
+
+The local v2.17 product slice adds a Reader-facing operational summary for the
+existing durable alert outbox:
+
+- `GET /api/alert-delivery/status` returns the configured delivery state,
+  pending, processing, and dead-letter counts, the oldest pending event time,
+  and an explicit UTC observation time;
+- the projection is aggregate-only and excludes payloads, delivery errors,
+  webhook addresses, authorization values, and other secret material;
+- `/operator/alert-delivery` presents clear, in-progress, paused, and
+  action-required states, with a direct path into the bounded dead-letter
+  review workflow;
+- the endpoint and page reuse the existing Reader policy, while delivery
+  activation and replay remain unchanged;
+- focused application, API authorization, PostgreSQL, Reader client,
+  static-rendering, token-boundary, and responsive Chromium coverage protects
+  the new read-only surface.
+
+This slice adds no database migration, worker, identity, mutation permission,
+game-host runtime, webhook configuration, or event-delivery activation. Remote
+integration and release evidence remain separate follow-up stages.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1721,6 +1744,7 @@ Commands:
 
 Alert delivery:
 
+- `GET /api/alert-delivery/status`
 - `GET /api/alert-delivery/dead-letters`
 - `GET /api/alert-delivery/dead-letters/{eventId}`
 - `POST /api/alert-delivery/dead-letters/{eventId}/replay`

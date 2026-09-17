@@ -73,6 +73,9 @@ public interface IReaderApiClient
         Guid serverId,
         CancellationToken cancellationToken = default);
 
+    Task<AlertDeliveryStatusResponse> GetAlertDeliveryStatusAsync(
+        CancellationToken cancellationToken = default);
+
     Task<DeadLetterListResponse> GetDeadLettersAsync(
         string? cursor,
         int limit,

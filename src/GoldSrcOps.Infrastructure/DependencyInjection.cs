@@ -59,6 +59,7 @@ public static class DependencyInjection
         services.AddSingleton(snapshotRetentionOptions);
         services.AddSingleton(gameEventRetentionOptions);
         services.AddSingleton(alertDeliveryOptions);
+        services.AddSingleton(new AlertDeliveryStatusSettings(alertDeliveryOptions.Enabled));
         services.AddSingleton(new ServerPollingSettings(
             pollingOptions.QueryTimeout,
             pollingOptions.BatchSize,

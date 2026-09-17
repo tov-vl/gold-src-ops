@@ -3,16 +3,92 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AwesomeAssertions;
 using GoldSrcOps.Application.Alerts;
+using GoldSrcOps.Application.Common;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Infrastructure.Persistence.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Moq;
 
 namespace GoldSrcOps.UnitTests.Api;
 
 public sealed class PostgreSqlAlertDeliveryEndpointIntegrationTests
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
+    public async Task GetStatus_returns_configuration_and_aggregate_queue_state()
+    {
+        var observedAtUtc = new DateTimeOffset(2026, 9, 17, 18, 22, 0, TimeSpan.Zero);
+        var clock = new Mock<IClock>(MockBehavior.Strict);
+        clock.SetupGet(static candidate => candidate.UtcNow).Returns(observedAtUtc);
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync(
+            services =>
+            {
+                services.RemoveAll<AlertDeliveryStatusSettings>();
+                services.RemoveAll<IClock>();
+                services.AddSingleton(new AlertDeliveryStatusSettings(IsEnabled: true));
+                services.AddSingleton(clock.Object);
+            },
+            TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+        var deadLetter = CreateMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            observedAtUtc.AddMinutes(-30),
+            IncidentAlertEvents.ServerUnavailable,
+            "{\"state\":\"dead-letter\"}");
+        var processing = CreateMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            observedAtUtc.AddMinutes(-20),
+            IncidentAlertEvents.ServerUnavailable,
+            "{\"state\":\"processing\"}");
+        var pending = CreateMessage(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            observedAtUtc.AddMinutes(-10),
+            IncidentAlertEvents.ServerRecovered,
+            "{\"state\":\"pending\"}");
+        await SeedAsync(factory, deadLetter, processing, pending);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IOutboxStore>();
+            var deadLetterClaim = await store.ClaimNextPendingAsync(
+                observedAtUtc,
+                CancellationToken.None);
+            deadLetterClaim.Should().NotBeNull();
+            deadLetterClaim!.Id.Should().Be(deadLetter.Id);
+            (await store.MarkDeadLetterAsync(
+                deadLetter.Id,
+                deadLetterClaim.ClaimId,
+                observedAtUtc.AddMinutes(-25),
+                "delivery exhausted",
+                CancellationToken.None)).Should().BeTrue();
+
+            var processingClaim = await store.ClaimNextPendingAsync(
+                observedAtUtc,
+                CancellationToken.None);
+            processingClaim.Should().NotBeNull();
+            processingClaim!.Id.Should().Be(processing.Id);
+        }
+
+        var response = await client.GetAsync("/api/alert-delivery/status");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var status = await response.Content.ReadFromJsonAsync<AlertDeliveryStatusResponse>();
+        status.Should().Be(new AlertDeliveryStatusResponse(
+            IsEnabled: true,
+            PendingCount: 1,
+            ProcessingCount: 1,
+            DeadLetterCount: 1,
+            pending.OccurredAtUtc,
+            observedAtUtc));
+        clock.VerifyAll();
+    }
 
     [Fact]
     [Trait("Category", "PostgreSqlIntegration")]

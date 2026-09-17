@@ -49,6 +49,7 @@ public sealed class SecurityEndpointIntegrationTests
             client.GetAsync("/api/dashboard/overview"),
             client.GetAsync("/api/dashboard/fleet"),
             client.GetAsync("/api/dashboard/activity"),
+            client.GetAsync("/api/alert-delivery/status"),
             client.GetAsync("/api/alert-delivery/dead-letters"),
             client.GetAsync("/metrics"));
         var replay = await client.GetAsync($"/api/alert-delivery/replays/{ExistingId}");
@@ -83,6 +84,7 @@ public sealed class SecurityEndpointIntegrationTests
         var activity = await client.GetAsync("/api/dashboard/activity");
         var serverTrend = await client.GetAsync($"/api/servers/{ExistingId}/trends?window=24h");
         var gameEvents = await client.GetAsync($"/api/servers/{ExistingId}/game-events");
+        var alertDeliveryStatus = await client.GetAsync("/api/alert-delivery/status");
         var alertDeliveryRead = await client.GetAsync("/api/alert-delivery/dead-letters");
         var alertDeliveryDetail = await client.GetAsync(
             $"/api/alert-delivery/dead-letters/{ExistingId}");
@@ -101,6 +103,7 @@ public sealed class SecurityEndpointIntegrationTests
         activity.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         serverTrend.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         gameEvents.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        alertDeliveryStatus.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryRead.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryDetail.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         alertDeliveryReplay.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -142,6 +145,7 @@ public sealed class SecurityEndpointIntegrationTests
 
         var register = await client.PostAsJsonAsync("/api/servers", CreateServerRequest());
         var read = await client.GetAsync("/api/servers");
+        var alertDeliveryStatus = await client.GetAsync("/api/alert-delivery/status");
         var alertDeliveryRead = await client.GetAsync("/api/alert-delivery/dead-letters");
         var replayRead = await client.GetAsync($"/api/alert-delivery/replays/{ExistingId}");
         var gameEventsRead = await client.GetAsync($"/api/servers/{ExistingId}/game-events");
@@ -151,6 +155,7 @@ public sealed class SecurityEndpointIntegrationTests
 
         register.StatusCode.Should().Be(HttpStatusCode.Created);
         read.StatusCode.Should().Be(HttpStatusCode.OK);
+        alertDeliveryStatus.StatusCode.Should().Be(HttpStatusCode.OK);
         alertDeliveryRead.StatusCode.Should().Be(HttpStatusCode.OK);
         replayRead.StatusCode.Should().Be(HttpStatusCode.NotFound);
         gameEventsRead.StatusCode.Should().Be(HttpStatusCode.NotFound);

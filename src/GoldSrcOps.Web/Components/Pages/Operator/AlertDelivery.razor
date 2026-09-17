@@ -1,0 +1,154 @@
+@page "/operator/alert-delivery"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<AlertDelivery> Logger
+
+<PageTitle>Alert delivery | GoldSrcOps</PageTitle>
+
+<div class="alert-delivery-page">
+    <header class="page-heading">
+        <div>
+            <p class="eyebrow">Delivery operations</p>
+            <h1>Alert delivery</h1>
+        </div>
+        <p>Current queue health for incident notifications leaving GoldSrcOps.</p>
+    </header>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h2>Delivery status is unavailable</h2>
+            <p>The API did not return a usable Reader snapshot. No delivery action was attempted.</p>
+        </section>
+    }
+    else if (_status is not null)
+    {
+        <section class="delivery-summary" aria-label="Alert delivery summary">
+            <article class="@DeliveryStateClass">
+                <span>Delivery worker</span>
+                <strong>@DeliveryStateLabel</strong>
+            </article>
+            <article class="@PendingStateClass">
+                <span>Pending</span>
+                <strong>@_status.PendingCount</strong>
+            </article>
+            <article class="@ProcessingStateClass">
+                <span>Processing</span>
+                <strong>@_status.ProcessingCount</strong>
+            </article>
+            <article class="@DeadLetterStateClass">
+                <span>Dead letters</span>
+                <strong>@_status.DeadLetterCount</strong>
+            </article>
+        </section>
+
+        <section class="queue-section" aria-labelledby="queue-state-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Durable outbox</p>
+                    <h2 id="queue-state-title">Queue state</h2>
+                </div>
+                <span>Observed @FormatDateTime(_status.ObservedAtUtc)</span>
+            </div>
+
+            <div class="queue-state @QueueStateClass">
+                <div>
+                    <span class="state-label">@QueueStateLabel</span>
+                    <h3>@QueueHeadline</h3>
+                    <p>@QueueExplanation</p>
+                </div>
+                <dl>
+                    <div>
+                        <dt>Queued work</dt>
+                        <dd>@QueuedWorkCount</dd>
+                    </div>
+                    <div>
+                        <dt>Oldest pending</dt>
+                        <dd>@FormatDateTime(_status.OldestPendingAtUtc)</dd>
+                    </div>
+                    <div>
+                        <dt>Observation time</dt>
+                        <dd>@FormatDateTime(_status.ObservedAtUtc)</dd>
+                    </div>
+                </dl>
+            </div>
+        </section>
+
+        <section class="dead-letter-section" aria-labelledby="dead-letter-review-title">
+            <div>
+                <p class="eyebrow">Manual review</p>
+                <h2 id="dead-letter-review-title">Dead-letter queue</h2>
+                <p>Inspect exhausted events and their bounded replay history without exposing webhook credentials.</p>
+            </div>
+            <a href="/operator/dead-letters">Review dead letters</a>
+        </section>
+    }
+</div>
+
+@code {
+    private AlertDeliveryStatusResponse? _status;
+    private bool _loadFailed;
+
+    private long QueuedWorkCount => (_status?.PendingCount ?? 0) + (_status?.ProcessingCount ?? 0);
+
+    private string DeliveryStateLabel => _status?.IsEnabled == true ? "Enabled" : "Disabled";
+
+    private string DeliveryStateClass => _status?.IsEnabled == true
+        ? "summary--healthy"
+        : "summary--warning";
+
+    private string PendingStateClass => _status?.PendingCount > 0 ? "summary--warning" : string.Empty;
+
+    private string ProcessingStateClass => _status?.ProcessingCount > 0 ? "summary--active" : string.Empty;
+
+    private string DeadLetterStateClass => _status?.DeadLetterCount > 0 ? "summary--alert" : string.Empty;
+
+    private string QueueStateLabel => _status?.DeadLetterCount > 0
+        ? "Action required"
+        : QueuedWorkCount > 0
+            ? "Delivery in progress"
+            : _status?.IsEnabled == true
+                ? "Clear"
+                : "Paused";
+
+    private string QueueStateClass => _status?.DeadLetterCount > 0
+        ? "queue-state--alert"
+        : QueuedWorkCount > 0
+            ? "queue-state--active"
+            : _status?.IsEnabled == true
+                ? "queue-state--healthy"
+                : "queue-state--paused";
+
+    private string QueueHeadline => _status?.DeadLetterCount > 0
+        ? "Some alerts need manual review"
+        : QueuedWorkCount > 0
+            ? "Alerts are moving through the queue"
+            : _status?.IsEnabled == true
+                ? "No alert delivery backlog"
+                : "Alert delivery is intentionally disabled";
+
+    private string QueueExplanation => _status?.DeadLetterCount > 0
+        ? "Open the dead-letter queue to inspect events that exhausted their delivery attempts."
+        : QueuedWorkCount > 0
+            ? "Pending and claimed events remain durable while the delivery worker completes its bounded attempts."
+            : _status?.IsEnabled == true
+                ? "There are no pending, processing, or dead-letter events in the current snapshot."
+                : "Events can remain durable in the outbox, but no delivery worker is currently configured to send them.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _status = await ReaderApiClient.GetAlertDeliveryStatusAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load alert delivery status for the Reader portal.");
+            _loadFailed = true;
+        }
+    }
+
+    private static string FormatDateTime(DateTimeOffset? value) => value is null
+        ? "Not available"
+        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+}
