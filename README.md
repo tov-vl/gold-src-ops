@@ -48,6 +48,16 @@ published. The minimized release path is defined in
 [docs/release-notes-v2.13.md](docs/release-notes-v2.13.md) and
 [docs/v2.13-readiness.md](docs/v2.13-readiness.md).
 
+The v2.14 Scoped Activity Investigation slice is integrated through
+[PR #166](https://github.com/tov-vl/gold-src-ops/pull/166) and is in candidate
+preparation. It adds optional controlled-server and event-type filters to the
+bounded Reader Recent Activity workflow without changing the response body,
+database schema, authorization policy, worker, identity, mutation boundary, or
+event-delivery state. No v2.14 tag, production rollout, or stable release has
+been published yet. The reduced R1 release path is defined in
+[docs/release-notes-v2.14.md](docs/release-notes-v2.14.md) and
+[docs/v2.14-readiness.md](docs/v2.14-readiness.md).
+
 The v2.9 Recent Operations Activity release gives Reader users one bounded,
 sanitized timeline for recent incident lifecycle and command-state changes. It
 adds static All, Incidents, and Commands views with links to existing authorized
@@ -230,6 +240,9 @@ The published v2.12 Latest Round Overview release is summarized in
 The published v2.13 Gameplay Activity Timeline release is summarized in
 [docs/release-notes-v2.13.md](docs/release-notes-v2.13.md) and
 [docs/v2.13-readiness.md](docs/v2.13-readiness.md).
+The integrated v2.14 Scoped Activity Investigation candidate scope is
+summarized in [docs/release-notes-v2.14.md](docs/release-notes-v2.14.md) and
+[docs/v2.14-readiness.md](docs/v2.14-readiness.md).
 
 ## Documentation
 
@@ -260,6 +273,8 @@ The published v2.13 Gameplay Activity Timeline release is summarized in
 | v2.12 release evidence | [v2.12 readiness](docs/v2.12-readiness.md) |
 | v2.13 Gameplay Activity Timeline release | [v2.13 release notes](docs/release-notes-v2.13.md) |
 | v2.13 release evidence | [v2.13 readiness](docs/v2.13-readiness.md) |
+| v2.14 Scoped Activity Investigation candidate | [v2.14 release notes](docs/release-notes-v2.14.md) |
+| v2.14 release readiness | [v2.14 readiness](docs/v2.14-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |

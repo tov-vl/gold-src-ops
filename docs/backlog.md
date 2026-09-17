@@ -1534,7 +1534,7 @@ is published. No game-host soak, migration or restore rehearsal, pilot
 activation, alert-outbox mutation, or gameplay capture was required. See
 `docs/release-notes-v2.13.md` and `docs/v2.13-readiness.md`.
 
-## Current v2.14 Slice: Scoped Activity Investigation
+## Candidate v2.14 Milestone: Scoped Activity Investigation
 
 The v2.14 product slice makes the bounded Reader Recent Activity timeline useful
 for investigating one controlled server without widening the read boundary:
@@ -1546,7 +1546,8 @@ for investigating one controlled server without widening the read boundary:
   `Take(limit)`, followed by the existing global newest-first limit, so newer
   unrelated records cannot displace an older matching event;
 - the static-rendered Activity page adds a server selector and preserves that
-  scope across type tabs, refresh, clear, and empty-result navigation;
+  scope across type tabs, refresh, and empty-result navigation, while
+  `Clear server` intentionally removes the server scope;
 - summary and tab counts remain based on one all-source bounded snapshot for
   the selected server, while a selected type uses a separate bounded source
   query for the timeline rows;
@@ -1558,6 +1559,16 @@ policy, worker, identity, mutation permission, production runtime, or event
 delivery state. Focused repository acceptance covers filter forwarding,
 pre-limit PostgreSQL filtering, query-string encoding, static Reader rendering,
 and responsive Chromium behavior on desktop and mobile.
+
+The product slice is integrated through pull request
+[#166](https://github.com/tov-vl/gold-src-ops/pull/166). Its pull request and
+post-merge workflows passed `Change Scope`, `Quality Gate`, `Container Smoke`,
+and `Browser Smoke`. Candidate publication remains pending. As an R1 additive
+read-only release, v2.14 uses one signed-tag image workflow, an API/Web-only
+digest-pinned rollout, and a three-sample, three-minute read-only smoke. It does
+not repeat a game-host soak, migration or restore rehearsal, pilot activation,
+alert-outbox investigation, Auth0 change, RCON action, or gameplay capture. See
+`docs/release-notes-v2.14.md` and `docs/v2.14-readiness.md`.
 
 ## Current API Scope
 
