@@ -1,8 +1,8 @@
 # GoldSrcOps Initial Service-Level Objectives
 
-Review date: 2026-09-10. Status: the immutable `API-01` activation tuple is
+Review date: 2026-09-17. Status: the immutable `API-01` activation tuple is
 recorded for `2026-09-10T16:45:00Z`; its first prospective seven-day window
-starts at that boundary. No objective is achieved.
+completed with 99.92063% availability and met the 99.5% target.
 
 ## Purpose And Scope
 
@@ -39,10 +39,10 @@ health into public API availability.
 
 ## Objective Register
 
-`API-01` is the only objective scheduled to enter `Collecting`. Every other
-target below remains a proposal and inactive. Activation gates prevent an
-objective from being marked healthy merely because its measurement does not
-yet exist.
+`API-01` is active and its first complete prospective window met the target.
+Every other target below remains a proposal and inactive. Activation gates
+prevent an objective from being marked healthy merely because its measurement
+does not yet exist.
 
 | ID | Service behavior and SLI | Objective target | Error budget | Activation gate |
 | --- | --- | --- | --- | --- |
@@ -67,17 +67,19 @@ Poll latency, Collector scrape health, CPU, memory, disk, and database size stay
 as diagnostic or capacity indicators. They do not become user-facing SLOs until
 a concrete service expectation and a continuous measurement population exist.
 
-## API-01 Activation State
+## API-01 Activation And First Review
 
 Decisions 19, 22, and 23 plus the
 [v2.4 external availability contract](v2.4-external-availability-monitoring.md)
 define the primary probe, minute-slot population, missing-data behavior, result
 schema, and activation lifecycle. The final shadow gate passed and `API-01`
-enters `Collecting` at the recorded UTC-minute boundary below.
+entered `Collecting` at the recorded UTC-minute boundary below. Its first
+complete prospective window has now passed the maturity boundary and was
+reviewed as met.
 
 | Activation property | Immutable value |
 | --- | --- |
-| Stage | `Collecting` |
+| Stage at activation | `Collecting` |
 | Activation timestamp | `2026-09-10T16:45:00Z` |
 | Operational owner | `tov-vl` |
 | Primary location | Frankfurt, DE (AWS) |
@@ -87,6 +89,7 @@ enters `Collecting` at the recorded UTC-minute boundary below.
 | Alert route | `GoldSrcOps API availability` in `external-availability-1m`, matched through `notification_route=availability` to the dedicated contact point; three-bad/two-good hysteresis |
 | First complete window | `2026-09-10T16:45:00Z` through `2026-09-17T16:45:00Z` |
 | Earliest terminal review | `2026-09-17T16:50:00Z`, after the five-minute maturity grace period |
+| First review status | `Met` on 2026-09-17 |
 
 The complete shadow audits on 2026-09-08 and 2026-09-09 each evaluated all
 1,440 mature slots and recorded one bad `missing` slot. Both 99.93056%
@@ -102,11 +105,39 @@ ignored non-canonical records. Identity and population integrity matched, the
 99.5% shadow target passed, and no raw evidence was retained or archived.
 
 Shadow samples and the completed v2.3 soak do not enter the official
-denominator. Under Decision 23, the first met-or-missed decision can be made
+denominator. Under Decision 23, the first met-or-missed decision could be made
 only after seven complete forward-looking days from the recorded activation
-timestamp. This shorter MVP window has more variance and is not proof of
-long-term reliability. Until that review, `Collecting` is not an achievement
-claim.
+timestamp. The terminal result below uses only that prospective population.
+
+## First API-01 Prospective Review
+
+The terminal review evaluated seven contiguous, non-overlapping 24-hour blocks
+covering the exact activation window. Each read-only workflow run used the
+reviewed exporter, generated its minute denominator independently, retained no
+raw evidence, and reported matching identity and a complete population.
+
+| Window (UTC) | Evidence | Expected/evaluated | Good | Bad | Missing |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 2026-09-10 16:45 through 2026-09-11 16:45 | [run 35259358289](https://github.com/tov-vl/gold-src-ops/actions/runs/35259358289) | 1,440/1,440 | 1,440 | 0 | 0 |
+| 2026-09-11 16:45 through 2026-09-12 16:45 | [run 35259529956](https://github.com/tov-vl/gold-src-ops/actions/runs/35259529956) | 1,440/1,440 | 1,437 | 3 | 1 |
+| 2026-09-12 16:45 through 2026-09-13 16:45 | [run 35259670895](https://github.com/tov-vl/gold-src-ops/actions/runs/35259670895) | 1,440/1,440 | 1,439 | 1 | 0 |
+| 2026-09-13 16:45 through 2026-09-14 16:45 | [run 35259811130](https://github.com/tov-vl/gold-src-ops/actions/runs/35259811130) | 1,440/1,440 | 1,440 | 0 | 0 |
+| 2026-09-14 16:45 through 2026-09-15 16:45 | [run 35259926431](https://github.com/tov-vl/gold-src-ops/actions/runs/35259926431) | 1,440/1,440 | 1,440 | 0 | 0 |
+| 2026-09-15 16:45 through 2026-09-16 16:45 | [run 35260053445](https://github.com/tov-vl/gold-src-ops/actions/runs/35260053445) | 1,440/1,440 | 1,436 | 4 | 4 |
+| 2026-09-16 16:45 through 2026-09-17 16:45 | [run 35260170511](https://github.com/tov-vl/gold-src-ops/actions/runs/35260170511) | 1,440/1,440 | 1,440 | 0 | 0 |
+| **Total** | Seven successful runs | **10,080/10,080** | **10,072** | **8** | **5** |
+
+Pending, duplicate, and ignored non-canonical counts were zero in every block.
+The aggregate availability is `10,072 / 10,080 = 99.92063%`. Eight bad minutes
+consume eight of the permitted 50, leaving 42 minutes of the first-window error
+budget. Five bad minutes were missing samples; the remaining three were other
+non-good canonical outcomes. No bad minute was reinterpreted as success.
+
+The first prospective `API-01` result is therefore **met**. This seven-day MVP
+window is short operational evidence with higher variance than a longer review
+period. It does not prove long-term reliability or make future rolling windows
+automatically healthy; evidence collection and ordinary incident review
+continue.
 
 ## Terminal v2.3 SLI Record
 
@@ -137,7 +168,8 @@ One monitoring-path anomaly occurred during the window: a local VPN route lost
 HTTPS and SSH reachability while an independent external probe still observed
 healthy public HTTPS. The route was corrected and later checks passed. This was
 not classified as a production outage, but together with the 12-hour sampling
-gap and one incomplete scheduled trigger it keeps `API-01` inactive.
+gap and one incomplete scheduled trigger it kept `API-01` inactive before the
+later v2.4 activation gates passed.
 
 The initial terminal evidence rounded fractional coverage to integer values
 because of PowerShell overload resolution. The release branch corrects that

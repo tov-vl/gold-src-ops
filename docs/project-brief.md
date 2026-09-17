@@ -78,7 +78,9 @@ Current implementation:
 - Independent external availability shadow probes with a normalized exporter,
   create-only off-host archive, scheduled collection, and verified read-only
   recovery. The immutable `API-01` tuple starts a prospective seven-day
-  `Collecting` window at `2026-09-10T16:45:00Z`; no achievement is claimed.
+  window at `2026-09-10T16:45:00Z`. Its first complete window evaluated all
+  10,080 minutes at 99.92063% availability and met the 99.5% target while
+  retaining the short-window reliability caveat.
 - A separate .NET 10 Blazor Web App backed by anonymous, cached, sanitized
   current-status and bounded A2S-history projections; server identities and
   operator data remain private. The production candidate exposes both public
@@ -268,11 +270,13 @@ The project should evolve in stages:
 - v2.4: released the sanitized public dashboard, initial Reader/Operator
   workflows, and independent public API availability measurement. The
   revised-policy shadow gate passed and `API-01` began its first prospective
-  seven-day window at `2026-09-10T16:45:00Z`. The off-host
+  seven-day window at `2026-09-10T16:45:00Z`; the completed window met its
+  target with 10,072 good and eight bad minutes. The off-host
   evidence recovery path, sanitized public Blazor dashboard, and initial
   Reader/Operator workflows are complete; bounded UI slices can advance while
-  official evidence accumulates. Decision 23 uses a seven-day first objective
-  window for the MVP while retaining 45 days of normalized evidence.
+  rolling evidence continues. Decision 23 uses a seven-day first objective
+  window for the MVP while retaining 45 days of normalized evidence; the first
+  result is not proof of long-term reliability.
 - v2.5: extend the authenticated Operator portal with narrowly guarded server
   lifecycle controls. The local sequence now covers pause/resume, idempotent
   paused registration, and optimistic-concurrency-protected editing of
@@ -486,9 +490,9 @@ The project should evolve in stages:
   restore rehearsal, pilot activation, Auth0 change, RCON action,
   alert-outbox investigation, or gameplay capture. Candidate identity and
   claim limits are defined in `docs/v2.16-readiness.md`.
-- A later portfolio milestone: publish a complete SLO review window alongside
-  the existing controlled failure/recovery evidence, a short video, and a small
-  postmortem.
+- The first complete `API-01` SLO review window is published alongside the
+  existing controlled failure/recovery evidence. A short video and a small
+  evidence-based postmortem remain a later portfolio milestone.
 - A later product experiment: separately gate production event delivery behind
   reviewed identity, migration, host-installation, and bounded-delivery
   evidence. Sandbox entitlements may follow; real payments remain explicitly
