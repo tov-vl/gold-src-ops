@@ -265,6 +265,9 @@ The published v2.14 Scoped Activity Investigation release is summarized in
 The integrated v2.15 Bounded Activity Windows candidate scope is summarized in
 [docs/release-notes-v2.15.md](docs/release-notes-v2.15.md) and
 [docs/v2.15-readiness.md](docs/v2.15-readiness.md).
+The integrated v2.16 Bounded Activity Pagination candidate scope is summarized
+in [docs/release-notes-v2.16.md](docs/release-notes-v2.16.md) and
+[docs/v2.16-readiness.md](docs/v2.16-readiness.md).
 
 ## Documentation
 
@@ -299,6 +302,8 @@ The integrated v2.15 Bounded Activity Windows candidate scope is summarized in
 | v2.14 release evidence | [v2.14 readiness](docs/v2.14-readiness.md) |
 | v2.15 Bounded Activity Windows candidate | [v2.15 release notes](docs/release-notes-v2.15.md) |
 | v2.15 release readiness | [v2.15 readiness](docs/v2.15-readiness.md) |
+| v2.16 Bounded Activity Pagination candidate | [v2.16 release notes](docs/release-notes-v2.16.md) |
+| v2.16 release readiness | [v2.16 readiness](docs/v2.16-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |

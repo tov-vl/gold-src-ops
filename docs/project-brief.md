@@ -465,6 +465,17 @@ The project should evolve in stages:
   restore rehearsal, pilot activation, Auth0 change, RCON action,
   alert-outbox investigation, or gameplay capture. Candidate identity and
   claim limits are defined in `docs/v2.15-readiness.md`.
+- v2.16: add bounded pagination to the Reader Recent Activity investigation.
+  The API returns versioned opaque previous and next cursors bound to the exact
+  limit, server, event type, time window, and fixed UTC upper boundary. Source
+  queries remain bounded, the public cursor offset stops at 500, and malformed
+  or cross-scope cursors fail validation. The static-rendered Reader page adds
+  `Newer` and `Older` links while preserving active scope and resets to the
+  newest page when a filter changes. The additive API/Web slice is integrated
+  through pull request #173 and adds no migration, authorization change,
+  worker, identity, mutation permission, or game-host change. Candidate
+  publication and bounded R1 production acceptance remain pending; scope and
+  claim limits are defined in `docs/v2.16-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
