@@ -391,6 +391,34 @@ public sealed class ReaderPortalIntegrationTests
     }
 
     [Fact]
+    public async Task Reader_can_page_activity_while_preserving_the_selected_scope()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+        var scopedPath =
+            $"/operator/activity?serverId={ReaderWebApplicationFactory.ServerId:D}&range=6h";
+
+        using var firstResponse = await client.GetAsync(scopedPath);
+        var firstBody = await firstResponse.Content.ReadAsStringAsync();
+        using var olderResponse = await client.GetAsync($"{scopedPath}&cursor=older-page");
+        var olderBody = await olderResponse.Content.ReadAsStringAsync();
+
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        firstBody.Should().Contain("Latest page");
+        firstBody.Should().Contain(
+            $"serverId={ReaderWebApplicationFactory.ServerId:D}&amp;range=6h&amp;cursor=older-page");
+        olderResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        olderBody.Should().Contain("Earlier page");
+        olderBody.Should().Contain("Restart");
+        olderBody.Should().Contain(
+            $"serverId={ReaderWebApplicationFactory.ServerId:D}&amp;range=6h&amp;cursor=newer-page");
+        olderBody.Should().Contain(
+            $"kind=incidents&amp;serverId={ReaderWebApplicationFactory.ServerId:D}&amp;range=6h");
+        olderBody.Should().NotContain("kind=incidents&amp;" +
+            $"serverId={ReaderWebApplicationFactory.ServerId:D}&amp;range=6h&amp;cursor=");
+    }
+
+    [Fact]
     public async Task Operator_can_view_reader_operations_data()
     {
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);

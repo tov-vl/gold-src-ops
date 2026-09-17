@@ -199,6 +199,27 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             (await Page.Locator(".activity-row--incident").CountAsync()).Should().Be(2);
             (await Page.Locator(".activity-row--command").CountAsync()).Should().Be(1);
             (await Page.Locator(".activity-row--gameplay").CountAsync()).Should().Be(1);
+            (await Page.Locator(".activity-pagination").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator(".activity-pagination a", new PageLocatorOptions { HasText = "Older" })
+                    .IsVisibleAsync())
+                .Should().BeTrue();
+            await CaptureScreenshotIfRequestedAsync("recent-activity-pagination-latest", viewport);
+
+            await Page.Locator(".activity-pagination a", new PageLocatorOptions { HasText = "Older" })
+                .ClickAsync();
+            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            Page.Url.Should().Contain("cursor=older-page");
+            (await Page.Locator(".activity-pagination__status").TextContentAsync())
+                .Should().Be("Earlier page");
+            (await Page.Locator(".activity-row:not(.activity-row--header)").CountAsync()).Should().Be(1);
+            (await Page.Locator(".activity-pagination a", new PageLocatorOptions { HasText = "Newer" })
+                    .IsVisibleAsync())
+                .Should().BeTrue();
+            await CaptureScreenshotIfRequestedAsync("recent-activity-pagination-older", viewport);
+
+            await Page.GotoAsync(
+                new Uri(baseAddress, "/operator/activity").AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
 
             await Page.Locator(".activity-range__link")
                 .Filter(new LocatorFilterOptions { HasText = "6h" })

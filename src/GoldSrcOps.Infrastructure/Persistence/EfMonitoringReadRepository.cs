@@ -109,6 +109,7 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
     }
 
     public async Task<IReadOnlyList<OperationsActivityItemDto>> ListOperationsActivityAsync(
+        int offset,
         int limit,
         Guid? serverId,
         OperationsActivitySource? source,
@@ -116,6 +117,7 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
         DateTimeOffset? toUtc,
         CancellationToken cancellationToken)
     {
+        var sourceLimit = checked(offset + limit);
         IReadOnlyList<IncidentActivityRow> incidents = [];
         if (source is null or OperationsActivitySource.Incident)
         {
@@ -125,17 +127,22 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
                 query = query.Where(x => x.ServerId == serverId.Value);
             }
 
-            if (fromUtc is not null && toUtc is not null)
+            if (fromUtc is not null)
             {
                 query = query.Where(x =>
-                    (x.ClosedAtUtc ?? x.OpenedAtUtc) >= fromUtc.Value &&
+                    (x.ClosedAtUtc ?? x.OpenedAtUtc) >= fromUtc.Value);
+            }
+
+            if (toUtc is not null)
+            {
+                query = query.Where(x =>
                     (x.ClosedAtUtc ?? x.OpenedAtUtc) <= toUtc.Value);
             }
 
             incidents = await query
                 .OrderByDescending(x => x.ClosedAtUtc ?? x.OpenedAtUtc)
-                .ThenByDescending(x => x.Id)
-                .Take(limit)
+                .ThenBy(x => x.Id)
+                .Take(sourceLimit)
                 .Select(x => new IncidentActivityRow(
                     x.Id,
                     x.ServerId,
@@ -155,17 +162,22 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
                 query = query.Where(x => x.ServerId == serverId.Value);
             }
 
-            if (fromUtc is not null && toUtc is not null)
+            if (fromUtc is not null)
             {
                 query = query.Where(x =>
-                    (x.CompletedAtUtc ?? x.StartedAtUtc ?? x.RequestedAtUtc) >= fromUtc.Value &&
+                    (x.CompletedAtUtc ?? x.StartedAtUtc ?? x.RequestedAtUtc) >= fromUtc.Value);
+            }
+
+            if (toUtc is not null)
+            {
+                query = query.Where(x =>
                     (x.CompletedAtUtc ?? x.StartedAtUtc ?? x.RequestedAtUtc) <= toUtc.Value);
             }
 
             commands = await query
                 .OrderByDescending(x => x.CompletedAtUtc ?? x.StartedAtUtc ?? x.RequestedAtUtc)
-                .ThenByDescending(x => x.Id)
-                .Take(limit)
+                .ThenBy(x => x.Id)
+                .Take(sourceLimit)
                 .Select(x => new CommandActivityRow(
                     x.Id,
                     x.ServerId,
@@ -189,17 +201,21 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
                 query = query.Where(x => x.ServerId == serverId.Value);
             }
 
-            if (fromUtc is not null && toUtc is not null)
+            if (fromUtc is not null)
             {
                 query = query.Where(x =>
-                    x.OccurredAtUtc >= fromUtc.Value &&
-                    x.OccurredAtUtc <= toUtc.Value);
+                    x.OccurredAtUtc >= fromUtc.Value);
+            }
+
+            if (toUtc is not null)
+            {
+                query = query.Where(x => x.OccurredAtUtc <= toUtc.Value);
             }
 
             gameplayEvents = await query
                 .OrderByDescending(x => x.OccurredAtUtc)
-                .ThenByDescending(x => x.Id)
-                .Take(limit)
+                .ThenBy(x => x.Id)
+                .Take(sourceLimit)
                 .Select(x => new GameplayActivityRow(
                     x.Id,
                     x.ServerId,
@@ -237,6 +253,7 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
             .OrderByDescending(static item => item.OccurredAtUtc)
             .ThenBy(static item => item.SourceType, StringComparer.Ordinal)
             .ThenBy(static item => item.SourceId)
+            .Skip(offset)
             .Take(limit)
             .ToArray();
     }

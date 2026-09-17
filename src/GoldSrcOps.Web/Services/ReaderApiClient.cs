@@ -27,6 +27,7 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
         Guid? serverId = null,
         string? kind = null,
         string? window = null,
+        string? cursor = null,
         CancellationToken cancellationToken = default)
     {
         var requestUri = AddLimit("api/dashboard/activity", limit);
@@ -43,6 +44,11 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
         if (!string.IsNullOrWhiteSpace(window))
         {
             requestUri = QueryHelpers.AddQueryString(requestUri, "window", window);
+        }
+
+        if (!string.IsNullOrWhiteSpace(cursor))
+        {
+            requestUri = QueryHelpers.AddQueryString(requestUri, "cursor", cursor);
         }
 
         return GetRequiredAsync<OperationsActivityResponse>(requestUri, cancellationToken);

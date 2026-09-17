@@ -1627,6 +1627,31 @@ activation, alert-outbox mutation, Auth0 change, RCON action, or gameplay
 capture was required. See `docs/release-notes-v2.15.md` and
 `docs/v2.15-readiness.md`.
 
+## In-progress v2.16 Milestone: Bounded Activity Pagination
+
+The local v2.16 product slice extends the Reader Recent Activity investigation
+without turning it into an unbounded history endpoint:
+
+- `GET /api/dashboard/activity` accepts an optional opaque `cursor` and returns
+  nullable `previousCursor` and `nextCursor` links alongside the existing
+  bounded items;
+- every cursor fixes the UTC query anchor and is bound to the requested limit,
+  controlled server, event type, and activity window; malformed cursors and
+  cursors reused under a different scope return a validation problem;
+- each source query materializes at most `offset + limit + 1` rows, the cursor
+  offset is capped at 500, and the final cross-source merge remains ordered and
+  bounded;
+- the static-rendered Reader page exposes `Newer` and `Older` navigation,
+  preserves the active server, type, and range while paging, and intentionally
+  returns to the newest page when one of those filters changes;
+- focused cursor, service, API, Reader client, static-rendering, and responsive
+  Chromium coverage protects the bounded contract and desktop/mobile layout.
+
+This is an additive read-only response change. It adds no database migration,
+authorization-policy change, worker, identity, mutation permission, game-host
+runtime, or event-delivery activation. Remote integration and release evidence
+remain separate follow-up stages.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1653,7 +1678,7 @@ Monitoring:
 - `GET /api/servers/{id}/trends?window=1h|6h|24h|7d`
 - `GET /api/dashboard/overview`
 - `GET /api/dashboard/fleet`
-- `GET /api/dashboard/activity?limit=&serverId=&kind=all|incidents|commands|gameplay&window=1h|6h|24h|7d`
+- `GET /api/dashboard/activity?limit=&serverId=&kind=all|incidents|commands|gameplay&window=1h|6h|24h|7d&cursor=`
 
 Incidents:
 

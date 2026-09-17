@@ -14,7 +14,7 @@
         <div class="heading-meta">
             <span>Latest event</span>
             <strong>@FormatDateTime(LatestEventAtUtc)</strong>
-            <a href="@BuildKindHref(EffectiveKind)">Refresh</a>
+            <a href="@BuildRefreshHref()">Refresh</a>
         </div>
     </header>
 
@@ -173,6 +173,28 @@
                     }
                 </div>
             }
+
+            @if (_page is not null &&
+                (_page.PreviousCursor is not null || _page.NextCursor is not null))
+            {
+                <nav class="activity-pagination" aria-label="Activity pages">
+                    <span class="activity-pagination__action">
+                        @if (_page.PreviousCursor is not null)
+                        {
+                            <a rel="prev" href="@BuildCursorHref(_page.PreviousCursor)">Newer</a>
+                        }
+                    </span>
+                    <span class="activity-pagination__status">
+                        @(_page.PreviousCursor is null ? "Latest page" : "Earlier page")
+                    </span>
+                    <span class="activity-pagination__action activity-pagination__action--end">
+                        @if (_page.NextCursor is not null)
+                        {
+                            <a rel="next" href="@BuildCursorHref(_page.NextCursor)">Older</a>
+                        }
+                    </span>
+                </nav>
+            }
         </section>
     }
 </div>
@@ -195,7 +217,12 @@
     [SupplyParameterFromQuery(Name = "range")]
     public string? Range { get; set; }
 
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "cursor")]
+    public string? Cursor { get; set; }
+
     private OperationsActivityResponse? _activity;
+    private OperationsActivityResponse? _page;
     private IReadOnlyList<OperationsActivityItemResponse> _items = [];
     private IReadOnlyList<ServerResponse> _servers = [];
     private bool _loadFailed;
@@ -218,6 +245,7 @@
     {
         _loadFailed = false;
         _activity = null;
+        _page = null;
         _items = [];
         _servers = [];
 
@@ -227,19 +255,21 @@
                 ActivityLimit,
                 ServerId,
                 window: EffectiveRange);
-            var itemsTask = EffectiveKind == "all"
+            var itemsTask = EffectiveKind == "all" && Cursor is null
                 ? summaryTask
                 : ReaderApiClient.GetOperationsActivityAsync(
                     ActivityLimit,
                     ServerId,
                     EffectiveKind,
-                    EffectiveRange);
+                    EffectiveRange,
+                    Cursor);
             var serversTask = ReaderApiClient.GetServersAsync();
 
             await Task.WhenAll(summaryTask, itemsTask, serversTask);
 
             _activity = await summaryTask;
-            _items = (await itemsTask).Items;
+            _page = await itemsTask;
+            _items = _page.Items;
             _servers = (await serversTask)
                 .OrderBy(static server => server.Name, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(static server => server.Id)
@@ -249,6 +279,7 @@
         {
             Logger.LogWarning(exception, "Unable to load recent activity for the Reader portal.");
             _activity = null;
+            _page = null;
             _items = [];
             _servers = [];
             _loadFailed = true;
@@ -281,6 +312,12 @@
 
     private string BuildRangeHref(string range) => BuildActivityHref(EffectiveKind, ServerId, range);
 
+    private string BuildRefreshHref() =>
+        BuildActivityHref(EffectiveKind, ServerId, EffectiveRange, Cursor);
+
+    private string BuildCursorHref(string cursor) =>
+        BuildActivityHref(EffectiveKind, ServerId, EffectiveRange, cursor);
+
     private string GetRangeClass(string range) =>
         string.Equals(EffectiveRange, range, StringComparison.Ordinal)
             ? "activity-range__link activity-range__link--active"
@@ -289,9 +326,13 @@
     private string? GetRangeAriaCurrent(string range) =>
         string.Equals(EffectiveRange, range, StringComparison.Ordinal) ? "page" : null;
 
-    private static string BuildActivityHref(string kind, Guid? serverId, string range)
+    private static string BuildActivityHref(
+        string kind,
+        Guid? serverId,
+        string range,
+        string? cursor = null)
     {
-        var parameters = new List<string>(3);
+        var parameters = new List<string>(4);
         if (kind != "all")
         {
             parameters.Add($"kind={kind}");
@@ -303,6 +344,11 @@
         }
 
         parameters.Add($"range={range}");
+
+        if (cursor is not null)
+        {
+            parameters.Add($"cursor={Uri.EscapeDataString(cursor)}");
+        }
 
         return $"/operator/activity?{string.Join('&', parameters)}";
     }

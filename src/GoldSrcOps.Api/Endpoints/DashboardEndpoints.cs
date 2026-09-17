@@ -48,6 +48,7 @@ public static class DashboardEndpoints
         Guid? serverId,
         string? kind,
         string? window,
+        string? cursor,
         MonitoringReadService monitoring,
         CancellationToken cancellationToken)
     {
@@ -76,15 +77,38 @@ public static class DashboardEndpoints
             });
         }
 
+        var effectiveLimit = limit ?? MonitoringReadService.DefaultActivityLimit;
+        var cursorScope = new OperationsActivityCursorScope(
+            effectiveLimit,
+            serverId,
+            source,
+            activityWindow);
+        OperationsActivityPagePosition? position = null;
+        if (cursor is not null &&
+            !OperationsActivityCursor.TryDecode(cursor, cursorScope, out position))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                ["cursor"] = ["Cursor is invalid, belongs to different filters, or is no longer supported."]
+            });
+        }
+
         var result = await monitoring.GetOperationsActivityAsync(
             limit,
             serverId,
             source,
             activityWindow,
+            position,
             cancellationToken);
         return TypedResults.Ok(new OperationsActivityResponse(
             result.Limit,
-            result.Items.Select(Map).ToArray()));
+            result.Items.Select(Map).ToArray(),
+            result.PreviousPosition is null
+                ? null
+                : OperationsActivityCursor.Encode(result.PreviousPosition, cursorScope),
+            result.NextPosition is null
+                ? null
+                : OperationsActivityCursor.Encode(result.NextPosition, cursorScope)));
     }
 
     private static bool TryParseActivitySource(

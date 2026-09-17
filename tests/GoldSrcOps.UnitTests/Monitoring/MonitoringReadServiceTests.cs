@@ -13,6 +13,7 @@ public sealed class MonitoringReadServiceTests
     [Fact]
     public async Task GetOperationsActivityAsync_uses_the_default_bounded_limit_and_forwards_filters()
     {
+        var expectedToUtc = new DateTimeOffset(2026, 9, 17, 12, 30, 0, TimeSpan.Zero);
         var repository = new Mock<IMonitoringReadRepository>(MockBehavior.Strict);
         var clock = new Mock<IClock>(MockBehavior.Strict);
         var serverId = Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f");
@@ -27,13 +28,15 @@ public sealed class MonitoringReadServiceTests
                 "Open",
                 new DateTimeOffset(2026, 9, 13, 12, 0, 0, TimeSpan.Zero))
         ];
+        clock.SetupGet(static x => x.UtcNow).Returns(expectedToUtc.AddTicks(7));
         repository
             .Setup(x => x.ListOperationsActivityAsync(
-                MonitoringReadService.DefaultActivityLimit,
+                0,
+                MonitoringReadService.DefaultActivityLimit + 1,
                 serverId,
                 OperationsActivitySource.Gameplay,
                 null,
-                null,
+                expectedToUtc,
                 CancellationToken.None))
             .ReturnsAsync(items);
         var sut = new MonitoringReadService(repository.Object, clock.Object);
@@ -43,12 +46,16 @@ public sealed class MonitoringReadServiceTests
             serverId,
             OperationsActivitySource.Gameplay,
             null,
+            null,
             CancellationToken.None);
 
         result.Limit.Should().Be(MonitoringReadService.DefaultActivityLimit);
-        result.Items.Should().BeSameAs(items);
+        result.Items.Should().Equal(items);
+        result.PreviousPosition.Should().BeNull();
+        result.NextPosition.Should().BeNull();
         repository.VerifyAll();
         repository.VerifyNoOtherCalls();
+        clock.VerifyAll();
         clock.VerifyNoOtherCalls();
     }
 
@@ -65,7 +72,8 @@ public sealed class MonitoringReadServiceTests
         clock.SetupGet(static x => x.UtcNow).Returns(now);
         repository
             .Setup(x => x.ListOperationsActivityAsync(
-                12,
+                0,
+                13,
                 null,
                 null,
                 expectedFromUtc,
@@ -79,15 +87,108 @@ public sealed class MonitoringReadServiceTests
             null,
             null,
             OperationsActivityWindow.Last6Hours,
+            null,
             CancellationToken.None);
 
         result.Limit.Should().Be(12);
-        result.Items.Should().BeSameAs(items);
+        result.Items.Should().BeEmpty();
+        result.PreviousPosition.Should().BeNull();
+        result.NextPosition.Should().BeNull();
         repository.VerifyAll();
         repository.VerifyNoOtherCalls();
         clock.VerifyAll();
         clock.VerifyNoOtherCalls();
     }
+
+    [Fact]
+    public async Task GetOperationsActivityAsync_returns_bounded_previous_and_next_positions()
+    {
+        var anchor = new DateTimeOffset(2026, 9, 17, 12, 30, 0, TimeSpan.Zero);
+        var repository = new Mock<IMonitoringReadRepository>(MockBehavior.Strict);
+        var clock = new Mock<IClock>(MockBehavior.Strict);
+        IReadOnlyList<OperationsActivityItemDto> items =
+        [
+            CreateActivityItem(1, anchor.AddMinutes(-3)),
+            CreateActivityItem(2, anchor.AddMinutes(-4)),
+            CreateActivityItem(3, anchor.AddMinutes(-5))
+        ];
+        repository
+            .Setup(x => x.ListOperationsActivityAsync(
+                2,
+                3,
+                null,
+                null,
+                anchor.AddHours(-1),
+                anchor,
+                CancellationToken.None))
+            .ReturnsAsync(items);
+        var sut = new MonitoringReadService(repository.Object, clock.Object);
+
+        var result = await sut.GetOperationsActivityAsync(
+            2,
+            null,
+            null,
+            OperationsActivityWindow.LastHour,
+            new OperationsActivityPagePosition(2, anchor),
+            CancellationToken.None);
+
+        result.Items.Should().Equal(items.Take(2));
+        result.PreviousPosition.Should().Be(new OperationsActivityPagePosition(0, anchor));
+        result.NextPosition.Should().Be(new OperationsActivityPagePosition(4, anchor));
+        repository.VerifyAll();
+        repository.VerifyNoOtherCalls();
+        clock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetOperationsActivityAsync_stops_at_the_maximum_cursor_offset()
+    {
+        var anchor = new DateTimeOffset(2026, 9, 17, 12, 30, 0, TimeSpan.Zero);
+        var repository = new Mock<IMonitoringReadRepository>(MockBehavior.Strict);
+        var clock = new Mock<IClock>(MockBehavior.Strict);
+        IReadOnlyList<OperationsActivityItemDto> items =
+        [
+            CreateActivityItem(1, anchor.AddDays(-1)),
+            CreateActivityItem(2, anchor.AddDays(-2)),
+            CreateActivityItem(3, anchor.AddDays(-3))
+        ];
+        repository
+            .Setup(x => x.ListOperationsActivityAsync(
+                MonitoringReadService.MaxActivityOffset,
+                3,
+                null,
+                null,
+                null,
+                anchor,
+                CancellationToken.None))
+            .ReturnsAsync(items);
+        var sut = new MonitoringReadService(repository.Object, clock.Object);
+
+        var result = await sut.GetOperationsActivityAsync(
+            2,
+            null,
+            null,
+            null,
+            new OperationsActivityPagePosition(MonitoringReadService.MaxActivityOffset, anchor),
+            CancellationToken.None);
+
+        result.Items.Should().Equal(items.Take(2));
+        result.PreviousPosition.Should().Be(new OperationsActivityPagePosition(498, anchor));
+        result.NextPosition.Should().BeNull();
+        repository.VerifyAll();
+        repository.VerifyNoOtherCalls();
+        clock.VerifyNoOtherCalls();
+    }
+
+    private static OperationsActivityItemDto CreateActivityItem(int sourceId, DateTimeOffset occurredAtUtc) =>
+        new(
+            new Guid(sourceId, 0, 0, new byte[8]),
+            "Command",
+            Guid.Parse("f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f"),
+            "Dust2 Public",
+            "Say",
+            "Succeeded",
+            occurredAtUtc);
 
     [Fact]
     public async Task GetPublicA2sHistoryAsync_fills_missing_hourly_buckets_and_aggregates_observed_samples()

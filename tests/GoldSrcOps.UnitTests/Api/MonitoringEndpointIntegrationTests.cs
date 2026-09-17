@@ -18,7 +18,8 @@ namespace GoldSrcOps.UnitTests.Api;
 
 public sealed class MonitoringEndpointIntegrationTests
 {
-    private static readonly string[] ActivityRootProperties = ["limit", "items"];
+    private static readonly string[] ActivityRootProperties =
+        ["limit", "items", "previousCursor", "nextCursor"];
 
     private static readonly string[] ActivityItemProperties =
     [
@@ -473,6 +474,8 @@ public sealed class MonitoringEndpointIntegrationTests
         var activity = JsonSerializer.Deserialize<OperationsActivityResponse>(payload, JsonSerializerOptions.Web);
         activity.Should().NotBeNull();
         activity!.Limit.Should().Be(4);
+        activity.PreviousCursor.Should().BeNull();
+        activity.NextCursor.Should().NotBeNullOrWhiteSpace();
         activity.Items.Should().HaveCount(4);
         activity.Items.Select(static item => item.SourceId).Should().ContainInOrder(
             seed.GameplayEventId,
@@ -608,6 +611,95 @@ public sealed class MonitoringEndpointIntegrationTests
             State = "Recorded",
             OccurredAtUtc = now.AddMinutes(-10)
         });
+    }
+
+    [Fact]
+    public async Task GetDashboardActivity_pages_with_a_frozen_filter_bound_cursor()
+    {
+        var now = new DateTimeOffset(2026, 9, 17, 14, 30, 0, TimeSpan.Zero);
+        await using var factory = new GoldSrcOpsApiFactory(
+            services =>
+            {
+                services.RemoveAll<IClock>();
+                services.AddSingleton<IClock>(new TestClock(now));
+            },
+            principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+        var seed = await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var server = CreateServer("Paged activity server", "paged.example.test", now.AddDays(-1));
+            var commands = Enumerable.Range(1, 4)
+                .Select(index => new CommandExecution(
+                    server.Id,
+                    ServerCommandType.Say,
+                    $"private command {index}",
+                    "private requester",
+                    now.AddMinutes(-1)))
+                .ToArray();
+
+            dbContext.Servers.Add(server);
+            dbContext.CommandExecutions.AddRange(commands);
+            await dbContext.SaveChangesAsync();
+
+            return new
+            {
+                server.Id,
+                OrderedCommandIds = commands
+                    .Select(static command => command.Id)
+                    .OrderBy(static id => id)
+                    .ToArray()
+            };
+        });
+        var requestPath =
+            $"/api/dashboard/activity?limit=2&serverId={seed.Id:D}&kind=commands&window=1h";
+
+        var firstResponse = await client.GetAsync(requestPath);
+        var firstPage = await firstResponse.Content.ReadFromJsonAsync<OperationsActivityResponse>();
+
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        firstPage.Should().NotBeNull();
+        firstPage!.Items.Select(static item => item.SourceId).Should().ContainInOrder(
+            seed.OrderedCommandIds.Take(2));
+        firstPage.PreviousCursor.Should().BeNull();
+        firstPage.NextCursor.Should().NotBeNullOrWhiteSpace();
+
+        await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            dbContext.CommandExecutions.Add(new CommandExecution(
+                seed.Id,
+                ServerCommandType.Say,
+                "private future command",
+                "private requester",
+                now.AddMinutes(1)));
+            await dbContext.SaveChangesAsync();
+        });
+
+        var secondResponse = await client.GetAsync(
+            $"{requestPath}&cursor={Uri.EscapeDataString(firstPage.NextCursor!)}");
+        var secondPage = await secondResponse.Content.ReadFromJsonAsync<OperationsActivityResponse>();
+
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        secondPage.Should().NotBeNull();
+        secondPage!.Items.Select(static item => item.SourceId).Should().ContainInOrder(
+            seed.OrderedCommandIds.Skip(2));
+        secondPage.PreviousCursor.Should().NotBeNullOrWhiteSpace();
+        secondPage.NextCursor.Should().BeNull();
+
+        var newerResponse = await client.GetAsync(
+            $"{requestPath}&cursor={Uri.EscapeDataString(secondPage.PreviousCursor!)}");
+        var newerPage = await newerResponse.Content.ReadFromJsonAsync<OperationsActivityResponse>();
+
+        newerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        newerPage!.Items.Select(static item => item.SourceId).Should().ContainInOrder(
+            seed.OrderedCommandIds.Take(2));
+
+        var wrongScopeResponse = await client.GetAsync(
+            $"/api/dashboard/activity?limit=2&serverId={seed.Id:D}&kind=gameplay&window=1h" +
+            $"&cursor={Uri.EscapeDataString(firstPage.NextCursor!)}");
+
+        wrongScopeResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await wrongScopeResponse.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("errors").TryGetProperty("cursor", out _).Should().BeTrue();
     }
 
     [Fact]

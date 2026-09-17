@@ -9,6 +9,7 @@ public sealed class MonitoringReadService
     public const int MaxSnapshotLimit = 500;
     public const int DefaultActivityLimit = 50;
     public const int MaxActivityLimit = 100;
+    public const int MaxActivityOffset = 500;
 
     private readonly IMonitoringReadRepository _repository;
     private readonly IClock _clock;
@@ -174,26 +175,45 @@ public sealed class MonitoringReadService
         Guid? serverId,
         OperationsActivitySource? source,
         OperationsActivityWindow? window,
+        OperationsActivityPagePosition? position,
         CancellationToken cancellationToken)
     {
         var effectiveLimit = Math.Clamp(limit ?? DefaultActivityLimit, 1, MaxActivityLimit);
+        var offset = position?.Offset ?? 0;
+        if (offset is < 0 or > MaxActivityOffset)
+        {
+            throw new ArgumentOutOfRangeException(nameof(position));
+        }
+
+        var toUtc = position?.ToUtc ?? TruncateToMicrosecondPrecision(_clock.UtcNow);
         DateTimeOffset? fromUtc = null;
-        DateTimeOffset? toUtc = null;
         if (window is not null)
         {
-            toUtc = TruncateToMicrosecondPrecision(_clock.UtcNow);
-            fromUtc = toUtc.Value.Subtract(GetOperationsActivityWindowDuration(window.Value));
+            fromUtc = toUtc.Subtract(GetOperationsActivityWindowDuration(window.Value));
         }
 
         var items = await _repository.ListOperationsActivityAsync(
-            effectiveLimit,
+            offset,
+            effectiveLimit + 1,
             serverId,
             source,
             fromUtc,
             toUtc,
             cancellationToken);
 
-        return new OperationsActivityDto(effectiveLimit, items);
+        var pageItems = items.Take(effectiveLimit).ToArray();
+        var previousPosition = offset == 0
+            ? null
+            : new OperationsActivityPagePosition(Math.Max(0, offset - effectiveLimit), toUtc);
+        var nextPosition = items.Count > effectiveLimit && offset + effectiveLimit <= MaxActivityOffset
+            ? new OperationsActivityPagePosition(offset + effectiveLimit, toUtc)
+            : null;
+
+        return new OperationsActivityDto(
+            effectiveLimit,
+            pageItems,
+            previousPosition,
+            nextPosition);
     }
 
     public async Task<PublicStatusDto> GetPublicStatusAsync(CancellationToken cancellationToken)

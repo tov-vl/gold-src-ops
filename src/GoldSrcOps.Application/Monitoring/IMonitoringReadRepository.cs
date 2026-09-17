@@ -16,6 +16,7 @@ public interface IMonitoringReadRepository
     Task<IReadOnlyList<FleetServerStateDto>> ListFleetServerStatesAsync(CancellationToken cancellationToken);
 
     Task<IReadOnlyList<OperationsActivityItemDto>> ListOperationsActivityAsync(
+        int offset,
         int limit,
         Guid? serverId,
         OperationsActivitySource? source,

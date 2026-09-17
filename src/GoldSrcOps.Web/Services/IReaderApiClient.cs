@@ -19,6 +19,7 @@ public interface IReaderApiClient
         Guid? serverId = null,
         string? kind = null,
         string? window = null,
+        string? cursor = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ServerResponse>> GetServersAsync(CancellationToken cancellationToken = default);

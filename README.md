@@ -500,12 +500,16 @@ API endpoints:
 - `GET /api/servers/{id}/snapshots?from=&to=&limit=`
 - `GET /api/servers/{id}/incidents?limit=`
 - `GET /api/dashboard/overview`
-- `GET /api/dashboard/activity?limit=&serverId=&kind=all|incidents|commands|gameplay&window=1h|6h|24h|7d`
+- `GET /api/dashboard/activity?limit=&serverId=&kind=all|incidents|commands|gameplay&window=1h|6h|24h|7d&cursor=`
 - `GET /api/incidents/open`
 - `GET /api/incidents/{id}`
 
 Per-server incident history defaults to 50 records and accepts an explicit
 `limit` from 1 through 200.
+Recent Activity accepts limits from 1 through 100. Its opaque pagination
+cursors are bound to the selected limit, server, event type, and time window;
+clients must return a cursor unchanged and use the response's `previousCursor`
+or `nextCursor` value for bounded navigation.
 
 After registering an enabled server, the background poller will update
 `/api/servers/{id}/status` once the next polling pass succeeds. A paused
