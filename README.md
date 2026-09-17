@@ -14,15 +14,17 @@ evidence are available in
 [docs/release-notes-v2.14.md](docs/release-notes-v2.14.md) and
 [docs/v2.14-readiness.md](docs/v2.14-readiness.md).
 
-The first v2.15 product slice bounds Reader Recent Activity by an explicit
-`1h`, `6h`, `24h`, or `7d` window. The Reader page defaults to `24h` and
-preserves the selected window across server filters, event-type tabs, refresh,
-and empty-result navigation. API clients that omit `window` retain the existing
-bounded latest-events behavior. The slice changes no response body, database
-schema, authorization policy, worker, identity, mutation boundary, or
-production runtime. Server-section navigation opens the same `24h` view already
-scoped to that server, while incident investigation links directly to its
-server-scoped incident activity.
+The v2.15 Bounded Activity Windows slices are integrated through
+[PR #169](https://github.com/tov-vl/gold-src-ops/pull/169) and
+[PR #170](https://github.com/tov-vl/gold-src-ops/pull/170) and are in candidate
+preparation. Reader Recent Activity supports explicit `1h`, `6h`, `24h`, and
+`7d` windows, defaults to `24h`, and preserves range, server, and event-type
+scope through navigation. Server and incident views provide direct scoped entry
+points. The release changes no response body, database schema, authorization
+policy, worker, identity, mutation boundary, or production runtime. No v2.15
+tag, rollout, or stable release has been published yet. The reduced R1 path is
+defined in [docs/release-notes-v2.15.md](docs/release-notes-v2.15.md) and
+[docs/v2.15-readiness.md](docs/v2.15-readiness.md).
 
 The bounded v2.11 pilot activated the reviewed game-event path for one anonymous
 completed-round event, verified the matching Reader projection, and then
@@ -257,6 +259,9 @@ The published v2.13 Gameplay Activity Timeline release is summarized in
 The published v2.14 Scoped Activity Investigation release is summarized in
 [docs/release-notes-v2.14.md](docs/release-notes-v2.14.md) and
 [docs/v2.14-readiness.md](docs/v2.14-readiness.md).
+The integrated v2.15 Bounded Activity Windows candidate scope is summarized in
+[docs/release-notes-v2.15.md](docs/release-notes-v2.15.md) and
+[docs/v2.15-readiness.md](docs/v2.15-readiness.md).
 
 ## Documentation
 
@@ -289,6 +294,8 @@ The published v2.14 Scoped Activity Investigation release is summarized in
 | v2.13 release evidence | [v2.13 readiness](docs/v2.13-readiness.md) |
 | v2.14 Scoped Activity Investigation release | [v2.14 release notes](docs/release-notes-v2.14.md) |
 | v2.14 release evidence | [v2.14 readiness](docs/v2.14-readiness.md) |
+| v2.15 Bounded Activity Windows candidate | [v2.15 release notes](docs/release-notes-v2.15.md) |
+| v2.15 release readiness | [v2.15 readiness](docs/v2.15-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |

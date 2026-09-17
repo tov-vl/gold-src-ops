@@ -1580,7 +1580,7 @@ activation, alert-outbox mutation, Auth0 change, RCON action, or gameplay
 capture was required. See `docs/release-notes-v2.14.md` and
 `docs/v2.14-readiness.md`.
 
-## Active v2.15 Milestone: Bounded Activity Windows
+## Candidate v2.15 Milestone: Bounded Activity Windows
 
 The first v2.15 product slice adds an explicit investigation horizon to the
 Reader Recent Activity workflow:
@@ -1606,6 +1606,17 @@ Reader Recent Activity workflow:
 This additive slice changes no response body, database schema, authorization
 policy, worker, identity, mutation permission, production runtime, or event
 delivery state. It does not itself start a candidate or production release.
+
+The two product slices are integrated through pull requests
+[#169](https://github.com/tov-vl/gold-src-ops/pull/169) and
+[#170](https://github.com/tov-vl/gold-src-ops/pull/170). Their pull request and
+post-merge workflows passed `Change Scope`, `Quality Gate`, `Container Smoke`,
+and `Browser Smoke`. Candidate publication remains pending. As an R1 additive
+read-only release, v2.15 uses one signed-tag image workflow, an API/Web-only
+digest-pinned rollout, and a three-sample, three-minute read-only smoke. It does
+not repeat a game-host soak, migration or restore rehearsal, pilot activation,
+alert-outbox investigation, Auth0 change, RCON action, or gameplay capture. See
+`docs/release-notes-v2.15.md` and `docs/v2.15-readiness.md`.
 
 ## Current API Scope
 
