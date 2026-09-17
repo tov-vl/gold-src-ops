@@ -516,11 +516,17 @@ public sealed class MonitoringEndpointIntegrationTests
     }
 
     [Fact]
-    public async Task GetDashboardActivity_applies_server_and_kind_before_the_limit()
+    public async Task GetDashboardActivity_applies_server_kind_and_window_before_the_limit()
     {
-        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Reader());
-        using var client = factory.CreateClient();
         var now = new DateTimeOffset(2026, 9, 14, 12, 0, 0, TimeSpan.Zero);
+        await using var factory = new GoldSrcOpsApiFactory(
+            services =>
+            {
+                services.RemoveAll<IClock>();
+                services.AddSingleton<IClock>(new TestClock(now));
+            },
+            principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
         var seed = await factory.ExecuteDbContextAsync(async dbContext =>
         {
             var targetServer = CreateServer("Target activity server", "target.example.test", now.AddDays(-1));
@@ -544,6 +550,19 @@ public sealed class MonitoringEndpointIntegrationTests
                 players: 8,
                 bots: 0,
                 new string('D', GameEventInboxEntry.MaxIntentHashLength));
+            var futureTargetGameplayEvent = new GameEventInboxEntry(
+                Guid.NewGuid(),
+                targetServer.Id,
+                Guid.NewGuid(),
+                sequenceNumber: 1,
+                GameEventInboxEntry.CurrentContractVersion,
+                GameEventType.RoundEnded,
+                now.AddMinutes(1),
+                now.AddMinutes(1),
+                "private_future_map",
+                players: 2,
+                bots: 0,
+                new string('F', GameEventInboxEntry.MaxIntentHashLength));
             var newerOtherGameplayEvent = new GameEventInboxEntry(
                 Guid.NewGuid(),
                 otherServer.Id,
@@ -560,7 +579,10 @@ public sealed class MonitoringEndpointIntegrationTests
 
             dbContext.Servers.AddRange(targetServer, otherServer);
             dbContext.CommandExecutions.Add(newerTargetCommand);
-            dbContext.GameEventInbox.AddRange(targetGameplayEvent, newerOtherGameplayEvent);
+            dbContext.GameEventInbox.AddRange(
+                targetGameplayEvent,
+                futureTargetGameplayEvent,
+                newerOtherGameplayEvent);
             await dbContext.SaveChangesAsync();
 
             return new
@@ -571,7 +593,7 @@ public sealed class MonitoringEndpointIntegrationTests
         });
 
         var response = await client.GetAsync(
-            $"/api/dashboard/activity?limit=1&serverId={seed.TargetServerId:D}&kind=gameplay");
+            $"/api/dashboard/activity?limit=1&serverId={seed.TargetServerId:D}&kind=gameplay&window=1h");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var activity = await response.Content.ReadFromJsonAsync<OperationsActivityResponse>();
@@ -599,6 +621,23 @@ public sealed class MonitoringEndpointIntegrationTests
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("errors").TryGetProperty("kind", out _).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("2h")]
+    [InlineData("30d")]
+    public async Task GetDashboardActivity_returns_validation_problem_for_invalid_window(string window)
+    {
+        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(
+            $"/api/dashboard/activity?window={Uri.EscapeDataString(window)}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("errors").TryGetProperty("window", out _).Should().BeTrue();
     }
 
     [Theory]

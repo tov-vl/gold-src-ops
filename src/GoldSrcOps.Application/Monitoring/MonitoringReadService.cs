@@ -173,13 +173,24 @@ public sealed class MonitoringReadService
         int? limit,
         Guid? serverId,
         OperationsActivitySource? source,
+        OperationsActivityWindow? window,
         CancellationToken cancellationToken)
     {
         var effectiveLimit = Math.Clamp(limit ?? DefaultActivityLimit, 1, MaxActivityLimit);
+        DateTimeOffset? fromUtc = null;
+        DateTimeOffset? toUtc = null;
+        if (window is not null)
+        {
+            toUtc = TruncateToMicrosecondPrecision(_clock.UtcNow);
+            fromUtc = toUtc.Value.Subtract(GetOperationsActivityWindowDuration(window.Value));
+        }
+
         var items = await _repository.ListOperationsActivityAsync(
             effectiveLimit,
             serverId,
             source,
+            fromUtc,
+            toUtc,
             cancellationToken);
 
         return new OperationsActivityDto(effectiveLimit, items);
@@ -416,6 +427,15 @@ public sealed class MonitoringReadService
         var truncatedTicks = utcValue.Ticks - utcValue.Ticks % TimeSpan.TicksPerMicrosecond;
         return new DateTimeOffset(truncatedTicks, TimeSpan.Zero);
     }
+
+    private static TimeSpan GetOperationsActivityWindowDuration(OperationsActivityWindow window) => window switch
+    {
+        OperationsActivityWindow.LastHour => TimeSpan.FromHours(1),
+        OperationsActivityWindow.Last6Hours => TimeSpan.FromHours(6),
+        OperationsActivityWindow.Last24Hours => TimeSpan.FromHours(24),
+        OperationsActivityWindow.Last7Days => TimeSpan.FromDays(7),
+        _ => throw new ArgumentOutOfRangeException(nameof(window), window, "Unsupported activity window.")
+    };
 
     private static HistoryWindowOptions GetHistoryWindowOptions(PublicA2sHistoryWindow window) => window switch
     {

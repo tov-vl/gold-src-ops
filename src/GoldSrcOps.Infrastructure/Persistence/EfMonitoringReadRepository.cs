@@ -112,6 +112,8 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
         int limit,
         Guid? serverId,
         OperationsActivitySource? source,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<IncidentActivityRow> incidents = [];
@@ -121,6 +123,13 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
             if (serverId is not null)
             {
                 query = query.Where(x => x.ServerId == serverId.Value);
+            }
+
+            if (fromUtc is not null && toUtc is not null)
+            {
+                query = query.Where(x =>
+                    (x.ClosedAtUtc ?? x.OpenedAtUtc) >= fromUtc.Value &&
+                    (x.ClosedAtUtc ?? x.OpenedAtUtc) <= toUtc.Value);
             }
 
             incidents = await query
@@ -144,6 +153,13 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
             if (serverId is not null)
             {
                 query = query.Where(x => x.ServerId == serverId.Value);
+            }
+
+            if (fromUtc is not null && toUtc is not null)
+            {
+                query = query.Where(x =>
+                    (x.CompletedAtUtc ?? x.StartedAtUtc ?? x.RequestedAtUtc) >= fromUtc.Value &&
+                    (x.CompletedAtUtc ?? x.StartedAtUtc ?? x.RequestedAtUtc) <= toUtc.Value);
             }
 
             commands = await query
@@ -171,6 +187,13 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
             if (serverId is not null)
             {
                 query = query.Where(x => x.ServerId == serverId.Value);
+            }
+
+            if (fromUtc is not null && toUtc is not null)
+            {
+                query = query.Where(x =>
+                    x.OccurredAtUtc >= fromUtc.Value &&
+                    x.OccurredAtUtc <= toUtc.Value);
             }
 
             gameplayEvents = await query

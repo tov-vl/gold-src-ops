@@ -38,7 +38,7 @@ public sealed class ReaderApiClientTests
         using var httpClient = CreateHttpClient(capture);
         var client = new ReaderApiClient(httpClient);
 
-        var result = await client.GetOperationsActivityAsync(25, serverId, "gameplay");
+        var result = await client.GetOperationsActivityAsync(25, serverId, "gameplay", "6h");
 
         result.Should().BeEquivalentTo(response);
         capture.RequestUri.Should().NotBeNull();
@@ -47,6 +47,7 @@ public sealed class ReaderApiClientTests
         query["limit"].Should().ContainSingle().Which.Should().Be("25");
         query["serverId"].Should().ContainSingle().Which.Should().Be(serverId.ToString("D"));
         query["kind"].Should().ContainSingle().Which.Should().Be("gameplay");
+        query["window"].Should().ContainSingle().Which.Should().Be("6h");
     }
 
     [Fact]

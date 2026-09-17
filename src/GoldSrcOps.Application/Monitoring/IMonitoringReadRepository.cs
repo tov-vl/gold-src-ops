@@ -19,6 +19,8 @@ public interface IMonitoringReadRepository
         int limit,
         Guid? serverId,
         OperationsActivitySource? source,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<PublicA2sBucketCountDto>> ListPublicA2sBucketCountsAsync(

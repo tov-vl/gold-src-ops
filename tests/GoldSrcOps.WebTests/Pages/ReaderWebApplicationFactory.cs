@@ -230,6 +230,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             int limit,
             Guid? serverId = null,
             string? kind = null,
+            string? window = null,
             CancellationToken cancellationToken = default)
         {
             IReadOnlyList<OperationsActivityItemResponse> items =
@@ -271,6 +272,23 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             if (serverId is not null)
             {
                 items = items.Where(item => item.ServerId == serverId.Value).ToArray();
+            }
+
+            var duration = window switch
+            {
+                null => (TimeSpan?)null,
+                "1h" => TimeSpan.FromHours(1),
+                "6h" => TimeSpan.FromHours(6),
+                "24h" => TimeSpan.FromHours(24),
+                "7d" => TimeSpan.FromDays(7),
+                _ => throw new ArgumentOutOfRangeException(nameof(window), window, "Unsupported activity window.")
+            };
+            if (duration is not null)
+            {
+                var fromUtc = ObservedAtUtc.Subtract(duration.Value);
+                items = items
+                    .Where(item => item.OccurredAtUtc >= fromUtc && item.OccurredAtUtc <= ObservedAtUtc)
+                    .ToArray();
             }
 
             items = kind?.ToLowerInvariant() switch

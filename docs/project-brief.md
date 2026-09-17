@@ -442,6 +442,14 @@ The project should evolve in stages:
   restore rehearsal, pilot activation, alert-outbox mutation, Auth0 change,
   RCON action, or gameplay capture. Candidate identity and claim limits are
   defined in `docs/v2.14-readiness.md`.
+- v2.15: begin by bounding the Reader Recent Activity investigation to an
+  explicit `1h`, `6h`, `24h`, or `7d` window. The API keeps omission compatible
+  with existing clients, while the static-rendered Reader page defaults to
+  `24h` and preserves range, server, and event-type scope through navigation.
+  Effective incident, command, and gameplay times are filtered before each
+  source limit. The response body and sanitized read boundary remain unchanged,
+  and the slice adds no migration, authorization change, worker, identity,
+  mutation permission, or production activation.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
