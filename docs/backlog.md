@@ -1627,9 +1627,9 @@ activation, alert-outbox mutation, Auth0 change, RCON action, or gameplay
 capture was required. See `docs/release-notes-v2.15.md` and
 `docs/v2.15-readiness.md`.
 
-## In-progress v2.16 Milestone: Bounded Activity Pagination
+## Integrated v2.16 Milestone: Bounded Activity Pagination
 
-The local v2.16 product slice extends the Reader Recent Activity investigation
+The v2.16 product slice extends the Reader Recent Activity investigation
 without turning it into an unbounded history endpoint:
 
 - `GET /api/dashboard/activity` accepts an optional opaque `cursor` and returns
@@ -1649,8 +1649,12 @@ without turning it into an unbounded history endpoint:
 
 This is an additive read-only response change. It adds no database migration,
 authorization-policy change, worker, identity, mutation permission, game-host
-runtime, or event-delivery activation. Remote integration and release evidence
-remain separate follow-up stages.
+runtime, or event-delivery activation. Pull request
+[#173](https://github.com/tov-vl/gold-src-ops/pull/173) integrated the product
+revision after `Change Scope`, `Quality Gate`, `Container Smoke`, and `Browser
+Smoke` passed. The post-merge workflow passed the same four gates. Candidate
+publication and bounded R1 production evidence remain separate follow-up
+stages; see `docs/release-notes-v2.16.md` and `docs/v2.16-readiness.md`.
 
 ## Current API Scope
 
