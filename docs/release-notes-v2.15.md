@@ -1,8 +1,8 @@
 # GoldSrcOps v2.15.0 Release Notes
 
-Status as of 2026-09-17: candidate preparation. The product slices are
-integrated in protected `main`; no v2.15 candidate tag, production rollout,
-stable tag, or GitHub Release has been published yet.
+Status as of 2026-09-17: stable release published. Signed `v2.15.0` promotes
+the exact accepted `v2.15.0-rc.1` API and Web digests without rebuilding either
+image. The GitHub Release and bounded production evidence are complete.
 
 ## Overview
 
@@ -88,8 +88,31 @@ and Web digests and runs a three-sample, three-minute read-only smoke. It does
 not repeat a game-host soak, migration or restore rehearsal, pilot activation,
 Auth0 change, RCON action, alert-outbox investigation, or gameplay capture.
 
-Candidate identity, rollout evidence, and stable publication remain pending.
-The exact ordered gate and rollback rules are defined in
+Release-readiness pull request
+[#171](https://github.com/tov-vl/gold-src-ops/pull/171) and its post-merge
+workflow
+[#35222234795](https://github.com/tov-vl/gold-src-ops/actions/runs/35222234795)
+passed the documentation fast path. Signed candidate `v2.15.0-rc.1` targets
+revision `fd63e150afdda187f20d78d7cbbcbb7e8dd7931f`; workflow
+[#35223239116](https://github.com/tov-vl/gold-src-ops/actions/runs/35223239116)
+published and verified immutable API and Web images.
+
+Production retained those exact digests after API/Web-only recreation. Four
+healthy samples over 182 seconds preserved public health, A2S reachability,
+zero bots, zero restarts, no open or newly opened incidents, no dead letters or
+incomplete commands, and fresh backup evidence. Authenticated UI acceptance
+verified all four fixed windows, contextual server and incident entry points,
+scope-preserving Refresh and type tabs, and server-only clearing. The two
+reviewed deferred alert-outbox records remained unchanged with delivery
+disabled.
+
+Signed stable tag `v2.15.0` targets the accepted candidate revision. Stable
+workflow
+[#35227905125](https://github.com/tov-vl/gold-src-ops/actions/runs/35227905125)
+skipped both image builds, promoted and independently verified the exact
+candidate digests, and published the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.15.0).
+No rollback was required. The exact evidence and claim limits are defined in
 [v2.15 release readiness](v2.15-readiness.md).
 
 ## Known Limits
@@ -115,6 +138,10 @@ The exact ordered gate and rollback rules are defined in
 - [Scoped Activity Entry Points pull request](https://github.com/tov-vl/gold-src-ops/pull/170)
 - [First product post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35216674959)
 - [Second product post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35219892789)
+- [Release readiness pull request](https://github.com/tov-vl/gold-src-ops/pull/171)
+- [Candidate publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35223239116)
+- [Stable publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35227905125)
+- [GitHub Release v2.15.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.15.0)
 - [Release process](release-process.md)
 - [Project backlog](backlog.md)
 - [Project brief](project-brief.md)
