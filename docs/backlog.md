@@ -1580,7 +1580,7 @@ activation, alert-outbox mutation, Auth0 change, RCON action, or gameplay
 capture was required. See `docs/release-notes-v2.14.md` and
 `docs/v2.14-readiness.md`.
 
-## Candidate v2.15 Milestone: Bounded Activity Windows
+## Completed v2.15 Milestone: Bounded Activity Windows
 
 The first v2.15 product slice adds an explicit investigation horizon to the
 Reader Recent Activity workflow:
@@ -1604,19 +1604,28 @@ Reader Recent Activity workflow:
   response boundary.
 
 This additive slice changes no response body, database schema, authorization
-policy, worker, identity, mutation permission, production runtime, or event
-delivery state. It does not itself start a candidate or production release.
+policy, worker, identity, mutation permission, game-host runtime, or event
+delivery state.
 
 The two product slices are integrated through pull requests
 [#169](https://github.com/tov-vl/gold-src-ops/pull/169) and
 [#170](https://github.com/tov-vl/gold-src-ops/pull/170). Their pull request and
 post-merge workflows passed `Change Scope`, `Quality Gate`, `Container Smoke`,
-and `Browser Smoke`. Candidate publication remains pending. As an R1 additive
-read-only release, v2.15 uses one signed-tag image workflow, an API/Web-only
-digest-pinned rollout, and a three-sample, three-minute read-only smoke. It does
-not repeat a game-host soak, migration or restore rehearsal, pilot activation,
-alert-outbox investigation, Auth0 change, RCON action, or gameplay capture. See
-`docs/release-notes-v2.15.md` and `docs/v2.15-readiness.md`.
+and `Browser Smoke`. Signed candidate `v2.15.0-rc.1` was published from revision
+`fd63e15`, deployed by exact API and Web digest, and retained after four healthy
+production samples over 182 seconds. Authenticated Recent Activity verified the
+`24h` default, all four windows, contextual entry points, scope-preserving
+navigation, and server-only clearing. Two reviewed deferred alert-outbox
+records remained unchanged with delivery disabled. Signed stable `v2.15.0`
+targets the same accepted revision. Stable
+[workflow #35227905125](https://github.com/tov-vl/gold-src-ops/actions/runs/35227905125)
+skipped both image builds, promoted and independently verified the exact
+candidate digests, and the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.15.0)
+is published. No game-host soak, migration or restore rehearsal, pilot
+activation, alert-outbox mutation, Auth0 change, RCON action, or gameplay
+capture was required. See `docs/release-notes-v2.15.md` and
+`docs/v2.15-readiness.md`.
 
 ## Current API Scope
 

@@ -452,14 +452,19 @@ The project should evolve in stages:
   mutation permission, or production activation. Server-section and incident
   investigation links provide direct entry into the matching server and source
   context without adding a new endpoint or client-side state. The two product
-  slices are integrated through pull requests #169 and #170. Candidate
-  publication remains pending. Release readiness uses the documentation-only CI
-  fast path followed by one complete signed-tag image workflow, an API/Web-only
-  rollout, and a three-sample, three-minute read-only production smoke. It does
-  not repeat a game-host soak, migration or restore rehearsal, pilot activation,
-  Auth0 change, RCON action, alert-outbox investigation, or gameplay capture.
-  Candidate identity and claim limits are defined in
-  `docs/v2.15-readiness.md`.
+  slices are integrated through pull requests #169 and #170. Signed candidate
+  `v2.15.0-rc.1` passed immutable publication, an API/Web-only exact-digest
+  rollout, four healthy samples over 182 seconds, and authenticated window and
+  context navigation. Two reviewed deferred alert-outbox records remained
+  unchanged with delivery disabled. Signed stable `v2.15.0` promotes the exact
+  accepted API and Web digests without rebuilding;
+  [workflow #35227905125](https://github.com/tov-vl/gold-src-ops/actions/runs/35227905125)
+  and the
+  [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.15.0)
+  are published. The release did not repeat a game-host soak, migration or
+  restore rehearsal, pilot activation, Auth0 change, RCON action,
+  alert-outbox investigation, or gameplay capture. Candidate identity and
+  claim limits are defined in `docs/v2.15-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.

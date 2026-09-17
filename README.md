@@ -6,23 +6,26 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.14.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.14.0)
+**Status:** [v2.15.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.15.0)
 is the current public release. Its signed annotated tag identifies application
-revision `c5402de` and promotes the exact API and Web image digests exercised by
-`v2.14.0-rc.1`, without rebuilding either image. Release notes and detailed
+revision `fd63e15` and promotes the exact API and Web image digests exercised by
+`v2.15.0-rc.1`, without rebuilding either image. Release notes and detailed
 evidence are available in
-[docs/release-notes-v2.14.md](docs/release-notes-v2.14.md) and
-[docs/v2.14-readiness.md](docs/v2.14-readiness.md).
+[docs/release-notes-v2.15.md](docs/release-notes-v2.15.md) and
+[docs/v2.15-readiness.md](docs/v2.15-readiness.md).
 
 The v2.15 Bounded Activity Windows slices are integrated through
 [PR #169](https://github.com/tov-vl/gold-src-ops/pull/169) and
-[PR #170](https://github.com/tov-vl/gold-src-ops/pull/170) and are in candidate
-preparation. Reader Recent Activity supports explicit `1h`, `6h`, `24h`, and
+[PR #170](https://github.com/tov-vl/gold-src-ops/pull/170) and are published.
+Reader Recent Activity supports explicit `1h`, `6h`, `24h`, and
 `7d` windows, defaults to `24h`, and preserves range, server, and event-type
 scope through navigation. Server and incident views provide direct scoped entry
 points. The release changes no response body, database schema, authorization
-policy, worker, identity, mutation boundary, or production runtime. No v2.15
-tag, rollout, or stable release has been published yet. The reduced R1 path is
+policy, worker, identity, mutation boundary, or game-host runtime. Exact images
+passed four healthy production samples over 182 seconds and authenticated
+window and context navigation. Stable workflow
+[#35227905125](https://github.com/tov-vl/gold-src-ops/actions/runs/35227905125)
+promoted those accepted digests without rebuilding. The reduced R1 path is
 defined in [docs/release-notes-v2.15.md](docs/release-notes-v2.15.md) and
 [docs/v2.15-readiness.md](docs/v2.15-readiness.md).
 
