@@ -1494,7 +1494,7 @@ catch-up work rather than deleted or assigned a fictitious terminal status.
 Alert delivery remains disabled until a permanent receiver can ingest that
 historical pair idempotently and in order without generating a stale page.
 
-## Accepted v2.13 Candidate Milestone: Gameplay Activity Timeline
+## Completed v2.13 Milestone: Gameplay Activity Timeline
 
 The v2.13 product slice brings retained completed rounds into the existing
 Reader Recent Activity workflow:
@@ -1525,10 +1525,14 @@ All/Incidents/Commands/Rounds counts of 8/3/4/1, the retained gameplay row linke
 to Events, and the minimized activity projection exposed no gameplay detail.
 A separate 442-second check preserved the game service and dormant event agent.
 Two reviewed deferred alert-outbox records remained unchanged with delivery
-disabled. Stable digest-preserving promotion remains pending. No game-host soak,
-migration or restore rehearsal, pilot activation, alert-outbox mutation, or
-gameplay capture was required. See `docs/release-notes-v2.13.md` and
-`docs/v2.13-readiness.md`.
+disabled. Signed stable `v2.13.0` targets the same accepted revision. Stable
+[workflow #35143562487](https://github.com/tov-vl/gold-src-ops/actions/runs/35143562487)
+skipped both image builds, promoted and independently verified the exact
+candidate digests, and the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.13.0)
+is published. No game-host soak, migration or restore rehearsal, pilot
+activation, alert-outbox mutation, or gameplay capture was required. See
+`docs/release-notes-v2.13.md` and `docs/v2.13-readiness.md`.
 
 ## Current API Scope
 

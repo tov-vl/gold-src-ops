@@ -1,8 +1,8 @@
 # GoldSrcOps v2.13.0 Release Notes
 
-Status as of 2026-09-16: release candidate accepted. Signed `v2.13.0-rc.1`
-publication, digest-pinned production rollout, and bounded production smoke are
-complete; stable digest-preserving publication remains pending.
+Status as of 2026-09-16: stable release published. Signed `v2.13.0` promotes
+the exact accepted `v2.13.0-rc.1` API and Web digests without rebuilding either
+image.
 
 ## Overview
 
@@ -80,9 +80,20 @@ added no mutation control, and the browser reported no warning or error.
 
 The read-only baseline contained two reviewed deferred alert-outbox records with
 alert delivery disabled. The count remained exactly two in every sample; the
-release did not mutate or drain the queue. Stable publication remains pending.
-The exact ordered gate and rollback rules are defined in
+release did not mutate or drain the queue. The exact ordered gate and rollback
+rules are defined in
 [v2.13 release readiness](v2.13-readiness.md).
+
+## Stable Publication
+
+Signed stable tag `v2.13.0` targets accepted candidate revision `cc80b74`.
+Stable workflow
+[#35143562487](https://github.com/tov-vl/gold-src-ops/actions/runs/35143562487)
+skipped both image build paths, promoted the exact API and Web candidate
+digests, and passed both published-image smoke jobs. Independent GHCR
+inspection confirmed that the stable references resolve to those same digests.
+The [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.13.0)
+is published.
 
 ## Known Limits
 
@@ -105,6 +116,8 @@ The exact ordered gate and rollback rules are defined in
 - [Product pull request workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35130507621)
 - [Product post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35131325453)
 - [Candidate publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35137595122)
+- [Stable publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35143562487)
+- [GitHub Release v2.13.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.13.0)
 - [Project backlog](backlog.md)
 - [Project brief](project-brief.md)
 - [v2.12.0 release notes](release-notes-v2.12.md)

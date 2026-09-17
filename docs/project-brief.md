@@ -413,10 +413,15 @@ The project should evolve in stages:
   production samples over 181 seconds, authenticated Recent Activity and Events
   verification, and a separate 442-second game-host continuity check. The two
   reviewed deferred alert-outbox records remained unchanged with delivery
-  disabled. Stable digest-preserving publication remains pending. The release
-  did not repeat a game-host soak, migration or restore rehearsal, pilot
-  activation, alert-outbox mutation, or gameplay capture. Candidate identity
-  and claim limits are defined in `docs/v2.13-readiness.md`.
+  disabled. Signed stable `v2.13.0` promotes the exact accepted API and Web
+  digests without rebuilding;
+  [workflow #35143562487](https://github.com/tov-vl/gold-src-ops/actions/runs/35143562487)
+  and the
+  [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.13.0)
+  are published. The release did not repeat a game-host soak, migration or
+  restore rehearsal, pilot activation, alert-outbox mutation, or gameplay
+  capture. Candidate identity and claim limits are defined in
+  `docs/v2.13-readiness.md`.
 - A later portfolio milestone: publish a complete SLO review window alongside
   the existing controlled failure/recovery evidence, a short video, and a small
   postmortem.
