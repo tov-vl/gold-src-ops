@@ -83,7 +83,9 @@ Completed:
 
 Still required before delivery activation:
 
-- select a permanent receiver;
+- implement the durable adapter selected after the direct Grafana Cloud IRM
+  trial failed duplicate and recovery correlation, as recorded in
+  `docs/v2.19-permanent-receiver-readiness.md`;
 - prove deduplication by event ID and chronological handling of unavailable and
   recovered events;
 - perform a separately reviewed one-dispatcher canary without deleting or

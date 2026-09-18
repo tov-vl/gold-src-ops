@@ -1752,6 +1752,30 @@ promoted and verified both accepted digests without rebuilding, and the
 is published. See `docs/release-notes-v2.18.md` and
 `docs/v2.18-readiness.md` for the bounded claim and anomaly record.
 
+## In-Progress v2.19 Milestone: Permanent Receiver Readiness
+
+The product/operations slice closes the receiver-selection gate without
+prematurely draining the durable alert backlog:
+
+- completed: test Grafana Cloud IRM as the preferred incoming-webhook candidate
+  through a dedicated integration with no escalation chain;
+- completed: retain `eventId`, `incidentId`, and source timestamps in the
+  synthetic receiver evidence without notifying a user;
+- failed closed: the exact duplicate unavailable event created a second firing
+  group, and the recovery plus its duplicate created two separate resolved
+  groups while both unavailable groups remained firing;
+- selected: implement the thin durable adapter with exact event-level
+  idempotency, per-incident ordering, catch-up mode, and a provider outbox;
+- deferred: define and execute a muted historical catch-up for the existing
+  recovered pair only after the adapter passes its own compatibility gate;
+- keep production delivery disabled until the compatibility result is reviewed
+  and a separate one-dispatcher canary is authorized.
+
+The repository contract, candidate comparison, and direct-trial result are
+recorded in `docs/v2.19-permanent-receiver-readiness.md`. The dedicated Grafana
+integration remains muted as evidence. No secret was stored, and no migration,
+identity, worker, UI, game-host, or production queue change was made.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
