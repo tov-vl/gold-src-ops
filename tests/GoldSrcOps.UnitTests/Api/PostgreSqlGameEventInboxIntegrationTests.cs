@@ -72,12 +72,16 @@ public sealed class PostgreSqlGameEventInboxIntegrationTests
         using var secondClient = factory.CreateClient();
         var request = CreateRequest();
 
+        const int concurrentRequestCount = 8;
         var responses = await Task.WhenAll(
-            firstClient.PostAsJsonAsync($"/api/servers/{server.Id}/game-events", request),
-            secondClient.PostAsJsonAsync($"/api/servers/{server.Id}/game-events", request));
+            Enumerable.Range(0, concurrentRequestCount)
+                .Select(index => (index % 2 == 0 ? firstClient : secondClient)
+                    .PostAsJsonAsync($"/api/servers/{server.Id}/game-events", request)));
 
-        responses.Select(static response => response.StatusCode).Should().BeEquivalentTo(
-            [HttpStatusCode.Accepted, HttpStatusCode.OK]);
+        responses.Count(static response => response.StatusCode == HttpStatusCode.Accepted)
+            .Should().Be(1);
+        responses.Count(static response => response.StatusCode == HttpStatusCode.OK)
+            .Should().Be(concurrentRequestCount - 1);
         foreach (var response in responses)
         {
             response.Dispose();
