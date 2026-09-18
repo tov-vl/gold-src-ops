@@ -1,7 +1,8 @@
 # GoldSrcOps v2.18.0 Release Notes
 
-Status as of 2026-09-18: product validation in progress. Candidate publication,
-production acceptance, stable promotion, and the GitHub Release are pending.
+Status as of 2026-09-18: stable release published. Signed `v2.18.0` promotes
+the exact accepted `v2.18.0-rc.2` API and Web image digests without rebuilding
+either image.
 
 ## Overview
 
@@ -58,15 +59,42 @@ unchanged, and browser bearer tokens remain server-side in the Web host.
 
 ## Acceptance
 
-Repository and release evidence will be recorded in
-[v2.18 release readiness](v2.18-readiness.md). The release follows the R1 path:
-one complete product CI pass, immutable candidate publication, an exact-digest
-API/Web-only rollout, at least three healthy read-only samples over at least
-three minutes, and stable promotion without rebuilding.
+Repository and release evidence is recorded in
+[v2.18 release readiness](v2.18-readiness.md). Product and inbox-race-fix pull
+requests passed their required checks. Signed candidate `v2.18.0-rc.2` at
+revision `0dc6b303d7f2643c127f98c8c84736ac0f79bbaa` published and independently
+verified the API digest
+`sha256:4f967fc91a75bf91ff7532adaff4f80df00cc58c36dc880367d980e76c74a57b`
+and Web digest
+`sha256:1f1c12e7c4d36181af94202ed6ba892f9ba397d02b8a86fd5a62ae1a97582fd0`.
 
-The acceptance path must not enable delivery, replay or delete an event, edit a
+Production retained those exact digests after API/Web-only recreation. Four
+healthy samples over 181 seconds preserved public API and Web health, exact
+candidate identity, zero container restarts, A2S reachability, zero bots, no
+open or new incidents, no dead letters or incomplete commands, and fresh
+scheduled-backup evidence. Delivery remained disabled; two naturally existing
+pending rows remained stable with zero processing work. The authenticated
+Reader page rendered the same two rows with zero attempts and no missing links,
+while anonymous API access remained unauthorized. Independent game-host checks
+retained the active, boot-disabled, zero-restart, plugin-free service and its
+single owned UDP listener; the dormant agent remained inactive and disabled.
+
+The signed stable tag targets the accepted candidate revision. Stable workflow
+[#35335400426](https://github.com/tov-vl/gold-src-ops/actions/runs/35335400426)
+skipped both build paths, promoted both candidate digests, and passed both
+published-image smoke jobs. The
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.18.0)
+is published.
+
+The acceptance path did not enable delivery, replay or delete an event, edit a
 queue row, manufacture an incident, mutate Auth0, execute RCON, or restart the
 game host merely to exercise this read-only surface.
+
+The first `v2.18.0-rc.1` workflow stopped before image publication when the
+PostgreSQL integration gate exposed a concurrent game-event idempotency
+classification race. The fix strengthened concurrent regression coverage, and
+the replacement `rc.2` candidate passed. No `rc.1` image or production rollout
+occurred.
 
 ## Known Limits
 
@@ -82,6 +110,11 @@ game host merely to exercise this read-only surface.
 ## References
 
 - [v2.18 release readiness](v2.18-readiness.md)
+- [Pending Delivery Triage pull request](https://github.com/tov-vl/gold-src-ops/pull/180)
+- [Inbox race fix pull request](https://github.com/tov-vl/gold-src-ops/pull/181)
+- [Candidate publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35333272593)
+- [Stable publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35335400426)
+- [GitHub Release v2.18.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.18.0)
 - [Release process](release-process.md)
 - [Alert delivery operations](alert-delivery.md)
 - [Security](security.md)

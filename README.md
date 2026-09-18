@@ -6,31 +6,30 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.17.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.17.0)
+**Status:** [v2.18.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.18.0)
 is the current public release. Its signed annotated tag identifies application
-revision `fc71368` and promotes the exact API and Web image digests exercised by
-`v2.17.0-rc.1`, without rebuilding either image. Release notes and detailed
+revision `0dc6b30` and promotes the exact API and Web image digests exercised by
+`v2.18.0-rc.2`, without rebuilding either image. Release notes and detailed
 evidence are available in
-[docs/release-notes-v2.17.md](docs/release-notes-v2.17.md) and
-[docs/v2.17-readiness.md](docs/v2.17-readiness.md).
+[docs/release-notes-v2.18.md](docs/release-notes-v2.18.md) and
+[docs/v2.18-readiness.md](docs/v2.18-readiness.md).
 
-The v2.17 Alert Delivery Overview slice is integrated through
-[PR #177](https://github.com/tov-vl/gold-src-ops/pull/177) and is published.
-Readers can inspect configured delivery state, pending and processing work,
-dead-letter count, oldest pending time, and an explicit observation time
-without receiving payloads, errors, addresses, or credentials. Exact candidate
-images passed four healthy production samples over 181 seconds, authenticated
-Reader and owner-only aggregate parity, and eight game-host continuity checks
-over 225 seconds. Delivery remained disabled, and the two reviewed pending
-records remained stable. Stable workflow
-[#35273291824](https://github.com/tov-vl/gold-src-ops/actions/runs/35273291824)
+The v2.18 Pending Delivery Triage slice is integrated through
+[PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
+Readers can inspect bounded pending work in claim order with safe retry,
+server-display, and incident-link metadata without receiving payloads, delivery
+errors, destinations, credentials, or mutation controls. Exact candidate images
+passed four healthy production samples over 181 seconds, authenticated Reader
+parity, and independent game-host continuity checks. Delivery remained
+disabled, and two natural pending rows remained stable. Stable workflow
+[#35335400426](https://github.com/tov-vl/gold-src-ops/actions/runs/35335400426)
 promoted and independently verified the accepted API and Web digests without
 rebuilding. The release adds no migration, worker, identity, mutation
 permission, delivery activation, or game-host change.
 
-The preceding v2.16 Bounded Activity Pagination release remains documented in
-[docs/release-notes-v2.16.md](docs/release-notes-v2.16.md) and
-[docs/v2.16-readiness.md](docs/v2.16-readiness.md).
+The preceding v2.17 Alert Delivery Overview release remains documented in
+[docs/release-notes-v2.17.md](docs/release-notes-v2.17.md) and
+[docs/v2.17-readiness.md](docs/v2.17-readiness.md).
 
 The bounded v2.11 pilot activated the reviewed game-event path for one anonymous
 completed-round event, verified the matching Reader projection, and then
@@ -939,12 +938,12 @@ The spike follows Valve's documented A2S server query format:
 
 The public repository is configured with private vulnerability reporting,
 Dependabot security updates, and a protected `main` workflow. The current
-[GoldSrcOps v2.17.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.17.0)
-adds the Reader Alert Delivery Overview. Its signed stable tag promotes the
-exact API and Web digests accepted from the release candidate; no image was
-rebuilt after production acceptance. Detailed evidence and explicit claim
-limits are recorded in [docs/v2.17-readiness.md](docs/v2.17-readiness.md),
-while [v2.16.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.16.0)
+[GoldSrcOps v2.18.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.18.0)
+adds Reader Pending Delivery Triage. Its signed stable tag promotes the exact
+API and Web digests accepted from the release candidate; no image was rebuilt
+after production acceptance. Detailed evidence and explicit claim limits are
+recorded in [docs/v2.18-readiness.md](docs/v2.18-readiness.md), while
+[v2.17.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.17.0)
 is the preceding stable release.
 
 ## License

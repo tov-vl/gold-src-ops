@@ -518,8 +518,19 @@ The project should evolve in stages:
   visible, and payloads, errors, claims, destinations, addresses, credentials,
   and all mutation controls stay outside the surface. The slice is additive,
   uses the existing partial index, and adds no migration, worker, identity,
-  authorization, delivery activation, or game-host change. Candidate and
-  stable evidence are tracked in `docs/v2.18-readiness.md`.
+  authorization, delivery activation, or game-host change. Pull requests #180
+  and #181 integrated the product surface and the concurrency fix exposed by
+  the first pre-publication candidate gate. Signed candidate `v2.18.0-rc.2`
+  from revision `0dc6b30` passed publication, exact-digest API/Web rollout, and
+  four healthy production samples over 181 seconds. Reader output matched the
+  natural two-row pending baseline while delivery remained disabled. Signed
+  stable `v2.18.0` promoted and verified both candidate digests without
+  rebuilding in
+  [workflow #35335400426](https://github.com/tov-vl/gold-src-ops/actions/runs/35335400426),
+  and the
+  [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.18.0)
+  is published. Exact evidence and claim limits are tracked in
+  `docs/v2.18-readiness.md`.
 - The first complete `API-01` SLO review window is published alongside the
   existing controlled failure/recovery evidence. A short video and a small
   evidence-based postmortem remain a later portfolio milestone.
