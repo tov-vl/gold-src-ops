@@ -1766,15 +1766,26 @@ prematurely draining the durable alert backlog:
   groups while both unavailable groups remained firing;
 - selected: implement the thin durable adapter with exact event-level
   idempotency, per-incident ordering, catch-up mode, and a provider outbox;
+- completed locally: add the independent `GoldSrcOps.AlertReceiver` API and
+  dedicated `receiver` PostgreSQL migration, with atomic event ledger,
+  incident state, provider outbox, fail-safe `CatchUp` default, and
+  PostgreSQL-backed readiness;
+- completed locally: eleven real-PostgreSQL integration tests cover exact and
+  conflicting duplicates, transition ordering, concurrent races, catch-up
+  suppression, strict request boundaries, health, and restart durability;
+- next: add the muted provider worker, retry/dead-letter behavior, metrics,
+  retention, container/deployment contract, backup, and restore rehearsal;
 - deferred: define and execute a muted historical catch-up for the existing
   recovered pair only after the adapter passes its own compatibility gate;
 - keep production delivery disabled until the compatibility result is reviewed
   and a separate one-dispatcher canary is authorized.
 
-The repository contract, candidate comparison, and direct-trial result are
-recorded in `docs/v2.19-permanent-receiver-readiness.md`. The dedicated Grafana
-integration remains muted as evidence. No secret was stored, and no migration,
-identity, worker, UI, game-host, or production queue change was made.
+The repository contract, candidate comparison, direct-trial result, and local
+adapter foundation are recorded in
+`docs/v2.19-permanent-receiver-readiness.md`. The dedicated Grafana integration
+remains muted as evidence. No secret was stored; the new receiver migration is
+local and unapplied, and no identity, provider worker, UI, game-host, or
+production queue change was made.
 
 ## Current API Scope
 

@@ -158,6 +158,12 @@ flowchart LR
   and runs the application-layer evaluator outside the production API runtime.
   Provider credentials are process environment inputs and raw evidence remains
   outside PostgreSQL and Git.
+- `GoldSrcOps.AlertReceiver` is a separately deployable Minimal API foundation
+  for durable availability-event ingestion. It owns a dedicated PostgreSQL
+  `receiver` schema, exact event idempotency, per-incident ordering, explicit
+  catch-up suppression, a provider outbox, and liveness/readiness probes. It is
+  not wired to production delivery and has no provider worker in the first
+  slice.
 
 ## Security Boundary
 
