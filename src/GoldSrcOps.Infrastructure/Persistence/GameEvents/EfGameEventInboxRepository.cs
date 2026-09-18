@@ -36,9 +36,7 @@ internal sealed class EfGameEventInboxRepository : IGameEventInboxRepository
         existing = await FindBySourceSequenceAsync(entry, cancellationToken);
         if (existing is not null)
         {
-            return new GameEventInboxPersistenceResult(
-                GameEventInboxPersistenceResultKind.SourceSequenceExists,
-                existing);
+            return ClassifySourceSequenceMatch(entry, existing);
         }
 
         await _dbContext.GameEventInbox.AddAsync(entry, cancellationToken);
@@ -65,9 +63,7 @@ internal sealed class EfGameEventInboxRepository : IGameEventInboxRepository
             existing = await FindBySourceSequenceAsync(entry, cancellationToken);
             if (existing is not null)
             {
-                return new GameEventInboxPersistenceResult(
-                    GameEventInboxPersistenceResultKind.SourceSequenceExists,
-                    existing);
+                return ClassifySourceSequenceMatch(entry, existing);
             }
 
             throw;
@@ -92,6 +88,18 @@ internal sealed class EfGameEventInboxRepository : IGameEventInboxRepository
                     candidate.SourceInstanceId == entry.SourceInstanceId &&
                     candidate.SequenceNumber == entry.SequenceNumber,
                 cancellationToken);
+
+    private static GameEventInboxPersistenceResult ClassifySourceSequenceMatch(
+        GameEventInboxEntry attempted,
+        GameEventInboxEntry existing)
+    {
+        // A concurrent insert can commit between the ID and source-sequence probes.
+        var kind = existing.Id == attempted.Id
+            ? GameEventInboxPersistenceResultKind.EventIdExists
+            : GameEventInboxPersistenceResultKind.SourceSequenceExists;
+
+        return new GameEventInboxPersistenceResult(kind, existing);
+    }
 
     private static bool IsUniqueViolation(DbUpdateException exception) =>
         exception.InnerException is PostgresException
