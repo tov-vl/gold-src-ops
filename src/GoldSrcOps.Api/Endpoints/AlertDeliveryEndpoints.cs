@@ -28,6 +28,9 @@ public static class AlertDeliveryEndpoints
         group.MapGet("/status", GetStatusAsync)
             .WithName("GetAlertDeliveryStatus");
 
+        group.MapGet("/pending", ListPendingDeliveriesAsync)
+            .WithName("ListPendingAlertDeliveries");
+
         group.MapGet("/dead-letters", ListDeadLettersAsync)
             .WithName("ListDeadLetterMessages");
 
@@ -57,6 +60,40 @@ public static class AlertDeliveryEndpoints
             status.DeadLetterCount,
             status.OldestPendingAtUtc,
             status.ObservedAtUtc));
+    }
+
+    private static async Task<Results<Ok<PendingDeliveryListResponse>, ValidationProblem>>
+        ListPendingDeliveriesAsync(
+            string? cursor,
+            int? limit,
+            AlertDeliveryReadService alertDelivery,
+            CancellationToken cancellationToken)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        PendingDeliveryPagePosition? position = null;
+
+        if (cursor is not null && !PendingDeliveryCursor.TryDecode(cursor, out position))
+        {
+            errors.Add("cursor", ["Cursor is invalid or no longer supported."]);
+        }
+
+        if (limit is < 1 or > AlertDeliveryReadService.MaxPendingDeliveryLimit)
+        {
+            errors.Add(
+                "limit",
+                [$"Limit must be between 1 and {AlertDeliveryReadService.MaxPendingDeliveryLimit}."]);
+        }
+
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        var page = await alertDelivery.ListPendingDeliveriesAsync(
+            position,
+            limit,
+            cancellationToken);
+        return TypedResults.Ok(Map(page));
     }
 
     private static async Task<Results<Ok<DeadLetterListResponse>, ValidationProblem>> ListDeadLettersAsync(
@@ -229,6 +266,24 @@ public static class AlertDeliveryEndpoints
             item.ReplayCount,
             item.DeadLetteredAtUtc,
             item.LastError);
+
+    private static PendingDeliveryListResponse Map(PendingDeliveryPageDto page) =>
+        new(
+            page.Limit,
+            page.NextPosition is null ? null : PendingDeliveryCursor.Encode(page.NextPosition),
+            page.Items.Select(Map).ToArray());
+
+    private static PendingDeliveryListItemResponse Map(PendingDeliveryListItemDto item) =>
+        new(
+            item.EventId,
+            item.EventType,
+            item.OccurredAtUtc,
+            item.AttemptCount,
+            item.NextAttemptAtUtc,
+            item.IncidentId,
+            item.IncidentStatus,
+            item.ServerId,
+            item.ServerName);
 
     private static DeadLetterReplayResponse Map(DeadLetterReplayRecordDto replay) =>
         new(

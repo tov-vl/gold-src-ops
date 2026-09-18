@@ -511,6 +511,15 @@ The project should evolve in stages:
   [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.17.0)
   is published. Scope and claim limits are defined in
   `docs/v2.17-readiness.md`.
+- v2.18: add bounded Pending Delivery Triage over the existing durable outbox.
+  The Reader endpoint and static-rendered page expose only safe event, retry,
+  and linked incident/server display metadata in the existing claim-index order.
+  Opaque cursor pagination is capped at 200 rows, missing incident links remain
+  visible, and payloads, errors, claims, destinations, addresses, credentials,
+  and all mutation controls stay outside the surface. The slice is additive,
+  uses the existing partial index, and adds no migration, worker, identity,
+  authorization, delivery activation, or game-host change. Candidate and
+  stable evidence are tracked in `docs/v2.18-readiness.md`.
 - The first complete `API-01` SLO review window is published alongside the
   existing controlled failure/recovery evidence. A short video and a small
   evidence-based postmortem remain a later portfolio milestone.

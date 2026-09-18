@@ -4,6 +4,8 @@ namespace GoldSrcOps.Application.Alerts;
 
 public sealed class AlertDeliveryReadService
 {
+    public const int DefaultPendingDeliveryLimit = 50;
+    public const int MaxPendingDeliveryLimit = 200;
     public const int DefaultDeadLetterLimit = 50;
     public const int MaxDeadLetterLimit = 200;
 
@@ -62,6 +64,35 @@ public sealed class AlertDeliveryReadService
             : null;
 
         return new DeadLetterPageDto(effectiveLimit, items, nextPosition);
+    }
+
+    public async Task<PendingDeliveryPageDto> ListPendingDeliveriesAsync(
+        PendingDeliveryPagePosition? position,
+        int? limit,
+        CancellationToken cancellationToken)
+    {
+        var effectiveLimit = limit ?? DefaultPendingDeliveryLimit;
+        if (effectiveLimit is < 1 or > MaxPendingDeliveryLimit)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(limit),
+                $"Limit must be between 1 and {MaxPendingDeliveryLimit}.");
+        }
+
+        var rows = await _repository.ListPendingDeliveriesAsync(
+            position,
+            effectiveLimit + 1,
+            cancellationToken);
+        var hasMore = rows.Count > effectiveLimit;
+        var items = hasMore ? rows.Take(effectiveLimit).ToArray() : rows;
+        var nextPosition = hasMore
+            ? new PendingDeliveryPagePosition(
+                items[^1].NextAttemptAtUtc,
+                items[^1].OccurredAtUtc,
+                items[^1].EventId)
+            : null;
+
+        return new PendingDeliveryPageDto(effectiveLimit, items, nextPosition);
     }
 
     public Task<DeadLetterDetailsDto?> GetDeadLetterAsync(

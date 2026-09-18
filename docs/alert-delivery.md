@@ -113,6 +113,30 @@ expected when an operator repeats an ambiguous request with the original key.
 No replay metric contains a request ID, event ID, subject, reason, or failure
 detail.
 
+## Reader Queue Triage
+
+Authenticated Readers can inspect durable pending work without direct database
+access:
+
+- `GET /api/alert-delivery/status` returns only aggregate queue state;
+- `GET /api/alert-delivery/pending?limit=&cursor=` returns a bounded page of
+  pending events in the same ascending order used by the claim index:
+  `NextAttemptAtUtc`, `OccurredAtUtc`, then event ID;
+- the opaque versioned cursor must be returned unchanged and is rejected when
+  malformed or unsupported;
+- the page reports event type and ID, occurrence and next-attempt timestamps,
+  attempt count, and the linked incident/server display identity and incident
+  state;
+- a missing incident relation remains visible as `Missing` rather than causing
+  the queue row to disappear.
+
+The pending response deliberately excludes payload and payload version,
+delivery error, claim ID and claim time, destination or authorization values,
+server address and ports, credentials, and mutation controls. The static
+Reader page is `/operator/alert-delivery/pending`. It can link to an existing
+incident detail, but it cannot enable delivery, replay, delete, reclassify, or
+otherwise mutate an outbox row.
+
 Structured delivery logs include event, event type, server, incident, attempt,
 claim, outcome, sanitized status/category, and duration. They exclude payloads,
 response bodies, webhook URLs, authorization values, and exception messages.

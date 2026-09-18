@@ -309,6 +309,28 @@ public sealed class ReaderApiClientTests
     }
 
     [Fact]
+    public async Task GetPendingDeliveriesAsync_encodes_cursor_and_limit()
+    {
+        const string cursor = "opaque/pending?position=2";
+        var response = new PendingDeliveryListResponse(25, null, []);
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(response)
+        });
+        using var httpClient = CreateHttpClient(capture);
+        var client = new ReaderApiClient(httpClient);
+
+        var result = await client.GetPendingDeliveriesAsync(cursor, 25);
+
+        result.Should().BeEquivalentTo(response);
+        capture.RequestUri.Should().NotBeNull();
+        capture.RequestUri!.AbsolutePath.Should().Be("/api/alert-delivery/pending");
+        var query = QueryHelpers.ParseQuery(capture.RequestUri.Query);
+        query["limit"].Should().ContainSingle().Which.Should().Be("25");
+        query["cursor"].Should().ContainSingle().Which.Should().Be(cursor);
+    }
+
+    [Fact]
     public async Task GetAlertDeliveryStatusAsync_maps_the_aggregate_snapshot()
     {
         var response = new AlertDeliveryStatusResponse(

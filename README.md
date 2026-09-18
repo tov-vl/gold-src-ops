@@ -316,6 +316,8 @@ The published v2.17 Alert Delivery Overview release is summarized in
 | v2.16 release readiness | [v2.16 readiness](docs/v2.16-readiness.md) |
 | v2.17 Alert Delivery Overview release | [v2.17 release notes](docs/release-notes-v2.17.md) |
 | v2.17 release readiness | [v2.17 readiness](docs/v2.17-readiness.md) |
+| v2.18 Pending Delivery Triage release | [v2.18 release notes](docs/release-notes-v2.18.md) |
+| v2.18 release readiness | [v2.18 readiness](docs/v2.18-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
@@ -522,6 +524,10 @@ API endpoints:
 - `GET /api/incidents/{id}`
 - `GET /api/alert-delivery/status` - Reader-only aggregate delivery state; no
   payload, error detail, webhook address, or authorization value is returned.
+- `GET /api/alert-delivery/pending?limit=&cursor=` - Reader-only bounded queue
+  triage ordered by next attempt, occurrence time, and event ID. The response
+  includes safe retry and linked-incident metadata but no payload, delivery
+  error, claim identity, destination, server address, or credential.
 
 Per-server incident history defaults to 50 records and accepts an explicit
 `limit` from 1 through 200.
@@ -531,8 +537,9 @@ clients must return a cursor unchanged and use the response's `previousCursor`
 or `nextCursor` value for bounded navigation.
 The authenticated Alert Delivery view reports whether the worker is enabled,
 current pending, processing, and dead-letter counts, the oldest pending event,
-and the snapshot time. Manual inspection remains in the existing bounded
-dead-letter workflow.
+and the snapshot time. Pending work has a separate bounded Reader view with an
+opaque cursor and linked incident state. Manual replay remains in the existing
+Operator-only dead-letter workflow.
 
 After registering an enabled server, the background poller will update
 `/api/servers/{id}/status` once the next polling pass succeeds. A paused

@@ -5,6 +5,7 @@ using AwesomeAssertions;
 using GoldSrcOps.Application.Alerts;
 using GoldSrcOps.Application.Common;
 using GoldSrcOps.Contracts.Alerts;
+using GoldSrcOps.Domain.Servers;
 using GoldSrcOps.Infrastructure.Persistence.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -88,6 +89,124 @@ public sealed class PostgreSqlAlertDeliveryEndpointIntegrationTests
             pending.OccurredAtUtc,
             observedAtUtc));
         clock.VerifyAll();
+    }
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
+    public async Task ListPendingDeliveries_uses_a_stable_cursor_and_returns_only_safe_triage_fields()
+    {
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync(
+            principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+        var occurredAtUtc = new DateTimeOffset(2026, 9, 18, 8, 0, 0, TimeSpan.Zero);
+        var firstEventId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var secondEventId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        var missingEventId = Guid.Parse("00000000-0000-0000-0000-000000000003");
+
+        var links = await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var openServer = new Server(
+                "Alpha pending server",
+                GameServerKind.GoldSrc,
+                new ServerEndpoint("alpha.example.test", queryPort: 27015, rconPort: null),
+                pollIntervalSeconds: 30,
+                notes: null,
+                occurredAtUtc.AddHours(-1));
+            var recoveredServer = new Server(
+                "Bravo recovered server",
+                GameServerKind.GoldSrc,
+                new ServerEndpoint("bravo.example.test", queryPort: 27015, rconPort: null),
+                pollIntervalSeconds: 30,
+                notes: null,
+                occurredAtUtc.AddHours(-1));
+            var openIncident = AvailabilityIncident.Open(
+                openServer.Id,
+                occurredAtUtc.AddMinutes(-5),
+                "server query failed",
+                consecutiveFailures: 3);
+            var recoveredIncident = AvailabilityIncident.Open(
+                recoveredServer.Id,
+                occurredAtUtc.AddMinutes(-10),
+                "server query failed",
+                consecutiveFailures: 3);
+            recoveredIncident.Close(occurredAtUtc.AddMinutes(-4), "server query recovered");
+
+            dbContext.Servers.AddRange(openServer, recoveredServer);
+            dbContext.AvailabilityIncidents.AddRange(openIncident, recoveredIncident);
+            dbContext.OutboxMessages.AddRange(
+                CreateMessage(
+                    firstEventId,
+                    openIncident.Id,
+                    occurredAtUtc,
+                    IncidentAlertEvents.ServerUnavailable,
+                    "{\"secret\":\"first-payload-must-not-render\"}"),
+                CreateMessage(
+                    secondEventId,
+                    recoveredIncident.Id,
+                    occurredAtUtc.AddMinutes(1),
+                    IncidentAlertEvents.ServerRecovered,
+                    "{\"secret\":\"second-payload-must-not-render\"}"),
+                CreateMessage(
+                    missingEventId,
+                    Guid.NewGuid(),
+                    occurredAtUtc.AddMinutes(2),
+                    IncidentAlertEvents.ServerUnavailable,
+                    "{\"secret\":\"missing-payload-must-not-render\"}"));
+            await dbContext.SaveChangesAsync();
+
+            return new
+            {
+                OpenIncidentId = openIncident.Id,
+                OpenServerId = openServer.Id,
+                RecoveredIncidentId = recoveredIncident.Id,
+                RecoveredServerId = recoveredServer.Id
+            };
+        });
+
+        var firstResponse = await client.GetAsync("/api/alert-delivery/pending?limit=2");
+
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var firstJson = await firstResponse.Content.ReadAsStringAsync();
+        var firstPage = Deserialize<PendingDeliveryListResponse>(firstJson);
+        firstPage.Limit.Should().Be(2);
+        firstPage.Items.Select(static item => item.EventId).Should().Equal(firstEventId, secondEventId);
+        firstPage.NextCursor.Should().NotBeNullOrWhiteSpace();
+        firstPage.Items[0].Should().Be(new PendingDeliveryListItemResponse(
+            firstEventId,
+            IncidentAlertEvents.ServerUnavailable,
+            occurredAtUtc,
+            AttemptCount: 0,
+            NextAttemptAtUtc: occurredAtUtc,
+            links.OpenIncidentId,
+            "Open",
+            links.OpenServerId,
+            "Alpha pending server"));
+        firstPage.Items[1].IncidentStatus.Should().Be("Recovered");
+        firstPage.Items[1].IncidentId.Should().Be(links.RecoveredIncidentId);
+        firstPage.Items[1].ServerId.Should().Be(links.RecoveredServerId);
+        using (var document = JsonDocument.Parse(firstJson))
+        {
+            var firstItem = document.RootElement.GetProperty("items")[0];
+            firstItem.TryGetProperty("payload", out _).Should().BeFalse();
+            firstItem.TryGetProperty("lastError", out _).Should().BeFalse();
+            firstItem.TryGetProperty("claimId", out _).Should().BeFalse();
+            firstJson.Should().NotContain("example.test");
+            firstJson.Should().NotContain("payload-must-not-render");
+        }
+
+        var secondResponse = await client.GetAsync(
+            $"/api/alert-delivery/pending?limit=2&cursor={Uri.EscapeDataString(firstPage.NextCursor!)}");
+        var secondPage = await secondResponse.Content.ReadFromJsonAsync<PendingDeliveryListResponse>();
+
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        secondPage.Should().NotBeNull();
+        secondPage!.Items.Should().ContainSingle();
+        secondPage.Items[0].EventId.Should().Be(missingEventId);
+        secondPage.Items[0].IncidentId.Should().BeNull();
+        secondPage.Items[0].IncidentStatus.Should().Be("Missing");
+        secondPage.Items[0].ServerId.Should().BeNull();
+        secondPage.Items[0].ServerName.Should().BeNull();
+        secondPage.NextCursor.Should().BeNull();
     }
 
     [Fact]
@@ -233,6 +352,26 @@ public sealed class PostgreSqlAlertDeliveryEndpointIntegrationTests
             client.GetAsync("/api/alert-delivery/dead-letters?cursor=not-a-cursor"),
             client.GetAsync("/api/alert-delivery/dead-letters?limit=0"),
             client.GetAsync($"/api/alert-delivery/dead-letters?limit={AlertDeliveryReadService.MaxDeadLetterLimit + 1}"));
+
+        responses.Should().OnlyContain(static response => response.StatusCode == HttpStatusCode.BadRequest);
+        var cursorProblem = await responses[0].Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(cursorProblem);
+        document.RootElement.GetProperty("errors").TryGetProperty("cursor", out _).Should().BeTrue();
+    }
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
+    public async Task ListPendingDeliveries_rejects_invalid_cursor_and_limit_values()
+    {
+        await using var factory = await PostgreSqlGoldSrcOpsApiFactory.CreateAsync(
+            principal: TestApiPrincipal.Reader());
+        using var client = factory.CreateClient();
+
+        var responses = await Task.WhenAll(
+            client.GetAsync("/api/alert-delivery/pending?cursor=not-a-cursor"),
+            client.GetAsync("/api/alert-delivery/pending?limit=0"),
+            client.GetAsync(
+                $"/api/alert-delivery/pending?limit={AlertDeliveryReadService.MaxPendingDeliveryLimit + 1}"));
 
         responses.Should().OnlyContain(static response => response.StatusCode == HttpStatusCode.BadRequest);
         var cursorProblem = await responses[0].Content.ReadAsStringAsync();

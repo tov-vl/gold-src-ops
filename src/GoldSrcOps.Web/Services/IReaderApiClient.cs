@@ -76,6 +76,11 @@ public interface IReaderApiClient
     Task<AlertDeliveryStatusResponse> GetAlertDeliveryStatusAsync(
         CancellationToken cancellationToken = default);
 
+    Task<PendingDeliveryListResponse> GetPendingDeliveriesAsync(
+        string? cursor,
+        int limit,
+        CancellationToken cancellationToken = default);
+
     Task<DeadLetterListResponse> GetDeadLettersAsync(
         string? cursor,
         int limit,

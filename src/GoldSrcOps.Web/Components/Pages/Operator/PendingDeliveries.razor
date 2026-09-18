@@ -1,0 +1,166 @@
+@page "/operator/alert-delivery/pending"
+@attribute [Authorize(Policy = WebSecurity.ReaderPolicy)]
+@inject IReaderApiClient ReaderApiClient
+@inject ILogger<PendingDeliveries> Logger
+
+<PageTitle>Pending delivery | GoldSrcOps</PageTitle>
+
+<div class="pending-deliveries-page">
+    <header class="page-heading">
+        <div>
+            <p class="eyebrow">Delivery operations</p>
+            <h1>Pending delivery</h1>
+        </div>
+        <p>Durable alert events waiting for their next bounded delivery attempt.</p>
+    </header>
+
+    @if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h2>Pending delivery data is unavailable</h2>
+            <p>The API did not return a usable Reader page. No delivery action was attempted.</p>
+        </section>
+    }
+    else if (_page is not null)
+    {
+        <section class="pending-summary" aria-label="Pending delivery page summary">
+            <article class="summary--warning">
+                <span>On this page</span>
+                <strong>@_page.Items.Count</strong>
+            </article>
+            <article>
+                <span>Delivery attempts</span>
+                <strong>@_page.Items.Sum(static item => item.AttemptCount)</strong>
+            </article>
+            <article class="@MissingLinkSummaryClass">
+                <span>Missing links</span>
+                <strong>@MissingLinkCount</strong>
+            </article>
+        </section>
+
+        <section class="pending-section" aria-labelledby="pending-list-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Durable outbox</p>
+                    <h2 id="pending-list-title">Current pending events</h2>
+                </div>
+                <span>Oldest delivery position first, up to @_page.Limit events</span>
+            </div>
+
+            @if (_page.Items.Count == 0)
+            {
+                <div class="empty-state">
+                    <h3>No pending deliveries</h3>
+                    <p>No alert event is currently waiting for a delivery attempt.</p>
+                </div>
+            }
+            else
+            {
+                <div class="pending-table" role="table" aria-label="Current pending alert deliveries">
+                    <div class="pending-row pending-row--header" role="row">
+                        <span role="columnheader">Event</span>
+                        <span role="columnheader">Server</span>
+                        <span role="columnheader">Occurred</span>
+                        <span role="columnheader">Next attempt</span>
+                        <span role="columnheader">Attempts</span>
+                        <span role="columnheader">Incident</span>
+                    </div>
+                    @foreach (var item in _page.Items)
+                    {
+                        <div class="pending-row" role="row">
+                            <span class="event-type" role="cell">
+                                <span class="cell-label">Event</span>
+                                @item.EventType
+                                <small>@item.EventId.ToString("D")[..8]</small>
+                            </span>
+                            <span class="server-name" role="cell">
+                                <span class="cell-label">Server</span>
+                                @DisplayValue(item.ServerName)
+                            </span>
+                            <time role="cell" datetime="@item.OccurredAtUtc.ToString("O", CultureInfo.InvariantCulture)">
+                                <span class="cell-label">Occurred</span>
+                                @FormatDateTime(item.OccurredAtUtc)
+                            </time>
+                            <time role="cell" datetime="@item.NextAttemptAtUtc.ToString("O", CultureInfo.InvariantCulture)">
+                                <span class="cell-label">Next attempt</span>
+                                @FormatDateTime(item.NextAttemptAtUtc)
+                            </time>
+                            <span role="cell">
+                                <span class="cell-label">Attempts</span>
+                                @item.AttemptCount
+                            </span>
+                            <span role="cell">
+                                <span class="cell-label">Incident</span>
+                                @if (item.IncidentId is not null)
+                                {
+                                    <a class="incident-link"
+                                       href="@($"/operator/incidents/{item.IncidentId:D}")">@item.IncidentStatus</a>
+                                }
+                                else
+                                {
+                                    <span class="incident-missing">Missing</span>
+                                }
+                            </span>
+                        </div>
+                    }
+                </div>
+
+                @if (NextPageHref is not null)
+                {
+                    <nav class="pagination" aria-label="Pending delivery pagination">
+                        <a href="@NextPageHref">Next page</a>
+                    </nav>
+                }
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private const int PendingDeliveryLimit = 50;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "cursor")]
+    public string? Cursor { get; set; }
+
+    private PendingDeliveryListResponse? _page;
+    private bool _loadFailed;
+
+    private int MissingLinkCount => _page?.Items.Count(static item => item.IncidentId is null) ?? 0;
+
+    private string MissingLinkSummaryClass => MissingLinkCount > 0 ? "summary--alert" : string.Empty;
+
+    private string? NextPageHref
+    {
+        get
+        {
+            var nextCursor = _page?.NextCursor;
+            return string.IsNullOrWhiteSpace(nextCursor)
+                ? null
+                : $"/operator/alert-delivery/pending?cursor={Uri.EscapeDataString(nextCursor)}";
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loadFailed = false;
+        _page = null;
+
+        try
+        {
+            var cursor = string.IsNullOrWhiteSpace(Cursor) ? null : Cursor;
+            _page = await ReaderApiClient.GetPendingDeliveriesAsync(cursor, PendingDeliveryLimit);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load the Reader pending-delivery page.");
+            _loadFailed = true;
+        }
+    }
+
+    private static string DisplayValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "Link unavailable" : value;
+
+    private static string FormatDateTime(DateTimeOffset value) =>
+        value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+}

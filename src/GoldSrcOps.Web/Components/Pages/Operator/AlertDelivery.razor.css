@@ -6,7 +6,7 @@
 
 .page-heading,
 .section-heading,
-.dead-letter-section {
+.review-section {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
@@ -102,7 +102,7 @@
 }
 
 .section-heading h2,
-.dead-letter-section h2 {
+.review-section h2 {
     margin-bottom: 0;
     font-size: 1.65rem;
 }
@@ -142,7 +142,7 @@
 }
 
 .queue-state p,
-.dead-letter-section > div > p:last-child {
+.review-section > div > p:last-child {
     max-width: 62ch;
     margin-bottom: 0;
     color: var(--ink-muted);
@@ -183,7 +183,7 @@
     text-align: right;
 }
 
-.dead-letter-section {
+.review-section {
     align-items: center;
     margin-top: 54px;
     padding: 30px 0;
@@ -191,14 +191,14 @@
     border-bottom: 1px solid var(--line-strong);
 }
 
-.dead-letter-section a {
+.review-section a {
     flex: 0 0 auto;
     color: var(--signal-blue);
     font-weight: 700;
     text-decoration: none;
 }
 
-.dead-letter-section a:hover {
+.review-section a:hover {
     text-decoration: underline;
 }
 
@@ -244,7 +244,7 @@
 
     .page-heading,
     .section-heading,
-    .dead-letter-section {
+    .review-section {
         align-items: flex-start;
         flex-direction: column;
         gap: 14px;
