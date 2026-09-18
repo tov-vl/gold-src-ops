@@ -1712,7 +1712,7 @@ and the [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.
 is published. See `docs/release-notes-v2.17.md` and
 `docs/v2.17-readiness.md` for the bounded claim and anomaly record.
 
-## v2.18 Milestone: Pending Delivery Triage
+## Completed v2.18 Milestone: Pending Delivery Triage
 
 The v2.18 product slice adds the bounded read-only queue inspection required
 before any future delivery activation:
@@ -1735,8 +1735,22 @@ before any future delivery activation:
 The slice is additive and requires no migration because its ordering matches
 `IX_outbox_messages_pending_claim`. It changes no worker, retry policy,
 authorization role, identity, delivery configuration, game-host runtime, or
-production queue state. Candidate publication and production acceptance remain
-pending until the reviewed product revision reaches protected `main`.
+production queue state. Pull request #180 integrated the product slice, and
+pull request #181 closed the PostgreSQL game-event idempotency race exposed by
+the first pre-publication candidate gate. Signed `v2.18.0-rc.2` at revision
+`0dc6b30` published and independently verified both immutable images.
+
+Production retained those exact API and Web digests after four healthy samples
+over 181 seconds. Public health, A2S reachability, zero bots, container and game
+service continuity, incident and durable-work invariants, and backup freshness
+passed. The Reader page matched the natural two-row pending baseline, with
+delivery disabled, zero processing rows, zero attempts, zero missing links, and
+zero dead letters. Stable workflow
+[#35335400426](https://github.com/tov-vl/gold-src-ops/actions/runs/35335400426)
+promoted and verified both accepted digests without rebuilding, and the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.18.0)
+is published. See `docs/release-notes-v2.18.md` and
+`docs/v2.18-readiness.md` for the bounded claim and anomaly record.
 
 ## Current API Scope
 
