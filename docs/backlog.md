@@ -1770,22 +1770,34 @@ prematurely draining the durable alert backlog:
   dedicated `receiver` PostgreSQL migration, with atomic event ledger,
   incident state, provider outbox, fail-safe `CatchUp` default, and
   PostgreSQL-backed readiness;
-- completed locally: eleven real-PostgreSQL integration tests cover exact and
-  conflicting duplicates, transition ordering, concurrent races, catch-up
-  suppression, strict request boundaries, health, and restart durability;
-- next: add the muted provider worker, retry/dead-letter behavior, metrics,
-  retention, container/deployment contract, backup, and restore rehearsal;
+- completed locally: the provider-delivery core claims work with PostgreSQL
+  `SKIP LOCKED`, preserves strict per-incident order, retries bounded failures,
+  recovers expired claims, dead-letters exhausted/permanent failures, and
+  deletes processed rows through bounded retention;
+- completed locally: provider delivery remains disabled by default, requires
+  explicit HTTPS endpoint plus authorization when enabled, sends a stable
+  source-event idempotency key and provider-neutral action envelope, does not
+  follow redirects or read response bodies, and exposes only bounded
+  secret-free metrics;
+- completed locally: nineteen real-PostgreSQL integration tests plus nine
+  focused delivery tests cover ingestion, exact/conflicting duplicates,
+  transition and provider ordering, concurrent races and claims, catch-up
+  suppression, lease recovery, retry/restart durability, dead-letter blocking,
+  migration upgrade compatibility, retention, transport classification,
+  metrics, and fail-closed configuration;
+- next: add the container/deployment contract, backup coverage, isolated
+  restore rehearsal, and muted-provider compatibility proof;
 - deferred: define and execute a muted historical catch-up for the existing
   recovered pair only after the adapter passes its own compatibility gate;
 - keep production delivery disabled until the compatibility result is reviewed
   and a separate one-dispatcher canary is authorized.
 
-The repository contract, candidate comparison, direct-trial result, and local
-adapter foundation are recorded in
+The repository contract, candidate comparison, direct-trial result, local
+adapter foundation, and provider-delivery core are recorded in
 `docs/v2.19-permanent-receiver-readiness.md`. The dedicated Grafana integration
-remains muted as evidence. No secret was stored; the new receiver migration is
-local and unapplied, and no identity, provider worker, UI, game-host, or
-production queue change was made.
+remains muted as evidence. No secret was stored; both receiver migrations are
+local and unapplied, the provider worker is configured off, and no identity,
+UI, game-host, production queue, or off-host runtime change was made.
 
 ## Current API Scope
 

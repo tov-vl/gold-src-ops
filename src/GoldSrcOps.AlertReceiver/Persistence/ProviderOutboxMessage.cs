@@ -2,6 +2,8 @@ namespace GoldSrcOps.AlertReceiver.Persistence;
 
 internal sealed class ProviderOutboxMessage
 {
+    public const int MaxErrorLength = 2000;
+
     private ProviderOutboxMessage()
     {
     }
@@ -41,6 +43,16 @@ internal sealed class ProviderOutboxMessage
 
     public DateTimeOffset NextAttemptAtUtc { get; private set; }
 
+    public Guid? ClaimId { get; private set; }
+
+    public DateTimeOffset? ClaimedAtUtc { get; private set; }
+
+    public DateTimeOffset? ProcessedAtUtc { get; private set; }
+
+    public DateTimeOffset? DeadLetteredAtUtc { get; private set; }
+
+    public string? LastError { get; private set; }
+
     public static ProviderOutboxMessage Create(
         Guid sourceEventId,
         Guid incidentId,
@@ -59,4 +71,7 @@ internal enum ProviderOutboxAction
 internal enum ProviderOutboxStatus
 {
     Pending,
+    Processing,
+    Processed,
+    DeadLetter,
 }

@@ -2,8 +2,11 @@ using System.Text.Json.Serialization;
 using GoldSrcOps.AlertReceiver.AvailabilityEvents;
 using GoldSrcOps.AlertReceiver.Configuration;
 using GoldSrcOps.AlertReceiver.Persistence;
+using GoldSrcOps.AlertReceiver.ProviderDelivery;
+using GoldSrcOps.AlertReceiver.Telemetry;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Metrics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +38,13 @@ builder.Services
     .ValidateOnStart();
 builder.Services.AddSingleton<ReceiverAuthorization>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services
+    .AddOptions<ProviderDeliveryOptions>()
+    .Bind(builder.Configuration.GetSection(ProviderDeliveryOptions.SectionName))
+    .Validate(
+        options => options.IsValid(builder.Environment.EnvironmentName),
+        "Provider delivery settings are invalid; enabled delivery requires a bounded HTTPS endpoint and authorization.")
+    .ValidateOnStart();
 builder.Services.AddDbContext<AlertReceiverDbContext>(options =>
     options.UseNpgsql(
         connectionString,
@@ -42,6 +52,15 @@ builder.Services.AddDbContext<AlertReceiverDbContext>(options =>
             AlertReceiverDbContext.MigrationsHistoryTable,
             AlertReceiverDbContext.Schema)));
 builder.Services.AddScoped<AvailabilityEventIngestionService>();
+builder.Services.AddScoped<IProviderOutboxStore, EfProviderOutboxStore>();
+builder.Services.AddSingleton<IProviderRetryDelayProvider, ExponentialProviderRetryDelayProvider>();
+builder.Services.AddSingleton<IProviderDeliveryChannel, HttpProviderDeliveryChannel>();
+builder.Services.AddScoped<ProviderDispatcher>();
+builder.Services.AddHostedService<ProviderDeliveryBackgroundService>();
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddMeter(ReceiverMetrics.MeterName)
+        .AddPrometheusExporter());
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AlertReceiverDbContext>(
         name: "database",
@@ -59,6 +78,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = static healthCheck => healthCheck.Tags.Contains("ready"),
 });
 app.MapAvailabilityEventEndpoints();
+app.MapPrometheusScrapingEndpoint("/metrics");
 
 app.Run();
 
