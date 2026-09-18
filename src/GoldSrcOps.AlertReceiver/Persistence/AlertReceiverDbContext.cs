@@ -107,6 +107,30 @@ public sealed class AlertReceiverDbContext(DbContextOptions<AlertReceiverDbConte
                 table.HasCheckConstraint(
                     "CK_receiver_provider_outbox_AttemptCount",
                     "\"AttemptCount\" >= 0");
+                table.HasCheckConstraint(
+                    "CK_receiver_provider_outbox_StateFields",
+                    """
+                    ("Status" = 'Pending'
+                        AND "ClaimId" IS NULL
+                        AND "ClaimedAtUtc" IS NULL
+                        AND "ProcessedAtUtc" IS NULL
+                        AND "DeadLetteredAtUtc" IS NULL)
+                    OR ("Status" = 'Processing'
+                        AND "ClaimId" IS NOT NULL
+                        AND "ClaimedAtUtc" IS NOT NULL
+                        AND "ProcessedAtUtc" IS NULL
+                        AND "DeadLetteredAtUtc" IS NULL)
+                    OR ("Status" = 'Processed'
+                        AND "ClaimId" IS NULL
+                        AND "ClaimedAtUtc" IS NULL
+                        AND "ProcessedAtUtc" IS NOT NULL
+                        AND "DeadLetteredAtUtc" IS NULL)
+                    OR ("Status" = 'DeadLetter'
+                        AND "ClaimId" IS NULL
+                        AND "ClaimedAtUtc" IS NULL
+                        AND "ProcessedAtUtc" IS NULL
+                        AND "DeadLetteredAtUtc" IS NOT NULL)
+                    """);
             });
             message.HasKey(x => x.Id);
             message.Property(x => x.Id).ValueGeneratedNever();
@@ -121,6 +145,8 @@ public sealed class AlertReceiverDbContext(DbContextOptions<AlertReceiverDbConte
                 .HasConversion<string>()
                 .HasMaxLength(32)
                 .IsRequired();
+            message.Property(x => x.LastError)
+                .HasMaxLength(ProviderOutboxMessage.MaxErrorLength);
             message.HasIndex(x => x.SourceEventId)
                 .IsUnique()
                 .HasDatabaseName("UX_receiver_provider_outbox_SourceEventId");
@@ -133,6 +159,15 @@ public sealed class AlertReceiverDbContext(DbContextOptions<AlertReceiverDbConte
             })
                 .HasDatabaseName("IX_receiver_provider_outbox_pending")
                 .HasFilter("\"Status\" = 'Pending'");
+            message.HasIndex(x => new { x.Status, x.ClaimedAtUtc })
+                .HasDatabaseName("IX_receiver_provider_outbox_processing")
+                .HasFilter("\"Status\" = 'Processing'");
+            message.HasIndex(x => new { x.ProcessedAtUtc, x.Id })
+                .HasDatabaseName("IX_receiver_provider_outbox_processed")
+                .HasFilter("\"Status\" = 'Processed'");
+            message.HasIndex(x => new { x.IncidentId, x.CreatedAtUtc, x.Id })
+                .HasDatabaseName("IX_receiver_provider_outbox_incident_order")
+                .HasFilter("\"Status\" IN ('Pending', 'Processing', 'DeadLetter')");
             message.HasOne<ReceivedAvailabilityEvent>()
                 .WithOne()
                 .HasForeignKey<ProviderOutboxMessage>(x => x.SourceEventId)
