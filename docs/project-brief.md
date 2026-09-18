@@ -532,8 +532,10 @@ The project should evolve in stages:
   is published. Exact evidence and claim limits are tracked in
   `docs/v2.18-readiness.md`.
 - The first complete `API-01` SLO review window is published alongside the
-  existing controlled failure/recovery evidence. A short video and a small
-  evidence-based postmortem remain a later portfolio milestone.
+  existing controlled failure/recovery evidence. The repository-side portfolio
+  closure package now includes a three-to-five-minute production walkthrough
+  script and a concise evidence-based recovery postmortem. Recording the video
+  remains a presentation action rather than a product or release gate.
 - A later product experiment: separately gate production event delivery behind
   reviewed identity, migration, host-installation, and bounded-delivery
   evidence. Sandbox entitlements may follow; real payments remain explicitly

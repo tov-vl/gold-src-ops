@@ -282,7 +282,9 @@ The published v2.17 Alert Delivery Overview release is summarized in
 
 | Topic | Document |
 | --- | --- |
-| Five-to-ten-minute walkthrough | [Demo guide](docs/demo.md) |
+| Three-to-five-minute production walkthrough | [Portfolio walkthrough](docs/portfolio-walkthrough.md) |
+| Controlled recovery postmortem | [Recovery postmortem](docs/postmortem-controlled-recovery.md) |
+| Five-to-ten-minute local v1 walkthrough | [Demo guide](docs/demo.md) |
 | Delivered scope and release limits | [v1 release notes](docs/release-notes-v1.md) |
 | v1.1 operability release | [v1.1 release notes](docs/release-notes-v1.1.md) |
 | v2 alert-delivery release | [v2 release notes](docs/release-notes-v2.md) |

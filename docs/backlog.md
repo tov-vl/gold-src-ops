@@ -2005,10 +2005,16 @@ The first prospective seven-day `API-01` review is complete and met the
 unchanged 99.5% target. Its short-window result remains operational evidence,
 not proof of long-term reliability; rolling collection continues.
 
-Remaining portfolio gaps, in priority order:
+The repository-side portfolio closure package is complete:
 
-- A concise video walkthrough and a small evidence-based postmortem covering
-  the completed controlled failure/recovery exercise.
+- `docs/portfolio-walkthrough.md` provides a three-to-five-minute, production
+  read-only recording sequence with explicit claim and data-safety boundaries;
+- `docs/postmortem-controlled-recovery.md` records the sanitized controlled
+  failure/recovery timeline, impact, successful safeguards, limits, and the
+  remaining permanent-receiver gate.
+
+Recording the short video from that script remains a presentation action, not a
+product or release gate. It requires no production mutation or new release.
 
 VIP entitlements and payment integration remain a separate, later milestone.
 The first entitlement experiment must stay sandbox-only and must not process
