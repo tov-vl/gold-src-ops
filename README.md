@@ -319,6 +319,7 @@ The published v2.17 Alert Delivery Overview release is summarized in
 | v2.17 release readiness | [v2.17 readiness](docs/v2.17-readiness.md) |
 | v2.18 Pending Delivery Triage release | [v2.18 release notes](docs/release-notes-v2.18.md) |
 | v2.18 release readiness | [v2.18 readiness](docs/v2.18-readiness.md) |
+| v2.19 receiver decision and adapter gate | [v2.19 receiver readiness](docs/v2.19-permanent-receiver-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |

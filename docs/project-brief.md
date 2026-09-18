@@ -536,10 +536,17 @@ The project should evolve in stages:
   closure package now includes a three-to-five-minute production walkthrough
   script and a concise evidence-based recovery postmortem. Recording the video
   remains a presentation action rather than a product or release gate.
-- A later product experiment: separately gate production event delivery behind
-  reviewed identity, migration, host-installation, and bounded-delivery
-  evidence. Sandbox entitlements may follow; real payments remain explicitly
-  out of scope until then.
+- v2.19 receiver readiness: the dedicated, no-escalation Grafana Cloud IRM
+  trial retained source fields but failed duplicate and unavailable-to-recovery
+  correlation. Four synthetic requests produced two firing and two resolved
+  groups instead of one resolved logical incident. The thin durable adapter is
+  now selected; the existing production pair remains unchanged and delivery
+  stays disabled. The result and bounded adapter gate are in
+  `docs/v2.19-permanent-receiver-readiness.md`.
+- A later product experiment: separately gate unattended production event
+  delivery behind the reviewed receiver, muted catch-up, and one-dispatcher
+  canary evidence. Sandbox entitlements may follow; real payments remain
+  explicitly out of scope until then.
 - Optional service extraction or a broker only if observed scaling, ownership,
   or failure-isolation pressure makes the modular monolith insufficient.
 

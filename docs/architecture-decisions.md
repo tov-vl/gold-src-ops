@@ -1323,3 +1323,62 @@ delivery remains rolled back and disabled; the result is not evidence of
 long-term reliability, broad plugin compatibility, an achieved SLO, or
 authorization for unattended rollout. The complete procedure and bounded
 result are in `docs/v2.11-game-event-pilot.md`.
+
+## Decision 27: Prefer Grafana Cloud IRM Behind A Receiver Compatibility Gate
+
+Decision:
+
+Use Grafana Cloud IRM as the first permanent alert-receiver candidate, but do
+not enable production delivery until a synthetic no-notification trial proves
+the complete GoldSrcOps receiver contract. Group unavailable and recovered
+events by `incidentId`, retain `eventId` and source timestamps in receiver
+evidence, and resolve the group from the recovered event. Require duplicate
+trigger and recovery requests to have one logical delivery effect.
+
+Use a muted route for the first historical catch-up so the already recovered
+pending pair cannot page an operator. If the direct integration cannot prove
+event-level duplicate safety, resolved-pair behavior, or muted catch-up, place a
+thin durable adapter in front of Grafana rather than weakening the contract.
+
+Decision date: 2026-09-18.
+
+Reasoning:
+
+- Grafana Cloud is already part of the project's external operations boundary,
+  so its IRM incoming webhook is the lowest-cost candidate to validate.
+- IRM templates document custom payload grouping and source-based resolution,
+  which can map the existing immutable event body without changing the sender.
+- Provider grouping is not automatically equivalent to GoldSrcOps event-level
+  idempotency, and provider documentation does not prove notification behavior
+  for ambiguous retries or historical catch-up.
+- PagerDuty documents incident-level `dedup_key` behavior, but requires a
+  provider-specific envelope and still does not remove the bounded catch-up
+  proof requirement.
+- Keeping delivery disabled until receiver behavior is observed preserves the
+  durable two-row baseline and avoids turning integration setup into an
+  unreviewed production drain.
+
+Alternatives considered:
+
+- Enable the generic webhook directly after one successful request. Rejected
+  because HTTP acceptance does not prove duplicate, resolution, or paging
+  behavior.
+- Adopt PagerDuty first. Deferred because it adds a new provider and adapter
+  shape without a demonstrated advantage for the current bounded workload.
+- Build a receiver adapter before testing the direct path. Initially deferred
+  so the lower-cost candidate could be tested; the failed trial has now selected
+  the adapter without relaxing the receiver contract.
+- Delete or mark the historical pair processed before activation. Rejected
+  because it would falsify durable delivery history.
+
+Implementation status:
+
+The receiver contract, comparison, synthetic test matrix, muted catch-up
+sequence, fallback boundary, and non-goals are defined in
+`docs/v2.19-permanent-receiver-readiness.md`. On 2026-09-18, a dedicated muted
+Grafana IRM integration accepted four synthetic payloads but created two
+independent firing groups for the duplicated unavailable event and two
+independent resolved groups for the recovery and its duplicate. The direct path
+therefore failed hard gates 1 through 3, and the thin durable adapter is now the
+selected next boundary. No credential was stored, no user was notified, the
+production backlog was untouched, and alert delivery remains disabled.

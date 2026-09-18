@@ -214,6 +214,10 @@ and design a separate audited disposition capability. Do not delete pending
 rows, assign a fictitious `Processed` state, or use dead-letter replay for a
 message that has never failed delivery.
 
+The v2.19 direct-candidate result, selected durable-adapter boundary, and later
+muted catch-up gate are defined in
+`docs/v2.19-permanent-receiver-readiness.md`.
+
 ## Verification
 
 Run the production container contract from the repository root:
