@@ -1712,6 +1712,32 @@ and the [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.
 is published. See `docs/release-notes-v2.17.md` and
 `docs/v2.17-readiness.md` for the bounded claim and anomaly record.
 
+## v2.18 Milestone: Pending Delivery Triage
+
+The v2.18 product slice adds the bounded read-only queue inspection required
+before any future delivery activation:
+
+- `GET /api/alert-delivery/pending?limit=&cursor=` lists only `Pending` rows in
+  ascending claim order using the existing partial claim index;
+- the versioned opaque cursor is based on next-attempt time, occurrence time,
+  and event ID, with a default page size of 50 and a maximum of 200;
+- the safe projection contains event identity and type, retry timing and count,
+  plus linked incident/server display identity and `Open`, `Recovered`, or
+  `Missing` relation state;
+- payloads, delivery errors, claim identity, webhook data, server addresses,
+  credentials, and mutation controls remain outside the contract;
+- `/operator/alert-delivery/pending` provides a static-rendered Reader table,
+  empty/failure states, and bounded forward navigation;
+- focused service, cursor, authorization, PostgreSQL translation, Reader
+  client, static-rendering, token-boundary, and responsive Chromium tests cover
+  the new surface.
+
+The slice is additive and requires no migration because its ordering matches
+`IX_outbox_messages_pending_claim`. It changes no worker, retry policy,
+authorization role, identity, delivery configuration, game-host runtime, or
+production queue state. Candidate publication and production acceptance remain
+pending until the reviewed product revision reaches protected `main`.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in
@@ -1758,6 +1784,7 @@ Commands:
 Alert delivery:
 
 - `GET /api/alert-delivery/status`
+- `GET /api/alert-delivery/pending?limit=&cursor=`
 - `GET /api/alert-delivery/dead-letters`
 - `GET /api/alert-delivery/dead-letters/{eventId}`
 - `POST /api/alert-delivery/dead-letters/{eventId}/replay`

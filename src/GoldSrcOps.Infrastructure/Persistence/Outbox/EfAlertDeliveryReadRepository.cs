@@ -41,6 +41,66 @@ internal sealed class EfAlertDeliveryReadRepository : IAlertDeliveryReadReposito
                 statistics.OldestPendingAtUtc);
     }
 
+    public async Task<IReadOnlyList<PendingDeliveryListItemDto>> ListPendingDeliveriesAsync(
+        PendingDeliveryPagePosition? position,
+        int maxCount,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxCount, 1);
+
+        var pendingMessages = _dbContext.OutboxMessages
+            .AsNoTracking()
+            .Where(static message => message.Status == OutboxMessageStatus.Pending);
+
+        if (position is not null)
+        {
+            var pagePosition = position;
+            pendingMessages = pendingMessages.Where(message =>
+                EF.Functions.GreaterThan(
+                    ValueTuple.Create(
+                        message.NextAttemptAtUtc,
+                        message.OccurredAtUtc,
+                        message.Id),
+                    ValueTuple.Create(
+                        pagePosition.NextAttemptAtUtc,
+                        pagePosition.OccurredAtUtc,
+                        pagePosition.EventId)));
+        }
+
+        var incidentLinks = _dbContext.AvailabilityIncidents
+            .AsNoTracking()
+            .Select(incident => new
+            {
+                AggregateType = IncidentAlertEvents.AggregateType,
+                AggregateId = (Guid?)incident.Id,
+                IncidentId = (Guid?)incident.Id,
+                IncidentStatus = (string?)(incident.ClosedAtUtc == null ? "Open" : "Recovered"),
+                ServerId = (Guid?)incident.ServerId,
+                ServerName = (string?)incident.Server.Name
+            });
+
+        return await (
+                from message in pendingMessages
+                join incident in incidentLinks
+                    on new { message.AggregateType, AggregateId = (Guid?)message.AggregateId }
+                    equals new { incident.AggregateType, incident.AggregateId }
+                    into matchingIncidents
+                from incident in matchingIncidents.DefaultIfEmpty()
+                orderby message.NextAttemptAtUtc, message.OccurredAtUtc, message.Id
+                select new PendingDeliveryListItemDto(
+                    message.Id,
+                    message.EventType,
+                    message.OccurredAtUtc,
+                    message.AttemptCount,
+                    message.NextAttemptAtUtc,
+                    incident.IncidentId,
+                    incident.IncidentId == null ? "Missing" : incident.IncidentStatus!,
+                    incident.ServerId,
+                    incident.ServerName))
+            .Take(maxCount)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<DeadLetterListItemDto>> ListDeadLettersAsync(
         DeadLetterPagePosition? position,
         int maxCount,

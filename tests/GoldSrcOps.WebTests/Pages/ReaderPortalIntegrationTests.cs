@@ -324,10 +324,32 @@ public sealed class ReaderPortalIntegrationTests
         body.Should().Contain("Alert delivery");
         body.Should().Contain("Action required");
         body.Should().Contain("04 Sep 2026, 11:48:00 UTC");
+        body.Should().Contain("/operator/alert-delivery/pending");
         body.Should().Contain("/operator/dead-letters");
         body.Should().NotContain(ReaderWebApplicationFactory.DeadLetterPayloadSentinel);
         body.Should().NotContain("WebhookUrl");
         body.Should().NotContain("Authorization");
+    }
+
+    [Fact]
+    public async Task Reader_can_triage_pending_delivery_without_sensitive_delivery_data()
+    {
+        await using var factory = new ReaderWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/operator/alert-delivery/pending");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Current pending events");
+        body.Should().Contain("server.availability.unavailable");
+        body.Should().Contain(ReaderWebApplicationFactory.ServerName);
+        body.Should().Contain($"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}");
+        body.Should().Contain("fixture-next-cursor");
+        body.Should().NotContain(ReaderWebApplicationFactory.DeadLetterPayloadSentinel);
+        body.Should().NotContain("WebhookUrl");
+        body.Should().NotContain("Authorization");
+        body.Should().NotContain("ClaimId");
     }
 
     [Fact]
@@ -451,6 +473,7 @@ public sealed class ReaderPortalIntegrationTests
         using var eventsResponse = await client.GetAsync(
             $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/events");
         using var alertDeliveryResponse = await client.GetAsync("/operator/alert-delivery");
+        using var pendingDeliveryResponse = await client.GetAsync("/operator/alert-delivery/pending");
         using var deadLettersResponse = await client.GetAsync("/operator/dead-letters");
 
         incidentsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -459,6 +482,7 @@ public sealed class ReaderPortalIntegrationTests
         commandsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         eventsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         alertDeliveryResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        pendingDeliveryResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         deadLettersResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
@@ -472,6 +496,7 @@ public sealed class ReaderPortalIntegrationTests
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/commands")]
     [InlineData("/operator/servers/f130f68c-cb3d-4e18-9dfe-7faf62ce8e3f/commands/new")]
     [InlineData("/operator/alert-delivery")]
+    [InlineData("/operator/alert-delivery/pending")]
     [InlineData("/operator/dead-letters")]
     [InlineData("/operator/dead-letters/70d51faf-6029-4b1e-a922-b7a3ab8d1f84")]
     [InlineData("/operator/replays/4fb7401c-802c-48b9-aa71-5e27619b0784")]

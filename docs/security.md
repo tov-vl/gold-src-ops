@@ -212,6 +212,8 @@ operation.
 | `GET /api/incidents...` | `Reader` |
 | `GET /api/dashboard/overview` | `Reader` |
 | `GET /api/public/status` | Anonymous |
+| `GET /api/alert-delivery/status` | `Reader` |
+| `GET /api/alert-delivery/pending` | `Reader` |
 | `GET /api/alert-delivery/dead-letters` | `Reader` |
 | `GET /api/alert-delivery/dead-letters/{eventId}` | `Reader` |
 | `POST /api/alert-delivery/dead-letters/{eventId}/replay` | `Operator` |

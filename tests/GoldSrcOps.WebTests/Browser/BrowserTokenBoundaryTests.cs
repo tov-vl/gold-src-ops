@@ -43,6 +43,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         var incidentDetailPage = await VisitAsync(
             $"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}");
         var alertDeliveryPage = await VisitAsync("/operator/alert-delivery");
+        var pendingDeliveryPage = await VisitAsync("/operator/alert-delivery/pending");
         var deadLettersPage = await VisitAsync("/operator/dead-letters");
         var deadLetterDetailPage = await VisitAsync(
             $"/operator/dead-letters/{ReaderWebApplicationFactory.DeadLetterEventId:D}");
@@ -64,6 +65,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         incidentsPage.Body.Should().Contain(ReaderWebApplicationFactory.OpenIncidentReason);
         incidentDetailPage.Body.Should().Contain("Boundary observations");
         alertDeliveryPage.Body.Should().Contain("Action required");
+        pendingDeliveryPage.Body.Should().Contain("Current pending events");
         deadLettersPage.Body.Should().Contain(ReaderWebApplicationFactory.DeadLetterLastError);
         deadLetterDetailPage.Body.Should().Contain("Ordering warning");
         replayReceiptPage.Body.Should().Contain(ReaderWebApplicationFactory.ReplayReason);
@@ -85,6 +87,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                      incidentsPage,
                      incidentDetailPage,
                      alertDeliveryPage,
+                     pendingDeliveryPage,
                      deadLettersPage,
                      deadLetterDetailPage,
                      replayReceiptPage
@@ -193,13 +196,52 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             response!.Ok.Should().BeTrue();
             (await Page.Locator("section.delivery-summary").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("section.queue-section").IsVisibleAsync()).Should().BeTrue();
-            (await Page.Locator("section.dead-letter-section a").GetAttributeAsync("href"))
+            (await Page.Locator("section.review-section a[href='/operator/dead-letters']").GetAttributeAsync("href"))
                 .Should().Be("/operator/dead-letters");
+            (await Page.Locator("section.review-section a[href='/operator/alert-delivery/pending']")
+                    .GetAttributeAsync("href"))
+                .Should().Be("/operator/alert-delivery/pending");
             var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
                 "document.documentElement.scrollWidth > document.documentElement.clientWidth");
             hasHorizontalOverflow.Should().BeFalse();
 
             await CaptureScreenshotIfRequestedAsync("alert-delivery-overview", viewport);
+        }
+    }
+
+    [BrowserFact]
+    public async Task Pending_delivery_triage_fits_supported_desktop_and_mobile_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(baseAddress, "/operator/alert-delivery/pending").AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("section.pending-summary").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator(".pending-row:not(.pending-row--header)").CountAsync()).Should().Be(1);
+            (await Page.Locator(
+                    $"a.incident-link[href='/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}']")
+                .IsVisibleAsync()).Should().BeTrue();
+            var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+            hasHorizontalOverflow.Should().BeFalse();
+
+            await CaptureScreenshotIfRequestedAsync("pending-delivery-triage", viewport);
         }
     }
 

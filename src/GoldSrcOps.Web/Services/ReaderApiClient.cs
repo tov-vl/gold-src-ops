@@ -170,6 +170,20 @@ internal sealed class ReaderApiClient(HttpClient httpClient) : IReaderApiClient
             "api/alert-delivery/status",
             cancellationToken);
 
+    public Task<PendingDeliveryListResponse> GetPendingDeliveriesAsync(
+        string? cursor,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        var requestUri = AddLimit("api/alert-delivery/pending", limit);
+        if (cursor is not null)
+        {
+            requestUri = QueryHelpers.AddQueryString(requestUri, "cursor", cursor);
+        }
+
+        return GetRequiredAsync<PendingDeliveryListResponse>(requestUri, cancellationToken);
+    }
+
     public Task<DeadLetterListResponse> GetDeadLettersAsync(
         string? cursor,
         int limit,

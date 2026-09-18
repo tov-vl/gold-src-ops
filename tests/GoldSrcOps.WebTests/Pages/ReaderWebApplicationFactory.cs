@@ -54,6 +54,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     public static readonly Guid CommandId = Guid.Parse("17477e4e-97bb-4c50-a046-08fa5cd48dca");
     public static readonly Guid OldCommandId = Guid.Parse("5815c841-fc02-486d-8ace-9d7b24979f62");
     public static readonly Guid GameEventId = Guid.Parse("63734d5f-f665-44b0-852d-357fe4286be2");
+    public static readonly Guid PendingDeliveryEventId = Guid.Parse("11bac90e-a2c8-441f-9c87-e5426bd4e32d");
     public static readonly Guid DeadLetterEventId = Guid.Parse("70d51faf-6029-4b1e-a922-b7a3ab8d1f84");
     public static readonly Guid ReplayRequestId = Guid.Parse("4fb7401c-802c-48b9-aa71-5e27619b0784");
     public const string ServerName = "Reader fixture server";
@@ -532,6 +533,28 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
                 DeadLetterCount: 1,
                 ObservedAtUtc.AddMinutes(-12),
                 ObservedAtUtc));
+
+        public Task<PendingDeliveryListResponse> GetPendingDeliveriesAsync(
+            string? cursor,
+            int limit,
+            CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<PendingDeliveryListItemResponse> items =
+            [
+                new(
+                    PendingDeliveryEventId,
+                    "server.availability.unavailable",
+                    ObservedAtUtc.AddMinutes(-12),
+                    AttemptCount: 2,
+                    ObservedAtUtc.AddMinutes(-1),
+                    OpenIncidentId,
+                    "Open",
+                    ServerId,
+                    ServerName)
+            ];
+
+            return Task.FromResult(new PendingDeliveryListResponse(limit, "fixture-next-cursor", items));
+        }
 
         public Task<DeadLetterListResponse> GetDeadLettersAsync(
             string? cursor,

@@ -44,6 +44,84 @@ public sealed class AlertDeliveryReadServiceTests
 
     [Theory]
     [AutoMoqData]
+    public async Task ListPendingDeliveriesAsync_returns_a_stable_next_position(
+        [Frozen] Mock<IAlertDeliveryReadRepository> repository,
+        AlertDeliveryReadService sut)
+    {
+        var nextAttemptAtUtc = new DateTimeOffset(2026, 9, 18, 8, 0, 0, TimeSpan.Zero);
+        IReadOnlyList<PendingDeliveryListItemDto> rows =
+        [
+            CreatePendingItem(nextAttemptAtUtc, nextAttemptAtUtc.AddMinutes(-3)),
+            CreatePendingItem(nextAttemptAtUtc.AddMinutes(1), nextAttemptAtUtc.AddMinutes(-2)),
+            CreatePendingItem(nextAttemptAtUtc.AddMinutes(2), nextAttemptAtUtc.AddMinutes(-1))
+        ];
+        repository
+            .Setup(static candidate => candidate.ListPendingDeliveriesAsync(
+                null,
+                3,
+                CancellationToken.None))
+            .ReturnsAsync(rows);
+
+        var result = await sut.ListPendingDeliveriesAsync(
+            position: null,
+            limit: 2,
+            CancellationToken.None);
+
+        result.Limit.Should().Be(2);
+        result.Items.Should().Equal(rows.Take(2));
+        result.NextPosition.Should().Be(new PendingDeliveryPagePosition(
+            rows[1].NextAttemptAtUtc,
+            rows[1].OccurredAtUtc,
+            rows[1].EventId));
+        repository.VerifyAll();
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [AutoMoqData]
+    public async Task ListPendingDeliveriesAsync_uses_the_default_limit_and_omits_a_terminal_cursor(
+        [Frozen] Mock<IAlertDeliveryReadRepository> repository,
+        AlertDeliveryReadService sut)
+    {
+        repository
+            .Setup(static candidate => candidate.ListPendingDeliveriesAsync(
+                null,
+                AlertDeliveryReadService.DefaultPendingDeliveryLimit + 1,
+                CancellationToken.None))
+            .ReturnsAsync([]);
+
+        var result = await sut.ListPendingDeliveriesAsync(
+            position: null,
+            limit: null,
+            CancellationToken.None);
+
+        result.Should().Be(new PendingDeliveryPageDto(
+            AlertDeliveryReadService.DefaultPendingDeliveryLimit,
+            [],
+            NextPosition: null));
+        repository.VerifyAll();
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineAutoMoqData(0)]
+    [InlineAutoMoqData(AlertDeliveryReadService.MaxPendingDeliveryLimit + 1)]
+    public async Task ListPendingDeliveriesAsync_rejects_out_of_range_limits(
+        int limit,
+        [Frozen] Mock<IAlertDeliveryReadRepository> repository,
+        AlertDeliveryReadService sut)
+    {
+        var act = () => sut.ListPendingDeliveriesAsync(
+            position: null,
+            limit,
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [AutoMoqData]
     public async Task ListDeadLettersAsync_returns_a_stable_next_position(
         [Frozen] Mock<IAlertDeliveryReadRepository> repository,
         AlertDeliveryReadService sut)
@@ -134,4 +212,18 @@ public sealed class AlertDeliveryReadServiceTests
             ReplayCount: 0,
             deadLetteredAtUtc,
             LastError: "permanent HTTP 400 response");
+
+    private static PendingDeliveryListItemDto CreatePendingItem(
+        DateTimeOffset nextAttemptAtUtc,
+        DateTimeOffset occurredAtUtc) =>
+        new(
+            Guid.NewGuid(),
+            IncidentAlertEvents.ServerUnavailable,
+            occurredAtUtc,
+            AttemptCount: 2,
+            nextAttemptAtUtc,
+            Guid.NewGuid(),
+            "Open",
+            Guid.NewGuid(),
+            "Dust2 Public");
 }
