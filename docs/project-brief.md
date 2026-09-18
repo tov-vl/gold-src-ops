@@ -498,8 +498,19 @@ The project should evolve in stages:
   and action-required states and links to the bounded dead-letter workflow.
   Pull request #177 integrated the additive API/Web slice without a migration,
   worker, identity, mutation permission, delivery activation, or game-host
-  change. Candidate publication and bounded R1 production acceptance remain
-  pending; scope and claim limits are defined in `docs/v2.17-readiness.md`.
+  change. Signed candidate `v2.17.0-rc.1` was published from revision
+  `fc71368`, deployed by exact API and Web digest, and retained after four
+  healthy production samples over 181 seconds, authenticated Reader/aggregate
+  parity, and eight game-host continuity checks over 225 seconds. Delivery
+  remained disabled and the two reviewed pending records remained stable. A
+  fail-closed first rollout restored v2.16 after a version-string mismatch;
+  the corrected rollout passed. Signed stable `v2.17.0` promotes the exact
+  accepted digests without rebuilding in
+  [workflow #35273291824](https://github.com/tov-vl/gold-src-ops/actions/runs/35273291824),
+  and the
+  [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.17.0)
+  is published. Scope and claim limits are defined in
+  `docs/v2.17-readiness.md`.
 - The first complete `API-01` SLO review window is published alongside the
   existing controlled failure/recovery evidence. A short video and a small
   evidence-based postmortem remain a later portfolio milestone.

@@ -6,40 +6,31 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.16.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.16.0)
+**Status:** [v2.17.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.17.0)
 is the current public release. Its signed annotated tag identifies application
-revision `545909f` and promotes the exact API and Web image digests exercised by
-`v2.16.0-rc.1`, without rebuilding either image. Release notes and detailed
+revision `fc71368` and promotes the exact API and Web image digests exercised by
+`v2.17.0-rc.1`, without rebuilding either image. Release notes and detailed
 evidence are available in
-[docs/release-notes-v2.16.md](docs/release-notes-v2.16.md) and
-[docs/v2.16-readiness.md](docs/v2.16-readiness.md).
-
-The v2.16 Bounded Activity Pagination slice is integrated through
-[PR #173](https://github.com/tov-vl/gold-src-ops/pull/173) and is published.
-Reader Recent Activity supports bounded older/newer traversal with versioned
-opaque cursors bound to the selected server, event type, time window, limit,
-and fixed UTC upper boundary. Malformed and cross-scope cursors fail validation,
-and changing a filter returns to the newest page. The release adds no migration,
-worker, identity, mutation boundary, or game-host change. Exact images passed
-four healthy production samples over 182 seconds. Six natural retained events
-did not expose the fixed 50-item UI pagination controls, so acceptance verified
-the cursor cycle and scope resets without manufacturing data. Stable workflow
-[#35252019303](https://github.com/tov-vl/gold-src-ops/actions/runs/35252019303)
-promoted the accepted API and Web digests without rebuilding. The reduced R1
-path is defined in [docs/release-notes-v2.16.md](docs/release-notes-v2.16.md)
-and [docs/v2.16-readiness.md](docs/v2.16-readiness.md).
-
-The v2.17 Alert Delivery Overview slice is integrated through
-[PR #177](https://github.com/tov-vl/gold-src-ops/pull/177) and is prepared as
-the next R1 candidate. Readers can inspect the configured delivery state,
-pending and processing work, dead-letter count, oldest pending time, and an
-explicit observation time without receiving payloads, errors, addresses, or
-credentials. The static-rendered overview links to the existing bounded
-dead-letter workflow and adds no migration, worker, identity, mutation
-permission, delivery activation, or game-host change. Candidate publication
-and bounded production evidence remain pending; see
 [docs/release-notes-v2.17.md](docs/release-notes-v2.17.md) and
 [docs/v2.17-readiness.md](docs/v2.17-readiness.md).
+
+The v2.17 Alert Delivery Overview slice is integrated through
+[PR #177](https://github.com/tov-vl/gold-src-ops/pull/177) and is published.
+Readers can inspect configured delivery state, pending and processing work,
+dead-letter count, oldest pending time, and an explicit observation time
+without receiving payloads, errors, addresses, or credentials. Exact candidate
+images passed four healthy production samples over 181 seconds, authenticated
+Reader and owner-only aggregate parity, and eight game-host continuity checks
+over 225 seconds. Delivery remained disabled, and the two reviewed pending
+records remained stable. Stable workflow
+[#35273291824](https://github.com/tov-vl/gold-src-ops/actions/runs/35273291824)
+promoted and independently verified the accepted API and Web digests without
+rebuilding. The release adds no migration, worker, identity, mutation
+permission, delivery activation, or game-host change.
+
+The preceding v2.16 Bounded Activity Pagination release remains documented in
+[docs/release-notes-v2.16.md](docs/release-notes-v2.16.md) and
+[docs/v2.16-readiness.md](docs/v2.16-readiness.md).
 
 The bounded v2.11 pilot activated the reviewed game-event path for one anonymous
 completed-round event, verified the matching Reader projection, and then
@@ -284,7 +275,7 @@ The integrated v2.15 Bounded Activity Windows candidate scope is summarized in
 The published v2.16 Bounded Activity Pagination release is summarized in
 [docs/release-notes-v2.16.md](docs/release-notes-v2.16.md) and
 [docs/v2.16-readiness.md](docs/v2.16-readiness.md).
-The integrated v2.17 Alert Delivery Overview candidate scope is summarized in
+The published v2.17 Alert Delivery Overview release is summarized in
 [docs/release-notes-v2.17.md](docs/release-notes-v2.17.md) and
 [docs/v2.17-readiness.md](docs/v2.17-readiness.md).
 
@@ -323,7 +314,7 @@ The integrated v2.17 Alert Delivery Overview candidate scope is summarized in
 | v2.15 release readiness | [v2.15 readiness](docs/v2.15-readiness.md) |
 | v2.16 Bounded Activity Pagination release | [v2.16 release notes](docs/release-notes-v2.16.md) |
 | v2.16 release readiness | [v2.16 readiness](docs/v2.16-readiness.md) |
-| v2.17 Alert Delivery Overview candidate | [v2.17 release notes](docs/release-notes-v2.17.md) |
+| v2.17 Alert Delivery Overview release | [v2.17 release notes](docs/release-notes-v2.17.md) |
 | v2.17 release readiness | [v2.17 readiness](docs/v2.17-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
@@ -941,14 +932,13 @@ The spike follows Valve's documented A2S server query format:
 
 The public repository is configured with private vulnerability reporting,
 Dependabot security updates, and a protected `main` workflow. The current
-[GoldSrcOps v2.16.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.16.0)
-adds bounded pagination to the Reader Recent Activity investigation. Its signed
-stable tag promotes the exact API and Web digests accepted from the release
-candidate; no image was rebuilt after production acceptance. Detailed evidence
-and explicit claim limits are recorded in
-[docs/v2.16-readiness.md](docs/v2.16-readiness.md), while
-[v2.15.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.15.0) is the
-preceding stable release.
+[GoldSrcOps v2.17.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.17.0)
+adds the Reader Alert Delivery Overview. Its signed stable tag promotes the
+exact API and Web digests accepted from the release candidate; no image was
+rebuilt after production acceptance. Detailed evidence and explicit claim
+limits are recorded in [docs/v2.17-readiness.md](docs/v2.17-readiness.md),
+while [v2.16.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.16.0)
+is the preceding stable release.
 
 ## License
 
