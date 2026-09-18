@@ -1676,7 +1676,7 @@ activation, alert-outbox mutation, Auth0 change, RCON action, or gameplay
 capture was required. See `docs/release-notes-v2.16.md` and
 `docs/v2.16-readiness.md`.
 
-## Integrated v2.17 Milestone: Alert Delivery Overview
+## Completed v2.17 Milestone: Alert Delivery Overview
 
 The v2.17 product slice adds a Reader-facing operational summary for the
 existing durable alert outbox:
@@ -1698,11 +1698,19 @@ existing durable alert outbox:
 This slice adds no database migration, worker, identity, mutation permission,
 game-host runtime, webhook configuration, or event-delivery activation. Pull
 request [#177](https://github.com/tov-vl/gold-src-ops/pull/177) integrated the
-product revision after `Change Scope`, `Quality Gate`, `Container Smoke`, and
-`Browser Smoke` passed. The post-merge workflow passed the same four gates.
-Candidate publication and bounded R1 production evidence remain separate
-follow-up stages; see `docs/release-notes-v2.17.md` and
-`docs/v2.17-readiness.md`.
+product revision after all required checks passed. Signed candidate
+`v2.17.0-rc.1` was published from revision `fc71368`, deployed by exact API and
+Web digest, and retained after four healthy samples over 181 seconds plus eight
+game-host continuity checks over 225 seconds. Authenticated Reader output
+matched the owner-only aggregate, delivery stayed disabled, and the two
+reviewed pending records remained stable. The first rollout attempt failed
+closed on a version-string preflight mismatch and automatically restored
+v2.16; the corrected exact-digest rollout then passed. Stable workflow
+[#35273291824](https://github.com/tov-vl/gold-src-ops/actions/runs/35273291824)
+promoted and independently verified both accepted digests without rebuilding,
+and the [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.17.0)
+is published. See `docs/release-notes-v2.17.md` and
+`docs/v2.17-readiness.md` for the bounded claim and anomaly record.
 
 ## Current API Scope
 

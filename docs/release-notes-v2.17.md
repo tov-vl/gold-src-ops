@@ -1,8 +1,9 @@
 # GoldSrcOps v2.17.0 Release Notes
 
-Status as of 2026-09-17: candidate preparation. The Alert Delivery Overview
-product slice is integrated in protected `main`; no v2.17 candidate tag,
-production rollout, stable tag, or GitHub Release has been published yet.
+Status as of 2026-09-18: stable release published. Signed `v2.17.0` promotes
+the exact accepted `v2.17.0-rc.1` API and Web image digests without rebuilding
+either image. Candidate publication, bounded production acceptance, stable
+publication, and the GitHub Release are complete.
 
 ## Overview
 
@@ -95,9 +96,42 @@ and Web digests and runs a three-sample, three-minute read-only smoke. It does
 not repeat a game-host soak, migration or restore rehearsal, Auth0 change,
 RCON action, queue replay, delivery activation, or synthetic alert creation.
 
-Candidate identity, rollout evidence, and stable publication remain pending.
-The exact ordered gates and rollback rules are defined in
-[v2.17 release readiness](v2.17-readiness.md).
+Release-readiness pull request
+[#178](https://github.com/tov-vl/gold-src-ops/pull/178) passed the fail-closed
+documentation path, and its post-merge workflow
+[#35267090654](https://github.com/tov-vl/gold-src-ops/actions/runs/35267090654)
+passed the same required checks. Signed candidate `v2.17.0-rc.1` targets
+revision `fc71368e7dfa9fa2967cdb7d43b59c3af39f0ae0`; workflow
+[#35267882243](https://github.com/tov-vl/gold-src-ops/actions/runs/35267882243)
+published and independently verified immutable API and Web images.
+
+Production retained those exact digests after API/Web-only recreation. Four
+healthy samples over 181 seconds preserved public API and Web health, exact
+candidate identity, A2S reachability, zero bots, zero container restarts, no
+open or newly opened incidents, no dead letters or incomplete commands, and
+fresh scheduled-backup evidence. Eight game-host continuity checks over 225
+seconds preserved the active, boot-disabled service, invocation identity,
+restart baseline, and sole configured UDP listener. Authenticated Reader output
+matched the owner-only aggregate: delivery remained disabled, the pending count
+was two, processing and dead letters were zero, and the oldest pending value
+remained stable. Anonymous API access remained unauthorized.
+
+The first rollout attempt failed closed because the runner expected the tag
+spelling while the immutable OCI version label omits its leading `v`.
+Automatic rollback restored v2.16 and kept the baseline healthy; corrected
+preflight and exact-digest rollout then passed. Stable workflow
+[#35273291824](https://github.com/tov-vl/gold-src-ops/actions/runs/35273291824)
+first encountered a timing-sensitive RCON UDP unit-test failure before any
+publication. That test passed 20 consecutive local serial runs; the failed and
+dependent jobs were rerun, all required checks passed, both image build paths
+were skipped, and both candidate-digest promotion and published-image smoke
+paths passed.
+
+Signed stable tag `v2.17.0` targets the accepted candidate revision and the
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.17.0)
+is published. The exact evidence and claim limits are defined in
+[v2.17 release readiness](v2.17-readiness.md). This is bounded release
+evidence, not proof of long-term reliability or an achieved SLO.
 
 ## Known Limits
 
@@ -126,6 +160,12 @@ The exact ordered gates and rollback rules are defined in
 - [Alert Delivery Overview pull request](https://github.com/tov-vl/gold-src-ops/pull/177)
 - [Product pull request workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35264152171)
 - [Product post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35265009075)
+- [Release readiness pull request](https://github.com/tov-vl/gold-src-ops/pull/178)
+- [Readiness pull request workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35266998997)
+- [Readiness post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35267090654)
+- [Candidate publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35267882243)
+- [Stable publication workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35273291824)
+- [GitHub Release v2.17.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.17.0)
 - [Release process](release-process.md)
 - [Project backlog](backlog.md)
 - [Project brief](project-brief.md)
