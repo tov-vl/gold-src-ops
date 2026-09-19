@@ -268,7 +268,11 @@ $requiredWorkflowFragments = @(
     'publish-web-image:',
     'ghcr.io/${GITHUB_REPOSITORY,,}-web',
     'file: ./Dockerfile.web',
-    './tools/smoke/web-container.ps1')
+    './tools/smoke/web-container.ps1',
+    'publish-alert-receiver-image:',
+    'ghcr.io/${GITHUB_REPOSITORY,,}-alert-receiver',
+    'file: ./Dockerfile.receiver',
+    './tools/smoke/alert-receiver-container.ps1')
 
 foreach ($fragment in $requiredWorkflowFragments) {
     if (-not $workflow.Contains($fragment, [StringComparison]::Ordinal)) {
@@ -279,15 +283,15 @@ foreach ($fragment in $requiredWorkflowFragments) {
 $promotionResolverInvocationCount = [regex]::Matches(
     $workflow,
     [regex]::Escape('-File ./tools/ci/resolve-image-promotion.ps1')).Count
-if ($promotionResolverInvocationCount -ne 2) {
-    throw "Image publication workflow must apply the promotion resolver to both API and Web images."
+if ($promotionResolverInvocationCount -ne 3) {
+    throw "Image publication workflow must apply the promotion resolver to API, Web, and AlertReceiver images."
 }
 
 $digestPreservingPromotionCount = [regex]::Matches(
     $workflow,
     [regex]::Escape('--prefer-index=false')).Count
-if ($digestPreservingPromotionCount -ne 2) {
-    throw "Image publication workflow must preserve the verified digest for both API and Web promotions."
+if ($digestPreservingPromotionCount -ne 3) {
+    throw "Image publication workflow must preserve the verified digest for API, Web, and AlertReceiver promotions."
 }
 
 Write-Host "Image publication smoke passed: $($validCases.Count) valid tags, $($invalidTags.Count) invalid tags, 2 compatibility cases, 8 promotion cases, and $($requiredWorkflowFragments.Count) workflow contracts."

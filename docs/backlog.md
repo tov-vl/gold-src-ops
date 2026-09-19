@@ -1812,9 +1812,13 @@ prematurely draining the durable alert backlog:
   persistent placement, reusing production Caddy and its edge network without
   publishing a second ingress; this is process/data isolation, not a separate
   failure domain or availability claim;
-- next: merge the deployment package, publish and independently verify the
-  receiver image (not covered by the API/Web publication jobs), and prepare the
-  distinct receiver DNS and owner-controlled environment;
+- completed: merge the reviewed receiver deployment package;
+- in progress: add dedicated immutable AlertReceiver image publication and
+  independent digest/OCI/container/recovery verification to the release
+  workflow;
+- next: publish and independently verify the receiver image from the frozen
+  release candidate, then prepare the distinct receiver DNS and
+  owner-controlled environment;
 - then: deploy the receiver on `gso-control-01` in `CatchUp` mode with provider
   delivery disabled and collect health, migration, resource, backup, and
   isolated-restore evidence;

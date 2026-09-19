@@ -10,12 +10,30 @@ applies both receiver migrations twice, starts the receiver in CatchUp mode with
 provider delivery disabled, verifies durable idempotent ingestion, creates an
 encrypted local restic snapshot, and restores that snapshot into a disposable
 database before cleaning every temporary resource.
+
+.PARAMETER Image
+Pulls and tests an existing AlertReceiver image by immutable sha256 digest.
+
+.PARAMETER ExpectedImageSource
+Expected org.opencontainers.image.source label for an existing image.
+
+.PARAMETER ExpectedImageRevision
+Expected org.opencontainers.image.revision label for an existing image.
+
+.PARAMETER ExpectedImageVersion
+Expected org.opencontainers.image.version label for an existing image.
 #>
 
 [CmdletBinding()]
 param(
     [ValidatePattern('^ghcr\.io/[a-z0-9][a-z0-9._/-]*@sha256:[a-f0-9]{64}$')]
     [string]$Image,
+
+    [string]$ExpectedImageSource,
+
+    [string]$ExpectedImageRevision,
+
+    [string]$ExpectedImageVersion,
 
     [ValidateRange(10, 300)]
     [int]$StartupTimeoutSeconds = 90,
@@ -32,7 +50,8 @@ if ($null -ne (Get-Variable -Name PSNativeCommandUseErrorActionPreference -Error
 
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "../..")).Path
 $runId = [Guid]::NewGuid().ToString("N").Substring(0, 12)
-$imageTag = if ($Image) { $Image } else { "goldsrcops-alert-receiver:smoke-$runId" }
+$buildImageLocally = [string]::IsNullOrWhiteSpace($Image)
+$imageTag = if ($buildImageLocally) { "goldsrcops-alert-receiver:smoke-$runId" } else { $Image }
 $postgresImage = "postgres:16-alpine"
 $resticImage = "restic/restic:0.19.1"
 $postgresContainer = "goldsrcops-receiver-smoke-postgres-$runId"
@@ -244,25 +263,79 @@ try {
         -EnvironmentFile ./ops/alert-receiver/deployment.env.example `
         -ContractOnly
 
-    if ($Image) {
-        Write-Step "Pull the immutable AlertReceiver image without rebuilding"
-        Invoke-External -FilePath "docker" -Arguments @("pull", $imageTag)
-    }
-    else {
+    if ($buildImageLocally) {
         Write-Step "Build production AlertReceiver image"
+        $localImageSource = "https://github.com/tov-vl/gold-src-ops"
+        $localImageRevision = (Invoke-ExternalCapture -FilePath "git" -Arguments @(
+                "rev-parse",
+                "HEAD")).Output
+        $localImageVersion = "smoke-$runId"
+
         Invoke-External -FilePath "docker" -Arguments @(
             "build",
             "--file", "Dockerfile.receiver",
+            "--label", "org.opencontainers.image.source=$localImageSource",
+            "--label", "org.opencontainers.image.revision=$localImageRevision",
+            "--label", "org.opencontainers.image.version=$localImageVersion",
+            "--label", "org.opencontainers.image.licenses=MIT",
             "--tag", $imageTag,
             ".")
         $imageBuilt = $true
+        $ExpectedImageSource = $localImageSource
+        $ExpectedImageRevision = $localImageRevision
+        $ExpectedImageVersion = $localImageVersion
+    }
+    else {
+        Write-Step "Pull production AlertReceiver image by digest"
+        Invoke-External -FilePath "docker" -Arguments @("pull", $imageTag)
+
+        $repoDigests = @(
+            (Invoke-ExternalCapture -FilePath "docker" -Arguments @(
+                    "image",
+                    "inspect",
+                    "--format",
+                    "{{json .RepoDigests}}",
+                    $imageTag)).Output |
+                ConvertFrom-Json)
+        $expectedDigest = ($Image -split "@", 2)[1]
+        if ($null -eq ($repoDigests | Where-Object {
+                    $_.EndsWith("@$expectedDigest", [StringComparison]::Ordinal)
+                })) {
+            throw "Docker did not retain the requested AlertReceiver image digest after pull."
+        }
     }
 
+    Write-Step "Verify AlertReceiver runtime image"
     $runtimeUser = (Invoke-ExternalCapture -FilePath "docker" -Arguments @(
             "image", "inspect", "--format", "{{.Config.User}}", $imageTag)).Output
     if ($runtimeUser -ne "1654") {
         throw "AlertReceiver image must run as Unix UID 1654."
     }
+
+    $labels = (Invoke-ExternalCapture -FilePath "docker" -Arguments @(
+            "image",
+            "inspect",
+            "--format",
+            "{{json .Config.Labels}}",
+            $imageTag)).Output | ConvertFrom-Json -AsHashtable
+    $expectedLabels = @{
+        "org.opencontainers.image.source" = $ExpectedImageSource
+        "org.opencontainers.image.revision" = $ExpectedImageRevision
+        "org.opencontainers.image.version" = $ExpectedImageVersion
+        "org.opencontainers.image.licenses" = "MIT"
+    }
+    foreach ($entry in $expectedLabels.GetEnumerator()) {
+        if ([string]::IsNullOrWhiteSpace([string]$labels[$entry.Key]) -or
+            (-not [string]::IsNullOrWhiteSpace([string]$entry.Value) -and
+             [string]$labels[$entry.Key] -cne [string]$entry.Value)) {
+            throw "OCI label '$($entry.Key)' does not match the AlertReceiver image contract."
+        }
+    }
+
+    if ([string]$labels["org.opencontainers.image.revision"] -notmatch '\A[0-9a-f]{40}\z') {
+        throw "OCI revision label must contain a full Git commit SHA."
+    }
+
     Invoke-External -FilePath "docker" -Arguments @(
         "run", "--rm", "--network", "none", "--read-only",
         "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
