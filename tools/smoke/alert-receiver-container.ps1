@@ -67,6 +67,22 @@ function Write-Step {
     Write-Host "==> $Name"
 }
 
+function Set-OwnerOnlyFilePermissions {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Path
+    )
+
+    if ($IsWindows) {
+        return
+    }
+
+    $mode = [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite
+    foreach ($item in $Path) {
+        [IO.File]::SetUnixFileMode($item, $mode)
+    }
+}
+
 function Invoke-External {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
@@ -249,6 +265,12 @@ try {
     [IO.File]::WriteAllText($receiverAuthorizationFile, $receiverAuthorization)
     [IO.File]::WriteAllText($resticPasswordFile, "restic-$runId")
     [IO.File]::WriteAllText($resticEnvironmentFile, "# Local isolated restic backend.`n")
+    Set-OwnerOnlyFilePermissions -Path @(
+        $postgresPasswordFile,
+        $databaseConnectionFile,
+        $receiverAuthorizationFile,
+        $resticPasswordFile,
+        $resticEnvironmentFile)
 
     $providerFailFast = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
         "run", "--rm", "--network", "none",
