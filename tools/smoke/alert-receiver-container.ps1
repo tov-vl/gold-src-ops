@@ -83,6 +83,26 @@ function Set-OwnerOnlyFilePermissions {
     }
 }
 
+function Set-ContainerReadableFilePermissions {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Path
+    )
+
+    if ($IsWindows) {
+        return
+    }
+
+    $mode =
+        [IO.UnixFileMode]::UserRead -bor
+        [IO.UnixFileMode]::UserWrite -bor
+        [IO.UnixFileMode]::GroupRead -bor
+        [IO.UnixFileMode]::OtherRead
+    foreach ($item in $Path) {
+        [IO.File]::SetUnixFileMode($item, $mode)
+    }
+}
+
 function Invoke-External {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
@@ -265,10 +285,11 @@ try {
     [IO.File]::WriteAllText($receiverAuthorizationFile, $receiverAuthorization)
     [IO.File]::WriteAllText($resticPasswordFile, "restic-$runId")
     [IO.File]::WriteAllText($resticEnvironmentFile, "# Local isolated restic backend.`n")
-    Set-OwnerOnlyFilePermissions -Path @(
+    Set-ContainerReadableFilePermissions -Path @(
         $postgresPasswordFile,
         $databaseConnectionFile,
-        $receiverAuthorizationFile,
+        $receiverAuthorizationFile)
+    Set-OwnerOnlyFilePermissions -Path @(
         $resticPasswordFile,
         $resticEnvironmentFile)
 
