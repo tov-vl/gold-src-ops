@@ -133,12 +133,15 @@ function New-PostgresBackupSnapshot {
         -RequestedContainer $RequestedContainer
 
     $resticContainer = "goldsrcops-restic-backup-$([Guid]::NewGuid().ToString('N').Substring(0, 12))"
+    $producerCommand =
+        'export PGPASSWORD="$(cat {0})"; exec pg_dump --host=/var/run/postgresql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --format=custom --no-owner --no-privileges' -f `
+        $script:PostgresBackupPasswordSecretPath
     $producerArguments = @(
         "exec",
         $resolvedContainer,
         "/bin/sh",
         "-ec",
-        'export PGPASSWORD="$(cat /run/secrets/postgres-password)"; exec pg_dump --host=/var/run/postgresql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --format=custom --no-owner --no-privileges')
+        $producerCommand)
     $consumerArguments = New-ResticDockerArguments `
         -Configuration $Configuration `
         -ContainerName $resticContainer `

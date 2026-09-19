@@ -160,7 +160,7 @@ function Wait-Postgres {
         $result = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
             "exec", $postgresContainer,
             "/bin/sh", "-ec",
-            'export PGPASSWORD="$(cat /run/secrets/postgres-password)"; exec pg_isready --host=/var/run/postgresql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"') -AllowFailure
+            'export PGPASSWORD="$(cat /run/secrets/receiver-postgres-password)"; exec pg_isready --host=/var/run/postgresql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"') -AllowFailure
         if ($result.ExitCode -eq 0) {
             return
         }
@@ -177,7 +177,7 @@ function Invoke-ReceiverSql {
     $result = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
         "exec", "--env", "SMOKE_SQL=$Sql", $postgresContainer,
         "/bin/sh", "-ec",
-        'export PGPASSWORD="$(cat /run/secrets/postgres-password)"; exec psql --host=/var/run/postgresql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --no-align --tuples-only --set ON_ERROR_STOP=1 --command "$SMOKE_SQL"')
+        'export PGPASSWORD="$(cat /run/secrets/receiver-postgres-password)"; exec psql --host=/var/run/postgresql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --no-align --tuples-only --set ON_ERROR_STOP=1 --command "$SMOKE_SQL"')
     return $result.Output.Trim()
 }
 
@@ -388,9 +388,9 @@ try {
         "--env", "PGDATA=/var/lib/postgresql/data/pgdata",
         "--env", "POSTGRES_DB=$databaseName",
         "--env", "POSTGRES_USER=$databaseUser",
-        "--env", "POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password",
+        "--env", "POSTGRES_PASSWORD_FILE=/run/secrets/receiver-postgres-password",
         "--env", "POSTGRES_INITDB_ARGS=--auth-local=scram-sha-256 --auth-host=scram-sha-256",
-        "--mount", "type=bind,source=$postgresPasswordFile,target=/run/secrets/postgres-password,readonly",
+        "--mount", "type=bind,source=$postgresPasswordFile,target=/run/secrets/receiver-postgres-password,readonly",
         "--mount", "type=volume,source=$dataVolume,target=/var/lib/postgresql/data",
         "--mount", "type=volume,source=$socketVolume,target=/var/run/postgresql",
         "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
