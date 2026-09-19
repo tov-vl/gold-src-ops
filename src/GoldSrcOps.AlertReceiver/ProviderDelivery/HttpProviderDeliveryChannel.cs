@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
+using System.Text.Json;
 using GoldSrcOps.AlertReceiver.Configuration;
 using Microsoft.Extensions.Options;
 
@@ -35,15 +35,20 @@ internal sealed class HttpProviderDeliveryChannel : IProviderDeliveryChannel, ID
         ClaimedProviderOutboxMessage message,
         CancellationToken cancellationToken)
     {
+        var payload = JsonSerializer.SerializeToUtf8Bytes(new ProviderDeliveryEnvelope(
+            Version: 1,
+            message.Action,
+            GroupKey: $"goldsrcops-availability:{message.IncidentId:D}",
+            message.SourceEventId,
+            message.IncidentId,
+            message.Payload), JsonSerializerOptions.Web);
+        var content = new ByteArrayContent(payload);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        content.Headers.ContentLength = payload.Length;
+
         using var request = new HttpRequestMessage(HttpMethod.Post, _options.Endpoint)
         {
-            Content = JsonContent.Create(new ProviderDeliveryEnvelope(
-                Version: 1,
-                message.Action,
-                GroupKey: $"goldsrcops-availability:{message.IncidentId:D}",
-                message.SourceEventId,
-                message.IncidentId,
-                message.Payload)),
+            Content = content,
         };
         request.Headers.Authorization = AuthenticationHeaderValue.Parse(_options.Authorization);
         request.Headers.Add(

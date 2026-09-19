@@ -10,7 +10,8 @@ public sealed class AlertReceiverDesignTimeDbContextFactory
     {
         var options = new DbContextOptionsBuilder<AlertReceiverDbContext>()
             .UseNpgsql(
-                "Host=localhost;Database=goldsrcops_receiver;Username=postgres",
+                Environment.GetEnvironmentVariable("ConnectionStrings__AlertReceiver") ??
+                    "Host=localhost;Database=goldsrcops_receiver;Username=postgres",
                 npgsql => npgsql.MigrationsHistoryTable(
                     AlertReceiverDbContext.MigrationsHistoryTable,
                     AlertReceiverDbContext.Schema))

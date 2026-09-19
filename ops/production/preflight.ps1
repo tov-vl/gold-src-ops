@@ -505,6 +505,9 @@ $controlPlaneHost = Get-RequiredEnvironmentValue `
 $webHost = Get-RequiredEnvironmentValue `
     -Values $environmentValues `
     -Name "GOLDSRCOPS_WEB_HOSTNAME"
+$alertReceiverHost = Get-RequiredEnvironmentValue `
+    -Values $environmentValues `
+    -Name "GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME"
 $resticPasswordFile = Get-RequiredEnvironmentValue `
     -Values $environmentValues `
     -Name "GOLDSRCOPS_RESTIC_PASSWORD_FILE"
@@ -814,6 +817,12 @@ Assert-Condition `
 Assert-Condition `
     -Condition ([string]$caddy.environment.GOLDSRCOPS_WEB_HOSTNAME -eq $webHost) `
     -Message "Caddy and the Web host must use the same public hostname."
+Assert-Condition `
+    -Condition ([string]$caddy.environment.GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME -eq $alertReceiverHost) `
+    -Message "Caddy and the AlertReceiver deployment must use the same public hostname."
+Assert-Condition `
+    -Condition (@(@($controlPlaneHost, $webHost, $alertReceiverHost) | Sort-Object -Unique).Count -eq 3) `
+    -Message "The API, Web, and AlertReceiver public hostnames must be distinct."
 
 $telemetryAddresses = @(
     $apiTelemetryAddress,
@@ -939,6 +948,7 @@ if (-not $ContractOnly) {
 
     $hostName = [string]$caddy.environment.GOLDSRCOPS_HOSTNAME
     $configuredWebHost = [string]$caddy.environment.GOLDSRCOPS_WEB_HOSTNAME
+    $configuredAlertReceiverHost = [string]$caddy.environment.GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME
     $authorityValue = [string]$api.environment.Authentication__Schemes__Bearer__Authority
     $authority = $null
     Assert-Condition `
@@ -955,6 +965,12 @@ if (-not $ContractOnly) {
             $configuredWebHost -notmatch '(?i)(^|\.)example\.(com|net|org)$' -and
             $configuredWebHost -notin @("localhost", "127.0.0.1")) `
         -Message "GOLDSRCOPS_WEB_HOSTNAME must be a distinct non-placeholder public hostname."
+    Assert-Condition `
+        -Condition ($configuredAlertReceiverHost -eq $alertReceiverHost -and
+            $configuredAlertReceiverHost -notin @($hostName, $configuredWebHost) -and
+            $configuredAlertReceiverHost -notmatch '(?i)(^|\.)example\.(com|net|org)$' -and
+            $configuredAlertReceiverHost -notin @("localhost", "127.0.0.1")) `
+        -Message "GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME must be a distinct non-placeholder public hostname."
     Assert-Condition `
         -Condition ($authority.Host -notmatch '(?i)(^|\.)example\.(com|net|org)$') `
         -Message "The authentication authority still uses a placeholder host."
@@ -1118,6 +1134,7 @@ if (-not $ContractOnly) {
     & docker run `
         --rm `
         --env "GOLDSRCOPS_ACME_EMAIL=$($caddy.environment.GOLDSRCOPS_ACME_EMAIL)" `
+        --env "GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME=$configuredAlertReceiverHost" `
         --env "GOLDSRCOPS_HOSTNAME=$hostName" `
         --env "GOLDSRCOPS_WEB_HOSTNAME=$configuredWebHost" `
         --volume "${PSScriptRoot}/Caddyfile:/etc/caddy/Caddyfile:ro" `

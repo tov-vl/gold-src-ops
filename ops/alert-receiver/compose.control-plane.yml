@@ -1,0 +1,11 @@
+services:
+  receiver:
+    networks:
+      edge: !override
+        aliases:
+          - goldsrcops-alert-receiver
+
+networks:
+  edge: !override
+    name: ${GOLDSRCOPS_ALERT_RECEIVER_EDGE_NETWORK:?Set GOLDSRCOPS_ALERT_RECEIVER_EDGE_NETWORK to the existing control-plane edge network}
+    external: true

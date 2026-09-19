@@ -5,10 +5,12 @@
 Manages encrypted off-host PostgreSQL backups and their retention schedule.
 
 .DESCRIPTION
-Streams a PostgreSQL custom-format dump directly from the isolated production
-container into a client-side encrypted restic repository. No plaintext dump is
-written to the host filesystem. A snapshot becomes recoverable only after both
-pg_dump and restic exit successfully and the repository structure check passes.
+Streams a PostgreSQL custom-format dump for the selected workload directly from
+its isolated container into a client-side encrypted restic repository. No
+plaintext dump is written to the host filesystem. A snapshot becomes
+recoverable only after both pg_dump and restic exit successfully and the
+repository structure check passes. ControlPlane and AlertReceiver use distinct
+archive names and recoverable tags.
 
 Retention is restricted to the configured backup host and recoverable tag. The
 Retain action is a dry run unless ApplyRetention is specified. Scheduled always
@@ -53,6 +55,9 @@ param(
 
     [string]$LocalRepositoryPath,
 
+    [ValidateSet("ControlPlane", "AlertReceiver")]
+    [string]$Workload = "ControlPlane",
+
     [switch]$AllowLocalTestResources
 )
 
@@ -60,6 +65,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "postgres-backup-common.ps1")
+Set-PostgresBackupWorkload -Workload $Workload
 
 function Invoke-PostgresRepositoryCheck {
     param(
@@ -85,7 +91,7 @@ function Resolve-PostgresSourceContainer {
 
     $resolvedContainer = $RequestedContainer
     if ([string]::IsNullOrWhiteSpace($resolvedContainer)) {
-        $composeFile = Join-Path $PSScriptRoot "compose.yml"
+        $composeFile = Join-Path $script:PostgresBackupComposeDirectory "compose.yml"
         $composeResult = Invoke-NativeCapture -FilePath "docker" -Arguments @(
             "compose",
             "--env-file", $Configuration.EnvironmentFile,
@@ -213,9 +219,15 @@ function New-PostgresBackupSnapshot {
         -Configuration $Configuration `
         -SnapshotId $recoverableSnapshotId
 
+    $postgresImageEnvironmentName = if ($script:PostgresBackupWorkload -eq "AlertReceiver") {
+        "GOLDSRCOPS_ALERT_RECEIVER_POSTGRES_IMAGE"
+    }
+    else {
+        "GOLDSRCOPS_POSTGRES_IMAGE"
+    }
     $postgresImage = Get-RequiredDeploymentValue `
         -Values $Configuration.Values `
-        -Name "GOLDSRCOPS_POSTGRES_IMAGE"
+        -Name $postgresImageEnvironmentName
     Write-BackupEvidence -Path $BackupEvidenceFile -Evidence @{
         Action = "PostgreSQLBackup"
         ArchiveName = $script:PostgresBackupArchiveName
@@ -225,6 +237,7 @@ function New-PostgresBackupSnapshot {
         ResticImage = $Configuration.ResticImage
         SnapshotId = [string]$snapshot.id
         SnapshotTime = [string]$snapshot.time
+        Workload = $script:PostgresBackupWorkload
     }
 
     Write-Host "Encrypted off-host PostgreSQL backup created."
@@ -332,6 +345,7 @@ function Write-PostgresBackupRetentionEvidence {
         LatestSnapshotTime = [string]$latestSnapshot.time
         RetentionApplied = [bool]$Retention.Applied
         RetentionTag = $script:PostgresBackupRecoverableTag
+        Workload = $script:PostgresBackupWorkload
     }
 }
 
@@ -420,6 +434,7 @@ try {
                 RetentionTag = $script:PostgresBackupRecoverableTag
                 SnapshotId = [string]$snapshot.id
                 SnapshotTime = [string]$snapshot.time
+                Workload = $script:PostgresBackupWorkload
             }
             Write-Host "Scheduled PostgreSQL backup cycle completed."
         }

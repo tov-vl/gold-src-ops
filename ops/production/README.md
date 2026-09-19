@@ -54,6 +54,10 @@ that evidence and requires a new baseline for a subsequent soak claim.
   calls anonymous and Reader API projections by service name and receives only
   its OIDC and Data Protection secrets. Caddy routes the API and Web hostnames
   independently.
+- The optional co-located AlertReceiver joins that existing edge network under
+  one explicit private alias. Caddy accepts only
+  `POST /api/v1/availability-events` on its distinct hostname and returns `404`
+  for every other receiver request; the receiver publishes no host port.
 - PostgreSQL uses `network_mode: none` and exposes no TCP listener to another
   container or the host. The API reaches it through a shared Unix-domain socket.
 - The `operations` profile contains a one-shot migration service. It uses the
@@ -120,6 +124,8 @@ The host also needs:
 
 - DNS for `GOLDSRCOPS_HOSTNAME` pointing to the control-plane host;
 - DNS for `GOLDSRCOPS_WEB_HOSTNAME` pointing to the same Caddy ingress;
+- DNS for `GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME` pointing to the same Caddy
+  ingress before activating the co-located receiver route;
 - inbound TCP `80`, TCP `443`, and UDP `443` for Caddy;
 - outbound HTTPS for ACME and identity-provider metadata;
 - no public PostgreSQL, OTLP, Collector telemetry, Prometheus, or Grafana port;

@@ -5,6 +5,35 @@ Set-StrictMode -Version Latest
 $script:PostgresBackupArchiveName = "goldsrcops-postgresql.dump"
 $script:PostgresBackupPendingTag = "goldsrcops-postgresql-pending"
 $script:PostgresBackupRecoverableTag = "goldsrcops-postgresql-recoverable"
+$script:PostgresBackupWorkload = "ControlPlane"
+$script:PostgresBackupHostEnvironmentName = "GOLDSRCOPS_HOSTNAME"
+$script:PostgresBackupComposeDirectory = $PSScriptRoot
+
+function Set-PostgresBackupWorkload {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("ControlPlane", "AlertReceiver")]
+        [string]$Workload
+    )
+
+    $script:PostgresBackupWorkload = $Workload
+    switch ($Workload) {
+        "ControlPlane" {
+            $script:PostgresBackupArchiveName = "goldsrcops-postgresql.dump"
+            $script:PostgresBackupPendingTag = "goldsrcops-postgresql-pending"
+            $script:PostgresBackupRecoverableTag = "goldsrcops-postgresql-recoverable"
+            $script:PostgresBackupHostEnvironmentName = "GOLDSRCOPS_HOSTNAME"
+            $script:PostgresBackupComposeDirectory = $PSScriptRoot
+        }
+        "AlertReceiver" {
+            $script:PostgresBackupArchiveName = "goldsrcops-alert-receiver-postgresql.dump"
+            $script:PostgresBackupPendingTag = "goldsrcops-alert-receiver-postgresql-pending"
+            $script:PostgresBackupRecoverableTag = "goldsrcops-alert-receiver-postgresql-recoverable"
+            $script:PostgresBackupHostEnvironmentName = "GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME"
+            $script:PostgresBackupComposeDirectory = Join-Path $PSScriptRoot "../alert-receiver"
+        }
+    }
+}
 
 function Assert-BackupCondition {
     param(
@@ -276,7 +305,9 @@ function Get-PostgresBackupConfiguration {
         $null
     }
     else {
-        Get-RequiredDeploymentValue -Values $values -Name "GOLDSRCOPS_HOSTNAME"
+        Get-RequiredDeploymentValue `
+            -Values $values `
+            -Name $script:PostgresBackupHostEnvironmentName
     }
     $passwordFile = Get-RequiredDeploymentValue -Values $values -Name "GOLDSRCOPS_RESTIC_PASSWORD_FILE"
     $backendEnvironmentFile = Get-RequiredDeploymentValue `
@@ -322,6 +353,7 @@ function Get-PostgresBackupConfiguration {
         ResticImage = $resticImage
         ResticPasswordFile = $resolvedPasswordFile
         Values = $values
+        Workload = $script:PostgresBackupWorkload
     }
 }
 

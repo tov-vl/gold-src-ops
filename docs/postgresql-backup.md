@@ -253,6 +253,47 @@ Use `-ExpectedMinimumServerCount` when the target has a known lower bound that
 helps detect an unexpectedly old snapshot. The rehearsal does not modify the
 production database and never starts the API.
 
+## AlertReceiver Workload
+
+The independent AlertReceiver database uses the same reviewed streaming and
+encryption implementation with an explicit workload selector. Its archive and
+restic tags are distinct from the control-plane database, and its deployment
+environment supplies `GOLDSRCOPS_ALERT_RECEIVER_IMAGE`,
+`GOLDSRCOPS_ALERT_RECEIVER_POSTGRES_IMAGE`, and
+`GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME`.
+
+Create and fully authenticate a receiver snapshot without writing a plaintext
+dump:
+
+```powershell
+pwsh -NoProfile -File ./ops/production/postgres-backup.ps1 `
+  -Action Create `
+  -EnvironmentFile /etc/goldsrcops-alert-receiver/deployment.env `
+  -Workload AlertReceiver
+
+pwsh -NoProfile -File ./ops/production/postgres-backup.ps1 `
+  -Action Check `
+  -EnvironmentFile /etc/goldsrcops-alert-receiver/deployment.env `
+  -Workload AlertReceiver `
+  -ReadDataSubset 100%
+```
+
+Restore it only into disposable resources and prove both receiver migrations
+remain idempotent:
+
+```powershell
+pwsh -NoProfile -File ./ops/production/postgres-restore-rehearsal.ps1 `
+  -EnvironmentFile /etc/goldsrcops-alert-receiver/deployment.env `
+  -Workload AlertReceiver `
+  -ReapplyMigration `
+  -EvidenceFile /var/lib/goldsrcops-alert-receiver/evidence/postgres-restore.json
+```
+
+The receiver rehearsal requires the `receiver.events`, `receiver.incidents`,
+and `receiver.provider_outbox_messages` tables and records their migration and
+event counts without retaining payloads. It never reads or restores a
+control-plane snapshot.
+
 ## Serialization And Evidence
 
 Backup initialization, creation, checks, retention, scheduled cycles, and restore

@@ -45,6 +45,9 @@ param(
     [ValidatePattern('\A(?:100|[1-9]?[0-9])%\z')]
     [string]$ExpectedReadDataSubset = "5%",
 
+    [ValidateSet("ControlPlane", "AlertReceiver")]
+    [string]$Workload = "ControlPlane",
+
     [switch]$AllowLocalTestResources
 )
 
@@ -52,6 +55,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "postgres-backup-common.ps1")
+Set-PostgresBackupWorkload -Workload $Workload
 
 function Get-RequiredStatusValue {
     param(
@@ -133,6 +137,12 @@ $retentionTag = [string](Get-RequiredStatusValue -Status $status -Name "Retentio
 Assert-BackupCondition `
     -Condition ($retentionTag -eq $script:PostgresBackupRecoverableTag) `
     -Message "Backup status retention tag does not match the recoverable backup scope."
+if ($Workload -eq "AlertReceiver") {
+    $statusWorkload = [string](Get-RequiredStatusValue -Status $status -Name "Workload")
+    Assert-BackupCondition `
+        -Condition ($statusWorkload -eq $Workload) `
+        -Message "Backup status belongs to a different workload."
+}
 
 $expectedAction = if ($Kind -eq "ScheduledCycle") {
     "PostgreSQLBackupCycle"

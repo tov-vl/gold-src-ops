@@ -1779,14 +1779,45 @@ prematurely draining the durable alert backlog:
   source-event idempotency key and provider-neutral action envelope, does not
   follow redirects or read response bodies, and exposes only bounded
   secret-free metrics;
-- completed locally: nineteen real-PostgreSQL integration tests plus nine
+- completed locally: twenty-five real-PostgreSQL integration cases plus nine
   focused delivery tests cover ingestion, exact/conflicting duplicates,
   transition and provider ordering, concurrent races and claims, catch-up
   suppression, lease recovery, retry/restart durability, dead-letter blocking,
   migration upgrade compatibility, retention, transport classification,
   metrics, and fail-closed configuration;
-- next: add the container/deployment contract, backup coverage, isolated
-  restore rehearsal, and muted-provider compatibility proof;
+- completed locally: preserve valid recovery correlation across PostgreSQL's
+  microsecond precision boundary and a receiver restart, without modifying
+  source JSON or weakening exact event-level duplicate checks;
+- completed locally: add the independent non-root receiver image, exact
+  receiver migration bundle, file-backed secret entrypoint, fail-closed
+  standalone and `gso-control-01` co-location Compose contracts, resource
+  limits, and CI container smoke;
+- completed locally: give the dedicated receiver database a distinct encrypted
+  restic archive/tag namespace and prove both receiver migrations, a
+  suppressed CatchUp pair across restart, a `100%` repository check, isolated
+  restore, and idempotent migration reapplication;
+- completed locally: add a fail-closed muted-provider Compose overlay,
+  deployment preflight, and plan-first synthetic trial that keeps endpoint and
+  Bearer material in owner-controlled files outside Git and requires one
+  one-attempt `Trigger` followed by one one-attempt `Resolve` despite exact
+  duplicate source submissions;
+- completed: execute the isolated trial against the dedicated muted provider
+  route with ingestion statuses `202`, `204`, `202`, `204`, exactly one
+  one-attempt `Trigger`, exactly one one-attempt `Resolve`, and one resolved
+  provider group containing two ordered alerts;
+- completed: confirm the provider route had no escalation chain, involved no
+  users, produced no notification effect, and left the production queue
+  untouched; retain sanitized transport and provider observations outside Git;
+- selected: use the existing paid Selectel VDS `gso-control-01` for the first
+  persistent placement, reusing production Caddy and its edge network without
+  publishing a second ingress; this is process/data isolation, not a separate
+  failure domain or availability claim;
+- next: merge the deployment package, publish and independently verify the
+  receiver image (not covered by the API/Web publication jobs), and prepare the
+  distinct receiver DNS and owner-controlled environment;
+- then: deploy the receiver on `gso-control-01` in `CatchUp` mode with provider
+  delivery disabled and collect health, migration, resource, backup, and
+  isolated-restore evidence;
 - deferred: define and execute a muted historical catch-up for the existing
   recovered pair only after the adapter passes its own compatibility gate;
 - keep production delivery disabled until the compatibility result is reviewed
@@ -1796,8 +1827,9 @@ The repository contract, candidate comparison, direct-trial result, local
 adapter foundation, and provider-delivery core are recorded in
 `docs/v2.19-permanent-receiver-readiness.md`. The dedicated Grafana integration
 remains muted as evidence. No secret was stored; both receiver migrations are
-local and unapplied, the provider worker is configured off, and no identity,
-UI, game-host, production queue, or off-host runtime change was made.
+packaged and locally rehearsed but remain unapplied on the target, the persistent
+provider worker is configured off, and no identity, UI, game-host, production
+queue, or persistent receiver runtime change was made.
 
 ## Current API Scope
 

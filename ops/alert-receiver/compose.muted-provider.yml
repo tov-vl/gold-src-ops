@@ -1,0 +1,17 @@
+services:
+  receiver:
+    environment:
+      ProviderDelivery__Enabled: "true"
+      ProviderDelivery__MaxConcurrency: "1"
+      Receiver__Mode: Live
+    secrets:
+      - source: provider-endpoint
+        target: provider-endpoint
+      - source: provider-authorization
+        target: provider-authorization
+
+secrets:
+  provider-endpoint:
+    file: ${GOLDSRCOPS_ALERT_RECEIVER_PROVIDER_ENDPOINT_FILE:?Set GOLDSRCOPS_ALERT_RECEIVER_PROVIDER_ENDPOINT_FILE}
+  provider-authorization:
+    file: ${GOLDSRCOPS_ALERT_RECEIVER_PROVIDER_AUTHORIZATION_FILE:?Set GOLDSRCOPS_ALERT_RECEIVER_PROVIDER_AUTHORIZATION_FILE}
