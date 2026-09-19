@@ -128,6 +128,78 @@ public sealed class AvailabilityEventEndpointIntegrationTests(
         persisted.AllProviderActionsSuppressed.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData(2026, true, false)]
+    [InlineData(2026, true, true)]
+    [InlineData(2026, false, false)]
+    [InlineData(2026, false, true)]
+    [InlineData(1999, true, false)]
+    [InlineData(1999, true, true)]
+    [Trait("Category", "PostgreSqlIntegration")]
+    public async Task Submicrosecond_opening_recovers_after_restart_without_weakening_idempotency(
+        int year,
+        bool live,
+        bool usePersistedOpeningTime)
+    {
+        var mode = live ? ReceiverMode.Live : ReceiverMode.CatchUp;
+        var openedAt = new DateTimeOffset(year, 9, 18, 12, 0, 0, TimeSpan.Zero)
+            .AddTicks(1_234_567);
+        var unavailable = CreateUnavailable() with
+        {
+            OpenedAtUtc = openedAt,
+            OccurredAtUtc = openedAt,
+        };
+        DateTimeOffset persistedOpenedAt;
+
+        await using (var firstFactory = await AlertReceiverFactory.CreateAsync(
+            database.ConnectionString, mode))
+        {
+            using var firstClient = firstFactory.CreateClient();
+            using var opening = await SendAsync(firstClient, unavailable);
+            opening.StatusCode.Should().Be(HttpStatusCode.Accepted);
+            persistedOpenedAt = await firstFactory.ExecuteDbContextAsync(async db =>
+                (await db.Incidents.AsNoTracking().SingleAsync()).OpenedAtUtc);
+            persistedOpenedAt.Should().NotBe(openedAt);
+        }
+
+        await using var restarted = await AlertReceiverFactory.CreateAsync(
+            database.ConnectionString, mode);
+        using var client = restarted.CreateClient();
+        using var duplicate = await SendAsync(client, unavailable);
+        duplicate.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        using var changedDuplicate = await SendAsync(client, unavailable with
+        {
+            OpenedAtUtc = persistedOpenedAt,
+            OccurredAtUtc = persistedOpenedAt,
+        });
+        changedDuplicate.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        var recovered = CreateRecovered(unavailable with
+        {
+            OpenedAtUtc = usePersistedOpeningTime ? persistedOpenedAt : openedAt,
+        });
+        using var wrongIdentity = await SendAsync(client, CreateRecovered(unavailable with
+        {
+            OpenedAtUtc = persistedOpenedAt.AddTicks(TimeSpan.TicksPerMicrosecond),
+        }));
+        wrongIdentity.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        using var recovery = await SendAsync(client, recovered);
+        using var duplicateRecovery = await SendAsync(client, recovered);
+        recovery.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        duplicateRecovery.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var persisted = await ReadStateAsync(restarted);
+        persisted.Events.Should().Be(2);
+        persisted.Incidents.Should().Be(1);
+        persisted.IncidentState.Should().Be(ReceiverIncidentState.Resolved);
+        persisted.Outbox.Should().Be(mode == ReceiverMode.Live ? 2 : 0);
+        var payload = await restarted.ExecuteDbContextAsync(async db =>
+            (await db.ReceivedEvents.AsNoTracking()
+                .SingleAsync(x => x.Id == unavailable.EventId)).Payload);
+        JsonSerializer.Deserialize<AvailabilityEventRequest>(payload, JsonSerializerOptions.Web)
+            .Should().Be(unavailable);
+    }
+
     [Fact]
     [Trait("Category", "PostgreSqlIntegration")]
     public async Task Concurrent_exact_duplicates_create_one_event_and_one_provider_action()

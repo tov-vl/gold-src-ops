@@ -4,6 +4,9 @@ namespace GoldSrcOps.AlertReceiver.Persistence;
 
 internal sealed class ReceiverIncident
 {
+    private static readonly DateTimeOffset PostgresEpoch =
+        new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
     private ReceiverIncident()
     {
     }
@@ -57,7 +60,7 @@ internal sealed class ReceiverIncident
 
         if (request.ServerId != ServerId ||
             !string.Equals(request.ServerName, ServerName, StringComparison.Ordinal) ||
-            request.OpenedAtUtc != OpenedAtUtc ||
+            ToPostgresPrecision(request.OpenedAtUtc) != ToPostgresPrecision(OpenedAtUtc) ||
             request.ConsecutiveFailures != ConsecutiveFailures)
         {
             return "Recovery event does not match the recorded incident identity.";
@@ -71,6 +74,18 @@ internal sealed class ReceiverIncident
         Revision++;
 
         return null;
+    }
+
+    private static DateTimeOffset ToPostgresPrecision(DateTimeOffset value)
+    {
+        if (value == DateTimeOffset.MinValue || value == DateTimeOffset.MaxValue)
+        {
+            return value;
+        }
+
+        // Match Npgsql's microsecond truncation relative to 2000, including older dates.
+        var microseconds = (value.UtcTicks - PostgresEpoch.UtcTicks) / TimeSpan.TicksPerMicrosecond;
+        return PostgresEpoch.AddTicks(microseconds * TimeSpan.TicksPerMicrosecond);
     }
 }
 

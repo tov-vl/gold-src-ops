@@ -166,6 +166,14 @@ jobs:
           -EnvironmentFile ./ops/production/deployment.env.example
           -ContractOnly
 
+      - name: Validate AlertReceiver control-plane co-location contract
+        if: needs.change-scope.outputs.docs_only != 'true'
+        run: >-
+          pwsh -NoProfile -File ./ops/alert-receiver/control-plane-preflight.ps1
+          -ReceiverEnvironmentFile ./ops/alert-receiver/deployment.env.example
+          -ProductionEnvironmentFile ./ops/production/deployment.env.example
+          -ContractOnly
+
       - name: Validate image publication contract
         if: needs.change-scope.outputs.docs_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/image-publication.ps1
@@ -243,6 +251,10 @@ jobs:
       - name: Run Web container smoke test
         if: needs.change-scope.outputs.docs_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/web-container.ps1
+
+      - name: Run AlertReceiver container and restore smoke test
+        if: needs.change-scope.outputs.docs_only != 'true'
+        run: pwsh -NoProfile -File ./tools/smoke/alert-receiver-container.ps1
 
   browser-smoke:
     name: Browser Smoke

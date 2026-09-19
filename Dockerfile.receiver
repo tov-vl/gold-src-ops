@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1
+
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+
+ARG TARGETARCH
+ARG BUILD_CONFIGURATION=Release
+
+WORKDIR /source
+
+COPY --link .editorconfig Directory.Build.props dotnet-tools.json global.json ./
+COPY --link src/GoldSrcOps.Application/GoldSrcOps.Application.csproj src/GoldSrcOps.Application/
+COPY --link src/GoldSrcOps.Contracts/GoldSrcOps.Contracts.csproj src/GoldSrcOps.Contracts/
+COPY --link src/GoldSrcOps.Domain/GoldSrcOps.Domain.csproj src/GoldSrcOps.Domain/
+COPY --link src/GoldSrcOps.AlertReceiver/GoldSrcOps.AlertReceiver.csproj src/GoldSrcOps.AlertReceiver/
+
+RUN dotnet restore src/GoldSrcOps.AlertReceiver/GoldSrcOps.AlertReceiver.csproj -a $TARGETARCH \
+    && dotnet tool restore
+
+COPY --link src/ src/
+
+RUN dotnet publish src/GoldSrcOps.AlertReceiver/GoldSrcOps.AlertReceiver.csproj \
+    -a $TARGETARCH \
+    -c $BUILD_CONFIGURATION \
+    --no-restore \
+    -o /app/publish \
+    /p:UseAppHost=false \
+    && rm -f /app/publish/appsettings.Development.json /app/publish/appsettings.Local.json
+
+RUN case "$TARGETARCH" in \
+        amd64) migration_rid=linux-x64 ;; \
+        arm64) migration_rid=linux-arm64 ;; \
+        *) echo "Unsupported migration bundle architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+    && ConnectionStrings__AlertReceiver="Host=127.0.0.1;Database=goldsrcops_receiver;Username=goldsrcops_receiver" \
+        dotnet tool run dotnet-ef -- migrations bundle \
+        --project src/GoldSrcOps.AlertReceiver \
+        --startup-project src/GoldSrcOps.AlertReceiver \
+        --configuration $BUILD_CONFIGURATION \
+        --target-runtime "$migration_rid" \
+        --output /app/migrations/goldsrcops-alert-receiver-migrate
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
+ENV ASPNETCORE_HTTP_PORTS=8080 \
+    DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
+
+EXPOSE 8080
+
+WORKDIR /app
+COPY --link --from=build /app/publish .
+COPY --link --from=build /app/migrations/goldsrcops-alert-receiver-migrate /app/goldsrcops-alert-receiver-migrate
+COPY --link --chmod=0555 ops/alert-receiver/receiver-entrypoint.sh /app/receiver-entrypoint.sh
+
+RUN test -x /app/goldsrcops-alert-receiver-migrate \
+    && test -x /app/receiver-entrypoint.sh
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/live HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && read -r status <&3 && [[ \"$status\" == *\" 200 \"* ]]"]
+
+USER $APP_UID
+
+ENTRYPOINT ["/bin/sh", "/app/receiver-entrypoint.sh"]

@@ -28,3 +28,20 @@
 	import common
 	reverse_proxy web:8080
 }
+
+{$GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME} {
+	import common
+
+	@availability_events {
+		method POST
+		path /api/v1/availability-events
+	}
+
+	handle @availability_events {
+		reverse_proxy goldsrcops-alert-receiver:8080
+	}
+
+	handle {
+		respond 404
+	}
+}

@@ -21,6 +21,8 @@ public sealed class HttpProviderDeliveryChannelTests
         handler.RequestCount.Should().Be(1);
         handler.Authorization.Should().Be("Bearer test-secret");
         handler.IdempotencyKey.Should().Be(message.SourceEventId.ToString("D"));
+        handler.ContentType.Should().Be("application/json");
+        handler.ContentLength.Should().BeGreaterThan(0);
         using var body = JsonDocument.Parse(handler.Body!);
         body.RootElement.GetProperty("version").GetInt32().Should().Be(1);
         body.RootElement.GetProperty("action").GetString().Should().Be("Trigger");
@@ -89,6 +91,10 @@ public sealed class HttpProviderDeliveryChannelTests
 
         public string? IdempotencyKey { get; private set; }
 
+        public string? ContentType { get; private set; }
+
+        public long? ContentLength { get; private set; }
+
         public string? Body { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
@@ -98,6 +104,8 @@ public sealed class HttpProviderDeliveryChannelTests
             RequestCount++;
             Authorization = request.Headers.Authorization?.ToString();
             IdempotencyKey = request.Headers.GetValues("Idempotency-Key").Single();
+            ContentType = request.Content!.Headers.ContentType?.ToString();
+            ContentLength = request.Content.Headers.ContentLength;
             Body = await request.Content!.ReadAsStringAsync(cancellationToken);
             return new HttpResponseMessage(statusCode);
         }

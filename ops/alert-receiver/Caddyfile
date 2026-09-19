@@ -1,0 +1,16 @@
+{
+	email {$GOLDSRCOPS_ALERT_RECEIVER_ACME_EMAIL}
+	admin off
+}
+
+{$GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME} {
+	encode zstd gzip
+
+	@availability_events {
+		method POST
+		path /api/v1/availability-events
+	}
+	reverse_proxy @availability_events receiver:8080
+
+	respond 404
+}
