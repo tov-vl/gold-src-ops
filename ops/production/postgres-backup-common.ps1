@@ -8,6 +8,7 @@ $script:PostgresBackupRecoverableTag = "goldsrcops-postgresql-recoverable"
 $script:PostgresBackupWorkload = "ControlPlane"
 $script:PostgresBackupHostEnvironmentName = "GOLDSRCOPS_HOSTNAME"
 $script:PostgresBackupComposeDirectory = $PSScriptRoot
+$script:PostgresBackupPasswordSecretPath = "/run/secrets/postgres-password"
 
 function Set-PostgresBackupWorkload {
     param(
@@ -24,6 +25,7 @@ function Set-PostgresBackupWorkload {
             $script:PostgresBackupRecoverableTag = "goldsrcops-postgresql-recoverable"
             $script:PostgresBackupHostEnvironmentName = "GOLDSRCOPS_HOSTNAME"
             $script:PostgresBackupComposeDirectory = $PSScriptRoot
+            $script:PostgresBackupPasswordSecretPath = "/run/secrets/postgres-password"
         }
         "AlertReceiver" {
             $script:PostgresBackupArchiveName = "goldsrcops-alert-receiver-postgresql.dump"
@@ -31,6 +33,7 @@ function Set-PostgresBackupWorkload {
             $script:PostgresBackupRecoverableTag = "goldsrcops-alert-receiver-postgresql-recoverable"
             $script:PostgresBackupHostEnvironmentName = "GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME"
             $script:PostgresBackupComposeDirectory = Join-Path $PSScriptRoot "../alert-receiver"
+            $script:PostgresBackupPasswordSecretPath = "/run/secrets/receiver-postgres-password"
         }
     }
 }
