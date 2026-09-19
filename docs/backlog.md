@@ -1819,6 +1819,9 @@ prematurely draining the durable alert backlog:
 - next: publish and independently verify the receiver image from the frozen
   release candidate, then prepare the distinct receiver DNS and
   owner-controlled environment;
+- release gate: `v2.19.0-rc.1` is classified R3; the frozen inputs, migration
+  compatibility, dormant deployment sequence, recovery evidence, rollback, and
+  stop conditions are recorded in `docs/v2.19-readiness.md`;
 - then: deploy the receiver on `gso-control-01` in `CatchUp` mode with provider
   delivery disabled and collect health, migration, resource, backup, and
   isolated-restore evidence;
@@ -1829,11 +1832,13 @@ prematurely draining the durable alert backlog:
 
 The repository contract, candidate comparison, direct-trial result, local
 adapter foundation, and provider-delivery core are recorded in
-`docs/v2.19-permanent-receiver-readiness.md`. The dedicated Grafana integration
-remains muted as evidence. No secret was stored; both receiver migrations are
-packaged and locally rehearsed but remain unapplied on the target, the persistent
-provider worker is configured off, and no identity, UI, game-host, production
-queue, or persistent receiver runtime change was made.
+`docs/v2.19-permanent-receiver-readiness.md`; the release boundary is recorded
+in `docs/release-notes-v2.19.md` and `docs/v2.19-readiness.md`. The dedicated
+Grafana integration remains muted as evidence. No secret was stored; both
+receiver migrations are packaged and locally rehearsed but remain unapplied on
+the target, the persistent provider worker is configured off, and no identity,
+UI, game-host, production queue, or persistent receiver runtime change was
+made.
 
 ## Current API Scope
 
