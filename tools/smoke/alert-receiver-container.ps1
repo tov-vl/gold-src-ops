@@ -136,6 +136,7 @@ printf 'GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3
 read -r status <&3
 [[ "$status" == *" 200 "* ]]
 '@
+        $probeScript = $probeScript.Replace("`r", "")
         $result = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
             "exec", $receiverContainer,
             "bash", "-c", $probeScript) -AllowFailure
@@ -175,6 +176,7 @@ printf 'POST /api/v1/availability-events HTTP/1.1\r\nHost: localhost\r\nAuthoriz
 IFS= read -r status <&3
 printf '%s' "$status"
 '@
+    $script = $script.Replace("`r", "")
     $result = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
         "exec",
         "--env", "SMOKE_BODY=$Body",
