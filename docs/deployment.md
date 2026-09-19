@@ -32,6 +32,9 @@ The supported baseline consists of:
 - the immutable GoldSrcOps API image built from the repository `Dockerfile`;
 - the immutable GoldSrcOps Web image built from `Dockerfile.web` for v2.4 and
   later tags;
+- the independent immutable AlertReceiver image built from
+  `Dockerfile.receiver` for v2.19 and later tags when that runtime is part of
+  the release scope;
 - an external PostgreSQL database, with PostgreSQL 16 as the verified baseline;
 - an external OAuth 2.0 or OpenID Connect provider for bearer tokens;
 - an external TLS-terminating reverse proxy or ingress;
@@ -44,11 +47,12 @@ The supported baseline consists of:
   migration and receiver are ready;
 - a separate, serialized EF Core migration action before application rollout.
 
-Both images serve HTTP on container port `8080` and run as the non-root .NET
-image user. Neither contains the .NET SDK or Development configuration. The API
-image contains its migration bundle and has no built-in Docker `HEALTHCHECK`;
-the Web image contains only its published application and probes
-`/health/live` with its built-in health check.
+All three runtime images serve HTTP on container port `8080` and run as the
+non-root .NET image user. None contains the .NET SDK or Development
+configuration. The API image contains its migration bundle and has no built-in
+Docker `HEALTHCHECK`; the Web image contains only its published application and
+probes `/health/live`; the AlertReceiver image contains its separate migration
+bundle and probes `/health/live` without sharing the control-plane database.
 
 ## Publish And Version The Image
 
@@ -79,6 +83,14 @@ references use separate digests even though their OCI revision and version
 labels match. Stable Web publication promotes the matching candidate digest;
 it does not rebuild or publish a mutable `latest` tag.
 
+Starting with v2.19, the same tag also publishes and independently verifies the
+AlertReceiver image under
+`ghcr.io/tov-vl/gold-src-ops-alert-receiver`. Its deployment reference uses a
+third distinct digest. Published-digest verification runs the complete receiver
+container, dedicated PostgreSQL migration, encrypted-backup, and isolated-
+restore smoke without rebuilding the image. Stable AlertReceiver publication
+promotes the matching candidate digest and does not publish `latest`.
+
 An RC publication is a deployable candidate, not a stable project release. It
 does not publish `latest`, a stable alias, moving major or minor aliases, or a
 GitHub Release. If a later stable tag points at the same revision and has the
@@ -92,14 +104,16 @@ Candidate tags cannot reuse an already published revision. Stable promotion is
 allowed only when the revision image has matching source, full revision, MIT
 license, and strict RC version labels for the same base version. Existing exact
 tags are always rejected, and registry lookup failures fail closed. Registry
-write permission is scoped to this job. A separate
-`Verify Published Image` job has only package-read permission and runs repository
-smoke code against the published digest. OCI labels record the HTTPS source URL,
+write permission is scoped to each publication job. Separate published-image
+verification jobs have only package-read permission and run repository smoke
+code against each published digest. OCI labels record the HTTPS source URL,
 full Git revision, artifact version, and MIT license. The workflow summaries
-record the canonical deployment reference:
+record each canonical deployment reference:
 
 ```text
 ghcr.io/tov-vl/gold-src-ops@sha256:<digest>
+ghcr.io/tov-vl/gold-src-ops-web@sha256:<digest>
+ghcr.io/tov-vl/gold-src-ops-alert-receiver@sha256:<digest>
 ```
 
 Deploy only that digest. Tags are discovery metadata, not deployment identity.
@@ -478,6 +492,7 @@ Before publishing a candidate image, run:
 ```powershell
 pwsh -NoProfile -File .\tools\smoke\container.ps1
 pwsh -NoProfile -File .\tools\smoke\web-container.ps1
+pwsh -NoProfile -File .\tools\smoke\alert-receiver-container.ps1
 ```
 
 The protected `main` workflow requires `Quality Gate`, `Container Smoke`, and
@@ -489,10 +504,10 @@ startup, time, capacity, SSH, firewall, port exposure, and external dependency
 failures. The image smoke flow also verifies Production webhook HTTPS
 validation, enabled alert-dispatch startup, log safety, an encrypted PostgreSQL
 backup, a full repository data check, and an isolated restore through the same
-image-contained migration bundle. On a release tag,
-`Verify Published Image` then pulls the newly published artifact by digest and
-reruns the same smoke flow with exact OCI-label expectations. A production
-deployment still needs
+image-contained migration bundle. On a release tag, the API, Web, and
+AlertReceiver published-image jobs pull their newly published artifacts by
+digest and rerun the applicable smoke flow with exact OCI-label expectations.
+A production deployment still needs
 target-environment evidence for TLS, identity-provider metadata, database TLS,
 secret injection, webhook reachability, probe routing, and backup restoration;
 the repository smoke test cannot prove those external integrations.

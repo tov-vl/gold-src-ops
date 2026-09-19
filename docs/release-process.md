@@ -54,9 +54,9 @@ Freeze these inputs before publication work starts:
 | Release version | Stable and release-candidate tag names |
 | Candidate source | Exact reviewed commit reachable from `main` |
 | Change class | Highest applicable class from the risk table below |
-| Affected runtime | API, Web, database, workers, game host, or infrastructure |
+| Affected runtime | API, Web, AlertReceiver, database, workers, game host, or infrastructure |
 | Compatibility | Database, API, authentication, and mixed-version constraints |
-| Rollback | Previous known-good API and Web digests plus any separate recovery plan |
+| Rollback | Previous known-good digests for every affected runtime plus any separate recovery plan |
 | Evidence plan | Required repository and target-environment checks |
 | Claim boundary | What the release proves and what remains unverified |
 
@@ -91,7 +91,7 @@ following standard sequence:
    mergeable;
 4. creation, local verification, and push of signed annotated release-candidate
    and stable tags;
-5. publication and verification of immutable API and Web images;
+5. publication and verification of every immutable image in the frozen runtime scope;
 6. the reviewed digest-pinned rollout and bounded target checks;
 7. rollback of only the affected components to the recorded known-good digests
    when a documented gate fails;
@@ -150,8 +150,9 @@ Do not tag a moving branch or an unreviewed commit.
 
 1. Create and locally verify the signed annotated release-candidate tag at the
    frozen revision, then push that tag.
-2. Require the tag workflow to run the full repository gate and publish both
-   API and Web artifacts.
+2. Require the tag workflow to run the full repository gate and publish every
+   image in the frozen runtime scope. For v2.19 and later this includes the
+   AlertReceiver image when that runtime is affected.
 3. Require independent published-image smoke jobs and verify the source
    revision, OCI metadata, and immutable digest for each image.
 4. Record the candidate identity in the sanitized release record and the
@@ -183,7 +184,8 @@ For an R1 release, collect at least three healthy read-only samples spanning at
 least three minutes. Verify:
 
 - public API liveness and readiness plus Web health;
-- candidate version, source revision, and exact API and Web digests;
+- candidate version, source revision, and exact digests for every affected
+  runtime image;
 - no unexpected restart of changed or unchanged runtime components;
 - the changed read surface through an existing authorized session;
 - the relevant durable-queue, incident, command, A2S, bot, backup, and
@@ -202,10 +204,10 @@ pass.
    passed.
 2. Create and verify the signed annotated stable tag at the exact candidate
    revision, then push it.
-3. Require stable publication to promote the accepted API and Web candidate
-   digests without rebuilding.
-4. Verify both stable references resolve to those digests, published-image
-   smoke passes, and the GitHub Release is present.
+3. Require stable publication to promote every accepted candidate digest
+   without rebuilding.
+4. Verify every stable reference resolves to its accepted digest,
+   published-image smoke passes, and the GitHub Release is present.
 
 Never move or replace a published tag. Correct a released artifact with a new
 patch version.
@@ -278,7 +280,8 @@ their explicit rehearsal or recovery scope.
 - [ ] Product revision is reviewed and merged through protected `main`.
 - [ ] Version, risk class, compatibility, rollback, and claim boundary are
       frozen.
-- [ ] Signed candidate tag and API/Web digests are independently verified.
+- [ ] Signed candidate tag and every affected image digest are independently
+      verified.
 - [ ] Applicable production preflight and acceptance checks pass.
 - [ ] Stable tag promotes the exact accepted digests without rebuilding.
 - [ ] GitHub Release and published-image smoke are complete.
