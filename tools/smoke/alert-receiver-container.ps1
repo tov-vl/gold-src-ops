@@ -128,6 +128,7 @@ function Invoke-ReceiverSql {
 
 function Wait-ReceiverHealth {
     $deadline = [DateTimeOffset]::UtcNow.AddSeconds($StartupTimeoutSeconds)
+    $lastProbeOutput = "No readiness probe completed."
     while ([DateTimeOffset]::UtcNow -lt $deadline) {
         $probeScript = @'
 exec 3<>/dev/tcp/127.0.0.1/8080
@@ -138,6 +139,9 @@ read -r status <&3
         $result = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
             "exec", $receiverContainer,
             "bash", "-c", $probeScript) -AllowFailure
+        if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+            $lastProbeOutput = $result.Output
+        }
         if ($result.ExitCode -eq 0) {
             return
         }
@@ -151,7 +155,9 @@ read -r status <&3
         Start-Sleep -Seconds 1
     }
 
-    throw "AlertReceiver readiness did not pass in time."
+    $containerHealth = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
+        "inspect", "--format", "{{json .State.Health}}", $receiverContainer) -AllowFailure
+    throw "AlertReceiver readiness did not pass in time. Last probe: $lastProbeOutput Container health: $($containerHealth.Output)"
 }
 
 function Invoke-AvailabilityEvent {

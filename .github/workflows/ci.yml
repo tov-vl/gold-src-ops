@@ -254,7 +254,9 @@ jobs:
 
       - name: Run AlertReceiver container and restore smoke test
         if: needs.change-scope.outputs.docs_only != 'true'
-        run: pwsh -NoProfile -File ./tools/smoke/alert-receiver-container.ps1
+        run: >-
+          pwsh -NoProfile -File ./tools/smoke/alert-receiver-container.ps1
+          -StartupTimeoutSeconds 180
 
   browser-smoke:
     name: Browser Smoke
