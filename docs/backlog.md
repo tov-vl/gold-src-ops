@@ -1823,12 +1823,18 @@ prematurely draining the durable alert backlog:
   incorrectly treated the opening failure count as immutable; the sender was
   disabled, the recovery was preserved as a dead letter, and no provider work
   was created;
-- in progress: publish `v2.19.0-rc.3` with PostgreSQL regression coverage and a
+- completed: publish `v2.19.0-rc.3` with PostgreSQL regression coverage and a
   receiver correlation fix that accepts a nondecreasing final failure count,
   stores that final value, and still rejects a lower value without mutation;
-- next: deploy only the exact `rc.3` receiver digest, replay the preserved
+- completed: deploy only the exact `rc.3` receiver digest, replay the preserved
   recovery once through the guarded operator boundary, run exactly one bounded
-  sender dispatcher, and verify a resolved two-event CatchUp incident;
+  sender dispatcher, and verify a resolved two-event CatchUp incident with the
+  final failure count and zero provider work;
+- completed: return the source sender to disabled, retain the receiver in
+  `CatchUp`, verify public health, fresh reachable A2S with zero bots, empty
+  durable work, and unchanged control-plane/game-host continuity;
+- next: stop for a separate stable-promotion decision; sustained source
+  delivery and any provider canary remain separately gated;
 - keep the sender disabled outside that bounded reconciliation and keep
   provider delivery disabled until a separate provider canary is authorized.
 
@@ -1838,8 +1844,8 @@ adapter foundation, and provider-delivery core are recorded in
 in `docs/release-notes-v2.19.md` and `docs/v2.19-readiness.md`. The dedicated
 Grafana integration remains muted as evidence. No secret was stored; the
 dedicated receiver database and runtime are persistent, the source recovery is
-preserved for exact reconciliation, and the provider worker remains configured
-off. The compatibility remediation changes no identity, UI, game-host, schema,
+processed after one audited replay, and the provider worker remains configured
+off. The compatibility remediation changed no identity, UI, game-host, schema,
 or provider-delivery boundary.
 
 ## Current API Scope

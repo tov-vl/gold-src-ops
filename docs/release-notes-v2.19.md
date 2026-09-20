@@ -1,10 +1,11 @@
 # GoldSrcOps v2.19.0 Release Notes
 
-Status as of 2026-09-20: remediation candidate preparation. The durable
-receiver is deployed from signed `v2.19.0-rc.2` in `CatchUp` mode with provider
-delivery disabled. A bounded historical catch-up accepted the opening event
-but failed closed on its matching recovery. `v2.19.0-rc.3` will correct that
-compatibility defect before the preserved recovery is replayed once.
+Status as of 2026-09-20: `v2.19.0-rc.3` candidate acceptance passed; stable
+promotion remains a separate decision. The exact `rc.3` receiver image is
+deployed in `CatchUp` mode with provider delivery disabled. The preserved
+recovery was replayed once, processed by one bounded dispatcher, and resolved
+the receiver incident without creating provider work. The source sender is
+disabled again.
 
 ## Overview
 
@@ -84,9 +85,13 @@ guarded operator boundary, one bounded sender dispatch, a resolved receiver
 incident with two provider-suppressed events, and continuity of the existing
 control plane and game host.
 
-The `rc.2` dormant deployment and backup/restore boundary passed. The `rc.3`
-workflow, immutable digests, reconciliation evidence, and stable promotion
-will be recorded only after those gates actually pass.
+The `rc.2` dormant deployment and backup/restore boundary passed. The signed
+`rc.3` revision, required CI, three immutable image digests, receiver-only
+rollout, guarded replay, sender disablement, and independent continuity checks
+also passed. The accepted receiver state contains exactly two provider-muted
+CatchUp events, a resolved incident with final failure count `5`, and zero
+provider outbox records. Stable promotion is intentionally not implied by this
+candidate evidence.
 
 ## Known Limits
 
