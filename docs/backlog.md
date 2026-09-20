@@ -1840,20 +1840,31 @@ prematurely draining the durable alert backlog:
   API, Web, and AlertReceiver digests, and the
   [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.19.0)
   is published;
-- next: keep sustained source delivery and any provider canary separately
-  gated;
-- keep the sender disabled outside that bounded reconciliation and keep
-  provider delivery disabled until a separate provider canary is authorized.
+- completed: run one separately gated post-release provider canary through the
+  stable receiver; a fresh pair produced one ordered one-attempt `Trigger` and
+  one ordered one-attempt `Resolve`, and the owner confirmed receipt of one
+  email notification;
+- failed closed and preserved: an invalid placeholder authorization value
+  produced one HTTP `403` provider dead letter before the accepted pair; the
+  matching source recovery was reconciled in `CatchUp` without provider action
+  or direct database mutation, and the stale `Trigger` remains terminal rather
+  than being replayed after recovery;
+- next: add bounded provider-outbox inspection and audited reviewed disposition
+  while preserving the immutable historical failure;
+- keep the sender and provider worker disabled outside separately reviewed
+  operations until that operational boundary is available and sustained
+  activation is authorized.
 
 The repository contract, candidate comparison, direct-trial result, local
 adapter foundation, and provider-delivery core are recorded in
 `docs/v2.19-permanent-receiver-readiness.md`; the release boundary is recorded
-in `docs/release-notes-v2.19.md` and `docs/v2.19-readiness.md`. The dedicated
-Grafana integration remains muted as evidence. No secret was stored; the
-dedicated receiver database and runtime are persistent, the source recovery is
-processed after one audited replay, and the provider worker remains configured
-off. The compatibility remediation changed no identity, UI, game-host, schema,
-or provider-delivery boundary.
+in `docs/release-notes-v2.19.md` and `docs/v2.19-readiness.md`; the separate
+live-provider evidence is recorded in `docs/v2.19-provider-canary.md`. No secret
+was stored; the dedicated receiver database and runtime are persistent, the
+source recovery is processed after one audited replay, the bounded provider
+pair is terminal, and both delivery workers are configured off. The
+compatibility remediation and later canary changed no identity, UI, game-host,
+schema, or published-artifact boundary.
 
 ## Current API Scope
 
@@ -2114,7 +2125,8 @@ The repository-side portfolio closure package is complete:
   read-only recording sequence with explicit claim and data-safety boundaries;
 - `docs/postmortem-controlled-recovery.md` records the sanitized controlled
   failure/recovery timeline, impact, successful safeguards, limits, and the
-  remaining permanent-receiver gate.
+  then-remaining permanent-receiver gate. That gate and its separate bounded
+  provider canary were later completed in v2.19.
 
 Recording the short video from that script remains a presentation action, not a
 product or release gate. It requires no production mutation or new release.
