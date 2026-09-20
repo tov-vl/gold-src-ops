@@ -61,13 +61,14 @@ internal sealed class ReceiverIncident
         if (request.ServerId != ServerId ||
             !string.Equals(request.ServerName, ServerName, StringComparison.Ordinal) ||
             ToPostgresPrecision(request.OpenedAtUtc) != ToPostgresPrecision(OpenedAtUtc) ||
-            request.ConsecutiveFailures != ConsecutiveFailures)
+            request.ConsecutiveFailures < ConsecutiveFailures)
         {
             return "Recovery event does not match the recorded incident identity.";
         }
 
         State = ReceiverIncidentState.Resolved;
         ClosedAtUtc = request.ClosedAtUtc;
+        ConsecutiveFailures = request.ConsecutiveFailures;
         ResolutionReason = request.Reason;
         LastEventId = request.EventId;
         LastEventAtUtc = request.OccurredAtUtc;
