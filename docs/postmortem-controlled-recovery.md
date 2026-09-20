@@ -81,15 +81,19 @@ Completed:
 - the first complete `API-01` seven-day window was evaluated independently;
 - stable releases use verified candidate digests rather than rebuilding.
 
-Still required before delivery activation:
+Subsequent closure:
 
-- implement the durable adapter selected after the direct Grafana Cloud IRM
-  trial failed duplicate and recovery correlation, as recorded in
-  `docs/v2.19-permanent-receiver-readiness.md`;
-- prove deduplication by event ID and chronological handling of unavailable and
-  recovered events;
-- perform a separately reviewed one-dispatcher canary without deleting or
-  reclassifying pending records.
+- v2.19 implemented the durable adapter selected after the direct Grafana
+  Cloud IRM trial, including event-level idempotency and chronological
+  unavailable/recovered handling;
+- muted catch-up reconciled the preserved historical recovery without deleting
+  or reclassifying source records;
+- a separately reviewed post-release canary delivered one fresh ordered
+  `Trigger` and `Resolve` pair and one owner-confirmed email, then returned both
+  delivery workers to disabled;
+- one failed HTTP `403` provider attempt remains immutable historical evidence
+  pending a reviewed disposition boundary. Sustained unattended delivery is
+  still a separate gate.
 
 ## Evidence
 
@@ -98,6 +102,7 @@ Still required before delivery activation:
 - `docs/release-notes-v2.3.md`, published release claim.
 - `docs/alert-delivery.md`, delivery and re-enablement contract.
 - `docs/v2.18-readiness.md`, current pending-delivery Reader boundary.
+- `docs/v2.19-provider-canary.md`, bounded live-provider evidence and limits.
 
 Raw target evidence remains owner-only outside Git. This document contains only
 the sanitized facts already recorded in the repository.

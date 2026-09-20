@@ -1380,5 +1380,13 @@ Grafana IRM integration accepted four synthetic payloads but created two
 independent firing groups for the duplicated unavailable event and two
 independent resolved groups for the recovery and its duplicate. The direct path
 therefore failed hard gates 1 through 3, and the thin durable adapter is now the
-selected next boundary. No credential was stored, no user was notified, the
-production backlog was untouched, and alert delivery remains disabled.
+selected boundary.
+
+The adapter was subsequently implemented and accepted as stable v2.19. On
+2026-09-20, a separately gated post-release canary delivered one fresh ordered
+`Trigger` and `Resolve` pair through the adapter and Grafana Cloud IRM, and the
+owner confirmed one email notification. An earlier invalid-authorization
+attempt failed closed as one retained HTTP `403` dead letter; it was not
+retried, deleted, or reclassified. Both delivery workers were disabled again.
+The sanitized sequence and claim limits are recorded in
+`docs/v2.19-provider-canary.md`.
