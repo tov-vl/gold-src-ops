@@ -129,6 +129,56 @@ public sealed class AvailabilityEventEndpointIntegrationTests(
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Category", "PostgreSqlIntegration")]
+    public async Task Recovery_accepts_increased_failure_count_and_persists_final_value(bool live)
+    {
+        var mode = live ? ReceiverMode.Live : ReceiverMode.CatchUp;
+        await using var factory = await AlertReceiverFactory.CreateAsync(
+            database.ConnectionString,
+            mode);
+        using var client = factory.CreateClient();
+        var unavailable = CreateUnavailable();
+        var recovered = CreateRecovered(unavailable) with { ConsecutiveFailures = 5 };
+
+        using var opening = await SendAsync(client, unavailable);
+        using var recovery = await SendAsync(client, recovered);
+
+        opening.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        recovery.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        var persisted = await ReadStateAsync(factory);
+        persisted.Events.Should().Be(2);
+        persisted.IncidentState.Should().Be(ReceiverIncidentState.Resolved);
+        persisted.Outbox.Should().Be(live ? 2 : 0);
+        var finalFailureCount = await factory.ExecuteDbContextAsync(async dbContext =>
+            (await dbContext.Incidents.AsNoTracking().SingleAsync()).ConsecutiveFailures);
+        finalFailureCount.Should().Be(5);
+    }
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
+    public async Task Recovery_rejects_decreased_failure_count_without_mutation()
+    {
+        await using var factory = await AlertReceiverFactory.CreateAsync(
+            database.ConnectionString,
+            ReceiverMode.CatchUp);
+        using var client = factory.CreateClient();
+        var unavailable = CreateUnavailable() with { ConsecutiveFailures = 5 };
+        var recovered = CreateRecovered(unavailable) with { ConsecutiveFailures = 4 };
+
+        using var opening = await SendAsync(client, unavailable);
+        using var recovery = await SendAsync(client, recovered);
+
+        opening.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        recovery.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var persisted = await ReadStateAsync(factory);
+        persisted.Events.Should().Be(1);
+        persisted.IncidentState.Should().Be(ReceiverIncidentState.Open);
+        persisted.Outbox.Should().Be(0);
+    }
+
+    [Theory]
     [InlineData(2026, true, false)]
     [InlineData(2026, true, true)]
     [InlineData(2026, false, false)]

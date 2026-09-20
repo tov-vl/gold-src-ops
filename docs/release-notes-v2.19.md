@@ -1,9 +1,10 @@
 # GoldSrcOps v2.19.0 Release Notes
 
-Status as of 2026-09-19: release candidate preparation. Repository
-implementation and deployment contracts are integrated; candidate publication,
-the first persistent CatchUp deployment, production acceptance, and stable
-promotion remain pending.
+Status as of 2026-09-20: remediation candidate preparation. The durable
+receiver is deployed from signed `v2.19.0-rc.2` in `CatchUp` mode with provider
+delivery disabled. A bounded historical catch-up accepted the opening event
+but failed closed on its matching recovery. `v2.19.0-rc.3` will correct that
+compatibility defect before the preserved recovery is replayed once.
 
 ## Overview
 
@@ -36,6 +37,8 @@ delivery remain disabled during the first CatchUp deployment.
   restore/migration rehearsal support for the receiver database.
 - Immutable candidate/stable publication and independent digest verification
   for the receiver image alongside the existing API and Web artifacts.
+- Recovery correlation that preserves strict incident identity while accepting
+  the source incident's nondecreasing final failure count.
 
 ## Data And Security Boundary
 
@@ -56,9 +59,12 @@ configuration is missing.
   Operator roles, game host, and event producer are unchanged.
 - The receiver migrations apply only to its dedicated database. Ordinary
   runtime startup does not apply them.
-- The first rollout uses `CatchUp` mode with provider delivery disabled and
-  does not consume, replay, delete, or reclassify the existing production
-  alert-outbox pair.
+- The first rollout uses `CatchUp` mode with provider delivery disabled. Its
+  bounded historical opening was accepted and provider-suppressed; the matching
+  recovery was preserved as a source dead letter after a fail-closed `409`.
+- The `rc.3` fix changes no schema or public request shape. It accepts a recovery
+  failure count equal to or greater than the opening value, stores the final
+  value, and continues to reject a lower value without mutation.
 - Rollback removes the receiver route and stops the receiver boundary while
   preserving its dedicated database and encrypted backup evidence. Existing
   API and Web digests remain the known-good control-plane boundary.
@@ -72,20 +78,22 @@ published-digest smoke, exact OCI identity, both receiver migrations,
 idempotent ingestion across restart, encrypted backup with a `100%` repository
 check, and an isolated restore with migration reapplication.
 
-Target acceptance additionally requires a digest-pinned CatchUp deployment on
-`gso-control-01`, exact route and authorization checks, health and resource
-evidence, dedicated database backup/restore evidence, and continuity of the
-existing control plane, game host, and unchanged production pending pair.
+Target acceptance additionally requires a digest-pinned `rc.3` receiver-only
+update on `gso-control-01`, exact replay of the preserved recovery through the
+guarded operator boundary, one bounded sender dispatch, a resolved receiver
+incident with two provider-suppressed events, and continuity of the existing
+control plane and game host.
 
-Candidate workflow, immutable digests, target evidence, and stable promotion
-will be recorded after those gates actually pass.
+The `rc.2` dormant deployment and backup/restore boundary passed. The `rc.3`
+workflow, immutable digests, reconciliation evidence, and stable promotion
+will be recorded only after those gates actually pass.
 
 ## Known Limits
 
 - Co-location does not survive loss or maintenance of `gso-control-01`.
-- Candidate acceptance does not prove human notification, escalation,
-  historical catch-up, rate-limit behavior, paging reliability, long-term
-  reliability, or an achieved SLO.
+- Candidate acceptance does not prove human notification, escalation, sustained
+  live delivery, rate-limit behavior, paging reliability, long-term reliability,
+  or an achieved SLO.
 - Provider delivery remains disabled until a separately reviewed catch-up and
   one-dispatcher canary complete.
 - A healthy receiver does not by itself prove the control-plane sender is

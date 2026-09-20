@@ -1813,32 +1813,34 @@ prematurely draining the durable alert backlog:
   publishing a second ingress; this is process/data isolation, not a separate
   failure domain or availability claim;
 - completed: merge the reviewed receiver deployment package;
-- in progress: add dedicated immutable AlertReceiver image publication and
-  independent digest/OCI/container/recovery verification to the release
-  workflow;
-- next: publish and independently verify the receiver image from the frozen
-  release candidate, then prepare the distinct receiver DNS and
-  owner-controlled environment;
-- release gate: `v2.19.0-rc.1` is classified R3; the frozen inputs, migration
-  compatibility, dormant deployment sequence, recovery evidence, rollback, and
-  stop conditions are recorded in `docs/v2.19-readiness.md`;
-- then: deploy the receiver on `gso-control-01` in `CatchUp` mode with provider
-  delivery disabled and collect health, migration, resource, backup, and
-  isolated-restore evidence;
-- deferred: define and execute a muted historical catch-up for the existing
-  recovered pair only after the adapter passes its own compatibility gate;
-- keep production delivery disabled until the compatibility result is reviewed
-  and a separate one-dispatcher canary is authorized.
+- completed: publish and independently verify the immutable AlertReceiver image
+  alongside API and Web artifacts;
+- completed: deploy signed `v2.19.0-rc.2` on `gso-control-01` in `CatchUp` mode
+  with provider delivery disabled, and pass the bounded health, migration,
+  resource, backup, restore, and continuity evidence;
+- failed closed: the bounded historical catch-up accepted and suppressed the
+  opening event, then rejected the matching recovery because the receiver
+  incorrectly treated the opening failure count as immutable; the sender was
+  disabled, the recovery was preserved as a dead letter, and no provider work
+  was created;
+- in progress: publish `v2.19.0-rc.3` with PostgreSQL regression coverage and a
+  receiver correlation fix that accepts a nondecreasing final failure count,
+  stores that final value, and still rejects a lower value without mutation;
+- next: deploy only the exact `rc.3` receiver digest, replay the preserved
+  recovery once through the guarded operator boundary, run exactly one bounded
+  sender dispatcher, and verify a resolved two-event CatchUp incident;
+- keep the sender disabled outside that bounded reconciliation and keep
+  provider delivery disabled until a separate provider canary is authorized.
 
 The repository contract, candidate comparison, direct-trial result, local
 adapter foundation, and provider-delivery core are recorded in
 `docs/v2.19-permanent-receiver-readiness.md`; the release boundary is recorded
 in `docs/release-notes-v2.19.md` and `docs/v2.19-readiness.md`. The dedicated
-Grafana integration remains muted as evidence. No secret was stored; both
-receiver migrations are packaged and locally rehearsed but remain unapplied on
-the target, the persistent provider worker is configured off, and no identity,
-UI, game-host, production queue, or persistent receiver runtime change was
-made.
+Grafana integration remains muted as evidence. No secret was stored; the
+dedicated receiver database and runtime are persistent, the source recovery is
+preserved for exact reconciliation, and the provider worker remains configured
+off. The compatibility remediation changes no identity, UI, game-host, schema,
+or provider-delivery boundary.
 
 ## Current API Scope
 
