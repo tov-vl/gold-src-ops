@@ -1,11 +1,12 @@
 # GoldSrcOps v2.19.0 Release Notes
 
-Status as of 2026-09-20: `v2.19.0-rc.3` candidate acceptance passed; stable
-promotion remains a separate decision. The exact `rc.3` receiver image is
-deployed in `CatchUp` mode with provider delivery disabled. The preserved
-recovery was replayed once, processed by one bounded dispatcher, and resolved
-the receiver incident without creating provider work. The source sender is
-disabled again.
+Status as of 2026-09-20: stable `v2.19.0` is published from the accepted
+`v2.19.0-rc.3` revision. Stable API, Web, and AlertReceiver references reuse
+the accepted candidate digests without rebuilding. The exact `rc.3` receiver
+image remains deployed in `CatchUp` mode with provider delivery disabled. The
+preserved recovery was replayed once, processed by one bounded dispatcher, and
+resolved the receiver incident without creating provider work. The source
+sender is disabled again.
 
 ## Overview
 
@@ -90,8 +91,17 @@ The `rc.2` dormant deployment and backup/restore boundary passed. The signed
 rollout, guarded replay, sender disablement, and independent continuity checks
 also passed. The accepted receiver state contains exactly two provider-muted
 CatchUp events, a resolved incident with final failure count `5`, and zero
-provider outbox records. Stable promotion is intentionally not implied by this
-candidate evidence.
+provider outbox records.
+
+Signed stable tag `v2.19.0` targets the exact accepted revision. Stable workflow
+[#35523842242](https://github.com/tov-vl/gold-src-ops/actions/runs/35523842242)
+skipped all three image-build steps, promoted the accepted API, Web, and
+AlertReceiver digests, and independently smoke-tested each published digest.
+The first two attempts stopped before publication on transient Docker Hub
+authentication connection resets; a bounded failed-job retry passed without a
+tag replacement or rebuild. The stable
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.19.0)
+is published.
 
 ## Known Limits
 
