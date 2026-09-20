@@ -1752,7 +1752,7 @@ promoted and verified both accepted digests without rebuilding, and the
 is published. See `docs/release-notes-v2.18.md` and
 `docs/v2.18-readiness.md` for the bounded claim and anomaly record.
 
-## In-Progress v2.19 Milestone: Permanent Receiver Readiness
+## Completed v2.19 Milestone: Permanent Receiver Readiness
 
 The product/operations slice closes the receiver-selection gate without
 prematurely draining the durable alert backlog:
@@ -1833,8 +1833,15 @@ prematurely draining the durable alert backlog:
 - completed: return the source sender to disabled, retain the receiver in
   `CatchUp`, verify public health, fresh reachable A2S with zero bots, empty
   durable work, and unchanged control-plane/game-host continuity;
-- next: stop for a separate stable-promotion decision; sustained source
-  delivery and any provider canary remain separately gated;
+- completed: publish signed stable `v2.19.0` from the exact accepted `rc.3`
+  revision; stable workflow
+  [#35523842242](https://github.com/tov-vl/gold-src-ops/actions/runs/35523842242)
+  skipped all three builds, promoted and independently verified the accepted
+  API, Web, and AlertReceiver digests, and the
+  [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.19.0)
+  is published;
+- next: keep sustained source delivery and any provider canary separately
+  gated;
 - keep the sender disabled outside that bounded reconciliation and keep
   provider delivery disabled until a separate provider canary is authorized.
 
