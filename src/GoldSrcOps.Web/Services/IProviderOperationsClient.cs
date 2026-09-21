@@ -6,6 +6,9 @@ internal interface IProviderOperationsClient
 {
     bool IsEnabled { get; }
 
+    Task<ProviderDeliveryStatusResponse> GetStatusAsync(
+        CancellationToken cancellationToken = default);
+
     Task<ProviderDeadLetterListResponse> GetDeadLettersAsync(
         string? cursor,
         int limit,

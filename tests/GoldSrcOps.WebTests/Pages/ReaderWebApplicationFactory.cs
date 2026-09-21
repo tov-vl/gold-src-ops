@@ -1100,6 +1100,15 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 
         public bool IncludeExistingReview { get; set; }
 
+        public ProviderDeliveryStatusResponse Status { get; set; } = new(
+            false,
+            2,
+            0,
+            1,
+            1,
+            ObservedAtUtc.AddHours(-2),
+            ObservedAtUtc);
+
         public int ReviewCallCount => Volatile.Read(ref reviewCallCount);
 
         public Guid? LastMessageId { get; private set; }
@@ -1115,6 +1124,10 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             CreateReview(ProviderReviewRequestId));
 
         public Exception? ReviewExceptionToThrow { get; set; }
+
+        public Task<ProviderDeliveryStatusResponse> GetStatusAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Status);
 
         public Task<ProviderDeadLetterListResponse> GetDeadLettersAsync(
             string? cursor,

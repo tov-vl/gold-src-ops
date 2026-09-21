@@ -8,16 +8,38 @@ namespace GoldSrcOps.WebTests.Pages;
 
 public sealed class OperatorProviderReviewWorkflowIntegrationTests
 {
-    [Fact]
-    public async Task Reader_cannot_open_provider_operations_pages()
+    [Theory]
+    [InlineData("/operator/provider-delivery")]
+    [InlineData("/operator/provider-delivery/dead-letters")]
+    public async Task Reader_cannot_open_provider_operations_pages(string path)
     {
         await using var factory = new ReaderWebApplicationFactory();
         using var client = CreateNonRedirectingClient(factory);
 
-        using var response = await client.GetAsync("/operator/provider-delivery/dead-letters");
+        using var response = await client.GetAsync(path);
 
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
         response.Headers.Location.Should().Be(new Uri("/auth/forbidden", UriKind.Relative));
+    }
+
+    [Fact]
+    public async Task Operator_can_view_provider_delivery_overview_without_mutation_controls()
+    {
+        await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/operator/provider-delivery");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Some provider messages remain terminal");
+        body.Should().Contain("Delivery worker");
+        body.Should().Contain("Disabled");
+        body.Should().Contain("Awaiting review");
+        body.Should().Contain("Review provider dead letters");
+        body.Should().Contain("cannot retry, replay, delete, reclassify, unblock, or enable");
+        body.Should().NotContain("Authorization");
+        body.Should().NotContain("Record review");
     }
 
     [Fact]

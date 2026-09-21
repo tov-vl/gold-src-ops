@@ -12,6 +12,31 @@ public sealed class ProviderOperationsClientTests
     private static readonly Guid RequestId = Guid.Parse("72dd41ca-10a8-4108-b678-18fe290afee5");
 
     [Fact]
+    public async Task GetStatusAsync_reads_provider_delivery_snapshot()
+    {
+        var status = new ProviderDeliveryStatusResponse(
+            false,
+            2,
+            0,
+            1,
+            1,
+            new DateTimeOffset(2026, 9, 21, 11, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 9, 21, 12, 0, 0, TimeSpan.Zero));
+        var handler = new CaptureHandler(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(status)
+        });
+        var client = CreateClient(handler);
+
+        var result = await client.GetStatusAsync();
+
+        result.Should().Be(status);
+        handler.Method.Should().Be(HttpMethod.Get);
+        handler.RequestUri.Should().Be(new Uri(
+            "https://receiver.example.test/internal/v1/provider-delivery/status"));
+    }
+
+    [Fact]
     public async Task GetDeadLettersAsync_uses_bounded_escaped_query()
     {
         var page = new ProviderDeadLetterListResponse(25, null, []);

@@ -29,9 +29,11 @@ public sealed class ProviderDeliveryOperationsEndpointIntegrationTests(
 
     public Task DisposeAsync() => Task.CompletedTask;
 
-    [Fact]
+    [Theory]
+    [InlineData("/internal/v1/provider-delivery/status")]
+    [InlineData("/internal/v1/provider-delivery/dead-letters")]
     [Trait("Category", "PostgreSqlIntegration")]
-    public async Task Disabled_operations_surface_is_hidden()
+    public async Task Disabled_operations_surface_is_hidden(string path)
     {
         await using var factory = await AlertReceiverFactory.CreateAsync(
             database.ConnectionString,
@@ -40,13 +42,75 @@ public sealed class ProviderDeliveryOperationsEndpointIntegrationTests(
         using var client = factory.CreateClient();
         using var request = CreateOperationsRequest(
             HttpMethod.Get,
-            "/internal/v1/provider-delivery/dead-letters");
+            path);
 
         using var response = await client.SendAsync(request);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await response.Content.ReadAsStringAsync())
             .Should().NotContain(AlertReceiverFactory.OperationsAuthorization);
+    }
+
+    [Fact]
+    [Trait("Category", "PostgreSqlIntegration")]
+    public async Task Status_is_bounded_sanitized_and_reports_review_workload()
+    {
+        await using var factory = await AlertReceiverFactory.CreateAsync(
+            database.ConnectionString,
+            ReceiverMode.Live);
+        using var client = factory.CreateClient();
+        var reviewed = await CreateDeadLetterAsync(
+            factory,
+            client,
+            DateTimeOffset.UtcNow.AddMinutes(10),
+            "Reviewed synthetic provider failure.");
+        await CreateDeadLetterAsync(
+            factory,
+            client,
+            DateTimeOffset.UtcNow.AddMinutes(11),
+            "Unreviewed synthetic provider failure.");
+        var pending = CreateUnavailable();
+        using (var pendingResponse = await SendAvailabilityAsync(client, pending))
+        {
+            pendingResponse.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        }
+        var expectedOldestPendingAtUtc = await factory.ExecuteDbContextAsync(dbContext =>
+            dbContext.ProviderOutboxMessages
+                .Where(message => message.Status == ProviderOutboxStatus.Pending)
+                .Select(message => message.CreatedAtUtc)
+                .SingleAsync());
+
+        using (var reviewRequest = CreateReviewRequest(
+            reviewed.MessageId,
+            Guid.NewGuid(),
+            new ProviderDeadLetterReviewRequest("operator-42", "Reviewed for status snapshot.")))
+        using (var reviewResponse = await client.SendAsync(reviewRequest))
+        {
+            reviewResponse.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        }
+
+        using var request = CreateOperationsRequest(
+            HttpMethod.Get,
+            "/internal/v1/provider-delivery/status");
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+        var status = JsonSerializer.Deserialize<ProviderDeliveryStatusResponse>(
+            body,
+            JsonSerializerOptions.Web);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        status.Should().NotBeNull();
+        status!.IsEnabled.Should().BeFalse();
+        status.PendingCount.Should().Be(1);
+        status.ProcessingCount.Should().Be(0);
+        status.DeadLetterCount.Should().Be(2);
+        status.UnreviewedDeadLetterCount.Should().Be(1);
+        status.OldestPendingAtUtc.Should().Be(expectedOldestPendingAtUtc);
+        status.ObservedAtUtc.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1));
+        body.Should().NotContain("\"payload\"");
+        body.Should().NotContain("\"failureSummary\"");
+        body.Should().NotContain(AlertReceiverFactory.Authorization);
+        body.Should().NotContain(AlertReceiverFactory.OperationsAuthorization);
     }
 
     [Fact]

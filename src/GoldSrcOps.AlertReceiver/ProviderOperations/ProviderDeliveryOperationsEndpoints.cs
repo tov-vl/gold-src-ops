@@ -16,6 +16,8 @@ internal static class ProviderDeliveryOperationsEndpoints
         var group = endpoints.MapGroup("/internal/v1/provider-delivery")
             .WithTags("Provider Delivery Operations");
 
+        group.MapGet("/status", GetStatusAsync)
+            .WithName("GetProviderDeliveryStatus");
         group.MapGet("/dead-letters", ListDeadLettersAsync)
             .WithName("ListProviderDeadLetters");
         group.MapGet("/dead-letters/{messageId:guid}", GetDeadLetterAsync)
@@ -27,6 +29,21 @@ internal static class ProviderDeliveryOperationsEndpoints
             .WithName("GetProviderDeadLetterReview");
 
         return endpoints;
+    }
+
+    private static async Task<IResult> GetStatusAsync(
+        HttpRequest httpRequest,
+        ProviderOperationsAuthorization authorization,
+        ProviderDeliveryOperationsService operations,
+        CancellationToken cancellationToken)
+    {
+        var authorizationFailure = Authorize(httpRequest, authorization);
+        if (authorizationFailure is not null)
+        {
+            return authorizationFailure;
+        }
+
+        return Results.Ok(await operations.GetStatusAsync(cancellationToken));
     }
 
     private static async Task<IResult> ListDeadLettersAsync(
