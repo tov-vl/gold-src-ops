@@ -550,12 +550,17 @@ The project should evolve in stages:
   immutable. Its Operator BFF/UI, disabled-by-default deployment boundary,
   one-review production acceptance, and stable publication are complete;
   provider delivery remains disabled.
-- The active v2.21 slice adds an Operator-only provider-delivery overview over
+- v2.21 adds an Operator-only provider-delivery overview over
   the existing receiver outbox. It exposes only worker configuration, bounded
   queue counts, review workload, oldest-pending time, and observation time
   through the private server-side operations boundary. It adds no migration,
   delivery activation, provider mutation, public route, identity change, or
   game-host change.
+- The active v2.22 slice composes source alert delivery, receiver mode, and
+  provider delivery into one read-only Operator readiness view. It identifies
+  safely paused, partially active, action-required, and live chain states while
+  preserving the separate authorization boundary and exposing no secret or
+  delivery mutation.
 - Sandbox entitlements may follow; real payments remain explicitly out of
   scope until then.
 - Optional service extraction or a broker only if observed scaling, ownership,

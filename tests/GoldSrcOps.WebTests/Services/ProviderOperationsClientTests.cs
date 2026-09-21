@@ -16,6 +16,7 @@ public sealed class ProviderOperationsClientTests
     {
         var status = new ProviderDeliveryStatusResponse(
             false,
+            "CatchUp",
             2,
             0,
             1,

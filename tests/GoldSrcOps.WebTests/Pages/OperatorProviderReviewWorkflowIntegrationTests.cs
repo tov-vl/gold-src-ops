@@ -1,5 +1,7 @@
 using System.Net;
 using AwesomeAssertions;
+using GoldSrcOps.Contracts.Alerts;
+using GoldSrcOps.Contracts.ProviderDelivery;
 using GoldSrcOps.Web.Security;
 using GoldSrcOps.Web.Services;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -33,6 +35,11 @@ public sealed class OperatorProviderReviewWorkflowIntegrationTests
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         body.Should().Contain("Some provider messages remain terminal");
+        body.Should().Contain("End-to-end readiness");
+        body.Should().Contain("Control-plane sender");
+        body.Should().Contain("Receiver mode");
+        body.Should().Contain("CatchUp");
+        body.Should().Contain("Action required");
         body.Should().Contain("Delivery worker");
         body.Should().Contain("Disabled");
         body.Should().Contain("Awaiting review");
@@ -40,6 +47,100 @@ public sealed class OperatorProviderReviewWorkflowIntegrationTests
         body.Should().Contain("cannot retry, replay, delete, reclassify, unblock, or enable");
         body.Should().NotContain("Authorization");
         body.Should().NotContain("Record review");
+    }
+
+    [Fact]
+    public async Task Delivery_chain_distinguishes_safely_paused_state()
+    {
+        var observedAtUtc = new DateTimeOffset(2026, 9, 21, 14, 0, 0, TimeSpan.Zero);
+        await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
+        factory.ReaderApiClient.AlertDeliveryStatus = new AlertDeliveryStatusResponse(
+            false,
+            0,
+            0,
+            0,
+            null,
+            observedAtUtc);
+        factory.ProviderOperationsClient.Status = new ProviderDeliveryStatusResponse(
+            false,
+            "CatchUp",
+            0,
+            0,
+            0,
+            0,
+            null,
+            observedAtUtc);
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/operator/provider-delivery");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Safely paused");
+        body.Should().Contain("The complete delivery chain is intentionally paused");
+    }
+
+    [Fact]
+    public async Task Delivery_chain_distinguishes_live_state()
+    {
+        var observedAtUtc = new DateTimeOffset(2026, 9, 21, 14, 0, 0, TimeSpan.Zero);
+        await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
+        factory.ReaderApiClient.AlertDeliveryStatus = new AlertDeliveryStatusResponse(
+            true,
+            0,
+            0,
+            0,
+            null,
+            observedAtUtc);
+        factory.ProviderOperationsClient.Status = new ProviderDeliveryStatusResponse(
+            true,
+            "Live",
+            0,
+            0,
+            0,
+            0,
+            null,
+            observedAtUtc);
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/operator/provider-delivery");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("The complete delivery chain is active");
+        body.Should().Contain("New source events can create provider work");
+    }
+
+    [Fact]
+    public async Task Delivery_chain_fails_closed_when_receiver_mode_is_unavailable()
+    {
+        var observedAtUtc = new DateTimeOffset(2026, 9, 21, 14, 0, 0, TimeSpan.Zero);
+        await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
+        factory.ReaderApiClient.AlertDeliveryStatus = new AlertDeliveryStatusResponse(
+            false,
+            0,
+            0,
+            0,
+            null,
+            observedAtUtc);
+        factory.ProviderOperationsClient.Status = new ProviderDeliveryStatusResponse(
+            false,
+            string.Empty,
+            0,
+            0,
+            0,
+            0,
+            null,
+            observedAtUtc);
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/operator/provider-delivery");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().Contain("Unknown");
+        body.Should().Contain("Partially active");
+        body.Should().NotContain("Safely paused");
     }
 
     [Fact]

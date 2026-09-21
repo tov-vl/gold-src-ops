@@ -1979,6 +1979,40 @@ independent provider outbox without widening the v2.20 mutation boundary:
 This is an R1 additive read-only slice. Provider delivery and source alert
 delivery remain disabled operational decisions outside the milestone.
 
+## Active v2.22 Milestone: End-to-End Delivery Readiness
+
+The first v2.22 product slice makes the complete delivery path observable
+without turning the Operator UI into an activation surface:
+
+- completed locally: extend the sanitized receiver status with its configured
+  `CatchUp` or `Live` mode without exposing endpoint or authorization data;
+- completed locally: compose the existing source alert-delivery snapshot and
+  receiver provider-delivery snapshot in the Web BFF;
+- completed locally: show control-plane sender, receiver mode, and provider
+  worker as one delivery chain with explicit `Safely paused`, `Partially
+  active`, `Action required`, and `Live` states;
+- completed locally: preserve the existing provider queue and immutable review
+  workflow while adding no retry, replay, delete, reclassification, unblock,
+  enable, or configuration action;
+- no database migration, public route, identity change, provider mutation,
+  worker activation, or game-host change is part of this slice;
+- completed locally: focused readiness rendering passed for action-required,
+  safely paused, live, and unknown mixed-version states; the opt-in browser
+  check passed at desktop and mobile viewports without horizontal overflow;
+  format, solution build, documentation validation, and 774 non-PostgreSQL
+  tests passed;
+- pending: execute the focused PostgreSQL receiver-status case and complete
+  required CI on a clean runner; the local Testcontainers attempt could not
+  connect to the Docker named pipe before the test body ran;
+- next: merge the product slice after those gates and prepare a separate
+  release-readiness record before any bounded sustained delivery activation is
+  considered.
+
+The current implementation is local product evidence only. Both delivery
+workers remain operationally disabled, the receiver remains in `CatchUp`, and
+any activation plus passive observation window is a separately authorized
+runtime operation after release.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in

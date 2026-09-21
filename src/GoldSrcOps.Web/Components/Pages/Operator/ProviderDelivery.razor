@@ -1,6 +1,7 @@
 @page "/operator/provider-delivery"
 @attribute [Authorize(Policy = WebSecurity.OperatorPolicy)]
 @inject IProviderOperationsClient ProviderOperationsClient
+@inject IReaderApiClient ReaderApiClient
 @inject ILogger<ProviderDelivery> Logger
 
 <PageTitle>Provider delivery | GoldSrcOps</PageTitle>
@@ -11,7 +12,7 @@
             <p class="eyebrow">Provider operations</p>
             <h1>Provider delivery</h1>
         </div>
-        <p>Current receiver queue health and review workload without provider payloads or credentials.</p>
+        <p>End-to-end delivery readiness and receiver queue health without provider payloads or credentials.</p>
     </header>
 
     @if (!ProviderOperationsClient.IsEnabled)
@@ -30,6 +31,41 @@
     }
     else if (_status is not null)
     {
+        <section class="chain-section" aria-labelledby="delivery-chain-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">End-to-end readiness</p>
+                    <h2 id="delivery-chain-title">Delivery chain</h2>
+                </div>
+                <span>@ChainStateLabel</span>
+            </div>
+
+            <div class="chain-state @ChainStateClass">
+                <div class="chain-grid">
+                    <article>
+                        <span>Control-plane sender</span>
+                        <strong>@SourceWorkerLabel</strong>
+                        <small>@SourceQueueSummary</small>
+                    </article>
+                    <article>
+                        <span>Receiver mode</span>
+                        <strong>@ReceiverModeLabel</strong>
+                        <small>@ReceiverModeSummary</small>
+                    </article>
+                    <article>
+                        <span>Provider worker</span>
+                        <strong>@DeliveryStateLabel</strong>
+                        <small>@ProviderQueueSummary</small>
+                    </article>
+                </div>
+                <div class="chain-result">
+                    <span class="state-label">@ChainStateLabel</span>
+                    <h3>@ChainHeadline</h3>
+                    <p>@ChainExplanation</p>
+                </div>
+            </div>
+        </section>
+
         <section class="delivery-summary" aria-label="Provider delivery summary">
             <article class="@DeliveryStateClass">
                 <span>Delivery worker</span>
@@ -95,16 +131,87 @@
 </div>
 
 @code {
+    private AlertDeliveryStatusResponse? _sourceStatus;
     private ProviderDeliveryStatusResponse? _status;
     private bool _loadFailed;
 
+    private long SourceQueuedWorkCount =>
+        (_sourceStatus?.PendingCount ?? 0) + (_sourceStatus?.ProcessingCount ?? 0);
     private long QueuedWorkCount => (_status?.PendingCount ?? 0) + (_status?.ProcessingCount ?? 0);
+    private bool IsReceiverLive => string.Equals(_status?.ReceiverMode, "Live", StringComparison.Ordinal);
+    private bool IsReceiverCatchUp => string.Equals(_status?.ReceiverMode, "CatchUp", StringComparison.Ordinal);
+    private bool HasTerminalWork =>
+        (_sourceStatus?.DeadLetterCount ?? 0) > 0 ||
+        (_status?.DeadLetterCount ?? 0) > 0 ||
+        (_status?.UnreviewedDeadLetterCount ?? 0) > 0;
+    private bool HasPausedWork =>
+        (_sourceStatus?.IsEnabled == false && SourceQueuedWorkCount > 0) ||
+        (_status?.IsEnabled == false && QueuedWorkCount > 0);
+    private bool IsChainLive =>
+        _sourceStatus?.IsEnabled == true && IsReceiverLive && _status?.IsEnabled == true;
+    private bool IsChainSafelyPaused =>
+        _sourceStatus?.IsEnabled == false && IsReceiverCatchUp && _status?.IsEnabled == false;
+
+    private string SourceWorkerLabel => _sourceStatus?.IsEnabled == true ? "Enabled" : "Disabled";
+    private string ReceiverModeLabel => IsReceiverLive
+        ? "Live"
+        : IsReceiverCatchUp
+            ? "CatchUp"
+            : "Unknown";
     private string DeliveryStateLabel => _status?.IsEnabled == true ? "Enabled" : "Disabled";
     private string DeliveryStateClass => _status?.IsEnabled == true ? "summary--healthy" : "summary--warning";
     private string PendingStateClass => _status?.PendingCount > 0 ? "summary--warning" : string.Empty;
     private string ProcessingStateClass => _status?.ProcessingCount > 0 ? "summary--active" : string.Empty;
     private string DeadLetterStateClass => _status?.DeadLetterCount > 0 ? "summary--alert" : string.Empty;
     private string ReviewStateClass => _status?.UnreviewedDeadLetterCount > 0 ? "summary--alert" : string.Empty;
+
+    private string SourceQueueSummary =>
+        $"{SourceQueuedWorkCount} queued; {_sourceStatus?.DeadLetterCount ?? 0} dead letters";
+
+    private string ReceiverModeSummary => IsReceiverLive
+        ? "New source events can create provider work"
+        : IsReceiverCatchUp
+            ? "New source events are recorded without provider work"
+            : "Receiver mode is unavailable";
+
+    private string ProviderQueueSummary =>
+        $"{QueuedWorkCount} queued; {_status?.DeadLetterCount ?? 0} dead letters";
+
+    private string ChainStateLabel => HasTerminalWork || HasPausedWork
+        ? "Action required"
+        : IsChainLive
+            ? "Live"
+            : IsChainSafelyPaused
+                ? "Safely paused"
+                : "Partially active";
+
+    private string ChainStateClass => HasTerminalWork || HasPausedWork
+        ? "chain-state--alert"
+        : IsChainLive
+            ? "chain-state--healthy"
+            : IsChainSafelyPaused
+                ? "chain-state--paused"
+                : "chain-state--warning";
+
+    private string ChainHeadline => HasTerminalWork
+        ? "Terminal delivery work needs investigation"
+        : HasPausedWork
+            ? "Durable work is waiting behind a disabled worker"
+            : IsChainLive
+                ? "The complete delivery chain is active"
+                : IsChainSafelyPaused
+                    ? "The complete delivery chain is intentionally paused"
+                    : "Delivery stages are not in one operating mode";
+
+    private string ChainExplanation => HasTerminalWork
+        ? "Inspect the affected queue before changing any worker or receiver mode."
+        : HasPausedWork
+            ? "Queued work remains durable, but the current configuration cannot advance it end to end."
+            : IsChainLive
+                ? "The source sender, live receiver, and provider worker are all configured to advance new events."
+                : IsChainSafelyPaused
+                    ? "The sender and provider worker are disabled while the receiver remains in catch-up mode."
+                    : "Review the three stage states before any separately authorized activation or rollback.";
 
     private string QueueStateLabel => _status?.DeadLetterCount > 0
         ? "Action required"
@@ -153,11 +260,15 @@
 
         try
         {
-            _status = await ProviderOperationsClient.GetStatusAsync();
+            var sourceStatusTask = ReaderApiClient.GetAlertDeliveryStatusAsync();
+            var providerStatusTask = ProviderOperationsClient.GetStatusAsync();
+            await Task.WhenAll(sourceStatusTask, providerStatusTask);
+            _sourceStatus = await sourceStatusTask;
+            _status = await providerStatusTask;
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
         {
-            Logger.LogWarning(exception, "Unable to load provider delivery status.");
+            Logger.LogWarning(exception, "Unable to load end-to-end delivery readiness.");
             _loadFailed = true;
         }
     }

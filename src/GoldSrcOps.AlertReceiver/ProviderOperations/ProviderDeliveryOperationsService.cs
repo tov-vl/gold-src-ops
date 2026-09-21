@@ -11,6 +11,7 @@ namespace GoldSrcOps.AlertReceiver.ProviderOperations;
 internal sealed class ProviderDeliveryOperationsService(
     AlertReceiverDbContext dbContext,
     IProviderOutboxStore outboxStore,
+    IOptions<AlertReceiverOptions> receiverOptions,
     IOptions<ProviderDeliveryOptions> deliveryOptions,
     TimeProvider timeProvider)
 {
@@ -31,6 +32,7 @@ internal sealed class ProviderDeliveryOperationsService(
 
         return new ProviderDeliveryStatusResponse(
             deliveryOptions.Value.Enabled,
+            receiverOptions.Value.Mode.ToString(),
             statistics.PendingCount,
             statistics.ProcessingCount,
             statistics.DeadLetterCount,
