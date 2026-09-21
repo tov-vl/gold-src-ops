@@ -1866,7 +1866,7 @@ pair is terminal, and both delivery workers are configured off. The
 compatibility remediation and later canary changed no identity, UI, game-host,
 schema, or published-artifact boundary.
 
-## Active v2.20 Milestone: Provider Delivery Operations
+## Completed v2.20 Milestone: Provider Delivery Operations
 
 The first local slice adds the bounded operational boundary required by the
 preserved v2.19 provider dead letter without authorizing delivery activation:
@@ -1910,15 +1910,26 @@ preserved v2.19 provider dead letter without authorizing delivery activation:
 - completed locally: classify v2.20 as R3 and add a pending readiness/release
   package with disabled-first rollout, recovery, authorization, one-review,
   rollback, and claim boundaries;
-- next: close the product/readiness pull request through protected `main`, then
-  freeze and publish `v2.20.0-rc.1` from the exact green merge revision;
-- keep production `ProviderOperations` disabled and retain the current Caddy
-  allowlist, which forwards only `POST /api/v1/availability-events`, until that
-  separate rollout is reviewed.
+- completed: merge product/readiness PR #196 and focused host-alias remediation
+  PR #197 through protected `main`, then publish and independently verify signed
+  `v2.20.0-rc.2` from merge `c91b660`;
+- completed: pass the R3 backup, restore, migration, disabled-first rollout,
+  private authorization, public-route, one-review, immutable receipt, and
+  211-second continuity gates while both delivery workers remained disabled;
+- completed: publish signed stable `v2.20.0`; stable workflow
+  [#35603766807](https://github.com/tov-vl/gold-src-ops/actions/runs/35603766807)
+  skipped all three builds, promoted and independently verified the accepted
+  API, Web, and AlertReceiver digests, and the
+  [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.20.0)
+  is published;
+- keep source alert delivery and provider delivery disabled until separately
+  reviewed sustained operation is authorized.
 
-The local contract and rollout boundaries are recorded in
-`docs/v2.20-provider-delivery-operations.md`. No production database, runtime,
-provider route, or secret changed in this slice.
+The contract and accepted rollout boundaries are recorded in
+`docs/v2.20-provider-delivery-operations.md`, `docs/v2.20-readiness.md`, and
+`docs/release-notes-v2.20.md`. The additive receiver schema and one immutable
+review are retained; no provider replay, deletion, reclassification, source
+delivery, or provider-worker activation occurred.
 
 ## Current API Scope
 

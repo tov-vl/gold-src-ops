@@ -6,13 +6,13 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.18.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.18.0)
+**Status:** [v2.20.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.20.0)
 is the current public release. Its signed annotated tag identifies application
-revision `0dc6b30` and promotes the exact API and Web image digests exercised by
-`v2.18.0-rc.2`, without rebuilding either image. Release notes and detailed
-evidence are available in
-[docs/release-notes-v2.18.md](docs/release-notes-v2.18.md) and
-[docs/v2.18-readiness.md](docs/v2.18-readiness.md).
+revision `c91b660` and promotes the exact API, Web, and AlertReceiver image
+digests exercised by `v2.20.0-rc.2`, without rebuilding any image. Release
+notes and detailed evidence are available in
+[docs/release-notes-v2.20.md](docs/release-notes-v2.20.md) and
+[docs/v2.20-readiness.md](docs/v2.20-readiness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
@@ -322,6 +322,8 @@ The published v2.17 Alert Delivery Overview release is summarized in
 | v2.19 Permanent Receiver release | [v2.19 release notes](docs/release-notes-v2.19.md) |
 | v2.19 release readiness | [v2.19 readiness](docs/v2.19-readiness.md) |
 | v2.19 receiver decision and adapter gate | [v2.19 receiver readiness](docs/v2.19-permanent-receiver-readiness.md) |
+| v2.20 Provider Delivery Operations release | [v2.20 release notes](docs/release-notes-v2.20.md) |
+| v2.20 release readiness | [v2.20 readiness](docs/v2.20-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
