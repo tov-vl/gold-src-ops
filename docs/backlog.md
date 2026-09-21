@@ -1979,7 +1979,7 @@ independent provider outbox without widening the v2.20 mutation boundary:
 This is an R1 additive read-only slice. Provider delivery and source alert
 delivery remain disabled operational decisions outside the milestone.
 
-## Active v2.22 Milestone: End-to-End Delivery Readiness
+## Completed v2.22 Milestone: End-to-End Delivery Readiness
 
 The first v2.22 product slice makes the complete delivery path observable
 without turning the Operator UI into an activation surface:
@@ -2011,11 +2011,17 @@ without turning the Operator UI into an activation surface:
 - completed locally: classify the release as R1 and prepare the separate
   `v2.22.0-rc.1` readiness, compatibility, rollback, short acceptance, and
   claim-boundary record without repeating unrelated recovery exercises;
-- pending: merge the documentation-only readiness record, freeze its exact
-  green `main` revision, and publish independently verified candidate images;
-- pending: roll out only AlertReceiver and Web by digest, complete bounded
-  read-only production acceptance, promote the exact accepted digests as
-  `v2.22.0`, and close the sanitized release record.
+- completed: merge readiness PR
+  [#204](https://github.com/tov-vl/gold-src-ops/pull/204), freeze exact revision
+  `7c4d6f6`, and publish independently verified candidate images in workflow
+  [#35651626318](https://github.com/tov-vl/gold-src-ops/actions/runs/35651626318);
+- completed: roll out only AlertReceiver and Web by digest, pass bounded
+  read-only production acceptance, and promote the exact accepted API, Web,
+  and AlertReceiver digests without rebuild in stable workflow
+  [#35659136810](https://github.com/tov-vl/gold-src-ops/actions/runs/35659136810);
+- completed: publish signed stable tag and
+  [GoldSrcOps v2.22.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.22.0),
+  with sanitized release evidence and explicit claim limits.
 
 Both delivery workers remain operationally disabled, the receiver remains in
 `CatchUp`, and any activation plus passive observation window is a separately
