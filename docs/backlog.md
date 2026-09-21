@@ -1907,7 +1907,11 @@ preserved v2.19 provider dead letter without authorizing delivery activation:
 - completed locally: extend container smoke across the public Caddy and private
   operations path, then pass encrypted backup creation, a `100%` repository
   check, isolated restore, and reapplication of all three receiver migrations;
-- next: classify and execute the release/target gates before any rollout;
+- completed locally: classify v2.20 as R3 and add a pending readiness/release
+  package with disabled-first rollout, recovery, authorization, one-review,
+  rollback, and claim boundaries;
+- next: close the product/readiness pull request through protected `main`, then
+  freeze and publish `v2.20.0-rc.1` from the exact green merge revision;
 - keep production `ProviderOperations` disabled and retain the current Caddy
   allowlist, which forwards only `POST /api/v1/availability-events`, until that
   separate rollout is reviewed.
