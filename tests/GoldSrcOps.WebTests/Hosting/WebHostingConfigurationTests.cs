@@ -1,6 +1,7 @@
 using AwesomeAssertions;
 using GoldSrcOps.Web.Hosting;
 using GoldSrcOps.Web.Security;
+using GoldSrcOps.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.DataProtection;
@@ -93,6 +94,67 @@ public sealed class WebHostingConfigurationTests
 
         action.Should().Throw<InvalidOperationException>()
             .WithMessage("*requires a persistent Data Protection key ring*");
+    }
+
+    [Fact]
+    public void Provider_operations_are_disabled_without_a_secret_by_default()
+    {
+        var services = new ServiceCollection();
+
+        var enabled = ProviderOperationsClientConfiguration.Configure(
+            services,
+            CreateConfiguration([]),
+            new TestHostEnvironment(Environments.Production));
+        using var provider = services.BuildServiceProvider();
+
+        enabled.Should().BeFalse();
+        provider.GetRequiredService<IProviderOperationsClient>().IsEnabled.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Provider_operations_configure_exact_server_side_authorization_in_development()
+    {
+        const string authorization = "Bearer receiver-operations-sentinel";
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var enabled = ProviderOperationsClientConfiguration.Configure(
+            services,
+            CreateConfiguration(new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["ProviderOperations:Enabled"] = "true",
+                ["ProviderOperations:BaseUrl"] = "https://receiver.example.test/",
+                ["ProviderOperations:Authorization"] = authorization,
+            }),
+            new TestHostEnvironment(Environments.Development));
+        using var provider = services.BuildServiceProvider();
+
+        enabled.Should().BeTrue();
+        provider.GetRequiredService<IProviderOperationsClient>().IsEnabled.Should().BeTrue();
+        using var httpClient = new HttpClient();
+        ProviderOperationsClientConfiguration.ConfigureClient(
+            httpClient,
+            new Uri("https://receiver.example.test/"),
+            authorization);
+        httpClient.BaseAddress.Should().Be(new Uri("https://receiver.example.test/"));
+        httpClient.DefaultRequestHeaders.GetValues("Authorization").Should().ContainSingle()
+            .Which.Should().Be(authorization);
+    }
+
+    [Fact]
+    public void Provider_operations_reject_direct_authorization_in_production()
+    {
+        var action = () => ProviderOperationsClientConfiguration.Configure(
+            new ServiceCollection(),
+            CreateConfiguration(new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["ProviderOperations:Enabled"] = "true",
+                ["ProviderOperations:BaseUrl"] = "https://receiver.example.test/",
+                ["ProviderOperations:Authorization"] = "direct-secret",
+            }),
+            new TestHostEnvironment(Environments.Production));
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*file-backed outside Development*");
     }
 
     private static IConfiguration CreateConfiguration(

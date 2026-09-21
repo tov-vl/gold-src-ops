@@ -8,6 +8,7 @@ using GoldSrcOps.Contracts.Credentials;
 using GoldSrcOps.Contracts.GameEvents;
 using GoldSrcOps.Contracts.Incidents;
 using GoldSrcOps.Contracts.Monitoring;
+using GoldSrcOps.Contracts.ProviderDelivery;
 using GoldSrcOps.Contracts.Servers;
 using GoldSrcOps.Web.Security;
 using GoldSrcOps.Web.Services;
@@ -57,6 +58,10 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     public static readonly Guid PendingDeliveryEventId = Guid.Parse("11bac90e-a2c8-441f-9c87-e5426bd4e32d");
     public static readonly Guid DeadLetterEventId = Guid.Parse("70d51faf-6029-4b1e-a922-b7a3ab8d1f84");
     public static readonly Guid ReplayRequestId = Guid.Parse("4fb7401c-802c-48b9-aa71-5e27619b0784");
+    public static readonly Guid ProviderMessageId = Guid.Parse("21781e21-8538-4245-b4b9-79367d69c82e");
+    public static readonly Guid ProviderSourceEventId = Guid.Parse("1489ab8e-6359-474c-aec1-5978aa6d62a1");
+    public static readonly Guid ProviderIncidentId = Guid.Parse("17c3cfa1-c67b-419e-a2b2-ef21df4341db");
+    public static readonly Guid ProviderReviewRequestId = Guid.Parse("76253ac4-5822-4475-b5ae-695b654658af");
     public const string ServerName = "Reader fixture server";
     public const string OfflineServerName = "Bravo outage server";
     public const string StaleServerName = "Charlie stale server";
@@ -68,11 +73,15 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
     public const string DeadLetterLastError = "Webhook endpoint returned a terminal response";
     public const string DeadLetterPayloadSentinel = "fixture-dead-letter-payload-must-not-render";
     public const string ReplayReason = "Receiver health was verified by the operator";
+    public const string ProviderFailureSummary = "Provider rejected the bounded alert request";
+    public const string ProviderReviewReason = "Provider response and incident state were reviewed";
     public const string Subject = "reader-portal-fixture";
 
     public FixtureReaderApiClient ReaderApiClient { get; }
 
     public FixtureOperatorApiClient OperatorApiClient { get; } = new();
+
+    public FixtureProviderOperationsClient ProviderOperationsClient { get; } = new();
 
     public ReaderWebApplicationFactory(
         string? role = WebSecurity.ReaderRole,
@@ -122,6 +131,8 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
             services.AddSingleton<IReaderApiClient>(ReaderApiClient);
             services.RemoveAll<IOperatorApiClient>();
             services.AddSingleton<IOperatorApiClient>(OperatorApiClient);
+            services.RemoveAll<IProviderOperationsClient>();
+            services.AddSingleton<IProviderOperationsClient>(ProviderOperationsClient);
         });
     }
 
@@ -1077,6 +1088,102 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 
             return Task.FromResult(MonitoringResult);
         }
+    }
+
+    internal sealed class FixtureProviderOperationsClient : IProviderOperationsClient
+    {
+        private static readonly DateTimeOffset ObservedAtUtc =
+            new(2026, 9, 21, 12, 0, 0, TimeSpan.Zero);
+        private int reviewCallCount;
+
+        public bool IsEnabled { get; set; } = true;
+
+        public bool IncludeExistingReview { get; set; }
+
+        public int ReviewCallCount => Volatile.Read(ref reviewCallCount);
+
+        public Guid? LastMessageId { get; private set; }
+
+        public Guid? LastRequestId { get; private set; }
+
+        public string? LastRequestedBy { get; private set; }
+
+        public string? LastReason { get; private set; }
+
+        public ProviderDeadLetterReviewResult Result { get; set; } = new(
+            ProviderDeadLetterReviewResultKind.Accepted,
+            CreateReview(ProviderReviewRequestId));
+
+        public Exception? ReviewExceptionToThrow { get; set; }
+
+        public Task<ProviderDeadLetterListResponse> GetDeadLettersAsync(
+            string? cursor,
+            int limit,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ProviderDeadLetterListResponse(
+                limit,
+                null,
+                [CreateMessage(IncludeExistingReview ? CreateReview(ProviderReviewRequestId) : null)]));
+
+        public Task<ProviderDeadLetterListItemResponse?> GetDeadLetterAsync(
+            Guid messageId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<ProviderDeadLetterListItemResponse?>(messageId == ProviderMessageId
+                ? CreateMessage(IncludeExistingReview ? CreateReview(ProviderReviewRequestId) : null)
+                : null);
+
+        public Task<ProviderDeadLetterReviewResult> ReviewDeadLetterAsync(
+            Guid messageId,
+            Guid requestId,
+            string requestedBy,
+            string reason,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref reviewCallCount);
+            LastMessageId = messageId;
+            LastRequestId = requestId;
+            LastRequestedBy = requestedBy;
+            LastReason = reason;
+            if (ReviewExceptionToThrow is not null)
+            {
+                return Task.FromException<ProviderDeadLetterReviewResult>(ReviewExceptionToThrow);
+            }
+
+            return Task.FromResult(Result with
+            {
+                Review = Result.Review is null
+                    ? null
+                    : Result.Review with { RequestId = requestId, MessageId = messageId }
+            });
+        }
+
+        public Task<ProviderDeadLetterReviewResponse?> GetReviewAsync(
+            Guid requestId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<ProviderDeadLetterReviewResponse?>(requestId == ProviderReviewRequestId
+                ? CreateReview(requestId)
+                : null);
+
+        private static ProviderDeadLetterListItemResponse CreateMessage(
+            ProviderDeadLetterReviewResponse? review) =>
+            new(
+                ProviderMessageId,
+                ProviderSourceEventId,
+                ProviderIncidentId,
+                "Trigger",
+                ObservedAtUtc.AddMinutes(-10),
+                4,
+                ObservedAtUtc.AddMinutes(-2),
+                ProviderFailureSummary,
+                review);
+
+        private static ProviderDeadLetterReviewResponse CreateReview(Guid requestId) =>
+            new(
+                requestId,
+                ProviderMessageId,
+                Subject,
+                ProviderReviewReason,
+                ObservedAtUtc);
     }
 
     private sealed class TestAuthenticationOptions : AuthenticationSchemeOptions

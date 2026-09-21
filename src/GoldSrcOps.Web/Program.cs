@@ -47,6 +47,10 @@ builder.Services.AddHttpClient<IOperatorApiClient, OperatorApiClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(10);
 })
     .AddHttpMessageHandler<AccessTokenHandler>();
+ProviderOperationsClientConfiguration.Configure(
+    builder.Services,
+    builder.Configuration,
+    builder.Environment);
 
 var app = builder.Build();
 
@@ -75,6 +79,7 @@ app.MapOperatorMapChangeEndpoints();
 app.MapOperatorRestartEndpoints();
 app.MapOperatorRconCredentialEndpoints();
 app.MapOperatorReplayEndpoints();
+app.MapOperatorProviderReviewEndpoints();
 app.MapOperatorServerMonitoringEndpoints();
 app.MapOperatorServerRegistrationEndpoints();
 app.MapOperatorServerUpdateEndpoints();

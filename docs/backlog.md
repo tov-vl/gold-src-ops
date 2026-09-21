@@ -1889,8 +1889,15 @@ preserved v2.19 provider dead letter without authorizing delivery activation:
 - completed locally: inspect the generated migration SQL and confirm one
   additive table, one unique index, and one restrictive foreign key with no
   existing-row rewrite or backfill;
-- next: add the Operator BFF projection and review workflow without exposing
-  the receiver operations credential to browser code;
+- completed locally: add an Operator-only BFF list, detail, and immutable
+  review receipt with a dedicated server-side receiver credential that never
+  reaches browser code;
+- completed locally: bind review submission to antiforgery, authenticated
+  subject, message, idempotency request, and a single-use confirmation; an
+  uncertain transport result is reconciled by receipt and never retried;
+- completed locally: verify the provider review UI at desktop and mobile
+  viewports with no horizontal overflow and no raw payload or credential
+  projection;
 - next: extend the receiver deployment entrypoint, secret contract, preflight,
   backup/restore evidence, and container smoke before any target rollout;
 - keep production `ProviderOperations` disabled and retain the current Caddy
