@@ -1953,8 +1953,18 @@ independent provider outbox without widening the v2.20 mutation boundary:
 - completed locally: focused receiver, BFF client, static-rendered
   authorization, PostgreSQL, and responsive Chromium coverage passed, followed
   by the complete local Quality Gate with no vulnerable packages reported;
-- pending: prepare release-readiness and exact-digest rollout evidence only
-  after the product diff is reviewed and integrated.
+- completed: integrate the product slice through pull request
+  [#199](https://github.com/tov-vl/gold-src-ops/pull/199) as squash merge
+  `260eeff`; required `Change Scope`, `Quality Gate`, `Container Smoke`, and
+  `Browser Smoke` checks passed before merge;
+- completed locally: classify the release as R1 and prepare the separate
+  `v2.21.0-rc.1` readiness, compatibility, rollback, short acceptance, and
+  claim-boundary record without repeating unrelated recovery exercises;
+- pending: merge the documentation-only readiness record, freeze its exact
+  green `main` revision, and publish independently verified candidate images;
+- pending: roll out only AlertReceiver and Web by digest, complete bounded
+  read-only production acceptance, promote the exact accepted digests as
+  `v2.21.0`, and close the sanitized release record.
 
 This is an R1 additive read-only slice. Provider delivery and source alert
 delivery remain disabled operational decisions outside the milestone.
