@@ -2001,17 +2001,25 @@ without turning the Operator UI into an activation surface:
   check passed at desktop and mobile viewports without horizontal overflow;
   format, solution build, documentation validation, and 774 non-PostgreSQL
   tests passed;
-- pending: execute the focused PostgreSQL receiver-status case and complete
-  required CI on a clean runner; the local Testcontainers attempt could not
-  connect to the Docker named pipe before the test body ran;
-- next: merge the product slice after those gates and prepare a separate
-  release-readiness record before any bounded sustained delivery activation is
-  considered.
+- completed: integrate the product slice through pull request
+  [#203](https://github.com/tov-vl/gold-src-ops/pull/203) as squash merge
+  `cda2047`; final product workflow
+  [#35637975342](https://github.com/tov-vl/gold-src-ops/actions/runs/35637975342)
+  and post-merge workflow
+  [#35639230653](https://github.com/tov-vl/gold-src-ops/actions/runs/35639230653)
+  passed the required quality, container, and browser gates on clean runners;
+- completed locally: classify the release as R1 and prepare the separate
+  `v2.22.0-rc.1` readiness, compatibility, rollback, short acceptance, and
+  claim-boundary record without repeating unrelated recovery exercises;
+- pending: merge the documentation-only readiness record, freeze its exact
+  green `main` revision, and publish independently verified candidate images;
+- pending: roll out only AlertReceiver and Web by digest, complete bounded
+  read-only production acceptance, promote the exact accepted digests as
+  `v2.22.0`, and close the sanitized release record.
 
-The current implementation is local product evidence only. Both delivery
-workers remain operationally disabled, the receiver remains in `CatchUp`, and
-any activation plus passive observation window is a separately authorized
-runtime operation after release.
+Both delivery workers remain operationally disabled, the receiver remains in
+`CatchUp`, and any activation plus passive observation window is a separately
+authorized runtime operation outside this release.
 
 ## Current API Scope
 
