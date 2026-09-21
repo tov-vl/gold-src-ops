@@ -1866,6 +1866,41 @@ pair is terminal, and both delivery workers are configured off. The
 compatibility remediation and later canary changed no identity, UI, game-host,
 schema, or published-artifact boundary.
 
+## Active v2.20 Milestone: Provider Delivery Operations
+
+The first local slice adds the bounded operational boundary required by the
+preserved v2.19 provider dead letter without authorizing delivery activation:
+
+- completed locally: add an append-only `receiver.provider_outbox_reviews`
+  relation with one review per provider message and one immutable result per
+  idempotency request;
+- completed locally: expose separately authorized internal list, detail,
+  review, and review-result endpoints with cursor pagination, bounded request
+  sizes, and sanitized metadata only;
+- completed locally: preserve the source message as `DeadLetter`; review does
+  not replay, delete, retry, reclassify, or unblock later work for the same
+  incident;
+- completed locally: keep provider operations disabled by default and hidden
+  as `404`, with an authorization value independent from ingestion and provider
+  delivery credentials;
+- completed locally: prove exact retry idempotency, conflicting reuse,
+  one-review uniqueness, concurrent requests, non-dead-letter rejection,
+  pagination, authorization separation, and PostgreSQL timestamp consistency;
+- completed locally: inspect the generated migration SQL and confirm one
+  additive table, one unique index, and one restrictive foreign key with no
+  existing-row rewrite or backfill;
+- next: add the Operator BFF projection and review workflow without exposing
+  the receiver operations credential to browser code;
+- next: extend the receiver deployment entrypoint, secret contract, preflight,
+  backup/restore evidence, and container smoke before any target rollout;
+- keep production `ProviderOperations` disabled and retain the current Caddy
+  allowlist, which forwards only `POST /api/v1/availability-events`, until that
+  separate rollout is reviewed.
+
+The local contract and rollout boundaries are recorded in
+`docs/v2.20-provider-delivery-operations.md`. No production database, runtime,
+provider route, or secret changed in this slice.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in

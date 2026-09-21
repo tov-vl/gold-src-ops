@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GoldSrcOps.Application\GoldSrcOps.Application.csproj" />
+    <ProjectReference Include="..\GoldSrcOps.Contracts\GoldSrcOps.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -3,6 +3,7 @@ using GoldSrcOps.AlertReceiver.AvailabilityEvents;
 using GoldSrcOps.AlertReceiver.Configuration;
 using GoldSrcOps.AlertReceiver.Persistence;
 using GoldSrcOps.AlertReceiver.ProviderDelivery;
+using GoldSrcOps.AlertReceiver.ProviderOperations;
 using GoldSrcOps.AlertReceiver.Telemetry;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +40,14 @@ builder.Services
 builder.Services.AddSingleton<ReceiverAuthorization>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services
+    .AddOptions<ProviderOperationsOptions>()
+    .Bind(builder.Configuration.GetSection(ProviderOperationsOptions.SectionName))
+    .Validate(
+        static options => options.IsValid(),
+        "Provider operations settings are invalid; enabled operations require bounded authorization.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<ProviderOperationsAuthorization>();
+builder.Services
     .AddOptions<ProviderDeliveryOptions>()
     .Bind(builder.Configuration.GetSection(ProviderDeliveryOptions.SectionName))
     .Validate(
@@ -56,6 +65,7 @@ builder.Services.AddScoped<IProviderOutboxStore, EfProviderOutboxStore>();
 builder.Services.AddSingleton<IProviderRetryDelayProvider, ExponentialProviderRetryDelayProvider>();
 builder.Services.AddSingleton<IProviderDeliveryChannel, HttpProviderDeliveryChannel>();
 builder.Services.AddScoped<ProviderDispatcher>();
+builder.Services.AddScoped<ProviderDeliveryOperationsService>();
 builder.Services.AddHostedService<ProviderDeliveryBackgroundService>();
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
@@ -78,6 +88,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = static healthCheck => healthCheck.Tags.Contains("ready"),
 });
 app.MapAvailabilityEventEndpoints();
+app.MapProviderDeliveryOperationsEndpoints();
 app.MapPrometheusScrapingEndpoint("/metrics");
 
 app.Run();
