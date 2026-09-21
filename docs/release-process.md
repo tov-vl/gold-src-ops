@@ -254,7 +254,7 @@ reported separately.
 | Candidate freeze and tag | 5-10 minutes of operator work |
 | Candidate publication | One CI run, normally no manual wait between jobs |
 | Digest rollout and short acceptance | 10-20 minutes, including the three-minute sample interval |
-| Stable promotion | One promotion CI run with no rebuild |
+| Stable promotion | One promotion CI run that reuses candidate gates, promotes without rebuild, and smoke-tests the stable digests |
 | Combined evidence PR | 10-20 minutes |
 
 The working target for an uncomplicated R1 release is 60-90 minutes after the
@@ -262,6 +262,13 @@ product revision is ready, excluding external queue or outage time. If a stage
 exceeds its budget, identify the actual blocker instead of adding repeated
 checks or confirmation loops. R2 and R3 releases use budgets appropriate to
 their explicit rehearsal or recovery scope.
+
+A push of the canonical stable tag `vX.Y.Z` selects the stable-promotion CI
+path. Required check names remain present, but the complete quality, container,
+and browser suites are not repeated for the unchanged candidate revision.
+Candidate tags and manual publication recovery remain on the full path. The
+publication jobs still fail closed unless every stable reference can promote a
+matching candidate digest and pass its independent published-image smoke.
 
 ## Failure Rules
 

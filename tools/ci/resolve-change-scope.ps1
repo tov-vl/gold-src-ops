@@ -66,6 +66,8 @@ function New-ScopeResult {
         [Parameter(Mandatory = $true)]
         [bool]$DocsOnly,
 
+        [bool]$StablePromotion = $false,
+
         [Parameter(Mandatory = $true)]
         [int]$ChangedCount,
 
@@ -77,9 +79,18 @@ function New-ScopeResult {
         [string]$ResolvedHeadRevision
     )
 
-    $mode = if ($DocsOnly) { "docs-only" } else { "full" }
+    $mode = if ($DocsOnly) {
+        "docs-only"
+    }
+    elseif ($StablePromotion) {
+        "stable-promotion"
+    }
+    else {
+        "full"
+    }
     Write-GitHubOutput -Values ([ordered]@{
             docs_only = $DocsOnly.ToString().ToLowerInvariant()
+            stable_promotion = $StablePromotion.ToString().ToLowerInvariant()
             mode = $mode
             changed_count = $ChangedCount
             reason = $Reason
@@ -89,6 +100,7 @@ function New-ScopeResult {
 
     return [pscustomobject]@{
         DocsOnly = $DocsOnly
+        StablePromotion = $StablePromotion
         Mode = $mode
         ChangedCount = $ChangedCount
         Reason = $Reason
@@ -106,6 +118,13 @@ if ($EventName -eq "push") {
         return New-ScopeResult -DocsOnly $false -ChangedCount 0 -Reason "unresolved-ref"
     }
     if ($Ref.StartsWith("refs/tags/", [StringComparison]::Ordinal)) {
+        if ($Ref -match '^refs/tags/v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$') {
+            return New-ScopeResult `
+                -DocsOnly $false `
+                -StablePromotion $true `
+                -ChangedCount 0 `
+                -Reason "stable-release-tag"
+        }
         return New-ScopeResult -DocsOnly $false -ChangedCount 0 -Reason "release-tag"
     }
     if ($Ref -cne "refs/heads/main") {
