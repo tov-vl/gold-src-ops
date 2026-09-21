@@ -210,7 +210,6 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
-            (await Page.Locator("section.chain-section").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("section.delivery-summary").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("section.queue-section").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("section.review-section a[href='/operator/dead-letters']").GetAttributeAsync("href"))
@@ -249,6 +248,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
+            (await Page.Locator("section.chain-section").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("section.delivery-summary").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("section.queue-section").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("section.review-section a[href='/operator/provider-delivery/dead-letters']")
