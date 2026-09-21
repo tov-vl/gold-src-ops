@@ -163,8 +163,9 @@ flowchart LR
   `receiver` schema, exact event idempotency, per-incident ordering, explicit
   catch-up suppression, a provider outbox, bounded provider delivery, and
   liveness/readiness probes. Its internal provider-operations boundary exposes
-  a bounded queue-health snapshot, dead-letter metadata, and append-only review
-  records behind a separate disabled-by-default authorization value; it does
+  the configured receiver mode, a bounded queue-health snapshot, dead-letter
+  metadata, and append-only review records behind a separate disabled-by-default
+  authorization value; it does
   not replay, delete, reclassify, unblock, or activate provider work. Its
   independent image includes only the receiver
   runtime and receiver migration bundle. The base deployment contract starts
@@ -175,6 +176,9 @@ flowchart LR
   CPU/memory limits. This is process and data isolation, not an independent
   failure domain. It is not wired to production delivery, and the tracked
   public receiver route continues to forward only availability-event POSTs.
+  The Web BFF may compose this private snapshot with the existing protected
+  source alert-delivery status for an Operator-only end-to-end readiness view;
+  that composition is read-only and introduces no activation control.
 
 ## Security Boundary
 

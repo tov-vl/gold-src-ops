@@ -150,6 +150,14 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 
         public bool GameEventsEmpty { get; set; }
 
+        public AlertDeliveryStatusResponse AlertDeliveryStatus { get; set; } = new(
+            IsEnabled: true,
+            PendingCount: 4,
+            ProcessingCount: 1,
+            DeadLetterCount: 1,
+            ObservedAtUtc.AddMinutes(-12),
+            ObservedAtUtc);
+
         public int? LastGameEventLimit { get; private set; }
 
         public Task<DashboardOverviewResponse> GetOverviewAsync(
@@ -537,13 +545,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 
         public Task<AlertDeliveryStatusResponse> GetAlertDeliveryStatusAsync(
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AlertDeliveryStatusResponse(
-                IsEnabled: true,
-                PendingCount: 4,
-                ProcessingCount: 1,
-                DeadLetterCount: 1,
-                ObservedAtUtc.AddMinutes(-12),
-                ObservedAtUtc));
+            Task.FromResult(AlertDeliveryStatus);
 
         public Task<PendingDeliveryListResponse> GetPendingDeliveriesAsync(
             string? cursor,
@@ -1102,6 +1104,7 @@ internal sealed class ReaderWebApplicationFactory : WebApplicationFactory<Progra
 
         public ProviderDeliveryStatusResponse Status { get; set; } = new(
             false,
+            "CatchUp",
             2,
             0,
             1,

@@ -101,6 +101,7 @@ public sealed class ProviderDeliveryOperationsEndpointIntegrationTests(
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         status.Should().NotBeNull();
         status!.IsEnabled.Should().BeFalse();
+        status.ReceiverMode.Should().Be("Live");
         status.PendingCount.Should().Be(1);
         status.ProcessingCount.Should().Be(0);
         status.DeadLetterCount.Should().Be(2);
