@@ -1,9 +1,11 @@
 # GoldSrcOps v2.20.0 Release Notes
 
-Status as of 2026-09-21: release candidate preparation. Local implementation,
-deployment contracts, container smoke, and recovery rehearsal are complete.
-Product review, candidate publication, target acceptance, and stable promotion
-remain pending.
+Status as of 2026-09-21: release candidate remediation. PR #196 and the
+`v2.20.0-rc.1` publication completed, and its target backup, restore, migration,
+and disabled rollout gates passed. Activation exposed a private receiver host
+allowlist mismatch and rolled back before any provider review was submitted.
+A corrected `v2.20.0-rc.2`, target acceptance, and stable promotion remain
+pending.
 
 ## Overview
 

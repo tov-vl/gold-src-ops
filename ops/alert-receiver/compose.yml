@@ -53,7 +53,7 @@ services:
       - /bin/sh
       - /app/receiver-entrypoint.sh
     environment:
-      AllowedHosts: ${GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME:?Set GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME};receiver;localhost
+      AllowedHosts: ${GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME:?Set GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME};goldsrcops-alert-receiver;receiver;localhost
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: "8080"
       DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE: "false"
