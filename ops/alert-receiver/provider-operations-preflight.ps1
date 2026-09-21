@@ -159,6 +159,13 @@ $receiver = $receiverConfiguration.services.receiver
 $web = $productionConfiguration.services.web
 $receiverSecretSources = @($receiver.secrets | ForEach-Object { $_.source } | Sort-Object)
 $webSecretSources = @($web.secrets | ForEach-Object { $_.source } | Sort-Object)
+$providerOperationsBaseUrl = [string]$web.environment.ProviderOperations__BaseUrl
+$providerOperationsHost = ([Uri]$providerOperationsBaseUrl).Host
+$receiverAllowedHosts = @(
+    ([string]$receiver.environment.AllowedHosts).Split(
+        ';',
+        [StringSplitOptions]::RemoveEmptyEntries) |
+        ForEach-Object { $_.Trim() })
 
 Assert-Condition `
     -Condition (@(Compare-Object @(
@@ -181,11 +188,15 @@ Assert-Condition `
     -Message "Provider operations must activate independently without enabling delivery or exposing authorization in the environment."
 Assert-Condition `
     -Condition ([string]$web.environment.ProviderOperations__Enabled -eq "true" -and
-        [string]$web.environment.ProviderOperations__BaseUrl -eq "http://goldsrcops-alert-receiver:8080/" -and
+        $providerOperationsBaseUrl -eq "http://goldsrcops-alert-receiver:8080/" -and
         [string]$web.environment.ProviderOperations__AuthorizationFile -eq
             "/run/secrets/provider-operations-authorization" -and
         $null -eq (Get-PropertyValue -InputObject $web.environment -Name "ProviderOperations__Authorization")) `
     -Message "Web provider operations must use the private receiver alias and file-backed authorization."
+Assert-Condition `
+    -Condition ($providerOperationsHost -eq "goldsrcops-alert-receiver" -and
+        $receiverAllowedHosts -contains $providerOperationsHost) `
+    -Message "The receiver AllowedHosts contract must admit the private Web-to-receiver alias."
 
 $receiverSecretPath = [IO.Path]::GetFullPath(
     [string]$receiverConfiguration.secrets.'provider-operations-authorization'.file)

@@ -520,6 +520,7 @@ try {
         "--name", $receiverContainer,
         "--network", $edgeNetwork,
         "--network-alias", "receiver",
+        "--network-alias", "goldsrcops-alert-receiver",
         "--read-only",
         "--cap-drop", "ALL",
         "--security-opt", "no-new-privileges",
@@ -528,7 +529,7 @@ try {
         "--mount", "type=bind,source=$receiverAuthorizationFile,target=/run/secrets/receiver-authorization,readonly",
         "--mount", "type=volume,source=$socketVolume,target=/var/run/postgresql",
         "--env", "ASPNETCORE_ENVIRONMENT=Production",
-        "--env", "AllowedHosts=localhost;receiver;receiver-smoke",
+        "--env", "AllowedHosts=localhost;goldsrcops-alert-receiver;receiver;receiver-smoke",
         "--env", "Receiver__Mode=CatchUp",
         "--env", "ProviderDelivery__Enabled=false",
         "--env", "ProviderOperations__Enabled=false",
@@ -555,7 +556,7 @@ try {
     $disabledInternalStatus = Invoke-HttpRequest `
         -TargetHost "127.0.0.1" `
         -TargetPort 8080 `
-        -HostHeader "localhost" `
+        -HostHeader "goldsrcops-alert-receiver" `
         -Method "GET" `
         -Path "/internal/v1/provider-delivery/dead-letters" `
         -Authorization $providerOperationsAuthorization
@@ -617,6 +618,7 @@ try {
         "--name", $receiverContainer,
         "--network", $edgeNetwork,
         "--network-alias", "receiver",
+        "--network-alias", "goldsrcops-alert-receiver",
         "--read-only",
         "--cap-drop", "ALL",
         "--security-opt", "no-new-privileges",
@@ -626,7 +628,7 @@ try {
         "--mount", "type=bind,source=$providerOperationsAuthorizationFile,target=/run/secrets/provider-operations-authorization,readonly",
         "--mount", "type=volume,source=$socketVolume,target=/var/run/postgresql",
         "--env", "ASPNETCORE_ENVIRONMENT=Production",
-        "--env", "AllowedHosts=localhost;receiver;receiver-smoke",
+        "--env", "AllowedHosts=localhost;goldsrcops-alert-receiver;receiver;receiver-smoke",
         "--env", "Receiver__Mode=CatchUp",
         "--env", "ProviderDelivery__Enabled=false",
         "--env", "ProviderOperations__Enabled=true",
@@ -636,13 +638,13 @@ try {
     $unauthorizedInternalStatus = Invoke-HttpRequest `
         -TargetHost "127.0.0.1" `
         -TargetPort 8080 `
-        -HostHeader "localhost" `
+        -HostHeader "goldsrcops-alert-receiver" `
         -Method "GET" `
         -Path "/internal/v1/provider-delivery/dead-letters"
     $authorizedInternalStatus = Invoke-HttpRequest `
         -TargetHost "127.0.0.1" `
         -TargetPort 8080 `
-        -HostHeader "localhost" `
+        -HostHeader "goldsrcops-alert-receiver" `
         -Method "GET" `
         -Path "/internal/v1/provider-delivery/dead-letters" `
         -Authorization $providerOperationsAuthorization
