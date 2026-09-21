@@ -326,6 +326,8 @@ The published v2.17 Alert Delivery Overview release is summarized in
 | v2.20 release readiness | [v2.20 readiness](docs/v2.20-readiness.md) |
 | v2.21 Provider Delivery Overview release | [v2.21 release notes](docs/release-notes-v2.21.md) |
 | v2.21 release readiness | [v2.21 readiness](docs/v2.21-readiness.md) |
+| v2.22 End-to-End Delivery Readiness candidate | [v2.22 release notes](docs/release-notes-v2.22.md) |
+| v2.22 release readiness | [v2.22 readiness](docs/v2.22-readiness.md) |
 | Components and runtime flows | [Architecture](docs/architecture.md) |
 | Design trade-offs | [Architecture decisions](docs/architecture-decisions.md) |
 | Completed v2.3 reference deployment | [v2.3 production deployment](docs/v2.3-production-deployment.md) |
