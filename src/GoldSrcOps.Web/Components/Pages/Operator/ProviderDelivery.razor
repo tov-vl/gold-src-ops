@@ -1,0 +1,168 @@
+@page "/operator/provider-delivery"
+@attribute [Authorize(Policy = WebSecurity.OperatorPolicy)]
+@inject IProviderOperationsClient ProviderOperationsClient
+@inject ILogger<ProviderDelivery> Logger
+
+<PageTitle>Provider delivery | GoldSrcOps</PageTitle>
+
+<div class="provider-delivery-page">
+    <header class="page-heading">
+        <div>
+            <p class="eyebrow">Provider operations</p>
+            <h1>Provider delivery</h1>
+        </div>
+        <p>Current receiver queue health and review workload without provider payloads or credentials.</p>
+    </header>
+
+    @if (!ProviderOperationsClient.IsEnabled)
+    {
+        <section class="load-state" role="status">
+            <h2>Provider operations are disabled</h2>
+            <p>The Web host has no active receiver operations boundary. No receiver request was sent.</p>
+        </section>
+    }
+    else if (_loadFailed)
+    {
+        <section class="load-state" role="alert">
+            <h2>Provider delivery status is unavailable</h2>
+            <p>The receiver did not return a usable operations snapshot. No delivery action was attempted.</p>
+        </section>
+    }
+    else if (_status is not null)
+    {
+        <section class="delivery-summary" aria-label="Provider delivery summary">
+            <article class="@DeliveryStateClass">
+                <span>Delivery worker</span>
+                <strong>@DeliveryStateLabel</strong>
+            </article>
+            <article class="@PendingStateClass">
+                <span>Pending</span>
+                <strong>@_status.PendingCount</strong>
+            </article>
+            <article class="@ProcessingStateClass">
+                <span>Processing</span>
+                <strong>@_status.ProcessingCount</strong>
+            </article>
+            <article class="@DeadLetterStateClass">
+                <span>Dead letters</span>
+                <strong>@_status.DeadLetterCount</strong>
+            </article>
+            <article class="@ReviewStateClass">
+                <span>Awaiting review</span>
+                <strong>@_status.UnreviewedDeadLetterCount</strong>
+            </article>
+        </section>
+
+        <section class="queue-section" aria-labelledby="provider-queue-state-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Receiver outbox</p>
+                    <h2 id="provider-queue-state-title">Queue state</h2>
+                </div>
+                <span>Observed @FormatDateTime(_status.ObservedAtUtc)</span>
+            </div>
+
+            <div class="queue-state @QueueStateClass">
+                <div>
+                    <span class="state-label">@QueueStateLabel</span>
+                    <h3>@QueueHeadline</h3>
+                    <p>@QueueExplanation</p>
+                </div>
+                <dl>
+                    <div><dt>Queued work</dt><dd>@QueuedWorkCount</dd></div>
+                    <div><dt>Oldest pending</dt><dd>@FormatDateTime(_status.OldestPendingAtUtc)</dd></div>
+                    <div><dt>Awaiting review</dt><dd>@_status.UnreviewedDeadLetterCount</dd></div>
+                    <div><dt>Observation time</dt><dd>@FormatDateTime(_status.ObservedAtUtc)</dd></div>
+                </dl>
+            </div>
+        </section>
+
+        <section class="review-section" aria-labelledby="provider-review-title">
+            <div>
+                <p class="eyebrow">Manual review</p>
+                <h2 id="provider-review-title">Provider dead letters</h2>
+                <p>Inspect terminal messages and immutable review receipts without changing delivery state.</p>
+            </div>
+            <a href="/operator/provider-delivery/dead-letters">Review provider dead letters</a>
+        </section>
+
+        <section class="boundary-note" aria-labelledby="provider-boundary-title">
+            <p class="eyebrow">Read-only boundary</p>
+            <h2 id="provider-boundary-title">Observation does not activate delivery</h2>
+            <p>This page cannot retry, replay, delete, reclassify, unblock, or enable provider work.</p>
+        </section>
+    }
+</div>
+
+@code {
+    private ProviderDeliveryStatusResponse? _status;
+    private bool _loadFailed;
+
+    private long QueuedWorkCount => (_status?.PendingCount ?? 0) + (_status?.ProcessingCount ?? 0);
+    private string DeliveryStateLabel => _status?.IsEnabled == true ? "Enabled" : "Disabled";
+    private string DeliveryStateClass => _status?.IsEnabled == true ? "summary--healthy" : "summary--warning";
+    private string PendingStateClass => _status?.PendingCount > 0 ? "summary--warning" : string.Empty;
+    private string ProcessingStateClass => _status?.ProcessingCount > 0 ? "summary--active" : string.Empty;
+    private string DeadLetterStateClass => _status?.DeadLetterCount > 0 ? "summary--alert" : string.Empty;
+    private string ReviewStateClass => _status?.UnreviewedDeadLetterCount > 0 ? "summary--alert" : string.Empty;
+
+    private string QueueStateLabel => _status?.DeadLetterCount > 0
+        ? "Action required"
+        : _status?.IsEnabled == true && QueuedWorkCount > 0
+            ? "Delivery active"
+            : QueuedWorkCount > 0
+                ? "Paused with queued work"
+                : _status?.IsEnabled == true
+                    ? "Clear"
+                    : "Paused";
+
+    private string QueueStateClass => _status?.DeadLetterCount > 0
+        ? "queue-state--alert"
+        : _status?.IsEnabled == true && QueuedWorkCount > 0
+            ? "queue-state--active"
+            : _status?.IsEnabled == true
+                ? "queue-state--healthy"
+                : "queue-state--paused";
+
+    private string QueueHeadline => _status?.DeadLetterCount > 0
+        ? "Some provider messages remain terminal"
+        : _status?.IsEnabled == true && QueuedWorkCount > 0
+            ? "Provider messages are moving through the queue"
+            : QueuedWorkCount > 0
+                ? "Durable provider work is waiting"
+                : _status?.IsEnabled == true
+                    ? "No provider delivery backlog"
+                    : "Provider delivery is intentionally disabled";
+
+    private string QueueExplanation => _status?.DeadLetterCount > 0
+        ? "Open the dead-letter queue to inspect terminal work and its immutable review evidence. Review does not unblock delivery."
+        : _status?.IsEnabled == true && QueuedWorkCount > 0
+            ? "Pending and claimed messages remain durable while the worker completes bounded attempts."
+            : QueuedWorkCount > 0
+                ? "Messages remain durable, but the provider worker is not configured to send them."
+                : _status?.IsEnabled == true
+                    ? "There are no pending, processing, or dead-letter messages in this snapshot."
+                    : "No provider worker is currently configured to send messages.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!ProviderOperationsClient.IsEnabled)
+        {
+            return;
+        }
+
+        try
+        {
+            _status = await ProviderOperationsClient.GetStatusAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load provider delivery status.");
+            _loadFailed = true;
+        }
+    }
+
+    private static string FormatDateTime(DateTimeOffset? value) => value is null
+        ? "Not available"
+        : value.Value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+}

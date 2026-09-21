@@ -1931,6 +1931,34 @@ The contract and accepted rollout boundaries are recorded in
 review are retained; no provider replay, deletion, reclassification, source
 delivery, or provider-worker activation occurred.
 
+## Current v2.21 Milestone: Provider Delivery Overview
+
+The first v2.21 product slice adds a read-only Operator overview for the
+independent provider outbox without widening the v2.20 mutation boundary:
+
+- completed locally: add one separately authorized receiver status endpoint
+  reporting provider-worker configuration, pending, processing, dead-letter,
+  and unreviewed-dead-letter counts plus oldest-pending and observation times;
+- completed locally: compose that sanitized snapshot through the existing
+  server-side provider-operations client without exposing its authorization to
+  browser code;
+- completed locally: add an Operator-only `/operator/provider-delivery` page
+  that distinguishes clear, active, paused-with-work, and action-required
+  states and links to the existing immutable dead-letter review workflow;
+- completed locally: keep the overview read-only and explicitly unable to
+  retry, replay, delete, reclassify, unblock, or enable provider work;
+- completed locally: reuse the existing provider-outbox schema and statistics
+  path with no migration, source-delivery change, provider activation, identity
+  change, public route, or game-host change;
+- completed locally: focused receiver, BFF client, static-rendered
+  authorization, PostgreSQL, and responsive Chromium coverage passed, followed
+  by the complete local Quality Gate with no vulnerable packages reported;
+- pending: prepare release-readiness and exact-digest rollout evidence only
+  after the product diff is reviewed and integrated.
+
+This is an R1 additive read-only slice. Provider delivery and source alert
+delivery remain disabled operational decisions outside the milestone.
+
 ## Current API Scope
 
 Access policies for these endpoints are implemented as defined in

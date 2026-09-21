@@ -545,12 +545,18 @@ The project should evolve in stages:
   preserved historical evidence, and both delivery workers are disabled. The
   release and canary boundaries are recorded in `docs/v2.19-readiness.md` and
   `docs/v2.19-provider-canary.md`.
-- The active v2.20 slice adds internal bounded provider-outbox inspection and
-  an append-only audited review record while leaving the historical provider
-  failure immutable. Its first local API/database boundary is complete;
-  Operator BFF/UI integration and the disabled-by-default deployment secret
-  remain separate gates before any rollout or sustained unattended delivery.
-  Sandbox entitlements may follow; real payments remain explicitly out of
+- v2.20 adds internal bounded provider-outbox inspection and an append-only
+  audited review record while leaving the historical provider failure
+  immutable. Its Operator BFF/UI, disabled-by-default deployment boundary,
+  one-review production acceptance, and stable publication are complete;
+  provider delivery remains disabled.
+- The active v2.21 slice adds an Operator-only provider-delivery overview over
+  the existing receiver outbox. It exposes only worker configuration, bounded
+  queue counts, review workload, oldest-pending time, and observation time
+  through the private server-side operations boundary. It adds no migration,
+  delivery activation, provider mutation, public route, identity change, or
+  game-host change.
+- Sandbox entitlements may follow; real payments remain explicitly out of
   scope until then.
 - Optional service extraction or a broker only if observed scaling, ownership,
   or failure-isolation pressure makes the modular monolith insufficient.

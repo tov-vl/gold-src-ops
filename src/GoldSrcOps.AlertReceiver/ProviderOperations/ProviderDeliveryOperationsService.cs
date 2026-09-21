@@ -1,12 +1,17 @@
 using System.Data;
+using GoldSrcOps.AlertReceiver.Configuration;
 using GoldSrcOps.AlertReceiver.Persistence;
+using GoldSrcOps.AlertReceiver.ProviderDelivery;
 using GoldSrcOps.Contracts.ProviderDelivery;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace GoldSrcOps.AlertReceiver.ProviderOperations;
 
 internal sealed class ProviderDeliveryOperationsService(
     AlertReceiverDbContext dbContext,
+    IProviderOutboxStore outboxStore,
+    IOptions<ProviderDeliveryOptions> deliveryOptions,
     TimeProvider timeProvider)
 {
     private static readonly DateTimeOffset PostgresEpoch =
@@ -14,6 +19,25 @@ internal sealed class ProviderDeliveryOperationsService(
 
     public const int DefaultDeadLetterLimit = 50;
     public const int MaxDeadLetterLimit = 100;
+
+    public async Task<ProviderDeliveryStatusResponse> GetStatusAsync(
+        CancellationToken cancellationToken)
+    {
+        var statistics = await outboxStore.GetStatisticsAsync(cancellationToken);
+        var unreviewedDeadLetters = await DeadLetters()
+            .Where(message => !dbContext.ProviderOutboxReviews
+                .Any(review => review.MessageId == message.Id))
+            .LongCountAsync(cancellationToken);
+
+        return new ProviderDeliveryStatusResponse(
+            deliveryOptions.Value.Enabled,
+            statistics.PendingCount,
+            statistics.ProcessingCount,
+            statistics.DeadLetterCount,
+            unreviewedDeadLetters,
+            statistics.OldestPendingAtUtc,
+            timeProvider.GetUtcNow().ToUniversalTime());
+    }
 
     public async Task<ProviderDeadLetterListPage> ListDeadLettersAsync(
         ProviderDeadLetterPagePosition? position,

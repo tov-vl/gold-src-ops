@@ -163,9 +163,10 @@ flowchart LR
   `receiver` schema, exact event idempotency, per-incident ordering, explicit
   catch-up suppression, a provider outbox, bounded provider delivery, and
   liveness/readiness probes. Its internal provider-operations boundary exposes
-  bounded dead-letter metadata and append-only review records behind a separate
-  disabled-by-default authorization value; it does not replay, delete, or
-  reclassify provider work. Its independent image includes only the receiver
+  a bounded queue-health snapshot, dead-letter metadata, and append-only review
+  records behind a separate disabled-by-default authorization value; it does
+  not replay, delete, reclassify, unblock, or activate provider work. Its
+  independent image includes only the receiver
   runtime and receiver migration bundle. The base deployment contract starts
   in `CatchUp` mode with provider delivery and provider operations disabled and
   uses a dedicated database, role, backup namespace, and restore rehearsal. The

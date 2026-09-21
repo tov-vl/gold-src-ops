@@ -13,6 +13,17 @@ internal sealed class ProviderOperationsClient(HttpClient httpClient) : IProvide
 
     public bool IsEnabled => true;
 
+    public async Task<ProviderDeliveryStatusResponse> GetStatusAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.GetAsync(
+            "internal/v1/provider-delivery/status",
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await ReadRequiredAsync<ProviderDeliveryStatusResponse>(response, cancellationToken);
+    }
+
     public async Task<ProviderDeadLetterListResponse> GetDeadLettersAsync(
         string? cursor,
         int limit,
@@ -176,6 +187,10 @@ internal sealed class ProviderOperationsClient(HttpClient httpClient) : IProvide
 internal sealed class DisabledProviderOperationsClient : IProviderOperationsClient
 {
     public bool IsEnabled => false;
+
+    public Task<ProviderDeliveryStatusResponse> GetStatusAsync(
+        CancellationToken cancellationToken = default) =>
+        Disabled<ProviderDeliveryStatusResponse>();
 
     public Task<ProviderDeadLetterListResponse> GetDeadLettersAsync(
         string? cursor,
