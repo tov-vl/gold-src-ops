@@ -51,6 +51,9 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
             services.RemoveAll<IReaderApiClient>();
             services.AddSingleton<IReaderApiClient>(
                 new ReaderWebApplicationFactory.FixtureReaderApiClient(serverEnabled));
+            services.RemoveAll<IProviderOperationsClient>();
+            services.AddSingleton<IProviderOperationsClient>(
+                new ReaderWebApplicationFactory.FixtureProviderOperationsClient());
             var publicStatusHandler =
                 new PublicDashboardWebApplicationFactory.FixturePublicStatusHandler(statusUnavailable: false);
             services.RemoveAll<PublicStatusClient>();

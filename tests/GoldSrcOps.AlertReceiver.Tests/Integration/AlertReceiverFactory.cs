@@ -10,16 +10,22 @@ namespace GoldSrcOps.AlertReceiver.Tests.Integration;
 
 internal sealed class AlertReceiverFactory(
     string connectionString,
-    ReceiverMode receiverMode)
+    ReceiverMode receiverMode,
+    bool providerOperationsEnabled)
     : WebApplicationFactory<Program>
 {
     public const string Authorization = "Bearer alert-receiver-test";
+    public const string OperationsAuthorization = "Bearer provider-operations-test";
 
     public static async Task<AlertReceiverFactory> CreateAsync(
         string connectionString,
-        ReceiverMode receiverMode)
+        ReceiverMode receiverMode,
+        bool providerOperationsEnabled = true)
     {
-        var factory = new AlertReceiverFactory(connectionString, receiverMode);
+        var factory = new AlertReceiverFactory(
+            connectionString,
+            receiverMode,
+            providerOperationsEnabled);
 
         try
         {
@@ -49,6 +55,10 @@ internal sealed class AlertReceiverFactory(
         builder.UseSetting("ConnectionStrings:AlertReceiver", connectionString);
         builder.UseSetting("Receiver:Authorization", Authorization);
         builder.UseSetting("Receiver:Mode", receiverMode.ToString());
+        builder.UseSetting(
+            "ProviderOperations:Enabled",
+            providerOperationsEnabled.ToString());
+        builder.UseSetting("ProviderOperations:Authorization", OperationsAuthorization);
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(
@@ -57,6 +67,8 @@ internal sealed class AlertReceiverFactory(
                     ["ConnectionStrings:AlertReceiver"] = connectionString,
                     ["Receiver:Authorization"] = Authorization,
                     ["Receiver:Mode"] = receiverMode.ToString(),
+                    ["ProviderOperations:Enabled"] = providerOperationsEnabled.ToString(),
+                    ["ProviderOperations:Authorization"] = OperationsAuthorization,
                 });
         });
     }

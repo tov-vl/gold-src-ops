@@ -1,0 +1,13 @@
+services:
+  web:
+    environment:
+      ProviderOperations__AuthorizationFile: /run/secrets/provider-operations-authorization
+      ProviderOperations__BaseUrl: http://goldsrcops-alert-receiver:8080/
+      ProviderOperations__Enabled: "true"
+    secrets:
+      - source: provider-operations-authorization
+        target: provider-operations-authorization
+
+secrets:
+  provider-operations-authorization:
+    file: ${GOLDSRCOPS_PROVIDER_OPERATIONS_AUTHORIZATION_FILE:?Set GOLDSRCOPS_PROVIDER_OPERATIONS_AUTHORIZATION_FILE}

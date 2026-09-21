@@ -545,10 +545,13 @@ The project should evolve in stages:
   preserved historical evidence, and both delivery workers are disabled. The
   release and canary boundaries are recorded in `docs/v2.19-readiness.md` and
   `docs/v2.19-provider-canary.md`.
-- The next product slice should add bounded provider-outbox inspection and an
-  audited reviewed disposition before sustained unattended delivery is
-  activated. Sandbox entitlements may follow; real payments remain explicitly
-  out of scope until then.
+- The active v2.20 slice adds internal bounded provider-outbox inspection and
+  an append-only audited review record while leaving the historical provider
+  failure immutable. Its first local API/database boundary is complete;
+  Operator BFF/UI integration and the disabled-by-default deployment secret
+  remain separate gates before any rollout or sustained unattended delivery.
+  Sandbox entitlements may follow; real payments remain explicitly out of
+  scope until then.
 - Optional service extraction or a broker only if observed scaling, ownership,
   or failure-isolation pressure makes the modular monolith insufficient.
 

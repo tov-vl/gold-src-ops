@@ -18,6 +18,9 @@ public sealed class AlertReceiverDbContext(DbContextOptions<AlertReceiverDbConte
     internal DbSet<ProviderOutboxMessage> ProviderOutboxMessages =>
         Set<ProviderOutboxMessage>();
 
+    internal DbSet<ProviderOutboxReview> ProviderOutboxReviews =>
+        Set<ProviderOutboxReview>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
@@ -175,6 +178,26 @@ public sealed class AlertReceiverDbContext(DbContextOptions<AlertReceiverDbConte
             message.HasOne<ReceiverIncident>()
                 .WithMany()
                 .HasForeignKey(x => x.IncidentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ProviderOutboxReview>(review =>
+        {
+            review.ToTable("provider_outbox_reviews");
+            review.HasKey(x => x.RequestId);
+            review.Property(x => x.RequestId).ValueGeneratedNever();
+            review.Property(x => x.RequestedBy)
+                .HasMaxLength(ProviderOutboxReview.MaxRequestedByLength)
+                .IsRequired();
+            review.Property(x => x.Reason)
+                .HasMaxLength(ProviderOutboxReview.MaxReasonLength)
+                .IsRequired();
+            review.HasIndex(x => x.MessageId)
+                .IsUnique()
+                .HasDatabaseName("UX_receiver_provider_outbox_reviews_MessageId");
+            review.HasOne<ProviderOutboxMessage>()
+                .WithOne()
+                .HasForeignKey<ProviderOutboxReview>(x => x.MessageId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

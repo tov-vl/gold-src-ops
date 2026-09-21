@@ -103,6 +103,36 @@ namespace GoldSrcOps.AlertReceiver.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("GoldSrcOps.AlertReceiver.Persistence.ProviderOutboxReview", b =>
+                {
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("RequestedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("ReviewedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("RequestId");
+
+                    b.HasIndex("MessageId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_receiver_provider_outbox_reviews_MessageId");
+
+                    b.ToTable("provider_outbox_reviews", "receiver");
+                });
+
             modelBuilder.Entity("GoldSrcOps.AlertReceiver.Persistence.ReceivedAvailabilityEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -226,6 +256,15 @@ namespace GoldSrcOps.AlertReceiver.Persistence.Migrations
                     b.HasOne("GoldSrcOps.AlertReceiver.Persistence.ReceivedAvailabilityEvent", null)
                         .WithOne()
                         .HasForeignKey("GoldSrcOps.AlertReceiver.Persistence.ProviderOutboxMessage", "SourceEventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("GoldSrcOps.AlertReceiver.Persistence.ProviderOutboxReview", b =>
+                {
+                    b.HasOne("GoldSrcOps.AlertReceiver.Persistence.ProviderOutboxMessage", null)
+                        .WithOne()
+                        .HasForeignKey("GoldSrcOps.AlertReceiver.Persistence.ProviderOutboxReview", "MessageId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

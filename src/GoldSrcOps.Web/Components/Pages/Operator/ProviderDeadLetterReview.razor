@@ -1,0 +1,75 @@
+@page "/operator/provider-delivery/reviews/{RequestId:guid}"
+@attribute [Authorize(Policy = WebSecurity.OperatorPolicy)]
+@inject IProviderOperationsClient ProviderOperationsClient
+@inject ILogger<ProviderDeadLetterReview> Logger
+
+<PageTitle>Provider review receipt | GoldSrcOps</PageTitle>
+
+<div class="provider-review-page">
+    <a class="back-link" href="/operator/provider-delivery/dead-letters">Back to provider dead letters</a>
+
+    @if (!ProviderOperationsClient.IsEnabled)
+    {
+        <section class="receipt-state" role="status"><h1>Provider operations are disabled</h1><p>No receiver request was sent.</p></section>
+    }
+    else if (_loadFailed)
+    {
+        <section class="receipt-state" role="alert"><h1>Review receipt is unavailable</h1><p>The receiver did not return a usable record. Do not submit another review yet.</p></section>
+    }
+    else if (_review is null)
+    {
+        <section class="receipt-state @GetMissingStateClass()" role="alert">
+            <p class="eyebrow">Provider review receipt</p>
+            <h1>@GetMissingStateTitle()</h1>
+            <p>@GetMissingStateDetail()</p>
+            <p class="request-id">Request <code>@RequestId</code></p>
+        </section>
+    }
+    else
+    {
+        <header class="receipt-heading">
+            <div><p class="eyebrow">Provider review receipt</p><h1>Review recorded</h1><p class="request-id">Request <code>@_review.RequestId</code></p></div>
+            <span class="review-state">Immutable</span>
+        </header>
+
+        @if (string.Equals(Result, "unknown", StringComparison.Ordinal))
+        {
+            <section class="outcome-warning" role="status"><strong>The submission response was not received</strong><p>The durable receipt confirms the review exists. The Web host did not retry it.</p></section>
+        }
+
+        <section class="receipt-grid" aria-label="Provider review metadata">
+            <dl>
+                <div><dt>Message</dt><dd><a href="@($"/operator/provider-delivery/dead-letters/{_review.MessageId:D}")"><code>@_review.MessageId</code></a></dd></div>
+                <div><dt>Reviewed</dt><dd>@FormatDateTime(_review.ReviewedAtUtc)</dd></div>
+                <div><dt>Reviewer</dt><dd>@_review.RequestedBy</dd></div>
+            </dl>
+        </section>
+        <section class="reason-detail"><p class="eyebrow">Audit note</p><h2>Reason for review</h2><p>@_review.Reason</p></section>
+        <section class="boundary-note"><strong>No delivery mutation</strong><p>The source message remains dead-lettered. This receipt does not represent a retry, replay, deletion, reclassification, or queue unblock.</p></section>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid RequestId { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "result")] public string? Result { get; set; }
+    private ProviderDeadLetterReviewResponse? _review;
+    private bool _loadFailed;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _review = null;
+        _loadFailed = false;
+        if (!ProviderOperationsClient.IsEnabled) return;
+        try { _review = await ProviderOperationsClient.GetReviewAsync(RequestId); }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load provider review {RequestId}.", RequestId);
+            _loadFailed = true;
+        }
+    }
+
+    private string GetMissingStateTitle() => string.Equals(Result, "unknown", StringComparison.Ordinal) ? "Outcome not yet confirmed" : "Review request not found";
+    private string GetMissingStateDetail() => string.Equals(Result, "unknown", StringComparison.Ordinal) ? "The receiver has no durable receipt for this request. Check again before submitting a new review." : "The request is not present in retained provider review history.";
+    private string GetMissingStateClass() => string.Equals(Result, "unknown", StringComparison.Ordinal) ? "receipt-state--warning" : string.Empty;
+    private static string FormatDateTime(DateTimeOffset value) => value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+}

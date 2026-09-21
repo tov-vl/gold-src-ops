@@ -49,8 +49,15 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             $"/operator/dead-letters/{ReaderWebApplicationFactory.DeadLetterEventId:D}");
         var replayReceiptPage = await VisitAsync(
             $"/operator/replays/{ReaderWebApplicationFactory.ReplayRequestId:D}");
+        var providerDeadLettersPage = await VisitAsync(
+            "/operator/provider-delivery/dead-letters");
+        var providerDeadLetterDetailPage = await VisitAsync(
+            $"/operator/provider-delivery/dead-letters/{ReaderWebApplicationFactory.ProviderMessageId:D}");
+        var providerReviewReceiptPage = await VisitAsync(
+            $"/operator/provider-delivery/reviews/{ReaderWebApplicationFactory.ProviderReviewRequestId:D}");
 
-        Page.Url.Should().EndWith($"/operator/replays/{ReaderWebApplicationFactory.ReplayRequestId:D}");
+        Page.Url.Should().EndWith(
+            $"/operator/provider-delivery/reviews/{ReaderWebApplicationFactory.ProviderReviewRequestId:D}");
         var stylesheetHrefs = await Page.EvaluateAsync<string[]>(
             "Array.from(document.styleSheets, sheet => sheet.href ?? '')");
         stylesheetHrefs.Should().Contain(
@@ -69,6 +76,9 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         deadLettersPage.Body.Should().Contain(ReaderWebApplicationFactory.DeadLetterLastError);
         deadLetterDetailPage.Body.Should().Contain("Ordering warning");
         replayReceiptPage.Body.Should().Contain(ReaderWebApplicationFactory.ReplayReason);
+        providerDeadLettersPage.Body.Should().Contain(ReaderWebApplicationFactory.ProviderFailureSummary);
+        providerDeadLetterDetailPage.Body.Should().Contain("Record review");
+        providerReviewReceiptPage.Body.Should().Contain(ReaderWebApplicationFactory.ProviderReviewReason);
         foreach (var page in new[]
                  {
                      listPage,
@@ -90,7 +100,10 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                      pendingDeliveryPage,
                      deadLettersPage,
                      deadLetterDetailPage,
-                     replayReceiptPage
+                     replayReceiptPage,
+                     providerDeadLettersPage,
+                     providerDeadLetterDetailPage,
+                     providerReviewReceiptPage
                  })
         {
             AssertTokenFree(page.Body);
@@ -206,6 +219,43 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             hasHorizontalOverflow.Should().BeFalse();
 
             await CaptureScreenshotIfRequestedAsync("alert-delivery-overview", viewport);
+        }
+    }
+
+    [BrowserFact]
+    public async Task Provider_review_workflow_fits_supported_desktop_and_mobile_viewports()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+        await Page.GotoAsync(
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
+            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                new Uri(
+                    baseAddress,
+                    $"/operator/provider-delivery/dead-letters/{ReaderWebApplicationFactory.ProviderMessageId:D}")
+                    .AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("form.review-form").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("textarea[name='Reason']").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator("form.review-form button[type='submit']").IsVisibleAsync()).Should().BeTrue();
+            var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+            hasHorizontalOverflow.Should().BeFalse();
+
+            await CaptureScreenshotIfRequestedAsync("provider-review", viewport);
         }
     }
 

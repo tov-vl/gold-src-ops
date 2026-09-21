@@ -166,10 +166,10 @@ jobs:
           -EnvironmentFile ./ops/production/deployment.env.example
           -ContractOnly
 
-      - name: Validate AlertReceiver control-plane co-location contract
+      - name: Validate AlertReceiver provider-operations contract
         if: needs.change-scope.outputs.docs_only != 'true'
         run: >-
-          pwsh -NoProfile -File ./ops/alert-receiver/control-plane-preflight.ps1
+          pwsh -NoProfile -File ./ops/alert-receiver/provider-operations-preflight.ps1
           -ReceiverEnvironmentFile ./ops/alert-receiver/deployment.env.example
           -ProductionEnvironmentFile ./ops/production/deployment.env.example
           -ContractOnly

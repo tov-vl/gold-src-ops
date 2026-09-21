@@ -1,0 +1,148 @@
+@page "/operator/provider-delivery/dead-letters/{MessageId:guid}"
+@attribute [Authorize(Policy = WebSecurity.OperatorPolicy)]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IProviderOperationsClient ProviderOperationsClient
+@inject OperatorProviderReviewConfirmationStore Confirmations
+@inject ILogger<ProviderDeadLetterDetail> Logger
+
+<PageTitle>Provider dead-letter detail | GoldSrcOps</PageTitle>
+
+<div class="provider-detail-page">
+    <a class="back-link" href="/operator/provider-delivery/dead-letters">Back to provider dead letters</a>
+
+    @if (!ProviderOperationsClient.IsEnabled)
+    {
+        <section class="detail-state" role="status"><h1>Provider operations are disabled</h1><p>No receiver request was sent.</p></section>
+    }
+    else if (_loadFailed)
+    {
+        <section class="detail-state" role="alert"><h1>Provider dead letter is unavailable</h1><p>The receiver did not return a usable operations record.</p></section>
+    }
+    else if (_message is null)
+    {
+        <section class="detail-state"><h1>Provider dead letter not found</h1><p>The message is not present in the terminal provider queue.</p></section>
+    }
+    else
+    {
+        <header class="detail-heading">
+            <div>
+                <p class="eyebrow">Provider delivery review</p>
+                <h1>@_message.Action</h1>
+                <p class="message-id"><code>@_message.MessageId</code></p>
+            </div>
+            <span class="dead-letter-state"><span aria-hidden="true"></span>Dead letter</span>
+        </header>
+
+        @if (GetResultMessage() is { } resultMessage)
+        {
+            <section class="result-state @GetResultClass()" role="alert"><strong>@resultMessage.Title</strong><p>@resultMessage.Detail</p></section>
+        }
+
+        <section class="detail-grid" aria-label="Provider dead-letter metadata">
+            <dl>
+                <div><dt>Source event</dt><dd><code>@_message.SourceEventId</code></dd></div>
+                <div><dt>Incident</dt><dd><code>@_message.IncidentId</code></dd></div>
+                <div><dt>Created</dt><dd>@FormatDateTime(_message.CreatedAtUtc)</dd></div>
+                <div><dt>Dead-lettered</dt><dd>@FormatDateTime(_message.DeadLetteredAtUtc)</dd></div>
+                <div><dt>Delivery attempts</dt><dd>@_message.AttemptCount</dd></div>
+                <div><dt>Review state</dt><dd>@(_message.Review is null ? "Pending" : "Recorded")</dd></div>
+            </dl>
+        </section>
+
+        <section class="failure-detail"><p class="eyebrow">Last provider failure</p><h2>Delivery cycle exhausted</h2><p>@DisplayValue(_message.FailureSummary)</p></section>
+
+        @if (_message.Review is { } review)
+        {
+            <section class="review-detail" aria-labelledby="review-title">
+                <p class="eyebrow">Immutable review</p>
+                <h2 id="review-title">Reviewed by @review.RequestedBy</h2>
+                <dl>
+                    <div><dt>Reviewed</dt><dd>@FormatDateTime(review.ReviewedAtUtc)</dd></div>
+                    <div><dt>Request</dt><dd><a href="@($"/operator/provider-delivery/reviews/{review.RequestId:D}")"><code>@review.RequestId</code></a></dd></div>
+                </dl>
+                <p>@review.Reason</p>
+            </section>
+        }
+        else if (_confirmationToken is null || _requestId is null)
+        {
+            <section class="role-state" role="alert"><h2>Review confirmation is temporarily unavailable</h2><p>No review can be submitted. Refresh after existing confirmations expire.</p></section>
+        }
+        else
+        {
+            <form class="review-form" method="post" action="@($"/operator/provider-delivery/dead-letters/{MessageId:D}/review")">
+                <AntiforgeryToken />
+                <input type="hidden" name="ConfirmationToken" value="@_confirmationToken" />
+                <input type="hidden" name="RequestId" value="@_requestId.Value.ToString("D")" />
+                <div class="form-heading">
+                    <p class="eyebrow">Operator action</p>
+                    <h2>Record review</h2>
+                    <p>This appends review evidence only. It does not retry, replay, delete, reclassify, or unblock provider delivery.</p>
+                </div>
+                <div class="field-group">
+                    <label for="provider-review-reason">Reason</label>
+                    <textarea id="provider-review-reason" name="Reason" maxlength="500" rows="4" required autocomplete="off" spellcheck="true"></textarea>
+                    <span>Required audit note, maximum 500 characters.</span>
+                </div>
+                <label class="confirmation-field" for="provider-review-confirmed">
+                    <input id="provider-review-confirmed" name="Confirmed" type="checkbox" value="true" required />
+                    <span>I understand this records review only and does not change delivery state.</span>
+                </label>
+                <div class="form-actions"><button type="submit">Record review</button><a href="/operator/provider-delivery/dead-letters">Cancel</a></div>
+            </form>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid MessageId { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "result")] public string? Result { get; set; }
+    private ProviderDeadLetterListItemResponse? _message;
+    private Guid? _requestId;
+    private string? _confirmationToken;
+    private bool _loadFailed;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _message = null;
+        _requestId = null;
+        _confirmationToken = null;
+        _loadFailed = false;
+        if (!ProviderOperationsClient.IsEnabled) return;
+
+        try
+        {
+            _message = await ProviderOperationsClient.GetDeadLetterAsync(MessageId);
+            if (_message is null || _message.Review is not null) return;
+            var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            if (WebSecurity.GetSubject(authenticationState.User) is { } subject)
+            {
+                var requestId = Guid.NewGuid();
+                var token = Confirmations.Issue(subject, MessageId, requestId);
+                if (token is not null) { _requestId = requestId; _confirmationToken = token; }
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load provider dead letter {MessageId}.", MessageId);
+            _loadFailed = true;
+        }
+    }
+
+    private ResultMessage? GetResultMessage() => Result switch
+    {
+        "invalid" => new("Review was not accepted", "Enter an audit reason, confirm the action, and submit again."),
+        "confirmation-expired" => new("Confirmation expired", "No review was recorded. Inspect the current message and use the new confirmation."),
+        "not-found" => new("Message is no longer available", "No review was recorded. Return to the provider dead-letter list."),
+        "not-dead-letter" => new("Message is no longer terminal", "No review was recorded because the receiver state changed."),
+        "conflict" => new("Review request conflicts with durable evidence", "No review was recorded. Refresh before another attempt."),
+        "already-reviewed" => new("Message already has a review", "Refresh to inspect its immutable review record."),
+        "rejected" => new("Review request was rejected", "No review was recorded. Inspect the current message before trying again."),
+        "unavailable" => new("Provider operations are unavailable", "No review was submitted."),
+        _ => null
+    };
+
+    private string GetResultClass() => Result is "confirmation-expired" or "already-reviewed" ? "result-state--warning" : "result-state--error";
+    private static string DisplayValue(string? value) => string.IsNullOrWhiteSpace(value) ? "Not available" : value;
+    private static string FormatDateTime(DateTimeOffset value) => value.ToUniversalTime().ToString("dd MMM yyyy, HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+    private sealed record ResultMessage(string Title, string Detail);
+}

@@ -1390,3 +1390,58 @@ attempt failed closed as one retained HTTP `403` dead letter; it was not
 retried, deleted, or reclassified. Both delivery workers were disabled again.
 The sanitized sequence and claim limits are recorded in
 `docs/v2.19-provider-canary.md`.
+
+## Decision 28: Record Provider Dead-Letter Review Without Mutating Delivery History
+
+Decision:
+
+Expose bounded provider dead-letter metadata through a separately authorized
+internal receiver API and record an append-only operator review for each
+terminal provider message. A review is an acknowledgement of completed human
+investigation, not a delivery-state transition: it must not replay, delete,
+retry, reclassify, or unblock the source message.
+
+Use a caller-supplied UUID idempotency key for the review request. The same key,
+message, operator identifier, and reason return the original review; reuse with
+different intent conflicts. Permit only one review per provider message. Keep
+the boundary disabled by default, use authorization distinct from ingestion and
+provider delivery, and never expose the credential to browser code.
+
+Decision date: 2026-09-21.
+
+Reasoning:
+
+- The retained v2.19 HTTP `403` is historical evidence of a failed-closed
+  provider attempt. Changing its state would weaken that evidence and could
+  release later work whose ordering still depends on the terminal predecessor.
+- An append-only review proves that the retained row was investigated without
+  pretending it was delivered or making an uncertain retry safe.
+- Separate authorization limits the blast radius of an operations credential
+  and lets the public receiver ingress remain restricted to one event-ingestion
+  POST route.
+- Stable tuple pagination and minimal projections keep inspection bounded and
+  avoid disclosing provider payloads, receiver credentials, or raw responses.
+- Database uniqueness plus transaction-scoped advisory locks makes exact
+  retries and concurrent review attempts deterministic.
+
+Alternatives considered:
+
+- Reuse the provider outbox status as the review marker. Rejected because it
+  conflates delivery truth with human workflow and would rewrite historical
+  state.
+- Replay the stale trigger after correcting authorization. Rejected because its
+  incident had already recovered and replay could create a false current alert.
+- Delete the retained row after manual inspection. Rejected because it removes
+  evidence and silently changes the per-incident ordering boundary.
+- Expose the receiver operations credential directly to the Operator browser.
+  Rejected because `GoldSrcOps.Web` is an OIDC BFF and protected downstream
+  credentials must remain server-side.
+
+Implementation status:
+
+The additive review relation, internal list/detail/review API, independent
+disabled-by-default authorization, and PostgreSQL integration coverage are
+implemented locally for v2.20. The source dead letter remains terminal. The
+Operator BFF projection, deployment secret wiring, container/restore evidence,
+and target rollout remain separate review gates documented in
+`docs/v2.20-provider-delivery-operations.md`.

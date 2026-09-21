@@ -162,14 +162,18 @@ flowchart LR
   for durable availability-event ingestion. It owns a dedicated PostgreSQL
   `receiver` schema, exact event idempotency, per-incident ordering, explicit
   catch-up suppression, a provider outbox, bounded provider delivery, and
-  liveness/readiness probes. Its independent image includes only the receiver
+  liveness/readiness probes. Its internal provider-operations boundary exposes
+  bounded dead-letter metadata and append-only review records behind a separate
+  disabled-by-default authorization value; it does not replay, delete, or
+  reclassify provider work. Its independent image includes only the receiver
   runtime and receiver migration bundle. The base deployment contract starts
-  in `CatchUp` mode with provider delivery disabled and uses a dedicated
-  database, role, backup namespace, and restore rehearsal. The first persistent
-  placement may share `gso-control-01`, but it reuses the existing Caddy edge
-  without publishing another port and has explicit CPU/memory limits. This is
-  process and data isolation, not an independent failure domain. It is not
-  wired to production delivery.
+  in `CatchUp` mode with provider delivery and provider operations disabled and
+  uses a dedicated database, role, backup namespace, and restore rehearsal. The
+  first persistent placement may share `gso-control-01`, but it reuses the
+  existing Caddy edge without publishing another port and has explicit
+  CPU/memory limits. This is process and data isolation, not an independent
+  failure domain. It is not wired to production delivery, and the tracked
+  public receiver route continues to forward only availability-event POSTs.
 
 ## Security Boundary
 

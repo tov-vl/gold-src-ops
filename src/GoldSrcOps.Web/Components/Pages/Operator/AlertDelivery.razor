@@ -91,6 +91,19 @@
             </div>
             <a href="/operator/dead-letters">Review dead letters</a>
         </section>
+
+        <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
+            <Authorized>
+                <section class="review-section" aria-labelledby="provider-dead-letter-review-title">
+                    <div>
+                        <p class="eyebrow">Provider operations</p>
+                        <h2 id="provider-dead-letter-review-title">Provider dead letters</h2>
+                        <p>Inspect terminal receiver messages and append review evidence without changing delivery state.</p>
+                    </div>
+                    <a href="/operator/provider-delivery/dead-letters">Review provider dead letters</a>
+                </section>
+            </Authorized>
+        </AuthorizeView>
     }
 </div>
 

@@ -29,6 +29,7 @@ internal static class WebSecurityConfiguration
         services.AddSingleton<OperatorMapChangeConfirmationStore>();
         services.AddSingleton<OperatorRconCredentialConfirmationStore>();
         services.AddSingleton<OperatorReplayConfirmationStore>();
+        services.AddSingleton<OperatorProviderReviewConfirmationStore>();
         services.AddSingleton<OperatorServerMonitoringConfirmationStore>();
         services.AddSingleton<OperatorServerRegistrationConfirmationStore>();
         services.AddSingleton<OperatorServerUpdateConfirmationStore>();
