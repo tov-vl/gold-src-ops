@@ -1,11 +1,11 @@
 # GoldSrcOps v2.20.0 Release Notes
 
-Status as of 2026-09-21: release candidate remediation. PR #196 and the
-`v2.20.0-rc.1` publication completed, and its target backup, restore, migration,
-and disabled rollout gates passed. Activation exposed a private receiver host
-allowlist mismatch and rolled back before any provider review was submitted.
-A corrected `v2.20.0-rc.2`, target acceptance, and stable promotion remain
-pending.
+Status as of 2026-09-21: stable `v2.20.0` is published from the accepted
+`v2.20.0-rc.2` revision. Stable API, Web, and AlertReceiver references reuse
+the accepted candidate digests without rebuilding. The first candidate exposed
+a private receiver host allowlist mismatch and rolled back before any review
+was submitted; PR #197 corrected that exact boundary before the accepted
+candidate was published and rolled out.
 
 ## Overview
 
@@ -70,11 +70,20 @@ candidate digests, the focused authorization and review tests, browser role and
 token-boundary checks, three receiver migrations, private/public route checks,
 and encrypted backup with a `100%` repository check and isolated restore.
 
-Target acceptance additionally requires a fresh receiver backup and restore
-rehearsal, disabled-first Web/receiver rollout, exact shared-secret preflight,
-one bounded review of the preserved v2.19 dead letter, immutable receipt
-reconciliation, and three healthy continuity samples over at least three
-minutes. Results will be recorded only after those gates pass.
+Target acceptance passed a fresh encrypted receiver backup, `100%` repository
+check, isolated restore, all three receiver migrations, disabled-first
+Web/receiver rollout, private `401/200`, public `404`, and exactly one bounded
+review of the preserved v2.19 dead letter. The immutable receipt reconciled to
+one review while the source message remained `DeadLetter`, active claims stayed
+at zero, and both delivery workers remained disabled. Three healthy continuity
+samples spanned 211 seconds with no unexpected restart.
+
+Signed stable tag `v2.20.0` targets the exact accepted revision. Stable
+[workflow #35603766807](https://github.com/tov-vl/gold-src-ops/actions/runs/35603766807)
+skipped all three image-build steps, promoted the accepted API, Web, and
+AlertReceiver digests, and independently smoke-tested each stable reference.
+The [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.20.0)
+is published.
 
 ## Known Limits
 
