@@ -1,8 +1,9 @@
 # GoldSrcOps v2.22.0 Release Notes
 
-Status as of 2026-09-21: release-candidate preparation. The product revision is
-integrated into protected `main`; candidate publication, target acceptance,
-stable promotion, and final release evidence remain pending.
+Status as of 2026-09-22: released. Signed stable tag `v2.22.0` identifies the
+exact accepted `v2.22.0-rc.1` revision, and the stable API, Web, and
+AlertReceiver references preserve the independently verified candidate
+digests.
 
 ## Overview
 
@@ -71,12 +72,29 @@ required CI before squash merge, and post-merge workflow
 [#35639230653](https://github.com/tov-vl/gold-src-ops/actions/runs/35639230653)
 passed `Change Scope`, `Quality Gate`, `Container Smoke`, and `Browser Smoke`.
 
-Target acceptance remains pending. It requires exact candidate Web and
-AlertReceiver digests, receiver-before-Web rollout, three healthy read-only
-samples over at least three minutes, an existing Operator session, matching
-bounded source and provider evidence, forbidden Reader access, unchanged
-public Caddy exposure, unchanged durable queue and review state, receiver mode
-`CatchUp`, and both delivery workers remaining disabled.
+Readiness PR [#204](https://github.com/tov-vl/gold-src-ops/pull/204) froze exact
+revision `7c4d6f63f756f702693281f1a34c3f0c8315adce`. Candidate
+[workflow #35651626318](https://github.com/tov-vl/gold-src-ops/actions/runs/35651626318)
+published and independently verified all three workflow images.
+
+R1 target acceptance replaced only AlertReceiver and Web, in that order, with
+their candidate digests. API, both PostgreSQL schemas, Caddy, telemetry,
+identity configuration, and game-host runtime remained unchanged. Three
+healthy samples spanned 181 seconds with exact image identity, zero unexpected
+restarts, healthy public and private endpoints, unchanged durable queue and
+review state, receiver mode `CatchUp`, and both delivery workers disabled. The
+authenticated Operator chain matched bounded owner-only source and provider
+evidence and exposed no credential, payload, raw provider response, or
+mutation control. Public provider-operations access remained absent. Reader
+denial is supported by exact-revision policy and browser tests; no separate
+live Reader session was created during target acceptance.
+
+Signed stable tag `v2.22.0` targets the exact accepted revision. Stable
+[workflow #35659136810](https://github.com/tov-vl/gold-src-ops/actions/runs/35659136810)
+skipped all three image-build steps, promoted the accepted API, Web, and
+AlertReceiver digests unchanged, and independently smoke-tested each stable
+reference. The [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.22.0)
+is published. Stable promotion changed no production runtime.
 
 No production data or configuration should be changed to make the chain
 display a particular state.
@@ -99,9 +117,12 @@ display a particular state.
 - [End-to-End Delivery Readiness pull request](https://github.com/tov-vl/gold-src-ops/pull/203)
 - [Product CI](https://github.com/tov-vl/gold-src-ops/actions/runs/35637975342)
 - [Product post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/35639230653)
+- [Release readiness pull request](https://github.com/tov-vl/gold-src-ops/pull/204)
+- [Candidate workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35651626318)
+- [Stable workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/35659136810)
+- [GoldSrcOps v2.22.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.22.0)
 - [Release process](release-process.md)
 - [Deployment](deployment.md)
 - [Security](security.md)
 - [Project backlog](backlog.md)
 - [v2.21.0 release notes](release-notes-v2.21.md)
-
