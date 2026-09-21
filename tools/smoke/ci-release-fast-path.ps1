@@ -36,13 +36,18 @@ function Assert-Scope {
         [string[]]$Paths,
 
         [Parameter(Mandatory = $true)]
-        [bool]$ExpectedDocsOnly
+        [bool]$ExpectedDocsOnly,
+
+        [bool]$ExpectedStablePromotion = $false
     )
 
     $result = & $scopeScript -EventName pull_request -ChangedPath $Paths
     Assert-Condition `
         -Condition ($result.DocsOnly -eq $ExpectedDocsOnly) `
         -Message "Change-scope case '$Name' returned '$($result.Mode)'."
+    Assert-Condition `
+        -Condition ($result.StablePromotion -eq $ExpectedStablePromotion) `
+        -Message "Change-scope case '$Name' returned unexpected stable-promotion state '$($result.StablePromotion)'."
 }
 
 function Assert-ThrowsLike {
@@ -108,18 +113,37 @@ $tagResult = & $scopeScript `
     -Ref "refs/tags/v9.9.9" `
     -ChangedPath @("README.md")
 Assert-Condition -Condition (-not $tagResult.DocsOnly) -Message "A release tag was accepted as documentation-only."
+Assert-Condition -Condition $tagResult.StablePromotion -Message "A stable release tag did not select the promotion fast path."
+Assert-Condition -Condition ($tagResult.Mode -eq "stable-promotion") -Message "A stable release tag returned mode '$($tagResult.Mode)'."
+
+$candidateTagResult = & $scopeScript `
+    -EventName push `
+    -Ref "refs/tags/v9.9.9-rc.1" `
+    -ChangedPath @("README.md")
+Assert-Condition -Condition (-not $candidateTagResult.DocsOnly) -Message "A candidate tag was accepted as documentation-only."
+Assert-Condition -Condition (-not $candidateTagResult.StablePromotion) -Message "A candidate tag selected the stable-promotion fast path."
+Assert-Condition -Condition ($candidateTagResult.Mode -eq "full") -Message "A candidate tag returned mode '$($candidateTagResult.Mode)'."
+
+$invalidStableTagResult = & $scopeScript `
+    -EventName push `
+    -Ref "refs/tags/v09.9.9" `
+    -ChangedPath @("README.md")
+Assert-Condition -Condition (-not $invalidStableTagResult.StablePromotion) -Message "A non-canonical stable tag selected the promotion fast path."
 
 $unresolvedPushResult = & $scopeScript -EventName push -ChangedPath @("README.md")
 Assert-Condition -Condition (-not $unresolvedPushResult.DocsOnly) -Message "A push without a ref was accepted as documentation-only."
+Assert-Condition -Condition (-not $unresolvedPushResult.StablePromotion) -Message "A push without a ref selected the stable-promotion fast path."
 
 $featurePushResult = & $scopeScript `
     -EventName push `
     -Ref "refs/heads/feature/example" `
     -ChangedPath @("README.md")
 Assert-Condition -Condition (-not $featurePushResult.DocsOnly) -Message "An unsupported branch push was accepted as documentation-only."
+Assert-Condition -Condition (-not $featurePushResult.StablePromotion) -Message "An unsupported branch push selected the stable-promotion fast path."
 
 $manualResult = & $scopeScript -EventName workflow_dispatch -ChangedPath @("README.md")
 Assert-Condition -Condition (-not $manualResult.DocsOnly) -Message "A manual run was accepted as documentation-only."
+Assert-Condition -Condition (-not $manualResult.StablePromotion) -Message "A manual run selected the stable-promotion fast path."
 
 $workflow = [IO.File]::ReadAllText($workflowPath)
 $triggerBlock = ($workflow -split '(?m)^permissions:\s*$', 2)[0]
@@ -138,6 +162,9 @@ $qualityJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "quality"
 $containerJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "container-smoke"
 $browserJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "browser-smoke"
 Assert-Condition `
+    -Condition ($scopeJob -match '(?m)^      stable_promotion: \$\{\{ steps\.scope\.outputs\.stable_promotion \}\}$') `
+    -Message "Change Scope does not expose the stable-promotion decision."
+Assert-Condition `
     -Condition ($qualityJob -match '(?m)^    if: \$\{\{ !cancelled\(\) \}\}$') `
     -Message "Quality Gate must fail closed after scope errors without surviving workflow cancellation."
 foreach ($job in @($scopeJob, $qualityJob)) {
@@ -145,14 +172,23 @@ foreach ($job in @($scopeJob, $qualityJob)) {
         -Condition ($job -match '(?m)^      - name: Checkout\r?\n        uses: actions/checkout@v6') `
         -Message "Change Scope and Quality Gate must always check out the repository."
 }
+Assert-Condition `
+    -Condition ($qualityJob -match 'Confirm stable-promotion fast path') `
+    -Message "Quality Gate lacks an explicit stable-promotion result."
 foreach ($job in @($containerJob, $browserJob)) {
     Assert-Condition `
-        -Condition ($job -match '(?m)^      - name: Checkout\r?\n        if: needs\.change-scope\.outputs\.docs_only != ''true''\r?\n        uses: actions/checkout@v6') `
-        -Message "Runtime jobs must skip checkout only on the documentation fast path."
+        -Condition ($job -match '(?m)^      - name: Checkout\r?\n        if: needs\.change-scope\.outputs\.docs_only != ''true'' && needs\.change-scope\.outputs\.stable_promotion != ''true''\r?\n        uses: actions/checkout@v6') `
+        -Message "Runtime jobs must skip checkout only on an explicit documentation or stable-promotion fast path."
     Assert-Condition `
         -Condition ($job -match 'Confirm documentation-only fast path') `
         -Message "A required runtime job lacks an explicit documentation-only result."
+    Assert-Condition `
+        -Condition ($job -match 'Confirm stable-promotion fast path') `
+        -Message "A required runtime job lacks an explicit stable-promotion result."
 }
+Assert-Condition `
+    -Condition ($workflow -notmatch '(?m)^        if: needs\.change-scope\.outputs\.docs_only != ''true''$') `
+    -Message "A full-gate step can still run during stable promotion."
 
 try {
     New-Item -ItemType Directory -Path (Join-Path $temporaryDirectory "docs") | Out-Null
@@ -199,6 +235,7 @@ try {
     $githubOutput = [IO.File]::ReadAllText($githubOutputPath)
     foreach ($expectedOutput in @(
             "docs_only=true",
+            "stable_promotion=false",
             "mode=docs-only",
             "changed_count=1",
             "reason=documentation-only",

@@ -482,8 +482,11 @@ the feature-branch `push` and `pull_request` events. A direct push to `main`, a
 release tag, and a manual release resume still run independently. New commits
 cancel only an older run for the same PR; main, tag, and manual runs are never
 cancelled by this policy. The documentation fast path is fail-closed: an empty
-or unresolved diff, a tag, a manual run, or any non-documentation path selects
-the complete gate.
+or unresolved diff, a candidate tag, a manual run, or any non-documentation
+path selects the complete gate. A canonical stable tag `vX.Y.Z` selects the
+separate stable-promotion path because its exact revision already passed the
+candidate workflow. Non-canonical stable-looking tags fail closed to the full
+path.
 
 ## Verification
 
@@ -498,7 +501,10 @@ pwsh -NoProfile -File .\tools\smoke\alert-receiver-container.ps1
 The protected `main` workflow requires `Quality Gate`, `Container Smoke`, and
 `Browser Smoke`. Documentation-only changes retain those check names while the
 fail-closed scope and link validator replace application build and runtime
-work. For every other change, `Container Smoke` validates plan-only
+work. A canonical stable-tag push also retains those check names while skipping
+the unchanged quality, container, and browser suites. Candidate and manual
+publication runs still execute the complete gates. For every full-path change,
+`Container Smoke` validates plan-only
 host-bootstrap behavior and deterministic host-preflight decisions for service
 startup, time, capacity, SSH, firewall, port exposure, and external dependency
 failures. The image smoke flow also verifies Production webhook HTTPS
@@ -507,6 +513,9 @@ backup, a full repository data check, and an isolated restore through the same
 image-contained migration bundle. On a release tag, the API, Web, and
 AlertReceiver published-image jobs pull their newly published artifacts by
 digest and rerun the applicable smoke flow with exact OCI-label expectations.
+Stable publication remains fail-closed on the matching release-candidate
+digest, source revision, strict RC version label, unused stable reference, and
+independent smoke even though the unchanged repository gates are reused.
 A production deployment still needs
 target-environment evidence for TLS, identity-provider metadata, database TLS,
 secret injection, webhook reachability, probe routing, and backup restoration;

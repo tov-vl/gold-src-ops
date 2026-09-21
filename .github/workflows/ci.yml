@@ -44,6 +44,7 @@ jobs:
       head_revision: ${{ steps.scope.outputs.head_revision }}
       mode: ${{ steps.scope.outputs.mode }}
       reason: ${{ steps.scope.outputs.reason }}
+      stable_promotion: ${{ steps.scope.outputs.stable_promotion }}
 
     steps:
       - name: Checkout
@@ -103,34 +104,41 @@ jobs:
           -BaseRevision $env:BASE_REVISION
           -HeadRevision $env:HEAD_REVISION
 
+      - name: Confirm stable-promotion fast path
+        if: needs.change-scope.outputs.stable_promotion == 'true'
+        shell: pwsh
+        run: >-
+          Write-Host
+          "Full repository gates already passed for the matching release candidate; publication jobs will verify and promote its immutable digests."
+
       - name: Setup .NET
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 
       - name: Print .NET info
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: dotnet --info
 
       - name: Restore with NuGet audit
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: dotnet restore GoldSrcOps.sln -p:AuditPipeline=true
 
       - name: Verify formatting
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: dotnet format GoldSrcOps.sln --verify-no-changes --verbosity minimal --no-restore
 
       - name: Build
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: dotnet build GoldSrcOps.sln --no-restore
 
       - name: Test
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: dotnet test GoldSrcOps.sln --no-build
 
       - name: Report vulnerable packages
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 
   container-smoke:
@@ -145,7 +153,7 @@ jobs:
 
     steps:
       - name: Checkout
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         uses: actions/checkout@v6
 
       - name: Confirm documentation-only fast path
@@ -153,21 +161,26 @@ jobs:
         shell: pwsh
         run: Write-Host "Container execution is unnecessary for a validated documentation-only change."
 
+      - name: Confirm stable-promotion fast path
+        if: needs.change-scope.outputs.stable_promotion == 'true'
+        shell: pwsh
+        run: Write-Host "Container execution is unnecessary while promoting independently verified candidate digests."
+
       - name: Setup .NET
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 
       - name: Validate production Compose contract
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: >-
           pwsh -NoProfile -File ./ops/production/preflight.ps1
           -EnvironmentFile ./ops/production/deployment.env.example
           -ContractOnly
 
       - name: Validate AlertReceiver provider-operations contract
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: >-
           pwsh -NoProfile -File ./ops/alert-receiver/provider-operations-preflight.ps1
           -ReceiverEnvironmentFile ./ops/alert-receiver/deployment.env.example
@@ -175,85 +188,85 @@ jobs:
           -ContractOnly
 
       - name: Validate image publication contract
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/image-publication.ps1
 
       - name: Validate CI release fast path
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/ci-release-fast-path.ps1
 
       - name: Validate host bootstrap and hardening
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/host-bootstrap.sh
 
       - name: Validate game-server host bootstrap
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-host-bootstrap.sh
 
       - name: Validate game-server runtime installer
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-runtime-install.sh
 
       - name: Validate game-server runtime activation
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-runtime-activate.sh
 
       - name: Validate game-event pilot bundle contract
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/game-event-pilot-bundle.ps1
 
       - name: Validate game-event pilot installer
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-game-event-pilot-install.sh
 
       - name: Validate game-event pilot activation and active rollback
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-game-event-pilot-activate.sh
 
       - name: Validate game-host soak-readiness evidence contract
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-soak-readiness.sh
 
       - name: Validate host-readiness preflight
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/host-preflight.ps1
 
       - name: Validate soak-readiness evidence contract
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/soak-readiness.ps1
 
       - name: Validate PostgreSQL backup schedule
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: |
           pwsh -NoProfile -File ./tools/smoke/postgres-backup-schedule.ps1
           bash ./tools/smoke/postgres-backup-schedule.sh
 
       - name: Validate availability evidence schedule
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/availability-evidence-schedule.ps1
 
       - name: Validate availability shadow audit
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/availability-shadow-audit.ps1
 
       - name: Validate diagnostic DNS proof
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/availability-dns-proof.ps1
 
       - name: Validate OIDC live-smoke contract
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/oidc-live-contract.ps1
 
       - name: Run API container smoke test
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/container.ps1
 
       - name: Run Web container smoke test
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/web-container.ps1
 
       - name: Run AlertReceiver container and restore smoke test
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/alert-receiver-container.ps1
 
   browser-smoke:
@@ -268,7 +281,7 @@ jobs:
 
     steps:
       - name: Checkout
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         uses: actions/checkout@v6
 
       - name: Confirm documentation-only fast path
@@ -276,32 +289,37 @@ jobs:
         shell: pwsh
         run: Write-Host "Browser execution is unnecessary for a validated documentation-only change."
 
+      - name: Confirm stable-promotion fast path
+        if: needs.change-scope.outputs.stable_promotion == 'true'
+        shell: pwsh
+        run: Write-Host "Browser execution is unnecessary while promoting independently verified candidate digests."
+
       - name: Setup .NET
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 
       - name: Restore browser tests with NuGet audit
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: >-
           dotnet restore tests/GoldSrcOps.WebTests/GoldSrcOps.WebTests.csproj
           -p:AuditPipeline=true
 
       - name: Build browser tests
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: >-
           dotnet build tests/GoldSrcOps.WebTests/GoldSrcOps.WebTests.csproj
           --no-restore
 
       - name: Install Playwright Chromium
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: >-
           pwsh tests/GoldSrcOps.WebTests/bin/Debug/net10.0/playwright.ps1
           install --with-deps --only-shell chromium
 
       - name: Verify browser token boundary
-        if: needs.change-scope.outputs.docs_only != 'true'
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: >-
           dotnet test tests/GoldSrcOps.WebTests/GoldSrcOps.WebTests.csproj
           --no-build
