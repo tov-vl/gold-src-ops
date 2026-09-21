@@ -771,6 +771,12 @@ Assert-Condition `
     -Condition ([string]$web.environment.GoldSrcOpsApi__BaseUrl -eq "http://api:8080/") `
     -Message "The Web host must use the private API service endpoint."
 Assert-Condition `
+    -Condition ([string]$web.environment.ProviderOperations__Enabled -eq "false" -and
+        $null -eq (Get-PropertyValue -InputObject $web.environment -Name "ProviderOperations__BaseUrl") -and
+        $null -eq (Get-PropertyValue -InputObject $web.environment -Name "ProviderOperations__Authorization") -and
+        $null -eq (Get-PropertyValue -InputObject $web.environment -Name "ProviderOperations__AuthorizationFile")) `
+    -Message "The base Web deployment must keep provider operations disabled and unconfigured."
+Assert-Condition `
     -Condition ([string]$web.environment.ReverseProxy__KnownProxy -eq $caddyAddress) `
     -Message "The Web host must trust only the configured Caddy address."
 Assert-Condition `

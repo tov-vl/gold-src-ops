@@ -54,18 +54,23 @@ $buildImageLocally = [string]::IsNullOrWhiteSpace($Image)
 $imageTag = if ($buildImageLocally) { "goldsrcops-alert-receiver:smoke-$runId" } else { $Image }
 $postgresImage = "postgres:16-alpine"
 $resticImage = "restic/restic:0.19.1"
+$caddyImage = "caddy:2-alpine"
 $postgresContainer = "goldsrcops-receiver-smoke-postgres-$runId"
 $receiverContainer = "goldsrcops-receiver-smoke-runtime-$runId"
+$caddyContainer = "goldsrcops-receiver-smoke-caddy-$runId"
 $migrationContainer = "goldsrcops-receiver-smoke-migration-$runId"
+$edgeNetwork = "goldsrcops-receiver-smoke-edge-$runId"
 $dataVolume = "goldsrcops-receiver-smoke-data-$runId"
 $socketVolume = "goldsrcops-receiver-smoke-socket-$runId"
 $databaseName = "goldsrcops_receiver"
 $databaseUser = "goldsrcops_receiver"
 $databasePassword = "goldsrcops-receiver-smoke-$runId"
 $receiverAuthorization = "Bearer receiver-smoke-$runId"
+$providerOperationsAuthorization = "Bearer provider-operations-smoke-$runId"
 $temporaryDirectory = Join-Path ([IO.Path]::GetTempPath()) "goldsrcops-receiver-smoke-$runId"
 $databaseConnectionFile = Join-Path $temporaryDirectory "database-connection"
 $receiverAuthorizationFile = Join-Path $temporaryDirectory "receiver-authorization"
+$providerOperationsAuthorizationFile = Join-Path $temporaryDirectory "provider-operations-authorization"
 $postgresPasswordFile = Join-Path $temporaryDirectory "postgres-password"
 $resticPasswordFile = Join-Path $temporaryDirectory "restic-password"
 $resticEnvironmentFile = Join-Path $temporaryDirectory "restic-environment"
@@ -77,6 +82,7 @@ $imageBuilt = $false
 $postgresCreated = $false
 $dataVolumeCreated = $false
 $socketVolumeCreated = $false
+$edgeNetworkCreated = $false
 $succeeded = $false
 
 function Write-Step {
@@ -216,29 +222,92 @@ read -r status <&3
     throw "AlertReceiver readiness did not pass in time. Last probe: $lastProbeOutput Container health: $($containerHealth.Output)"
 }
 
-function Invoke-AvailabilityEvent {
+function Invoke-HttpRequest {
     param(
-        [Parameter(Mandatory = $true)][string]$Body,
-        [Parameter(Mandatory = $true)][string]$EventId
+        [Parameter(Mandatory = $true)][string]$TargetHost,
+        [Parameter(Mandatory = $true)][int]$TargetPort,
+        [Parameter(Mandatory = $true)][string]$HostHeader,
+        [Parameter(Mandatory = $true)][string]$Method,
+        [Parameter(Mandatory = $true)][string]$Path,
+        [string]$Authorization = "",
+        [string]$EventId = "",
+        [string]$Body = ""
     )
 
     $script = @'
 set -eu
-authorization="$(cat /run/secrets/receiver-authorization)"
 content_length="${#SMOKE_BODY}"
-exec 3<>/dev/tcp/127.0.0.1/8080
-printf 'POST /api/v1/availability-events HTTP/1.1\r\nHost: localhost\r\nAuthorization: %s\r\nIdempotency-Key: %s\r\nContent-Type: application/json\r\nContent-Length: %s\r\nConnection: close\r\n\r\n%s' "$authorization" "$SMOKE_EVENT_ID" "$content_length" "$SMOKE_BODY" >&3
+exec 3<>/dev/tcp/$SMOKE_TARGET_HOST/$SMOKE_TARGET_PORT
+printf '%s %s HTTP/1.1\r\nHost: %s\r\n' "$SMOKE_METHOD" "$SMOKE_PATH" "$SMOKE_HOST_HEADER" >&3
+if [ -n "$SMOKE_AUTHORIZATION" ]; then
+    printf 'Authorization: %s\r\n' "$SMOKE_AUTHORIZATION" >&3
+fi
+if [ -n "$SMOKE_EVENT_ID" ]; then
+    printf 'Idempotency-Key: %s\r\n' "$SMOKE_EVENT_ID" >&3
+fi
+if [ -n "$SMOKE_BODY" ]; then
+    printf 'Content-Type: application/json\r\nContent-Length: %s\r\n' "$content_length" >&3
+fi
+printf 'Connection: close\r\n\r\n%s' "$SMOKE_BODY" >&3
 IFS= read -r status <&3
 printf '%s' "$status"
 '@
     $script = $script.Replace("`r", "")
     $result = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
         "exec",
+        "--env", "SMOKE_TARGET_HOST=$TargetHost",
+        "--env", "SMOKE_TARGET_PORT=$TargetPort",
+        "--env", "SMOKE_HOST_HEADER=$HostHeader",
+        "--env", "SMOKE_METHOD=$Method",
+        "--env", "SMOKE_PATH=$Path",
+        "--env", "SMOKE_AUTHORIZATION=$Authorization",
         "--env", "SMOKE_BODY=$Body",
         "--env", "SMOKE_EVENT_ID=$EventId",
         $receiverContainer,
         "bash", "-c", $script)
     return $result.Output.Trim()
+}
+
+function Wait-Caddy {
+    $deadline = [DateTimeOffset]::UtcNow.AddSeconds($StartupTimeoutSeconds)
+    while ([DateTimeOffset]::UtcNow -lt $deadline) {
+        $probeScript = @'
+exec 3<>/dev/tcp/$SMOKE_CADDY_HOST/80
+printf 'GET / HTTP/1.1\r\nHost: receiver-smoke\r\nConnection: close\r\n\r\n' >&3
+IFS= read -r status <&3
+[[ "$status" == HTTP/* ]]
+'@
+        $probeScript = $probeScript.Replace("`r", "")
+        $result = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
+            "exec",
+            "--env", "SMOKE_CADDY_HOST=$caddyContainer",
+            $receiverContainer,
+            "bash", "-c", $probeScript) -AllowFailure
+        if ($result.ExitCode -eq 0) {
+            return
+        }
+
+        Start-Sleep -Seconds 1
+    }
+
+    throw "AlertReceiver smoke Caddy did not become ready in time."
+}
+
+function Invoke-AvailabilityEvent {
+    param(
+        [Parameter(Mandatory = $true)][string]$Body,
+        [Parameter(Mandatory = $true)][string]$EventId
+    )
+
+    return Invoke-HttpRequest `
+        -TargetHost $caddyContainer `
+        -TargetPort 80 `
+        -HostHeader "receiver-smoke" `
+        -Method "POST" `
+        -Path "/api/v1/availability-events" `
+        -Authorization $receiverAuthorization `
+        -EventId $EventId `
+        -Body $Body
 }
 
 function Remove-ContainerIfPresent {
@@ -253,6 +322,12 @@ function Remove-VolumeIfPresent {
     [void](Invoke-ExternalCapture -FilePath "docker" -Arguments @("volume", "rm", "--force", $Name) -AllowFailure)
 }
 
+function Remove-NetworkIfPresent {
+    param([Parameter(Mandatory = $true)][string]$Name)
+
+    [void](Invoke-ExternalCapture -FilePath "docker" -Arguments @("network", "rm", $Name) -AllowFailure)
+}
+
 Push-Location $repoRoot
 try {
     Write-Step "Validate tracked AlertReceiver deployment contract"
@@ -261,6 +336,10 @@ try {
         -ContractOnly
     & ./ops/alert-receiver/muted-provider-preflight.ps1 `
         -EnvironmentFile ./ops/alert-receiver/deployment.env.example `
+        -ContractOnly
+    & ./ops/alert-receiver/provider-operations-preflight.ps1 `
+        -ReceiverEnvironmentFile ./ops/alert-receiver/deployment.env.example `
+        -ProductionEnvironmentFile ./ops/production/deployment.env.example `
         -ContractOnly
 
     if ($buildImageLocally) {
@@ -356,12 +435,14 @@ try {
         $databaseConnectionFile,
         "Host=/var/run/postgresql;Port=5432;Database=$databaseName;Username=$databaseUser;Password=$databasePassword;SSL Mode=Disable;Timeout=5;Command Timeout=30")
     [IO.File]::WriteAllText($receiverAuthorizationFile, $receiverAuthorization)
+    [IO.File]::WriteAllText($providerOperationsAuthorizationFile, $providerOperationsAuthorization)
     [IO.File]::WriteAllText($resticPasswordFile, "restic-$runId")
     [IO.File]::WriteAllText($resticEnvironmentFile, "# Local isolated restic backend.`n")
     Set-ContainerReadableFilePermissions -Path @(
         $postgresPasswordFile,
         $databaseConnectionFile,
-        $receiverAuthorizationFile)
+        $receiverAuthorizationFile,
+        $providerOperationsAuthorizationFile)
     Set-OwnerOnlyFilePermissions -Path @(
         $resticPasswordFile,
         $resticEnvironmentFile)
@@ -377,10 +458,23 @@ try {
         throw "AlertReceiver image did not fail closed without its provider endpoint secret."
     }
 
+    $providerOperationsFailFast = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
+        "run", "--rm", "--network", "none",
+        "--mount", "type=bind,source=$databaseConnectionFile,target=/run/secrets/receiver-database-connection,readonly",
+        "--mount", "type=bind,source=$receiverAuthorizationFile,target=/run/secrets/receiver-authorization,readonly",
+        "--env", "ProviderOperations__Enabled=true",
+        $imageTag) -AllowFailure
+    if ($providerOperationsFailFast.ExitCode -eq 0 -or
+        $providerOperationsFailFast.Output -notmatch "Required provider operations authorization secret is missing or empty") {
+        throw "AlertReceiver image did not fail closed without its provider operations authorization secret."
+    }
+
     Invoke-External -FilePath "docker" -Arguments @("volume", "create", $dataVolume)
     $dataVolumeCreated = $true
     Invoke-External -FilePath "docker" -Arguments @("volume", "create", $socketVolume)
     $socketVolumeCreated = $true
+    Invoke-External -FilePath "docker" -Arguments @("network", "create", $edgeNetwork)
+    $edgeNetworkCreated = $true
     Invoke-External -FilePath "docker" -Arguments @(
         "run", "--detach",
         "--name", $postgresContainer,
@@ -416,15 +510,16 @@ try {
     }
 
     $migrationCount = [int](Invoke-ReceiverSql -Sql 'SELECT COUNT(*) FROM receiver."__EFMigrationsHistory";')
-    if ($migrationCount -ne 2) {
-        throw "AlertReceiver migration history contains $migrationCount rows instead of 2."
+    if ($migrationCount -ne 3) {
+        throw "AlertReceiver migration history contains $migrationCount rows instead of 3."
     }
 
     Write-Step "Start CatchUp receiver with provider delivery disabled"
     Invoke-External -FilePath "docker" -Arguments @(
         "run", "--detach",
         "--name", $receiverContainer,
-        "--network", "none",
+        "--network", $edgeNetwork,
+        "--network-alias", "receiver",
         "--read-only",
         "--cap-drop", "ALL",
         "--security-opt", "no-new-privileges",
@@ -433,11 +528,40 @@ try {
         "--mount", "type=bind,source=$receiverAuthorizationFile,target=/run/secrets/receiver-authorization,readonly",
         "--mount", "type=volume,source=$socketVolume,target=/var/run/postgresql",
         "--env", "ASPNETCORE_ENVIRONMENT=Production",
-        "--env", "AllowedHosts=localhost",
+        "--env", "AllowedHosts=localhost;receiver;receiver-smoke",
         "--env", "Receiver__Mode=CatchUp",
         "--env", "ProviderDelivery__Enabled=false",
+        "--env", "ProviderOperations__Enabled=false",
         $imageTag)
     Wait-ReceiverHealth
+
+    Invoke-External -FilePath "docker" -Arguments @(
+        "run", "--detach",
+        "--name", $caddyContainer,
+        "--network", $edgeNetwork,
+        "--read-only",
+        "--cap-drop", "ALL",
+        "--cap-add", "NET_BIND_SERVICE",
+        "--security-opt", "no-new-privileges",
+        "--tmpfs", "/tmp:rw,noexec,nosuid,size=16m",
+        "--tmpfs", "/data:rw,noexec,nosuid,size=16m",
+        "--tmpfs", "/config:rw,noexec,nosuid,size=16m",
+        "--env", "GOLDSRCOPS_ALERT_RECEIVER_ACME_EMAIL=operator@example.com",
+        "--env", "GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME=http://receiver-smoke",
+        "--mount", "type=bind,source=$repoRoot/ops/alert-receiver/Caddyfile,target=/etc/caddy/Caddyfile,readonly",
+        $caddyImage)
+    Wait-Caddy
+
+    $disabledInternalStatus = Invoke-HttpRequest `
+        -TargetHost "127.0.0.1" `
+        -TargetPort 8080 `
+        -HostHeader "localhost" `
+        -Method "GET" `
+        -Path "/internal/v1/provider-delivery/dead-letters" `
+        -Authorization $providerOperationsAuthorization
+    if ($disabledInternalStatus -notmatch '^HTTP/1\.1 404 ') {
+        throw "Disabled provider operations route did not remain hidden as 404."
+    }
 
     $eventId = [Guid]::NewGuid()
     $incidentId = [Guid]::NewGuid()
@@ -464,7 +588,7 @@ try {
     $firstStatus = Invoke-AvailabilityEvent -Body $body -EventId $eventId
     $duplicateStatus = Invoke-AvailabilityEvent -Body $body -EventId $eventId
     if ($firstStatus -notmatch '^HTTP/1\.1 202 ' -or $duplicateStatus -notmatch '^HTTP/1\.1 204 ') {
-        throw "AlertReceiver container did not preserve 202/204 durable idempotency."
+        throw "AlertReceiver container did not preserve 202/204 durable idempotency through Caddy. First: '$firstStatus'. Duplicate: '$duplicateStatus'."
     }
     Invoke-External -FilePath "docker" -Arguments @("restart", $receiverContainer)
     Wait-ReceiverHealth
@@ -478,12 +602,61 @@ try {
     $recoveryStatus = Invoke-AvailabilityEvent -Body $recoveryBody -EventId $event.eventId
     $duplicateRecoveryStatus = Invoke-AvailabilityEvent -Body $recoveryBody -EventId $event.eventId
     if ($recoveryStatus -notmatch '^HTTP/1\.1 202 ' -or $duplicateRecoveryStatus -notmatch '^HTTP/1\.1 204 ') {
-        throw "AlertReceiver did not recover the submicrosecond incident idempotently after restart."
+        throw "AlertReceiver did not recover the submicrosecond incident idempotently after restart. First: '$recoveryStatus'. Duplicate: '$duplicateRecoveryStatus'."
     }
     $eventCount = [int](Invoke-ReceiverSql -Sql 'SELECT COUNT(*) FROM receiver.events;')
     $providerOutboxCount = [int](Invoke-ReceiverSql -Sql 'SELECT COUNT(*) FROM receiver.provider_outbox_messages;')
     if ($eventCount -ne 2 -or $providerOutboxCount -ne 0) {
         throw "CatchUp container smoke did not preserve the suppressed durable pair."
+    }
+
+    Write-Step "Verify private provider operations and public Caddy boundary"
+    Remove-ContainerIfPresent -Name $receiverContainer
+    Invoke-External -FilePath "docker" -Arguments @(
+        "run", "--detach",
+        "--name", $receiverContainer,
+        "--network", $edgeNetwork,
+        "--network-alias", "receiver",
+        "--read-only",
+        "--cap-drop", "ALL",
+        "--security-opt", "no-new-privileges",
+        "--tmpfs", "/tmp:rw,noexec,nosuid,size=16m",
+        "--mount", "type=bind,source=$databaseConnectionFile,target=/run/secrets/receiver-database-connection,readonly",
+        "--mount", "type=bind,source=$receiverAuthorizationFile,target=/run/secrets/receiver-authorization,readonly",
+        "--mount", "type=bind,source=$providerOperationsAuthorizationFile,target=/run/secrets/provider-operations-authorization,readonly",
+        "--mount", "type=volume,source=$socketVolume,target=/var/run/postgresql",
+        "--env", "ASPNETCORE_ENVIRONMENT=Production",
+        "--env", "AllowedHosts=localhost;receiver;receiver-smoke",
+        "--env", "Receiver__Mode=CatchUp",
+        "--env", "ProviderDelivery__Enabled=false",
+        "--env", "ProviderOperations__Enabled=true",
+        $imageTag)
+    Wait-ReceiverHealth
+
+    $unauthorizedInternalStatus = Invoke-HttpRequest `
+        -TargetHost "127.0.0.1" `
+        -TargetPort 8080 `
+        -HostHeader "localhost" `
+        -Method "GET" `
+        -Path "/internal/v1/provider-delivery/dead-letters"
+    $authorizedInternalStatus = Invoke-HttpRequest `
+        -TargetHost "127.0.0.1" `
+        -TargetPort 8080 `
+        -HostHeader "localhost" `
+        -Method "GET" `
+        -Path "/internal/v1/provider-delivery/dead-letters" `
+        -Authorization $providerOperationsAuthorization
+    $publicInternalStatus = Invoke-HttpRequest `
+        -TargetHost $caddyContainer `
+        -TargetPort 80 `
+        -HostHeader "receiver-smoke" `
+        -Method "GET" `
+        -Path "/internal/v1/provider-delivery/dead-letters" `
+        -Authorization $providerOperationsAuthorization
+    if ($unauthorizedInternalStatus -notmatch '^HTTP/1\.1 401 ' -or
+        $authorizedInternalStatus -notmatch '^HTTP/1\.1 200 ' -or
+        $publicInternalStatus -notmatch '^HTTP/1\.1 404 ') {
+        throw "Provider operations did not preserve the expected private 401/200 and public 404 boundary."
     }
 
     Write-Step "Create encrypted receiver backup and run isolated restore rehearsal"
@@ -534,7 +707,7 @@ try {
     if ($backupEvidence.Workload -ne "AlertReceiver" -or
         $restoreEvidence.Workload -ne "AlertReceiver" -or
         $backupEvidence.SnapshotId -ne $restoreEvidence.SnapshotId -or
-        [int]$restoreEvidence.MigrationCount -ne 2 -or
+        [int]$restoreEvidence.MigrationCount -ne 3 -or
         [int]$restoreEvidence.ReceiverEventCount -ne 2 -or
         -not [bool]$restoreEvidence.MigrationReapplicationVerified) {
         throw "AlertReceiver recovery evidence did not prove the expected snapshot, migrations, and event ledger."
@@ -545,7 +718,7 @@ try {
 }
 finally {
     if (-not $succeeded) {
-        foreach ($container in @($receiverContainer, $postgresContainer)) {
+        foreach ($container in @($receiverContainer, $caddyContainer, $postgresContainer)) {
             $exists = Invoke-ExternalCapture -FilePath "docker" -Arguments @(
                 "container", "inspect", $container) -AllowFailure
             if ($exists.ExitCode -eq 0) {
@@ -557,6 +730,7 @@ finally {
     }
 
     Remove-ContainerIfPresent -Name $receiverContainer
+    Remove-ContainerIfPresent -Name $caddyContainer
     if ($postgresCreated) {
         Remove-ContainerIfPresent -Name $postgresContainer
     }
@@ -565,6 +739,9 @@ finally {
     }
     if ($socketVolumeCreated) {
         Remove-VolumeIfPresent -Name $socketVolume
+    }
+    if ($edgeNetworkCreated) {
+        Remove-NetworkIfPresent -Name $edgeNetwork
     }
 
     if (Test-Path -LiteralPath $temporaryDirectory) {

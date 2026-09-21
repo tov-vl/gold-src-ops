@@ -5,6 +5,7 @@ database_connection_file="/run/secrets/receiver-database-connection"
 receiver_authorization_file="/run/secrets/receiver-authorization"
 provider_authorization_file="/run/secrets/provider-authorization"
 provider_endpoint_file="/run/secrets/provider-endpoint"
+provider_operations_authorization_file="/run/secrets/provider-operations-authorization"
 
 require_readable_secret() {
     secret_path="$1"
@@ -60,6 +61,25 @@ case "${ProviderDelivery__Enabled:-false}" in
         ;;
     *)
         echo "ProviderDelivery__Enabled must be true or false." >&2
+        exit 1
+        ;;
+esac
+
+case "${ProviderOperations__Enabled:-false}" in
+    true|True|TRUE|1)
+        require_readable_secret "$provider_operations_authorization_file" "provider operations authorization"
+        provider_operations_authorization="$(cat "$provider_operations_authorization_file")"
+        require_single_line_secret "$provider_operations_authorization" "Provider operations authorization"
+        if [ "${#provider_operations_authorization}" -gt 8192 ]; then
+            echo "Provider operations authorization secret must not exceed 8192 characters." >&2
+            exit 1
+        fi
+        export ProviderOperations__Authorization="$provider_operations_authorization"
+        ;;
+    false|False|FALSE|0)
+        ;;
+    *)
+        echo "ProviderOperations__Enabled must be true or false." >&2
         exit 1
         ;;
 esac

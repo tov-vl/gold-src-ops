@@ -10,7 +10,11 @@
 		method POST
 		path /api/v1/availability-events
 	}
-	reverse_proxy @availability_events receiver:8080
+	handle @availability_events {
+		reverse_proxy receiver:8080
+	}
 
-	respond 404
+	handle {
+		respond 404
+	}
 }

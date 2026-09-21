@@ -33,6 +33,14 @@ dispatcher, and mounts both provider values from owner-only files. The overlay
 must target the dedicated muted integration with no escalation chain; it is not
 a production activation contract.
 
+Provider review access is a second, independent overlay. The receiver-side
+`compose.provider-operations.yml` mounts only the dedicated operations
+authorization and leaves provider delivery disabled. The production-side file
+with the same name enables the server-side Web client against
+`http://goldsrcops-alert-receiver:8080/` and mounts the same owner-controlled
+file. Neither overlay changes the production Caddy allowlist, so
+`/internal/v1/provider-delivery/*` is never a public route.
+
 ## Validate
 
 Before deployment, record the approved receiver DNS name, immutable image
@@ -72,6 +80,23 @@ network, and the production Caddy exposes only the reviewed POST path. For a
 future dedicated host, omit `compose.control-plane.yml` and activate both the
 `runtime` and `standalone` profiles after a fresh placement review.
 
+Provider operations has a separate cross-stack preflight. Both environment
+files must reference the same owner-only, single-line Bearer authorization
+file. The check proves that the base deployments remain disabled, the reviewed
+overlays enable only provider review access, Web uses the private receiver
+alias, provider delivery stays off, and Caddy still exposes no internal route:
+
+```powershell
+pwsh -NoProfile -File ./ops/alert-receiver/provider-operations-preflight.ps1 `
+  -ReceiverEnvironmentFile /etc/goldsrcops-alert-receiver/deployment.env `
+  -ProductionEnvironmentFile /etc/goldsrcops/deployment.env
+```
+
+Activation requires both receiver Compose files plus
+`compose.provider-operations.yml`, and the production Compose file plus its own
+same-named overlay. Applying only one side is invalid: the feature remains
+unavailable or the Web host fails closed without its file-backed secret.
+
 The muted-provider overlay has its own preflight. `-ContractOnly` validates the
 tracked placeholder shape without reading either provider secret:
 
@@ -94,9 +119,11 @@ pwsh -NoProfile -File ./tools/smoke/alert-receiver-container.ps1 `
   -Image $reviewedReceiverDigestReference
 ```
 
-This verifies ingestion and duplicate handling, recovery after restart with
-submicrosecond source timestamps, and encrypted backup/restore plus migration
-reapplication. It never uses the production database or provider credentials.
+This verifies ingestion and duplicate handling through the bounded Caddy route,
+recovery after restart with submicrosecond source timestamps, disabled and
+authorized provider-operations behavior, public rejection of the internal
+route, and encrypted backup/restore plus migration reapplication. It never uses
+the production database or provider credentials.
 
 ## Migration And Activation Order
 
@@ -108,9 +135,10 @@ reapplication. It never uses the production database or provider credentials.
    migration reapplication.
 4. On `gso-control-01`, start PostgreSQL and the `runtime` profile with both
    `compose.yml` and `compose.control-plane.yml`, then recreate the production
-   Caddy from its reviewed Compose contract. Confirm liveness, readiness, two
-   receiver migration-history rows, `CatchUp`, disabled provider delivery, and
-   that non-POST or non-matching receiver paths return `404`.
+   Caddy from its reviewed Compose contract. Confirm liveness, readiness, three
+   receiver migration-history rows, `CatchUp`, disabled provider delivery and
+   provider operations, and that non-POST or non-matching receiver paths return
+   `404`.
 5. Stop. Enabling a muted provider route, catch-up of historical production
    rows, and any live canary are separate gates.
 

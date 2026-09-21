@@ -114,6 +114,7 @@ services:
       DataProtection__PersistKeys: "true"
       DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE: "false"
       GoldSrcOpsApi__BaseUrl: http://api:8080/
+      ProviderOperations__Enabled: "false"
       ReverseProxy__KnownProxy: ${GOLDSRCOPS_PROXY_IP:?Set GOLDSRCOPS_PROXY_IP}
     read_only: true
     tmpfs:

@@ -1898,8 +1898,16 @@ preserved v2.19 provider dead letter without authorizing delivery activation:
 - completed locally: verify the provider review UI at desktop and mobile
   viewports with no horizontal overflow and no raw payload or credential
   projection;
-- next: extend the receiver deployment entrypoint, secret contract, preflight,
-  backup/restore evidence, and container smoke before any target rollout;
+- completed locally: add disabled-by-default receiver and Web deployment
+  contracts with one shared file-backed operations credential, a private BFF
+  endpoint, and no provider-delivery activation;
+- completed locally: add a cross-stack preflight that keeps the public Caddy
+  allowlist limited to availability-event POSTs and rejects direct secret
+  values in Compose environment configuration;
+- completed locally: extend container smoke across the public Caddy and private
+  operations path, then pass encrypted backup creation, a `100%` repository
+  check, isolated restore, and reapplication of all three receiver migrations;
+- next: classify and execute the release/target gates before any rollout;
 - keep production `ProviderOperations` disabled and retain the current Caddy
   allowlist, which forwards only `POST /api/v1/availability-events`, until that
   separate rollout is reviewed.

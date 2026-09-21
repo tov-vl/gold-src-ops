@@ -253,12 +253,14 @@ Assert-Condition `
 Assert-Condition `
     -Condition ($null -eq (Get-PropertyValue -InputObject $receiver.environment -Name "Receiver__Authorization") -and
         $null -eq (Get-PropertyValue -InputObject $receiver.environment -Name "ConnectionStrings__AlertReceiver") -and
-        $null -eq (Get-PropertyValue -InputObject $receiver.environment -Name "ProviderDelivery__Authorization")) `
+        $null -eq (Get-PropertyValue -InputObject $receiver.environment -Name "ProviderDelivery__Authorization") -and
+        $null -eq (Get-PropertyValue -InputObject $receiver.environment -Name "ProviderOperations__Authorization")) `
     -Message "Receiver secrets must not appear in Compose environment values."
 Assert-Condition `
     -Condition ([string]$receiver.environment.Receiver__Mode -eq "CatchUp" -and
-        [string]$receiver.environment.ProviderDelivery__Enabled -eq "false") `
-    -Message "The base deployment must start in CatchUp mode with provider delivery disabled."
+        [string]$receiver.environment.ProviderDelivery__Enabled -eq "false" -and
+        [string]$receiver.environment.ProviderOperations__Enabled -eq "false") `
+    -Message "The base deployment must start in CatchUp mode with provider delivery and provider operations disabled."
 
 $migrationCommand = @($migration.command)
 Assert-Condition `

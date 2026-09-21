@@ -58,6 +58,7 @@ services:
       ASPNETCORE_HTTP_PORTS: "8080"
       DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE: "false"
       ProviderDelivery__Enabled: "false"
+      ProviderOperations__Enabled: "false"
       Receiver__Mode: CatchUp
     read_only: true
     tmpfs:
