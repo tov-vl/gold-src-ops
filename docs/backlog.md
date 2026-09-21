@@ -1931,7 +1931,7 @@ The contract and accepted rollout boundaries are recorded in
 review are retained; no provider replay, deletion, reclassification, source
 delivery, or provider-worker activation occurred.
 
-## Current v2.21 Milestone: Provider Delivery Overview
+## Completed v2.21 Milestone: Provider Delivery Overview
 
 The first v2.21 product slice adds a read-only Operator overview for the
 independent provider outbox without widening the v2.20 mutation boundary:
@@ -1960,11 +1960,21 @@ independent provider outbox without widening the v2.20 mutation boundary:
 - completed locally: classify the release as R1 and prepare the separate
   `v2.21.0-rc.1` readiness, compatibility, rollback, short acceptance, and
   claim-boundary record without repeating unrelated recovery exercises;
-- pending: merge the documentation-only readiness record, freeze its exact
-  green `main` revision, and publish independently verified candidate images;
-- pending: roll out only AlertReceiver and Web by digest, complete bounded
-  read-only production acceptance, promote the exact accepted digests as
-  `v2.21.0`, and close the sanitized release record.
+- completed: merge readiness PR
+  [#200](https://github.com/tov-vl/gold-src-ops/pull/200), freeze exact revision
+  `f9b7945`, and publish independently verified `v2.21.0-rc.1` API, Web, and
+  AlertReceiver images in candidate workflow
+  [#35618048968](https://github.com/tov-vl/gold-src-ops/actions/runs/35618048968);
+- completed: roll out only AlertReceiver and Web by digest, keep API, database,
+  ingress, telemetry, identity, and game-host runtime unchanged, and pass three
+  healthy read-only samples spanning 181 seconds while both delivery workers
+  remained disabled;
+- completed: publish signed stable `v2.21.0`; stable workflow
+  [#35624106092](https://github.com/tov-vl/gold-src-ops/actions/runs/35624106092)
+  skipped all three builds, promoted and independently verified the accepted
+  API, Web, and AlertReceiver digests, and the
+  [GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.21.0)
+  is published.
 
 This is an R1 additive read-only slice. Provider delivery and source alert
 delivery remain disabled operational decisions outside the milestone.
