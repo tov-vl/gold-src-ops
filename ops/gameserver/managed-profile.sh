@@ -247,6 +247,7 @@ mp_limitteams "2"
 mp_c4timer "35"
 mp_buytime "0.5"
 mapcyclefile "$MAPCYCLE_FILE_NAME"
+mapchangecfgfile "$PROFILE_FILE_NAME"
 echo "$PROFILE_MARKER"
 EOF
     chmod 0640 -- "$destination"

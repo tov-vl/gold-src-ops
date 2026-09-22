@@ -85,6 +85,7 @@ mp_limitteams "2"
 mp_c4timer "35"
 mp_buytime "0.5"
 mapcyclefile "goldsrcops-mapcycle.txt"
+mapchangecfgfile "goldsrcops-managed-profile.cfg"
 echo "GoldSrcOps managed profile public-classic-v1 loaded"
 EOF
 cat > "$smoke_directory/mapcycle.expected" <<'EOF'
@@ -105,6 +106,10 @@ grep -Fqx 'exec goldsrcops-managed-profile.cfg' "$managed" ||
     fail "The managed public configuration loads the profile more than once."
 grep -Fqx 'exec goldsrcops-private.cfg' "$managed" ||
     fail "The private credential load was not preserved."
+grep -Fqx 'mapchangecfgfile "goldsrcops-managed-profile.cfg"' "$profile" ||
+    fail "The managed profile is not re-applied after a map transition."
+[[ "$(grep -Fxc 'mapchangecfgfile "goldsrcops-managed-profile.cfg"' "$profile")" -eq 1 ]] ||
+    fail "The managed profile sets the map-change configuration more than once."
 ! grep -Fq 'rcon_password' "$profile" ||
     fail "The managed profile contains a credential command."
 

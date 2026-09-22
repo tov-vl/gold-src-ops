@@ -310,7 +310,9 @@ five-map rotation into an already active reviewed runtime. It accepts no
 credentials or arbitrary values, serializes apply and rollback with one
 non-blocking host lock, verifies the recorded runtime and systemd-unit hashes,
 preserves an owner-only exact backup, leaves the service disabled across boot,
-and restores the baseline after any failed mutating transition.
+re-applies the fixed profile through ReHLDS `mapchangecfgfile` after ReGameDLL
+loads its per-map defaults, and restores the baseline after any failed mutating
+transition.
 
 Review apply and rollback without touching the host:
 
