@@ -1,8 +1,8 @@
 # GoldSrcOps v2.25.0 Release Notes
 
-Status as of 2026-09-22: release candidate pending. Product implementation is
-merged and verified; candidate publication and target acceptance have not yet
-occurred.
+Status as of 2026-09-22: remediation pending. `v2.25.0-rc.1` was published,
+failed the external A2S gate, and was fully rolled back. A reviewed
+`v2.25.0-rc.2` candidate remains pending.
 
 ## Overview
 
@@ -12,9 +12,10 @@ deliberately configured public endpoint together with current A2S state, map,
 occupancy, observation freshness, a Steam deep link, and a copyable console
 command.
 
-This is an additive read-only API and Web release. It changes no database
-schema, authorization role, identity, worker, queue, retry behavior, game-host
-file, managed profile, autostart policy, or server process.
+The API and Web behavior is additive and read-only. The complete release also
+adds a reversible game-host firewall policy that publishes only IPv4 game UDP,
+preserves exact-source SSH and ReHLDS RCON, and does not change the database,
+identity, worker, queue, managed profile, autostart policy, or game process.
 
 ## Included In v2.25
 
@@ -29,6 +30,9 @@ file, managed profile, autostart policy, or server process.
 - Fail-closed validation for partial or unsafe configuration.
 - Omission of the join section when the feature is unconfigured or the selected
   inventory server is absent or disabled.
+- Plan-first public game firewall enable, verification, and exact rollback.
+- Hash binding to the accepted profile, guarded-autostart marker, public
+  configuration, and exact ReHLDS RCON source without recording the address.
 
 ## Data And Security Boundary
 
@@ -48,14 +52,14 @@ deployment configuration instead of inferred from private inventory.
 - API and Web deploy together from verified immutable candidate digests.
 - The feature is absent when all four settings are absent; partial or unsafe
   configuration fails startup.
-- AlertReceiver, PostgreSQL, Caddy, telemetry, identity, workers, external
-  monitoring, and game host remain unchanged.
-- Rollback restores the accepted v2.22 API and Web digests and owner-only
-  environment without a database or game-host action.
+- AlertReceiver, PostgreSQL, Caddy, telemetry, identity, workers, and external
+  monitoring remain unchanged.
+- Rollback restores the accepted v2.22 API and Web digests and deletes only the
+  owned public IPv4 UFW rule. It does not restart the game or alter durable data.
 
 The candidate source also contains the already accepted v2.23 managed-profile
-and v2.24 guarded-autostart repository artifacts. The v2.25 rollout does not
-reapply or rehearse those game-host changes.
+and v2.24 guarded-autostart repository artifacts. The v2.25 firewall workflow
+verifies their identities but does not reapply or replace them.
 
 ## Verification
 
@@ -66,10 +70,14 @@ and post-merge workflow
 [#35748824441](https://github.com/tov-vl/gold-src-ops/actions/runs/35748824441)
 passed on exact revision `38f275b880da67f94927b70bbc2b1ede746d884d`.
 
-Candidate publication, digest-pinned rollout, public endpoint verification,
-one operator connection, three-minute continuity sampling, stable promotion,
-and final evidence closure remain pending. The exact plan and claim limits are
-defined in [v2.25 release readiness](v2.25-readiness.md).
+Candidate `v2.25.0-rc.1` publication and digest verification passed, and its
+API/Web rollout produced three healthy samples. External A2S then timed out
+because the original UFW policy still limited game UDP to the control plane.
+API and Web were restored to the accepted v2.22 digests; the game process and
+durable state were unchanged. Candidate `v2.25.0-rc.2`, the R3 firewall
+rehearsal, operator connection, stable promotion, and final evidence closure
+remain pending. The exact plan and claim limits are defined in
+[v2.25 release readiness](v2.25-readiness.md).
 
 ## Known Limits
 
@@ -87,6 +95,7 @@ defined in [v2.25 release readiness](v2.25-readiness.md).
 
 - [v2.25 release readiness](v2.25-readiness.md)
 - [Public Server Join](v2.25-public-server-join.md)
+- [Public Game Boundary](v2.25-public-game-boundary.md)
 - [Product pull request](https://github.com/tov-vl/gold-src-ops/pull/213)
 - [Release process](release-process.md)
 - [Deployment](deployment.md)
