@@ -211,6 +211,10 @@ jobs:
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-runtime-activate.sh
 
+      - name: Validate game-server managed profile
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        run: bash ./tools/smoke/gameserver-managed-profile.sh
+
       - name: Validate game-event pilot bundle contract
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/game-event-pilot-bundle.ps1

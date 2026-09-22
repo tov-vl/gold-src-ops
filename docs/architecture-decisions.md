@@ -1445,3 +1445,51 @@ implemented locally for v2.20. The source dead letter remains terminal. The
 Operator BFF projection, deployment secret wiring, container/restore evidence,
 and target rollout remain separate review gates documented in
 `docs/v2.20-provider-delivery-operations.md`.
+
+## Decision 29: Manage Initial Game Rules As A Fixed Host Profile
+
+Decision:
+
+Install the first persistent Counter-Strike 1.6 match rules and map rotation as
+one fixed, versioned, credential-free host profile. Keep application, rollback,
+and target verification in the existing game-host operations boundary. Do not
+give the GoldSrcOps API or Web host SSH credentials, filesystem access, or an
+arbitrary `server.cfg` editing surface.
+
+Require an exact pre-profile backup, content hashes for both active and rollback
+inputs, one stop/install/start transition, current-invocation load markers, and
+the existing active-but-boot-disabled service boundary. Reject an active plugin
+pilot, missing maps, occupied paths, or drifted runtime files before mutation.
+
+Decision date: 2026-09-22.
+
+Reasoning:
+
+- The playable MVP benefits from durable rules and rotation, but remote file
+  management would add a privileged transport unrelated to the current control
+  plane contract.
+- A fixed profile is reviewable, reproducible, and cannot carry a credential or
+  arbitrary console command supplied by a browser.
+- Exact active and baseline hashes distinguish safe rollback from a reinstall
+  or a best-effort rewrite after drift.
+- Keeping plugins out of this transition preserves the accepted plugin-free
+  runtime and leaves the larger Metamod-R/AMX Mod X boundary separately gated.
+
+Alternatives considered:
+
+- Send a semicolon-separated cvar batch through raw RCON. Rejected because it
+  is not durable across restart and weakens the typed command boundary.
+- Add SSH or SFTP access to the control plane. Rejected because it broadens the
+  BFF and API secret boundary into host administration.
+- Activate the dormant plugin stack together with the profile. Rejected because
+  configuration and native-plugin failures would share one rollback surface.
+
+Implementation status:
+
+The local v2.23 workflow renders `public-classic-v1`, verifies the five map
+files before mutation, binds the active and rollback bytes into one marker, and
+uses one restoration path for apply failures and explicit rollback. Repository
+smoke covers the plan, rendering, ordering, secret exclusion, boot-disable
+invariant, and interrupt traps. Live apply, external A2S/RCON checks, one map
+transition, and rollback rehearsal remain separate target gates documented in
+`docs/v2.23-managed-server-profile.md`.
