@@ -1,3 +1,4 @@
+using GoldSrcOps.Api.Hosting;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Contracts.Monitoring;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -8,6 +9,7 @@ public static class PublicStatusEndpoints
 {
     internal const string CachePolicyName = "PublicStatus";
     internal const string A2sHistoryCachePolicyName = "PublicA2sHistory";
+    internal const string ServerJoinCachePolicyName = "PublicServerJoin";
 
     public static RouteGroupBuilder MapPublicStatusEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -23,6 +25,11 @@ public static class PublicStatusEndpoints
             .AllowAnonymous()
             .CacheOutput(A2sHistoryCachePolicyName)
             .WithName("GetPublicA2sHistory");
+
+        group.MapGet("/server", GetServerJoinAsync)
+            .AllowAnonymous()
+            .CacheOutput(ServerJoinCachePolicyName)
+            .WithName("GetPublicServerJoin");
 
         return group;
     }
@@ -50,6 +57,33 @@ public static class PublicStatusEndpoints
 
         var result = await monitoring.GetPublicA2sHistoryAsync(parsedWindow, cancellationToken);
         return TypedResults.Ok(Map(result));
+    }
+
+    private static async Task<Results<Ok<PublicServerJoinResponse>, NotFound>> GetServerJoinAsync(
+        PublicServerJoinOptions options,
+        MonitoringReadService monitoring,
+        CancellationToken cancellationToken)
+    {
+        if (!options.Enabled)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var server = await monitoring.GetPublicServerJoinAsync(options.ServerId, cancellationToken);
+        if (server is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        return TypedResults.Ok(new PublicServerJoinResponse(
+            options.Name,
+            options.Host,
+            options.Port,
+            MapState(server.State),
+            server.Map,
+            server.Players,
+            server.MaxPlayers,
+            server.LastObservedAtUtc));
     }
 
     private static PublicStatusResponse Map(PublicStatusDto status) =>
@@ -87,6 +121,13 @@ public static class PublicStatusEndpoints
         PublicA2sBucketState.Operational => "operational",
         PublicA2sBucketState.Degraded => "degraded",
         PublicA2sBucketState.Unreachable => "unreachable",
+        _ => "unknown"
+    };
+
+    private static string MapState(PublicServerJoinState state) => state switch
+    {
+        PublicServerJoinState.Online => "online",
+        PublicServerJoinState.Offline => "offline",
         _ => "unknown"
     };
 

@@ -36,6 +36,9 @@ public sealed class PublicDashboardIntegrationTests
         body.Should().Contain($"{expectedObservedBuckets} of {expectedBuckets} buckets");
         body.Should().Contain(expectedBucketLabel);
         body.Should().Contain("not API uptime");
+        body.Should().Contain("GoldSrcOps Public Classic");
+        body.Should().Contain("connect play.example.test:27015");
+        body.Should().Contain("steam://connect/play.example.test:27015");
         body.Should().NotContain(PublicDashboardWebApplicationFactory.PrivateDataSentinel);
         (body.Split("history-bar history-bar--", StringSplitOptions.None).Length - 1)
             .Should().Be(expectedBuckets);
@@ -70,6 +73,21 @@ public sealed class PublicDashboardIntegrationTests
         body.Should().Contain("A2S reachability history");
         body.Should().Contain("99.5%");
     }
+
+    [Fact]
+    public async Task Public_dashboard_omits_the_join_section_when_no_server_is_advertised()
+    {
+        await using var factory = new PublicDashboardWebApplicationFactory(serverJoinUnavailable: true);
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().NotContain("GoldSrcOps Public Classic");
+        body.Should().NotContain("data-copy-connect");
+        body.Should().Contain("A2S reachability history");
+    }
 }
 
 internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFactory<Program>
@@ -77,10 +95,14 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
     public const string PrivateDataSentinel = "private-server-data-must-not-render";
 
     private readonly bool statusUnavailable;
+    private readonly bool serverJoinUnavailable;
 
-    public PublicDashboardWebApplicationFactory(bool statusUnavailable = false)
+    public PublicDashboardWebApplicationFactory(
+        bool statusUnavailable = false,
+        bool serverJoinUnavailable = false)
     {
         this.statusUnavailable = statusUnavailable;
+        this.serverJoinUnavailable = serverJoinUnavailable;
     }
 
     public FixturePublicStatusHandler Handler { get; private set; } = null!;
@@ -99,7 +121,7 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
         });
         builder.ConfigureServices(services =>
         {
-            Handler = new FixturePublicStatusHandler(statusUnavailable);
+            Handler = new FixturePublicStatusHandler(statusUnavailable, serverJoinUnavailable);
             var httpClient = new HttpClient(Handler)
             {
                 BaseAddress = new Uri("https://api.example.test/")
@@ -109,7 +131,9 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
         });
     }
 
-    internal sealed class FixturePublicStatusHandler(bool statusUnavailable) : HttpMessageHandler
+    internal sealed class FixturePublicStatusHandler(
+        bool statusUnavailable,
+        bool serverJoinUnavailable = false) : HttpMessageHandler
     {
         public string? LastHistoryWindow { get; private set; }
 
@@ -141,6 +165,24 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
             {
                 LastHistoryWindow = GetQueryValue(requestUri.Query, "window");
                 return Task.FromResult(JsonResponse(CreateHistory(LastHistoryWindow)));
+            }
+
+            if (string.Equals(
+                requestUri?.AbsolutePath,
+                "/api/public/server",
+                StringComparison.Ordinal))
+            {
+                return Task.FromResult(serverJoinUnavailable
+                    ? new HttpResponseMessage(HttpStatusCode.NotFound)
+                    : JsonResponse(new PublicServerJoinResponse(
+                        "GoldSrcOps Public Classic",
+                        "play.example.test",
+                        27015,
+                        "online",
+                        "de_dust2",
+                        4,
+                        20,
+                        new DateTimeOffset(2026, 9, 7, 12, 0, 0, TimeSpan.Zero))));
             }
 
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));

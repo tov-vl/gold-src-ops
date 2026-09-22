@@ -2310,6 +2310,21 @@ Automatic host reboot remains disabled.
 The bounded contract and target gates are defined in
 [`docs/v2.24-guarded-gameserver-autostart.md`](v2.24-guarded-gameserver-autostart.md).
 
+### v2.25 Public Server Join
+
+Status: **local implementation and verification complete; target advertised
+endpoint not yet configured**.
+
+Expose one deliberately advertised public game endpoint on the anonymous
+status page, backed by the existing A2S state of the accepted managed server.
+The UI includes current state, map, occupancy, freshness, a Steam deep link,
+and a copyable console command. Public name and address are deployment
+configuration, not inventory projection, so the endpoint cannot leak the
+private host, query port, credentials, notes, or provider topology.
+
+The bounded contract and R1 target gate are defined in
+[`docs/v2.25-public-server-join.md`](v2.25-public-server-join.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.

@@ -1065,6 +1065,44 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         }
     }
 
+    [BrowserFact]
+    public async Task Public_server_join_fits_supported_viewports_and_copies_the_connection_command()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
+        factory.StartServer();
+        var baseAddress = factory.ClientOptions.BaseAddress;
+
+        foreach (var viewport in new[]
+                 {
+                     new ViewportSize { Width = 1280, Height = 800 },
+                     new ViewportSize { Width = 390, Height = 844 }
+                 })
+        {
+            await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
+            var response = await Page.GotoAsync(
+                baseAddress.AbsoluteUri,
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+
+            response.Should().NotBeNull();
+            response!.Ok.Should().BeTrue();
+            (await Page.Locator("section.public-server").IsVisibleAsync()).Should().BeTrue();
+            (await Page.Locator(".public-server__steam").GetAttributeAsync("href"))
+                .Should().Be("steam://connect/play.example.test:27015");
+            await Page.EvaluateAsync(
+                "navigator.clipboard.writeText = async value => { window.__copiedCommand = value; };");
+            await Page.Locator(".public-server__copy").ClickAsync();
+            (await Page.EvaluateAsync<string>("window.__copiedCommand"))
+                .Should().Be("connect play.example.test:27015");
+            (await Page.Locator("#public-server-copy-status").TextContentAsync())
+                .Should().Be("Connection command copied.");
+            var hasHorizontalOverflow = await Page.EvaluateAsync<bool>(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth");
+            hasHorizontalOverflow.Should().BeFalse();
+
+            await CaptureScreenshotIfRequestedAsync("public-server-join", viewport);
+        }
+    }
+
     private async Task AssertBrowserStorageIsEmptyAsync()
     {
         var localStorageLength = await Page.EvaluateAsync<int>("localStorage.length");
