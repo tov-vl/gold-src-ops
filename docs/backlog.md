@@ -2265,16 +2265,19 @@ For the completed v2.3 deployment milestone:
 
 ### v2.23 Managed Game-Server Profile
 
-Status: **local implementation complete; two target failures safely rolled back;
-target acceptance pending**.
+Status: **implementation and target acceptance complete; live host restored to
+baseline after the required rollback rehearsal**.
 
 The next product slice returns to the controlled ReHLDS runtime. It adds one
 versioned, credential-free public match profile and map rotation with plan-only
 inspection, exact backup, fail-closed apply, current-invocation verification,
 map-change reapplication after ReGameDLL defaults, and active rollback. The
 second target run proved the need for that map-change hook, then restored the
-exact baseline; the corrected profile still requires bounded target acceptance.
-Provider-delivery outcome history remains a later backlog
+exact baseline. The corrected merged profile subsequently passed external A2S,
+all eleven authenticated RCON checks, one audited transition to `de_inferno`,
+post-transition rule verification, active rollback, host baseline checks, and a
+final external baseline A2S probe. Provider-delivery outcome history remains a
+later backlog
 item because it does not improve the playable MVP while both delivery workers
 remain disabled outside bounded operations.
 

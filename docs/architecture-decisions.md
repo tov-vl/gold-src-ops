@@ -1493,6 +1493,9 @@ profile assigns itself as ReHLDS `mapchangecfgfile`, so its reviewed cvars are
 re-applied after ReGameDLL executes its vendor `game.cfg` during map activation;
 the workflow does not edit vendor configuration or the systemd unit. Repository
 smoke covers the plan, rendering, map-change hook, ordering, secret exclusion,
-boot-disable invariant, and interrupt traps. Live apply, external A2S/RCON
-checks, one map transition, and rollback rehearsal remain separate target gates
-documented in `docs/v2.23-managed-server-profile.md`.
+boot-disable invariant, and interrupt traps. On 2026-09-22, merged revision
+`1d7178c` passed live apply, external A2S and authenticated RCON inspection,
+one audited map transition with post-transition rule verification, and active
+rollback. The live host was intentionally restored to the verified baseline;
+details and claim limits are documented in
+`docs/v2.23-managed-server-profile.md`.
