@@ -5,10 +5,13 @@ IFS=$'\n\t'
 umask 077
 
 readonly SERVICE_NAME="goldsrcops-gameserver.service"
+readonly SYSTEMD_UNIT_FILE="/etc/systemd/system/$SERVICE_NAME"
 readonly CONFIGURATION_DIRECTORY="/etc/goldsrcops/gameserver"
 readonly PREPARED_MARKER="$CONFIGURATION_DIRECTORY/host-prepared"
+readonly RUNTIME_MARKER="$CONFIGURATION_DIRECTORY/runtime-installed"
 readonly RUNTIME_ENABLED_MARKER="$CONFIGURATION_DIRECTORY/runtime-enabled"
 readonly ACTIVE_PROFILE_MARKER="$CONFIGURATION_DIRECTORY/managed-profile-active"
+readonly TRANSITION_LOCK="$CONFIGURATION_DIRECTORY/managed-profile.lock"
 readonly PUBLIC_CONFIGURATION="$CONFIGURATION_DIRECTORY/server-public.cfg"
 readonly BACKUP_ROOT="/var/backups/goldsrcops/gameserver"
 readonly PROFILE_ID="public-classic-v1"
@@ -75,6 +78,42 @@ validate_port() {
 
 validate_sha256() {
     [[ "$1" =~ ^[0-9a-f]{64}$ ]] || fail "A recorded SHA-256 value is invalid."
+}
+
+validate_file_metadata() {
+    local path="$1"
+    local expected_owner="$2"
+    local expected_group="$3"
+    local expected_mode="$4"
+
+    [[ -f "$path" && ! -L "$path" ]] ||
+        fail "Required file '$path' is missing or unsafe."
+    [[ "$(stat -c '%U:%G:%a' -- "$path")" == \
+        "$expected_owner:$expected_group:$expected_mode" ]] ||
+        fail "File '$path' does not match the reviewed owner and mode."
+}
+
+validate_directory_metadata() {
+    local path="$1"
+    local expected_owner="$2"
+    local expected_group="$3"
+    local expected_mode="$4"
+
+    [[ -d "$path" && ! -L "$path" ]] ||
+        fail "Required directory '$path' is missing or unsafe."
+    [[ "$(stat -c '%U:%G:%a' -- "$path")" == \
+        "$expected_owner:$expected_group:$expected_mode" ]] ||
+        fail "Directory '$path' does not match the reviewed owner and mode."
+}
+
+verify_file_sha256() {
+    local path="$1"
+    local expected_sha256="$2"
+
+    [[ -f "$path" && ! -L "$path" ]] ||
+        fail "Required reviewed file '$path' is missing or unsafe."
+    [[ "$(sha256sum "$path" | awk '{ print $1 }')" == "$expected_sha256" ]] ||
+        fail "A reviewed runtime file has drifted."
 }
 
 read_runtime_enabled_marker() {
@@ -168,6 +207,28 @@ read_prepared_marker() {
     validate_user_name "$prepared_service_user"
     validate_port "$ssh_port"
     validate_port "$prepared_game_port"
+}
+
+validate_runtime_identity() {
+    validate_file_metadata "$PREPARED_MARKER" root "$service_group" 640
+    validate_file_metadata "$RUNTIME_MARKER" root "$service_group" 640
+    validate_file_metadata "$RUNTIME_ENABLED_MARKER" root "$service_group" 640
+    validate_file_metadata "$SYSTEMD_UNIT_FILE" root root 644
+    validate_directory_metadata "$CONFIGURATION_DIRECTORY" root "$service_group" 750
+    validate_directory_metadata "$BACKUP_ROOT" root root 700
+    validate_directory_metadata "$service_home" "$prepared_service_user" "$service_group" 750
+    validate_directory_metadata "$service_home/server" \
+        "$prepared_service_user" "$service_group" 750
+    verify_file_sha256 "$RUNTIME_MARKER" "$runtime_marker_sha256"
+    verify_file_sha256 "$SYSTEMD_UNIT_FILE" "$service_unit_sha256"
+}
+
+acquire_transition_lock() {
+    exec 9>"$TRANSITION_LOCK"
+    flock --nonblock 9 ||
+        fail "Another managed-profile transition is already in progress."
+    chown root:"$service_group" -- "$TRANSITION_LOCK"
+    chmod 0640 -- "$TRANSITION_LOCK"
 }
 
 render_profile() {
@@ -318,7 +379,7 @@ require_apply_environment() {
     local invoking_user
 
     ((EUID == 0)) || fail "--apply must run as root."
-    for command in awk basename chmod chown date getent grep id install journalctl \
+    for command in awk basename cat chmod chown cut date flock getent grep id install journalctl \
         mktemp pgrep rm sha256sum ss stat systemctl wc; do
         require_command "$command"
     done
@@ -368,6 +429,7 @@ prepare_apply() {
     done
     validate_baseline_public_configuration
     read_runtime_enabled_marker
+    validate_runtime_identity
 
     staging_directory="$(mktemp -d "$CONFIGURATION_DIRECTORY/.managed-profile.XXXXXX")"
     render_profile "$staging_directory/$PROFILE_FILE_NAME"
@@ -432,6 +494,7 @@ verify_profile_start() {
     local invocation_id journal_output listener_count process_count
 
     read_runtime_enabled_marker
+    validate_runtime_identity
     [[ "$(systemctl is-active "$SERVICE_NAME")" == "active" ]] ||
         fail "The game-server service did not become active."
     [[ "$(systemctl is-enabled "$SERVICE_NAME" 2>/dev/null || true)" == "disabled" ]] ||
@@ -501,6 +564,7 @@ restore_baseline() {
 
 run_apply() {
     require_apply_environment
+    acquire_transition_lock
     prepare_apply
     trap 'restore_baseline $?' ERR
     trap 'restore_baseline 129' HUP
@@ -516,10 +580,14 @@ run_apply() {
 
 run_rollback() {
     require_apply_environment
+    acquire_transition_lock
     read_active_profile_marker
+    read_runtime_enabled_marker
+    validate_runtime_identity
     restore_baseline 0
     validate_baseline_public_configuration
     read_runtime_enabled_marker
+    validate_runtime_identity
     [[ "$(systemctl is-active "$SERVICE_NAME")" == "active" ]] ||
         fail "The game-server service did not recover after profile rollback."
     log "PROFILE_ROLLED_BACK: $PROFILE_ID"

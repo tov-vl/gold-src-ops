@@ -127,6 +127,20 @@ expect_failure drifted-runtime-enabled bash -c \
     'source "$1"; read_runtime_enabled_marker "$2" "$3"' \
     _ "$workflow" "$runtime_enabled" "$smoke_directory/server-public-tampered.cfg"
 
+reviewed_file="$smoke_directory/reviewed-runtime"
+printf '%s\n' 'reviewed runtime bytes' > "$reviewed_file"
+reviewed_file_sha256="$(sha256sum "$reviewed_file" | awk '{ print $1 }')"
+(
+    # shellcheck source=/dev/null
+    source "$workflow"
+    verify_file_sha256 "$reviewed_file" "$reviewed_file_sha256"
+)
+printf '%s\n' 'drift' >> "$reviewed_file"
+# shellcheck disable=SC2016
+expect_failure drifted-reviewed-runtime bash -c \
+    'source "$1"; verify_file_sha256 "$2" "$3"' \
+    _ "$workflow" "$reviewed_file" "$reviewed_file_sha256"
+
 missing_marker="$smoke_directory/missing-marker.cfg"
 printf '%s\n' 'exec goldsrcops-private.cfg' > "$missing_marker"
 # shellcheck disable=SC2016
@@ -139,6 +153,7 @@ previous_line=0
 # shellcheck disable=SC2016
 for expected_call in \
     '    require_apply_environment' \
+    '    acquire_transition_lock' \
     '    prepare_apply' \
     '    install_profile_files'; do
     current_line="$(grep -nFx "$expected_call" <<< "$run_apply_body" | cut -d: -f1)"
@@ -146,6 +161,16 @@ for expected_call in \
         fail "The apply order is invalid at '$expected_call'."
     previous_line="$current_line"
 done
+
+run_rollback_body="$(sed -n '/^run_rollback() {$/,/^}$/p' "$workflow")"
+grep -Fq '    acquire_transition_lock' <<< "$run_rollback_body" ||
+    fail "Rollback is not serialized with apply."
+grep -Fq 'flock --nonblock 9' "$workflow" ||
+    fail "The workflow does not fail closed on a concurrent transition."
+grep -Fq 'verify_file_sha256 "$RUNTIME_MARKER" "$runtime_marker_sha256"' "$workflow" ||
+    fail "The workflow does not bind apply to the reviewed runtime marker."
+grep -Fq 'verify_file_sha256 "$SYSTEMD_UNIT_FILE" "$service_unit_sha256"' "$workflow" ||
+    fail "The workflow does not bind apply to the reviewed systemd unit."
 
 grep -Fq "trap 'restore_baseline 129' HUP" "$workflow" ||
     fail "The workflow does not rollback after a lost controlling session."
