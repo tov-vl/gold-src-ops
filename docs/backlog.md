@@ -2288,7 +2288,7 @@ The first local increment is defined in
 
 ### v2.24 Guarded Game-Server Autostart
 
-Status: **local implementation complete; target boot acceptance pending**.
+Status: **accepted on the target game host**.
 
 The accepted public profile should survive a planned host reboot without
 silently starting drifted bytes. This slice adds a plan-first, reversible boot
@@ -2298,6 +2298,14 @@ disabled, preserves the active game invocation while changing policy, and
 requires one controlled reboot plus independent A2S and RCON evidence before
 acceptance. Profile replacement remains interlocked until boot policy is first
 returned to active/disabled.
+
+Merged revision `2928522` passed hash-bound apply and a controlled target reboot
+on 2026-09-22. The new boot session retained operator access, the installed
+guard passed, the game service returned `active/enabled` with zero restarts,
+and the event agent remained `inactive/disabled`. Independent control-plane
+A2S and authenticated RCON probes confirmed the accepted public profile, zero
+players and bots, all eleven managed invariants, and the fixed source policy.
+Automatic host reboot remains disabled.
 
 The bounded contract and target gates are defined in
 [`docs/v2.24-guarded-gameserver-autostart.md`](v2.24-guarded-gameserver-autostart.md).

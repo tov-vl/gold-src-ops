@@ -1550,10 +1550,12 @@ Alternatives considered:
 
 Implementation status:
 
-The local v2.24 workflow renders the fixed drop-in, rewrites only the recorded
+The v2.24 workflow renders the fixed drop-in, rewrites only the recorded
 autostart field and dependent active-profile hash, preserves exact rollback
 markers, installs itself as the immutable guard, and checks that enable/disable
 does not change the running invocation or restart count. Repository smoke,
-including `systemd-analyze`, now covers the local contract. A controlled target
-reboot remains the acceptance gate defined in
+including `systemd-analyze`, covers the local contract. Merged revision
+`2928522` passed hash-bound target apply, a controlled reboot, the installed
+guard, zero-restart service recovery, and independent A2S and authenticated
+RCON acceptance on 2026-09-22. The retained limits are defined in
 `docs/v2.24-guarded-gameserver-autostart.md`.
