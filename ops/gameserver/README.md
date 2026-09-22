@@ -344,6 +344,47 @@ bash ./tools/smoke/gameserver-managed-profile.sh
 Target acceptance and claim limits are defined in
 [`docs/v2.23-managed-server-profile.md`](../../docs/v2.23-managed-server-profile.md).
 
+## Guarded Autostart
+
+`guarded-autostart.sh` enables the accepted `public-classic-v1` game service
+across a planned host reboot only behind a fail-closed `ExecCondition` guard. It
+verifies the chained runtime, unit, public configuration, profile, mapcycle,
+drop-in, and guard hashes together with owner/mode, map-hook, required-map, and
+plugin-free invariants. A guard rejection uses exit status `78`, which
+`ExecCondition` treats as a clean start skip before the service can enter its
+ordinary runtime restart policy.
+
+The workflow is plan-only by default, never starts, stops, or restarts the
+current game, and leaves the game-event agent and automatic host reboot
+disabled. Enable and disable share the managed-profile transition lock and keep
+an exact owner-only marker backup. Disable restores the previous active/disabled
+marker bytes before profile rollback or replacement is allowed.
+
+Review the plans:
+
+```bash
+bash ./ops/gameserver/guarded-autostart.sh
+bash ./ops/gameserver/guarded-autostart.sh --disable
+```
+
+Apply enablement only from the recorded operator session:
+
+```bash
+sudo --preserve-env=SSH_CONNECTION \
+  bash /tmp/goldsrcops-gameserver-guarded-autostart.sh --enable --apply
+```
+
+The deterministic repository smoke is:
+
+```bash
+bash ./tools/smoke/gameserver-guarded-autostart.sh
+```
+
+One controlled reboot and independent A2S/RCON verification remain mandatory
+before the boot policy is target-accepted. See
+[`docs/v2.24-guarded-gameserver-autostart.md`](../../docs/v2.24-guarded-gameserver-autostart.md)
+for the exact gate and claim limits.
+
 ## Game-Event Pilot Installation
 
 `game-event-pilot-install.sh` prepares the separately reviewed v2.11 gameplay
