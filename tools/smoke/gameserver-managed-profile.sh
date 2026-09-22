@@ -180,6 +180,57 @@ grep -Fq 'systemctl start "$SERVICE_NAME"' "$workflow" ||
     fail "The workflow does not restore the active service boundary."
 grep -Fq 'ss -H -lun "sport = :$prepared_game_port"' "$workflow" ||
     fail "The workflow does not require the reviewed UDP listener."
+wait_body="$(sed -n '/^wait_for_profile_markers() {$/,/^}$/p' "$workflow")"
+grep -Fq 'attempt <= STARTUP_MARKER_ATTEMPTS' <<< "$wait_body" ||
+    fail "The workflow does not bound startup-marker polling."
+grep -Fq 'systemctl is-active "$SERVICE_NAME"' <<< "$wait_body" ||
+    fail "Startup-marker polling does not fail closed when the service stops."
+grep -Fq 'systemctl show "$SERVICE_NAME" -p NRestarts --value' <<< "$wait_body" ||
+    fail "Startup-marker polling does not fail closed on an automatic restart."
+grep -Fq 'current_invocation_id" == "$expected_invocation_id' <<< "$wait_body" ||
+    fail "Startup-marker polling is not bound to the original invocation."
+grep -Fq 'sleep 1' <<< "$wait_body" ||
+    fail "Startup-marker polling does not wait between bounded observations."
+grep -Fq 'wait_for_profile_markers "$invocation_id"' "$workflow" ||
+    fail "Profile verification does not use the bounded startup-marker gate."
+
+delayed_marker_count="$smoke_directory/delayed-marker-count"
+printf '0\n' > "$delayed_marker_count"
+delayed_marker_output="$smoke_directory/delayed-marker.out"
+(
+    # shellcheck source=/dev/null
+    source "$workflow"
+    systemctl() {
+        if [[ "$1" == 'is-active' ]]; then
+            printf 'active\n'
+        elif [[ "$1" == 'show' && "$4" == 'NRestarts' ]]; then
+            printf '0\n'
+        elif [[ "$1" == 'show' && "$4" == 'InvocationID' ]]; then
+            printf 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n'
+        else
+            return 1
+        fi
+    }
+    journalctl() {
+        local count
+        count="$(cat "$delayed_marker_count")"
+        count=$((count + 1))
+        printf '%s\n' "$count" > "$delayed_marker_count"
+        if ((count >= 3)); then
+            printf '%s\n' "$PUBLIC_CONFIGURATION_MARKER" "$PROFILE_MARKER"
+        fi
+    }
+    sleep() { :; }
+
+    wait_for_profile_markers 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+) > "$delayed_marker_output"
+[[ "$(cat "$delayed_marker_count")" == '3' ]] ||
+    fail "Startup-marker polling did not wait for the delayed third observation."
+grep -Fqx 'GoldSrcOps public runtime configuration loaded' "$delayed_marker_output" ||
+    fail "Delayed startup verification did not return the public marker."
+grep -Fqx 'GoldSrcOps managed profile public-classic-v1 loaded' "$delayed_marker_output" ||
+    fail "Delayed startup verification did not return the profile marker."
+
 grep -Fq '"$backup_directory/runtime-enabled"' "$workflow" ||
     fail "The workflow does not preserve and restore runtime-enabled."
 if grep -Eq 'systemctl[[:space:]]+enable' "$workflow"; then

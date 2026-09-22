@@ -2265,7 +2265,8 @@ For the completed v2.3 deployment milestone:
 
 ### v2.23 Managed Game-Server Profile
 
-Status: **local implementation complete; target acceptance pending**.
+Status: **local implementation complete; first target apply safely rolled back;
+target acceptance pending**.
 
 The next product slice returns to the controlled ReHLDS runtime. It adds one
 versioned, credential-free public match profile and map rotation with plan-only
