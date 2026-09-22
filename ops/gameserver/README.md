@@ -385,6 +385,48 @@ before the boot policy is target-accepted. See
 [`docs/v2.24-guarded-gameserver-autostart.md`](../../docs/v2.24-guarded-gameserver-autostart.md)
 for the exact gate and claim limits.
 
+## Public Game Firewall
+
+`public-game-firewall.sh` is the separately gated transition from the original
+restricted host foundation to a playable public IPv4 endpoint. It verifies the
+accepted profile and guarded-autostart markers, binds the current control-plane
+SSH source to the existing exact ReHLDS `rcon_adduser` `/32`, and then adds only
+one public UFW rule for the recorded game UDP port. SSH remains restricted by
+UFW, RCON remains restricted by ReHLDS plus its root-only credential, and the
+game process is not restarted.
+
+Review enable and rollback plans:
+
+```bash
+bash ./ops/gameserver/public-game-firewall.sh
+bash ./ops/gameserver/public-game-firewall.sh --disable
+```
+
+Apply only from the recorded control-plane operator session:
+
+```bash
+sudo --preserve-env=SSH_CONNECTION \
+  bash /tmp/goldsrcops-public-game-firewall.sh --enable --apply
+```
+
+The exact rollback removes only the owned public IPv4 rule:
+
+```bash
+sudo --preserve-env=SSH_CONNECTION \
+  bash /tmp/goldsrcops-public-game-firewall.sh --disable --apply
+```
+
+The deterministic repository smoke is:
+
+```bash
+bash ./tools/smoke/gameserver-public-game-firewall.sh
+```
+
+External A2S, unauthorized-source RCON rejection, authenticated control-plane
+RCON, one real connection, and an apply/rollback/final-apply rehearsal remain
+target gates. See
+[`docs/v2.25-public-game-boundary.md`](../../docs/v2.25-public-game-boundary.md).
+
 ## Game-Event Pilot Installation
 
 `game-event-pilot-install.sh` prepares the separately reviewed v2.11 gameplay

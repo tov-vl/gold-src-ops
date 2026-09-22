@@ -219,6 +219,10 @@ jobs:
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-guarded-autostart.sh
 
+      - name: Validate public game-server firewall
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        run: bash ./tools/smoke/gameserver-public-game-firewall.sh
+
       - name: Validate game-event pilot bundle contract
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/game-event-pilot-bundle.ps1

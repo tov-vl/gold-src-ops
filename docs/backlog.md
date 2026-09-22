@@ -2312,20 +2312,25 @@ The bounded contract and target gates are defined in
 
 ### v2.25 Public Server Join
 
-Status: **product implementation merged and verified; release readiness in
-progress, target advertised endpoint not yet configured**.
+Status: **product implementation merged; first candidate rolled back at the
+external A2S gate; public game-boundary remediation in progress**.
 
 Expose one deliberately advertised public game endpoint on the anonymous
 status page, backed by the existing A2S state of the accepted managed server.
 The UI includes current state, map, occupancy, freshness, a Steam deep link,
 and a copyable console command. Public name and address are deployment
 configuration, not inventory projection, so the endpoint cannot leak the
-private host, query port, credentials, notes, or provider topology.
+private host, query port, credentials, notes, or provider topology. The
+remediation adds one reversible IPv4 UFW rule for the game UDP port while
+preserving exact-source SSH and the already active ReHLDS RCON `/32`; it does
+not restart the game process.
 
-The bounded contract and R1 target gate are defined in
+The bounded application contract is defined in
 [`docs/v2.25-public-server-join.md`](v2.25-public-server-join.md).
-Release scope, rollback, and the minimized candidate and target sequence are
-defined in [`docs/v2.25-readiness.md`](v2.25-readiness.md).
+The R3 firewall contract is defined in
+[`docs/v2.25-public-game-boundary.md`](v2.25-public-game-boundary.md), and the
+revised release scope, rollback, and minimized candidate sequence are defined
+in [`docs/v2.25-readiness.md`](v2.25-readiness.md).
 
 The released v1 baseline includes:
 
