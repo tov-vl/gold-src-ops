@@ -1488,8 +1488,11 @@ Implementation status:
 
 The local v2.23 workflow renders `public-classic-v1`, verifies the five map
 files before mutation, binds the active and rollback bytes into one marker, and
-uses one restoration path for apply failures and explicit rollback. Repository
-smoke covers the plan, rendering, ordering, secret exclusion, boot-disable
-invariant, and interrupt traps. Live apply, external A2S/RCON checks, one map
-transition, and rollback rehearsal remain separate target gates documented in
-`docs/v2.23-managed-server-profile.md`.
+uses one restoration path for apply failures and explicit rollback. The fixed
+profile assigns itself as ReHLDS `mapchangecfgfile`, so its reviewed cvars are
+re-applied after ReGameDLL executes its vendor `game.cfg` during map activation;
+the workflow does not edit vendor configuration or the systemd unit. Repository
+smoke covers the plan, rendering, map-change hook, ordering, secret exclusion,
+boot-disable invariant, and interrupt traps. Live apply, external A2S/RCON
+checks, one map transition, and rollback rehearsal remain separate target gates
+documented in `docs/v2.23-managed-server-profile.md`.
