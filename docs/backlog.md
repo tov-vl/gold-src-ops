@@ -2312,8 +2312,8 @@ The bounded contract and target gates are defined in
 
 ### v2.25 Public Server Join
 
-Status: **local implementation and verification complete; target advertised
-endpoint not yet configured**.
+Status: **product implementation merged and verified; release readiness in
+progress, target advertised endpoint not yet configured**.
 
 Expose one deliberately advertised public game endpoint on the anonymous
 status page, backed by the existing A2S state of the accepted managed server.
@@ -2324,6 +2324,8 @@ private host, query port, credentials, notes, or provider topology.
 
 The bounded contract and R1 target gate are defined in
 [`docs/v2.25-public-server-join.md`](v2.25-public-server-join.md).
+Release scope, rollback, and the minimized candidate and target sequence are
+defined in [`docs/v2.25-readiness.md`](v2.25-readiness.md).
 
 The released v1 baseline includes:
 
