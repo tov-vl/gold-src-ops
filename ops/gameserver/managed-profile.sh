@@ -19,6 +19,7 @@ readonly PROFILE_MARKER="GoldSrcOps managed profile public-classic-v1 loaded"
 readonly PUBLIC_CONFIGURATION_MARKER="GoldSrcOps public runtime configuration loaded"
 readonly PROFILE_FILE_NAME="goldsrcops-managed-profile.cfg"
 readonly MAPCYCLE_FILE_NAME="goldsrcops-mapcycle.txt"
+readonly STARTUP_MARKER_ATTEMPTS=20
 readonly -a PROFILE_MAPS=(de_dust2 de_inferno de_nuke de_train cs_office)
 
 apply_changes=false
@@ -380,7 +381,7 @@ require_apply_environment() {
 
     ((EUID == 0)) || fail "--apply must run as root."
     for command in awk basename cat chmod chown cut date flock getent grep id install journalctl \
-        mktemp pgrep rm sha256sum ss stat systemctl wc; do
+        mktemp pgrep rm sha256sum sleep ss stat systemctl wc; do
         require_command "$command"
     done
     read_prepared_marker
@@ -504,8 +505,7 @@ verify_profile_start() {
     invocation_id="$(systemctl show "$SERVICE_NAME" -p InvocationID --value)"
     [[ "$invocation_id" =~ ^[0-9A-Fa-f]{32}$ ]] ||
         fail "The current service invocation identifier is invalid."
-    journal_output="$(journalctl -u "$SERVICE_NAME" \
-        _SYSTEMD_INVOCATION_ID="$invocation_id" --no-pager -o cat)"
+    journal_output="$(wait_for_profile_markers "$invocation_id")"
     grep -Fq "$PUBLIC_CONFIGURATION_MARKER" <<< "$journal_output" ||
         fail "The public runtime configuration was not loaded by the current process."
     grep -Fq "$PROFILE_MARKER" <<< "$journal_output" ||
@@ -517,6 +517,35 @@ verify_profile_start() {
         awk 'NF { count++ } END { print count + 0 }')"
     [[ "$listener_count" -eq 1 ]] ||
         fail "The reviewed game UDP listener count is not exactly one."
+}
+
+wait_for_profile_markers() {
+    local expected_invocation_id="$1"
+    local attempt current_invocation_id journal_output=""
+
+    for ((attempt = 1; attempt <= STARTUP_MARKER_ATTEMPTS; attempt++)); do
+        [[ "$(systemctl is-active "$SERVICE_NAME" 2>/dev/null || true)" == "active" ]] ||
+            fail "The game-server service stopped during startup verification."
+        [[ "$(systemctl show "$SERVICE_NAME" -p NRestarts --value)" == "0" ]] ||
+            fail "The managed profile triggered an automatic restart during startup verification."
+        current_invocation_id="$(systemctl show "$SERVICE_NAME" -p InvocationID --value)"
+        [[ "$current_invocation_id" == "$expected_invocation_id" ]] ||
+            fail "The game-server invocation changed during startup verification."
+
+        journal_output="$(journalctl -u "$SERVICE_NAME" \
+            _SYSTEMD_INVOCATION_ID="$expected_invocation_id" --no-pager -o cat)"
+        if grep -Fq "$PUBLIC_CONFIGURATION_MARKER" <<< "$journal_output" &&
+            grep -Fq "$PROFILE_MARKER" <<< "$journal_output"; then
+            printf '%s\n' "$journal_output"
+            return 0
+        fi
+
+        if ((attempt < STARTUP_MARKER_ATTEMPTS)); then
+            sleep 1
+        fi
+    done
+
+    printf '%s\n' "$journal_output"
 }
 
 restore_baseline() {
