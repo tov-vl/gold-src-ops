@@ -2263,6 +2263,20 @@ For the completed v2.3 deployment milestone:
 
 ## Portfolio Baseline And Remaining Gaps
 
+### v2.23 Managed Game-Server Profile
+
+Status: **local implementation complete; target acceptance pending**.
+
+The next product slice returns to the controlled ReHLDS runtime. It adds one
+versioned, credential-free public match profile and map rotation with plan-only
+inspection, exact backup, fail-closed apply, current-invocation verification,
+and active rollback. Provider-delivery outcome history remains a later backlog
+item because it does not improve the playable MVP while both delivery workers
+remain disabled outside bounded operations.
+
+The first local increment is defined in
+[`docs/v2.23-managed-server-profile.md`](v2.23-managed-server-profile.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.

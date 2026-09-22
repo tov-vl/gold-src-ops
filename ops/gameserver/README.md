@@ -2,7 +2,8 @@
 
 This directory contains the provider-independent host foundation, pinned
 runtime installer, first-start activation, and default-off game-event pilot
-workflows for the controlled ReHLDS baseline.
+workflows for the controlled ReHLDS baseline. It also contains the separately
+gated managed-profile workflow for reviewed public match rules and map rotation.
 
 Every mutating workflow is plan-only by default. Each plan must be reviewed
 from the same Git revision that will be applied to a paid host.
@@ -301,6 +302,45 @@ It covers plan sanitization, stdin-only secret validation, strict marker
 parsing, exact-source and default-deny firewall gates, public/private rendering,
 activation order, disconnect rollback coverage, and the prohibition on service
 enablement or secret arguments.
+
+## Managed Server Profile
+
+`managed-profile.sh` installs the fixed `public-classic-v1` public rules and
+five-map rotation into an already active reviewed runtime. It accepts no
+credentials or arbitrary values, serializes apply and rollback with one
+non-blocking host lock, verifies the recorded runtime and systemd-unit hashes,
+preserves an owner-only exact backup, leaves the service disabled across boot,
+and restores the baseline after any failed mutating transition.
+
+Review apply and rollback without touching the host:
+
+```bash
+bash ./ops/gameserver/managed-profile.sh
+bash ./ops/gameserver/managed-profile.sh --rollback
+```
+
+Apply only from the operator session recorded by host bootstrap:
+
+```bash
+sudo --preserve-env=SSH_CONNECTION \
+  bash /tmp/goldsrcops-gameserver-managed-profile.sh --apply
+```
+
+The separately gated rollback is:
+
+```bash
+sudo --preserve-env=SSH_CONNECTION \
+  bash /tmp/goldsrcops-gameserver-managed-profile.sh --rollback --apply
+```
+
+The deterministic, no-host-change smoke is:
+
+```bash
+bash ./tools/smoke/gameserver-managed-profile.sh
+```
+
+Target acceptance and claim limits are defined in
+[`docs/v2.23-managed-server-profile.md`](../../docs/v2.23-managed-server-profile.md).
 
 ## Game-Event Pilot Installation
 
