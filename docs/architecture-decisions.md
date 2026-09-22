@@ -1501,3 +1501,59 @@ the subsequently approved activation of final `main` revision `3716ce6` left
 the accepted profile active with external and host invariants verified. Details
 and claim limits are documented in
 `docs/v2.23-managed-server-profile.md`.
+
+## Decision 30: Enable Game Boot Startup Only Behind The Accepted Profile Guard
+
+Decision:
+
+Permit `goldsrcops-gameserver.service` to become boot-enabled only while the
+accepted `public-classic-v1` profile is active and a read-only systemd pre-start
+guard binds the runtime, base unit, public configuration, profile, mapcycle,
+drop-in, and guard bytes to reviewed markers. Keep the game-event agent and
+automatic host reboot disabled.
+
+Record guard rejection as a logged, non-restartable skipped start. Changing
+boot policy must not stop or restart the current game process, and profile
+replacement or rollback must first restore the prior active/disabled boundary.
+
+Decision date: 2026-09-22.
+
+Reasoning:
+
+- A persistent public MVP should recover after a planned reboot without waiting
+  for an interactive operator session.
+- `ConditionPathExists` alone proves presence, not integrity; the accepted
+  profile and its exact map-change reapplication hook need a fresh check before
+  every unattended start.
+- A dedicated guard keeps boot safety on the game host and does not introduce
+  SSH credentials or arbitrary host control into the application plane.
+- Separating service enablement from automatic host reboot preserves an
+  explicit maintenance window and post-reboot acceptance gate.
+- A fixed `ExecCondition` rejection exit status prevents deterministic drift
+  from entering the ordinary bounded restart policy intended for unexpected
+  runtime failures.
+
+Alternatives considered:
+
+- Run `systemctl enable` against the existing unit without another guard.
+  Rejected because startup would bypass the marker and profile hash checks used
+  during controlled activation.
+- Start the game from the control plane after each reboot. Rejected because it
+  introduces privileged remote host control and makes control-plane
+  availability part of game recovery.
+- Enable the game-event agent together with the game. Rejected because its
+  identity, spool, producer, and delivery lifecycle remains a separately gated
+  boundary.
+- Allow unattended host reboot after security updates. Deferred because host
+  reboot scheduling and post-reboot evidence are distinct from game-service
+  startup policy.
+
+Implementation status:
+
+The local v2.24 workflow renders the fixed drop-in, rewrites only the recorded
+autostart field and dependent active-profile hash, preserves exact rollback
+markers, installs itself as the immutable guard, and checks that enable/disable
+does not change the running invocation or restart count. Repository smoke,
+including `systemd-analyze`, now covers the local contract. A controlled target
+reboot remains the acceptance gate defined in
+`docs/v2.24-guarded-gameserver-autostart.md`.
