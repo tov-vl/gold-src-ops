@@ -1497,5 +1497,7 @@ boot-disable invariant, and interrupt traps. On 2026-09-22, merged revision
 `1d7178c` passed live apply, external A2S and authenticated RCON inspection,
 one audited map transition with post-transition rule verification, and active
 rollback. The live host was intentionally restored to the verified baseline;
-details and claim limits are documented in
+the subsequently approved activation of final `main` revision `3716ce6` left
+the accepted profile active with external and host invariants verified. Details
+and claim limits are documented in
 `docs/v2.23-managed-server-profile.md`.
