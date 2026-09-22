@@ -312,6 +312,7 @@ cat > "$producer_fixture" <<'EOF'
 // Fixed pilot configuration.
 goldsrcops_events_enabled 0
 goldsrcops_spool_incoming "addons/amxmodx/data/goldsrcops-spool/incoming"
+goldsrcops_spool_max_pending 1000
 EOF
 producer_enabled="$smoke_directory/amxx-enabled.cfg"
 producer_disabled="$smoke_directory/amxx-disabled.cfg"
@@ -323,6 +324,8 @@ producer_disabled="$smoke_directory/amxx-disabled.cfg"
 )
 grep -Fxq 'goldsrcops_events_enabled 1' "$producer_enabled" ||
     fail "The producer enable transition was not rendered."
+grep -Fxq 'goldsrcops_spool_max_pending 1000' "$producer_enabled" ||
+    fail "The producer spool limit was not preserved."
 cmp -s "$producer_fixture" "$producer_disabled" ||
     fail "The producer disable transition did not restore the reviewed bytes."
 

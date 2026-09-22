@@ -2332,6 +2332,20 @@ The R3 firewall contract is defined in
 revised release scope, rollback, and minimized candidate sequence are defined
 in [`docs/v2.25-readiness.md`](v2.25-readiness.md).
 
+### v2.26 Persistent Gameplay Telemetry Readiness
+
+Status: **local implementation complete; no target activation authorized**.
+
+Prepare the proven v2.11 one-event path for a later long-lived activation
+without crossing the production game-event boundary. The first increment adds
+fail-closed producer backpressure through a bounded pending-spool cvar and a
+versioned aggregate-only `status --json` snapshot for future host policy and
+operator probes. It keeps producer and delivery disabled by default and makes
+no systemd, identity, database, control-plane, or live game-host change.
+
+The product boundary and deferred R3 work are defined in
+[`docs/v2.26-persistent-gameplay-telemetry.md`](v2.26-persistent-gameplay-telemetry.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.

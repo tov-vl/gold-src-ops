@@ -45,6 +45,23 @@ public sealed class GameEventAgentCommandLineTests
         command.Should().BeOfType<VerifyAccessTokenAgentCommand>();
     }
 
+    [Theory]
+    [InlineData(false, "status")]
+    [InlineData(true, "status", "--json")]
+    public void TryParse_accepts_human_and_machine_readable_status(
+        bool json,
+        params string[] arguments)
+    {
+        var parsed = GameEventAgentCommandLine.TryParse(
+            arguments,
+            out var command,
+            out var error);
+
+        parsed.Should().BeTrue();
+        error.Should().BeNull();
+        command.Should().Be(new ShowQueueStatusCommand(json));
+    }
+
     [Fact]
     public void Access_token_preflight_enables_delivery_configuration_for_validation()
     {

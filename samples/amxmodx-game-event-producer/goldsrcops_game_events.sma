@@ -14,6 +14,8 @@
 #define MAX_INCOMING_PATH_LENGTH 180
 #define MAX_PAYLOAD_LENGTH 512
 #define MAX_SPOOL_RECORD_BYTES 4096
+#define MIN_PENDING_SPOOL_RECORDS 1
+#define MAX_PENDING_SPOOL_RECORDS 10000
 #define RECORD_ID_LENGTH 36
 #define RECORD_ID_ATTEMPTS 8
 
@@ -21,6 +23,7 @@ new const HEX_DIGITS[] = "0123456789abcdef";
 
 new g_enabledCvar;
 new g_incomingPathCvar;
+new g_maxPendingCvar;
 new bool:g_roundEventPublished;
 new g_emittedCount;
 new g_failedCount;
@@ -35,6 +38,7 @@ public plugin_init()
         "goldsrcops_spool_incoming",
         "addons/amxmodx/data/goldsrcops-spool/incoming",
         FCVAR_NONE);
+    g_maxPendingCvar = register_cvar("goldsrcops_spool_max_pending", "1000", FCVAR_NONE);
 
     RegisterHookChain(RG_RoundEnd, "OnRoundEndPost", true);
     RegisterHookChain(RG_CSGameRules_RestartRound, "OnRoundRestartPost", true);
@@ -109,9 +113,26 @@ public OnRoundRestartPost()
 
 public OnStatusCommand()
 {
+    new incomingPath[PLATFORM_MAX_PATH];
+    get_pcvar_string(g_incomingPathCvar, incomingPath, charsmax(incomingPath));
+    trim(incomingPath);
+
+    new pendingCount = -1;
+    new maxPending = get_pcvar_num(g_maxPendingCvar);
+    new scanLimit = maxPending >= MIN_PENDING_SPOOL_RECORDS &&
+        maxPending <= MAX_PENDING_SPOOL_RECORDS
+        ? maxPending
+        : MAX_PENDING_SPOOL_RECORDS;
+    if (IsSafeRelativePath(incomingPath) && dir_exists(incomingPath))
+    {
+        CountPendingRecords(incomingPath, scanLimit, pendingCount);
+    }
+
     server_print(
-        "[GoldSrcOps] enabled=%d emitted=%d failed=%d ignored=%d",
+        "[GoldSrcOps] enabled=%d pending=%d max_pending=%d emitted=%d failed=%d ignored=%d",
         get_pcvar_num(g_enabledCvar),
+        pendingCount,
+        maxPending,
         g_emittedCount,
         g_failedCount,
         g_ignoredCount);
@@ -130,6 +151,20 @@ bool:PublishRoundEnded(
     trim(incomingPath);
 
     if (!IsSafeRelativePath(incomingPath) || !dir_exists(incomingPath))
+    {
+        return false;
+    }
+
+    new maxPending = get_pcvar_num(g_maxPendingCvar);
+    if (maxPending < MIN_PENDING_SPOOL_RECORDS ||
+        maxPending > MAX_PENDING_SPOOL_RECORDS)
+    {
+        return false;
+    }
+
+    new pendingCount;
+    if (!CountPendingRecords(incomingPath, maxPending, pendingCount) ||
+        pendingCount >= maxPending)
     {
         return false;
     }
@@ -181,6 +216,36 @@ bool:PublishRoundEnded(
     }
 
     return false;
+}
+
+bool:CountPendingRecords(const incomingPath[], const maximumCount, &count)
+{
+    count = 0;
+    new entryName[PLATFORM_MAX_PATH];
+    new FileType:entryType;
+    new directory = open_dir(incomingPath, entryName, charsmax(entryName), entryType);
+    if (!directory)
+    {
+        return false;
+    }
+
+    do
+    {
+        if (!equal(entryName, ".") &&
+            !equal(entryName, "..") &&
+            entryType != FileType_Directory)
+        {
+            count++;
+            if (count >= maximumCount)
+            {
+                break;
+            }
+        }
+    }
+    while (next_file(directory, entryName, charsmax(entryName), entryType));
+
+    close_dir(directory);
+    return true;
 }
 
 bool:CommitRecord(

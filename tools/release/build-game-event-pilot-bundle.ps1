@@ -435,6 +435,7 @@ try {
 // GoldSrcOps pilot producer remains disabled until the reviewed activation step.
 goldsrcops_events_enabled 0
 goldsrcops_spool_incoming "addons/amxmodx/data/goldsrcops-spool/incoming"
+goldsrcops_spool_max_pending 1000
 "@
     Write-Utf8Lf `
         -Path (Join-Path $agentDestination "run.sh") `

@@ -61,7 +61,7 @@ internal static class GameEventAgentConsole
                     builder,
                     options,
                     cancellationToken).ConfigureAwait(false),
-                ShowQueueStatusCommand => ShowStatus(options),
+                ShowQueueStatusCommand status => ShowStatus(options, status.Json),
                 _ => throw new InvalidOperationException("The game-event agent command is unsupported.")
             };
         }
@@ -234,16 +234,23 @@ internal static class GameEventAgentConsole
             throw new InvalidOperationException("The test-source input file contains no event.");
     }
 
-    private static int ShowStatus(GameEventAgentOptions options)
+    private static int ShowStatus(GameEventAgentOptions options, bool json)
     {
-        var outbox = new SqliteGameEventOutbox(options.Queue);
-        outbox.Initialize();
-        var statistics = outbox.GetStatistics();
-        var spool = GameEventSpoolFileSystem.GetStatistics(options.Spool);
+        var snapshot = GameEventAgentStatus.Capture(options);
+        if (json)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(snapshot, GameEventJson.SerializerOptions));
+            return 0;
+        }
+
+        var statistics = snapshot.Queue;
+        var spool = snapshot.Spool;
         Console.WriteLine(FormattableString.Invariant(
             $"Queue status: pending={statistics.Pending}, in-flight={statistics.InFlight}, dead-letter={statistics.DeadLetter}, spool-receipts={statistics.SpoolReceipts}, next-sequence={statistics.NextSequenceNumber}."));
         Console.WriteLine(FormattableString.Invariant(
             $"Spool status: ready={spool.Ready}, processing={spool.Processing}, accepted={spool.Accepted}, rejected={spool.Rejected}, temporary={spool.Temporary}."));
+        Console.WriteLine(FormattableString.Invariant(
+            $"Runtime gates: spool-import={snapshot.SpoolImportEnabled}, delivery={snapshot.DeliveryEnabled}, queue-capacity={snapshot.QueueCapacity}."));
         return 0;
     }
 
@@ -269,7 +276,7 @@ internal static class GameEventAgentConsole
         Console.WriteLine("  spool-write --file <event.json>");
         Console.WriteLine("  import-spool");
         Console.WriteLine("  verify-access-token");
-        Console.WriteLine("  status");
+        Console.WriteLine("  status [--json]");
         Console.WriteLine();
         Console.WriteLine("Delivery is disabled by default. Configure it through GameEventAgent__* environment variables.");
         Console.WriteLine("Supply only a path in GameEventAgent__Delivery__OAuth__ClientSecretFile; never put the secret itself in configuration.");
@@ -295,7 +302,16 @@ internal static class GameEventAgentCommandLine
 
         if (args.Length == 1 && string.Equals(args[0], "status", StringComparison.Ordinal))
         {
-            command = new ShowQueueStatusCommand();
+            command = new ShowQueueStatusCommand(Json: false);
+            error = null;
+            return true;
+        }
+
+        if (args.Length == 2 &&
+            string.Equals(args[0], "status", StringComparison.Ordinal) &&
+            string.Equals(args[1], "--json", StringComparison.Ordinal))
+        {
+            command = new ShowQueueStatusCommand(Json: true);
             error = null;
             return true;
         }
@@ -345,4 +361,4 @@ internal sealed record ImportSpoolCommand : GameEventAgentCommand;
 
 internal sealed record VerifyAccessTokenAgentCommand : GameEventAgentCommand;
 
-internal sealed record ShowQueueStatusCommand : GameEventAgentCommand;
+internal sealed record ShowQueueStatusCommand(bool Json) : GameEventAgentCommand;
