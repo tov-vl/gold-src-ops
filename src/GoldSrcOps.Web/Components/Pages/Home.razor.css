@@ -136,6 +136,163 @@
     padding: 72px 0 76px;
 }
 
+.public-server {
+    padding: 52px 0 58px;
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.public-server__heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 32px;
+    margin-bottom: 34px;
+}
+
+.public-server__heading h2 {
+    margin-bottom: 0;
+    font-size: 2.4rem;
+}
+
+.public-server__state {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    font-weight: 720;
+}
+
+.public-server__signal {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--ink-muted);
+}
+
+.public-server--online .public-server__signal {
+    background: var(--signal-green);
+}
+
+.public-server--offline .public-server__signal {
+    background: var(--signal-red);
+}
+
+.public-server__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 0.9fr);
+    gap: 48px;
+    align-items: stretch;
+}
+
+.public-server__facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+.public-server__facts > div {
+    min-width: 0;
+    padding: 22px 20px;
+}
+
+.public-server__facts > div + div {
+    border-left: 1px solid var(--line);
+}
+
+.public-server__facts dt,
+.public-server__connect-label {
+    margin-bottom: 10px;
+    color: var(--ink-muted);
+    font-size: 0.72rem;
+    font-weight: 760;
+    text-transform: uppercase;
+}
+
+.public-server__facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--ink);
+    font-size: 1rem;
+    font-weight: 690;
+}
+
+.public-server__connect {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 22px 24px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+}
+
+.public-server__connect code {
+    display: block;
+    margin-bottom: 18px;
+    overflow-wrap: anywhere;
+    color: var(--ink);
+    font-size: 1rem;
+}
+
+.public-server__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.public-server__steam,
+.public-server__copy {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border: 1px solid var(--ink);
+    border-radius: 4px;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 720;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.public-server__steam {
+    color: var(--surface);
+    background: var(--ink);
+}
+
+.public-server__copy {
+    color: var(--ink);
+    background: transparent;
+}
+
+.public-server__steam:hover {
+    color: var(--surface);
+    background: var(--ink-soft);
+}
+
+.public-server__copy:hover {
+    background: #e9ece6;
+}
+
+.public-server__steam:focus-visible,
+.public-server__copy:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+}
+
+.public-server__copy-status {
+    min-height: 1.25rem;
+    margin: 10px 0 0;
+    color: var(--ink-muted);
+    font-size: 0.76rem;
+}
+
 .history {
     padding: 70px 0 64px;
     border-top: 1px solid var(--line-strong);
@@ -487,6 +644,11 @@
     .history-chart {
         gap: 3px;
     }
+
+    .public-server__body {
+        grid-template-columns: 1fr;
+        gap: 26px;
+    }
 }
 
 @media (max-width: 640px) {
@@ -533,6 +695,39 @@
 
     .fleet {
         padding: 56px 0 62px;
+    }
+
+    .public-server {
+        padding: 46px 0 50px;
+    }
+
+    .public-server__heading {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+        margin-bottom: 26px;
+    }
+
+    .public-server__heading h2 {
+        font-size: 1.8rem;
+    }
+
+    .public-server__facts {
+        grid-template-columns: 1fr;
+    }
+
+    .public-server__facts > div + div {
+        border-top: 1px solid var(--line);
+        border-left: 0;
+    }
+
+    .public-server__connect {
+        padding: 20px;
+    }
+
+    .public-server__actions {
+        display: grid;
+        grid-template-columns: 1fr;
     }
 
     .history {

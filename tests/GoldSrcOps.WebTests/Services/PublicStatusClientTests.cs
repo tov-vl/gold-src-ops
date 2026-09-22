@@ -8,6 +8,59 @@ namespace GoldSrcOps.WebTests.Services;
 
 public sealed class PublicStatusClientTests
 {
+    [Fact]
+    public async Task GetServerJoinAsync_returns_the_advertised_public_server()
+    {
+        var expected = new PublicServerJoinResponse(
+            "GoldSrcOps Public Classic",
+            "play.example.test",
+            27015,
+            "online",
+            "de_dust2",
+            4,
+            20,
+            new DateTimeOffset(2026, 9, 22, 12, 0, 0, TimeSpan.Zero));
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(expected)
+        });
+        using var httpClient = CreateHttpClient(capture);
+        var client = new PublicStatusClient(httpClient);
+
+        var result = await client.GetServerJoinAsync();
+
+        result.Should().BeEquivalentTo(expected);
+        capture.RequestUri.Should().Be(new Uri("https://api.example.test/api/public/server"));
+    }
+
+    [Fact]
+    public async Task GetServerJoinAsync_returns_null_when_the_public_server_is_not_configured()
+    {
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        using var httpClient = CreateHttpClient(capture);
+        var client = new PublicStatusClient(httpClient);
+
+        var result = await client.GetServerJoinAsync();
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetServerJoinAsync_rejects_an_empty_success_response()
+    {
+        var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("null", System.Text.Encoding.UTF8, "application/json")
+        });
+        using var httpClient = CreateHttpClient(capture);
+        var client = new PublicStatusClient(httpClient);
+
+        var action = () => client.GetServerJoinAsync();
+
+        await action.Should().ThrowAsync<InvalidDataException>()
+            .WithMessage("*server join response was empty*");
+    }
+
     [Theory]
     [InlineData(PublicStatusClient.Last24HoursWindow)]
     [InlineData(PublicStatusClient.Last7DaysWindow)]

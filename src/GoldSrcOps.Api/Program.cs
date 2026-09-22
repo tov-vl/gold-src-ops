@@ -38,6 +38,9 @@ builder.Services.AddOutputCache(static options =>
         static policy => policy
             .Expire(TimeSpan.FromMinutes(1))
             .SetVaryByQuery("window"));
+    options.AddPolicy(
+        PublicStatusEndpoints.ServerJoinCachePolicyName,
+        static policy => policy.Expire(TimeSpan.FromSeconds(15)));
 });
 var reverseProxyEnabled = ReverseProxyConfiguration.Configure(
     builder.Services,
@@ -52,6 +55,8 @@ builder.Services.AddScoped<ServerCredentialsService>();
 builder.Services.AddScoped<CommandExecutionService>();
 builder.Services.AddScoped<GameEventIngestionService>();
 builder.Services.AddScoped<GameEventReadService>();
+builder.Services.AddSingleton(static services => PublicServerJoinOptions.FromConfiguration(
+    services.GetRequiredService<IConfiguration>()));
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 var otlpMetricsOptions = OtlpMetricsOptions.FromConfiguration(builder.Configuration);
 builder.Services.AddHealthChecks()
@@ -68,6 +73,7 @@ builder.Services.AddOpenTelemetry()
         .AddConfiguredOtlpExporter(otlpMetricsOptions));
 
 var app = builder.Build();
+_ = app.Services.GetRequiredService<PublicServerJoinOptions>();
 
 if (app.Environment.IsDevelopment())
 {

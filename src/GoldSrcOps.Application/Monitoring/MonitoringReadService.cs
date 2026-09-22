@@ -266,6 +266,32 @@ public sealed class MonitoringReadService
             lastObservedAtUtc);
     }
 
+    public async Task<PublicServerJoinDto?> GetPublicServerJoinAsync(
+        Guid serverId,
+        CancellationToken cancellationToken)
+    {
+        var states = await _repository.ListFleetServerStatesAsync(cancellationToken);
+        var server = states.SingleOrDefault(state => state.ServerId == serverId && state.IsEnabled);
+        if (server is null)
+        {
+            return null;
+        }
+
+        var state = server.Status switch
+        {
+            ServerStatus.Online when !IsStale(server, _clock.UtcNow) => PublicServerJoinState.Online,
+            ServerStatus.Offline => PublicServerJoinState.Offline,
+            _ => PublicServerJoinState.Unknown
+        };
+
+        return new PublicServerJoinDto(
+            state,
+            server.CurrentMap,
+            server.Players,
+            server.MaxPlayers,
+            server.LastCheckedAtUtc);
+    }
+
     public async Task<PublicA2sHistoryDto> GetPublicA2sHistoryAsync(
         PublicA2sHistoryWindow window,
         CancellationToken cancellationToken)

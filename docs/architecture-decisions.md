@@ -1559,3 +1559,49 @@ including `systemd-analyze`, covers the local contract. Merged revision
 guard, zero-restart service recovery, and independent A2S and authenticated
 RCON acceptance on 2026-09-22. The retained limits are defined in
 `docs/v2.24-guarded-gameserver-autostart.md`.
+
+## Decision 31: Separate The Advertised Game Endpoint From Server Inventory
+
+Decision:
+
+Publish one optional game-server join projection using a deployment-configured
+public name, host, port, and selected inventory server ID. Read current map,
+occupancy, and freshness from that enabled server's A2S state, but never copy
+its inventory name, host, query port, notes, credentials, or provider metadata
+into the anonymous response.
+
+Treat an entirely absent configuration as feature-disabled. Reject partial or
+invalid configuration at startup. Return no join projection when the selected
+server is missing or disabled, and map stale online observations to unknown.
+
+Decision date: 2026-09-22.
+
+Reasoning:
+
+- A visitor needs a direct connection path, but inventory addresses belong to
+  the operator boundary and may be private or change independently.
+- A separate advertised endpoint makes the publication decision explicit and
+  reviewable without changing the server entity or adding a migration.
+- Reusing the bounded A2S projection avoids a second polling path and keeps the
+  displayed map and occupancy consistent with existing monitoring evidence.
+- Fail-closed partial configuration prevents a typo from publishing an
+  incomplete or unintended endpoint.
+
+Alternatives considered:
+
+- Expose `Server.Host` and `Server.QueryPort` directly. Rejected because those
+  are inventory fields, not an explicit public-advertising decision.
+- Store public endpoint fields on the server entity. Deferred because one
+  deployment-level public endpoint does not justify schema and operator CRUD
+  expansion in the MVP.
+- Hard-code the accepted game-host address in Web. Rejected because it couples
+  presentation to target topology and makes address rotation a source change.
+
+Implementation status:
+
+The v2.25 implementation adds a minimal anonymous API response, optional
+validated configuration, a responsive join section, a Steam deep link, a
+copyable console command, and boundary-focused automated coverage. Production
+configuration, DNS selection, immutable rollout, and one external connection
+remain the separate R1 target gate described in
+`docs/v2.25-public-server-join.md`.

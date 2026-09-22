@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AwesomeAssertions;
+using GoldSrcOps.Api.Hosting;
 using GoldSrcOps.Application.Common;
 using GoldSrcOps.Application.Incidents;
 using GoldSrcOps.Application.Monitoring;
@@ -808,6 +809,84 @@ public sealed class MonitoringEndpointIntegrationTests
             ServersRequiringAttention: 1,
             OpenIncidents: 1,
             LastObservedAtUtc: lastObservedAtUtc));
+    }
+
+    [Fact]
+    public async Task GetPublicServerJoin_returns_only_advertised_endpoint_and_safe_live_state()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var server = CreateServer(
+            "Private inventory name",
+            "private-server-data-must-not-render",
+            createdAtUtc: now.AddHours(-1));
+        await using var factory = new GoldSrcOpsApiFactory(
+            principal: TestApiPrincipal.Anonymous,
+            configurationOverrides: new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["PublicServerJoin:ServerId"] = server.Id.ToString("D"),
+                ["PublicServerJoin:Name"] = "GoldSrcOps Public Classic",
+                ["PublicServerJoin:Host"] = "play.example.test",
+                ["PublicServerJoin:Port"] = "27015"
+            });
+        using var client = factory.CreateClient();
+        var lastObservedAtUtc = now.AddSeconds(-5);
+        server.GetCurrentState(now).MarkOnline(lastObservedAtUtc, 20, "de_dust2", 14, 32);
+        await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            dbContext.Servers.Add(server);
+            await dbContext.SaveChangesAsync();
+        });
+        var options = factory.Services.GetRequiredService<PublicServerJoinOptions>();
+        options.Enabled.Should().BeTrue();
+        options.ServerId.Should().Be(server.Id);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var monitoring = scope.ServiceProvider.GetRequiredService<MonitoringReadService>();
+            var projection = await monitoring.GetPublicServerJoinAsync(server.Id, CancellationToken.None);
+            projection.Should().NotBeNull();
+        }
+
+        var response = await client.GetAsync("/api/public/server");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        payload.Should().NotContain("private-server-data-must-not-render");
+        payload.Should().NotContain("Private inventory name");
+        using var document = JsonDocument.Parse(payload);
+        document.RootElement
+            .EnumerateObject()
+            .Select(static property => property.Name)
+            .Should()
+            .BeEquivalentTo(
+                "name",
+                "host",
+                "port",
+                "state",
+                "map",
+                "players",
+                "maxPlayers",
+                "lastObservedAtUtc");
+        var result = JsonSerializer.Deserialize<PublicServerJoinResponse>(payload, JsonSerializerOptions.Web);
+        result.Should().BeEquivalentTo(new PublicServerJoinResponse(
+            "GoldSrcOps Public Classic",
+            "play.example.test",
+            27015,
+            "online",
+            "de_dust2",
+            14,
+            32,
+            lastObservedAtUtc));
+    }
+
+    [Fact]
+    public async Task GetPublicServerJoin_returns_not_found_when_not_configured()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Anonymous);
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/public/server");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Theory]

@@ -683,6 +683,131 @@ public sealed class MonitoringReadServiceTests
 
     [Theory]
     [AutoMoqData]
+    public async Task GetPublicServerJoinAsync_returns_a_sanitized_fresh_server_projection(
+        [Frozen] Mock<IMonitoringReadRepository> repository,
+        [Frozen] Mock<IClock> clock,
+        MonitoringReadService sut)
+    {
+        var serverId = Guid.NewGuid();
+        var now = new DateTimeOffset(2026, 9, 22, 12, 0, 0, TimeSpan.Zero);
+        IReadOnlyList<FleetServerStateDto> states =
+        [
+            new(
+                serverId,
+                "Private inventory name",
+                GameServerKind.GoldSrc,
+                "private.example.test",
+                27016,
+                true,
+                30,
+                ServerStatus.Online,
+                now.AddSeconds(-20),
+                18,
+                "de_dust2",
+                4,
+                20,
+                0,
+                0,
+                0)
+        ];
+        repository
+            .Setup(static x => x.ListFleetServerStatesAsync(CancellationToken.None))
+            .ReturnsAsync(states);
+        clock.SetupGet(static x => x.UtcNow).Returns(now);
+
+        var result = await sut.GetPublicServerJoinAsync(serverId, CancellationToken.None);
+
+        result.Should().BeEquivalentTo(new PublicServerJoinDto(
+            PublicServerJoinState.Online,
+            "de_dust2",
+            4,
+            20,
+            now.AddSeconds(-20)));
+        repository.Verify(static x => x.ListFleetServerStatesAsync(CancellationToken.None), Times.Once);
+        repository.VerifyNoOtherCalls();
+        clock.VerifyGet(static x => x.UtcNow, Times.Once);
+        clock.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [AutoMoqData]
+    public async Task GetPublicServerJoinAsync_marks_a_stale_online_server_unknown(
+        [Frozen] Mock<IMonitoringReadRepository> repository,
+        [Frozen] Mock<IClock> clock,
+        MonitoringReadService sut)
+    {
+        var serverId = Guid.NewGuid();
+        var now = new DateTimeOffset(2026, 9, 22, 12, 0, 0, TimeSpan.Zero);
+        IReadOnlyList<FleetServerStateDto> states =
+        [
+            new(
+                serverId,
+                "Server",
+                GameServerKind.GoldSrc,
+                "private.example.test",
+                27015,
+                true,
+                30,
+                ServerStatus.Online,
+                now.AddSeconds(-71),
+                18,
+                "de_dust2",
+                4,
+                20,
+                0,
+                0,
+                0)
+        ];
+        repository
+            .Setup(static x => x.ListFleetServerStatesAsync(CancellationToken.None))
+            .ReturnsAsync(states);
+        clock.SetupGet(static x => x.UtcNow).Returns(now);
+
+        var result = await sut.GetPublicServerJoinAsync(serverId, CancellationToken.None);
+
+        result!.State.Should().Be(PublicServerJoinState.Unknown);
+    }
+
+    [Theory]
+    [AutoMoqData]
+    public async Task GetPublicServerJoinAsync_excludes_a_disabled_server(
+        [Frozen] Mock<IMonitoringReadRepository> repository,
+        MonitoringReadService sut)
+    {
+        var serverId = Guid.NewGuid();
+        IReadOnlyList<FleetServerStateDto> states =
+        [
+            new(
+                serverId,
+                "Server",
+                GameServerKind.GoldSrc,
+                "private.example.test",
+                27015,
+                false,
+                30,
+                ServerStatus.Online,
+                DateTimeOffset.UtcNow,
+                18,
+                "de_dust2",
+                4,
+                20,
+                0,
+                0,
+                0)
+        ];
+        repository
+            .Setup(static x => x.ListFleetServerStatesAsync(CancellationToken.None))
+            .ReturnsAsync(states);
+
+        var result = await sut.GetPublicServerJoinAsync(serverId, CancellationToken.None);
+
+        result.Should().BeNull();
+        repository.Verify(static x => x.ListFleetServerStatesAsync(CancellationToken.None), Times.Once);
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [AutoMoqData]
     public async Task ListSnapshotsAsync_uses_default_limit_for_recent_history(
         [Frozen] Mock<IMonitoringReadRepository> repository,
         MonitoringReadService sut)

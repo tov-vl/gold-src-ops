@@ -38,4 +38,21 @@ public sealed class PublicStatusClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync<PublicA2sHistoryResponse>(cancellationToken)
             ?? throw new InvalidDataException("The public A2S history response was empty.");
     }
+
+    public async Task<PublicServerJoinResponse?> GetServerJoinAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.GetAsync(
+            "api/public/server",
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<PublicServerJoinResponse>(cancellationToken)
+            ?? throw new InvalidDataException("The public server join response was empty.");
+    }
 }

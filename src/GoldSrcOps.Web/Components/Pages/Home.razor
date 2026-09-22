@@ -112,6 +112,64 @@
             </section>
         }
 
+        @if (_publicServer is not null)
+        {
+            <section class="public-server public-server--@NormalizeServerState(_publicServer.State)"
+                     aria-labelledby="public-server-title">
+                <div class="public-server__heading">
+                    <div>
+                        <p class="eyebrow">Public classic server</p>
+                        <h2 id="public-server-title">@_publicServer.Name</h2>
+                    </div>
+                    <p class="public-server__state">
+                        <span class="public-server__signal" aria-hidden="true"></span>
+                        @PublicServerStateLabel
+                    </p>
+                </div>
+
+                <div class="public-server__body">
+                    <dl class="public-server__facts">
+                        <div>
+                            <dt>Map</dt>
+                            <dd>@(_publicServer.Map ?? "Not available")</dd>
+                        </div>
+                        <div>
+                            <dt>Players</dt>
+                            <dd>@PlayerSummary</dd>
+                        </div>
+                        <div>
+                            <dt>Observed</dt>
+                            <dd>
+                                @if (_publicServer.LastObservedAtUtc is { } serverObservedAtUtc)
+                                {
+                                    <time datetime="@serverObservedAtUtc.ToString("O")">
+                                        @serverObservedAtUtc.ToUniversalTime().ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture)
+                                    </time>
+                                }
+                                else
+                                {
+                                    <span>Not available</span>
+                                }
+                            </dd>
+                        </div>
+                    </dl>
+
+                    <div class="public-server__connect">
+                        <span class="public-server__connect-label">Connection command</span>
+                        <code>@ConnectCommand</code>
+                        <div class="public-server__actions">
+                            <a class="public-server__steam" href="@SteamConnectUri">Connect with Steam</a>
+                            <button class="public-server__copy"
+                                    type="button"
+                                    data-copy-connect="@ConnectCommand"
+                                    aria-describedby="public-server-copy-status">Copy command</button>
+                        </div>
+                        <p id="public-server-copy-status" class="public-server__copy-status" aria-live="polite"></p>
+                    </div>
+                </div>
+            </section>
+        }
+
         <section class="history" aria-labelledby="history-title">
             <div class="history-heading">
                 <div>
@@ -180,10 +238,12 @@
         <section class="scope-note" aria-labelledby="scope-title">
             <h2 id="scope-title">What this page reports</h2>
             <p>
-                This public view shows aggregate fleet status and recorded A2S probe outcomes only.
+                This public view shows aggregate fleet status, recorded A2S probe outcomes, and one
+                explicitly advertised public connection endpoint.
                 Missing buckets are unknown and excluded from the observed percentage. A2S history is
-                not API uptime, does not activate or prove an SLO, and exposes no server addresses,
-                provider identifiers, command history, or administrative data.
+                not API uptime and does not activate or prove an SLO. The advertised game endpoint is
+                configured separately from private inventory; provider identifiers, command history,
+                credentials, and administrative data remain private.
             </p>
         </section>
     }
@@ -196,6 +256,7 @@
 
     private PublicStatusResponse? _status;
     private PublicA2sHistoryResponse? _history;
+    private PublicServerJoinResponse? _publicServer;
     private bool _isLoading = true;
 
     private string SelectedWindow => string.Equals(
@@ -253,13 +314,36 @@
         : $"A2S reachability from {FormatAxisTime(_history.FromUtc)} to {FormatAxisTime(_history.ToUtc)}; " +
           $"{_history.ObservedBuckets} of {_history.TotalBuckets} buckets contain observations.";
 
+    private string PublicServerStateLabel => _publicServer?.State switch
+    {
+        "online" => "Online",
+        "offline" => "Offline",
+        _ => "Status unknown"
+    };
+
+    private string PlayerSummary => _publicServer is { Players: { } players, MaxPlayers: { } maxPlayers }
+        ? $"{players} / {maxPlayers}"
+        : "Not available";
+
+    private string ConnectAddress => _publicServer is null
+        ? string.Empty
+        : $"{_publicServer.Host}:{_publicServer.Port.ToString(CultureInfo.InvariantCulture)}";
+
+    private string ConnectCommand => $"connect {ConnectAddress}";
+
+    private string SteamConnectUri => $"steam://connect/{ConnectAddress}";
+
     protected override async Task OnParametersSetAsync()
     {
         _isLoading = true;
         _status = null;
         _history = null;
+        _publicServer = null;
 
-        await Task.WhenAll(LoadStatusAsync(), LoadHistoryAsync(SelectedWindow));
+        await Task.WhenAll(
+            LoadStatusAsync(),
+            LoadHistoryAsync(SelectedWindow),
+            LoadPublicServerAsync());
         _isLoading = false;
     }
 
@@ -287,6 +371,18 @@
         }
     }
 
+    private async Task LoadPublicServerAsync()
+    {
+        try
+        {
+            _publicServer = await StatusClient.GetServerJoinAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load the public server join projection.");
+        }
+    }
+
     private string GetRangeClass(string window) => string.Equals(SelectedWindow, window, StringComparison.Ordinal)
         ? "range-switch__link range-switch__link--active"
         : "range-switch__link";
@@ -299,6 +395,13 @@
         "operational" => "operational",
         "degraded" => "degraded",
         "unreachable" => "unreachable",
+        _ => "unknown"
+    };
+
+    private static string NormalizeServerState(string state) => state switch
+    {
+        "online" => "online",
+        "offline" => "offline",
         _ => "unknown"
     };
 

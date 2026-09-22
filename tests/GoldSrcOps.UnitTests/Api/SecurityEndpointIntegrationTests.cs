@@ -81,6 +81,7 @@ public sealed class SecurityEndpointIntegrationTests
         var live = await client.GetAsync("/health/live");
         var ready = await client.GetAsync("/health/ready");
         var publicStatus = await client.GetAsync("/api/public/status");
+        var publicServer = await client.GetAsync("/api/public/server");
         var read = await client.GetAsync("/api/servers");
         var activity = await client.GetAsync("/api/dashboard/activity");
         var serverTrend = await client.GetAsync($"/api/servers/{ExistingId}/trends?window=24h");
@@ -101,6 +102,7 @@ public sealed class SecurityEndpointIntegrationTests
         live.StatusCode.Should().Be(HttpStatusCode.OK);
         ready.StatusCode.Should().Be(HttpStatusCode.OK);
         publicStatus.StatusCode.Should().Be(HttpStatusCode.OK);
+        publicServer.StatusCode.Should().Be(HttpStatusCode.NotFound);
         read.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         activity.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         serverTrend.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

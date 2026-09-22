@@ -59,6 +59,10 @@ services:
       GOLDSRCOPS_RCON_SECRET_ALIAS: ${GOLDSRCOPS_RCON_SECRET_ALIAS:?Set GOLDSRCOPS_RCON_SECRET_ALIAS}
       AlertDelivery__Enabled: "false"
       Polling__Enabled: "true"
+      PublicServerJoin__ServerId: ${GOLDSRCOPS_PUBLIC_SERVER_ID:-}
+      PublicServerJoin__Name: ${GOLDSRCOPS_PUBLIC_SERVER_NAME:-}
+      PublicServerJoin__Host: ${GOLDSRCOPS_PUBLIC_SERVER_HOST:-}
+      PublicServerJoin__Port: ${GOLDSRCOPS_PUBLIC_SERVER_PORT:-}
       SnapshotRetention__Enabled: "true"
       Telemetry__Otlp__Enabled: "true"
       Telemetry__Otlp__Endpoint: http://otel-collector:4317

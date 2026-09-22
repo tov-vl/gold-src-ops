@@ -248,6 +248,23 @@ Required deployment values:
 | `Authentication__Schemes__Bearer__RoleClaimType` | Exact access-token claim name that carries the `Reader` and `Operator` application roles. |
 | `ReverseProxy__KnownProxy` | Optional single trusted proxy IP. When set, the API processes one `X-Forwarded-For` and `X-Forwarded-Proto` hop from that address before HTTPS redirection and authentication. |
 
+The public server join projection is optional and disabled when all four
+`PublicServerJoin` values are absent. Enabling it requires the complete set:
+
+| Environment variable | Purpose |
+| --- | --- |
+| `PublicServerJoin__ServerId` | Existing enabled inventory server whose current A2S state backs the public projection. |
+| `PublicServerJoin__Name` | Public display name, kept separate from the inventory name. |
+| `PublicServerJoin__Host` | Advertised DNS name or IPv4 address without a scheme, path, credentials, or port. Do not reuse a private inventory address. |
+| `PublicServerJoin__Port` | Public game port from `1` through `65535`. |
+
+The production Compose maps these from `GOLDSRCOPS_PUBLIC_SERVER_ID`,
+`GOLDSRCOPS_PUBLIC_SERVER_NAME`, `GOLDSRCOPS_PUBLIC_SERVER_HOST`, and
+`GOLDSRCOPS_PUBLIC_SERVER_PORT`. A partial or invalid set fails API startup.
+The public response combines only this advertised name and endpoint with the
+selected enabled server's bounded A2S state; it never projects the inventory
+host, query port, notes, credentials, or provider data.
+
 The reference Compose additionally requires `GOLDSRCOPS_WEB_IMAGE`,
 `GOLDSRCOPS_WEB_HOSTNAME`, and `GOLDSRCOPS_WEB_IP`. The Web hostname must differ
 from the API hostname, and its static address must be unique within the private
