@@ -8,6 +8,10 @@ using GoldSrcOps.UnitTests.Helpers;
 
 namespace GoldSrcOps.UnitTests.Servers;
 
+[CollectionDefinition(nameof(ServerPollingMetricsIsolation), DisableParallelization = true)]
+public sealed class ServerPollingMetricsIsolation;
+
+[Collection(nameof(ServerPollingMetricsIsolation))]
 public sealed class ServerPollingServiceTests
 {
     [Fact]
