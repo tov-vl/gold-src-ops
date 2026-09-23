@@ -1,8 +1,10 @@
 # GoldSrcOps v2.26.0 Release Notes
 
-Status as of 2026-09-23: product implementation merged and persistent host
-workflow implemented locally; candidate publication, target activation,
-acceptance, and stable promotion remain pending.
+Status as of 2026-09-23: product implementation and persistent host workflow
+merged. `v2.26.0-rc.1` was published but not activated because its host script
+did not enforce the required external game check before enabling producer and
+delivery. Corrected `rc.2` publication, target acceptance, and stable promotion
+remain pending.
 
 ## Overview
 
@@ -61,13 +63,13 @@ container smoke, and browser smoke passed. Post-merge workflow
 [#35846327867](https://github.com/tov-vl/gold-src-ops/actions/runs/35846327867)
 also passed all four required jobs.
 
-The persistent host workflow and deterministic smoke are implemented in the
-current readiness change; required CI and review remain pending. The exact
-v2.26 bundle, candidate publication, target preflight, rollback rehearsal,
-controlled reboot, one-round delivery, stable promotion, and release evidence
-remain pending. The repository also has no stable `v2.25.0` tag, so the
-predecessor boundary must be completed or explicitly superseded before v2.26
-candidate publication.
+The persistent host workflow and deterministic smoke were reviewed and merged.
+Stable `v2.25.0` and immutable `v2.26.0-rc.1` tags exist. A read-only target
+preflight preserved the accepted public baseline. The `rc.1` host workflow
+enabled producer and delivery before the required external A2S/RCON gate, so
+it must not be activated or reused for `rc.2`. A corrected script, new exact
+bundle, target rollback rehearsal, controlled reboot, one-round delivery,
+stable promotion, and release evidence remain pending.
 
 ## Known Limits
 
