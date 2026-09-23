@@ -2312,8 +2312,8 @@ The bounded contract and target gates are defined in
 
 ### v2.25 Public Server Join
 
-Status: **product implementation merged; first candidate rolled back at the
-external A2S gate; public game-boundary remediation in progress**.
+Status: **stable `v2.25.0` published; public join and one real operator
+connection accepted**.
 
 Expose one deliberately advertised public game endpoint on the anonymous
 status page, backed by the existing A2S state of the accepted managed server.
