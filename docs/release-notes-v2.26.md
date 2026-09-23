@@ -1,7 +1,8 @@
 # GoldSrcOps v2.26.0 Release Notes
 
-Status as of 2026-09-23: product implementation merged; persistent activation,
-candidate publication, target acceptance, and stable promotion remain pending.
+Status as of 2026-09-23: product implementation merged and persistent host
+workflow implemented locally; candidate publication, target activation,
+acceptance, and stable promotion remain pending.
 
 ## Overview
 
@@ -32,6 +33,9 @@ accept one fresh real round.
   settings, credential references, maps, and player or bot counts from status.
 - A frozen R3 policy for persistent overlay, identity, service independence,
   reboot recovery, evidence-preserving rollback, and one-round acceptance.
+- A plan-first persistent host workflow with exact hash guards, independent
+  game and agent boot enablement, stdin-only secret forwarding, aggregate
+  status verification, and active evidence-preserving rollback.
 
 ## Compatibility And Rollback
 
@@ -43,9 +47,9 @@ default.
 
 The existing v2.11 pilot workflow remains intentionally temporary and
 boot-disabled. It is not silently promoted into a permanent workflow. The
-dedicated persistent implementation must retain `public-classic-v1`, rebind
-`guarded-autostart-v1` to the exact overlay, keep game availability independent
-from agent availability, and preserve unresolved queue or spool evidence during
+dedicated persistent workflow retains `public-classic-v1`, rebinds
+`guarded-autostart-v1` to the exact overlay, keeps game availability independent
+from agent availability, and preserves unresolved queue or spool evidence during
 rollback.
 
 ## Current Evidence
@@ -57,7 +61,8 @@ container smoke, and browser smoke passed. Post-merge workflow
 [#35846327867](https://github.com/tov-vl/gold-src-ops/actions/runs/35846327867)
 also passed all four required jobs.
 
-This proves the local product boundary only. Persistent host tooling, the exact
+The persistent host workflow and deterministic smoke are implemented in the
+current readiness change; required CI and review remain pending. The exact
 v2.26 bundle, candidate publication, target preflight, rollback rehearsal,
 controlled reboot, one-round delivery, stable promotion, and release evidence
 remain pending. The repository also has no stable `v2.25.0` tag, so the

@@ -2334,8 +2334,8 @@ in [`docs/v2.25-readiness.md`](v2.25-readiness.md).
 
 ### v2.26 Persistent Gameplay Telemetry Readiness
 
-Status: **product implementation merged; R3 release plan prepared; no target
-activation authorized**.
+Status: **product implementation merged; persistent R3 host workflow implemented
+locally; no target activation authorized**.
 
 Prepare the proven v2.11 one-event path for a later long-lived activation
 without crossing the production game-event boundary. The first increment adds
@@ -2351,8 +2351,8 @@ and one-round acceptance sequence are defined in
 [`docs/v2.26-readiness.md`](v2.26-readiness.md), with the release-facing summary
 in [`docs/release-notes-v2.26.md`](release-notes-v2.26.md). Candidate
 publication remains blocked until the v2.25 stable boundary is completed or
-explicitly superseded and the dedicated persistent host workflow is
-implemented and reviewed.
+explicitly superseded and the persistent host workflow is reviewed and merged
+through required CI.
 
 The released v1 baseline includes:
 

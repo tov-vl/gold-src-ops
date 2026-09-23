@@ -1659,3 +1659,51 @@ The v2.26 local increment adds the bounded producer cvar and directory check,
 extends the aggregate status command with schema version 1 JSON, and covers the
 new contracts with focused .NET tests plus pinned AMX Mod X/ReAPI compilation.
 No production activation or host policy change is part of this decision.
+
+## Decision 33: Keep Persistent Gameplay Services Independent And Hash-Bound
+
+Decision:
+
+Promote the accepted `public-classic-v1` game profile to persistent gameplay
+telemetry through a dedicated plan-first host workflow. Reuse the reviewed
+v2.11 spool-only transition, then bind both the game and companion agent to
+exact persistent-policy hashes with separate `ExecCondition` guards. Enable
+both units across boot without `Requires` or `PartOf` coupling.
+
+Own one active rollback that disables producer intake and both boot entries,
+stops the agent and game, atomically moves complete local SQLite and producer
+spool state into an owner-only rollback record, executes the existing pilot
+rollback, and restores the exact prior `guarded-autostart-v1` bytes.
+
+Decision date: 2026-09-23.
+
+Reasoning:
+
+- Game availability must not depend on OAuth, network, delivery, queue, or
+  companion-agent health.
+- A persistent plugin overlay changes the accepted boot guard, so both active
+  content and systemd policy need exact hash verification before startup.
+- Reusing the spool-only pilot keeps identity, secret transport, overlay, and
+  original game-tree restoration inside the already reviewed transition.
+- Moving unresolved state into the same-filesystem rollback record preserves
+  evidence without deleting or automatically replaying uncertain work.
+- Separate service enablement allows either unit to fail closed without causing
+  a cross-service restart loop.
+
+Alternatives considered:
+
+- Add the agent as a hard game-service dependency. Rejected because an external
+  delivery failure would reduce public game availability.
+- Extend the temporary pilot in place. Rejected because its deliberate
+  boot-disabled and dormant-baseline contract remains useful for bounded
+  rehearsal and rollback.
+- Delete queue or spool state during rollback. Rejected because unresolved and
+  uncertain work is evidence requiring explicit reconciliation.
+
+Implementation status:
+
+The v2.26 repository change adds `game-event-persistent.sh`, deterministic
+smoke coverage, CI integration, and the operator contract. It does not mutate a
+target host. Candidate publication, exact-bundle verification, target rollback
+rehearsal, controlled reboot, and one-real-round acceptance remain separate R3
+gates.

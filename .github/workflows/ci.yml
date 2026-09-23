@@ -235,6 +235,10 @@ jobs:
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-game-event-pilot-activate.sh
 
+      - name: Validate persistent game-event runtime policy
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        run: bash ./tools/smoke/gameserver-game-event-persistent.sh
+
       - name: Validate game-host soak-readiness evidence contract
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-soak-readiness.sh
