@@ -56,6 +56,7 @@ activate_plan="$smoke_directory/activate-plan.out"
 "$BASH" "$workflow" --activate --identity-file /does/not/exist > "$activate_plan"
 for expected in \
     'disable the old guard without stopping the game' \
+    'wait for a fresh root-only external A2S/RCON gate receipt' \
     'enable producer, spool import, delivery, game boot startup, and agent boot startup without coupling the two services' \
     'disable intake, seal durable evidence, restore the pilot baseline' \
     'PLAN_ONLY:'; do
@@ -144,6 +145,7 @@ assert_order "$activate_body" \
     '    GOLDSRCOPS_INHERITED_ACTIVATION_LOCK_FD=9 "$pilot_activator" \' \
     '    pilot_activation_present=true' \
     '    require_settled_activation_status "$(capture_agent_status)"' \
+    '    await_external_gate' \
     '    render_producer_configuration "$producer_configuration" "$staging_directory/amxx.cfg" 1' \
     '    systemctl stop "$AGENT_SERVICE_NAME"' \
     '    systemctl stop "$GAME_SERVICE_NAME"' \
@@ -153,6 +155,82 @@ assert_order "$activate_body" \
     '    systemctl start "$AGENT_SERVICE_NAME"' \
     '    systemctl enable "$GAME_SERVICE_NAME" >/dev/null' \
     '    systemctl enable "$AGENT_SERVICE_NAME" >/dev/null'
+
+run_external_gate_case() {
+    local name="$1" response_kind="$2" gate_directory
+    gate_directory="$smoke_directory/gate-$name"
+    local output="$smoke_directory/gate-$name.out" process_id challenge attempt
+    mkdir -- "$gate_directory"
+    "$BASH" -c '
+        source "$1"
+        backup_directory="$2"
+        backup_name=persistent-gameplay-20260923T000000Z-abcdef
+        if [[ "$3" == timeout ]]; then
+            external_gate_timeout=1
+        else
+            external_gate_timeout=5
+        fi
+        systemctl() {
+            if [[ -e "$backup_directory/restarted" ]]; then
+                printf "%s\n" "fedcba9876543210fedcba9876543210"
+            else
+                printf "%s\n" "0123456789abcdef0123456789abcdef"
+            fi
+        }
+        require_unit_state() { :; }
+        capture_agent_status() { printf "{}\n"; }
+        require_settled_activation_status() { :; }
+        if [[ "$3" != valid ]]; then
+            rollback_transition() { printf "MOCK_ROLLBACK=called\n"; }
+            arm_transition_rollback
+        fi
+        await_external_gate
+    ' _ "$workflow" "$gate_directory" "$response_kind" >"$output" 2>&1 &
+    process_id=$!
+    for attempt in {1..100}; do
+        [[ -p "$gate_directory/external-gate.fifo" ]] && break
+        sleep 0.02
+    done
+    [[ -p "$gate_directory/external-gate.fifo" ]] || fail "External gate '$name' did not open."
+    [[ "$(stat -c '%a' "$gate_directory/external-gate.fifo")" == 600 ]] ||
+        fail "External gate '$name' is not root-only."
+    if [[ "$response_kind" == interrupted ]]; then
+        kill -TERM "$process_id"
+    elif [[ "$response_kind" != timeout ]]; then
+        for attempt in {1..100}; do
+            challenge="$(awk '/^EXTERNAL_GATE_READY: / { print $3 }' "$output")"
+            [[ -n "$challenge" ]] && break
+            sleep 0.02
+        done
+        [[ "$challenge" =~ ^[0-9a-f]{32}$ ]] || fail "External gate '$name' challenge is invalid."
+        if [[ "$response_kind" == restarted ]]; then
+            : > "$gate_directory/restarted"
+        elif [[ "$response_kind" != valid ]]; then
+            challenge=00000000000000000000000000000000
+        fi
+        timeout 2 bash -c 'printf "%s\n" "$1" > "$2"' _ \
+            "$challenge" "$gate_directory/external-gate.fifo" ||
+            fail "External gate '$name' did not accept a receipt writer."
+    fi
+    if [[ "$response_kind" == valid ]]; then
+        wait "$process_id" || fail "External gate '$name' rejected a valid receipt."
+        grep -Fxq 'EXTERNAL_GATE=operator-attested' "$output" ||
+            fail "External gate '$name' omitted its accepted marker."
+        [[ ! -e "$gate_directory/external-gate.fifo" ]] ||
+            fail "External gate '$name' retained its FIFO."
+    elif wait "$process_id"; then
+        fail "External gate '$name' accepted an invalid or missing receipt."
+    else
+        grep -Fxq 'MOCK_ROLLBACK=called' "$output" ||
+            fail "External gate '$name' did not invoke rollback."
+    fi
+}
+
+run_external_gate_case accepted valid
+run_external_gate_case invalid invalid
+run_external_gate_case restarted restarted
+run_external_gate_case expired timeout
+run_external_gate_case interrupted interrupted
 
 rollback_body="$(sed -n '/^rollback_transition() {$/,/^}$/p' "$workflow")"
 assert_order "$rollback_body" \

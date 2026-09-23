@@ -73,6 +73,8 @@ pilot_manifest_file=""
 backup_name=""
 backup_directory=""
 staging_directory=""
+external_gate_fifo=""
+external_gate_timeout=300
 transition_started=false
 pilot_activation_present=false
 
@@ -110,11 +112,13 @@ redirected stdin:
       --apply
 
 Activation requires the accepted public-classic-v1 and guarded-autostart-v1
-boundary. It delegates the reviewed spool-only transition to the existing pilot
-workflow, then installs a hash-bound persistent guard and enables the game and
-agent independently across boot. Rollback disables new intake first, moves the
-complete local queue and spool into the owner-only rollback record, restores the
-pilot baseline, and reinstates the exact pre-activation guarded game policy.
+boundary. After spool-only startup it waits up to five minutes for a root-only
+external A2S and authenticated RCON gate receipt. Without that receipt it rolls
+back before enabling producer or delivery. After the gate it installs a
+hash-bound persistent guard and enables the game and agent independently across
+boot. Rollback disables new intake first, moves the complete local queue and
+spool into the owner-only rollback record, restores the pilot baseline, and
+reinstates the exact pre-activation guarded game policy.
 EOF
 }
 
@@ -558,7 +562,7 @@ require_apply_environment() {
     local command
     ((EUID == 0)) || fail "--apply must run as root."
     for command in awk cat chmod chown cp cut date dirname env find flock getent grep id install jq \
-        mktemp mv ps realpath rm runuser sed sha256sum stat systemctl systemd-analyze tr uname; do
+        mkfifo mktemp mv od ps realpath rm runuser sed sha256sum stat systemctl systemd-analyze tr uname; do
         require_command "$command"
     done
     [[ -r /etc/os-release ]] || fail "The operating-system identity is unavailable."
@@ -678,6 +682,11 @@ rollback_transition() {
     trap - ERR HUP INT TERM EXIT
     local rollback_failed=false
 
+    if [[ -n "$external_gate_fifo" ]]; then
+        rm -f -- "$external_gate_fifo" ||
+            log "ROLLBACK_WARNING: the external gate could not be removed."
+    fi
+
     systemctl disable "$AGENT_SERVICE_NAME" >/dev/null 2>&1 || rollback_failed=true
     systemctl stop "$AGENT_SERVICE_NAME" >/dev/null 2>&1 || rollback_failed=true
     systemctl disable "$GAME_SERVICE_NAME" >/dev/null 2>&1 || rollback_failed=true
@@ -740,6 +749,35 @@ disarm_transition_rollback() {
     fi
 }
 
+await_external_gate() {
+    local expected_invocation gate_nonce receipt=""
+    expected_invocation="$(systemctl show "$GAME_SERVICE_NAME" -p InvocationID --value)"
+    [[ "$expected_invocation" =~ ^[0-9a-f]{32}$ ]] ||
+        fail "The spool-only game invocation is invalid."
+    gate_nonce="$(od -An -N16 -tx1 /dev/urandom | tr -d '[:space:]')"
+    [[ "$gate_nonce" =~ ^[0-9a-f]{32}$ ]] || fail "The external gate challenge is invalid."
+    external_gate_fifo="$backup_directory/external-gate.fifo"
+    [[ ! -e "$external_gate_fifo" && ! -L "$external_gate_fifo" ]] ||
+        fail "The external gate already exists."
+    mkfifo -m 0600 -- "$external_gate_fifo"
+    log "EXTERNAL_GATE_READY: $backup_name $gate_nonce"
+    exec 8<> "$external_gate_fifo"
+    if ! IFS= read -r -t "$external_gate_timeout" -u 8 receipt; then
+        exec 8>&-
+        fail "The external A2S/RCON gate did not complete in time."
+    fi
+    exec 8>&-
+    rm -f -- "$external_gate_fifo"
+    external_gate_fifo=""
+    [[ "$receipt" == "$gate_nonce" ]] || fail "The external gate receipt is invalid."
+    [[ "$(systemctl show "$GAME_SERVICE_NAME" -p InvocationID --value)" == "$expected_invocation" ]] ||
+        fail "The spool-only game restarted during the external gate."
+    require_unit_state "$GAME_SERVICE_NAME" active disabled
+    require_unit_state "$AGENT_SERVICE_NAME" active disabled
+    require_settled_activation_status "$(capture_agent_status)"
+    log "EXTERNAL_GATE=operator-attested"
+}
+
 run_activate() {
     require_apply_environment
     acquire_lock
@@ -761,6 +799,7 @@ run_activate() {
     require_unit_state "$GAME_SERVICE_NAME" active disabled
     require_unit_state "$AGENT_SERVICE_NAME" active disabled
     require_settled_activation_status "$(capture_agent_status)"
+    await_external_gate
 
     render_producer_configuration "$producer_configuration" "$staging_directory/amxx.cfg" 1
     render_delivery_environment "$environment_file" "$staging_directory/agent.env" true
@@ -783,7 +822,7 @@ run_activate() {
     disarm_transition_rollback
     log "PERSISTENT_ACTIVATION_COMPLETED: bounded producer, spool import, and delivery are enabled."
     log "SERVICE_STATE: game active/enabled; agent active/enabled; no cross-service requirement"
-    log "NEXT_GATE: verify external A2S and authenticated RCON, then perform the controlled reboot gate."
+    log "NEXT_GATE: recheck external A2S and authenticated RCON after the policy restart, then perform the controlled reboot gate."
 }
 
 run_verify() {
@@ -820,7 +859,8 @@ print_plan() {
         activate)
             log "PLAN: verify and preserve the exact accepted game guard, profile markers, units, dormant bundle, and empty aggregate state"
             log "PLAN: disable the old guard without stopping the game, apply reviewed spool-only pilot activation, then install persistent hashes and drop-ins"
-            log "PLAN: enable producer, spool import, delivery, game boot startup, and agent boot startup without coupling the two services"
+            log "PLAN: wait for a fresh root-only external A2S/RCON gate receipt while spool-only is active; timeout or interruption rolls back"
+            log "PLAN: only then enable producer, spool import, delivery, game boot startup, and agent boot startup without coupling the two services"
             log "PLAN: on failure, disable intake, seal durable evidence, restore the pilot baseline, and reinstate the exact guarded public game policy"
             ;;
         rollback)

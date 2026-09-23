@@ -2334,8 +2334,8 @@ in [`docs/v2.25-readiness.md`](v2.25-readiness.md).
 
 ### v2.26 Persistent Gameplay Telemetry Readiness
 
-Status: **product implementation merged; persistent R3 host workflow implemented
-locally; no target activation authorized**.
+Status: **product and persistent R3 host workflow merged; `v2.26.0-rc.1`
+published but not activated; corrected `rc.2` pending**.
 
 Prepare the proven v2.11 one-event path for a later long-lived activation
 without crossing the production game-event boundary. The first increment adds
@@ -2349,10 +2349,11 @@ The product boundary and deferred R3 work are defined in
 The candidate identity, persistent-runtime policy, blockers, rollback, reboot,
 and one-round acceptance sequence are defined in
 [`docs/v2.26-readiness.md`](v2.26-readiness.md), with the release-facing summary
-in [`docs/release-notes-v2.26.md`](release-notes-v2.26.md). Candidate
-publication remains blocked until the v2.25 stable boundary is completed or
-explicitly superseded and the persistent host workflow is reviewed and merged
-through required CI.
+in [`docs/release-notes-v2.26.md`](release-notes-v2.26.md). Stable `v2.25.0`
+is published. The immutable `v2.26.0-rc.1` candidate was not activated because
+its host sequence did not enforce the external A2S/RCON check before producer
+and delivery. A reviewed, independently published `rc.2` bundle is required
+before target activation.
 
 The released v1 baseline includes:
 

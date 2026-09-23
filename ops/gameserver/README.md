@@ -524,7 +524,8 @@ rollback sequence are documented in
 policy. It does not weaken the temporary pilot contract. Instead, it delegates
 the reviewed spool-only transition to `game-event-pilot-activate.sh`, then:
 
-- enables the bounded producer, spool import, and HTTP delivery;
+- starts in spool-only mode and waits at a bounded external A2S and
+  authenticated RCON gate before enabling the bounded producer and delivery;
 - binds both services to exact reviewed file hashes with fail-closed
   `ExecCondition` guards;
 - enables the game and agent independently across boot without `Requires` or
@@ -557,6 +558,14 @@ The exact reviewed apply keeps the secret out of arguments and environment:
     --client-secret-stdin \
     --apply
 ```
+
+The apply pauses for up to five minutes at `EXTERNAL_GATE_READY`. In a separate
+approved operator session, check public A2S and authenticated control-plane
+RCON against the active spool-only game. Retain their results outside Git and
+send the printed challenge to the root-only FIFO in the activation's rollback
+record. Send no receipt if either check fails; timeout rolls back. The receipt
+attests to external checks; it does not perform them. Do not share the OAuth
+secret or private target details through the gate.
 
 After activation, the owner-only host verification is:
 
