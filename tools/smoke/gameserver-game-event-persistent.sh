@@ -136,6 +136,82 @@ expect_failure secret-environment "$BASH" -c \
     'source "$1"; render_delivery_environment "$2" "$3" true' \
     _ "$workflow" "$secret_environment" "$smoke_directory/unused.env"
 
+(
+    # shellcheck source=/dev/null
+    source "$workflow"
+    guarded_backup_root="$smoke_directory/guarded-backups"
+    backup_root="$smoke_directory/persistent-records"
+    guarded_name=guarded-autostart-20260923T000000Z-abcdef
+    original_backup="$guarded_backup_root/$guarded_name"
+    mkdir -p -- "$original_backup"
+    chmod 0700 "$guarded_backup_root" "$original_backup"
+    printf 'runtime-before-guard\n' > "$original_backup/runtime-enabled"
+    printf 'profile-before-guard\n' > "$original_backup/managed-profile-active"
+    chmod 0600 "$original_backup/runtime-enabled" "$original_backup/managed-profile-active"
+    runtime_hash="$(sha256sum "$original_backup/runtime-enabled" | awk '{print $1}')"
+    profile_hash="$(sha256sum "$original_backup/managed-profile-active" | awk '{print $1}')"
+    fixture="$smoke_directory/guarded-fixture"
+    mkdir -p -- "$fixture"
+    installed_autostart_guard="$fixture/guard"
+    autostart_drop_in="$fixture/drop-in"
+    autostart_marker="$fixture/autostart-marker"
+    runtime_enabled_marker="$fixture/runtime-enabled"
+    active_profile_marker="$fixture/managed-profile-active"
+    printf 'guard\n' > "$installed_autostart_guard"
+    printf 'drop-in\n' > "$autostart_drop_in"
+    printf 'runtime-after-guard\n' > "$runtime_enabled_marker"
+    printf 'profile-after-guard\n' > "$active_profile_marker"
+    cat > "$autostart_marker" <<EOF
+backup_name=$guarded_name
+baseline_runtime_enabled_sha256=$runtime_hash
+baseline_active_profile_sha256=$profile_hash
+EOF
+    chmod 0755 "$installed_autostart_guard"
+    chmod 0644 "$autostart_drop_in"
+    chmod 0640 "$autostart_marker" "$runtime_enabled_marker" "$active_profile_marker"
+    install() {
+        if [[ "$1" == -d ]]; then
+            mkdir -p -- "${@: -2}"
+            chmod 0700 -- "${@: -2}"
+        else
+            command install "$@"
+        fi
+    }
+    # shellcheck disable=SC2329
+    validate_directory_metadata() {
+        [[ -d "$1" && ! -L "$1" && "$(stat -c '%a' "$1")" == "$4" ]] || return 1
+    }
+    # shellcheck disable=SC2329
+    validate_file_metadata() {
+        [[ -f "$1" && ! -L "$1" && "$(stat -c '%a' "$1")" == "$4" ]] || return 1
+    }
+
+    printf 'tampered\n' > "$original_backup/runtime-enabled"
+    if capture_baseline 2>/dev/null; then
+        fail "Persistent capture accepted a drifted guarded rollback input."
+    fi
+    printf 'runtime-before-guard\n' > "$original_backup/runtime-enabled"
+    capture_baseline
+    [[ "$(sha256sum "$backup_directory/guarded-autostart-backup/runtime-enabled" | awk '{print $1}')" == "$runtime_hash" ]] ||
+        fail "Persistent capture omitted the exact guarded rollback input."
+    printf 'tampered\n' > "$backup_directory/autostart-guard"
+    if verify_baseline_record 2>/dev/null; then
+        fail "Persistent baseline accepted a drifted guarded script."
+    fi
+    printf 'guard\n' > "$backup_directory/autostart-guard"
+    rm -rf -- "$original_backup"
+    restore_guarded_backup
+    [[ "$(sha256sum "$guarded_backup_root/$guarded_name/runtime-enabled" | awk '{print $1}')" == "$runtime_hash" ]] ||
+        fail "Guarded rollback did not restore the exact runtime marker."
+    restore_guarded_backup
+    printf 'tampered\n' > "$guarded_backup_root/$guarded_name/runtime-enabled"
+    if restore_guarded_backup 2>/dev/null; then
+        fail "Guarded rollback accepted a drifted existing backup."
+    fi
+    [[ "$(cat "$guarded_backup_root/$guarded_name/runtime-enabled")" == tampered ]] ||
+        fail "Guarded rollback overwrote a drifted existing backup."
+)
+
 activate_body="$(sed -n '/^run_activate() {$/,/^}$/p' "$workflow")"
 assert_order "$activate_body" \
     '    require_accepted_boundary' \

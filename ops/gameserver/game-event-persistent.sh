@@ -22,6 +22,7 @@ configuration_directory="${GOLDSRCOPS_CONFIGURATION_DIRECTORY:-/etc/goldsrcops/g
 installation_directory="${GOLDSRCOPS_INSTALLATION_DIRECTORY:-/opt/goldsrcops/gameserver}"
 service_home="${GOLDSRCOPS_SERVICE_HOME:-/var/lib/goldsrc}"
 backup_root="${GOLDSRCOPS_BACKUP_ROOT:-/var/backups/goldsrcops/gameserver/persistent-gameplay}"
+guarded_backup_root="$(dirname "$backup_root")"
 libexec_directory="${GOLDSRCOPS_LIBEXEC_DIRECTORY:-/usr/local/libexec}"
 systemd_directory="${GOLDSRCOPS_SYSTEMD_DIRECTORY:-/etc/systemd/system}"
 
@@ -191,6 +192,24 @@ marker_value() {
     value="$(grep -E "^${key}=" "$path" | cut -d= -f2-)"
     [[ -n "$value" ]] || fail "A required marker value is empty."
     printf '%s\n' "$value"
+}
+
+guarded_backup_name() {
+    local name
+    name="$(marker_value "$1" backup_name)" || return 1
+    [[ "$name" =~ ^guarded-autostart-[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9]{6}$ ]] ||
+        { fail "The guarded-autostart backup reference is invalid."; return 1; }
+    printf '%s\n' "$name"
+}
+
+verify_guarded_backup() {
+    local directory="$1"
+    local marker="$2"
+    validate_directory_metadata "$directory" root root 700 || return 1
+    validate_file_metadata "$directory/runtime-enabled" root root 600 || return 1
+    validate_file_metadata "$directory/managed-profile-active" root root 600 || return 1
+    verify_sha256 "$directory/runtime-enabled" "$(marker_value "$marker" baseline_runtime_enabled_sha256)" || return 1
+    verify_sha256 "$directory/managed-profile-active" "$(marker_value "$marker" baseline_active_profile_sha256)" || return 1
 }
 
 read_prepared_marker() {
@@ -496,26 +515,31 @@ EOF
 
 verify_baseline_record() {
     local baseline="$backup_directory/baseline"
-    validate_directory_metadata "$backup_directory" root root 700
-    validate_file_metadata "$baseline" root root 600
+    validate_directory_metadata "$backup_directory" root root 700 || return 1
+    validate_file_metadata "$baseline" root root 600 || return 1
     [[ "$(marker_value "$baseline" schema_version)" == 1 ]] ||
-        fail "The persistent baseline schema is unsupported."
+        { fail "The persistent baseline schema is unsupported."; return 1; }
     [[ "$(marker_value "$baseline" backup_name)" == "$backup_name" ]] ||
-        fail "The persistent baseline reference has drifted."
-    validate_file_metadata "$backup_directory/autostart-guard" root root 755
-    validate_file_metadata "$backup_directory/autostart-drop-in.conf" root root 644
-    validate_file_metadata "$backup_directory/autostart-marker" root "$service_group" 640
-    validate_file_metadata "$backup_directory/runtime-enabled" root "$service_group" 640
-    validate_file_metadata "$backup_directory/managed-profile-active" root "$service_group" 640
-    verify_sha256 "$backup_directory/autostart-guard" "$(marker_value "$baseline" autostart_guard_sha256)"
-    verify_sha256 "$backup_directory/autostart-drop-in.conf" "$(marker_value "$baseline" autostart_drop_in_sha256)"
-    verify_sha256 "$backup_directory/autostart-marker" "$(marker_value "$baseline" autostart_marker_sha256)"
-    verify_sha256 "$backup_directory/runtime-enabled" "$(marker_value "$baseline" runtime_enabled_sha256)"
-    verify_sha256 "$backup_directory/managed-profile-active" "$(marker_value "$baseline" active_profile_sha256)"
+        { fail "The persistent baseline reference has drifted."; return 1; }
+    validate_file_metadata "$backup_directory/autostart-guard" root root 755 || return 1
+    validate_file_metadata "$backup_directory/autostart-drop-in.conf" root root 644 || return 1
+    validate_file_metadata "$backup_directory/autostart-marker" root "$service_group" 640 || return 1
+    validate_file_metadata "$backup_directory/runtime-enabled" root "$service_group" 640 || return 1
+    validate_file_metadata "$backup_directory/managed-profile-active" root "$service_group" 640 || return 1
+    verify_sha256 "$backup_directory/autostart-guard" "$(marker_value "$baseline" autostart_guard_sha256)" || return 1
+    verify_sha256 "$backup_directory/autostart-drop-in.conf" "$(marker_value "$baseline" autostart_drop_in_sha256)" || return 1
+    verify_sha256 "$backup_directory/autostart-marker" "$(marker_value "$baseline" autostart_marker_sha256)" || return 1
+    verify_sha256 "$backup_directory/runtime-enabled" "$(marker_value "$baseline" runtime_enabled_sha256)" || return 1
+    verify_sha256 "$backup_directory/managed-profile-active" "$(marker_value "$baseline" active_profile_sha256)" || return 1
+    guarded_backup_name "$backup_directory/autostart-marker" >/dev/null || return 1
+    verify_guarded_backup "$backup_directory/guarded-autostart-backup" "$backup_directory/autostart-marker" || return 1
 }
 
 capture_baseline() {
-    local random_suffix
+    local random_suffix guarded_name
+    guarded_name="$(guarded_backup_name "$autostart_marker")" || return 1
+    validate_directory_metadata "$guarded_backup_root" root root 700 || return 1
+    verify_guarded_backup "$guarded_backup_root/$guarded_name" "$autostart_marker" || return 1
     printf -v random_suffix '%05d%05d' "$RANDOM" "$RANDOM"
     backup_name="persistent-gameplay-$(date -u +%Y%m%dT%H%M%SZ)-${random_suffix:0:6}"
     backup_directory="$backup_root/$backup_name"
@@ -525,6 +549,7 @@ capture_baseline() {
     cp -a -- "$autostart_marker" "$backup_directory/autostart-marker"
     cp -a -- "$runtime_enabled_marker" "$backup_directory/runtime-enabled"
     cp -a -- "$active_profile_marker" "$backup_directory/managed-profile-active"
+    cp -a -- "$guarded_backup_root/$guarded_name" "$backup_directory/guarded-autostart-backup" || return 1
     write_baseline_record "$backup_directory/baseline"
     verify_baseline_record
 }
@@ -621,8 +646,29 @@ install_persistent_policy() {
     systemd-analyze verify "$game_unit_file" "$agent_unit_file" >/dev/null
 }
 
+restore_guarded_backup() {
+    local name target staging
+    name="$(guarded_backup_name "$backup_directory/autostart-marker")" || return 1
+    target="$guarded_backup_root/$name"
+    validate_directory_metadata "$guarded_backup_root" root root 700 || return 1
+    verify_guarded_backup "$backup_directory/guarded-autostart-backup" "$backup_directory/autostart-marker" || return 1
+    if [[ -e "$target" || -L "$target" ]]; then
+        verify_guarded_backup "$target" "$backup_directory/autostart-marker" || return 1
+        return 0
+    fi
+    staging="$(mktemp -d "$guarded_backup_root/.guarded-autostart-restore.XXXXXX")" || return 1
+    cp -a -- "$backup_directory/guarded-autostart-backup/." "$staging/" || return 1
+    verify_guarded_backup "$staging" "$backup_directory/autostart-marker" || return 1
+    mv -T -n -- "$staging" "$target" || return 1
+    verify_guarded_backup "$target" "$backup_directory/autostart-marker" || return 1
+    if [[ -d "$staging" ]]; then
+        rm -rf -- "$staging" || return 1
+    fi
+}
+
 restore_prior_policy() {
     verify_baseline_record || return 1
+    restore_guarded_backup || return 1
     rm -f -- \
         "$persistent_marker" \
         "$persistent_game_drop_in" \
