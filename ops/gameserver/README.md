@@ -517,6 +517,71 @@ The exact state machine, identity-file contract, apply commands, gates, and
 rollback sequence are documented in
 [`docs/v2.11-game-event-pilot.md`](../../docs/v2.11-game-event-pilot.md).
 
+## Persistent Game-Event Runtime
+
+`game-event-persistent.sh` promotes the accepted `public-classic-v1` and
+`guarded-autostart-v1` boundary into the persistent v2.26 gameplay-telemetry
+policy. It does not weaken the temporary pilot contract. Instead, it delegates
+the reviewed spool-only transition to `game-event-pilot-activate.sh`, then:
+
+- enables the bounded producer, spool import, and HTTP delivery;
+- binds both services to exact reviewed file hashes with fail-closed
+  `ExecCondition` guards;
+- enables the game and agent independently across boot without `Requires` or
+  `PartOf` coupling;
+- retains the existing server-bound identity and accepts its OAuth secret only
+  through inherited redirected stdin; and
+- owns one rollback that disables intake, atomically seals local SQLite and
+  spool evidence, restores the pilot baseline, and reinstates the exact prior
+  guarded game policy.
+
+Stage the persistent workflow and both delegated workflows together as
+root-owned mode-`0700` files. Review plans before supplying identity or secret
+input:
+
+```bash
+bash /tmp/game-event-persistent.sh
+bash /tmp/game-event-persistent.sh \
+  --activate \
+  --identity-file /root/game-event-agent.identity
+bash /tmp/game-event-persistent.sh --rollback
+```
+
+The exact reviewed apply keeps the secret out of arguments and environment:
+
+```bash
+<secret-producer> | sudo --preserve-env=SSH_CONNECTION \
+  bash /tmp/game-event-persistent.sh \
+    --activate \
+    --identity-file /root/game-event-agent.identity \
+    --client-secret-stdin \
+    --apply
+```
+
+After activation, the owner-only host verification is:
+
+```bash
+sudo bash /tmp/game-event-persistent.sh --verify
+```
+
+Rollback is explicit and evidence-preserving:
+
+```bash
+sudo --preserve-env=SSH_CONNECTION \
+  bash /tmp/game-event-persistent.sh --rollback --apply
+```
+
+The deterministic repository smoke is:
+
+```bash
+bash ./tools/smoke/gameserver-game-event-persistent.sh
+```
+
+Repository verification does not activate a host. External A2S and RCON,
+controlled reboot, one real round, API receipt/idempotency, and Reader evidence
+remain separate R3 target gates in
+[`docs/v2.26-readiness.md`](../../docs/v2.26-readiness.md).
+
 ## Release-Soak Continuity
 
 `soak-readiness.sh` performs the read-only game-host half of the v2.3 release

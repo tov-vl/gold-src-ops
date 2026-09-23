@@ -82,6 +82,23 @@ EOF
 (
     # shellcheck source=/dev/null
     source "$activator"
+    activation_lock="$smoke_directory/inherited-transition.lock"
+    exec 9>"$activation_lock"
+    flock --nonblock 9
+    GOLDSRCOPS_INHERITED_ACTIVATION_LOCK_FD=9 acquire_lock
+) || fail "Pilot activation did not accept the exact inherited transition lock."
+# shellcheck disable=SC2016
+expect_failure wrong-inherited-lock "$BASH" -c '
+    source "$1"
+    activation_lock="$2/expected.lock"
+    exec 9>"$2/other.lock"
+    flock --nonblock 9
+    GOLDSRCOPS_INHERITED_ACTIVATION_LOCK_FD=9 acquire_lock
+' _ "$activator" "$smoke_directory"
+
+(
+    # shellcheck source=/dev/null
+    source "$activator"
     [[ "$(stat_mode_from_manifest 0640)" == 640 ]]
     [[ "$(stat_mode_from_manifest 0750)" == 750 ]]
 )

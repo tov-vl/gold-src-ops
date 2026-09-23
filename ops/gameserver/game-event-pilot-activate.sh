@@ -1319,6 +1319,15 @@ require_base_environment() {
 }
 
 acquire_lock() {
+    if [[ -n "${GOLDSRCOPS_INHERITED_ACTIVATION_LOCK_FD:-}" ]]; then
+        [[ "$GOLDSRCOPS_INHERITED_ACTIVATION_LOCK_FD" == 9 ]] ||
+            { fail "The inherited game-event transition lock descriptor is invalid."; return 1; }
+        [[ "$(realpath -e -- "/proc/$BASHPID/fd/$GOLDSRCOPS_INHERITED_ACTIVATION_LOCK_FD")" == "$activation_lock" ]] ||
+            { fail "The inherited game-event transition lock does not match the reviewed path."; return 1; }
+        flock --nonblock "$GOLDSRCOPS_INHERITED_ACTIVATION_LOCK_FD" ||
+            { fail "The inherited game-event transition lock is not held."; return 1; }
+        return
+    fi
     exec 9>"$activation_lock"
     flock --nonblock 9 || fail "Another game-event pilot operation is already in progress."
     chown root:"$service_group" "$activation_lock"
