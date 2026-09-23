@@ -43,7 +43,13 @@ public sealed class AmxModXGameEventProducerTests
         var source = File.ReadAllText(FixturePath("goldsrcops_game_events.sma"));
 
         source.Should().Contain("register_cvar(\"goldsrcops_events_enabled\", \"0\"");
+        source.Should().Contain("register_cvar(\"goldsrcops_spool_max_pending\", \"1000\"");
         source.Should().Contain("RegisterHookChain(RG_RoundEnd");
+        source.Should().Contain("CountPendingRecords(incomingPath, maxPending, pendingCount)");
+        source.Should().Contain("pendingCount >= maxPending");
+        source.Should().Contain("count >= maximumCount");
+        source.Should().Contain("open_dir(incomingPath");
+        source.Should().Contain("close_dir(directory)");
         source.Should().Contain("rename_file(temporaryPath, readyPath, true)");
         source.Should().Contain("SetFilePermissions(temporaryPath, FPERM_U_READ | FPERM_U_WRITE)");
 

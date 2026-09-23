@@ -120,6 +120,7 @@ try {
         "producerEnabled = `$false",
         "spoolImportEnabled = `$false",
         "deliveryEnabled = `$false",
+        "goldsrcops_spool_max_pending 1000",
         'run|verify-access-token',
         'exec "$agent_directory/GoldSrcOps.GameEventAgent" "$agent_command"',
         "CreateFromDirectory",

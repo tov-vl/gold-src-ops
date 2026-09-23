@@ -1605,3 +1605,57 @@ copyable console command, and boundary-focused automated coverage. Production
 configuration, DNS selection, immutable rollout, and one external connection
 remain the separate R1 target gate described in
 `docs/v2.25-public-server-join.md`.
+
+## Decision 32: Bound Gameplay Intake Before Persistent Activation
+
+Decision:
+
+Require the game plugin to inspect a fixed-capacity incoming spool before it
+creates each anonymous round event. Count every non-directory entry, including
+temporary and unknown files, and suppress new publication when enumeration
+fails, the configured bound is invalid, or the bound has been reached. Do not
+delete queued evidence to make room.
+
+Expose the companion agent's local state through one versioned,
+machine-readable aggregate snapshot. Keep that snapshot free of payload,
+identity, path, endpoint, credential, map, and player data. Treat the snapshot
+as input to later host policy rather than as a Boolean readiness contract.
+
+Decision date: 2026-09-23.
+
+Reasoning:
+
+- A long-lived producer must remain bounded when the importer, SQLite, OAuth,
+  network, or API path is unavailable.
+- Applying backpressure before UUID allocation and file creation avoids a
+  second unbounded cleanup workflow and preserves every already committed
+  record for reconciliation.
+- Counting temporary and unknown files fails closed on interrupted or drifted
+  producer state instead of assuming only canonical records consume capacity.
+- A stable JSON snapshot lets a future systemd guard and owner-only probe use
+  the same aggregate facts without parsing human text or reading SQLite
+  directly.
+- Startup reconciliation needs to process transient receipt, accepted,
+  processing, and in-flight states, so a naive non-zero-means-unhealthy check
+  would prevent the mechanism that repairs those states.
+
+Alternatives considered:
+
+- Delete the oldest incoming record when full. Rejected because it silently
+  discards undelivered gameplay evidence.
+- Rely only on the SQLite queue capacity. Rejected because files accumulate
+  before SQLite import while the agent is stopped.
+- Add player or event detail to the status snapshot. Rejected because host
+  readiness needs aggregate state only and detailed gameplay remains behind
+  the authenticated Reader projection.
+- Enable the producer and agent across boot in the same slice. Deferred because
+  the accepted game boot guard currently proves a plugin-free runtime; overlay
+  integrity, boot ordering, identity, rollback, and live-round acceptance form
+  a separate R3 boundary.
+
+Implementation status:
+
+The v2.26 local increment adds the bounded producer cvar and directory check,
+extends the aggregate status command with schema version 1 JSON, and covers the
+new contracts with focused .NET tests plus pinned AMX Mod X/ReAPI compilation.
+No production activation or host policy change is part of this decision.

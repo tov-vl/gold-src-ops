@@ -190,6 +190,16 @@ delivery configuration fail closed. Logs and `status` contain aggregate queue
 outcomes, never tokens, secret contents, request bodies, map names, or player
 counts.
 
+`status --json` emits the same aggregate information as a versioned,
+machine-readable snapshot. Schema version 1 contains the spool-import and
+delivery gates, configured queue capacity, queue counts, spool counts, and the
+next sequence number. It deliberately omits the source-instance ID, server ID,
+OAuth configuration, paths, payloads, map names, and player counts. Host-side
+automation may parse this snapshot, but it must still distinguish transient
+`ready`, `processing`, `accepted`, `temporary`, and in-flight work from durable
+`rejected` or dead-letter evidence instead of reducing every non-zero count to
+one health bit.
+
 To run a sandbox delivery loop, provide these environment-backed configuration
 values before invoking `run`:
 
@@ -213,6 +223,14 @@ producer side of spool version 1 for one event type, `round.ended`. It is
 disabled by default and observes post-call `RG_RoundEnd` hooks while excluding
 setup and restart pseudo-rounds. It emits at most one successful record before
 the next `RG_CSGameRules_RestartRound`.
+
+Before creating a record, the producer enumerates the dedicated incoming
+directory and counts every non-directory entry, including incomplete `.tmp`
+files and unrecognized files. `goldsrcops_spool_max_pending` defaults to 1,000
+and accepts only values from 1 through 10,000. An unavailable directory,
+invalid bound, failed enumeration, or count at the configured limit suppresses
+the new record and increments the existing aggregate failure counter. This is
+an intake backpressure boundary, not permission to delete queued evidence.
 
 The record contains the current map plus aggregate connected player and bot
 counts; HLTV is excluded. Map names are validated against the API allowlist,
