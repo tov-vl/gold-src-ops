@@ -1,8 +1,8 @@
 # GoldSrcOps v2.25.0 Release Notes
 
-Status as of 2026-09-22: remediation pending. `v2.25.0-rc.1` was published,
-failed the external A2S gate, and was fully rolled back. A reviewed
-`v2.25.0-rc.2` candidate remains pending.
+Status as of 2026-09-23: [stable `v2.25.0`](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.25.0)
+published from accepted `v2.25.0-rc.2`. The first candidate failed external
+A2S and was fully rolled back; its tag remains rejected evidence.
 
 ## Overview
 
@@ -74,9 +74,17 @@ Candidate `v2.25.0-rc.1` publication and digest verification passed, and its
 API/Web rollout produced three healthy samples. External A2S then timed out
 because the original UFW policy still limited game UDP to the control plane.
 API and Web were restored to the accepted v2.22 digests; the game process and
-durable state were unchanged. Candidate `v2.25.0-rc.2`, the R3 firewall
-rehearsal, operator connection, stable promotion, and final evidence closure
-remain pending. The exact plan and claim limits are defined in
+durable state were unchanged.
+
+Remediation PR [#215](https://github.com/tov-vl/gold-src-ops/pull/215)
+introduced the reversible public game rule. Candidate `v2.25.0-rc.2` passed
+[publication CI](https://github.com/tov-vl/gold-src-ops/actions/runs/35770583620),
+controlled firewall apply/rollback/final apply, exact API/Web rollout, three
+healthy samples over 182 seconds, external A2S, authenticated control-plane
+RCON, and one real operator connection with independently observed non-zero
+occupancy. [Stable CI](https://github.com/tov-vl/gold-src-ops/actions/runs/35873590623)
+promoted the same API, Web, and AlertReceiver digests without rebuilding and
+passed published-image smoke. The claim limits are recorded in
 [v2.25 release readiness](v2.25-readiness.md).
 
 ## Known Limits

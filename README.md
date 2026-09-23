@@ -6,13 +6,13 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.21.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.21.0)
-is the current public release. Its signed annotated tag identifies application
-revision `f9b7945` and promotes the exact API, Web, and AlertReceiver image
-digests exercised by `v2.21.0-rc.1`, without rebuilding any image. Release
-notes and detailed evidence are available in
-[docs/release-notes-v2.21.md](docs/release-notes-v2.21.md) and
-[docs/v2.21-readiness.md](docs/v2.21-readiness.md).
+**Status:** [v2.25.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.25.0)
+is the current public release. It adds one bounded public CS 1.6 join surface
+and a reversible game-UDP firewall boundary. The signed stable tag identifies
+revision `bccb6bb` and promotes the accepted `v2.25.0-rc.2` API, Web, and
+AlertReceiver image digests without rebuilding. Release notes and evidence are
+in [docs/release-notes-v2.25.md](docs/release-notes-v2.25.md) and
+[docs/v2.25-readiness.md](docs/v2.25-readiness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
