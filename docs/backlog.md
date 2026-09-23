@@ -2334,7 +2334,8 @@ in [`docs/v2.25-readiness.md`](v2.25-readiness.md).
 
 ### v2.26 Persistent Gameplay Telemetry Readiness
 
-Status: **local implementation complete; no target activation authorized**.
+Status: **product implementation merged; R3 release plan prepared; no target
+activation authorized**.
 
 Prepare the proven v2.11 one-event path for a later long-lived activation
 without crossing the production game-event boundary. The first increment adds
@@ -2345,6 +2346,13 @@ no systemd, identity, database, control-plane, or live game-host change.
 
 The product boundary and deferred R3 work are defined in
 [`docs/v2.26-persistent-gameplay-telemetry.md`](v2.26-persistent-gameplay-telemetry.md).
+The candidate identity, persistent-runtime policy, blockers, rollback, reboot,
+and one-round acceptance sequence are defined in
+[`docs/v2.26-readiness.md`](v2.26-readiness.md), with the release-facing summary
+in [`docs/release-notes-v2.26.md`](release-notes-v2.26.md). Candidate
+publication remains blocked until the v2.25 stable boundary is completed or
+explicitly superseded and the dedicated persistent host workflow is
+implemented and reviewed.
 
 The released v1 baseline includes:
 
