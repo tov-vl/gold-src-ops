@@ -147,6 +147,52 @@ expect_failure secret-environment "$BASH" -c \
 (
     # shellcheck source=/dev/null
     source "$workflow"
+    service_user=goldsrc
+    environment_file="$environment_enabled"
+    client_secret_file="$smoke_directory/root-only-secret"
+    state_root="$smoke_directory/agent-state"
+    pilot_release_path="$smoke_directory/release"
+    mock_delivery=true
+    mock_status_case=valid
+    valid_status='{"schemaVersion":1,"deliveryEnabled":true,"queue":{"pending":0,"inFlight":0,"deadLetter":0},"spool":{"ready":0,"processing":0,"rejected":0}}'
+    runuser() {
+        [[ "$1" == -u && "$2" == "$service_user" && "$3" == -- && "$4" == env ]] || return 1
+        local argument secret_path_present=false
+        for argument in "$@"; do
+            [[ "$argument" == "GameEventAgent__Delivery__OAuth__ClientSecretFile=$client_secret_file" ]] &&
+                secret_path_present=true
+        done
+        [[ "$secret_path_present" == "$mock_delivery" ]] || return 1
+        case "$mock_status_case" in
+            valid) printf '%s\n' "$valid_status" ;;
+            empty) : ;;
+            exit) return 3 ;;
+            multiple) printf '%s\n%s\n' "$valid_status" "$valid_status" ;;
+            unsettled) printf '%s\n' "${valid_status/\"pending\":0/\"pending\":1}" ;;
+        esac
+    }
+    require_settled_agent_status || fail "Delivery-enabled status did not receive its credential path."
+    for mock_status_case in empty exit multiple; do
+        if capture_agent_status > "$smoke_directory/status-$mock_status_case.json" 2>/dev/null; then
+            fail "Invalid agent status '$mock_status_case' passed unexpectedly."
+        fi
+        [[ ! -s "$smoke_directory/status-$mock_status_case.json" ]] ||
+            fail "Invalid agent status '$mock_status_case' was emitted as evidence."
+    done
+    mock_status_case=unsettled
+    if require_settled_agent_status 2>/dev/null; then
+        fail "A nonempty aggregate status passed the activation boundary."
+    fi
+    mock_status_case=valid
+    environment_file="$environment_source"
+    mock_delivery=false
+    valid_status="${valid_status/\"deliveryEnabled\":true/\"deliveryEnabled\":false}"
+    require_settled_agent_status || fail "Spool-only status unexpectedly required a credential path."
+)
+
+(
+    # shellcheck source=/dev/null
+    source "$workflow"
     guarded_backup_root="$smoke_directory/guarded-backups"
     backup_root="$smoke_directory/persistent-records"
     guarded_name=guarded-autostart-20260923T000000Z-abcdef
@@ -228,7 +274,7 @@ assert_order "$activate_body" \
     '    "$autostart_workflow" --disable --apply' \
     '    GOLDSRCOPS_INHERITED_ACTIVATION_LOCK_FD=9 "$pilot_activator" \' \
     '    pilot_activation_present=true' \
-    '    require_settled_activation_status "$(capture_agent_status)"' \
+    '    require_settled_agent_status' \
     '    await_external_gate' \
     '    render_producer_configuration "$producer_configuration" "$staging_directory/amxx.cfg" 1' \
     '    systemctl stop "$AGENT_SERVICE_NAME"' \

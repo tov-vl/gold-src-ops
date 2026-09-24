@@ -464,39 +464,68 @@ verify_persistent_files() {
 
 capture_agent_status() {
     local -a environment_arguments=()
-    local key value status_output
+    local key value status_output expected_delivery
 
     while IFS='=' read -r key value || [[ -n "${key:-}${value:-}" ]]; do
-        [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ && -n "$value" ]] ||
+        if [[ ! "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ || -z "$value" ]]; then
             fail "The agent environment is malformed."
+            return 1
+        fi
         environment_arguments+=("$key=$value")
     done < "$environment_file"
+    if [[ "$(grep -Ec '^GameEventAgent__Delivery__Enabled=(true|false)$' "$environment_file")" != 1 ]]; then
+        fail "The agent delivery gate is missing or duplicated."
+        return 1
+    fi
+    expected_delivery=false
+    if grep -Fxq 'GameEventAgent__Delivery__Enabled=true' "$environment_file"; then
+        expected_delivery=true
+        # Status parses this path but never reads the root-only secret file.
+        environment_arguments+=("GameEventAgent__Delivery__OAuth__ClientSecretFile=$client_secret_file")
+    fi
     environment_arguments+=("DOTNET_BUNDLE_EXTRACT_BASE_DIR=$state_root/dotnet-bundle")
-    status_output="$(runuser -u "$service_user" -- env "${environment_arguments[@]}" \
-        "$pilot_release_path/agent/GoldSrcOps.GameEventAgent" status --json)"
-    jq -e '
-        .schemaVersion == 1 and
-        (.queue.pending | type == "number") and
-        (.queue.inFlight | type == "number") and
-        (.queue.deadLetter | type == "number") and
-        (.spool.ready | type == "number") and
-        (.spool.processing | type == "number") and
-        (.spool.rejected | type == "number")
-    ' <<< "$status_output" >/dev/null || fail "The aggregate agent status contract is invalid."
+    if ! status_output="$(runuser -u "$service_user" -- env "${environment_arguments[@]}" \
+        "$pilot_release_path/agent/GoldSrcOps.GameEventAgent" status --json)"; then
+        fail "The aggregate agent status command failed."
+        return 1
+    fi
+    if ! jq -s -e --argjson expectedDelivery "$expected_delivery" '
+        length == 1 and (.[0] |
+            .schemaVersion == 1 and
+            .deliveryEnabled == $expectedDelivery and
+            (.queue.pending | type == "number") and
+            (.queue.inFlight | type == "number") and
+            (.queue.deadLetter | type == "number") and
+            (.spool.ready | type == "number") and
+            (.spool.processing | type == "number") and
+            (.spool.rejected | type == "number"))
+    ' <<< "$status_output" >/dev/null; then
+        fail "The aggregate agent status contract is invalid."
+        return 1
+    fi
     printf '%s\n' "$status_output"
 }
 
 require_settled_activation_status() {
     local status_output="$1"
-    jq -e '
-        .queue.pending == 0 and
-        .queue.inFlight == 0 and
-        .queue.deadLetter == 0 and
-        .spool.ready == 0 and
-        .spool.processing == 0 and
-        .spool.rejected == 0
-    ' <<< "$status_output" >/dev/null ||
+    if ! jq -s -e '
+        length == 1 and (.[0] |
+            .queue.pending == 0 and
+            .queue.inFlight == 0 and
+            .queue.deadLetter == 0 and
+            .spool.ready == 0 and
+            .spool.processing == 0 and
+            .spool.rejected == 0)
+    ' <<< "$status_output" >/dev/null; then
         fail "The persistent activation boundary is not settled and empty."
+        return 1
+    fi
+}
+
+require_settled_agent_status() {
+    local status_output
+    status_output="$(capture_agent_status)" || return 1
+    require_settled_activation_status "$status_output"
 }
 
 write_baseline_record() {
@@ -701,10 +730,12 @@ seal_local_evidence() {
     install -d -m 0700 -o root -g root "$evidence_directory" ||
         fail "The rollback evidence directory could not be created."
     if [[ -f "$environment_file" && -f "$pilot_release_path/agent/GoldSrcOps.GameEventAgent" ]]; then
-        capture_agent_status > "$evidence_directory/status-before-rollback.json" ||
-            fail "Aggregate rollback evidence could not be captured."
-        chmod 0600 "$evidence_directory/status-before-rollback.json" ||
-            fail "Aggregate rollback evidence could not be protected."
+        if ! capture_agent_status > "$evidence_directory/status-before-rollback.json"; then
+            rm -f -- "$evidence_directory/status-before-rollback.json" || return 1
+            log "ROLLBACK_WARNING: aggregate status unavailable; durable queue and spool evidence will still be sealed."
+        else
+            chmod 0600 "$evidence_directory/status-before-rollback.json" || return 1
+        fi
     fi
     [[ -d "$state_root" && ! -L "$state_root" ]] || fail "Agent state is unavailable for rollback sealing."
     [[ -d "$spool_root" && ! -L "$spool_root" ]] || fail "Producer spool is unavailable for rollback sealing."
@@ -820,7 +851,7 @@ await_external_gate() {
         fail "The spool-only game restarted during the external gate."
     require_unit_state "$GAME_SERVICE_NAME" active disabled
     require_unit_state "$AGENT_SERVICE_NAME" active disabled
-    require_settled_activation_status "$(capture_agent_status)"
+    require_settled_agent_status
     log "EXTERNAL_GATE=operator-attested"
 }
 
@@ -844,7 +875,7 @@ run_activate() {
     pilot_activation_present=true
     require_unit_state "$GAME_SERVICE_NAME" active disabled
     require_unit_state "$AGENT_SERVICE_NAME" active disabled
-    require_settled_activation_status "$(capture_agent_status)"
+    require_settled_agent_status
     await_external_gate
 
     render_producer_configuration "$producer_configuration" "$staging_directory/amxx.cfg" 1
@@ -863,7 +894,7 @@ run_activate() {
     require_unit_state "$GAME_SERVICE_NAME" active enabled
     require_unit_state "$AGENT_SERVICE_NAME" active enabled
     verify_persistent_files
-    require_settled_activation_status "$(capture_agent_status)"
+    require_settled_agent_status
 
     disarm_transition_rollback
     log "PERSISTENT_ACTIVATION_COMPLETED: bounded producer, spool import, and delivery are enabled."
