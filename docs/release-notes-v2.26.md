@@ -1,11 +1,11 @@
 # GoldSrcOps v2.26.0 Release Notes
 
-Status as of 2026-09-23: product implementation and persistent host workflow
-merged. `v2.26.0-rc.1` was published but not activated because its host script
-did not enforce the required external game check before enabling producer and
-delivery. Published `rc.2` reached spool-only in a rollback rehearsal but was
-not accepted after an incomplete guard-backup restoration was found. A proposed
-`rc.3` fix, target acceptance, and stable promotion remain pending.
+Status as of 2026-09-24: product implementation and persistent host workflow
+merged. Published `v2.26.0-rc.1` through `rc.4` were not accepted. The `rc.4`
+timeout rehearsal passed and permanent apply passed the external game gate,
+but aggregate status capture failed after delivery was enabled. Automatic
+rollback restored the accepted public game boundary. A corrected `rc.5`,
+target acceptance, and stable promotion remain pending.
 
 ## Overview
 
@@ -71,10 +71,14 @@ external gate, and its timeout rolled back before producer or delivery was
 enabled. The public game remained reachable. Independent inspection found that
 the rollback restored the guard marker but omitted its referenced backup. The
 exact-hash backup was recovered owner-only without another game restart, and
-the accepted guarded baseline was verified again. The local `rc.3` fix now
-preserves that backup across activation and rollback; review, required CI, a
-new exact bundle, repeat rehearsal, controlled reboot, one-round delivery,
-stable promotion, and release evidence remain pending.
+the accepted guarded baseline was verified again. `rc.3` corrected that
+backup but failed at the agent guard; `rc.4` corrected the guard and passed
+the timeout rehearsal, then failed at delivery-enabled status capture after
+the external gate. Both failed applies rolled back to the accepted public game.
+The proposed `rc.5` supplies a path-only credential setting to the status
+process and rejects failed or empty status. Review, required CI, a new exact
+bundle, repeat rehearsal, controlled reboot, one-round delivery, stable
+promotion, and release evidence remain pending.
 
 ## Known Limits
 

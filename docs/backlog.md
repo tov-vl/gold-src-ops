@@ -2335,7 +2335,7 @@ in [`docs/v2.25-readiness.md`](v2.25-readiness.md).
 ### v2.26 Persistent Gameplay Telemetry Readiness
 
 Status: **product and persistent R3 host workflow merged; `v2.26.0-rc.1`
-through `rc.3` published but not accepted; corrected `rc.4` under review**.
+through `rc.4` published but not accepted; corrected `rc.5` under review**.
 
 Prepare the proven v2.11 one-event path for a later long-lived activation
 without crossing the production game-event boundary. The first increment adds
@@ -2355,8 +2355,12 @@ its host sequence lacked the external A2S/RCON gate. The `rc.2` rollback
 rehearsal exposed incomplete guard-backup restoration. The `rc.3` timeout
 rollback passed, but permanent activation stopped at the agent's unprivileged
 hash-guard; automatic rollback restored the accepted public game boundary.
-PR [#222](https://github.com/tov-vl/gold-src-ops/pull/222) prepares the narrow
-agent-guard correction for `rc.4`. No candidate is accepted yet.
+PR [#222](https://github.com/tov-vl/gold-src-ops/pull/222) corrected the
+agent guard for `rc.4`. Its timeout rehearsal and external gate passed, but
+permanent apply failed at delivery-enabled aggregate status capture and
+automatically rolled back to the accepted public game. `rc.5` corrects the
+status credential context and fail-closed evidence handling. No candidate is
+accepted yet.
 
 The released v1 baseline includes:
 
