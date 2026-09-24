@@ -2332,35 +2332,33 @@ The R3 firewall contract is defined in
 revised release scope, rollback, and minimized candidate sequence are defined
 in [`docs/v2.25-readiness.md`](v2.25-readiness.md).
 
-### v2.26 Persistent Gameplay Telemetry Readiness
+### v2.26 Persistent Gameplay Telemetry
 
-Status: **product and persistent R3 host workflow merged; `v2.26.0-rc.1`
-through `rc.4` published but not accepted; corrected `rc.5` under review**.
+Status: **stable [`v2.26.0`](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.26.0)
+published from accepted `v2.26.0-rc.6`**.
 
-Prepare the proven v2.11 one-event path for a later long-lived activation
-without crossing the production game-event boundary. The first increment adds
-fail-closed producer backpressure through a bounded pending-spool cvar and a
-versioned aggregate-only `status --json` snapshot for future host policy and
-operator probes. It keeps producer and delivery disabled by default and makes
-no systemd, identity, database, control-plane, or live game-host change.
+The proven v2.11 one-event path is now a bounded persistent game-host runtime.
+The product adds fail-closed producer backpressure, suppression of rounds
+without human players, and aggregate-only `status --json`. A separate R3 host
+workflow activates the exact reviewed bundle, retains the public profile and
+guarded autostart, and enables the independent agent across boot. API, Web,
+AlertReceiver, database, and control-plane workers were not redeployed.
 
-The product boundary and deferred R3 work are defined in
+The product boundary and R3 host policy are defined in
 [`docs/v2.26-persistent-gameplay-telemetry.md`](v2.26-persistent-gameplay-telemetry.md).
-The candidate identity, persistent-runtime policy, blockers, rollback, reboot,
-and one-round acceptance sequence are defined in
+The candidate identity, persistent-runtime policy, rollback, reboot, and
+one-round acceptance evidence are defined in
 [`docs/v2.26-readiness.md`](v2.26-readiness.md), with the release-facing summary
-in [`docs/release-notes-v2.26.md`](release-notes-v2.26.md). Stable `v2.25.0`
-is published. The immutable `v2.26.0-rc.1` candidate was not activated because
-its host sequence lacked the external A2S/RCON gate. The `rc.2` rollback
-rehearsal exposed incomplete guard-backup restoration. The `rc.3` timeout
-rollback passed, but permanent activation stopped at the agent's unprivileged
-hash-guard; automatic rollback restored the accepted public game boundary.
-PR [#222](https://github.com/tov-vl/gold-src-ops/pull/222) corrected the
-agent guard for `rc.4`. Its timeout rehearsal and external gate passed, but
-permanent apply failed at delivery-enabled aggregate status capture and
-automatically rolled back to the accepted public game. `rc.5` corrects the
-status credential context and fail-closed evidence handling. No candidate is
-accepted yet.
+in [`docs/release-notes-v2.26.md`](release-notes-v2.26.md). Earlier candidates
+remain immutable rejection evidence. `rc.5` activated but revealed extra
+empty-round emission; [PR #224](https://github.com/tov-vl/gold-src-ops/pull/224)
+fixed that behavior. The accepted `rc.6` passed the rollback rehearsal,
+external game checks, controlled reboot, one real-round delivery, Reader
+projection, and empty-round suppression. Queue and spool aggregates settled
+at zero. Signed stable `v2.26.0` targets the same revision; its publication
+reused all three candidate image digests without rebuilding and passed
+independent published-image checks in
+[stable CI #36032772302](https://github.com/tov-vl/gold-src-ops/actions/runs/36032772302).
 
 The released v1 baseline includes:
 
