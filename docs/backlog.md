@@ -2362,7 +2362,8 @@ independent published-image checks in
 
 ### v2.27 Fast Re-entry Experiment
 
-Status: **scoped; not implemented or activated**.
+Status: **scoped; local feasibility and transition design recorded; not
+implemented or activated**.
 
 The next product slice tests a fixed team-based fast-reentry profile, starting
 with native ReGameDLL settings rather than a new gameplay plugin. It targets
@@ -2373,7 +2374,12 @@ editing the active game configuration in place is not an approved path.
 Solo play can validate the mechanic but not multi-player balance or spawn
 safety. A Deathmatch plugin, ranks, custom spawns, and player identity remain
 outside this slice. See the
-[v2.27 product boundary](v2.27-fast-reentry.md).
+[v2.27 product boundary and transition design](v2.27-fast-reentry.md). The
+pinned binaries and loopback A2S were verified locally; one player reported
+near-immediate respawn and visible protection ending on attack. Exact timing,
+map-change behavior, and damage immunity remain unverified. The active
+persistent guard also needs an explicit profile-hash contract before any live
+mode switch.
 
 The released v1 baseline includes:
 
