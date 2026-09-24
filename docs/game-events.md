@@ -221,8 +221,9 @@ and maximum-event-age settings have bounded defaults in `appsettings.json`.
 `samples/amxmodx-game-event-producer/goldsrcops_game_events.sma` implements the
 producer side of spool version 1 for one event type, `round.ended`. It is
 disabled by default and observes post-call `RG_RoundEnd` hooks while excluding
-setup and restart pseudo-rounds. It emits at most one successful record before
-the next `RG_CSGameRules_RestartRound`.
+setup and restart pseudo-rounds. A round ending with zero connected non-HLTV
+players is ignored; it creates no spool record. It emits at most one successful
+record before the next `RG_CSGameRules_RestartRound`.
 
 Before creating a record, the producer enumerates the dedicated incoming
 directory and counts every non-directory entry, including incomplete `.tmp`
