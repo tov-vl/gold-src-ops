@@ -9,6 +9,10 @@ readonly POLICY_ID="persistent-gameplay-v1"
 readonly GAME_SERVICE_NAME="goldsrcops-gameserver.service"
 readonly AGENT_SERVICE_NAME="goldsrcops-game-event-agent.service"
 readonly EXPECTED_PROFILE_ID="public-classic-v1"
+readonly FAST_PROFILE_ID="fast-reentry-v1"
+readonly FAST_PROFILE_FILE_NAME="goldsrcops-fast-reentry-v1.cfg"
+readonly FAST_PROFILE_SHA256="a864b76187618961881275028671cd5943173e8ad4f87c5547a784a2eda2fff2"
+readonly MAPCYCLE_FILE_NAME="goldsrcops-mapcycle.txt"
 readonly EXPECTED_AUTOSTART_POLICY_ID="guarded-autostart-v1"
 readonly EXPECTED_SPOOL_LIMIT="1000"
 readonly GUARD_REJECTED_EXIT=78
@@ -30,6 +34,7 @@ prepared_marker="$configuration_directory/host-prepared"
 runtime_marker="$configuration_directory/runtime-installed"
 runtime_enabled_marker="$configuration_directory/runtime-enabled"
 active_profile_marker="$configuration_directory/managed-profile-active"
+public_configuration="$configuration_directory/server-public.cfg"
 autostart_marker="$configuration_directory/guarded-autostart-active"
 pilot_marker="$configuration_directory/game-event-pilot-installed"
 pilot_enabled_marker="$configuration_directory/game-event-pilot-enabled"
@@ -52,6 +57,8 @@ installed_persistent_guard="$libexec_directory/goldsrcops-game-event-persistent"
 
 state_root="$service_home/game-event-agent"
 game_root="$service_home/server"
+fast_profile_file="$game_root/cstrike/$FAST_PROFILE_FILE_NAME"
+mapcycle_file="$game_root/cstrike/$MAPCYCLE_FILE_NAME"
 liblist_file="$game_root/cstrike/liblist.gam"
 live_addons_root="$game_root/cstrike/addons"
 live_metamod_root="$live_addons_root/metamod"
@@ -92,6 +99,13 @@ marker_environment_sha256=""
 marker_producer_sha256=""
 marker_game_unit_sha256=""
 marker_agent_unit_sha256=""
+marker_schema_version=""
+marker_profile_id=""
+marker_public_sha256=""
+marker_runtime_enabled_sha256=""
+marker_active_profile_sha256=""
+marker_profile_sha256=""
+marker_mapcycle_sha256=""
 
 usage() {
     cat <<'EOF'
@@ -235,10 +249,17 @@ read_pilot_marker() {
 }
 
 read_persistent_marker() {
-    local key value
+    local key value digest
     local schema_version="" policy_id=""
     declare -A seen=()
 
+    marker_schema_version=""
+    marker_profile_id=""
+    marker_public_sha256=""
+    marker_runtime_enabled_sha256=""
+    marker_active_profile_sha256=""
+    marker_profile_sha256=""
+    marker_mapcycle_sha256=""
     marker_backup_name=""
     marker_guard_sha256=""
     marker_game_drop_in_sha256=""
@@ -273,15 +294,38 @@ read_persistent_marker() {
             producer_sha256) marker_producer_sha256="$value" ;;
             game_unit_sha256) marker_game_unit_sha256="$value" ;;
             agent_unit_sha256) marker_agent_unit_sha256="$value" ;;
+            profile_id) marker_profile_id="$value" ;;
+            public_sha256) marker_public_sha256="$value" ;;
+            runtime_enabled_sha256) marker_runtime_enabled_sha256="$value" ;;
+            active_profile_sha256) marker_active_profile_sha256="$value" ;;
+            profile_sha256) marker_profile_sha256="$value" ;;
+            mapcycle_sha256) marker_mapcycle_sha256="$value" ;;
             *) fail "The persistent marker contains an unknown key." ;;
         esac
     done < "$persistent_marker"
 
-    [[ "$schema_version" == "$POLICY_SCHEMA_VERSION" && "$policy_id" == "$POLICY_ID" &&
-        "${#seen[@]}" -eq 15 ]] || fail "The persistent marker contract is invalid."
+    [[ "$policy_id" == "$POLICY_ID" ]] || fail "The persistent marker contract is invalid."
+    case "$schema_version" in
+        1)
+            [[ "${#seen[@]}" -eq 15 && -z "$marker_profile_id" ]] ||
+                fail "The persistent marker contract is invalid."
+            ;;
+        2)
+            [[ "${#seen[@]}" -eq 21 && "$marker_profile_id" == "$FAST_PROFILE_ID" ]] ||
+                fail "The fast-reentry persistent marker contract is invalid."
+            for digest in "$marker_public_sha256" "$marker_runtime_enabled_sha256" \
+                "$marker_active_profile_sha256" "$marker_profile_sha256" \
+                "$marker_mapcycle_sha256"; do
+                validate_sha256 "$digest"
+            done
+            [[ "$marker_profile_sha256" == "$FAST_PROFILE_SHA256" ]] ||
+                fail "The fast-reentry profile is not the reviewed revision."
+            ;;
+        *) fail "The persistent marker schema is unsupported." ;;
+    esac
+    marker_schema_version="$schema_version"
     [[ "$marker_backup_name" =~ ^persistent-gameplay-[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9]{6}$ ]] ||
         fail "The persistent rollback reference is invalid."
-    local digest
     for digest in \
         "$marker_guard_sha256" \
         "$marker_game_drop_in_sha256" \
@@ -299,6 +343,64 @@ read_persistent_marker() {
     done
     backup_name="$marker_backup_name"
     backup_directory="$backup_root/$backup_name"
+}
+
+verify_fast_profile_files() {
+    local key value schema_version="" profile_id="" public_sha256=""
+    local runtime_enabled_sha256="" profile_sha256="" mapcycle_sha256=""
+    local backup_name="" baseline_public_sha256="" baseline_runtime_enabled_sha256=""
+    local path
+    declare -A seen=()
+
+    verify_sha256 "$public_configuration" "$marker_public_sha256"
+    verify_sha256 "$runtime_enabled_marker" "$marker_runtime_enabled_sha256"
+    verify_sha256 "$active_profile_marker" "$marker_active_profile_sha256"
+    verify_sha256 "$fast_profile_file" "$marker_profile_sha256"
+    verify_sha256 "$mapcycle_file" "$marker_mapcycle_sha256"
+    for path in "$public_configuration" "$runtime_enabled_marker" \
+        "$active_profile_marker" "$fast_profile_file" "$mapcycle_file"; do
+        validate_file_metadata "$path" root "$service_group" 640
+    done
+
+    while IFS='=' read -r key value || [[ -n "${key:-}${value:-}" ]]; do
+        [[ -n "${key:-}" && -n "${value:-}" && -z "${seen[$key]+x}" ]] ||
+            fail "The selected profile marker is malformed."
+        seen[$key]=1
+        case "$key" in
+            schema_version) schema_version="$value" ;;
+            profile_id) profile_id="$value" ;;
+            backup_name) backup_name="$value" ;;
+            baseline_public_sha256) baseline_public_sha256="$value" ;;
+            baseline_runtime_enabled_sha256) baseline_runtime_enabled_sha256="$value" ;;
+            public_sha256) public_sha256="$value" ;;
+            runtime_enabled_sha256) runtime_enabled_sha256="$value" ;;
+            profile_sha256) profile_sha256="$value" ;;
+            mapcycle_sha256) mapcycle_sha256="$value" ;;
+            *) fail "The selected profile marker contains an unknown key." ;;
+        esac
+    done < "$active_profile_marker"
+    [[ "$schema_version" == 1 && "$profile_id" == "$FAST_PROFILE_ID" &&
+        "${#seen[@]}" -eq 9 && "$public_sha256" == "$marker_public_sha256" &&
+        "$runtime_enabled_sha256" == "$marker_runtime_enabled_sha256" &&
+        "$profile_sha256" == "$marker_profile_sha256" &&
+        "$mapcycle_sha256" == "$marker_mapcycle_sha256" ]] ||
+        fail "The selected profile marker does not match the persistent policy."
+    [[ "$backup_name" =~ ^managed-profile-[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9]{6}$ ]] ||
+        fail "The selected profile rollback reference is invalid."
+    validate_sha256 "$baseline_public_sha256"
+    validate_sha256 "$baseline_runtime_enabled_sha256"
+    [[ "$(marker_value "$runtime_enabled_marker" public_config_sha256)" == \
+        "$marker_public_sha256" ]] ||
+        fail "The runtime-enabled marker does not bind the selected public configuration."
+
+    [[ "$(grep -Fxc "exec $FAST_PROFILE_FILE_NAME" "$public_configuration")" == 1 ]] ||
+        fail "The public configuration does not load the selected profile exactly once."
+    [[ "$(grep -Ec '^exec goldsrcops-managed-profile[.]cfg$' "$public_configuration")" == 0 ]] ||
+        fail "The public configuration also loads the classic profile."
+    grep -Fxq "mapchangecfgfile \"$FAST_PROFILE_FILE_NAME\"" "$fast_profile_file" ||
+        fail "The selected profile does not reapply after a map change."
+    grep -Fxq "mapcyclefile \"$MAPCYCLE_FILE_NAME\"" "$fast_profile_file" ||
+        fail "The selected profile does not retain the reviewed map cycle."
 }
 
 require_unit_state() {
@@ -428,6 +530,9 @@ verify_persistent_game_files() {
         fail "The game service is coupled to the agent service."
     fi
     verify_overlay_payload
+    if [[ "$marker_schema_version" == 2 ]]; then
+        verify_fast_profile_files
+    fi
 }
 
 verify_persistent_agent_files() {
@@ -918,6 +1023,8 @@ run_rollback() {
     require_apply_environment
     acquire_lock
     verify_persistent_files
+    [[ "$marker_schema_version" == 1 ]] ||
+        fail "Switch back to the accepted classic profile before persistent rollback."
     verify_baseline_record
     prepare_staging
     arm_transition_rollback
