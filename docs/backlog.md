@@ -2360,6 +2360,33 @@ reused all three candidate image digests without rebuilding and passed
 independent published-image checks in
 [stable CI #36032772302](https://github.com/tov-vl/gold-src-ops/actions/runs/36032772302).
 
+### v2.27 Fast Re-entry Experiment
+
+Status: **fixed profile, guard contract, and transition workflow implemented
+locally; host activation pending**.
+
+The next product slice tests a fixed team-based fast-reentry profile, starting
+with native ReGameDLL settings rather than a new gameplay plugin. It targets
+bounded respawn and short protection while preserving `public-classic-v1` as
+the accepted live and rollback state. The existing hash-bound boot and
+persistent-agent policies require an explicit, rehearsed profile transition;
+editing the active game configuration in place is not an approved path.
+Solo play can validate the mechanic but not multi-player balance or spawn
+safety. A Deathmatch plugin, ranks, custom spawns, and player identity remain
+outside this slice. See the
+[v2.27 product boundary and transition design](v2.27-fast-reentry.md). The
+pinned binaries and loopback A2S were verified locally; one player reported
+near-immediate respawn and visible protection ending on attack. A later
+disposable pinned-runtime check proved profile reapplication after changing
+from `de_dust2` to `cs_office`. Exact respawn timing and damage immunity remain
+unverified. Objective-round endings are explicitly deferred for the MVP, not
+part of its acceptance claim. The fixed
+`fast-reentry-v1` file and schema-2 persistent marker verification provide an
+explicit profile-hash contract without changing the deployed schema-1
+policy. The plan-first workflow and mock fault-injection smoke now cover
+exact classic restoration while retaining identity, queue, and spool.
+The R3 game-host switch remains unverified; no live switch has been attempted.
+
 The released v1 baseline includes:
 
 - One-command local startup.

@@ -591,6 +591,48 @@ controlled reboot, one real round, API receipt/idempotency, and Reader evidence
 remain separate R3 target gates in
 [`docs/v2.26-readiness.md`](../../docs/v2.26-readiness.md).
 
+## Fast Re-entry Profile Transition
+
+`fast-reentry-transition.sh` is the v2.27 plan-first switch between the
+accepted persistent classic profile and the fixed native fast-reentry profile.
+It does not invoke pilot rollback, remove the agent identity, or reset durable
+queue/spool state. Its existing schema-1 policy remains accepted on classic;
+schema 2 binds the fast profile, public configuration, and active markers to
+exact hashes. No game-host switch is implied by repository verification.
+
+Review plans before staging any host operation:
+
+```bash
+bash ./ops/gameserver/fast-reentry-transition.sh --activate
+bash ./ops/gameserver/fast-reentry-transition.sh --restore
+bash ./ops/gameserver/fast-reentry-transition.sh --recover
+```
+
+The reviewed operator must stage this script, its sibling
+`game-event-persistent.sh`, and `fast-reentry-v1.cfg` together with verified
+bytes and owner-only script modes before any `--apply`. The apply requires
+preserved SSH operator identity, two transition locks, settled telemetry,
+exact rollback inputs, and two bounded external gates. At each printed gate,
+an independent operator session checks public A2S and authenticated read-only
+RCON, plus zero connected players before mutation, then sends only the nonce
+to the root-only FIFO. The receipt does not perform those checks. A missing
+or invalid receipt fails closed; never retry an uncertain switch automatically.
+
+If a failed switch restores classic with boot disabled, `--recover --apply`
+requires the exact restored bytes and a fresh external gate before re-enabling
+the independent game and agent services. Do not use the destructive
+`game-event-persistent.sh --rollback` to switch profiles.
+
+The focused local checks are:
+
+```bash
+bash ./tools/smoke/gameserver-fast-reentry.sh
+sudo bash ./tools/smoke/gameserver-fast-reentry-transition.sh
+```
+
+See [`docs/v2.27-fast-reentry.md`](../../docs/v2.27-fast-reentry.md) for the
+remaining local gameplay and R3 host acceptance gates.
+
 ## Release-Soak Continuity
 
 `soak-readiness.sh` performs the read-only game-host half of the v2.3 release
