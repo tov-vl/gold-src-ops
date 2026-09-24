@@ -69,6 +69,26 @@ public sealed class AmxModXGameEventProducerTests
         }
     }
 
+    [Fact]
+    public void Producer_skips_empty_rounds_before_creating_a_spool_record()
+    {
+        var source = File.ReadAllText(FixturePath("goldsrcops_game_events.sma"));
+        var playerCountIndex = source.IndexOf("get_players(players, playerCount, \"h\");", StringComparison.Ordinal);
+
+        playerCountIndex.Should().BeGreaterThanOrEqualTo(0);
+
+        var emptyGuardIndex = source.IndexOf("if (playerCount == 0)", playerCountIndex, StringComparison.Ordinal);
+        var publishIndex = source.IndexOf("if (!PublishRoundEnded(", playerCountIndex, StringComparison.Ordinal);
+
+        emptyGuardIndex.Should().BeGreaterThan(playerCountIndex);
+        publishIndex.Should().BeGreaterThan(emptyGuardIndex);
+
+        var guardBody = source[emptyGuardIndex..source.IndexOf('}', emptyGuardIndex)];
+        guardBody.Should().Contain("g_roundEventPublished = true;");
+        guardBody.Should().Contain("g_ignoredCount++;");
+        guardBody.Should().Contain("return HC_CONTINUE;");
+    }
+
     private static string FixturePath(string fileName) =>
         Path.Combine(AppContext.BaseDirectory, "GameEventAgent", "Fixtures", fileName);
 }

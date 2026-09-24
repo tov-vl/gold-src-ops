@@ -63,6 +63,16 @@ public OnRoundEndPost(
         return HC_CONTINUE;
     }
 
+    new players[MAX_PLAYERS];
+    new playerCount;
+    get_players(players, playerCount, "h");
+    if (playerCount == 0)
+    {
+        g_roundEventPublished = true;
+        g_ignoredCount++;
+        return HC_CONTINUE;
+    }
+
     new map[MAX_MAP_NAME_LENGTH + 1];
     get_mapname(map, charsmax(map));
     if (!IsSafeMapName(map))
@@ -80,11 +90,7 @@ public OnRoundEndPost(
         return HC_CONTINUE;
     }
 
-    new players[MAX_PLAYERS];
-    new playerCount;
     new botCount;
-    get_players(players, playerCount, "h");
-
     for (new index = 0; index < playerCount; index++)
     {
         if (is_user_bot(players[index]))
