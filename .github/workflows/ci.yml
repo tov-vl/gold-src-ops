@@ -239,6 +239,14 @@ jobs:
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-game-event-persistent.sh
 
+      - name: Validate fixed fast-reentry profile and guard
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        run: bash ./tools/smoke/gameserver-fast-reentry.sh
+
+      - name: Validate fast-reentry transition and rollback
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        run: sudo bash ./tools/smoke/gameserver-fast-reentry-transition.sh
+
       - name: Validate game-host soak-readiness evidence contract
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-soak-readiness.sh

@@ -2362,8 +2362,8 @@ independent published-image checks in
 
 ### v2.27 Fast Re-entry Experiment
 
-Status: **fixed profile and guard contract implemented locally; transition
-workflow and host activation pending**.
+Status: **fixed profile, guard contract, and transition workflow implemented
+locally; host activation pending**.
 
 The next product slice tests a fixed team-based fast-reentry profile, starting
 with native ReGameDLL settings rather than a new gameplay plugin. It targets
@@ -2380,9 +2380,10 @@ near-immediate respawn and visible protection ending on attack. Exact timing,
 map-change behavior, and damage immunity remain unverified. The fixed
 `fast-reentry-v1` file and schema-2 persistent marker verification provide an
 explicit profile-hash contract without changing the deployed schema-1
-policy. The next engineering gate is a plan-first, fault-injected switch and
-exact classic restoration that retain identity, queue, and spool; no live
-switch has been attempted.
+policy. The plan-first workflow and mock fault-injection smoke now cover
+exact classic restoration while retaining identity, queue, and spool.
+Actual map-change/objective behavior and the R3 game-host switch remain
+unverified; no live switch has been attempted.
 
 The released v1 baseline includes:
 
