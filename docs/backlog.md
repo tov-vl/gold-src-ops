@@ -2378,8 +2378,9 @@ outside this slice. See the
 pinned binaries and loopback A2S were verified locally; one player reported
 near-immediate respawn and visible protection ending on attack. A later
 disposable pinned-runtime check proved profile reapplication after changing
-from `de_dust2` to `cs_office`. Exact respawn timing, objective-round
-outcomes, and damage immunity remain unverified. The fixed
+from `de_dust2` to `cs_office`. Exact respawn timing and damage immunity remain
+unverified. Objective-round endings are explicitly deferred for the MVP, not
+part of its acceptance claim. The fixed
 `fast-reentry-v1` file and schema-2 persistent marker verification provide an
 explicit profile-hash contract without changing the deployed schema-1
 policy. The plan-first workflow and mock fault-injection smoke now cover
