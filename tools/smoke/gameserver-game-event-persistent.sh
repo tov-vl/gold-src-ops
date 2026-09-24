@@ -100,6 +100,8 @@ EOF
 
 environment_source="$smoke_directory/agent-source.env"
 environment_enabled="$smoke_directory/agent-enabled.env"
+game_drop_in="$smoke_directory/game.conf"
+agent_drop_in="$smoke_directory/agent.conf"
 cat > "$environment_source" <<'EOF'
 GameEventAgent__Spool__Enabled=true
 GameEventAgent__Delivery__Enabled=false
@@ -110,6 +112,12 @@ EOF
     source "$workflow"
     render_producer_configuration "$producer_source" "$producer_enabled" 1
     render_delivery_environment "$environment_source" "$environment_enabled" true
+    render_game_drop_in "$game_drop_in"
+    render_agent_drop_in "$agent_drop_in"
+    grep -Fxq "ExecCondition=$installed_persistent_guard --guard-game" "$game_drop_in" ||
+        fail "The game guard must retain the service identity."
+    grep -Fxq "ExecCondition=!$installed_persistent_guard --guard-agent" "$agent_drop_in" ||
+        fail "The agent guard must read the root-only activation state."
 )
 grep -Fxq 'goldsrcops_events_enabled 1' "$producer_enabled" ||
     fail "Producer rendering did not enable exactly the reviewed gate."

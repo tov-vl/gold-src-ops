@@ -368,7 +368,7 @@ render_agent_drop_in() {
     cat > "$destination" <<EOF
 [Service]
 ExecCondition=
-ExecCondition=$installed_persistent_guard --guard-agent
+ExecCondition=!$installed_persistent_guard --guard-agent
 EOF
     chmod 0644 "$destination"
 }
@@ -448,7 +448,7 @@ verify_persistent_agent_files() {
         fail "Persistent delivery is not enabled."
     ! grep -Eiq 'secret|password|bearer|access[_-]?token' "$environment_file" ||
         fail "The persistent environment contains secret-shaped configuration."
-    grep -Fxq "ExecCondition=$installed_persistent_guard --guard-agent" "$persistent_agent_drop_in" ||
+    grep -Fxq "ExecCondition=!$installed_persistent_guard --guard-agent" "$persistent_agent_drop_in" ||
         fail "The agent service is not bound to the persistent guard."
     if grep -Eq "^(Requires|PartOf)=.*$GAME_SERVICE_NAME" "$agent_unit_file" "$persistent_agent_drop_in"; then
         fail "The agent service is coupled to the game service."
