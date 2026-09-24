@@ -2376,14 +2376,15 @@ safety. A Deathmatch plugin, ranks, custom spawns, and player identity remain
 outside this slice. See the
 [v2.27 product boundary and transition design](v2.27-fast-reentry.md). The
 pinned binaries and loopback A2S were verified locally; one player reported
-near-immediate respawn and visible protection ending on attack. Exact timing,
-map-change behavior, and damage immunity remain unverified. The fixed
+near-immediate respawn and visible protection ending on attack. A later
+disposable pinned-runtime check proved profile reapplication after changing
+from `de_dust2` to `cs_office`. Exact respawn timing, objective-round
+outcomes, and damage immunity remain unverified. The fixed
 `fast-reentry-v1` file and schema-2 persistent marker verification provide an
 explicit profile-hash contract without changing the deployed schema-1
 policy. The plan-first workflow and mock fault-injection smoke now cover
 exact classic restoration while retaining identity, queue, and spool.
-Actual map-change/objective behavior and the R3 game-host switch remain
-unverified; no live switch has been attempted.
+The R3 game-host switch remains unverified; no live switch has been attempted.
 
 The released v1 baseline includes:
 
