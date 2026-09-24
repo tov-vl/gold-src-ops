@@ -6,13 +6,14 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.25.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.25.0)
-is the current public release. It adds one bounded public CS 1.6 join surface
-and a reversible game-UDP firewall boundary. The signed stable tag identifies
-revision `bccb6bb` and promotes the accepted `v2.25.0-rc.2` API, Web, and
-AlertReceiver image digests without rebuilding. Release notes and evidence are
-in [docs/release-notes-v2.25.md](docs/release-notes-v2.25.md) and
-[docs/v2.25-readiness.md](docs/v2.25-readiness.md).
+**Status:** [v2.26.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.26.0)
+is the current public release. It makes anonymous gameplay telemetry persistent
+on the accepted CS 1.6 game host, with bounded spool intake and empty-round
+suppression. The signed stable tag identifies revision `3eacb59` and promotes
+the accepted `v2.26.0-rc.6` API, Web, and AlertReceiver image digests without
+rebuilding or redeploying the control plane. Release notes and bounded evidence
+are in [docs/release-notes-v2.26.md](docs/release-notes-v2.26.md) and
+[docs/v2.26-readiness.md](docs/v2.26-readiness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
@@ -33,9 +34,9 @@ The preceding v2.17 Alert Delivery Overview release remains documented in
 
 The bounded v2.11 pilot activated the reviewed game-event path for one anonymous
 completed-round event, verified the matching Reader projection, and then
-restored the exact plugin-free game runtime. Temporary identity, credential,
-activation, and plugin state was removed; the dormant agent remains inactive
-and boot-disabled. See
+restored the exact plugin-free game runtime. Its temporary identity,
+credential, activation, and plugin state were removed. That pilot was later
+superseded by the reviewed persistent v2.26 deployment. See
 [docs/v2.11-game-event-pilot.md](docs/v2.11-game-event-pilot.md).
 
 The v2.12 Latest Round Overview release is published and accepted in
