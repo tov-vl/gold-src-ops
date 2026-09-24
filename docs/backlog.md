@@ -2360,6 +2360,21 @@ reused all three candidate image digests without rebuilding and passed
 independent published-image checks in
 [stable CI #36032772302](https://github.com/tov-vl/gold-src-ops/actions/runs/36032772302).
 
+### v2.27 Fast Re-entry Experiment
+
+Status: **scoped; not implemented or activated**.
+
+The next product slice tests a fixed team-based fast-reentry profile, starting
+with native ReGameDLL settings rather than a new gameplay plugin. It targets
+bounded respawn and short protection while preserving `public-classic-v1` as
+the accepted live and rollback state. The existing hash-bound boot and
+persistent-agent policies require an explicit, rehearsed profile transition;
+editing the active game configuration in place is not an approved path.
+Solo play can validate the mechanic but not multi-player balance or spawn
+safety. A Deathmatch plugin, ranks, custom spawns, and player identity remain
+outside this slice. See the
+[v2.27 product boundary](v2.27-fast-reentry.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.
