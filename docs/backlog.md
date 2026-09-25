@@ -2362,8 +2362,8 @@ independent published-image checks in
 
 ### v2.27 Fast Re-entry Experiment
 
-Status: **fixed profile active on the public pilot host; quick respawn observed;
-release publication pending**.
+Status: **stable [`v2.27.0`](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.27.0)
+published; fixed pilot profile active and quick respawn observed**.
 
 This slice tests a fixed team-based fast-reentry profile, starting
 with native ReGameDLL settings rather than a new gameplay plugin. It targets
@@ -2392,9 +2392,12 @@ queue/spool gates on the pilot host. A player observed immediate respawn after
 several controlled deaths, then exited; the post-session profile, guard, and
 aggregate checks passed. The player did not observe the protection effect from
 first person, so visuals, damage immunity, and attack-unset behavior remain
-unverified. The fast profile remains experimental; no further live session is
-required for the limited quick-respawn claim. Candidate and stable publication
-remain pending; see [v2.27 release readiness](v2.27-readiness.md).
+unverified. The fast profile remains experimental; no further live session was
+required for the limited quick-respawn claim. Signed `v2.27.0` targets the
+accepted `v2.27.0-rc.1` revision, and
+[stable CI](https://github.com/tov-vl/gold-src-ops/actions/runs/36150171803)
+promoted the same three image digests without rebuilding or redeploying the
+control plane. See [v2.27 release readiness](v2.27-readiness.md).
 
 The released v1 baseline includes:
 
