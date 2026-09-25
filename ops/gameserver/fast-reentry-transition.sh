@@ -14,6 +14,7 @@ readonly SWITCH_MARKER="$configuration_directory/fast-reentry-active"
 readonly SWITCH_LOCK="$configuration_directory/managed-profile.lock"
 readonly SWITCH_BACKUP_ROOT="$guarded_backup_root/fast-reentry"
 readonly FAST_PROFILE_SOURCE="$switch_script_directory/fast-reentry-v1.cfg"
+readonly FAST_LOADOUT_PROFILE_SOURCE="$switch_script_directory/fast-reentry-loadout-v1.cfg"
 readonly CLASSIC_PROFILE_FILE="$game_root/cstrike/$CLASSIC_PROFILE_FILE_NAME"
 
 switch_operation=overview
@@ -30,6 +31,7 @@ switch_usage() {
     cat <<'EOF'
 Usage:
   fast-reentry-transition.sh --activate [--apply]
+  fast-reentry-transition.sh --upgrade-loadout [--apply]
   fast-reentry-transition.sh --restore [--apply]
   fast-reentry-transition.sh --recover [--apply]
 
@@ -47,6 +49,15 @@ switch_plan() {
     if [[ "$switch_operation" == recover ]]; then
         log "PLAN: accept only exact restored classic bytes with both services active and boot disabled"
         log "PLAN: require fresh external A2S/RCON evidence, then re-enable independent boot entries"
+        log "PLAN_ONLY: no host state or endpoint was inspected or changed; add --apply to execute."
+        return
+    fi
+    if [[ "$switch_operation" == upgrade-loadout ]]; then
+        log "PLAN: verify the accepted fast-reentry profile and exact classic rollback backup"
+        log "PLAN: require an empty aggregate and fresh external zero-player A2S/RCON precheck"
+        log "PLAN: stop the game, install only the reviewed loadout revision and hash-bound guard"
+        log "PLAN: restart independent services, require fresh guards and external A2S/RCON receipt, then enable boot"
+        log "PLAN: on failure restore exact classic bytes, start services only if safe, and leave boot disabled"
         log "PLAN_ONLY: no host state or endpoint was inspected or changed; add --apply to execute."
         return
     fi
@@ -117,6 +128,10 @@ switch_verify_source() {
     validate_reviewed_script "$script_path"
     verify_sha256 "$FAST_PROFILE_SOURCE" "$FAST_PROFILE_SHA256"
     [[ ! -L "$FAST_PROFILE_SOURCE" ]] || fail "The candidate profile path is unsafe."
+    if [[ "$switch_operation" == upgrade-loadout ]]; then
+        verify_sha256 "$FAST_LOADOUT_PROFILE_SOURCE" "$FAST_LOADOUT_PROFILE_SHA256"
+        [[ ! -L "$FAST_LOADOUT_PROFILE_SOURCE" ]] || fail "The loadout profile path is unsafe."
+    fi
 }
 
 switch_verify_backup() {
@@ -253,12 +268,44 @@ mapcycle_sha256=$(sha256_file "$mapcycle_file")
 EOF
 }
 
+switch_prepare_loadout_staging() {
+    local profile_hash
+    switch_staging_directory="$(mktemp -d "$configuration_directory/.fast-reentry.XXXXXX")"
+    chmod 0700 "$switch_staging_directory"
+    profile_hash="$(sha256_file "$FAST_LOADOUT_PROFILE_SOURCE")"
+    [[ "$profile_hash" == "$FAST_LOADOUT_PROFILE_SHA256" ]] ||
+        fail "The loadout profile has drifted."
+    awk -v profile_hash="$profile_hash" '
+        /^profile_sha256=/ { print "profile_sha256=" profile_hash; next }
+        { print }
+    ' "$active_profile_marker" > "$switch_staging_directory/managed-profile-active"
+    awk -v guard_hash="$(sha256_file "$script_path")" \
+        -v active_hash="$(sha256_file "$switch_staging_directory/managed-profile-active")" \
+        -v profile_hash="$profile_hash" '
+        /^guard_sha256=/ { print "guard_sha256=" guard_hash; next }
+        /^active_profile_sha256=/ { print "active_profile_sha256=" active_hash; next }
+        /^profile_sha256=/ { print "profile_sha256=" profile_hash; next }
+        { print }
+    ' "$persistent_marker" > "$switch_staging_directory/persistent-marker"
+}
+
 switch_install_fast() {
     install -o root -g "$service_group" -m 0640 "$FAST_PROFILE_SOURCE" "$fast_profile_file"
     install -o root -g "$service_group" -m 0640 \
         "$switch_staging_directory/server-public.cfg" "$public_configuration"
     install -o root -g "$service_group" -m 0640 \
         "$switch_staging_directory/runtime-enabled" "$runtime_enabled_marker"
+    install -o root -g "$service_group" -m 0640 \
+        "$switch_staging_directory/managed-profile-active" "$active_profile_marker"
+    install -o root -g root -m 0755 "$script_path" "$installed_persistent_guard"
+    install -o root -g "$service_group" -m 0640 \
+        "$switch_staging_directory/persistent-marker" "$persistent_marker"
+    verify_persistent_files
+}
+
+switch_install_loadout() {
+    install -o root -g "$service_group" -m 0640 \
+        "$FAST_LOADOUT_PROFILE_SOURCE" "$fast_profile_file"
     install -o root -g "$service_group" -m 0640 \
         "$switch_staging_directory/managed-profile-active" "$active_profile_marker"
     install -o root -g root -m 0755 "$script_path" "$installed_persistent_guard"
@@ -412,11 +459,11 @@ switch_start_transition() {
     systemctl stop "$AGENT_SERVICE_NAME"
     require_unit_state "$GAME_SERVICE_NAME" inactive disabled
     require_unit_state "$AGENT_SERVICE_NAME" inactive disabled
-    if [[ "$switch_operation" == activate ]]; then
-        switch_install_fast
-    else
-        switch_install_classic_files
-    fi
+    case "$switch_operation" in
+        activate) switch_install_fast ;;
+        upgrade-loadout) switch_install_loadout ;;
+        restore) switch_install_classic_files ;;
+    esac
     systemctl start "$GAME_SERVICE_NAME"
     systemctl start "$AGENT_SERVICE_NAME"
     switch_check_started "$game_invocation" "$agent_invocation"
@@ -430,6 +477,8 @@ switch_start_transition() {
         chmod 0600 "$switch_backup_directory/restore-complete"
         rm -f -- "$SWITCH_MARKER"
         log "CLASSIC_PROFILE_RESTORED: exact prior bytes and independent boot entries verified."
+    elif [[ "$switch_operation" == upgrade-loadout ]]; then
+        log "FAST_REENTRY_LOADOUT_ACTIVATED: hash-bound loadout and independent boot entries verified."
     else
         log "FAST_REENTRY_ACTIVATED: hash-bound profile and independent boot entries verified."
     fi
@@ -485,6 +534,11 @@ switch_apply_operation() {
             ! -e "$fast_profile_file" && ! -L "$fast_profile_file" ]] ||
             fail "A fast-reentry transition or recovery boundary already exists."
         switch_verify_classic
+    elif [[ "$switch_operation" == upgrade-loadout ]]; then
+        [[ "$marker_schema_version" == 2 &&
+            "$marker_profile_sha256" == "$FAST_PROFILE_SHA256" ]] ||
+            fail "The accepted fast-reentry profile is not active."
+        switch_load_backup
     else
         [[ "$marker_schema_version" == 2 ]] || fail "Fast re-entry is not active."
         switch_load_backup
@@ -497,6 +551,8 @@ switch_apply_operation() {
     if [[ "$switch_operation" == activate ]]; then
         switch_capture_backup
         switch_prepare_staging
+    elif [[ "$switch_operation" == upgrade-loadout ]]; then
+        switch_prepare_loadout_staging
     else
         switch_staging_directory="$(mktemp -d "$configuration_directory/.fast-reentry.XXXXXX")"
         chmod 0700 "$switch_staging_directory"
@@ -508,6 +564,7 @@ switch_main() {
     while (($# > 0)); do
         case "$1" in
             --activate) switch_select activate ;;
+            --upgrade-loadout) switch_select upgrade-loadout ;;
             --restore) switch_select restore ;;
             --recover) switch_select recover ;;
             --apply) switch_apply=true ;;
@@ -516,7 +573,8 @@ switch_main() {
         esac
         shift
     done
-    [[ "$switch_selected" == true ]] || fail "Select --activate, --restore, or --recover."
+    [[ "$switch_selected" == true ]] ||
+        fail "Select --activate, --upgrade-loadout, --restore, or --recover."
     if [[ "$switch_apply" == true ]]; then
         switch_apply_operation
     else
