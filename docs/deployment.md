@@ -479,9 +479,14 @@ selects the broader row.
 | Change class | Repository gate | Target-environment gate |
 | --- | --- | --- |
 | Documentation only | Validate the changed-file scope, final newlines, and all tracked local Markdown links. Keep the required `Quality Gate`, `Container Smoke`, and `Browser Smoke` results, but do not restore, build, or start application containers. | None. |
-| Additive read-only application change | Run the complete quality, container, and browser gates once on the PR, then publish immutable candidate images. | Run preflight, verify public health and the changed read surface, and collect three healthy post-rollout samples over at least three minutes. Preserve the previous digest for rollback. |
+| Additive read-only application change | Run the complete quality, container, and browser gates once on the PR, then publish immutable candidate images. | For the public pilot, check affected-runtime health and the changed read surface once on the deployed digest; use an observation interval only if the change or claim needs one. Preserve the previous digest for rollback. |
 | State-changing, authentication, worker, or schema change | Run the complete PR gates plus focused tests for the affected boundary. | Add the applicable migration, authorization, queue, command, or worker rehearsal. Database changes require a fresh backup and isolated restore/migration rehearsal. Authentication changes require the live Reader/Operator matrix. |
-| Infrastructure, recovery, or SLO-policy change | Run the complete PR gates and the contract test for the changed operational tool. | Perform the dedicated recovery or continuity exercise. A long soak or prospective SLO window remains independent evidence and does not block unrelated product development. |
+| Infrastructure, recovery, or SLO-policy change | Run the complete PR gates and the contract test for the changed operational tool. | Exercise the changed recovery or continuity boundary once. Do not repeat an unchanged host transition for a documentation update or tag. A long soak or prospective SLO window blocks only a claim that depends on it. |
+
+The [public pilot MVP policy](release-process.md#public-pilot-mvp-verification)
+allows explicit, unverified gameplay limitations and avoids repeat player
+sessions for an unchanged mechanic. It does not waive digest identity,
+rollback, durable-state safety, required CI, or secret handling.
 
 Feature implementation and its readiness record should normally share one PR.
 Production acceptance and stable-release documentation should normally share
