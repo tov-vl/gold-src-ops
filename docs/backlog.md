@@ -2362,14 +2362,14 @@ independent published-image checks in
 
 ### v2.27 Fast Re-entry Experiment
 
-Status: **fixed profile, guard contract, and transition workflow implemented
-locally; host activation pending**.
+Status: **fixed profile active on the public pilot host; quick respawn observed;
+release publication pending**.
 
-The next product slice tests a fixed team-based fast-reentry profile, starting
+This slice tests a fixed team-based fast-reentry profile, starting
 with native ReGameDLL settings rather than a new gameplay plugin. It targets
 bounded respawn and short protection while preserving `public-classic-v1` as
-the accepted live and rollback state. The existing hash-bound boot and
-persistent-agent policies require an explicit, rehearsed profile transition;
+the known-good rollback state. The existing hash-bound boot and
+persistent-agent policies required an explicit, rehearsed profile transition;
 editing the active game configuration in place is not an approved path.
 Solo play can validate the mechanic but not multi-player balance or spawn
 safety. A Deathmatch plugin, ranks, custom spawns, and player identity remain
@@ -2382,10 +2382,19 @@ from `de_dust2` to `cs_office`. Exact respawn timing and damage immunity remain
 unverified. Objective-round endings are explicitly deferred for the MVP, not
 part of its acceptance claim. The fixed
 `fast-reentry-v1` file and schema-2 persistent marker verification provide an
-explicit profile-hash contract without changing the deployed schema-1
-policy. The plan-first workflow and mock fault-injection smoke now cover
+explicit profile-hash contract while retaining schema-1 compatibility for
+the classic profile. The plan-first workflow and mock fault-injection smoke cover
 exact classic restoration while retaining identity, queue, and spool.
-The R3 game-host switch remains unverified; no live switch has been attempted.
+Product [PR #226](https://github.com/tov-vl/gold-src-ops/pull/226) merged and
+the [post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/36065360554)
+passed. The reviewed R3 switch passed independent A2S, RCON, guard, and
+queue/spool gates on the pilot host. A player observed immediate respawn after
+several controlled deaths, then exited; the post-session profile, guard, and
+aggregate checks passed. The player did not observe the protection effect from
+first person, so visuals, damage immunity, and attack-unset behavior remain
+unverified. The fast profile remains experimental; no further live session is
+required for the limited quick-respawn claim. Candidate and stable publication
+remain pending; see [v2.27 release readiness](v2.27-readiness.md).
 
 The released v1 baseline includes:
 

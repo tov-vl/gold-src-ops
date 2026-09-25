@@ -80,6 +80,38 @@ A long soak or prospective SLO window is independent evidence. It blocks a
 claim that depends on that window, not unrelated product development or a
 release whose claim boundary does not depend on it.
 
+## Public Pilot MVP Verification
+
+The current public deployment is a pilot without an uptime or SLO promise.
+Its release checks should prove the changed behavior and preserve a recovery
+boundary, not try to prove mature-service reliability on every small edit.
+Record one concrete claim and its failure modes before selecting checks:
+
+- Documentation and release-record changes need only the required
+  documentation CI path; they do not need a game session, target restart, or
+  repeat of an accepted host transition.
+- Small application changes need focused local tests and the required PR CI
+  once per reviewed revision. A later tag for the unchanged behavior does not
+  justify a second manual test suite or a fresh interactive login.
+- For R1 pilot rollouts, use one fresh health and changed-surface check on the
+  deployed digest. A fixed three-minute sampling interval is not a default
+  gate; add observation time only when the changed behavior or a claimed SLO
+  depends on it.
+- Ask for a player session only when the changed behavior cannot be checked
+  meaningfully without a player. One short consenting-player scenario is
+  enough for a narrow solo-mechanic claim; do not require the same player to
+  repeat it after a docs-only commit, tag, or unchanged image promotion.
+- For R2/R3, rehearse only the changed authorization, durable-state,
+  transition, or recovery boundary. Reuse earlier evidence when its exact
+  reviewed inputs and running target are unchanged; a new host policy or a
+  failed gate still needs its own focused checks.
+
+An untested behavior may remain an explicit MVP limitation, not a passing
+result. Accepting that risk does not permit lost queue data, leaked secrets,
+unbounded retries, a missing rollback path, or a deployment with unknown
+artifact identity. Stop and reclassify if the actual change reaches one of
+those boundaries.
+
 ## Approval Bundle
 
 One explicit approval for a named release and frozen scope may cover the
@@ -163,9 +195,9 @@ The candidate tag does not create a stable GitHub Release or a mutable
 
 ### 4. Roll Out By Digest
 
-1. Capture a sanitized pre-rollout baseline for the applicable public health,
-   container identities and restart counts, durable state, backup freshness,
-   and dependent runtime continuity.
+1. Capture a sanitized pre-rollout baseline for the affected runtime and the
+   dependencies implicated by the change. Add durable state, backup
+   freshness, or wider continuity checks only when their boundary is touched.
 2. Run only the preflight and focused rehearsal required by the classified
    risk. An R1 release does not require a fresh restore rehearsal, game-host
    activation, or unrelated recovery exercise.
@@ -180,16 +212,17 @@ and are never implied by an R1 application rollout.
 
 ### 5. Accept Or Roll Back
 
-For an R1 release, collect at least three healthy read-only samples spanning at
-least three minutes. Verify:
+For an R1 pilot release, take one fresh read-only sample after rollout and
+verify the relevant items below. Add repeated samples only when a changed
+failure mode or the release claim requires an observation interval:
 
-- public API liveness and readiness plus Web health;
+- health of the affected API or Web runtime;
 - candidate version, source revision, and exact digests for every affected
   runtime image;
-- no unexpected restart of changed or unchanged runtime components;
+- no unexpected restart of the affected runtime;
 - the changed read surface through an existing authorized session;
-- the relevant durable-queue, incident, command, A2S, bot, backup, and
-  dependency invariants from the release evidence plan;
+- only the queue, incident, command, A2S, bot, backup, or dependency
+  invariants implicated by the changed boundary;
 - no credential, token, private payload, or unauthorized mutation control is
   exposed.
 
@@ -253,12 +286,12 @@ reported separately.
 | Product PR review, CI, and merge | 20-40 minutes |
 | Candidate freeze and tag | 5-10 minutes of operator work |
 | Candidate publication | One CI run, normally no manual wait between jobs |
-| Digest rollout and short acceptance | 10-20 minutes, including the three-minute sample interval |
+| Digest rollout and short acceptance | 5-15 minutes for the focused pilot check; longer only when the changed boundary needs it |
 | Stable promotion | One promotion CI run that reuses candidate gates, promotes without rebuild, and smoke-tests the stable digests |
 | Combined evidence PR | 10-20 minutes |
 
-The working target for an uncomplicated R1 release is 60-90 minutes after the
-product revision is ready, excluding external queue or outage time. If a stage
+The working target for an uncomplicated R1 pilot release is 45-75 minutes
+after the product revision is ready, excluding external queue or outage time. If a stage
 exceeds its budget, identify the actual blocker instead of adding repeated
 checks or confirmation loops. R2 and R3 releases use budgets appropriate to
 their explicit rehearsal or recovery scope.
