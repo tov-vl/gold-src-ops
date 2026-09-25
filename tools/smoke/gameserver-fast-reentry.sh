@@ -7,6 +7,7 @@ umask 077
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 workflow="$repo_root/ops/gameserver/game-event-persistent.sh"
 profile="$repo_root/ops/gameserver/fast-reentry-v1.cfg"
+loadout_profile="$repo_root/ops/gameserver/fast-reentry-loadout-v1.cfg"
 fixture="$(mktemp -d)"
 trap 'rm -rf -- "$fixture"' EXIT
 
@@ -27,6 +28,12 @@ expect_rejection() {
 [[ "$(sha256sum "$profile" | cut -d' ' -f1)" == \
     a864b76187618961881275028671cd5943173e8ad4f87c5547a784a2eda2fff2 ]] ||
     fail "The fixed fast-reentry profile has drifted."
+[[ "$(sha256sum "$loadout_profile" | cut -d' ' -f1)" == \
+    9f967f0dae72374807e8cfc2dd8b906ba931fded8773de3c2259cf0e36fc3b88 ]] ||
+    fail "The fixed loadout profile has drifted."
+[[ "$(diff -u "$profile" "$loadout_profile" | grep '^+' | grep -v '^+++')" == \
+    $'+mp_t_default_weapons_primary "mp5navy"\n+mp_ct_default_weapons_primary "mp5navy"\n+mp_refill_bpammo_weapons "1"' ]] ||
+    fail "The loadout profile changed more than the reviewed spawn equipment."
 for rule in \
     'mp_forcerespawn "1"' \
     'mp_roundrespawn_time "-1"' \
@@ -114,6 +121,15 @@ guard_case() {
 write_active
 write_persistent
 guard_case || fail "The selected profile was rejected without drift."
+cp -- "$loadout_profile" "$installed_profile"
+write_active
+write_persistent
+guard_case || fail "The reviewed loadout profile was rejected."
+printf 'tampered\n' >> "$installed_profile"
+expect_rejection loadout-profile-drift guard_case
+cp -- "$profile" "$installed_profile"
+write_active
+write_persistent
 
 printf 'tampered\n' >> "$public"
 expect_rejection public-drift guard_case

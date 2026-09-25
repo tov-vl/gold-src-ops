@@ -2399,6 +2399,18 @@ accepted `v2.27.0-rc.1` revision, and
 promoted the same three image digests without rebuilding or redeploying the
 control plane. See [v2.27 release readiness](v2.27-readiness.md).
 
+### v2.28 Fast Re-entry Loadout
+
+Status: **implemented and checked locally; pilot host transition pending**.
+
+Both teams receive the same native MP5 default primary weapon and backpack
+ammo refill after fast respawn. The v2.27 profile remains unchanged; a new
+exact-hash revision and guarded upgrade operation preserve the classic
+rollback boundary. Focused profile and transition smoke pass, and a pinned
+local game runtime reports all three intended cvar values. Inventory in a
+player client and the game-host switch are not yet accepted. See the
+[v2.28 product and transition record](v2.28-fast-reentry-loadout.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.

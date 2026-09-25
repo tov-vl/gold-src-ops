@@ -12,6 +12,7 @@ readonly EXPECTED_PROFILE_ID="public-classic-v1"
 readonly FAST_PROFILE_ID="fast-reentry-v1"
 readonly FAST_PROFILE_FILE_NAME="goldsrcops-fast-reentry-v1.cfg"
 readonly FAST_PROFILE_SHA256="a864b76187618961881275028671cd5943173e8ad4f87c5547a784a2eda2fff2"
+readonly FAST_LOADOUT_PROFILE_SHA256="9f967f0dae72374807e8cfc2dd8b906ba931fded8773de3c2259cf0e36fc3b88"
 readonly MAPCYCLE_FILE_NAME="goldsrcops-mapcycle.txt"
 readonly EXPECTED_AUTOSTART_POLICY_ID="guarded-autostart-v1"
 readonly EXPECTED_SPOOL_LIMIT="1000"
@@ -318,7 +319,8 @@ read_persistent_marker() {
                 "$marker_mapcycle_sha256"; do
                 validate_sha256 "$digest"
             done
-            [[ "$marker_profile_sha256" == "$FAST_PROFILE_SHA256" ]] ||
+            [[ "$marker_profile_sha256" == "$FAST_PROFILE_SHA256" ||
+                "$marker_profile_sha256" == "$FAST_LOADOUT_PROFILE_SHA256" ]] ||
                 fail "The fast-reentry profile is not the reviewed revision."
             ;;
         *) fail "The persistent marker schema is unsupported." ;;

@@ -105,7 +105,12 @@ if [[ "${1:-}" == --case ]]; then
     mock_log="$case_root/operations.log"
 
     require_apply_environment() { :; }
-    switch_verify_source() { verify_sha256 "$FAST_PROFILE_SOURCE" "$FAST_PROFILE_SHA256"; }
+    switch_verify_source() {
+        verify_sha256 "$FAST_PROFILE_SOURCE" "$FAST_PROFILE_SHA256"
+        if [[ "$switch_operation" == upgrade-loadout ]]; then
+            verify_sha256 "$FAST_LOADOUT_PROFILE_SOURCE" "$FAST_LOADOUT_PROFILE_SHA256"
+        fi
+    }
     verify_baseline_record() { :; }
     verify_persistent_files() {
         read_persistent_marker
@@ -124,6 +129,11 @@ if [[ "${1:-}" == --case ]]; then
         local destination="${*: -1}"
         if [[ "$case_action" == reject-install && "$mock_install_failed" == false &&
             "$destination" == "$active_profile_marker" ]]; then
+            mock_install_failed=true
+            return 42
+        fi
+        if [[ "$case_action" == upgrade-install && "$mock_install_failed" == false &&
+            "$switch_operation" == upgrade-loadout && "$destination" == "$active_profile_marker" ]]; then
             mock_install_failed=true
             return 42
         fi
@@ -158,14 +168,18 @@ if [[ "${1:-}" == --case ]]; then
                         if [[ "$unit" == game ]]; then
                             if [[ "$(cat "$case_root/$unit.invocation")" == aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ]]; then
                                 printf 'cccccccccccccccccccccccccccccccc\n' > "$case_root/$unit.invocation"
-                            else
+                            elif [[ "$(cat "$case_root/$unit.invocation")" == cccccccccccccccccccccccccccccccc ]]; then
                                 printf 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n' > "$case_root/$unit.invocation"
+                            else
+                                printf '11111111111111111111111111111111\n' > "$case_root/$unit.invocation"
                             fi
                         else
                             if [[ "$(cat "$case_root/$unit.invocation")" == bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb ]]; then
                                 printf 'dddddddddddddddddddddddddddddddd\n' > "$case_root/$unit.invocation"
-                            else
+                            elif [[ "$(cat "$case_root/$unit.invocation")" == dddddddddddddddddddddddddddddddd ]]; then
                                 printf 'ffffffffffffffffffffffffffffffff\n' > "$case_root/$unit.invocation"
+                            else
+                                printf '22222222222222222222222222222222\n' > "$case_root/$unit.invocation"
                             fi
                         fi
                         ;;
@@ -177,6 +191,10 @@ if [[ "${1:-}" == --case ]]; then
     switch_gate() {
         printf 'gate %s\n' "$1" >> "$mock_log"
         if [[ "$case_action" == reject-postcheck && "$1" == postcheck ]]; then
+            return 1
+        fi
+        if [[ "$case_action" == upgrade-postcheck && "$switch_operation" == upgrade-loadout &&
+            "$1" == postcheck ]]; then
             return 1
         fi
         if [[ "$case_action" == interrupt-postcheck && "$1" == postcheck ]]; then
@@ -205,6 +223,18 @@ if [[ "${1:-}" == --case ]]; then
     fi
     switch_operation=activate
     switch_apply_operation
+    if [[ "$case_action" == upgrade-* || "$case_action" == success ]]; then
+        switch_operation=upgrade-loadout
+        switch_apply_operation
+        if [[ "$case_action" == success ]]; then
+            [[ "$(marker_value "$persistent_marker" profile_sha256)" == \
+                "$FAST_LOADOUT_PROFILE_SHA256" ]] || fail "The loadout hash was not installed."
+            verify_sha256 "$fast_profile_file" "$FAST_LOADOUT_PROFILE_SHA256"
+            [[ "$(cat "$case_root/game.enabled")" == enabled &&
+                "$(cat "$case_root/agent.enabled")" == enabled ]] ||
+                fail "The loadout upgrade did not restore independent boot."
+        fi
+    fi
     if [[ "$case_action" == backup-drift ]]; then
         printf 'drift\n' >> "$switch_backup_directory/server-public.cfg"
         switch_operation=restore
@@ -289,10 +319,13 @@ fi
 
 "$BASH" -n "$workflow"
 "$BASH" "$workflow" --activate > "$fixture_root/plan.out"
+"$BASH" "$workflow" --upgrade-loadout > "$fixture_root/loadout-plan.out"
 "$BASH" "$workflow" --restore > "$fixture_root/restore-plan.out"
 "$BASH" "$workflow" --recover > "$fixture_root/recover-plan.out"
 grep -Fq 'PLAN_ONLY: no host state or endpoint was inspected or changed' "$fixture_root/plan.out" ||
     fail "The activation plan is missing its read-only boundary."
+grep -Fq 'install only the reviewed loadout revision' "$fixture_root/loadout-plan.out" ||
+    fail "The loadout upgrade plan is missing."
 grep -Fq 'restore the exact classic profile' "$fixture_root/restore-plan.out" ||
     fail "The restoration plan is missing."
 grep -Fq 'only exact restored classic bytes' "$fixture_root/recover-plan.out" ||
@@ -305,7 +338,10 @@ success="$fixture_root/success"
 make_fixture "$success"
 original_public="$(sha256sum "$success/config/server-public.cfg" | cut -d' ' -f1)"
 original_marker="$(sha256sum "$success/config/game-event-persistent-active" | cut -d' ' -f1)"
-"$BASH" "$0" --case "$success" success > "$success/output"
+if ! "$BASH" "$0" --case "$success" success > "$success/output" 2>&1; then
+    cat "$success/output" >&2
+    fail "The successful activate/upgrade/restore sequence failed."
+fi
 [[ "$(sha256sum "$success/config/server-public.cfg" | cut -d' ' -f1)" == "$original_public" ]] ||
     fail "The exact classic public configuration was not restored."
 [[ "$(sha256sum "$success/config/game-event-persistent-active" | cut -d' ' -f1)" == "$original_marker" ]] ||
@@ -317,6 +353,25 @@ original_marker="$(sha256sum "$success/config/game-event-persistent-active" | cu
 assert_order "$success/operations.log" 'gate precheck' 'disable agent' 'disable game' \
     'stop game' 'stop agent' 'start game' 'start agent' 'gate postcheck' \
     'enable game' 'enable agent'
+
+for failure in upgrade-postcheck upgrade-install; do
+    upgrade_failed="$fixture_root/$failure"
+    make_fixture "$upgrade_failed"
+    if "$BASH" "$0" --case "$upgrade_failed" "$failure" > "$upgrade_failed/output" 2>&1; then
+        fail "The $failure case accepted a failed loadout upgrade."
+    fi
+    grep -Fq 'CLASSIC_RESTORED_BOOT_DISABLED' "$upgrade_failed/output" ||
+        fail "The $failure case did not restore classic."
+    [[ "$(cat "$upgrade_failed/game.enabled")" == disabled &&
+        "$(cat "$upgrade_failed/agent.enabled")" == disabled ]] ||
+        fail "The $failure case left boot enabled."
+    [[ "$(sha256sum "$upgrade_failed/config/server-public.cfg" | cut -d' ' -f1)" == \
+        "$original_public" ]] || fail "The $failure case did not restore classic bytes."
+    [[ ! -e "$upgrade_failed/service/server/cstrike/goldsrcops-fast-reentry-v1.cfg" ]] ||
+        fail "The $failure case retained the loadout file."
+    [[ "$(cat "$upgrade_failed/service/game-event-agent/queue/receipt")" == queue-evidence ]] ||
+        fail "The $failure case changed the queue."
+done
 
 rejected="$fixture_root/rejected"
 make_fixture "$rejected"
