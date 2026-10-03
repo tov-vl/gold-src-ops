@@ -2401,14 +2401,21 @@ control plane. See [v2.27 release readiness](v2.27-readiness.md).
 
 ### v2.28 Fast Re-entry Loadout
 
-Status: **implemented and checked locally; pilot host transition pending**.
+Status: **merged with CI passing; pilot loadout profile active; player
+inventory acceptance deferred**.
 
 Both teams receive the same native MP5 default primary weapon and backpack
 ammo refill after fast respawn. The v2.27 profile remains unchanged; a new
 exact-hash revision and guarded upgrade operation preserve the classic
 rollback boundary. Focused profile and transition smoke pass, and a pinned
-local game runtime reports all three intended cvar values. Inventory in a
-player client and the game-host switch are not yet accepted. See the
+local game runtime reports all three intended cvar values. Product
+[PR #229](https://github.com/tov-vl/gold-src-ops/pull/229) merged and
+[post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/36157818110)
+passed. The approved host upgrade completed on 2026-10-03; independent external
+A2S/RCON, persistent guard, retained recovery inputs, active enabled services,
+and settled queue/spool checks passed. Inventory in a player client remains
+unverified because the short player check was deferred. Stable v2.28
+publication remains open; unrelated product development may continue. See the
 [v2.28 product and transition record](v2.28-fast-reentry-loadout.md).
 
 The released v1 baseline includes:
