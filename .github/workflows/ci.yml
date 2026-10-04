@@ -159,6 +159,14 @@ jobs:
           ./tools/smoke/amxx-map-menu.ps1 -CacheDirectory $cache -RuntimeFixture -Offline
           ./tools/release/build-map-menu-addon.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'map-menu-addon') -Offline
 
+      - name: Compile weapon addon and first-spawn fixture, verify package
+        shell: pwsh
+        run: |
+          $cache = Join-Path $env:RUNNER_TEMP 'map-menu-toolchain'
+          ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache
+          ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -RuntimeFixture
+          ./tools/smoke/weapon-selection-package.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'weapon-addon') -Target game-host-addon
+
   container-smoke:
     name: Container Smoke
     needs:

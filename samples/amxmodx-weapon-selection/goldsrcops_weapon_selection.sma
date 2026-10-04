@@ -12,16 +12,18 @@ new const PISTOL_NAMES[][] = { "USP", "Glock", "Desert Eagle" };
 new const PISTOL_CLASSES[][] = { "weapon_usp", "weapon_glock18", "weapon_deagle" };
 new const WeaponIdType:PISTOL_IDS[] = { WEAPON_USP, WEAPON_GLOCK18, WEAPON_DEAGLE };
 new const PISTOL_AMMO[] = { 100, 120, 35 };
+const WELCOME_TASK_BASE = 1000;
 
 new g_enabled;
 new g_menu;
 new g_pistol_menu;
 new g_choice[MAX_PLAYERS + 1];
 new g_pistol_choice[MAX_PLAYERS + 1];
+new bool:g_welcomed[MAX_PLAYERS + 1];
 
 public plugin_init()
 {
-    register_plugin("GoldSrcOps Weapon Selection", "0.2.0", "GoldSrcOps");
+    register_plugin("GoldSrcOps Weapon Selection", "0.3.0", "GoldSrcOps");
     g_enabled = register_cvar("goldsrcops_weapons_enabled", "0");
     AutoExecConfig(false, "goldsrcops-weapon-selection");
     register_clcmd("say /guns", "OpenWeapons");
@@ -50,19 +52,23 @@ public plugin_end()
 
 public OnStatusCommand()
 {
-    server_print("WEAPON_SELECTION_STATUS version=0.2.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1",
+    server_print("WEAPON_SELECTION_STATUS version=0.3.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1",
         get_pcvar_num(g_enabled) != 0, sizeof WEAPON_NAMES, sizeof PISTOL_NAMES);
     return PLUGIN_HANDLED;
 }
 
 public client_putinserver(id)
 {
+    remove_task(WELCOME_TASK_BASE + id);
+    g_welcomed[id] = false;
     g_choice[id] = 0;
     g_pistol_choice[id] = 0;
 }
 
 public client_disconnected(id)
 {
+    remove_task(WELCOME_TASK_BASE + id);
+    g_welcomed[id] = false;
     g_choice[id] = 0;
     g_pistol_choice[id] = 0;
 }
@@ -82,6 +88,8 @@ public OpenWeapons(id)
 {
     if (get_pcvar_num(g_enabled) && IsPlaying(id))
     {
+        remove_task(WELCOME_TASK_BASE + id);
+        g_welcomed[id] = true;
         menu_display(id, g_menu);
     }
     return PLUGIN_HANDLED;
@@ -146,7 +154,30 @@ public OnSpawnPost(id)
         log_amx("Weapon selection: pistol slot removal failed.");
     }
     rg_set_user_armor(id, 100, ARMOR_VESTHELM);
+    if (!g_welcomed[id] && !task_exists(WELCOME_TASK_BASE + id))
+    {
+        set_task(1.0, "ShowWelcome", WELCOME_TASK_BASE + id);
+    }
     return HC_CONTINUE;
+}
+
+public ShowWelcome(task_id)
+{
+    new id = task_id - WELCOME_TASK_BASE;
+    if (id < 1 || id > MaxClients || g_welcomed[id]
+        || !get_pcvar_num(g_enabled) || !IsPlaying(id) || !is_user_alive(id))
+    {
+        return;
+    }
+
+    g_welcomed[id] = true;
+    client_print(id, print_chat, "[GoldSrcOps] /guns: next-spawn weapons | /maps: map vote | /timeleft: remaining time");
+    new menu, keys;
+    // Do not replace a team/class menu or another plugin's active menu.
+    if (!get_user_menu(id, menu, keys))
+    {
+        menu_display(id, g_menu);
+    }
 }
 
 GivePrimary(id)
