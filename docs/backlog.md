@@ -2521,6 +2521,20 @@ settled queue/spool and no new AMXX errors. Human presentation and precise timer
 delay remain deferred, not mandatory MVP gates. See the
 [v2.32 boundary and acceptance](v2.32-first-spawn.md).
 
+### v2.33 Map Stats
+
+The existing addon 0.4.0 adds private `/stats` and a bounded `/top` for connected
+human players on the current map/connection. Enemy kills score; world deaths,
+suicide and teamkill award no kill. Bot/HLTV encounters are ignored. Scores reset
+on disconnect/slot reuse and map/plugin reload; no persistent ranks, identity,
+database, API or telemetry change belongs to this slice.
+
+Pinned product/fixture compilation, native-damage statistics, first-spawn and
+nine-combination inventory regression and host package checks passed without
+AMXX error logs. Required CI and the exact-predecessor binary-only upgrade
+remain separate gates. Human rendering is optional for this MVP claim. See
+the [v2.33 boundary](v2.33-map-stats.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.
