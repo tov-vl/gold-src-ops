@@ -2630,6 +2630,17 @@ player dictionary and agent invocation, settled queue/spool and no new AMXX
 errors. Client rendering remains an optional MVP observation. See the
 [v2.38 boundary and acceptance](v2.38-map-menu-language.md).
 
+### v2.39 - Player Preferences
+
+Addon 0.9.0 saves RU/EN and primary/pistol choices by canonical SteamID in a
+separate nVault, restoring them after reconnect/map reload without changing
+stats/ranks or applying inventory before spawn. Late auth merges untouched
+fields; unknown/shared/duplicate identities remain connection-only. Joining
+does not write defaults; corrupt records are retained and failed readback
+blocks writes until reconnect. Implementation and pinned compilation complete;
+engine smoke, required CI and active installation pending. See the
+[v2.39 boundary](v2.39-player-preferences.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.

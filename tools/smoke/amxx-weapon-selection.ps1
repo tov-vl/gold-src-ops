@@ -11,12 +11,14 @@ param(
 
     [switch]$PersistentStatsFixture,
 
-    [switch]$PlayerMenuFixture
+    [switch]$PlayerMenuFixture,
+
+    [switch]$PlayerPreferencesFixture
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-if (@($RuntimeFixture, $MapStatsFixture, $PersistentStatsFixture, $PlayerMenuFixture | Where-Object { $_ }).Count -gt 1) {
+if (@($RuntimeFixture, $MapStatsFixture, $PersistentStatsFixture, $PlayerMenuFixture, $PlayerPreferencesFixture | Where-Object { $_ }).Count -gt 1) {
     throw "Choose only one runtime fixture."
 }
 
@@ -50,6 +52,10 @@ $productIncludes = Join-Path $root "samples/amxmodx-weapon-selection"
 if ($PlayerMenuFixture) {
     $source = Join-Path $PSScriptRoot "amxx-player-menu.sma"
     $output = Join-Path $CacheDirectory "output/player_menu_smoke.amxx"
+}
+if ($PlayerPreferencesFixture) {
+    $source = Join-Path $PSScriptRoot "amxx-player-preferences.sma"
+    $output = Join-Path $CacheDirectory "output/player_preferences_smoke.amxx"
 }
 
 & $compiler $source "-i$amxxIncludes" "-i$reApiIncludes" "-i$productIncludes" "-o$output" -E
