@@ -2514,9 +2514,12 @@ database or boot-policy change is included.
 
 Pinned compilation, isolated first-spawn cases and the nine-combination
 inventory regression passed without AMXX error logs. Host package content,
-hash and no-overwrite checks passed. Required CI and the bounded binary-only
-host upgrade remain separate gates; human presentation is deferred, not a
-mandatory MVP deployment gate. See the [v2.32 boundary](v2.32-first-spawn.md).
+hash and no-overwrite checks passed. PR #239 passed required CI and was merged;
+the frozen 0.3.0 binary-only upgrade is accepted on the pilot. External and host
+checks verified the enabled addon, unchanged map addon/baseline/agent invocation,
+settled queue/spool and no new AMXX errors. Human presentation and precise timer
+delay remain deferred, not mandatory MVP gates. See the
+[v2.32 boundary and acceptance](v2.32-first-spawn.md).
 
 The released v1 baseline includes:
 
