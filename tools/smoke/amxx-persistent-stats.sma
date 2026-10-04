@@ -2,17 +2,20 @@
 #include <reapi>
 #include <fakemeta>
 #include <hamsandwich>
+#include <nvault>
 
 // Identity/output substitutions are fixture-only; storage uses the real nVault.
 #define plugin_init ProductPluginInit
 #define is_user_bot(%1) FixtureIsBot(%1)
 #define get_user_authid(%1,%2,%3) FixtureAuthId(%1,%2,%3)
 #define client_print FixturePrint
+#define nvault_lookup(%1,%2,%3,%4,%5) FixtureVaultLookup(%1,%2,%3,%4,%5)
 #include <goldsrcops_weapon_selection.sma>
 #undef plugin_init
 #undef is_user_bot
 #undef get_user_authid
 #undef client_print
+#undef nvault_lookup
 
 new g_clients[3];
 new bool:g_human[MAX_PLAYERS + 1];
@@ -21,6 +24,7 @@ new g_failures;
 new g_prints;
 new g_print_target;
 new g_last_print[192];
+new bool:g_fail_readback;
 new const DURABLE_KEY[] = "v1:STEAM_0:1:424242";
 
 public plugin_init()
@@ -48,6 +52,11 @@ FixturePrint(id, type, const message[], any:...)
     g_print_target = id;
     vformat(g_last_print, charsmax(g_last_print), message, 4);
     return strlen(g_last_print);
+}
+
+FixtureVaultLookup(vault, const key[], value[], maxlen, &timestamp)
+{
+    return g_fail_readback ? 0 : nvault_lookup(vault, key, value, maxlen, timestamp);
 }
 
 CheckSaved(bool:passed, const label[])
@@ -198,6 +207,15 @@ CheckPlayerRanks(player, victim)
     copy(g_auth[player], charsmax(g_auth[]), "STEAM_0:1:424246");
     client_putinserver(player);
     g_prints = 0;
+    remove_task(WELCOME_TASK_BASE + player);
+    ShowWelcome(WELCOME_TASK_BASE + player);
+    CheckSaved(g_prints == 2 && g_print_target == player
+        && contain(g_last_print, "Saved rank: Recruit | K 0") >= 0,
+        "first welcome shows private saved progress");
+    ShowWelcome(WELCOME_TASK_BASE + player);
+    CheckSaved(g_prints == 2 && g_stats_next[player][2] == 0.0,
+        "welcome is once and does not consume manual rank cooldown");
+    g_prints = 0;
     ShowPlayerRank(player);
     CheckSaved(g_prints == 1 && g_print_target == player
         && contain(g_last_print, "Saved rank: Recruit | K 0 | 25 kills to Fighter.") >= 0,
@@ -218,14 +236,47 @@ CheckPlayerRanks(player, victim)
         && nvault_lookup(g_stats_vault, key, value, charsmax(value), timestamp)
         && equal(value, "1 24 7"), "rank read preserves existing schema record");
     rg_round_respawn(victim);
+    new prints = g_prints;
     ExecuteHamB(Ham_TakeDamage, victim, player, player, 1000.0, DMG_BULLET);
     CheckSaved(g_saved_kills[player] == 25 && RankForKills(g_saved_kills[player]) == 1,
         "native enemy kill advances rank");
+    CheckSaved(g_prints == prints + 1 && g_print_target == player
+        && contain(g_last_print, "Rank up: Fighter | K 25.") >= 0,
+        "promotion privately follows confirmed native kill");
+    rg_round_respawn(victim);
+    prints = g_prints;
+    ExecuteHamB(Ham_TakeDamage, victim, player, player, 1000.0, DMG_BULLET);
+    CheckSaved(g_saved_kills[player] == 26 && g_prints == prints,
+        "next kill does not repeat promotion");
     client_disconnected(player, false, rejected, charsmax(rejected));
     client_putinserver(player);
     ShowPlayerRank(player);
-    CheckSaved(contain(g_last_print, "Fighter | K 25 | 75 kills to Veteran.") >= 0,
+    CheckSaved(contain(g_last_print, "Fighter | K 26 | 74 kills to Veteran.") >= 0,
         "rank restored after reconnect and cooldown reset");
+
+    for (new rank = 2; rank < sizeof RANK_KILLS; rank++)
+    {
+        formatex(value, charsmax(value), "1 %d 7", RANK_KILLS[rank] - 1);
+        nvault_set(g_stats_vault, key, value);
+        client_putinserver(player);
+        rg_round_respawn(victim);
+        prints = g_prints;
+        ExecuteHamB(Ham_TakeDamage, victim, player, player, 1000.0, DMG_BULLET);
+        new promotion[64];
+        formatex(promotion, charsmax(promotion), "Rank up: %s | K %d.", RANK_NAMES[rank], RANK_KILLS[rank]);
+        CheckSaved(g_prints == prints + 1 && g_print_target == player
+            && contain(g_last_print, promotion) >= 0, "each higher threshold emits one private promotion");
+    }
+
+    nvault_set(g_stats_vault, key, "1 24 7");
+    client_putinserver(player);
+    rg_round_respawn(victim);
+    prints = g_prints;
+    g_fail_readback = true;
+    ExecuteHamB(Ham_TakeDamage, victim, player, player, 1000.0, DMG_BULLET);
+    g_fail_readback = false;
+    CheckSaved(!g_saved_ready[player] && g_saved_blocked[player] && g_prints == prints,
+        "failed storage readback suppresses promotion");
 
     nvault_set(g_stats_vault, key, "1 1000000000 7");
     client_putinserver(player);
@@ -243,7 +294,12 @@ CheckPlayerRanks(player, victim)
     client_putinserver(player);
     ShowPlayerRank(player);
     CheckSaved(contain(g_last_print, "Saved rank unavailable") >= 0, "pending identity has no persistent rank");
-    new prints = g_prints;
+    remove_task(WELCOME_TASK_BASE + player);
+    prints = g_prints;
+    ShowWelcome(WELCOME_TASK_BASE + player);
+    CheckSaved(g_prints == prints + 1 && contain(g_last_print, "/guns:") >= 0,
+        "pending identity welcome never invents a saved rank");
+    prints = g_prints;
     g_stats_next[player][2] = 0.0;
     set_pcvar_num(g_enabled, 0);
     ShowPlayerRank(player);
@@ -257,6 +313,8 @@ CheckPlayerRanks(player, victim)
     CheckSaved(contain(g_last_print, "Saved rank unavailable") >= 0, "unavailable vault never invents a rank");
     g_stats_vault = nvault_open(STATS_VAULT_NAME);
     server_print("PLAYER_RANK_SMOKE=%s failures=%d thresholds=5 read_only=1 native_damage=1",
+        g_failures ? "failed" : "passed", g_failures);
+    server_print("RANK_FEEDBACK_SMOKE=%s failures=%d welcome=private promotion=after_readback",
         g_failures ? "failed" : "passed", g_failures);
 }
 
