@@ -2609,9 +2609,21 @@ attempt and was merged. One stopped-game transition installed 0.8.0 and its
 dictionary; closed vault/journal hashes stayed unchanged. Independent external
 and host checks confirmed the RU/EN menu policy, exact dictionary, open nVault
 without errors, unchanged baseline/map addon/agent invocation, settled queue/
-spool and no new AMXX errors. Real-client Cyrillic rendering remains an explicit
-optional MVP observation; no mandatory session, reboot or soak was added.
+spool and no new AMXX errors. Owner-provided screenshots subsequently confirmed
+legible RU/EN hub/stat/rank output in the tested client viewport; no additional
+mandatory session, reboot or soak was added.
 See the [v2.37 boundary and evidence](v2.37-player-menu.md).
+
+### v2.38 - Bilingual Map Menu
+
+Map addon 0.2.0 translates its menu and private vote messages to RU/EN and
+reads the manual `/menu` language through weapon addon 0.8.1's read-only native.
+Absent/disabled provider falls back to the existing client-language policy.
+Native voting, rotation and `timeleft` remain unchanged. The map dictionary is
+separately hash-bound by schema-2 installation/recovery; no player-data or
+telemetry change is included. Focused engine checks passed with and without the
+provider. Required CI and active-host installation are pending. See the
+[v2.38 boundary](v2.38-map-menu-language.md).
 
 The released v1 baseline includes:
 

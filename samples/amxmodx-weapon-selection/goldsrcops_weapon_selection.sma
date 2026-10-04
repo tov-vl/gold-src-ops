@@ -42,9 +42,27 @@ new bool:g_saved_ready[MAX_PLAYERS + 1];
 new bool:g_saved_blocked[MAX_PLAYERS + 1];
 new g_storage_errors;
 
+public plugin_natives()
+{
+    register_library("goldsrcops_player_menu");
+    register_native("goldsrcops_player_language", "NativePlayerLanguage");
+}
+
+public NativePlayerLanguage(plugin, params)
+{
+    #pragma unused plugin
+    if (params != 1) { return -1; }
+    new id = get_param(1);
+    if (id < 1 || id > MAX_PLAYERS || !is_user_connected(id) || !get_pcvar_num(g_enabled))
+    {
+        return -1;
+    }
+    return PlayerLanguage(id);
+}
+
 public plugin_init()
 {
-    register_plugin("GoldSrcOps Weapon Selection", "0.8.0", "GoldSrcOps");
+    register_plugin("GoldSrcOps Weapon Selection", "0.8.1", "GoldSrcOps");
     if (!register_dictionary("goldsrcops-player-menu.txt"))
     {
         set_fail_state("Player menu dictionary unavailable.");
@@ -130,9 +148,9 @@ public plugin_end()
 
 public OnStatusCommand()
 {
-    server_print("WEAPON_SELECTION_STATUS version=0.8.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
+    server_print("WEAPON_SELECTION_STATUS version=0.8.1 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
         get_pcvar_num(g_enabled) != 0, sizeof WEAPON_NAMES, sizeof PISTOL_NAMES);
-    server_print("PLAYER_MENU_STATUS version=0.8.0 languages=ru,en unset=ru unsupported=en override=connection entries=7 map_commands=delegated");
+    server_print("PLAYER_MENU_STATUS version=0.8.1 languages=ru,en unset=ru unsupported=en override=connection entries=7 map_commands=delegated language_native=1");
     return PLUGIN_HANDLED;
 }
 
@@ -580,7 +598,7 @@ public ShowMapLeaders(id)
 public OnMapStatsStatus()
 {
     new leaders[MAP_LEADER_LIMIT];
-    server_print("MAP_STATS_STATUS version=0.8.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
+    server_print("MAP_STATS_STATUS version=0.8.1 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
         get_pcvar_num(g_enabled) != 0, BuildMapLeaders(leaders));
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
@@ -590,9 +608,9 @@ public OnMapStatsStatus()
             loaded++;
         }
     }
-    server_print("PLAYER_STATS_STATUS version=0.8.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_STATS_STATUS version=0.8.1 storage=%s schema=1 identity=steam loaded=%d errors=%d",
         g_stats_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_storage_errors);
-    server_print("PLAYER_RANK_STATUS version=0.8.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
+    server_print("PLAYER_RANK_STATUS version=0.8.1 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
         get_pcvar_num(g_enabled) != 0);
     return PLUGIN_HANDLED;
 }

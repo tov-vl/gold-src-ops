@@ -157,6 +157,7 @@ jobs:
           $cache = Join-Path $env:RUNNER_TEMP 'map-menu-toolchain'
           ./tools/smoke/amxx-map-menu.ps1 -CacheDirectory $cache
           ./tools/smoke/amxx-map-menu.ps1 -CacheDirectory $cache -RuntimeFixture -Offline
+          ./tools/smoke/amxx-map-menu.ps1 -CacheDirectory $cache -ProviderFixture -Offline
           ./tools/release/build-map-menu-addon.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'map-menu-addon') -Offline
 
       - name: Compile weapon addon and gameplay fixtures, verify package

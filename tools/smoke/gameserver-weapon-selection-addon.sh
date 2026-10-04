@@ -8,6 +8,7 @@ config_name=goldsrcops-weapon-selection.cfg
 loader_name=plugins-goldsrcops-weapons.ini
 config_command='goldsrcops_weapons_enabled "1"'
 purpose=game-host-addon
+dictionary_name=goldsrcops-player-menu.txt
 addon_arguments=()
 if [[ "${1:-}" == --map-menu && "$#" == 1 ]]; then
     kind=map-menu
@@ -17,11 +18,12 @@ if [[ "${1:-}" == --map-menu && "$#" == 1 ]]; then
     loader_name=plugins-goldsrcops-maps.ini
     config_command='goldsrcops_maps_enabled "1"'
     purpose=map-menu-addon
+    dictionary_name=goldsrcops-map-menu.txt
     addon_arguments=(--map-menu)
 elif (($# > 0)); then
     exit 2
 fi
-export TARGET_PLUGIN="$plugin_name" TARGET_CONFIG="$config_name" TARGET_RECEIPT="$kind-installed"
+export TARGET_PLUGIN="$plugin_name" TARGET_CONFIG="$config_name" TARGET_RECEIPT="$kind-installed" TARGET_DICTIONARY="$dictionary_name"
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fixture="$(mktemp -d)"
 trap 'rm -rf -- "$fixture"' EXIT
@@ -47,6 +49,8 @@ if [[ "$kind" == map-menu ]]; then
         printf 'accepted weapon addon sentinel\n' > "$file"
         sentinels+=("$file")
     done
+    printf 'accepted player dictionary sentinel\n' > "$amxx/data/lang/goldsrcops-player-menu.txt"
+    sentinels+=("$amxx/data/lang/goldsrcops-player-menu.txt")
 fi
 before="$(sha256sum "${sentinels[@]}")"
 cp "$repo/ops/gameserver/weapon-selection-addon.sh" "$fixture/scripts/"
@@ -72,7 +76,7 @@ if [[ -e "$FIXTURE_ROOT/game-active" ]]; then echo active; else echo inactive; f
 SH
 cat > "$fixture/bin/install" <<'SH'
 #!/usr/bin/env bash
-if [[ "${!#}" == *goldsrcops-player-menu.txt && -e "$FIXTURE_ROOT/dictionary-fail" ]]; then
+if [[ "${!#}" == *"$TARGET_DICTIONARY" && -e "$FIXTURE_ROOT/dictionary-fail" ]]; then
     printf 'partial dictionary\n' > "${!#}"
     exit 1
 fi
@@ -197,9 +201,9 @@ if [[ "$kind" == map-menu ]]; then
     [[ ! -e "$fixture/config/$kind-disabled-loader" && ! -e "$fixture/config/$kind-installed" ]]
     run --install --bundle "$fixture/package" --manifest-sha256 "$digest" --apply
 fi
-if [[ "$kind" == weapon-selection ]]; then
-    dictionary=cstrike/addons/amxmodx/data/lang/goldsrcops-player-menu.txt
-    live_dictionary="$amxx/data/lang/goldsrcops-player-menu.txt"
+if [[ "$kind" == weapon-selection || "$kind" == map-menu ]]; then
+    dictionary="cstrike/addons/amxmodx/data/lang/$dictionary_name"
+    live_dictionary="$amxx/data/lang/$dictionary_name"
     cp -a "$fixture/next-package" "$fixture/localized-package"
     mkdir -p "$fixture/localized-package/$(dirname "$dictionary")"
     printf '[en]\nGS_MENU = Fixture\n[ru]\nGS_MENU = Fixture\n' > "$fixture/localized-package/$dictionary"
@@ -264,6 +268,18 @@ if [[ "$kind" == weapon-selection ]]; then
     [[ ! -e "$live_dictionary" && ! -L "$live_dictionary" ]]
     run --status | grep -q "${label}_ADDON=disabled"
     run --enable --apply
+    if [[ "$kind" == map-menu ]]; then
+        localized_digest="$(sha256sum "$fixture/localized-package/manifest.json" | cut -d' ' -f1)"
+        localized
+        removal_before="$(sha256sum "$live_dictionary")"
+        touch "$fixture/fail-final-guard"
+        refuse --remove --expected-manifest-sha256 "$localized_digest" --apply
+        [[ "$removal_before" == "$(sha256sum "$live_dictionary")" ]]
+        rm "$fixture/guard-fail"
+        run --remove --expected-manifest-sha256 "$localized_digest" --apply
+        [[ ! -e "$live_dictionary" && ! -L "$live_dictionary" ]]
+        run --install --bundle "$fixture/package" --manifest-sha256 "$digest" --apply
+    fi
 fi
 printf 'drift\n' >> "$amxx/plugins/$plugin_name"
 refuse --disable --apply

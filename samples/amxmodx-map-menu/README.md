@@ -10,6 +10,14 @@ current map is marked and disabled, avoiding a vote that would extend it.
 Only connected human T/CT players can use the voting menu; spectators may
 query time left. Bot and HLTV requests are ignored.
 
+Version 0.2.0 translates the menu title, current-map marker, exit and private
+request/unavailable messages through its own RU/EN dictionary. Weapon addon
+0.8.1 exposes a read-only language native, so the choice in `/menu` also applies
+to `/maps`. Without that provider, or while it is disabled, empty/ru client
+language uses Russian and all other values use English. No client/global
+language or saved player data is changed. Map names, native vote responses and
+the engine's `timeleft` response remain unchanged.
+
 Selections invoke native `votemap`, not `changelevel`. ReGameDLL retains its
 elapsed-time, team/player-count, cooldown and quorum checks. A requested vote
 is not necessarily accepted: the game's result is printed in the console.
@@ -27,10 +35,11 @@ This intentionally does not support arbitrary mapcycle rules or custom maps.
 ```powershell
 ./tools/smoke/amxx-map-menu.ps1 -CacheDirectory <verified-cache> -Offline
 ./tools/smoke/amxx-map-menu.ps1 -CacheDirectory <verified-cache> -RuntimeFixture -Offline
+./tools/smoke/amxx-map-menu.ps1 -CacheDirectory <verified-cache> -ProviderFixture -Offline
 ```
 
 Only `goldsrcops_map_menu.amxx` is the product. Do not install
-`map_menu_smoke.amxx` on a shared or active host: it creates synthetic players
+`map_menu_smoke.amxx` or `map_language_provider_smoke.amxx` on a shared or active host: they create synthetic players
 and changes fixture policy/files. The product defaults to disabled. On a
 disposable local server, load it through AMXX and put
 `goldsrcops_maps_enabled "1"` in
@@ -63,9 +72,11 @@ bash ops/gameserver/weapon-selection-addon.sh --map-menu --remove \
 
 Install/remove remain plan-only without `--apply`; status is read-only. Apply
 requires the reviewed SSH operator, inactive game and existing persistent MP5
-baseline/locks. Only the map binary, config, loader and receipt are owned by
+baseline/locks. Only the map binary, config, loader, its dictionary and receipt are owned by
 this mode. Other addon paths and guards are not accepted as operation inputs.
-The ordinary weapon mode remains the default, with its original paths/schema.
+Schema-2 packages/receipts bind `data/lang/goldsrcops-map-menu.txt`; legacy
+schema-1 packages remain valid reverse inputs. The player-menu dictionary is
+not owned by map operations. The ordinary weapon mode remains the default.
 
 Removal checks the exact installed identity, retains a root-only predecessor
 copy and restores it on failure. It also works while the addon is disabled.
