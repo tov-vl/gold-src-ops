@@ -2622,8 +2622,13 @@ Absent/disabled provider falls back to the existing client-language policy.
 Native voting, rotation and `timeleft` remain unchanged. The map dictionary is
 separately hash-bound by schema-2 installation/recovery; no player-data or
 telemetry change is included. Focused engine checks passed with and without the
-provider. Required CI and active-host installation are pending. See the
-[v2.38 boundary](v2.38-map-menu-language.md).
+provider. PR #251 passed required CI on its first attempt and was merged.
+A private-wrapper checksum parsing failure stopped before game shutdown;
+the authorized corrected retry installed both addons and the map dictionary.
+Independent A2S/addon/host checks passed with retained vault hashes, baseline,
+player dictionary and agent invocation, settled queue/spool and no new AMXX
+errors. Client rendering remains an optional MVP observation. See the
+[v2.38 boundary and acceptance](v2.38-map-menu-language.md).
 
 The released v1 baseline includes:
 
