@@ -1,6 +1,27 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 IFS=$'\n\t'
+kind=weapon-selection
+label=WEAPON_SELECTION
+plugin_name=goldsrcops_weapon_selection.amxx
+config_name=goldsrcops-weapon-selection.cfg
+loader_name=plugins-goldsrcops-weapons.ini
+config_command='goldsrcops_weapons_enabled "1"'
+purpose=game-host-addon
+addon_arguments=()
+if [[ "${1:-}" == --map-menu && "$#" == 1 ]]; then
+    kind=map-menu
+    label=MAP_MENU
+    plugin_name=goldsrcops_map_menu.amxx
+    config_name=goldsrcops-map-menu.cfg
+    loader_name=plugins-goldsrcops-maps.ini
+    config_command='goldsrcops_maps_enabled "1"'
+    purpose=map-menu-addon
+    addon_arguments=(--map-menu)
+elif (($# > 0)); then
+    exit 2
+fi
+export TARGET_PLUGIN="$plugin_name" TARGET_CONFIG="$config_name" TARGET_RECEIPT="$kind-installed"
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fixture="$(mktemp -d)"
 trap 'rm -rf -- "$fixture"' EXIT
@@ -16,7 +37,15 @@ printf 'goldsrcops_game_events.amxx\n' > "$amxx/configs/plugins.ini"
 printf 'telemetry configuration\n' > "$amxx/configs/amxx.cfg"
 printf 'telemetry queue\n' > "$fixture/queue"
 printf 'telemetry spool\n' > "$fixture/spool"
-before="$(sha256sum "$amxx/configs/plugins.ini" "$amxx/configs/amxx.cfg" "$fixture/queue" "$fixture/spool")"
+sentinels=("$amxx/configs/plugins.ini" "$amxx/configs/amxx.cfg" "$fixture/queue" "$fixture/spool")
+if [[ "$kind" == map-menu ]]; then
+    for file in "$amxx/plugins/goldsrcops_weapon_selection.amxx" "$amxx/configs/plugins/goldsrcops-weapon-selection.cfg" \
+        "$amxx/configs/plugins-goldsrcops-weapons.ini" "$fixture/config/weapon-selection-installed"; do
+        printf 'accepted weapon addon sentinel\n' > "$file"
+        sentinels+=("$file")
+    done
+fi
+before="$(sha256sum "${sentinels[@]}")"
 cp "$repo/ops/gameserver/weapon-selection-addon.sh" "$fixture/scripts/"
 # Mock host readiness only; file checks and addon changes use the real workflow.
 cat > "$fixture/scripts/game-event-persistent.sh" <<'SH'
@@ -40,62 +69,67 @@ if [[ -e "$FIXTURE_ROOT/game-active" ]]; then echo active; else echo inactive; f
 SH
 cat > "$fixture/bin/install" <<'SH'
 #!/usr/bin/env bash
-if [[ "${!#}" == *goldsrcops-weapon-selection.cfg && -e "$FIXTURE_ROOT/install-fail" ]]; then exit 1; fi
-if [[ "${!#}" == *goldsrcops_weapon_selection.amxx && -e "$FIXTURE_ROOT/upgrade-fail" ]]; then
+if [[ "${!#}" == *"$TARGET_CONFIG" && -e "$FIXTURE_ROOT/install-fail" ]]; then exit 1; fi
+if [[ "${!#}" == *"$TARGET_PLUGIN" && -e "$FIXTURE_ROOT/upgrade-fail" ]]; then
     printf 'partial binary\n' > "${!#}"
     exit 1
 fi
 exec /usr/bin/install "$@"
 SH
-chmod +x "$fixture/bin/systemctl" "$fixture/bin/install"
+cat > "$fixture/bin/rm" <<'SH'
+#!/usr/bin/env bash
+if [[ "${!#}" == *"$TARGET_RECEIPT" && -e "$FIXTURE_ROOT/remove-fail" ]]; then exit 1; fi
+exec /usr/bin/rm "$@"
+SH
+chmod +x "$fixture/bin/systemctl" "$fixture/bin/install" "$fixture/bin/rm"
 export PATH="$fixture/bin:$PATH"
-plugin=cstrike/addons/amxmodx/plugins/goldsrcops_weapon_selection.amxx
-config=cstrike/addons/amxmodx/configs/plugins/goldsrcops-weapon-selection.cfg
-loader=cstrike/addons/amxmodx/configs/plugins-goldsrcops-weapons.ini
+plugin="cstrike/addons/amxmodx/plugins/$plugin_name"
+config="cstrike/addons/amxmodx/configs/plugins/$config_name"
+loader="cstrike/addons/amxmodx/configs/$loader_name"
 printf 'fixture plugin\n' > "$fixture/package/$plugin"
-printf 'goldsrcops_weapons_enabled "1"\n' > "$fixture/package/$config"
-printf 'goldsrcops_weapon_selection.amxx\n' > "$fixture/package/$loader"
-jq -n --arg plugin "$plugin" --arg config "$config" --arg loader "$loader" \
+printf '%s\n' "$config_command" > "$fixture/package/$config"
+printf '%s\n' "$plugin_name" > "$fixture/package/$loader"
+jq -n --arg plugin "$plugin" --arg config "$config" --arg loader "$loader" --arg purpose "$purpose" \
     --arg p "$(sha256sum "$fixture/package/$plugin" | cut -d' ' -f1)" \
     --arg c "$(sha256sum "$fixture/package/$config" | cut -d' ' -f1)" \
     --arg l "$(sha256sum "$fixture/package/$loader" | cut -d' ' -f1)" \
-    '{schemaVersion:1,purpose:"game-host-addon",productionInstallSupported:true,enabledByDefault:true,
+    '{schemaVersion:1,purpose:$purpose,productionInstallSupported:true,enabledByDefault:true,
       amxxVersion:"1.10.0.5481",reApiVersion:"5.24.0.300",sourceSha256:("a"*64),
       payload:[{path:$plugin,sha256:$p},{path:$config,sha256:$c},{path:$loader,sha256:$l}]}' > "$fixture/package/manifest.json"
 digest="$(sha256sum "$fixture/package/manifest.json" | cut -d' ' -f1)"
-run() { bash "$fixture/scripts/weapon-selection-addon.sh" "$@"; }
+run() { bash "$fixture/scripts/weapon-selection-addon.sh" "${addon_arguments[@]}" "$@"; }
 refuse() { if run "$@" > "$fixture/refusal.log" 2>&1; then echo 'Expected refusal.' >&2; exit 1; fi; }
 
 run --install --bundle /nonexistent --manifest-sha256 "$digest" | grep -q PLAN_ONLY
-[[ ! -e "$fixture/config/weapon-selection-installed" ]]
+[[ ! -e "$fixture/config/$kind-installed" ]]
 touch "$fixture/game-active"
 refuse --install --bundle "$fixture/package" --manifest-sha256 "$digest" --apply
 rm "$fixture/game-active"
 refuse --install --bundle "$fixture/package" --manifest-sha256 "$(printf 'b%.0s' {1..64})" --apply
 touch "$fixture/install-fail"
 refuse --install --bundle "$fixture/package" --manifest-sha256 "$digest" --apply
-[[ ! -e "$amxx/plugins/goldsrcops_weapon_selection.amxx" && ! -e "$fixture/config/weapon-selection-installed" ]]
+[[ ! -e "$amxx/plugins/$plugin_name" && ! -e "$fixture/config/$kind-installed" ]]
 rm "$fixture/install-fail"
 touch "$fixture/fail-final-guard"
 refuse --install --bundle "$fixture/package" --manifest-sha256 "$digest" --apply
-[[ ! -e "$amxx/plugins/goldsrcops_weapon_selection.amxx" && ! -e "$fixture/config/weapon-selection-installed" ]]
+[[ ! -e "$amxx/plugins/$plugin_name" && ! -e "$fixture/config/$kind-installed" ]]
 rm "$fixture/guard-fail"
 run --install --bundle "$fixture/package" --manifest-sha256 "$digest" --apply
-run --status | grep -q 'WEAPON_SELECTION_ADDON=enabled'
+run --status | grep -q "${label}_ADDON=enabled"
 refuse --install --bundle "$fixture/package" --manifest-sha256 "$digest" --apply
-receipt_before="$(sha256sum "$fixture/config/weapon-selection-installed")"
+receipt_before="$(sha256sum "$fixture/config/$kind-installed")"
 touch "$fixture/fail-final-guard"
 refuse --disable --apply
-[[ -f "$amxx/configs/plugins-goldsrcops-weapons.ini" && ! -e "$fixture/config/weapon-selection-disabled-loader" ]]
-[[ "$receipt_before" == "$(sha256sum "$fixture/config/weapon-selection-installed")" ]]
+[[ -f "$amxx/configs/$loader_name" && ! -e "$fixture/config/$kind-disabled-loader" ]]
+[[ "$receipt_before" == "$(sha256sum "$fixture/config/$kind-installed")" ]]
 rm "$fixture/guard-fail"
 run --disable --apply
-[[ ! -e "$amxx/configs/plugins-goldsrcops-weapons.ini" ]]
-[[ -f "$fixture/config/weapon-selection-disabled-loader" ]]
-run --status | grep -q 'WEAPON_SELECTION_ADDON=disabled'
+[[ ! -e "$amxx/configs/$loader_name" ]]
+[[ -f "$fixture/config/$kind-disabled-loader" ]]
+run --status | grep -q "${label}_ADDON=disabled"
 run --disable --apply | grep -q unchanged
 run --enable --apply
-run --status | grep -q 'WEAPON_SELECTION_ADDON=enabled'
+run --status | grep -q "${label}_ADDON=enabled"
 
 # Upgrade retains the loader/config, rejects a stale predecessor and restores
 # the exact binary/receipt on partial-copy or final-guard failure.
@@ -109,33 +143,56 @@ upgrade() { run --upgrade --bundle "$fixture/next-package" --manifest-sha256 "$n
 upgrade | grep -q PLAN_ONLY
 refuse --upgrade --bundle "$fixture/next-package" --manifest-sha256 "$next_digest" --apply
 refuse --upgrade --bundle "$fixture/next-package" --manifest-sha256 "$next_digest" --expected-manifest-sha256 "$(printf 'b%.0s' {1..64})" --apply
-original_binary="$(sha256sum "$amxx/plugins/goldsrcops_weapon_selection.amxx")"
-original_receipt="$(sha256sum "$fixture/config/weapon-selection-installed")"
+original_binary="$(sha256sum "$amxx/plugins/$plugin_name")"
+original_receipt="$(sha256sum "$fixture/config/$kind-installed")"
 touch "$fixture/upgrade-fail"
 if upgrade --apply > "$fixture/refusal.log" 2>&1; then exit 1; fi
-[[ "$original_binary" == "$(sha256sum "$amxx/plugins/goldsrcops_weapon_selection.amxx")" ]]
-[[ "$original_receipt" == "$(sha256sum "$fixture/config/weapon-selection-installed")" ]]
+[[ "$original_binary" == "$(sha256sum "$amxx/plugins/$plugin_name")" ]]
+[[ "$original_receipt" == "$(sha256sum "$fixture/config/$kind-installed")" ]]
 rm "$fixture/upgrade-fail"
 touch "$fixture/fail-final-guard"
 if upgrade --apply > "$fixture/refusal.log" 2>&1; then exit 1; fi
-[[ "$original_binary" == "$(sha256sum "$amxx/plugins/goldsrcops_weapon_selection.amxx")" ]]
-[[ "$original_receipt" == "$(sha256sum "$fixture/config/weapon-selection-installed")" ]]
+[[ "$original_binary" == "$(sha256sum "$amxx/plugins/$plugin_name")" ]]
+[[ "$original_receipt" == "$(sha256sum "$fixture/config/$kind-installed")" ]]
 rm "$fixture/guard-fail"
 upgrade --apply
-run --status | grep -q 'WEAPON_SELECTION_ADDON=enabled'
-[[ "$(sed -n 's/^manifest_sha256=//p' "$fixture/config/weapon-selection-installed")" == "$next_digest" ]]
-[[ "$(sha256sum "$amxx/plugins/goldsrcops_weapon_selection.amxx" | cut -d' ' -f1)" == "$(sha256sum "$fixture/next-package/$plugin" | cut -d' ' -f1)" ]]
+run --status | grep -q "${label}_ADDON=enabled"
+[[ "$(sed -n 's/^manifest_sha256=//p' "$fixture/config/$kind-installed")" == "$next_digest" ]]
+[[ "$(sha256sum "$amxx/plugins/$plugin_name" | cut -d' ' -f1)" == "$(sha256sum "$fixture/next-package/$plugin" | cut -d' ' -f1)" ]]
 refuse --upgrade --bundle "$fixture/next-package" --manifest-sha256 "$next_digest" --expected-manifest-sha256 "$digest" --apply
 run --disable --apply
 # The previous trusted package is also the explicit reverse-upgrade input.
 run --upgrade --bundle "$fixture/package" --manifest-sha256 "$digest" --expected-manifest-sha256 "$next_digest" --apply
-run --status | grep -q 'WEAPON_SELECTION_ADDON=disabled'
-[[ ! -e "$amxx/configs/plugins-goldsrcops-weapons.ini" ]]
-[[ "$original_binary" == "$(sha256sum "$amxx/plugins/goldsrcops_weapon_selection.amxx")" ]]
+run --status | grep -q "${label}_ADDON=disabled"
+[[ ! -e "$amxx/configs/$loader_name" ]]
+[[ "$original_binary" == "$(sha256sum "$amxx/plugins/$plugin_name")" ]]
 run --enable --apply
-printf 'drift\n' >> "$amxx/plugins/goldsrcops_weapon_selection.amxx"
+if [[ "$kind" == map-menu ]]; then
+    removal_before="$(sha256sum "$amxx/plugins/$plugin_name" "$amxx/configs/plugins/$config_name" \
+        "$amxx/configs/$loader_name" "$fixture/config/$kind-installed")"
+    refuse --remove --expected-manifest-sha256 "$(printf 'b%.0s' {1..64})" --apply
+    touch "$fixture/remove-fail"
+    refuse --remove --expected-manifest-sha256 "$digest" --apply
+    rm "$fixture/remove-fail"
+    [[ "$removal_before" == "$(sha256sum "$amxx/plugins/$plugin_name" "$amxx/configs/plugins/$config_name" \
+        "$amxx/configs/$loader_name" "$fixture/config/$kind-installed")" ]]
+    touch "$fixture/fail-final-guard"
+    refuse --remove --expected-manifest-sha256 "$digest" --apply
+    rm "$fixture/guard-fail"
+    [[ "$removal_before" == "$(sha256sum "$amxx/plugins/$plugin_name" "$amxx/configs/plugins/$config_name" \
+        "$amxx/configs/$loader_name" "$fixture/config/$kind-installed")" ]]
+    run --remove --expected-manifest-sha256 "$digest" --apply
+    [[ ! -e "$amxx/plugins/$plugin_name" && ! -e "$amxx/configs/plugins/$config_name" \
+        && ! -e "$amxx/configs/$loader_name" && ! -e "$fixture/config/$kind-installed" ]]
+    run --install --bundle "$fixture/package" --manifest-sha256 "$digest" --apply
+    run --disable --apply
+    run --remove --expected-manifest-sha256 "$digest" --apply
+    [[ ! -e "$fixture/config/$kind-disabled-loader" && ! -e "$fixture/config/$kind-installed" ]]
+    run --install --bundle "$fixture/package" --manifest-sha256 "$digest" --apply
+fi
+printf 'drift\n' >> "$amxx/plugins/$plugin_name"
 refuse --disable --apply
-[[ -f "$amxx/configs/plugins-goldsrcops-weapons.ini" ]]
-after="$(sha256sum "$amxx/configs/plugins.ini" "$amxx/configs/amxx.cfg" "$fixture/queue" "$fixture/spool")"
+[[ -f "$amxx/configs/$loader_name" ]]
+after="$(sha256sum "${sentinels[@]}")"
 [[ "$before" == "$after" ]] || { echo 'Telemetry changed.' >&2; exit 1; }
-echo 'WEAPON_SELECTION_ADDON_SMOKE=passed'
+echo "${label}_ADDON_SMOKE=passed"

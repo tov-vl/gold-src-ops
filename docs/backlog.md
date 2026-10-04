@@ -2489,6 +2489,14 @@ separate; human menu/quorum and spawn-balance results are not claimed. See the
 gate, reboot, soak, credential input or stable publication is required for
 this implementation stage.
 
+The following bounded addon step reuses the stopped-game installer with the
+fixed `--map-menu` selector and separate package/receipt/loader. Focused package
+and filesystem checks cover install, identity refusals, rollback and exact
+removal while preserving weapons and telemetry. A host rollout uses one short
+stop/install/start and A2S/plugin/configuration acceptance, without a new OAuth
+prompt, agent restart, reboot, soak or stable tag. See the same v2.31 record for
+the source/binary identity, recovery boundary and client limitations.
+
 The released v1 baseline includes:
 
 - One-command local startup.
