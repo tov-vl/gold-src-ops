@@ -19,6 +19,7 @@ new bool:g_human[MAX_PLAYERS + 1];
 new g_auth[MAX_PLAYERS + 1][32];
 new g_failures;
 new g_prints;
+new g_print_target;
 new g_last_print[192];
 new const DURABLE_KEY[] = "v1:STEAM_0:1:424242";
 
@@ -42,8 +43,9 @@ FixtureAuthId(id, buffer[], length)
 
 FixturePrint(id, type, const message[], any:...)
 {
-    #pragma unused id, type
+    #pragma unused type
     g_prints++;
+    g_print_target = id;
     vformat(g_last_print, charsmax(g_last_print), message, 4);
     return strlen(g_last_print);
 }
@@ -176,9 +178,86 @@ public RunPersistentStatsSmoke()
     copy(g_auth[player], charsmax(g_auth[]), "STEAM_0:1:424242");
     client_putinserver(player);
     CheckSaved(g_saved_ready[player] && g_saved_kills[player] == 1, "closed and reopened real vault restores totals");
+    CheckPlayerRanks(player, victim);
     server_print("PERSISTENT_STATS_SMOKE=%s failures=%d real_nvault=1 native_damage=1",
         g_failures ? "failed" : "passed", g_failures);
     return PLUGIN_HANDLED;
+}
+
+CheckPlayerRanks(player, victim)
+{
+    new const kills[] = { 0, 24, 25, 99, 100, 249, 250, 499, 500, STATS_COUNTER_LIMIT };
+    new const ranks[] = { 0, 0, 1, 1, 2, 2, 3, 3, 4, 4 };
+    for (new index = 0; index < sizeof kills; index++)
+    {
+        CheckSaved(RankForKills(kills[index]) == ranks[index], "rank threshold boundary");
+    }
+    new const key[] = "v1:STEAM_0:1:424246";
+    new value[64], timestamp, rejected[128];
+    nvault_remove(g_stats_vault, key);
+    copy(g_auth[player], charsmax(g_auth[]), "STEAM_0:1:424246");
+    client_putinserver(player);
+    g_prints = 0;
+    ShowPlayerRank(player);
+    CheckSaved(g_prints == 1 && g_print_target == player
+        && contain(g_last_print, "Saved rank: Recruit | K 0 | 25 kills to Fighter.") >= 0,
+        "private initial rank from saved totals");
+    CheckSaved(!nvault_lookup(g_stats_vault, key, value, charsmax(value), timestamp), "rank query never creates a zero record");
+    ShowPlayerRank(player);
+    CheckSaved(g_prints == 1, "rank repeat throttled");
+    ShowMapStats(player);
+    CheckSaved(g_prints == 2, "rank cooldown independent of stats");
+    g_stats_next[player][2] = get_gametime();
+    ShowPlayerRank(player);
+    CheckSaved(g_prints == 3, "rank cooldown expires");
+
+    nvault_set(g_stats_vault, key, "1 24 7");
+    client_putinserver(player);
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Recruit | K 24 | 1 kills to Fighter.") >= 0
+        && nvault_lookup(g_stats_vault, key, value, charsmax(value), timestamp)
+        && equal(value, "1 24 7"), "rank read preserves existing schema record");
+    rg_round_respawn(victim);
+    ExecuteHamB(Ham_TakeDamage, victim, player, player, 1000.0, DMG_BULLET);
+    CheckSaved(g_saved_kills[player] == 25 && RankForKills(g_saved_kills[player]) == 1,
+        "native enemy kill advances rank");
+    client_disconnected(player, false, rejected, charsmax(rejected));
+    client_putinserver(player);
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Fighter | K 25 | 75 kills to Veteran.") >= 0,
+        "rank restored after reconnect and cooldown reset");
+
+    nvault_set(g_stats_vault, key, "1 1000000000 7");
+    client_putinserver(player);
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Legend | K 1000000000 | Highest rank reached.") >= 0,
+        "highest rank has no overflow or next tier");
+    nvault_set(g_stats_vault, key, "2 99 99");
+    client_putinserver(player);
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Saved rank unavailable") >= 0
+        && nvault_lookup(g_stats_vault, key, value, charsmax(value), timestamp)
+        && equal(value, "2 99 99"), "corrupt record never produces a saved rank or overwrite");
+
+    copy(g_auth[player], charsmax(g_auth[]), "STEAM_ID_PENDING");
+    client_putinserver(player);
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Saved rank unavailable") >= 0, "pending identity has no persistent rank");
+    new prints = g_prints;
+    g_stats_next[player][2] = 0.0;
+    set_pcvar_num(g_enabled, 0);
+    ShowPlayerRank(player);
+    CheckSaved(g_prints == prints, "disabled rank emits nothing");
+    set_pcvar_num(g_enabled, 1);
+    nvault_close(g_stats_vault);
+    g_stats_vault = INVALID_HANDLE;
+    copy(g_auth[player], charsmax(g_auth[]), "STEAM_0:1:424246");
+    client_putinserver(player);
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Saved rank unavailable") >= 0, "unavailable vault never invents a rank");
+    g_stats_vault = nvault_open(STATS_VAULT_NAME);
+    server_print("PLAYER_RANK_SMOKE=%s failures=%d thresholds=5 read_only=1 native_damage=1",
+        g_failures ? "failed" : "passed", g_failures);
 }
 
 public SeedRestartStats()

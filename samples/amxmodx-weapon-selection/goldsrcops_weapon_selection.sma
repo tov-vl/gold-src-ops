@@ -17,6 +17,8 @@ const WELCOME_TASK_BASE = 1000;
 const MAP_LEADER_LIMIT = 5;
 const STATS_COUNTER_LIMIT = 1000000000;
 new const STATS_VAULT_NAME[] = "goldsrcops-player-stats-v1";
+new const RANK_NAMES[][] = { "Recruit", "Fighter", "Veteran", "Elite", "Legend" };
+new const RANK_KILLS[] = { 0, 25, 100, 250, 500 };
 
 new g_enabled;
 new g_menu;
@@ -26,7 +28,7 @@ new g_pistol_choice[MAX_PLAYERS + 1];
 new bool:g_welcomed[MAX_PLAYERS + 1];
 new g_map_kills[MAX_PLAYERS + 1];
 new g_map_deaths[MAX_PLAYERS + 1];
-new Float:g_stats_next[MAX_PLAYERS + 1][2];
+new Float:g_stats_next[MAX_PLAYERS + 1][3];
 new g_stats_vault = INVALID_HANDLE;
 new g_saved_key[MAX_PLAYERS + 1][40];
 new g_saved_kills[MAX_PLAYERS + 1];
@@ -37,7 +39,7 @@ new g_storage_errors;
 
 public plugin_init()
 {
-    register_plugin("GoldSrcOps Weapon Selection", "0.5.0", "GoldSrcOps");
+    register_plugin("GoldSrcOps Weapon Selection", "0.6.0", "GoldSrcOps");
     g_stats_vault = nvault_open(STATS_VAULT_NAME);
     if (g_stats_vault == INVALID_HANDLE)
     {
@@ -55,6 +57,9 @@ public plugin_init()
     register_clcmd("say /top", "ShowMapLeaders");
     register_clcmd("say_team /top", "ShowMapLeaders");
     register_clcmd("top", "ShowMapLeaders");
+    register_clcmd("say /rank", "ShowPlayerRank");
+    register_clcmd("say_team /rank", "ShowPlayerRank");
+    register_clcmd("rank", "ShowPlayerRank");
     register_srvcmd("goldsrcops_stats_status", "OnMapStatsStatus");
     register_event("DeathMsg", "OnMapStatsDeath", "a");
     RegisterHookChain(RG_CBasePlayer_Spawn, "OnSpawnPost", true);
@@ -84,7 +89,7 @@ public plugin_end()
 
 public OnStatusCommand()
 {
-    server_print("WEAPON_SELECTION_STATUS version=0.5.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1",
+    server_print("WEAPON_SELECTION_STATUS version=0.6.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
         get_pcvar_num(g_enabled) != 0, sizeof WEAPON_NAMES, sizeof PISTOL_NAMES);
     return PLUGIN_HANDLED;
 }
@@ -215,7 +220,7 @@ public ShowWelcome(task_id)
     }
 
     g_welcomed[id] = true;
-    client_print(id, print_chat, "[GoldSrcOps] /guns: next-spawn weapons | /stats: your score | /top: map leaders | /maps | /timeleft");
+    client_print(id, print_chat, "[GoldSrcOps] /guns: next-spawn weapons | /stats: score | /rank: progress | /top: map leaders | /maps | /timeleft");
     new menu, keys;
     // Do not replace a team/class menu or another plugin's active menu.
     if (!get_user_menu(id, menu, keys))
@@ -259,8 +264,10 @@ ResetMapStats(id)
 {
     g_map_kills[id] = 0;
     g_map_deaths[id] = 0;
-    g_stats_next[id][0] = 0.0;
-    g_stats_next[id][1] = 0.0;
+    for (new command = 0; command < sizeof g_stats_next[]; command++)
+    {
+        g_stats_next[id][command] = 0.0;
+    }
 }
 
 bool:IsStatsClient(id)
@@ -344,6 +351,44 @@ public ShowMapStats(id)
     return PLUGIN_HANDLED;
 }
 
+RankForKills(kills)
+{
+    for (new rank = sizeof RANK_KILLS - 1; rank > 0; rank--)
+    {
+        if (kills >= RANK_KILLS[rank])
+        {
+            return rank;
+        }
+    }
+    return 0;
+}
+
+public ShowPlayerRank(id)
+{
+    if (!AllowStatsCommand(id, 2))
+    {
+        return PLUGIN_HANDLED;
+    }
+    EnsureSavedStats(id);
+    if (!g_saved_ready[id])
+    {
+        client_print(id, print_chat, "[GoldSrcOps] Saved rank unavailable on this connection. /stats shows your unsaved map score.");
+        return PLUGIN_HANDLED;
+    }
+    new rank = RankForKills(g_saved_kills[id]);
+    if (rank == sizeof RANK_KILLS - 1)
+    {
+        client_print(id, print_chat, "[GoldSrcOps] Saved rank: %s | K %d | Highest rank reached.",
+            RANK_NAMES[rank], g_saved_kills[id]);
+    }
+    else
+    {
+        client_print(id, print_chat, "[GoldSrcOps] Saved rank: %s | K %d | %d kills to %s.",
+            RANK_NAMES[rank], g_saved_kills[id], RANK_KILLS[rank + 1] - g_saved_kills[id], RANK_NAMES[rank + 1]);
+    }
+    return PLUGIN_HANDLED;
+}
+
 BuildMapLeaders(leaders[MAP_LEADER_LIMIT])
 {
     new count;
@@ -414,7 +459,7 @@ public ShowMapLeaders(id)
 public OnMapStatsStatus()
 {
     new leaders[MAP_LEADER_LIMIT];
-    server_print("MAP_STATS_STATUS version=0.5.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
+    server_print("MAP_STATS_STATUS version=0.6.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
         get_pcvar_num(g_enabled) != 0, BuildMapLeaders(leaders));
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
@@ -424,8 +469,10 @@ public OnMapStatsStatus()
             loaded++;
         }
     }
-    server_print("PLAYER_STATS_STATUS version=0.5.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_STATS_STATUS version=0.6.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
         g_stats_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_storage_errors);
+    server_print("PLAYER_RANK_STATUS version=0.6.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none",
+        get_pcvar_num(g_enabled) != 0);
     return PLUGIN_HANDLED;
 }
 

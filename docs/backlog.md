@@ -2551,9 +2551,25 @@ Map-leader, first-spawn, nine-loadout regression and package checks passed.
 PR #243 passed required CI on its first attempt and was merged. The frozen
 0.5.0 addon is installed; independent external/host checks confirmed open
 nVault with zero errors, owner-only storage, unchanged baseline/map/agent and
-settled queue/spool. Real-player authorization/chat and abrupt disk-failure
-durability remain untested MVP limits. See the
+settled queue/spool. The owner confirmed one real-client `/stats` display,
+death increment and reconnect restoration (`D: 0 -> 1 -> 1`). Multiplayer
+scoring and abrupt disk-failure durability remain untested MVP limits. See the
 [v2.34 boundary and acceptance](v2.34-persistent-stats.md).
+
+### v2.35 - Player Ranks
+
+Addon 0.6.0 adds private `/rank` progress tiers from the existing saved enemy
+kill count: Recruit, Fighter, Veteran, Elite and Legend at 0/25/100/250/500.
+No separate XP/rank storage, rewards, public leaderboard or API change is
+included. Unknown identity/storage remains explicitly unavailable; `/stats`
+and connection/map `/top` keep their accepted semantics.
+
+Pinned product/fixture compilation and one isolated real-nVault/native-damage
+smoke passed, including tier boundaries, kill promotion, reconnect, private
+output, independent cooldown and read-only/fallback behavior. The frozen addon
+package passed inventory/hash/no-overwrite checks. PR CI and pilot installation
+remain pending; no host mutation occurred.
+See the [v2.35 boundary and evidence](v2.35-player-ranks.md).
 
 The released v1 baseline includes:
 
