@@ -2420,9 +2420,10 @@ publication remains open; unrelated product development may continue. See the
 
 ### v2.29 Weapon Selection
 
-Status: local prototype and separate game-host addon prepared; focused package,
-install/toggle/rollback and two-plugin runtime checks passed. The earlier short
-local client test was reported successful. Active-host installation is pending.
+Status: addon installed on the active game host on 2026-10-04; bounded A2S,
+two-plugin loading/configuration and baseline-preservation checks passed.
+The earlier short local client test was reported successful; stable publication
+and additional gameplay claims remain separate.
 
 The next small gameplay experiment adds MP5, AK-47, and M4A1 selection for
 either team. The choice applies at the next spawn, lasts for the connection,
@@ -2437,9 +2438,14 @@ local client result, not active-host acceptance or multiplayer validation.
 The addon now has its own supplemental loader, auto-executed configuration,
 hash receipt and stopped-game install/enable/disable workflow. It leaves the
 original telemetry files, persistent guard, boot policy, queue and spool alone.
-Version `0.1.1` changes configuration loading only. No game-host changes,
-pilot allowlist expansion, or release publication were made. The next step is
-one bounded host installation, not another full local test/rehearsal cycle.
+Version `0.1.1` changes configuration loading only. One brief host game
+stop/install/start completed from reviewed PR #232 without a mutating retry.
+External A2S and both plugins passed, queue/spool stayed empty and the existing
+agent invocation, baseline hashes, persistent guard and boot policy were
+preserved. The missing dedicated addon-config directory was created; the pilot
+payload allowlist was not expanded. No new human session, reboot exercise,
+long soak, API/Web rollout or stable publication was performed. Installation
+acceptance does not claim new active-host inventory or multiplayer validation.
 See the [v2.29 prototype boundary](v2.29-weapon-selection.md).
 
 The released v1 baseline includes:
