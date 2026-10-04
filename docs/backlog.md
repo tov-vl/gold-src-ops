@@ -2538,6 +2538,18 @@ invocation, settled queue/spool and no new AMXX errors. Human chat rendering
 and multiplayer balance remain untested, not mandatory MVP gates. See the
 [v2.33 boundary and acceptance](v2.33-map-stats.md).
 
+### v2.34 - Persistent Player Stats
+
+The existing gameplay addon 0.5.0 saves human `/stats` totals by canonical
+SteamID in a local schema-1 nVault. `/top` remains connection/map-local.
+Unknown/shared identities stay explicitly unsaved; no nickname/IP fallback,
+rank, global leaderboard, API, database or telemetry changes are included.
+
+Focused real-nVault/native-death, reconnect, late authorization, duplicate
+identity, malformed-record, map reload and new-process recovery checks passed.
+Map-leader, first-spawn, nine-loadout regression and package checks passed. Required PR CI and
+pilot upgrade remain pending. See the [v2.34 boundary](v2.34-persistent-stats.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.

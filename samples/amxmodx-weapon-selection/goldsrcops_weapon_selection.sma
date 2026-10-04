@@ -3,6 +3,7 @@
 
 #include <amxmodx>
 #include <reapi>
+#include <nvault>
 
 new const WEAPON_NAMES[][] = { "MP5", "AK-47", "M4A1" };
 new const WEAPON_CLASSES[][] = { "weapon_mp5navy", "weapon_ak47", "weapon_m4a1" };
@@ -14,6 +15,8 @@ new const WeaponIdType:PISTOL_IDS[] = { WEAPON_USP, WEAPON_GLOCK18, WEAPON_DEAGL
 new const PISTOL_AMMO[] = { 100, 120, 35 };
 const WELCOME_TASK_BASE = 1000;
 const MAP_LEADER_LIMIT = 5;
+const STATS_COUNTER_LIMIT = 1000000000;
+new const STATS_VAULT_NAME[] = "goldsrcops-player-stats-v1";
 
 new g_enabled;
 new g_menu;
@@ -24,10 +27,22 @@ new bool:g_welcomed[MAX_PLAYERS + 1];
 new g_map_kills[MAX_PLAYERS + 1];
 new g_map_deaths[MAX_PLAYERS + 1];
 new Float:g_stats_next[MAX_PLAYERS + 1][2];
+new g_stats_vault = INVALID_HANDLE;
+new g_saved_key[MAX_PLAYERS + 1][40];
+new g_saved_kills[MAX_PLAYERS + 1];
+new g_saved_deaths[MAX_PLAYERS + 1];
+new bool:g_saved_ready[MAX_PLAYERS + 1];
+new bool:g_saved_blocked[MAX_PLAYERS + 1];
+new g_storage_errors;
 
 public plugin_init()
 {
-    register_plugin("GoldSrcOps Weapon Selection", "0.4.0", "GoldSrcOps");
+    register_plugin("GoldSrcOps Weapon Selection", "0.5.0", "GoldSrcOps");
+    g_stats_vault = nvault_open(STATS_VAULT_NAME);
+    if (g_stats_vault == INVALID_HANDLE)
+    {
+        log_amx("Player stats storage unavailable; connection/map stats remain available.");
+    }
     g_enabled = register_cvar("goldsrcops_weapons_enabled", "0");
     AutoExecConfig(false, "goldsrcops-weapon-selection");
     register_clcmd("say /guns", "OpenWeapons");
@@ -60,11 +75,16 @@ public plugin_end()
 {
     menu_destroy(g_menu);
     menu_destroy(g_pistol_menu);
+    if (g_stats_vault != INVALID_HANDLE)
+    {
+        nvault_close(g_stats_vault);
+        g_stats_vault = INVALID_HANDLE;
+    }
 }
 
 public OnStatusCommand()
 {
-    server_print("WEAPON_SELECTION_STATUS version=0.4.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1",
+    server_print("WEAPON_SELECTION_STATUS version=0.5.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1",
         get_pcvar_num(g_enabled) != 0, sizeof WEAPON_NAMES, sizeof PISTOL_NAMES);
     return PLUGIN_HANDLED;
 }
@@ -76,6 +96,15 @@ public client_putinserver(id)
     g_choice[id] = 0;
     g_pistol_choice[id] = 0;
     ResetMapStats(id);
+    ResetSavedStats(id);
+    EnsureSavedStats(id);
+}
+
+public client_authorized(id, const authid[])
+{
+    #pragma unused authid
+    // Authorization can arrive before or after client_putinserver.
+    EnsureSavedStats(id);
 }
 
 public client_disconnected(id)
@@ -85,6 +114,7 @@ public client_disconnected(id)
     g_choice[id] = 0;
     g_pistol_choice[id] = 0;
     ResetMapStats(id);
+    ResetSavedStats(id);
 }
 
 bool:IsPlaying(id)
@@ -255,11 +285,23 @@ RecordMapDeath(killer, victim)
     {
         return;
     }
-    g_map_deaths[victim]++;
+    EnsureSavedStats(victim);
+    g_map_deaths[victim] = min(g_map_deaths[victim], STATS_COUNTER_LIMIT - 1) + 1;
+    if (g_saved_ready[victim])
+    {
+        g_saved_deaths[victim] = min(g_saved_deaths[victim], STATS_COUNTER_LIMIT - 1) + 1;
+        SavePlayerStats(victim);
+    }
     if (killer != 0 && killer != victim
         && get_member(killer, m_iTeam) != get_member(victim, m_iTeam))
     {
-        g_map_kills[killer]++;
+        EnsureSavedStats(killer);
+        g_map_kills[killer] = min(g_map_kills[killer], STATS_COUNTER_LIMIT - 1) + 1;
+        if (g_saved_ready[killer])
+        {
+            g_saved_kills[killer] = min(g_saved_kills[killer], STATS_COUNTER_LIMIT - 1) + 1;
+            SavePlayerStats(killer);
+        }
     }
 }
 
@@ -287,8 +329,17 @@ public ShowMapStats(id)
 {
     if (AllowStatsCommand(id, 0))
     {
-        client_print(id, print_chat, "[GoldSrcOps] This connection/map: K %d | D %d | K/D %.2f (minimum 1 death).",
-            g_map_kills[id], g_map_deaths[id], MapKillDeathRatio(id));
+        EnsureSavedStats(id);
+        if (g_saved_ready[id])
+        {
+            client_print(id, print_chat, "[GoldSrcOps] Saved totals: K %d | D %d | K/D %.2f (minimum 1 death).",
+                g_saved_kills[id], g_saved_deaths[id], float(g_saved_kills[id]) / float(max(g_saved_deaths[id], 1)));
+        }
+        else
+        {
+            client_print(id, print_chat, "[GoldSrcOps] This connection/map (not saved): K %d | D %d | K/D %.2f (minimum 1 death).",
+                g_map_kills[id], g_map_deaths[id], MapKillDeathRatio(id));
+        }
     }
     return PLUGIN_HANDLED;
 }
@@ -363,7 +414,140 @@ public ShowMapLeaders(id)
 public OnMapStatsStatus()
 {
     new leaders[MAP_LEADER_LIMIT];
-    server_print("MAP_STATS_STATUS version=0.4.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
+    server_print("MAP_STATS_STATUS version=0.5.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
         get_pcvar_num(g_enabled) != 0, BuildMapLeaders(leaders));
+    new loaded;
+    for (new id = 1; id <= MaxClients; id++)
+    {
+        if (IsStatsClient(id) && g_saved_ready[id])
+        {
+            loaded++;
+        }
+    }
+    server_print("PLAYER_STATS_STATUS version=0.5.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+        g_stats_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_storage_errors);
     return PLUGIN_HANDLED;
+}
+
+ResetSavedStats(id)
+{
+    g_saved_key[id][0] = 0;
+    g_saved_kills[id] = 0;
+    g_saved_deaths[id] = 0;
+    g_saved_ready[id] = false;
+    g_saved_blocked[id] = false;
+}
+
+bool:BuildStatsKey(const authid[], key[], length)
+{
+    key[0] = 0;
+    if (strlen(authid) < 11 || !equal(authid, "STEAM_", 6)
+        || (authid[6] != '0' && authid[6] != '1') || authid[7] != ':'
+        || (authid[8] != '0' && authid[8] != '1') || authid[9] != ':')
+    {
+        return false;
+    }
+    new digits = strlen(authid) - 10;
+    if (digits > 10 || (digits > 1 && authid[10] == '0'))
+    {
+        return false;
+    }
+    for (new index = 10; authid[index]; index++)
+    {
+        if (authid[index] < '0' || authid[index] > '9')
+        {
+            return false;
+        }
+    }
+    if ((digits == 10 && strcmp(authid[10], "2147483647") > 0)
+        || (authid[8] == '0' && equal(authid[10], "0")))
+    {
+        return false;
+    }
+    // CS 1.6 may render the same public Steam account in universe 0 or 1.
+    formatex(key, length, "v1:STEAM_0:%c:%s", authid[8], authid[10]);
+    return true;
+}
+
+bool:ParseStatsCounter(const text[], &value)
+{
+    value = 0;
+    if (!text[0])
+    {
+        return false;
+    }
+    for (new index = 0; text[index]; index++)
+    {
+        if (text[index] < '0' || text[index] > '9'
+            || value > (STATS_COUNTER_LIMIT - (text[index] - '0')) / 10)
+        {
+            return false;
+        }
+        value = value * 10 + text[index] - '0';
+    }
+    return true;
+}
+
+bool:DecodeSavedStats(const value[], &kills, &deaths)
+{
+    new schema[8], kill_text[16], death_text[16], extra[8], canonical[40];
+    if (parse(value, schema, charsmax(schema), kill_text, charsmax(kill_text),
+        death_text, charsmax(death_text), extra, charsmax(extra)) != 3
+        || !equal(schema, "1") || !ParseStatsCounter(kill_text, kills)
+        || !ParseStatsCounter(death_text, deaths))
+    {
+        return false;
+    }
+    formatex(canonical, charsmax(canonical), "1 %d %d", kills, deaths);
+    return bool:equal(value, canonical);
+}
+
+EnsureSavedStats(id)
+{
+    if (g_stats_vault == INVALID_HANDLE || !IsStatsClient(id)
+        || g_saved_ready[id] || g_saved_blocked[id])
+    {
+        return;
+    }
+    new authid[32], key[40];
+    get_user_authid(id, authid, charsmax(authid));
+    if (!BuildStatsKey(authid, key, charsmax(key)))
+    {
+        return;
+    }
+    for (new other = 1; other <= MaxClients; other++)
+    {
+        if (other != id && g_saved_ready[other] && equal(g_saved_key[other], key))
+        {
+            return;
+        }
+    }
+    new value[64], timestamp, kills, deaths;
+    if (nvault_lookup(g_stats_vault, key, value, charsmax(value), timestamp)
+        && !DecodeSavedStats(value, kills, deaths))
+    {
+        g_saved_blocked[id] = true;
+        g_storage_errors++;
+        log_amx("Player stats record rejected; existing data retained, connection/map stats only.");
+        return;
+    }
+    copy(g_saved_key[id], charsmax(g_saved_key[]), key);
+    g_saved_kills[id] = kills;
+    g_saved_deaths[id] = deaths;
+    g_saved_ready[id] = true;
+}
+
+SavePlayerStats(id)
+{
+    new value[40], stored[64], timestamp;
+    formatex(value, charsmax(value), "1 %d %d", g_saved_kills[id], g_saved_deaths[id]);
+    nvault_set(g_stats_vault, g_saved_key[id], value);
+    if (!nvault_lookup(g_stats_vault, g_saved_key[id], stored, charsmax(stored), timestamp)
+        || !equal(value, stored))
+    {
+        g_saved_ready[id] = false;
+        g_saved_blocked[id] = true;
+        g_storage_errors++;
+        log_amx("Player stats readback failed; connection/map stats only until reconnect.");
+    }
 }
