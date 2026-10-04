@@ -2604,8 +2604,13 @@ The map addon still owns map voting/time-left behavior and its English text.
 Focused bilingual menu/dispatch, rank/storage, welcome/loadout, dictionary
 and package checks passed locally. The supplemental installer now owns one
 hash-bound dictionary and supports legacy packages plus exact dictionary
-rollback without touching the vault. CI and active-host acceptance are pending;
-real-client Cyrillic rendering remains an explicit optional MVP observation.
+rollback without touching the vault. PR #249 passed required CI on the first
+attempt and was merged. One stopped-game transition installed 0.8.0 and its
+dictionary; closed vault/journal hashes stayed unchanged. Independent external
+and host checks confirmed the RU/EN menu policy, exact dictionary, open nVault
+without errors, unchanged baseline/map addon/agent invocation, settled queue/
+spool and no new AMXX errors. Real-client Cyrillic rendering remains an explicit
+optional MVP observation; no mandatory session, reboot or soak was added.
 See the [v2.37 boundary and evidence](v2.37-player-menu.md).
 
 The released v1 baseline includes:
