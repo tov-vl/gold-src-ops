@@ -60,7 +60,7 @@ ws_verify() {
     validate_file_metadata "$ws_receipt" root "$service_group" 640
     local schema
     schema="$(marker_value "$ws_receipt" schema_version)"
-    [[ "$schema" == 1 || ( "$schema" == 2 && "$ws_map_menu" == false ) ]] || fail "Unsupported addon receipt."
+    [[ "$schema" == 1 || "$schema" == 2 ]] || fail "Unsupported addon receipt."
     ws_has_dictionary=false
     if [[ "$schema" == 2 ]]; then
         ws_has_dictionary=true
@@ -129,7 +129,7 @@ ws_validate_bundle() {
     local -a relatives=("$ws_plugin_relative" "$ws_config_relative" "$ws_loader_relative")
     verify_sha256 "$manifest" "$ws_manifest_sha"
     ws_bundle_has_dictionary=false
-    if [[ "$(jq -er '.schemaVersion' "$manifest")" == 2 && "$ws_map_menu" == false ]]; then
+    if [[ "$(jq -er '.schemaVersion' "$manifest")" == 2 ]]; then
         ws_bundle_has_dictionary=true
         relatives+=("$ws_dictionary_relative")
         validate_directory_metadata "$live_amxx_root/data" root "$service_group" 750
@@ -216,6 +216,7 @@ ws_remove() {
     ws_verify
     [[ "$ws_manifest_sha" == "$ws_expected_manifest_sha" ]] || fail "Installed addon does not match the reviewed removal."
     ws_remove_paths=("$ws_plugin" "$ws_config" "$(ws_loader_path)" "$ws_receipt")
+    if [[ "$ws_has_dictionary" == true ]]; then ws_remove_paths+=("$ws_dictionary"); fi
     ws_upgrade_backup="$(mktemp -d "$configuration_directory/$ws_kind-removal.XXXXXX")"
     for index in "${!ws_remove_paths[@]}"; do
         cp -p -- "${ws_remove_paths[index]}" "$ws_upgrade_backup/$index"
@@ -260,6 +261,10 @@ ws_config_relative="cstrike/addons/amxmodx/configs/plugins/$ws_configuration_nam
 ws_loader_relative="cstrike/addons/amxmodx/configs/$ws_loader_name"
 ws_dictionary="$live_amxx_root/data/lang/goldsrcops-player-menu.txt"
 ws_dictionary_relative="cstrike/addons/amxmodx/data/lang/goldsrcops-player-menu.txt"
+if [[ "$ws_map_menu" == true ]]; then
+    ws_dictionary="$live_amxx_root/data/lang/goldsrcops-map-menu.txt"
+    ws_dictionary_relative="cstrike/addons/amxmodx/data/lang/goldsrcops-map-menu.txt"
+fi
 [[ -n "$ws_operation" ]] || fail "Select one addon operation."
 [[ "$ws_operation" != remove || "$ws_map_menu" == true ]] || fail "Remove is supported only for the map-menu addon."
 if [[ "$ws_operation" == install || "$ws_operation" == upgrade ]]; then

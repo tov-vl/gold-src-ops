@@ -14,16 +14,20 @@ tar -xzf /assets/amxmodx-1.10.0-git5481-base-linux.tar.gz -C /server/cstrike
 tar -xzf /assets/amxmodx-1.10.0-git5481-cstrike-linux.tar.gz -C /server/cstrike
 cp -a /smoke/extracted/metamod/addons/. /server/cstrike/addons/
 cp -a /smoke/extracted/reapi/addons/. /server/cstrike/addons/
+cp /repo/samples/amxmodx-map-menu/goldsrcops-map-menu.txt /server/cstrike/addons/amxmodx/data/lang/
+cp /repo/samples/amxmodx-weapon-selection/goldsrcops-player-menu.txt /server/cstrike/addons/amxmodx/data/lang/
 printf 'linux addons/amxmodx/dlls/amxmodx_mm_i386.so\n' > /server/cstrike/addons/metamod/plugins.ini
 printf 'reapi\nfakemeta\n' > /server/cstrike/addons/amxmodx/configs/modules.ini
 if [[ "$mode" == fixture ]]; then
     plugin=map_menu_smoke.amxx
+    provider=map_language_provider_smoke.amxx
 else
     plugin=goldsrcops_map_menu.amxx
+    provider=goldsrcops_weapon_selection.amxx
 fi
 cp "/compiled/$plugin" /server/cstrike/addons/amxmodx/plugins/
-cp /compiled/goldsrcops_weapon_selection.amxx /server/cstrike/addons/amxmodx/plugins/
-printf '%s\ngoldsrcops_weapon_selection.amxx\n' "$plugin" > /server/cstrike/addons/amxmodx/configs/plugins.ini
+cp "/compiled/$provider" /server/cstrike/addons/amxmodx/plugins/
+printf '%s\n%s\n' "$plugin" "$provider" > /server/cstrike/addons/amxmodx/configs/plugins.ini
 mkdir -p /server/cstrike/addons/amxmodx/configs/plugins
 printf 'goldsrcops_maps_enabled "1"\n' > /server/cstrike/addons/amxmodx/configs/plugins/goldsrcops-map-menu.cfg
 printf 'goldsrcops_weapons_enabled "1"\n' > /server/cstrike/addons/amxmodx/configs/plugins/goldsrcops-weapon-selection.cfg

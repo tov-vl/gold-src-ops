@@ -5,6 +5,7 @@ param(
     [Parameter(Mandatory)]
     [string]$CacheDirectory,
     [switch]$RuntimeFixture,
+    [switch]$ProviderFixture,
     [switch]$Offline
 )
 
@@ -21,11 +22,17 @@ $reApiIncludes = Join-Path $CacheDirectory "reapi-5.24.0.300/addons/amxmodx/scri
 $productIncludes = Join-Path $root "samples/amxmodx-map-menu"
 $source = Join-Path $productIncludes "goldsrcops_map_menu.sma"
 $output = Join-Path $CacheDirectory "output/goldsrcops_map_menu.amxx"
+if ($RuntimeFixture -and $ProviderFixture) { throw "Choose one fixture." }
 if ($RuntimeFixture) {
     $source = Join-Path $PSScriptRoot "amxx-map-menu.sma"
     $output = Join-Path $CacheDirectory "output/map_menu_smoke.amxx"
 }
-& $compiler $source "-i$includes" "-i$reApiIncludes" "-i$productIncludes" "-o$output" -E
+if ($ProviderFixture) {
+    $source = Join-Path $PSScriptRoot "amxx-map-language-provider.sma"
+    $output = Join-Path $CacheDirectory "output/map_language_provider_smoke.amxx"
+}
+& (Join-Path $PSScriptRoot "player-menu-dictionary.ps1") -DictionaryPath (Join-Path $productIncludes 'goldsrcops-map-menu.txt') -SourcePath (Join-Path $productIncludes 'goldsrcops_map_menu.sma') | Out-Null
+& $compiler $source "-i$includes" "-i$reApiIncludes" "-i$productIncludes" "-i$(Join-Path $root 'samples/amxmodx-weapon-selection')" "-o$output" -E
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $output -PathType Leaf)) {
     throw "Map-menu compilation failed."
 }

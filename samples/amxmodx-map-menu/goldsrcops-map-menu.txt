@@ -1,0 +1,13 @@
+[en]
+GS_MAP_TITLE = Vote for a map
+GS_MAP_CURRENT = %s (current)
+GS_MAP_EXIT = Exit
+GS_MAP_UNAVAILABLE = Map voting is unavailable.
+GS_MAP_REQUESTED = Vote requested for %s. Check console for the game's result.
+
+[ru]
+GS_MAP_TITLE = Голосование за карту
+GS_MAP_CURRENT = %s (текущая)
+GS_MAP_EXIT = Выход
+GS_MAP_UNAVAILABLE = Голосование за карту недоступно.
+GS_MAP_REQUESTED = Запрошен голос за %s. Ответ игры смотрите в консоли.

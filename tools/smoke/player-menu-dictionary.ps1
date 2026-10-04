@@ -1,6 +1,9 @@
 #Requires -Version 7.0
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$DictionaryPath)
+param(
+    [Parameter(Mandatory)][string]$DictionaryPath,
+    [string]$SourcePath = (Join-Path $PSScriptRoot '../../samples/amxmodx-weapon-selection/goldsrcops_weapon_selection.sma')
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -31,7 +34,7 @@ foreach ($line in ($text -split "\r?\n")) {
 if ($sections.Count -ne 2 -or (Compare-Object @($sections.en.Keys) @($sections.ru.Keys))) {
     throw "English and Russian dictionary keys must match."
 }
-$source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot '../../samples/amxmodx-weapon-selection/goldsrcops_weapon_selection.sma'))
+$source = [IO.File]::ReadAllText($SourcePath)
 $used = @([regex]::Matches($source, '"(GS_[A-Z_]+)"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
 if (Compare-Object $used @($sections.en.Keys)) { throw "Dictionary keys do not match product references." }
 foreach ($key in $sections.en.Keys) {
