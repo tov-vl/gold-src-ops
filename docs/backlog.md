@@ -2418,6 +2418,22 @@ unverified because the short player check was deferred. Stable v2.28
 publication remains open; unrelated product development may continue. See the
 [v2.28 product and transition record](v2.28-fast-reentry-loadout.md).
 
+### v2.29 Weapon Selection
+
+Status: local default-off prototype compiled, sandbox package and isolated
+server loading/configuration checked; player inventory pending.
+
+The next small gameplay experiment adds MP5, AK-47, and M4A1 selection for
+either team. The choice applies at the next spawn, lasts for the connection,
+and does not refill a living player's inventory through menu use. The
+separate plugin compiles with the pinned AMX Mod X/ReAPI toolchain. An offline
+sandbox ZIP and its focused hash/content/no-overwrite smoke pass. On 2026-10-04,
+the plugin and ReAPI loaded on a network-isolated local server; diagnostic
+status confirmed disabled/enabled/disabled mode. The container was stopped.
+Menu and spawn/inventory behavior remain unverified without a client. No game
+host changes, plugin allowlist expansion, or release publication were made.
+See the [v2.29 prototype boundary](v2.29-weapon-selection.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.
