@@ -2420,8 +2420,9 @@ publication remains open; unrelated product development may continue. See the
 
 ### v2.29 Weapon Selection
 
-Status: local default-off prototype compiled, sandbox package and isolated
-server loading/configuration checked; player inventory pending.
+Status: local prototype and separate game-host addon prepared; focused package,
+install/toggle/rollback and two-plugin runtime checks passed. The earlier short
+local client test was reported successful. Active-host installation is pending.
 
 The next small gameplay experiment adds MP5, AK-47, and M4A1 selection for
 either team. The choice applies at the next spawn, lasts for the connection,
@@ -2430,8 +2431,15 @@ separate plugin compiles with the pinned AMX Mod X/ReAPI toolchain. An offline
 sandbox ZIP and its focused hash/content/no-overwrite smoke pass. On 2026-10-04,
 the plugin and ReAPI loaded on a network-isolated local server; diagnostic
 status confirmed disabled/enabled/disabled mode. The container was stopped.
-Menu and spawn/inventory behavior remain unverified without a client. No game
-host changes, plugin allowlist expansion, or release publication were made.
+The owner subsequently reported the localhost `/guns`, AK-47 respawn, and
+M4A1 repeat successful; that player fixture was stopped. This is a bounded
+local client result, not active-host acceptance or multiplayer validation.
+The addon now has its own supplemental loader, auto-executed configuration,
+hash receipt and stopped-game install/enable/disable workflow. It leaves the
+original telemetry files, persistent guard, boot policy, queue and spool alone.
+Version `0.1.1` changes configuration loading only. No game-host changes,
+pilot allowlist expansion, or release publication were made. The next step is
+one bounded host installation, not another full local test/rehearsal cycle.
 See the [v2.29 prototype boundary](v2.29-weapon-selection.md).
 
 The released v1 baseline includes:

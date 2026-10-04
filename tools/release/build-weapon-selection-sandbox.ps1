@@ -8,7 +8,10 @@ param(
 
     [Parameter(Mandatory)]
     [ValidateNotNullOrEmpty()]
-    [string]$OutputDirectory
+    [string]$OutputDirectory,
+
+    [ValidateSet("sandbox", "game-host-addon")]
+    [string]$Target = "sandbox"
 )
 
 Set-StrictMode -Version Latest
@@ -43,14 +46,23 @@ if ($configCommands.Count -ne 1 -or $configCommands[0] -cne 'goldsrcops_weapons_
 New-Item -ItemType Directory -Path $OutputDirectory | Out-Null
 $content = Join-Path $OutputDirectory "content"
 $pluginRelative = "cstrike/addons/amxmodx/plugins/goldsrcops_weapon_selection.amxx"
-$configRelative = "cstrike/addons/amxmodx/configs/goldsrcops-weapon-selection.cfg"
-foreach ($relative in $pluginRelative, $configRelative) {
+$configRelative = "cstrike/addons/amxmodx/configs/plugins/goldsrcops-weapon-selection.cfg"
+$loaderRelative = "cstrike/addons/amxmodx/configs/plugins-goldsrcops-weapons.ini"
+$relativePaths = @($pluginRelative, $configRelative)
+if ($Target -eq "game-host-addon") {
+    $relativePaths += $loaderRelative
+    $configText = 'goldsrcops_weapons_enabled "1"' + "`n"
+}
+foreach ($relative in $relativePaths) {
     New-Item -ItemType Directory -Force -Path (Split-Path (Join-Path $content $relative)) | Out-Null
 }
 Copy-Item -LiteralPath $build.Output -Destination (Join-Path $content $pluginRelative)
 [IO.File]::WriteAllText((Join-Path $content $configRelative), $configText, [Text.UTF8Encoding]::new($false))
+if ($Target -eq "game-host-addon") {
+    [IO.File]::WriteAllText((Join-Path $content $loaderRelative), "goldsrcops_weapon_selection.amxx`n", [Text.UTF8Encoding]::new($false))
+}
 
-$payload = @($pluginRelative, $configRelative | ForEach-Object {
+$payload = @($relativePaths | ForEach-Object {
     [ordered]@{
         path = $_
         sha256 = (Get-FileHash -LiteralPath (Join-Path $content $_) -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -58,9 +70,9 @@ $payload = @($pluginRelative, $configRelative | ForEach-Object {
 })
 $manifest = [ordered]@{
     schemaVersion = 1
-    purpose = "local-sandbox"
-    productionInstallSupported = $false
-    enabledByDefault = $false
+    purpose = $(if ($Target -eq "sandbox") { "local-sandbox" } else { "game-host-addon" })
+    productionInstallSupported = ($Target -eq "game-host-addon")
+    enabledByDefault = ($Target -eq "game-host-addon")
     amxxVersion = $build.AmxxVersion
     reApiVersion = $build.ReApiVersion
     sourceSha256 = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -69,7 +81,7 @@ $manifest = [ordered]@{
 [IO.File]::WriteAllText((Join-Path $content "manifest.json"),
     ($manifest | ConvertTo-Json -Depth 6) + "`n", [Text.UTF8Encoding]::new($false))
 
-$archive = Join-Path $OutputDirectory "weapon-selection-sandbox.zip"
+$archive = Join-Path $OutputDirectory "weapon-selection-$Target.zip"
 [IO.Compression.ZipFile]::CreateFromDirectory($content, $archive)
 [pscustomobject]@{
     Archive = $archive

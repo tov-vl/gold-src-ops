@@ -15,8 +15,9 @@ new g_choice[MAX_PLAYERS + 1];
 
 public plugin_init()
 {
-    register_plugin("GoldSrcOps Weapon Selection", "0.1.0", "GoldSrcOps");
+    register_plugin("GoldSrcOps Weapon Selection", "0.1.1", "GoldSrcOps");
     g_enabled = register_cvar("goldsrcops_weapons_enabled", "0");
+    AutoExecConfig(false, "goldsrcops-weapon-selection");
     register_clcmd("say /guns", "OpenWeapons");
     register_clcmd("say_team /guns", "OpenWeapons");
     register_clcmd("guns", "OpenWeapons");
@@ -37,7 +38,7 @@ public plugin_end()
 
 public OnStatusCommand()
 {
-    server_print("WEAPON_SELECTION_STATUS version=0.1.0 enabled=%d choices=%d",
+    server_print("WEAPON_SELECTION_STATUS version=0.1.1 enabled=%d choices=%d",
         get_pcvar_num(g_enabled) != 0, sizeof WEAPON_NAMES);
     return PLUGIN_HANDLED;
 }

@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+IFS=$'\n\t'
+umask 077
+
+ws_directory="$(dirname "$(realpath -e -- "${BASH_SOURCE[0]}")")"
+# shellcheck source=ops/gameserver/game-event-persistent.sh
+source "$ws_directory/game-event-persistent.sh"
+
+ws_operation=""
+ws_apply=false
+ws_bundle=""
+ws_manifest_sha=""
+ws_receipt="$configuration_directory/weapon-selection-installed"
+ws_plugin="$live_amxx_root/plugins/goldsrcops_weapon_selection.amxx"
+ws_config="$live_amxx_root/configs/plugins/goldsrcops-weapon-selection.cfg"
+ws_loader="$live_amxx_root/configs/plugins-goldsrcops-weapons.ini"
+ws_disabled_loader="$configuration_directory/weapon-selection-disabled-loader"
+ws_state=""
+ws_old_state=""
+ws_mutating=false
+ws_receipt_backup=""
+ws_created=()
+
+ws_write_receipt() {
+    local temporary
+    temporary="$(mktemp "$configuration_directory/.weapon-selection.XXXXXX")"
+    cat > "$temporary" <<EOF
+schema_version=1
+state=$ws_state
+manifest_sha256=$ws_manifest_sha
+plugin_sha256=$(sha256_file "$ws_plugin")
+config_sha256=$(sha256_file "$ws_config")
+loader_sha256=$(sha256_file "$(ws_loader_path)")
+EOF
+    chown root:"$service_group" "$temporary"
+    chmod 0640 "$temporary"
+    mv -f -- "$temporary" "$ws_receipt"
+}
+
+ws_loader_path() {
+    if [[ "$ws_state" == enabled ]]; then printf '%s\n' "$ws_loader";
+    else printf '%s\n' "$ws_disabled_loader"; fi
+}
+
+ws_verify() {
+    validate_file_metadata "$ws_receipt" root "$service_group" 640
+    [[ "$(marker_value "$ws_receipt" schema_version)" == 1 ]] || fail "Unsupported addon receipt."
+    ws_state="$(marker_value "$ws_receipt" state)"
+    [[ "$ws_state" == enabled || "$ws_state" == disabled ]] || fail "Unknown addon state."
+    ws_manifest_sha="$(marker_value "$ws_receipt" manifest_sha256)"
+    validate_sha256 "$ws_manifest_sha"
+    verify_sha256 "$ws_plugin" "$(marker_value "$ws_receipt" plugin_sha256)"
+    verify_sha256 "$ws_config" "$(marker_value "$ws_receipt" config_sha256)"
+    verify_sha256 "$(ws_loader_path)" "$(marker_value "$ws_receipt" loader_sha256)"
+    validate_file_metadata "$ws_plugin" root "$service_group" 640
+    validate_file_metadata "$ws_config" root "$service_group" 640
+    validate_file_metadata "$(ws_loader_path)" root "$service_group" 640
+    [[ "$(cat "$(ws_loader_path)")" == goldsrcops_weapon_selection.amxx ]] || fail "Unexpected addon loader."
+    if [[ "$ws_state" == enabled ]]; then
+        [[ ! -e "$ws_disabled_loader" && ! -L "$ws_disabled_loader" ]] || fail "Duplicate addon loader."
+    else
+        [[ ! -e "$ws_loader" && ! -L "$ws_loader" ]] || fail "Disabled addon still has a loader."
+    fi
+}
+
+ws_rollback() {
+    local file
+    if [[ "$ws_operation" == install ]]; then
+        for file in "${ws_created[@]}"; do rm -f -- "$file" || return 1; done
+    elif [[ "$ws_old_state" == enabled && -f "$ws_disabled_loader" && ! -e "$ws_loader" ]]; then
+        mv -- "$ws_disabled_loader" "$ws_loader" || return 1
+    elif [[ "$ws_old_state" == disabled && -f "$ws_loader" && ! -e "$ws_disabled_loader" ]]; then
+        mv -- "$ws_loader" "$ws_disabled_loader" || return 1
+    fi
+    if [[ -n "$ws_receipt_backup" ]]; then
+        install -o root -g "$service_group" -m 0640 "$ws_receipt_backup" "$ws_receipt" || return 1
+    fi
+    log "WEAPON_SELECTION_ROLLBACK=restored; game remains stopped"
+}
+
+ws_on_error() {
+    local status="$?"
+    trap - ERR
+    if [[ "$ws_mutating" == true ]]; then
+        ws_rollback || log "WEAPON_SELECTION_ROLLBACK=failed; inspect before any restart"
+    fi
+    [[ -z "$ws_receipt_backup" ]] || rm -f -- "$ws_receipt_backup"
+    exit "$status"
+}
+
+ws_install() {
+    local manifest="$ws_bundle/manifest.json" relative destination index
+    local -a destinations=("$ws_plugin" "$ws_config" "$ws_loader")
+    local -a relatives=(
+        cstrike/addons/amxmodx/plugins/goldsrcops_weapon_selection.amxx
+        cstrike/addons/amxmodx/configs/plugins/goldsrcops-weapon-selection.cfg
+        cstrike/addons/amxmodx/configs/plugins-goldsrcops-weapons.ini)
+    verify_sha256 "$manifest" "$ws_manifest_sha"
+    jq -e --arg plugin "${relatives[0]}" --arg config "${relatives[1]}" --arg loader "${relatives[2]}" '
+        .schemaVersion == 1 and .purpose == "game-host-addon" and
+        .productionInstallSupported == true and .enabledByDefault == true and
+        .amxxVersion == "1.10.0.5481" and .reApiVersion == "5.24.0.300" and
+        (.sourceSha256 | test("^[0-9a-f]{64}$")) and
+        (.payload | length) == 3 and
+        ([.payload[].path] | sort) == ([$plugin, $config, $loader] | sort) and
+        all(.payload[]; .sha256 | test("^[0-9a-f]{64}$"))' "$manifest" >/dev/null || fail "Unsupported addon package."
+    for destination in "${destinations[@]}" "$ws_disabled_loader" "$ws_receipt"; do
+        [[ ! -e "$destination" && ! -L "$destination" ]] || fail "Addon path already exists; refusing overwrite."
+    done
+    for relative in "${relatives[@]}"; do
+        verify_sha256 "$ws_bundle/$relative" "$(jq -er --arg path "$relative" '.payload[] | select(.path == $path) | .sha256' "$manifest")"
+    done
+    [[ "$(cat "$ws_bundle/${relatives[1]}")" == 'goldsrcops_weapons_enabled "1"' ]] || fail "Unexpected addon configuration."
+    [[ "$(cat "$ws_bundle/${relatives[2]}")" == goldsrcops_weapon_selection.amxx ]] || fail "Unexpected addon loader."
+    ws_mutating=true
+    # Install the supplemental loader last without changing telemetry files.
+    for index in 0 1 2; do
+        destination="${destinations[index]}"
+        ws_created+=("$destination")
+        install -o root -g "$service_group" -m 0640 "$ws_bundle/${relatives[index]}" "$destination"
+    done
+    ws_state=enabled
+    ws_created+=("$ws_receipt")
+    ws_write_receipt
+}
+
+while (($# > 0)); do
+    case "$1" in
+        --install|--enable|--disable|--status)
+            [[ -z "$ws_operation" ]] || fail "Select exactly one addon operation."
+            ws_operation="${1#--}"; shift ;;
+        --bundle) (($# >= 2)) || fail "Missing bundle path."; ws_bundle="$2"; shift 2 ;;
+        --manifest-sha256) (($# >= 2)) || fail "Missing manifest digest."; ws_manifest_sha="$2"; shift 2 ;;
+        --apply) ws_apply=true; shift ;;
+        *) fail "Unknown addon argument." ;;
+    esac
+done
+[[ -n "$ws_operation" ]] || fail "Select --install, --enable, --disable, or --status."
+if [[ "$ws_operation" == install ]]; then
+    [[ "$ws_bundle" == /* ]] || fail "Install requires an absolute bundle directory."
+    validate_sha256 "$ws_manifest_sha"
+else
+    [[ -z "$ws_bundle" && -z "$ws_manifest_sha" ]] || fail "Bundle inputs are install-only."
+fi
+if [[ "$ws_operation" != status && "$ws_apply" == false ]]; then
+    log "PLAN: $ws_operation only the weapon-selection addon; game must already be stopped"
+    log "PLAN: preserve telemetry, guards, identity, queue, spool, and boot policy; do not restart services"
+    log "PLAN_ONLY: no host files, services, or endpoints inspected; add --apply to execute."
+    exit 0
+fi
+[[ "$ws_operation" != status || "$ws_apply" == false ]] || fail "Status does not accept --apply."
+[[ "$EUID" == 0 ]] || fail "Addon operation requires root."
+read_prepared_marker
+if [[ "$ws_operation" == status ]]; then ws_verify; log "WEAPON_SELECTION_ADDON=$ws_state"; exit 0; fi
+[[ "${SUDO_USER:-}" == "$prepared_operator_user" && -n "${SSH_CONNECTION:-}" ]] || fail "Apply requires the reviewed SSH operator."
+acquire_lock
+exec 7>"$configuration_directory/managed-profile.lock"
+flock --nonblock 7 || fail "A managed-profile transition is in progress."
+verify_persistent_files
+[[ "$marker_schema_version" == 2 && "$marker_profile_sha256" == "$FAST_LOADOUT_PROFILE_SHA256" ]] || fail "Addon requires the accepted MP5 loadout."
+[[ "$(systemctl show --property=ActiveState --value "$GAME_SERVICE_NAME")" == inactive ]] || fail "Stop the game before modifying the addon."
+for directory in "$live_amxx_root/plugins" "$live_amxx_root/configs"; do
+    validate_directory_metadata "$directory" root "$service_group" 750
+done
+if [[ ! -d "$live_amxx_root/configs/plugins" || -L "$live_amxx_root/configs/plugins" ]]; then
+    fail "Prepare the root-owned configs/plugins directory before apply."
+fi
+validate_directory_metadata "$live_amxx_root/configs/plugins" root "$service_group" 750
+trap ws_on_error ERR
+if [[ "$ws_operation" == install ]]; then
+    ws_install
+else
+    ws_verify
+    ws_old_state="$ws_state"
+    if [[ "$ws_operation" == enable ]]; then ws_state=enabled; else ws_state=disabled; fi
+    if [[ "$ws_state" == "$ws_old_state" ]]; then log "WEAPON_SELECTION_ADDON=$ws_state (unchanged)"; exit 0; fi
+    ws_receipt_backup="$(mktemp "$configuration_directory/.weapon-selection-backup.XXXXXX")"
+    cp -- "$ws_receipt" "$ws_receipt_backup"
+    ws_mutating=true
+    if [[ "$ws_state" == enabled ]]; then mv -- "$ws_disabled_loader" "$ws_loader";
+    else mv -- "$ws_loader" "$ws_disabled_loader"; fi
+    ws_write_receipt
+fi
+ws_verify
+verify_persistent_files
+ws_mutating=false
+trap - ERR
+[[ -z "$ws_receipt_backup" ]] || rm -f -- "$ws_receipt_backup"
+log "WEAPON_SELECTION_ADDON=$ws_state; game remains stopped"
