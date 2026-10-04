@@ -3,7 +3,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [string]$CacheDirectory
+    [string]$CacheDirectory,
+
+    [switch]$RuntimeFixture
 )
 
 Set-StrictMode -Version Latest
@@ -23,8 +25,13 @@ $amxxIncludes = Join-Path $CacheDirectory "amxx-1.10.0.5481/addons/amxmodx/scrip
 $reApiIncludes = Join-Path $CacheDirectory "reapi-5.24.0.300/addons/amxmodx/scripting/include"
 $source = Join-Path $root "samples/amxmodx-weapon-selection/goldsrcops_weapon_selection.sma"
 $output = Join-Path $CacheDirectory "output/goldsrcops_weapon_selection.amxx"
+if ($RuntimeFixture) {
+    $source = Join-Path $PSScriptRoot "amxx-spawn-loadout.sma"
+    $output = Join-Path $CacheDirectory "output/spawn_loadout_smoke.amxx"
+}
+$productIncludes = Join-Path $root "samples/amxmodx-weapon-selection"
 
-& $compiler $source "-i$amxxIncludes" "-i$reApiIncludes" "-o$output" -E
+& $compiler $source "-i$amxxIncludes" "-i$reApiIncludes" "-i$productIncludes" "-o$output" -E
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $output -PathType Leaf)) {
     throw "Weapon-selection compilation failed."
 }

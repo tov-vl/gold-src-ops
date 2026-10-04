@@ -247,7 +247,7 @@ jobs:
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: sudo bash ./tools/smoke/gameserver-fast-reentry-transition.sh
 
-      - name: Validate weapon-selection addon installation and toggle
+      - name: Validate weapon-selection addon installation, upgrade and toggle
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: sudo bash ./tools/smoke/gameserver-weapon-selection-addon.sh
 
