@@ -2575,6 +2575,20 @@ errors, unchanged baseline/map/agent and settled queue/spool. Human rank
 rendering and multiplayer pacing remain deferred MVP limits.
 See the [v2.35 boundary and evidence](v2.35-player-ranks.md).
 
+### v2.36 - Rank Feedback
+
+Addon 0.7.0 adds private saved-rank progress to the once-only first-spawn
+welcome and a private promotion message after a legitimate enemy kill crosses
+a tier and the existing storage readback succeeds. Thresholds, scoring,
+schema-1 storage, cooldowns, loadouts and map leaders remain unchanged; no
+public broadcast, rewards, API or new persistence is introduced.
+
+Focused real-nVault/native-damage, welcome/promotion/readback-failure checks,
+first-spawn/nine-loadout regression and frozen package checks passed locally.
+Required PR CI and a separately approved pilot upgrade remain pending.
+No host acceptance or real-client rendering is claimed. See the
+[v2.36 boundary and evidence](v2.36-rank-feedback.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.

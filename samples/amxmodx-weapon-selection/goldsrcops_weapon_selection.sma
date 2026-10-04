@@ -39,7 +39,7 @@ new g_storage_errors;
 
 public plugin_init()
 {
-    register_plugin("GoldSrcOps Weapon Selection", "0.6.0", "GoldSrcOps");
+    register_plugin("GoldSrcOps Weapon Selection", "0.7.0", "GoldSrcOps");
     g_stats_vault = nvault_open(STATS_VAULT_NAME);
     if (g_stats_vault == INVALID_HANDLE)
     {
@@ -89,7 +89,7 @@ public plugin_end()
 
 public OnStatusCommand()
 {
-    server_print("WEAPON_SELECTION_STATUS version=0.6.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
+    server_print("WEAPON_SELECTION_STATUS version=0.7.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
         get_pcvar_num(g_enabled) != 0, sizeof WEAPON_NAMES, sizeof PISTOL_NAMES);
     return PLUGIN_HANDLED;
 }
@@ -221,6 +221,11 @@ public ShowWelcome(task_id)
 
     g_welcomed[id] = true;
     client_print(id, print_chat, "[GoldSrcOps] /guns: next-spawn weapons | /stats: score | /rank: progress | /top: map leaders | /maps | /timeleft");
+    EnsureSavedStats(id);
+    if (g_saved_ready[id])
+    {
+        PrintPlayerRank(id);
+    }
     new menu, keys;
     // Do not replace a team/class menu or another plugin's active menu.
     if (!get_user_menu(id, menu, keys))
@@ -306,8 +311,16 @@ RecordMapDeath(killer, victim)
         g_map_kills[killer] = min(g_map_kills[killer], STATS_COUNTER_LIMIT - 1) + 1;
         if (g_saved_ready[killer])
         {
+            new previous_rank = RankForKills(g_saved_kills[killer]);
             g_saved_kills[killer] = min(g_saved_kills[killer], STATS_COUNTER_LIMIT - 1) + 1;
             SavePlayerStats(killer);
+            // Announce only a promotion confirmed by the existing storage readback.
+            new rank = RankForKills(g_saved_kills[killer]);
+            if (g_saved_ready[killer] && rank > previous_rank)
+            {
+                client_print(killer, print_chat, "[GoldSrcOps] Rank up: %s | K %d. /rank: progress.",
+                    RANK_NAMES[rank], g_saved_kills[killer]);
+            }
         }
     }
 }
@@ -365,15 +378,20 @@ RankForKills(kills)
 
 public ShowPlayerRank(id)
 {
-    if (!AllowStatsCommand(id, 2))
+    if (AllowStatsCommand(id, 2))
     {
-        return PLUGIN_HANDLED;
+        PrintPlayerRank(id);
     }
+    return PLUGIN_HANDLED;
+}
+
+PrintPlayerRank(id)
+{
     EnsureSavedStats(id);
     if (!g_saved_ready[id])
     {
         client_print(id, print_chat, "[GoldSrcOps] Saved rank unavailable on this connection. /stats shows your unsaved map score.");
-        return PLUGIN_HANDLED;
+        return;
     }
     new rank = RankForKills(g_saved_kills[id]);
     if (rank == sizeof RANK_KILLS - 1)
@@ -386,7 +404,6 @@ public ShowPlayerRank(id)
         client_print(id, print_chat, "[GoldSrcOps] Saved rank: %s | K %d | %d kills to %s.",
             RANK_NAMES[rank], g_saved_kills[id], RANK_KILLS[rank + 1] - g_saved_kills[id], RANK_NAMES[rank + 1]);
     }
-    return PLUGIN_HANDLED;
 }
 
 BuildMapLeaders(leaders[MAP_LEADER_LIMIT])
@@ -459,7 +476,7 @@ public ShowMapLeaders(id)
 public OnMapStatsStatus()
 {
     new leaders[MAP_LEADER_LIMIT];
-    server_print("MAP_STATS_STATUS version=0.6.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
+    server_print("MAP_STATS_STATUS version=0.7.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
         get_pcvar_num(g_enabled) != 0, BuildMapLeaders(leaders));
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
@@ -469,9 +486,9 @@ public OnMapStatsStatus()
             loaded++;
         }
     }
-    server_print("PLAYER_STATS_STATUS version=0.6.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_STATS_STATUS version=0.7.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
         g_stats_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_storage_errors);
-    server_print("PLAYER_RANK_STATUS version=0.6.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none",
+    server_print("PLAYER_RANK_STATUS version=0.7.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
         get_pcvar_num(g_enabled) != 0);
     return PLUGIN_HANDLED;
 }
