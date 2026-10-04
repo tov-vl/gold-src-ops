@@ -5,11 +5,16 @@ param(
     [Parameter(Mandatory)]
     [string]$CacheDirectory,
 
-    [switch]$RuntimeFixture
+    [switch]$RuntimeFixture,
+
+    [switch]$MapStatsFixture
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+if ($RuntimeFixture -and $MapStatsFixture) {
+    throw "Choose only one runtime fixture."
+}
 
 $CacheDirectory = [IO.Path]::GetFullPath($CacheDirectory)
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../.."))
@@ -28,6 +33,10 @@ $output = Join-Path $CacheDirectory "output/goldsrcops_weapon_selection.amxx"
 if ($RuntimeFixture) {
     $source = Join-Path $PSScriptRoot "amxx-spawn-loadout.sma"
     $output = Join-Path $CacheDirectory "output/spawn_loadout_smoke.amxx"
+}
+if ($MapStatsFixture) {
+    $source = Join-Path $PSScriptRoot "amxx-map-stats.sma"
+    $output = Join-Path $CacheDirectory "output/map_stats_smoke.amxx"
 }
 $productIncludes = Join-Path $root "samples/amxmodx-weapon-selection"
 
