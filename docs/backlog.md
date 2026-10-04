@@ -2547,8 +2547,13 @@ rank, global leaderboard, API, database or telemetry changes are included.
 
 Focused real-nVault/native-death, reconnect, late authorization, duplicate
 identity, malformed-record, map reload and new-process recovery checks passed.
-Map-leader, first-spawn, nine-loadout regression and package checks passed. Required PR CI and
-pilot upgrade remain pending. See the [v2.34 boundary](v2.34-persistent-stats.md).
+Map-leader, first-spawn, nine-loadout regression and package checks passed.
+PR #243 passed required CI on its first attempt and was merged. The frozen
+0.5.0 addon is installed; independent external/host checks confirmed open
+nVault with zero errors, owner-only storage, unchanged baseline/map/agent and
+settled queue/spool. Real-player authorization/chat and abrupt disk-failure
+durability remain untested MVP limits. See the
+[v2.34 boundary and acceptance](v2.34-persistent-stats.md).
 
 The released v1 baseline includes:
 
