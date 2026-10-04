@@ -2474,7 +2474,7 @@ or stable publication was added to this small gameplay slice.
 
 ### v2.31 Map Menu
 
-The next small map-facing experiment adds `/maps` and `/timeleft` using native
+The small map-facing experiment adds `/maps` and `/timeleft` using native
 ReGameDLL voting/time commands, without changing the five-map cycle, round
 rules or spawn points. The current map is disabled in the menu and unsupported
 cycle changes are refused so native vote IDs remain correct. Voting thresholds
@@ -2483,19 +2483,24 @@ remain unchanged; this is not a second voting engine or a deathmatch decision.
 The optional, default-off plugin passed pinned compilation and a short isolated
 engine smoke alongside weapon selection 0.2.0. Synthetic requests exercised
 native player-count refusal and one recorded vote without a forced map change.
-Required PR CI and a bounded supplemental-addon host installation remain
-separate; human menu/quorum and spawn-balance results are not claimed. See the
+Required PR CI passed, followed by a separate bounded supplemental-addon host
+installation; human menu/quorum and spawn-balance results are not claimed. See the
 [v2.31 boundary](v2.31-map-menu.md). No additional owner session, full local .NET
 gate, reboot, soak, credential input or stable publication is required for
 this implementation stage.
 
-The following bounded addon step reuses the stopped-game installer with the
+The completed bounded addon step reuses the stopped-game installer with the
 fixed `--map-menu` selector and separate package/receipt/loader. Focused package
 and filesystem checks cover install, identity refusals, rollback and exact
 removal while preserving weapons and telemetry. A host rollout uses one short
 stop/install/start and A2S/plugin/configuration acceptance, without a new OAuth
 prompt, agent restart, reboot, soak or stable tag. See the same v2.31 record for
-the source/binary identity, recovery boundary and client limitations.
+the source/binary identity, recovery boundary and client limitations. External
+acceptance found all three plugins running, map-menu 0.1.0 enabled with five
+maps, unchanged weapon selection 0.2.0, empty queue/spool and no new AMXX errors.
+The recorded baseline and agent invocation stayed unchanged. Product and addon
+workflows are merged in PRs #236 and #237; the addon installation is accepted,
+without claiming the untested human voting path.
 
 The released v1 baseline includes:
 
