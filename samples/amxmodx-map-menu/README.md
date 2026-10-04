@@ -44,6 +44,32 @@ container, `--entrypoint bash`, `--network none`, and no published ports. Send
 then stop it. `product` mode loads the normal plugin without test commands.
 The actual five-map cycle is rendered from the existing managed-profile code.
 
-This sample is not an active-host installer. Exact package identity,
-supplemental loader ownership and removal/rollback must be reviewed before a
-host rollout; existing telemetry and weapon-addon files must remain unchanged.
+## Bounded Host Addon
+
+`tools/release/build-map-menu-addon.ps1 -CacheDirectory <verified-cache>
+-OutputDirectory <new-directory> -Offline` produces an enabled addon with
+exact manifest/payload hashes and a separate `plugins-goldsrcops-maps.ini`.
+It refuses to overwrite an existing result and never includes the fixture.
+
+The existing stopped-game installer accepts the fixed `--map-menu` selector:
+
+```bash
+bash ops/gameserver/weapon-selection-addon.sh --map-menu --install \
+  --bundle /absolute/reviewed/content --manifest-sha256 <manifest-sha256>
+bash ops/gameserver/weapon-selection-addon.sh --map-menu --status
+bash ops/gameserver/weapon-selection-addon.sh --map-menu --remove \
+  --expected-manifest-sha256 <installed-manifest-sha256>
+```
+
+Install/remove remain plan-only without `--apply`; status is read-only. Apply
+requires the reviewed SSH operator, inactive game and existing persistent MP5
+baseline/locks. Only the map binary, config, loader and receipt are owned by
+this mode. Other addon paths and guards are not accepted as operation inputs.
+The ordinary weapon mode remains the default, with its original paths/schema.
+
+Removal checks the exact installed identity, retains a root-only predecessor
+copy and restores it on failure. It also works while the addon is disabled.
+It is an explicit recovery/removal action, not an automatic delivery retry.
+No addon operation starts/stops services, reads OAuth credentials or changes
+telemetry, queues, spool, weapons, mapcycle or boot policy. The outer reviewed
+rollout retains unchanged baseline hashes and verifies them before restarting.

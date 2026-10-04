@@ -157,6 +157,7 @@ jobs:
           $cache = Join-Path $env:RUNNER_TEMP 'map-menu-toolchain'
           ./tools/smoke/amxx-map-menu.ps1 -CacheDirectory $cache
           ./tools/smoke/amxx-map-menu.ps1 -CacheDirectory $cache -RuntimeFixture -Offline
+          ./tools/release/build-map-menu-addon.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'map-menu-addon') -Offline
 
   container-smoke:
     name: Container Smoke
@@ -267,6 +268,10 @@ jobs:
       - name: Validate weapon-selection addon installation, upgrade and toggle
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: sudo bash ./tools/smoke/gameserver-weapon-selection-addon.sh
+
+      - name: Validate map-menu addon installation, removal and rollback
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        run: sudo bash ./tools/smoke/gameserver-weapon-selection-addon.sh --map-menu
 
       - name: Validate game-host soak-readiness evidence contract
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
