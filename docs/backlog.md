@@ -2450,9 +2450,10 @@ See the [v2.29 prototype boundary](v2.29-weapon-selection.md).
 
 ### v2.30 Spawn Loadout
 
-Status: implementation, both package targets, upgrade/rollback fixture and
-isolated nine-combination inventory smoke passed on 2026-10-04. Required PR CI,
-active-host upgrade and new client presentation remain unaccepted.
+Status: implementation, both package targets, upgrade/rollback fixture,
+isolated nine-combination inventory smoke, required PR CI and active-host
+upgrade/loading acceptance passed on 2026-10-04. Human menu presentation and
+multiplayer balance remain unverified, not mandatory MVP deployment gates.
 
 Extend the existing addon with USP/Glock/Desert Eagle selection after the
 primary menu and a fixed 100 armor/helmet spawn grant. Choices remain
@@ -2463,6 +2464,13 @@ backup and focused rollback fixture. No telemetry, baseline, boot-policy,
 API/Web, database, rank or round-rule change belongs to this slice. Reuse the
 MVP verification budget instead of another long release sequence. See the
 [v2.30 boundary](v2.30-spawn-loadout.md).
+
+PR #234 was merged after all required checks. One brief game-only upgrade
+reused the verified package and retained the previous addon. Independent A2S,
+plugin/configuration, binary/receipt, guard and baseline checks passed.
+Queue/spool stayed empty; the agent invocation and active/enabled boot policy
+were preserved. No credential prompt, reboot, long soak, control-plane rollout
+or stable publication was added to this small gameplay slice.
 
 The released v1 baseline includes:
 
