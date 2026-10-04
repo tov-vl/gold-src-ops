@@ -6,12 +6,16 @@
 // The shipped plugin is compiled separately, without these substitutions.
 #define plugin_init ProductPluginInit
 #define is_user_bot(%1) FixtureIsBot(%1)
+#define menu_display(%1,%2) FixtureMenuDisplay(%1,%2)
 #include <goldsrcops_weapon_selection.sma>
 #undef plugin_init
 #undef is_user_bot
+#undef menu_display
 
 new g_fixture_id;
 new g_failures;
+new g_menu_displays;
+new bool:g_bypass_bot = true;
 
 public plugin_init()
 {
@@ -21,7 +25,16 @@ public plugin_init()
 
 bool:FixtureIsBot(id)
 {
-    return id != g_fixture_id && is_user_bot(id);
+    return (!g_bypass_bot || id != g_fixture_id) && is_user_bot(id);
+}
+
+FixtureMenuDisplay(id, menu)
+{
+    if (id == g_fixture_id)
+    {
+        g_menu_displays++;
+    }
+    return menu_display(id, menu);
 }
 
 Check(bool:passed, const label[])
@@ -54,6 +67,7 @@ public RunLoadoutSmoke()
     set_member(g_fixture_id, m_iJoiningState, JOINED);
     set_pcvar_num(g_enabled, 1);
 
+    CheckFirstSpawn();
     Check(g_choice[g_fixture_id] == 0 && g_pistol_choice[g_fixture_id] == 0, "default choices");
     for (new primary = 0; primary < sizeof WEAPON_NAMES; primary++)
     {
@@ -108,4 +122,73 @@ public RunLoadoutSmoke()
     server_print("SPAWN_LOADOUT_SMOKE=%s combinations=9 failures=%d synthetic_client=1",
         g_failures ? "failed" : "passed", g_failures);
     return PLUGIN_HANDLED;
+}
+
+CheckFirstSpawn()
+{
+    new id = g_fixture_id;
+    new task_id = WELCOME_TASK_BASE + id;
+    client_putinserver(id);
+    rg_round_respawn(id);
+    Check(task_exists(task_id) && !g_welcomed[id], "first spawn schedules welcome");
+    remove_task(task_id);
+    ShowWelcome(task_id);
+    Check(g_welcomed[id] && g_menu_displays == 1, "welcome opens primary once");
+    menu_cancel(id);
+    rg_round_respawn(id);
+    ShowWelcome(task_id);
+    Check(!task_exists(task_id) && g_menu_displays == 1, "respawn does not reopen welcome");
+
+    client_putinserver(id);
+    OnSpawnPost(id);
+    OpenWeapons(id);
+    Check(!task_exists(task_id) && g_welcomed[id], "manual guns cancels automatic menu");
+    new displays = g_menu_displays;
+    ShowWelcome(task_id);
+    Check(g_menu_displays == displays, "manual menu is not reopened");
+
+    client_putinserver(id);
+    OnSpawnPost(id);
+    remove_task(task_id);
+    // The existing weapon menu stands in for another active menu.
+    ShowWelcome(task_id);
+    Check(g_welcomed[id] && g_menu_displays == displays, "active menu is not replaced");
+    menu_cancel(id);
+
+    client_putinserver(id);
+    OnSpawnPost(id);
+    remove_task(task_id);
+    set_pcvar_num(g_enabled, 0);
+    ShowWelcome(task_id);
+    Check(!g_welcomed[id] && g_menu_displays == displays, "disabled delayed welcome refuses");
+    OnSpawnPost(id);
+    Check(!task_exists(task_id), "disabled spawn schedules nothing");
+    set_pcvar_num(g_enabled, 1);
+
+    rg_set_user_team(id, TEAM_SPECTATOR);
+    OnSpawnPost(id);
+    ShowWelcome(task_id);
+    Check(!task_exists(task_id) && !g_welcomed[id], "spectator welcome refuses");
+    rg_set_user_team(id, TEAM_CT);
+    g_bypass_bot = false;
+    OnSpawnPost(id);
+    ShowWelcome(task_id);
+    Check(!task_exists(task_id) && !g_welcomed[id], "bot welcome refuses");
+    g_bypass_bot = true;
+
+    set_entvar(id, var_deadflag, DEAD_DEAD);
+    ShowWelcome(task_id);
+    Check(!g_welcomed[id], "dead callback leaves next spawn eligible");
+    rg_round_respawn(id);
+    Check(bool:task_exists(task_id), "next living spawn retries welcome");
+    new rejected[128];
+    client_disconnected(id, false, rejected, charsmax(rejected));
+    Check(!task_exists(task_id) && !g_welcomed[id], "disconnect cancels timer and state");
+    client_putinserver(id);
+    Check(!task_exists(task_id) && !g_welcomed[id], "reused client slot starts clean");
+    ShowWelcome(WELCOME_TASK_BASE);
+    ShowWelcome(WELCOME_TASK_BASE + MaxClients + 1);
+    // Keep the remaining inventory scenarios free of a delayed welcome.
+    g_welcomed[id] = true;
+    server_print("FIRST_SPAWN_SMOKE=%s failures=%d synthetic_client=1", g_failures ? "failed" : "passed", g_failures);
 }

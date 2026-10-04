@@ -2502,6 +2502,22 @@ The recorded baseline and agent invocation stayed unchanged. Product and addon
 workflows are merged in PRs #236 and #237; the addon installation is accepted,
 without claiming the untested human voting path.
 
+### v2.32 First Spawn
+
+Weapon addon 0.3.0 adds one automatic primary-menu display and a concise
+`/guns`, `/maps`, `/timeleft` hint after the first eligible human spawn. It
+does not replace an active menu or repeat after every respawn, and manual
+`/guns` cancels the pending automatic display. Timer/state are reset on
+disconnect; state remains map/plugin-local, not persistent player identity.
+Inventory still changes only on spawn. No rank, round-rule, map-vote, queue,
+database or boot-policy change is included.
+
+Pinned compilation, isolated first-spawn cases and the nine-combination
+inventory regression passed without AMXX error logs. Host package content,
+hash and no-overwrite checks passed. Required CI and the bounded binary-only
+host upgrade remain separate gates; human presentation is deferred, not a
+mandatory MVP deployment gate. See the [v2.32 boundary](v2.32-first-spawn.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.
