@@ -41,6 +41,10 @@ SH
 cat > "$fixture/bin/install" <<'SH'
 #!/usr/bin/env bash
 if [[ "${!#}" == *goldsrcops-weapon-selection.cfg && -e "$FIXTURE_ROOT/install-fail" ]]; then exit 1; fi
+if [[ "${!#}" == *goldsrcops_weapon_selection.amxx && -e "$FIXTURE_ROOT/upgrade-fail" ]]; then
+    printf 'partial binary\n' > "${!#}"
+    exit 1
+fi
 exec /usr/bin/install "$@"
 SH
 chmod +x "$fixture/bin/systemctl" "$fixture/bin/install"
@@ -92,6 +96,43 @@ run --status | grep -q 'WEAPON_SELECTION_ADDON=disabled'
 run --disable --apply | grep -q unchanged
 run --enable --apply
 run --status | grep -q 'WEAPON_SELECTION_ADDON=enabled'
+
+# Upgrade retains the loader/config, rejects a stale predecessor and restores
+# the exact binary/receipt on partial-copy or final-guard failure.
+cp -a "$fixture/package" "$fixture/next-package"
+printf 'next fixture plugin\n' > "$fixture/next-package/$plugin"
+jq --arg hash "$(sha256sum "$fixture/next-package/$plugin" | cut -d' ' -f1)" \
+    '(.payload[] | select(.path | endswith(".amxx")) | .sha256) = $hash' \
+    "$fixture/package/manifest.json" > "$fixture/next-package/manifest.json"
+next_digest="$(sha256sum "$fixture/next-package/manifest.json" | cut -d' ' -f1)"
+upgrade() { run --upgrade --bundle "$fixture/next-package" --manifest-sha256 "$next_digest" --expected-manifest-sha256 "$digest" "$@"; }
+upgrade | grep -q PLAN_ONLY
+refuse --upgrade --bundle "$fixture/next-package" --manifest-sha256 "$next_digest" --apply
+refuse --upgrade --bundle "$fixture/next-package" --manifest-sha256 "$next_digest" --expected-manifest-sha256 "$(printf 'b%.0s' {1..64})" --apply
+original_binary="$(sha256sum "$amxx/plugins/goldsrcops_weapon_selection.amxx")"
+original_receipt="$(sha256sum "$fixture/config/weapon-selection-installed")"
+touch "$fixture/upgrade-fail"
+if upgrade --apply > "$fixture/refusal.log" 2>&1; then exit 1; fi
+[[ "$original_binary" == "$(sha256sum "$amxx/plugins/goldsrcops_weapon_selection.amxx")" ]]
+[[ "$original_receipt" == "$(sha256sum "$fixture/config/weapon-selection-installed")" ]]
+rm "$fixture/upgrade-fail"
+touch "$fixture/fail-final-guard"
+if upgrade --apply > "$fixture/refusal.log" 2>&1; then exit 1; fi
+[[ "$original_binary" == "$(sha256sum "$amxx/plugins/goldsrcops_weapon_selection.amxx")" ]]
+[[ "$original_receipt" == "$(sha256sum "$fixture/config/weapon-selection-installed")" ]]
+rm "$fixture/guard-fail"
+upgrade --apply
+run --status | grep -q 'WEAPON_SELECTION_ADDON=enabled'
+[[ "$(sed -n 's/^manifest_sha256=//p' "$fixture/config/weapon-selection-installed")" == "$next_digest" ]]
+[[ "$(sha256sum "$amxx/plugins/goldsrcops_weapon_selection.amxx" | cut -d' ' -f1)" == "$(sha256sum "$fixture/next-package/$plugin" | cut -d' ' -f1)" ]]
+refuse --upgrade --bundle "$fixture/next-package" --manifest-sha256 "$next_digest" --expected-manifest-sha256 "$digest" --apply
+run --disable --apply
+# The previous trusted package is also the explicit reverse-upgrade input.
+run --upgrade --bundle "$fixture/package" --manifest-sha256 "$digest" --expected-manifest-sha256 "$next_digest" --apply
+run --status | grep -q 'WEAPON_SELECTION_ADDON=disabled'
+[[ ! -e "$amxx/configs/plugins-goldsrcops-weapons.ini" ]]
+[[ "$original_binary" == "$(sha256sum "$amxx/plugins/goldsrcops_weapon_selection.amxx")" ]]
+run --enable --apply
 printf 'drift\n' >> "$amxx/plugins/goldsrcops_weapon_selection.amxx"
 refuse --disable --apply
 [[ -f "$amxx/configs/plugins-goldsrcops-weapons.ini" ]]

@@ -11,6 +11,7 @@ ws_operation=""
 ws_apply=false
 ws_bundle=""
 ws_manifest_sha=""
+ws_expected_manifest_sha=""
 ws_receipt="$configuration_directory/weapon-selection-installed"
 ws_plugin="$live_amxx_root/plugins/goldsrcops_weapon_selection.amxx"
 ws_config="$live_amxx_root/configs/plugins/goldsrcops-weapon-selection.cfg"
@@ -21,6 +22,7 @@ ws_old_state=""
 ws_mutating=false
 ws_receipt_backup=""
 ws_created=()
+ws_upgrade_backup=""
 
 ws_write_receipt() {
     local temporary
@@ -68,6 +70,9 @@ ws_rollback() {
     local file
     if [[ "$ws_operation" == install ]]; then
         for file in "${ws_created[@]}"; do rm -f -- "$file" || return 1; done
+    elif [[ "$ws_operation" == upgrade ]]; then
+        cp -p -- "$ws_upgrade_backup/plugin" "$ws_plugin" || return 1
+        cp -p -- "$ws_upgrade_backup/receipt" "$ws_receipt" || return 1
     elif [[ "$ws_old_state" == enabled && -f "$ws_disabled_loader" && ! -e "$ws_loader" ]]; then
         mv -- "$ws_disabled_loader" "$ws_loader" || return 1
     elif [[ "$ws_old_state" == disabled && -f "$ws_loader" && ! -e "$ws_disabled_loader" ]]; then
@@ -89,9 +94,8 @@ ws_on_error() {
     exit "$status"
 }
 
-ws_install() {
-    local manifest="$ws_bundle/manifest.json" relative destination index
-    local -a destinations=("$ws_plugin" "$ws_config" "$ws_loader")
+ws_validate_bundle() {
+    local manifest="$ws_bundle/manifest.json" relative
     local -a relatives=(
         cstrike/addons/amxmodx/plugins/goldsrcops_weapon_selection.amxx
         cstrike/addons/amxmodx/configs/plugins/goldsrcops-weapon-selection.cfg
@@ -105,14 +109,24 @@ ws_install() {
         (.payload | length) == 3 and
         ([.payload[].path] | sort) == ([$plugin, $config, $loader] | sort) and
         all(.payload[]; .sha256 | test("^[0-9a-f]{64}$"))' "$manifest" >/dev/null || fail "Unsupported addon package."
-    for destination in "${destinations[@]}" "$ws_disabled_loader" "$ws_receipt"; do
-        [[ ! -e "$destination" && ! -L "$destination" ]] || fail "Addon path already exists; refusing overwrite."
-    done
     for relative in "${relatives[@]}"; do
         verify_sha256 "$ws_bundle/$relative" "$(jq -er --arg path "$relative" '.payload[] | select(.path == $path) | .sha256' "$manifest")"
     done
     [[ "$(cat "$ws_bundle/${relatives[1]}")" == 'goldsrcops_weapons_enabled "1"' ]] || fail "Unexpected addon configuration."
     [[ "$(cat "$ws_bundle/${relatives[2]}")" == goldsrcops_weapon_selection.amxx ]] || fail "Unexpected addon loader."
+}
+
+ws_install() {
+    local destination index
+    local -a destinations=("$ws_plugin" "$ws_config" "$ws_loader")
+    local -a relatives=(
+        cstrike/addons/amxmodx/plugins/goldsrcops_weapon_selection.amxx
+        cstrike/addons/amxmodx/configs/plugins/goldsrcops-weapon-selection.cfg
+        cstrike/addons/amxmodx/configs/plugins-goldsrcops-weapons.ini)
+    ws_validate_bundle
+    for destination in "${destinations[@]}" "$ws_disabled_loader" "$ws_receipt"; do
+        [[ ! -e "$destination" && ! -L "$destination" ]] || fail "Addon path already exists; refusing overwrite."
+    done
     ws_mutating=true
     # Install the supplemental loader last without changing telemetry files.
     for index in 0 1 2; do
@@ -125,23 +139,50 @@ ws_install() {
     ws_write_receipt
 }
 
+ws_upgrade() {
+    local next_manifest_sha="$ws_manifest_sha" next_plugin_sha
+    ws_verify
+    [[ "$ws_manifest_sha" == "$ws_expected_manifest_sha" ]] || fail "Installed addon does not match the reviewed predecessor."
+    ws_manifest_sha="$next_manifest_sha"
+    ws_validate_bundle
+    # Upgrade only the binary and receipt; retain configuration and loader state.
+    verify_sha256 "$ws_bundle/cstrike/addons/amxmodx/configs/plugins/goldsrcops-weapon-selection.cfg" "$(sha256_file "$ws_config")"
+    verify_sha256 "$ws_bundle/cstrike/addons/amxmodx/configs/plugins-goldsrcops-weapons.ini" "$(sha256_file "$(ws_loader_path)")"
+    next_plugin_sha="$(jq -er '.payload[] | select(.path == "cstrike/addons/amxmodx/plugins/goldsrcops_weapon_selection.amxx") | .sha256' "$ws_bundle/manifest.json")"
+    [[ "$next_plugin_sha" != "$(sha256_file "$ws_plugin")" ]] || fail "Upgrade must contain a changed plugin."
+    ws_upgrade_backup="$(mktemp -d "$configuration_directory/weapon-selection-backup.XXXXXX")"
+    cp -p -- "$ws_plugin" "$ws_upgrade_backup/plugin"
+    cp -p -- "$ws_receipt" "$ws_upgrade_backup/receipt"
+    verify_sha256 "$ws_upgrade_backup/plugin" "$(sha256_file "$ws_plugin")"
+    verify_sha256 "$ws_upgrade_backup/receipt" "$(sha256_file "$ws_receipt")"
+    ws_mutating=true
+    install -o root -g "$service_group" -m 0640 "$ws_bundle/cstrike/addons/amxmodx/plugins/goldsrcops_weapon_selection.amxx" "$ws_plugin"
+    ws_write_receipt
+}
+
 while (($# > 0)); do
     case "$1" in
-        --install|--enable|--disable|--status)
+        --install|--upgrade|--enable|--disable|--status)
             [[ -z "$ws_operation" ]] || fail "Select exactly one addon operation."
             ws_operation="${1#--}"; shift ;;
         --bundle) (($# >= 2)) || fail "Missing bundle path."; ws_bundle="$2"; shift 2 ;;
         --manifest-sha256) (($# >= 2)) || fail "Missing manifest digest."; ws_manifest_sha="$2"; shift 2 ;;
+        --expected-manifest-sha256) (($# >= 2)) || fail "Missing predecessor digest."; ws_expected_manifest_sha="$2"; shift 2 ;;
         --apply) ws_apply=true; shift ;;
         *) fail "Unknown addon argument." ;;
     esac
 done
-[[ -n "$ws_operation" ]] || fail "Select --install, --enable, --disable, or --status."
-if [[ "$ws_operation" == install ]]; then
-    [[ "$ws_bundle" == /* ]] || fail "Install requires an absolute bundle directory."
+[[ -n "$ws_operation" ]] || fail "Select --install, --upgrade, --enable, --disable, or --status."
+if [[ "$ws_operation" == install || "$ws_operation" == upgrade ]]; then
+    [[ "$ws_bundle" == /* ]] || fail "Install/upgrade requires an absolute bundle directory."
     validate_sha256 "$ws_manifest_sha"
 else
-    [[ -z "$ws_bundle" && -z "$ws_manifest_sha" ]] || fail "Bundle inputs are install-only."
+    [[ -z "$ws_bundle" && -z "$ws_manifest_sha" ]] || fail "Bundle inputs are install/upgrade-only."
+fi
+if [[ "$ws_operation" == upgrade ]]; then
+    validate_sha256 "$ws_expected_manifest_sha"
+else
+    [[ -z "$ws_expected_manifest_sha" ]] || fail "Predecessor digest is upgrade-only."
 fi
 if [[ "$ws_operation" != status && "$ws_apply" == false ]]; then
     log "PLAN: $ws_operation only the weapon-selection addon; game must already be stopped"
@@ -170,6 +211,8 @@ validate_directory_metadata "$live_amxx_root/configs/plugins" root "$service_gro
 trap ws_on_error ERR
 if [[ "$ws_operation" == install ]]; then
     ws_install
+elif [[ "$ws_operation" == upgrade ]]; then
+    ws_upgrade
 else
     ws_verify
     ws_old_state="$ws_state"
@@ -188,3 +231,6 @@ ws_mutating=false
 trap - ERR
 [[ -z "$ws_receipt_backup" ]] || rm -f -- "$ws_receipt_backup"
 log "WEAPON_SELECTION_ADDON=$ws_state; game remains stopped"
+if [[ "$ws_operation" == upgrade ]]; then
+    log "WEAPON_SELECTION_UPGRADE=completed; predecessor binary and receipt retained root-only"
+fi

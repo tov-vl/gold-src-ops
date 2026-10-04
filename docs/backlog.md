@@ -2448,6 +2448,22 @@ long soak, API/Web rollout or stable publication was performed. Installation
 acceptance does not claim new active-host inventory or multiplayer validation.
 See the [v2.29 prototype boundary](v2.29-weapon-selection.md).
 
+### v2.30 Spawn Loadout
+
+Status: implementation, both package targets, upgrade/rollback fixture and
+isolated nine-combination inventory smoke passed on 2026-10-04. Required PR CI,
+active-host upgrade and new client presentation remain unaccepted.
+
+Extend the existing addon with USP/Glock/Desert Eagle selection after the
+primary menu and a fixed 100 armor/helmet spawn grant. Choices remain
+connection-local and apply only on spawn. Clear both weapon slots before ammo
+grants because MP5/Glock share the 9mm pool; preserve other inventory slots.
+Add a stopped-game binary-only upgrade with a pinned predecessor, root-only
+backup and focused rollback fixture. No telemetry, baseline, boot-policy,
+API/Web, database, rank or round-rule change belongs to this slice. Reuse the
+MVP verification budget instead of another long release sequence. See the
+[v2.30 boundary](v2.30-spawn-loadout.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.
