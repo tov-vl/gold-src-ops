@@ -247,6 +247,10 @@ jobs:
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: sudo bash ./tools/smoke/gameserver-fast-reentry-transition.sh
 
+      - name: Validate weapon-selection addon installation and toggle
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        run: sudo bash ./tools/smoke/gameserver-weapon-selection-addon.sh
+
       - name: Validate game-host soak-readiness evidence contract
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: bash ./tools/smoke/gameserver-soak-readiness.sh
