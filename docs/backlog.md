@@ -2567,8 +2567,12 @@ and connection/map `/top` keep their accepted semantics.
 Pinned product/fixture compilation and one isolated real-nVault/native-damage
 smoke passed, including tier boundaries, kill promotion, reconnect, private
 output, independent cooldown and read-only/fallback behavior. The frozen addon
-package passed inventory/hash/no-overwrite checks. PR CI and pilot installation
-remain pending; no host mutation occurred.
+package passed inventory/hash/no-overwrite checks. PR #245 passed required CI
+on its first attempt and was merged. One game-only binary upgrade installed
+0.6.0; closed vault/journal hashes were unchanged across replacement.
+Independent external/host checks confirmed the rank policy, open nVault without
+errors, unchanged baseline/map/agent and settled queue/spool. Human rank
+rendering and multiplayer pacing remain deferred MVP limits.
 See the [v2.35 boundary and evidence](v2.35-player-ranks.md).
 
 The released v1 baseline includes:
