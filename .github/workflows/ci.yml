@@ -141,6 +141,23 @@ jobs:
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         run: dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 
+  map-menu-compile:
+    name: Map Menu Compile
+    needs: change-scope
+    if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Compile map menu and isolated fixture with pinned toolchain
+        shell: pwsh
+        run: |
+          $cache = Join-Path $env:RUNNER_TEMP 'map-menu-toolchain'
+          ./tools/smoke/amxx-map-menu.ps1 -CacheDirectory $cache
+          ./tools/smoke/amxx-map-menu.ps1 -CacheDirectory $cache -RuntimeFixture -Offline
+
   container-smoke:
     name: Container Smoke
     needs:

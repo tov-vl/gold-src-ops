@@ -2472,6 +2472,23 @@ Queue/spool stayed empty; the agent invocation and active/enabled boot policy
 were preserved. No credential prompt, reboot, long soak, control-plane rollout
 or stable publication was added to this small gameplay slice.
 
+### v2.31 Map Menu
+
+The next small map-facing experiment adds `/maps` and `/timeleft` using native
+ReGameDLL voting/time commands, without changing the five-map cycle, round
+rules or spawn points. The current map is disabled in the menu and unsupported
+cycle changes are refused so native vote IDs remain correct. Voting thresholds
+remain unchanged; this is not a second voting engine or a deathmatch decision.
+
+The optional, default-off plugin passed pinned compilation and a short isolated
+engine smoke alongside weapon selection 0.2.0. Synthetic requests exercised
+native player-count refusal and one recorded vote without a forced map change.
+Required PR CI and a bounded supplemental-addon host installation remain
+separate; human menu/quorum and spawn-balance results are not claimed. See the
+[v2.31 boundary](v2.31-map-menu.md). No additional owner session, full local .NET
+gate, reboot, soak, credential input or stable publication is required for
+this implementation stage.
+
 The released v1 baseline includes:
 
 - One-command local startup.
