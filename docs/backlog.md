@@ -2531,9 +2531,12 @@ database, API or telemetry change belongs to this slice.
 
 Pinned product/fixture compilation, native-damage statistics, first-spawn and
 nine-combination inventory regression and host package checks passed without
-AMXX error logs. Required CI and the exact-predecessor binary-only upgrade
-remain separate gates. Human rendering is optional for this MVP claim. See
-the [v2.33 boundary](v2.33-map-stats.md).
+AMXX error logs. PR #241 passed all required CI on the first attempt and was
+merged; the frozen 0.4.0 binary upgrade is accepted on the pilot. External and
+host checks verified statistics configuration, unchanged map/baseline/agent
+invocation, settled queue/spool and no new AMXX errors. Human chat rendering
+and multiplayer balance remain untested, not mandatory MVP gates. See the
+[v2.33 boundary and acceptance](v2.33-map-stats.md).
 
 The released v1 baseline includes:
 
