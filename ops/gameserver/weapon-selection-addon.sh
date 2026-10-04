@@ -27,18 +27,25 @@ ws_receipt_backup=""
 ws_created=()
 ws_upgrade_backup=""
 ws_remove_paths=()
+ws_has_dictionary=false
+ws_bundle_has_dictionary=false
+ws_upgrade_had_dictionary=false
 
 ws_write_receipt() {
-    local temporary
+    local temporary schema=1
+    [[ "$ws_has_dictionary" != true ]] || schema=2
     temporary="$(mktemp "$configuration_directory/.$ws_kind.XXXXXX")"
     cat > "$temporary" <<EOF
-schema_version=1
+schema_version=$schema
 state=$ws_state
 manifest_sha256=$ws_manifest_sha
 plugin_sha256=$(sha256_file "$ws_plugin")
 config_sha256=$(sha256_file "$ws_config")
 loader_sha256=$(sha256_file "$(ws_loader_path)")
 EOF
+    if [[ "$ws_has_dictionary" == true ]]; then
+        printf 'dictionary_sha256=%s\n' "$(sha256_file "$ws_dictionary")" >> "$temporary"
+    fi
     chown root:"$service_group" "$temporary"
     chmod 0640 "$temporary"
     mv -f -- "$temporary" "$ws_receipt"
@@ -51,7 +58,17 @@ ws_loader_path() {
 
 ws_verify() {
     validate_file_metadata "$ws_receipt" root "$service_group" 640
-    [[ "$(marker_value "$ws_receipt" schema_version)" == 1 ]] || fail "Unsupported addon receipt."
+    local schema
+    schema="$(marker_value "$ws_receipt" schema_version)"
+    [[ "$schema" == 1 || ( "$schema" == 2 && "$ws_map_menu" == false ) ]] || fail "Unsupported addon receipt."
+    ws_has_dictionary=false
+    if [[ "$schema" == 2 ]]; then
+        ws_has_dictionary=true
+        validate_directory_metadata "$live_amxx_root/data" root "$service_group" 750
+        validate_directory_metadata "$live_amxx_root/data/lang" root "$service_group" 750
+        verify_sha256 "$ws_dictionary" "$(marker_value "$ws_receipt" dictionary_sha256)"
+        validate_file_metadata "$ws_dictionary" root "$service_group" 640
+    fi
     ws_state="$(marker_value "$ws_receipt" state)"
     [[ "$ws_state" == enabled || "$ws_state" == disabled ]] || fail "Unknown addon state."
     ws_manifest_sha="$(marker_value "$ws_receipt" manifest_sha256)"
@@ -77,6 +94,11 @@ ws_rollback() {
     elif [[ "$ws_operation" == upgrade ]]; then
         cp -p -- "$ws_upgrade_backup/plugin" "$ws_plugin" || return 1
         cp -p -- "$ws_upgrade_backup/receipt" "$ws_receipt" || return 1
+        if [[ "$ws_upgrade_had_dictionary" == true ]]; then
+            cp -p -- "$ws_upgrade_backup/dictionary" "$ws_dictionary" || return 1
+        elif [[ "$ws_bundle_has_dictionary" == true ]]; then
+            rm -f -- "$ws_dictionary" || return 1
+        fi
     elif [[ "$ws_operation" == remove ]]; then
         for index in "${!ws_remove_paths[@]}"; do
             cp -p -- "$ws_upgrade_backup/$index" "${ws_remove_paths[index]}" || return 1
@@ -106,13 +128,21 @@ ws_validate_bundle() {
     local manifest="$ws_bundle/manifest.json" relative
     local -a relatives=("$ws_plugin_relative" "$ws_config_relative" "$ws_loader_relative")
     verify_sha256 "$manifest" "$ws_manifest_sha"
-    jq -e --arg plugin "${relatives[0]}" --arg config "${relatives[1]}" --arg loader "${relatives[2]}" --arg purpose "$ws_purpose" '
-        .schemaVersion == 1 and .purpose == $purpose and
+    ws_bundle_has_dictionary=false
+    if [[ "$(jq -er '.schemaVersion' "$manifest")" == 2 && "$ws_map_menu" == false ]]; then
+        ws_bundle_has_dictionary=true
+        relatives+=("$ws_dictionary_relative")
+        validate_directory_metadata "$live_amxx_root/data" root "$service_group" 750
+        validate_directory_metadata "$live_amxx_root/data/lang" root "$service_group" 750
+    fi
+    jq -e --arg plugin "${relatives[0]}" --arg config "${relatives[1]}" --arg loader "${relatives[2]}" --arg purpose "$ws_purpose" \
+        --arg dictionary "$ws_dictionary_relative" --argjson dictionary_enabled "$ws_bundle_has_dictionary" '
+        .schemaVersion == (if $dictionary_enabled then 2 else 1 end) and .purpose == $purpose and
         .productionInstallSupported == true and .enabledByDefault == true and
         .amxxVersion == "1.10.0.5481" and .reApiVersion == "5.24.0.300" and
         (.sourceSha256 | test("^[0-9a-f]{64}$")) and
-        (.payload | length) == 3 and
-        ([.payload[].path] | sort) == ([$plugin, $config, $loader] | sort) and
+        (.payload | length) == (if $dictionary_enabled then 4 else 3 end) and
+        ([.payload[].path] | sort) == (([$plugin, $config, $loader] + (if $dictionary_enabled then [$dictionary] else [] end)) | sort) and
         all(.payload[]; .sha256 | test("^[0-9a-f]{64}$"))' "$manifest" >/dev/null || fail "Unsupported addon package."
     for relative in "${relatives[@]}"; do
         verify_sha256 "$ws_bundle/$relative" "$(jq -er --arg path "$relative" '.payload[] | select(.path == $path) | .sha256' "$manifest")"
@@ -126,17 +156,22 @@ ws_install() {
     local -a destinations=("$ws_plugin" "$ws_config" "$ws_loader")
     local -a relatives=("$ws_plugin_relative" "$ws_config_relative" "$ws_loader_relative")
     ws_validate_bundle
+    if [[ "$ws_bundle_has_dictionary" == true ]]; then
+        destinations=("$ws_plugin" "$ws_config" "$ws_dictionary" "$ws_loader")
+        relatives=("$ws_plugin_relative" "$ws_config_relative" "$ws_dictionary_relative" "$ws_loader_relative")
+    fi
     for destination in "${destinations[@]}" "$ws_disabled_loader" "$ws_receipt"; do
         [[ ! -e "$destination" && ! -L "$destination" ]] || fail "Addon path already exists; refusing overwrite."
     done
     ws_mutating=true
     # Install the supplemental loader last without changing telemetry files.
-    for index in 0 1 2; do
+    for index in "${!destinations[@]}"; do
         destination="${destinations[index]}"
         ws_created+=("$destination")
         install -o root -g "$service_group" -m 0640 "$ws_bundle/${relatives[index]}" "$destination"
     done
     ws_state=enabled
+    ws_has_dictionary="$ws_bundle_has_dictionary"
     ws_created+=("$ws_receipt")
     ws_write_receipt
 }
@@ -147,17 +182,31 @@ ws_upgrade() {
     [[ "$ws_manifest_sha" == "$ws_expected_manifest_sha" ]] || fail "Installed addon does not match the reviewed predecessor."
     ws_manifest_sha="$next_manifest_sha"
     ws_validate_bundle
-    # Upgrade only the binary and receipt; retain configuration and loader state.
+    # Retain configuration, loader state and player storage on both schema paths.
     verify_sha256 "$ws_bundle/$ws_config_relative" "$(sha256_file "$ws_config")"
     verify_sha256 "$ws_bundle/$ws_loader_relative" "$(sha256_file "$(ws_loader_path)")"
     next_plugin_sha="$(jq -er --arg path "$ws_plugin_relative" '.payload[] | select(.path == $path) | .sha256' "$ws_bundle/manifest.json")"
     [[ "$next_plugin_sha" != "$(sha256_file "$ws_plugin")" ]] || fail "Upgrade must contain a changed plugin."
+    ws_upgrade_had_dictionary="$ws_has_dictionary"
+    if [[ "$ws_has_dictionary" == false && "$ws_bundle_has_dictionary" == true ]]; then
+        [[ ! -e "$ws_dictionary" && ! -L "$ws_dictionary" ]] || fail "Unmanaged dictionary exists; refusing overwrite."
+    fi
     ws_upgrade_backup="$(mktemp -d "$configuration_directory/$ws_kind-backup.XXXXXX")"
     cp -p -- "$ws_plugin" "$ws_upgrade_backup/plugin"
     cp -p -- "$ws_receipt" "$ws_upgrade_backup/receipt"
     verify_sha256 "$ws_upgrade_backup/plugin" "$(sha256_file "$ws_plugin")"
     verify_sha256 "$ws_upgrade_backup/receipt" "$(sha256_file "$ws_receipt")"
+    if [[ "$ws_upgrade_had_dictionary" == true ]]; then
+        cp -p -- "$ws_dictionary" "$ws_upgrade_backup/dictionary"
+        verify_sha256 "$ws_upgrade_backup/dictionary" "$(sha256_file "$ws_dictionary")"
+    fi
     ws_mutating=true
+    if [[ "$ws_bundle_has_dictionary" == true ]]; then
+        install -o root -g "$service_group" -m 0640 "$ws_bundle/$ws_dictionary_relative" "$ws_dictionary"
+    elif [[ "$ws_upgrade_had_dictionary" == true ]]; then
+        rm -- "$ws_dictionary"
+    fi
+    ws_has_dictionary="$ws_bundle_has_dictionary"
     install -o root -g "$service_group" -m 0640 "$ws_bundle/$ws_plugin_relative" "$ws_plugin"
     ws_write_receipt
 }
@@ -209,6 +258,8 @@ ws_disabled_loader="$configuration_directory/$ws_kind-disabled-loader"
 ws_plugin_relative="cstrike/addons/amxmodx/plugins/$ws_plugin_name"
 ws_config_relative="cstrike/addons/amxmodx/configs/plugins/$ws_configuration_name"
 ws_loader_relative="cstrike/addons/amxmodx/configs/$ws_loader_name"
+ws_dictionary="$live_amxx_root/data/lang/goldsrcops-player-menu.txt"
+ws_dictionary_relative="cstrike/addons/amxmodx/data/lang/goldsrcops-player-menu.txt"
 [[ -n "$ws_operation" ]] || fail "Select one addon operation."
 [[ "$ws_operation" != remove || "$ws_map_menu" == true ]] || fail "Remove is supported only for the map-menu addon."
 if [[ "$ws_operation" == install || "$ws_operation" == upgrade ]]; then

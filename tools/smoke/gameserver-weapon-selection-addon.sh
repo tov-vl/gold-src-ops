@@ -32,12 +32,15 @@ mkdir -p "$fixture/scripts" "$fixture/bin" "$fixture/config" "$fixture/service/s
 export FIXTURE_ROOT="$fixture" REPO_ROOT="$repo" SUDO_USER=operator SSH_CONNECTION=fixture
 export GOLDSRCOPS_CONFIGURATION_DIRECTORY="$fixture/config" GOLDSRCOPS_SERVICE_HOME="$fixture/service"
 amxx="$fixture/service/server/cstrike/addons/amxmodx"
+mkdir -p "$amxx/data/lang" "$amxx/data/vault"
+chmod 0750 "$amxx/data" "$amxx/data/lang"
+printf 'saved player stats\n' > "$amxx/data/vault/fixture.vault"
 chmod 0750 "$amxx/configs" "$amxx/configs/plugins" "$amxx/plugins"
 printf 'goldsrcops_game_events.amxx\n' > "$amxx/configs/plugins.ini"
 printf 'telemetry configuration\n' > "$amxx/configs/amxx.cfg"
 printf 'telemetry queue\n' > "$fixture/queue"
 printf 'telemetry spool\n' > "$fixture/spool"
-sentinels=("$amxx/configs/plugins.ini" "$amxx/configs/amxx.cfg" "$fixture/queue" "$fixture/spool")
+sentinels=("$amxx/configs/plugins.ini" "$amxx/configs/amxx.cfg" "$fixture/queue" "$fixture/spool" "$amxx/data/vault/fixture.vault")
 if [[ "$kind" == map-menu ]]; then
     for file in "$amxx/plugins/goldsrcops_weapon_selection.amxx" "$amxx/configs/plugins/goldsrcops-weapon-selection.cfg" \
         "$amxx/configs/plugins-goldsrcops-weapons.ini" "$fixture/config/weapon-selection-installed"; do
@@ -69,6 +72,10 @@ if [[ -e "$FIXTURE_ROOT/game-active" ]]; then echo active; else echo inactive; f
 SH
 cat > "$fixture/bin/install" <<'SH'
 #!/usr/bin/env bash
+if [[ "${!#}" == *goldsrcops-player-menu.txt && -e "$FIXTURE_ROOT/dictionary-fail" ]]; then
+    printf 'partial dictionary\n' > "${!#}"
+    exit 1
+fi
 if [[ "${!#}" == *"$TARGET_CONFIG" && -e "$FIXTURE_ROOT/install-fail" ]]; then exit 1; fi
 if [[ "${!#}" == *"$TARGET_PLUGIN" && -e "$FIXTURE_ROOT/upgrade-fail" ]]; then
     printf 'partial binary\n' > "${!#}"
@@ -189,6 +196,74 @@ if [[ "$kind" == map-menu ]]; then
     run --remove --expected-manifest-sha256 "$digest" --apply
     [[ ! -e "$fixture/config/$kind-disabled-loader" && ! -e "$fixture/config/$kind-installed" ]]
     run --install --bundle "$fixture/package" --manifest-sha256 "$digest" --apply
+fi
+if [[ "$kind" == weapon-selection ]]; then
+    dictionary=cstrike/addons/amxmodx/data/lang/goldsrcops-player-menu.txt
+    live_dictionary="$amxx/data/lang/goldsrcops-player-menu.txt"
+    cp -a "$fixture/next-package" "$fixture/localized-package"
+    mkdir -p "$fixture/localized-package/$(dirname "$dictionary")"
+    printf '[en]\nGS_MENU = Fixture\n[ru]\nGS_MENU = Fixture\n' > "$fixture/localized-package/$dictionary"
+    jq --arg path "$dictionary" --arg hash "$(sha256sum "$fixture/localized-package/$dictionary" | cut -d' ' -f1)" \
+        '.schemaVersion = 2 | .payload += [{path:$path,sha256:$hash}]' \
+        "$fixture/next-package/manifest.json" > "$fixture/localized-package/manifest.json"
+    localized_digest="$(sha256sum "$fixture/localized-package/manifest.json" | cut -d' ' -f1)"
+    localized() { run --upgrade --bundle "$fixture/localized-package" --manifest-sha256 "$localized_digest" --expected-manifest-sha256 "$digest" --apply; }
+    original_receipt="$(sha256sum "$fixture/config/$kind-installed")"
+    ln -s "$fixture/queue" "$live_dictionary"
+    if localized > "$fixture/refusal.log" 2>&1; then exit 1; fi
+    [[ -L "$live_dictionary" ]]
+    rm "$live_dictionary"
+    for failure in dictionary-fail upgrade-fail fail-final-guard; do
+        touch "$fixture/$failure"
+        if localized > "$fixture/refusal.log" 2>&1; then exit 1; fi
+        [[ ! -e "$live_dictionary" && ! -L "$live_dictionary" ]]
+        [[ "$original_binary" == "$(sha256sum "$amxx/plugins/$plugin_name")" ]]
+        [[ "$original_receipt" == "$(sha256sum "$fixture/config/$kind-installed")" ]]
+        rm -f "$fixture/$failure" "$fixture/guard-fail"
+    done
+    localized
+    run --status | grep -q "${label}_ADDON=enabled"
+    grep -q '^schema_version=2$' "$fixture/config/$kind-installed"
+    dictionary_before="$(sha256sum "$live_dictionary")"
+    localized_receipt="$(sha256sum "$fixture/config/$kind-installed")"
+    cp -a "$fixture/localized-package" "$fixture/translated-package"
+    printf 'updated localized binary\n' > "$fixture/translated-package/$plugin"
+    printf '[en]\nGS_MENU = Updated\n[ru]\nGS_MENU = Updated\n' > "$fixture/translated-package/$dictionary"
+    jq --arg plugin "$plugin" --arg dictionary "$dictionary" \
+        --arg p "$(sha256sum "$fixture/translated-package/$plugin" | cut -d' ' -f1)" \
+        --arg d "$(sha256sum "$fixture/translated-package/$dictionary" | cut -d' ' -f1)" \
+        '(.payload[] | select(.path == $plugin) | .sha256) = $p |
+         (.payload[] | select(.path == $dictionary) | .sha256) = $d' \
+        "$fixture/localized-package/manifest.json" > "$fixture/translated-package/manifest.json"
+    translated_digest="$(sha256sum "$fixture/translated-package/manifest.json" | cut -d' ' -f1)"
+    localized_binary="$(sha256sum "$amxx/plugins/$plugin_name")"
+    for failure in dictionary-fail upgrade-fail fail-final-guard; do
+        touch "$fixture/$failure"
+        refuse --upgrade --bundle "$fixture/translated-package" --manifest-sha256 "$translated_digest" --expected-manifest-sha256 "$localized_digest" --apply
+        [[ "$dictionary_before" == "$(sha256sum "$live_dictionary")" ]]
+        [[ "$localized_binary" == "$(sha256sum "$amxx/plugins/$plugin_name")" ]]
+        [[ "$localized_receipt" == "$(sha256sum "$fixture/config/$kind-installed")" ]]
+        rm -f "$fixture/$failure" "$fixture/guard-fail"
+    done
+    run --upgrade --bundle "$fixture/translated-package" --manifest-sha256 "$translated_digest" --expected-manifest-sha256 "$localized_digest" --apply
+    localized_digest="$translated_digest"
+    dictionary_before="$(sha256sum "$live_dictionary")"
+    localized_receipt="$(sha256sum "$fixture/config/$kind-installed")"
+    # Reverse upgrade restores a removed dictionary if the final guard fails.
+    touch "$fixture/fail-final-guard"
+    refuse --upgrade --bundle "$fixture/package" --manifest-sha256 "$digest" --expected-manifest-sha256 "$localized_digest" --apply
+    [[ "$dictionary_before" == "$(sha256sum "$live_dictionary")" ]]
+    [[ "$localized_receipt" == "$(sha256sum "$fixture/config/$kind-installed")" ]]
+    rm "$fixture/guard-fail"
+    cp "$live_dictionary" "$fixture/dictionary-original"
+    printf 'drift\n' >> "$live_dictionary"
+    refuse --status
+    cp "$fixture/dictionary-original" "$live_dictionary"
+    run --disable --apply
+    run --upgrade --bundle "$fixture/package" --manifest-sha256 "$digest" --expected-manifest-sha256 "$localized_digest" --apply
+    [[ ! -e "$live_dictionary" && ! -L "$live_dictionary" ]]
+    run --status | grep -q "${label}_ADDON=disabled"
+    run --enable --apply
 fi
 printf 'drift\n' >> "$amxx/plugins/$plugin_name"
 refuse --disable --apply

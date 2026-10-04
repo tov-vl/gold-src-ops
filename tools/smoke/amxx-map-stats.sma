@@ -97,6 +97,7 @@ public RunMapStatsSmoke()
         g_human[id] = true;
         dllfunc(DLLFunc_ClientConnect, id, name, "127.0.0.1", rejected);
         dllfunc(DLLFunc_ClientPutInServer, id);
+        set_user_info(id, "lang", "en");
         rg_set_user_team(id, TEAM_CT);
         set_member(id, m_iJoiningState, JOINED);
         client_putinserver(id);
