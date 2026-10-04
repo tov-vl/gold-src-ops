@@ -20,7 +20,7 @@ $archiveHash = (Get-FileHash -LiteralPath $package.Archive -Algorithm SHA256).Ha
 $manifest = Get-Content -LiteralPath (Join-Path $package.Content "manifest.json") -Raw | ConvertFrom-Json
 $addon = $Target -eq "game-host-addon"
 $purpose = if ($addon) { "game-host-addon" } else { "local-sandbox" }
-if ($manifest.schemaVersion -ne 1 -or $manifest.purpose -cne $purpose `
+if ($manifest.schemaVersion -ne 2 -or $manifest.purpose -cne $purpose `
     -or $manifest.productionInstallSupported -ne $addon -or $manifest.enabledByDefault -ne $addon `
     -or $manifest.amxxVersion -cne "1.10.0.5481" -or $manifest.reApiVersion -cne "5.24.0.300") {
     throw "Unexpected sandbox manifest boundary."
@@ -31,6 +31,7 @@ $expectedPayload = @(
     "cstrike/addons/amxmodx/plugins/goldsrcops_weapon_selection.amxx"
 )
 if ($addon) { $expectedPayload += "cstrike/addons/amxmodx/configs/plugins-goldsrcops-weapons.ini" }
+$expectedPayload += "cstrike/addons/amxmodx/data/lang/goldsrcops-player-menu.txt"
 if (@($manifest.payload).Count -ne $expectedPayload.Count -or
     (Compare-Object $expectedPayload @($manifest.payload.path))) {
     throw "Unexpected sandbox payload."

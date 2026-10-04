@@ -1707,3 +1707,28 @@ smoke coverage, CI integration, and the operator contract. It does not mutate a
 target host. Candidate publication, exact-bundle verification, target rollback
 rehearsal, controlled reboot, and one-real-round acceptance remain separate R3
 gates.
+
+## Decision 34: Use Native Dictionaries For Player UI
+
+Decision date: 2026-10-04.
+
+Use AMXX `register_dictionary` and `%L` for the player addon instead of adding
+a localization plugin. Keep `[ru]` and `[en]` translations in one UTF-8
+dictionary shipped alongside the binary, with key/format parity and bounded
+chat validation. Keep aggregate operator status machine-readable in English.
+
+Respect the client's supported `lang`: `ru` or `en`. A missing value selects
+Russian; an unsupported value selects English. An explicit language choice
+in `/menu` is connection-local and does not write client configuration, change
+global AMXX settings, alter another plugin's language or create a new vault.
+After reconnect/map reload, use the client's preference again.
+
+Cache one menu per supported language, preserve the existing gameplay commands
+and cooldowns, and delegate map actions to their owning addon through fixed
+AMXX commands. Localize those addon messages separately when needed.
+
+The supplemental installer owns exactly one additional hash-bound dictionary
+under `data/lang`. Schema-2 weapon packages/receipts include it; legacy schema-1
+weapon and map packages remain supported. Rollback restores the prior
+dictionary or removes only the newly owned file, while player storage remains
+unchanged. Do not chmod or recreate the existing vault to install translations.

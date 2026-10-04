@@ -90,6 +90,7 @@ bool:CreateStatsClients()
         copy(g_auth[id], charsmax(g_auth[]), "STEAM_ID_PENDING");
         dllfunc(DLLFunc_ClientConnect, id, name, "127.0.0.1", rejected);
         dllfunc(DLLFunc_ClientPutInServer, id);
+        set_user_info(id, "lang", "en");
         rg_set_user_team(id, TEAM_CT);
         set_member(id, m_iJoiningState, JOINED);
         client_putinserver(id);
@@ -263,7 +264,9 @@ CheckPlayerRanks(player, victim)
         prints = g_prints;
         ExecuteHamB(Ham_TakeDamage, victim, player, player, 1000.0, DMG_BULLET);
         new promotion[64];
-        formatex(promotion, charsmax(promotion), "Rank up: %s | K %d.", RANK_NAMES[rank], RANK_KILLS[rank]);
+        new rank_name[32];
+        formatex(rank_name, charsmax(rank_name), "%L", "en", RANK_KEYS[rank]);
+        formatex(promotion, charsmax(promotion), "Rank up: %s | K %d.", rank_name, RANK_KILLS[rank]);
         CheckSaved(g_prints == prints + 1 && g_print_target == player
             && contain(g_last_print, promotion) >= 0, "each higher threshold emits one private promotion");
     }

@@ -2593,6 +2593,21 @@ settled queue/spool and no new AMXX errors. Real-client rendering and multiplaye
 pacing remain deferred MVP limits, not mandatory gates. See the
 [v2.36 boundary and evidence](v2.36-rank-feedback.md).
 
+### v2.37 - Bilingual Player Menu
+
+Addon 0.8.0 adds `/menu` with weapons, stats, rank, map leaders, map voting,
+time left and language selection. Native AMXX dictionaries provide RU/EN
+for this menu, weapon menus, welcome and private stats/rank feedback. Existing
+commands, cooldowns, scoring and schema-1 player storage remain unchanged.
+The map addon still owns map voting/time-left behavior and its English text.
+
+Focused bilingual menu/dispatch, rank/storage, welcome/loadout, dictionary
+and package checks passed locally. The supplemental installer now owns one
+hash-bound dictionary and supports legacy packages plus exact dictionary
+rollback without touching the vault. CI and active-host acceptance are pending;
+real-client Cyrillic rendering remains an explicit optional MVP observation.
+See the [v2.37 boundary and evidence](v2.37-player-menu.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.

@@ -96,12 +96,12 @@ public RunLoadoutSmoke()
     // Menu handlers store choices without replenishing a living player's ammo.
     rg_set_user_bpammo(g_fixture_id, WEAPON_M4A1, 1);
     rg_set_user_bpammo(g_fixture_id, WEAPON_DEAGLE, 1);
-    OnWeaponSelected(g_fixture_id, g_menu, 1);
-    OnPistolSelected(g_fixture_id, g_pistol_menu, 0);
+    OnWeaponSelected(g_fixture_id, g_menu[PlayerLanguage(g_fixture_id)], 1);
+    OnPistolSelected(g_fixture_id, g_pistol_menu[PlayerLanguage(g_fixture_id)], 0);
     Check(g_choice[g_fixture_id] == 1 && g_pistol_choice[g_fixture_id] == 0, "menu choices retained");
     Check(rg_has_item_by_name(g_fixture_id, "weapon_m4a1") && rg_has_item_by_name(g_fixture_id, "weapon_deagle"), "no mid-life replacement");
     Check(rg_get_user_bpammo(g_fixture_id, WEAPON_M4A1) == 1 && rg_get_user_bpammo(g_fixture_id, WEAPON_DEAGLE) == 1, "no mid-life refill");
-    OnPistolSelected(g_fixture_id, g_pistol_menu, MENU_EXIT);
+    OnPistolSelected(g_fixture_id, g_pistol_menu[PlayerLanguage(g_fixture_id)], MENU_EXIT);
     Check(g_pistol_choice[g_fixture_id] == 0, "cancel retains pistol");
 
     rg_set_user_team(g_fixture_id, TEAM_TERRORIST);

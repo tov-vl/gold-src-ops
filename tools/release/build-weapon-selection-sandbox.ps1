@@ -36,6 +36,8 @@ if ((Get-FileHash -LiteralPath $build.Output -Algorithm SHA256).Hash.ToLowerInva
 
 $source = Join-Path $root "samples/amxmodx-weapon-selection/goldsrcops_weapon_selection.sma"
 $configuration = Join-Path $root "samples/amxmodx-weapon-selection/goldsrcops-weapon-selection.cfg"
+$dictionary = Join-Path $root "samples/amxmodx-weapon-selection/goldsrcops-player-menu.txt"
+& (Join-Path $root "tools/smoke/player-menu-dictionary.ps1") -DictionaryPath $dictionary | Out-Null
 $configText = [IO.File]::ReadAllText($configuration).Replace("`r`n", "`n")
 $configCommands = @($configText.Split("`n") | Where-Object { $_.Trim() -and -not $_.Trim().StartsWith("//") })
 if ($configCommands.Count -ne 1 -or $configCommands[0] -cne 'goldsrcops_weapons_enabled "0"') {
@@ -48,7 +50,8 @@ $content = Join-Path $OutputDirectory "content"
 $pluginRelative = "cstrike/addons/amxmodx/plugins/goldsrcops_weapon_selection.amxx"
 $configRelative = "cstrike/addons/amxmodx/configs/plugins/goldsrcops-weapon-selection.cfg"
 $loaderRelative = "cstrike/addons/amxmodx/configs/plugins-goldsrcops-weapons.ini"
-$relativePaths = @($pluginRelative, $configRelative)
+$dictionaryRelative = "cstrike/addons/amxmodx/data/lang/goldsrcops-player-menu.txt"
+$relativePaths = @($pluginRelative, $configRelative, $dictionaryRelative)
 if ($Target -eq "game-host-addon") {
     $relativePaths += $loaderRelative
     $configText = 'goldsrcops_weapons_enabled "1"' + "`n"
@@ -57,6 +60,7 @@ foreach ($relative in $relativePaths) {
     New-Item -ItemType Directory -Force -Path (Split-Path (Join-Path $content $relative)) | Out-Null
 }
 Copy-Item -LiteralPath $build.Output -Destination (Join-Path $content $pluginRelative)
+Copy-Item -LiteralPath $dictionary -Destination (Join-Path $content $dictionaryRelative)
 [IO.File]::WriteAllText((Join-Path $content $configRelative), $configText, [Text.UTF8Encoding]::new($false))
 if ($Target -eq "game-host-addon") {
     [IO.File]::WriteAllText((Join-Path $content $loaderRelative), "goldsrcops_weapon_selection.amxx`n", [Text.UTF8Encoding]::new($false))
@@ -69,7 +73,7 @@ $payload = @($relativePaths | ForEach-Object {
     }
 })
 $manifest = [ordered]@{
-    schemaVersion = 1
+    schemaVersion = 2
     purpose = $(if ($Target -eq "sandbox") { "local-sandbox" } else { "game-host-addon" })
     productionInstallSupported = ($Target -eq "game-host-addon")
     enabledByDefault = ($Target -eq "game-host-addon")
