@@ -2660,6 +2660,15 @@ and no new AMXX errors appeared. No tag, API/Web rollout, reboot or credential
 prompt was needed. Human rendering remains an optional MVP observation. See
 the [v2.40 boundary and acceptance](v2.40-player-settings.md).
 
+### v2.41 - Player HUD
+
+Addon 0.11.0 adds a compact private RU/EN HUD for connection/map kills/deaths
+and existing saved-rank progress. One timer renders in-memory state; native
+menus take priority. `/settings` gains an unsaved On/Off toggle, reset on
+reconnect/map reload. No new storage, scoring, loadout or infrastructure change.
+Focused verification, required CI and one addon-only installation are planned;
+human rendering is optional. See the [v2.41 boundary](v2.41-player-hud.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.
