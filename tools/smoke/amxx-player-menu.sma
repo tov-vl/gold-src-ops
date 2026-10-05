@@ -217,6 +217,7 @@ RunHudChecks(id)
     show_menu(id, 0, "");
     g_map_kills[id] = STATS_COUNTER_LIMIT;
     g_map_deaths[id] = STATS_COUNTER_LIMIT;
+    g_kill_streak[id] = STATS_COUNTER_LIMIT;
     for (new language = 0; language < 2; language++)
     {
         g_language_override[id] = language + 1;
@@ -226,7 +227,8 @@ RunHudChecks(id)
         formatex(current, charsmax(current), "%L", PLAYER_LANGUAGES[language], RANK_KEYS[0]);
         formatex(next, charsmax(next), "%L", PLAYER_LANGUAGES[language], RANK_KEYS[1]);
         formatex(rank_text, charsmax(rank_text), "%L", PLAYER_LANGUAGES[language], "GS_HUD_RANK_PROGRESS", current, 1, next);
-        formatex(expected, charsmax(expected), "%L^n%s", PLAYER_LANGUAGES[language], "GS_HUD_MAP", STATS_COUNTER_LIMIT, STATS_COUNTER_LIMIT, rank_text);
+        formatex(expected, charsmax(expected), "%L^n%L^n%s", PLAYER_LANGUAGES[language], "GS_HUD_MAP",
+            STATS_COUNTER_LIMIT, STATS_COUNTER_LIMIT, PLAYER_LANGUAGES[language], "GS_HUD_STREAK", STATS_COUNTER_LIMIT, rank_text);
         new messages = g_hud_messages;
         UpdatePlayerHuds();
         CheckMenu(g_hud_messages == messages + 1 && SameUtf8Bytes(g_last_hud, expected) && g_hud_visible[id], "bounded RU/EN map totals and saved rank progress");

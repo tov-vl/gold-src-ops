@@ -53,4 +53,7 @@ run_case() {
 run_case map_stats_smoke goldsrcops_map_stats_smoke MAP_STATS_SMOKE de_dust2
 grep -q '^KILL_HEAL_SMOKE=passed failures=0 native_damage=1' /tmp/goldsrcops_map_stats_smoke.log
 grep -q '^KILL_AMMO_SMOKE=passed failures=0 native_damage=1 loadouts=9' /tmp/goldsrcops_map_stats_smoke.log
+grep -q '^KILL_STREAK_SMOKE=passed failures=0 native_damage=1 languages=2 storage=none' /tmp/goldsrcops_map_stats_smoke.log
+run_case player_menu_smoke goldsrcops_player_menu_smoke PLAYER_MENU_SMOKE de_dust2
+run_case persistent_stats_smoke goldsrcops_persistent_stats_smoke PERSISTENT_STATS_SMOKE de_dust2
 echo KILL_REWARDS_RUNTIME=passed
