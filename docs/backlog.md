@@ -2666,8 +2666,13 @@ Addon 0.11.0 adds a compact private RU/EN HUD for connection/map kills/deaths
 and existing saved-rank progress. One timer renders in-memory state; native
 menus take priority. `/settings` gains an unsaved On/Off toggle, reset on
 reconnect/map reload. No new storage, scoring, loadout or infrastructure change.
-Focused verification, required CI and one addon-only installation are planned;
-human rendering is optional. See the [v2.41 boundary](v2.41-player-hud.md).
+Focused HUD/menu/preferences/nine-loadout and package checks passed locally.
+Product PR #257 merged after all required CI checks passed on the first attempt.
+One addon-only installation and independent A2S/RCON/host checks accepted
+0.11.0 with retained closed vault hashes, unchanged map/configuration/guards/
+agent, settled queue/spool and no new AMXX errors. No reboot, credential prompt,
+API/Web rollout or tag was needed. Human rendering is optional. See the
+[v2.41 boundary and acceptance](v2.41-player-hud.md).
 
 The released v1 baseline includes:
 
