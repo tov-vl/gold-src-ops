@@ -8,6 +8,8 @@ param(
 
     [string[]]$ChangedPath,
 
+    [switch]$AllowNonDocumentationChanges,
+
     [string]$RepositoryRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "../..")).Path
 )
 
@@ -139,12 +141,12 @@ if ($paths.Count -eq 0) {
 }
 
 $unexpectedPaths = @($paths | Where-Object { -not (Test-DocumentationPath -Path $_) })
-if ($unexpectedPaths.Count -gt 0) {
+if ($unexpectedPaths.Count -gt 0 -and -not $AllowNonDocumentationChanges) {
     throw "The documentation fast path received a non-documentation path: $($unexpectedPaths[0])"
 }
 
 $validationPaths = @(
-    $paths
+    $paths | Where-Object { Test-DocumentationPath -Path $_ }
     Get-TrackedMarkdownPaths
 ) | Sort-Object -Unique
 

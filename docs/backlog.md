@@ -2717,6 +2717,26 @@ new AMXX errors. No tag, control-plane rollout, reboot or mandatory player
 session. Human rendering and multiplayer pacing remain optional. See the
 [v2.44 record](v2.44-kill-streaks.md).
 
+### Addon CI Optimization
+
+Status: implemented locally; remote CI validation and timing comparison pending.
+
+An explicit `addon-only` scope preserves addon compilation, dictionary/package
+checks and both isolated installer/rollback fixtures while omitting unrelated
+.NET, control-plane container and browser execution. The existing required check
+names remain; `Container Smoke` also requires successful addon compilation.
+Shared, unknown or mixed application changes retain full CI, including this
+workflow change itself. Local routing checks cover all four CI modes, failure
+propagation, missing revisions and cross-boundary renames. The v2.44 product
+diff selects `addon-only`; release-publication contract and gameplay-script
+syntax checks and actionlint 1.7.12 pass locally. The completed
+[v2.44 PR CI run #760](https://github.com/tov-vl/gold-src-ops/actions/runs/37309514691)
+provides the comparison baseline: 10 minutes 3 seconds from run start to
+completion, including scheduling; the addon compile job took 59 seconds.
+These are observed durations for one full run, not an addon-only result. See the
+[CI scope contract](release-process.md#ci-scope-for-game-addons). No game-server
+installation or remote action is part of this work.
+
 The released v1 baseline includes:
 
 - One-command local startup.
