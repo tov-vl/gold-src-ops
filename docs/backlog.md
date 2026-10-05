@@ -2680,9 +2680,11 @@ Addon 0.12.0 restores 15 HP after an alive human's legitimate enemy-human kill,
 capped at 100. `goldsrcops_kill_heal 0` disables only healing. Existing scoring
 exclusions also exclude healing; posthumous kills cannot revive players.
 Weapons, armor, ranks, language, menus and storage are unchanged. Focused
-native-damage engine and frozen-package checks passed. Required CI and one
-addon-only installation remain pending; no tags, control-plane rollout,
-reboot or mandatory player session. See the
+native-damage engine and frozen-package checks passed. Product PR #259 merged
+after required CI passed on its first attempt. One addon-only installation
+and independent A2S/RCON/host checks accepted 0.12.0, preserving closed vault
+hashes, map/configuration/guards/agent and settled queue/spool without errors.
+No tags, control-plane rollout, reboot or mandatory player session. See the
 [v2.42 boundary and evidence](v2.42-kill-heal.md).
 
 The released v1 baseline includes:
