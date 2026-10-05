@@ -155,7 +155,7 @@ local or provider prompt that consumes it. Never request a secret in chat.
 1. Keep implementation, release notes, and the pending readiness record in one
    product pull request when practical.
 2. Run focused local tests while developing. Let the required pull request jobs
-   provide the single complete quality, container, and browser pass.
+   provide one CI pass for the classified change scope below.
 3. Review the final diff and classify the release risk.
 4. Push normally, create the pull request, and wait for every required check.
 5. Squash merge only when the checks are green and the pull request is
@@ -165,6 +165,40 @@ local or provider prompt that consumes it. Never request a secret in chat.
 
 When a separate readiness-only pull request is unavoidable, keep it
 documentation-only so the fail-closed documentation fast path can validate it.
+
+### CI Scope For Game Addons
+
+Pull requests and pushes to `main` select `addon-only` only when every changed
+path is documentation or an explicit addon input in
+[`resolve-change-scope.ps1`](../tools/ci/resolve-change-scope.ps1). The list covers
+the weapon and map addons, their dictionaries, configuration, compiler fixtures,
+package builders, supplemental installer and isolated checks. Both sides of a
+rename are classified. Shared toolchain, CI, application, infrastructure and
+unknown paths retain full CI. Missing revisions or an empty diff also retain
+full CI. Manual runs and candidate tags remain full; stable tags retain their
+existing promotion checks.
+
+The addon path preserves the existing check names:
+
+- `Quality Gate` validates the CI routing contract and tracked documentation.
+- `Map Menu Compile` compiles both addons and their fixtures with the pinned
+  toolchain, validates dictionaries and builds/verifies their packages.
+- `Container Smoke` requires successful scope, quality and compilation checks,
+  runs both isolated addon installer/rollback fixtures, and checks the syntax
+  of the three local gameplay runtime scripts.
+- `Browser Smoke` records that browser execution is unnecessary for this scope.
+
+The addon path omits .NET restore/format/build/test/audit, control-plane container
+execution and Playwright. Documentation and stable-promotion runs get a small
+Ubuntu confirmation from `Map Menu Compile`; they do not start a Windows
+compiler runner or leave a skipped ancestor in the publication dependency chain.
+
+Compilation and shell syntax do not prove gameplay behavior. Run the focused
+isolated engine scenario required by the changed mechanic separately. None of
+these CI checks connects to the live game server. Validate changes to this
+routing with `tools/smoke/ci-release-fast-path.ps1`; routing changes themselves
+use full CI. Remote run results and measured time savings remain separate
+evidence from local checks.
 
 ### 2. Freeze Candidate Identity
 

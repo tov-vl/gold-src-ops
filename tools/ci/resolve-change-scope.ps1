@@ -61,12 +61,51 @@ function Write-GitHubOutput {
     [IO.File]::AppendAllText($GitHubOutputPath, $content)
 }
 
+function Test-AddonPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    # Keep this list limited to inputs exercised by the addon compile/package
+    # job, the isolated installer fixtures, and gameplay-script syntax checks.
+    # Shared tooling needs full CI.
+    return $Path -cin @(
+        "samples/amxmodx-map-menu/goldsrcops_map_menu.sma",
+        "samples/amxmodx-map-menu/goldsrcops-map-menu.cfg",
+        "samples/amxmodx-map-menu/goldsrcops-map-menu.txt",
+        "samples/amxmodx-weapon-selection/goldsrcops_weapon_selection.sma",
+        "samples/amxmodx-weapon-selection/goldsrcops-weapon-selection.cfg",
+        "samples/amxmodx-weapon-selection/goldsrcops-player-menu.txt",
+        "tools/smoke/amxx-map-menu.ps1",
+        "tools/smoke/amxx-map-menu.sma",
+        "tools/smoke/amxx-map-language-provider.sma",
+        "tools/smoke/amxx-weapon-selection.ps1",
+        "tools/smoke/amxx-spawn-loadout.sma",
+        "tools/smoke/amxx-map-stats.sma",
+        "tools/smoke/amxx-persistent-stats.sma",
+        "tools/smoke/amxx-player-menu.sma",
+        "tools/smoke/amxx-player-preferences.sma",
+        "tools/smoke/player-menu-dictionary.ps1",
+        "tools/smoke/weapon-selection-package.ps1",
+        "tools/smoke/gameserver-weapon-selection-addon.sh",
+        "tools/smoke/game-kill-rewards-runtime.sh",
+        "tools/smoke/game-map-menu-runtime.sh",
+        "tools/smoke/game-player-preferences-runtime.sh",
+        "tools/release/build-map-menu-addon.ps1",
+        "tools/release/build-weapon-selection-sandbox.ps1",
+        "ops/gameserver/weapon-selection-addon.sh"
+    )
+}
+
 function New-ScopeResult {
     param(
         [Parameter(Mandatory = $true)]
         [bool]$DocsOnly,
 
         [bool]$StablePromotion = $false,
+
+        [bool]$AddonOnly = $false,
 
         [Parameter(Mandatory = $true)]
         [int]$ChangedCount,
@@ -85,12 +124,16 @@ function New-ScopeResult {
     elseif ($StablePromotion) {
         "stable-promotion"
     }
+    elseif ($AddonOnly) {
+        "addon-only"
+    }
     else {
         "full"
     }
     Write-GitHubOutput -Values ([ordered]@{
             docs_only = $DocsOnly.ToString().ToLowerInvariant()
             stable_promotion = $StablePromotion.ToString().ToLowerInvariant()
+            addon_only = $AddonOnly.ToString().ToLowerInvariant()
             mode = $mode
             changed_count = $ChangedCount
             reason = $Reason
@@ -101,6 +144,7 @@ function New-ScopeResult {
     return [pscustomobject]@{
         DocsOnly = $DocsOnly
         StablePromotion = $StablePromotion
+        AddonOnly = $AddonOnly
         Mode = $mode
         ChangedCount = $ChangedCount
         Reason = $Reason
@@ -153,7 +197,9 @@ else {
         Push-Location -LiteralPath $RepositoryRoot
         try {
             $revisionRange = "$BaseRevision...$HeadRevision"
-            $paths = @(& git -c core.quotepath=false diff --name-only --diff-filter=ACDMRTUXB $revisionRange -- 2>&1)
+            # Include both sides of a rename so a move into the allowlist cannot
+            # hide a deletion outside the addon boundary.
+            $paths = @(& git -c core.quotepath=false diff --name-only --no-renames --diff-filter=ACDMRTUXB $revisionRange -- 2>&1)
             if ($LASTEXITCODE -ne 0) {
                 throw "git diff exited with code $LASTEXITCODE."
             }
@@ -184,9 +230,13 @@ if ($paths.Count -eq 0) {
 }
 
 $docsOnly = @($paths | Where-Object { -not (Test-DocumentationPath -Path $_) }).Count -eq 0
-$reason = if ($docsOnly) { "documentation-only" } else { "executable-or-config-change" }
+$addonOnly = -not $docsOnly -and @($paths | Where-Object {
+        -not (Test-DocumentationPath -Path $_) -and -not (Test-AddonPath -Path $_)
+    }).Count -eq 0
+$reason = if ($docsOnly) { "documentation-only" } elseif ($addonOnly) { "game-addon-only" } else { "executable-or-config-change" }
 return New-ScopeResult `
     -DocsOnly $docsOnly `
+    -AddonOnly $addonOnly `
     -ChangedCount $paths.Count `
     -Reason $reason `
     -ResolvedBaseRevision $BaseRevision `
