@@ -2694,8 +2694,13 @@ enemy-human kill. It uses owned loadout weapons and their spawn reserve limits,
 including the shared MP5/Glock pool; clips and ordinary reloads are unchanged.
 `goldsrcops_kill_ammo 0` disables only refill. Focused native-damage engine
 checks passed for all nine loadouts, eligibility and existing healing/scoring.
-The immutable package passed verification. Product CI and one addon-only
-installation remain pending. See the [v2.43 record](v2.43-kill-ammo.md).
+The immutable package passed verification. Product PR #261 merged after
+required CI passed on its first attempt. One addon-only installation and
+independent A2S/RCON/host checks accepted 0.13.0 with retained closed vault
+hashes, unchanged map/configuration/guards/agent, settled queue/spool and no
+new AMXX errors. No tags, control-plane rollout, reboot or mandatory player
+session. Multiplayer balance remains optional. See the
+[v2.43 record](v2.43-kill-ammo.md).
 
 The released v1 baseline includes:
 
