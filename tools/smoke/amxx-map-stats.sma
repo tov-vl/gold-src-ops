@@ -113,14 +113,29 @@ public RunMapStatsSmoke()
     rg_set_user_team(victim, TEAM_TERRORIST);
 
     // GameDLL death emits DeathMsg, proving registration and field extraction.
+    set_entvar(killer, var_health, 60.0);
+    new Float:armor = get_entvar(killer, var_armorvalue);
+    new active_weapon = get_member(killer, m_pActiveItem);
+    new weapons_before[32], weapons_after[32], count_before, count_after;
+    get_user_weapons(killer, weapons_before, count_before);
     EmitDeath(killer, victim);
     CheckStats(g_map_kills[killer] == 1 && g_map_deaths[victim] == 1, "enemy event counted once");
+    get_user_weapons(killer, weapons_after, count_after);
+    new bool:inventory_unchanged = count_before == count_after;
+    for (new index = 0; index < count_before; index++)
+    {
+        if (weapons_before[index] != weapons_after[index]) { inventory_unchanged = false; }
+    }
+    CheckStats(get_entvar(killer, var_health) == 75.0, "native enemy kill restores default HP");
+    CheckStats(get_entvar(killer, var_armorvalue) == armor
+        && get_member(killer, m_pActiveItem) == active_weapon && inventory_unchanged, "healing preserves armor and inventory");
     EmitDeath(victim, victim);
     EmitDeath(0, victim);
     CheckStats(g_map_kills[victim] == 0 && g_map_deaths[victim] == 3, "suicide and world death without points");
     rg_set_user_team(victim, TEAM_CT);
     EmitDeath(killer, victim);
     CheckStats(g_map_kills[killer] == 1 && g_map_deaths[victim] == 4, "teamkill gives no points");
+    CheckStats(get_entvar(killer, var_health) == 75.0, "suicide world and teamkill do not heal attacker");
 
     g_human[bot] = false;
     EmitDeath(bot, victim);
@@ -131,6 +146,7 @@ public RunMapStatsSmoke()
     EmitDeath(bot, victim);
     EmitDeath(killer, bot);
     CheckStats(g_map_kills[killer] == 1 && g_map_deaths[victim] == 4 && g_map_deaths[bot] == 0, "HLTV encounters excluded");
+    CheckStats(get_entvar(killer, var_health) == 75.0, "bot and HLTV encounters do not heal");
     g_hltv_id = 0;
     rg_set_user_team(victim, TEAM_SPECTATOR);
     // Respawning a spectator would change its team before the event.
@@ -215,7 +231,52 @@ public RunMapStatsSmoke()
     ShowMapLeaders(MaxClients + 1);
     CheckStats(g_prints == printed + 1, "invalid command IDs refuse");
     OnMapStatsStatus();
+    RunKillHealChecks(killer, victim);
     server_print("MAP_STATS_SMOKE=%s failures=%d synthetic_clients=6 native_damage=1",
         g_failures ? "failed" : "passed", g_failures);
     return PLUGIN_HANDLED;
+}
+
+RunKillHealChecks(killer, victim)
+{
+    rg_set_user_team(killer, TEAM_CT);
+    rg_set_user_team(victim, TEAM_TERRORIST);
+    rg_round_respawn(killer);
+    set_entvar(killer, var_health, 92.0);
+    EmitDeath(killer, victim);
+    CheckStats(get_entvar(killer, var_health) == 100.0, "native kill capped at 100 HP");
+    set_entvar(killer, var_health, 60.5);
+    EmitDeath(killer, victim);
+    CheckStats(get_entvar(killer, var_health) == 75.5, "fractional health retained");
+    set_pcvar_num(g_kill_heal, 0);
+    EmitDeath(killer, victim);
+    CheckStats(get_entvar(killer, var_health) == 75.5, "zero disables healing but not scoring");
+    set_pcvar_num(g_kill_heal, -10);
+    EmitDeath(killer, victim);
+    CheckStats(get_entvar(killer, var_health) == 75.5, "negative amount disabled");
+    set_pcvar_num(g_kill_heal, 2147483647);
+    EmitDeath(killer, victim);
+    CheckStats(get_entvar(killer, var_health) == 100.0, "large amount bounded without overflow");
+    set_entvar(killer, var_health, 125.0);
+    EmitDeath(killer, victim);
+    CheckStats(get_entvar(killer, var_health) == 125.0, "external boosted health not reduced");
+    set_pcvar_num(g_kill_heal, 15);
+    EmitDeath(killer, killer);
+    new Float:dead_health = get_entvar(killer, var_health);
+    RecordMapDeath(killer, victim);
+    CheckStats(!is_user_alive(killer) && get_entvar(killer, var_health) == dead_health, "posthumous kill does not revive or heal");
+    rg_round_respawn(killer);
+    set_entvar(killer, var_health, 60.0);
+    g_disconnected_id = killer;
+    RecordMapDeath(killer, victim);
+    g_disconnected_id = 0;
+    rg_set_user_team(killer, TEAM_SPECTATOR);
+    RecordMapDeath(killer, victim);
+    rg_set_user_team(killer, TEAM_CT);
+    set_pcvar_num(g_enabled, 0);
+    EmitDeath(killer, victim);
+    set_pcvar_num(g_enabled, 1);
+    CheckStats(get_entvar(killer, var_health) == 60.0, "disconnected spectator and global disable do not heal");
+    OnStatusCommand();
+    server_print("KILL_HEAL_SMOKE=%s failures=%d native_damage=1", g_failures ? "failed" : "passed", g_failures);
 }
