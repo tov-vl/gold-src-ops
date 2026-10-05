@@ -2637,9 +2637,13 @@ separate nVault, restoring them after reconnect/map reload without changing
 stats/ranks or applying inventory before spawn. Late auth merges untouched
 fields; unknown/shared/duplicate identities remain connection-only. Joining
 does not write defaults; corrupt records are retained and failed readback
-blocks writes until reconnect. Implementation, pinned compilation and isolated
-engine smoke complete; required CI and active installation pending. See the
-[v2.39 boundary](v2.39-player-preferences.md).
+blocks writes until reconnect. Product PR #253 merged after the single required
+CI run; isolated real-nVault/menu/nine-loadout smoke and one stopped-game
+installation passed. Independent A2S/RCON/file checks confirmed addon 0.9.0,
+zero storage errors, retained stats, unchanged map addon/dictionaries/guards
+and agent, settled queue/spool and no new AMXX errors. Human-client persistence
+remains an optional MVP observation. See the
+[v2.39 boundary and acceptance](v2.39-player-preferences.md).
 
 The released v1 baseline includes:
 
