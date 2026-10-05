@@ -1723,6 +1723,9 @@ in `/menu` is connection-local and does not write client configuration, change
 global AMXX settings, alter another plugin's language or create a new vault.
 After reconnect/map reload, use the client's preference again.
 
+The connection-only persistence policy above is superseded by Decision 35 for
+verified Steam identities; dictionary, fallback and client-config rules remain.
+
 Cache one menu per supported language, preserve the existing gameplay commands
 and cooldowns, and delegate map actions to their owning addon through fixed
 AMXX commands. Localize those addon messages separately when needed.
@@ -1732,3 +1735,26 @@ under `data/lang`. Schema-2 weapon packages/receipts include it; legacy schema-1
 weapon and map packages remain supported. Rollback restores the prior
 dictionary or removes only the newly owned file, while player storage remains
 unchanged. Do not chmod or recreate the existing vault to install translations.
+
+## Decision 35: Separate Player Preferences From Statistics
+
+Decision date: 2026-10-05.
+
+Store the explicit language override and primary/pistol indices in a separate
+schema-1 nVault, using the same canonical Steam identity validation as saved
+stats. Never migrate, reset or append preference fields to the statistics
+record. Unknown/shared identities retain connection-only choices; nicknames
+and addresses are not identity fallbacks.
+
+Joining reads but does not create a default record. Save only an explicit menu
+selection, with bounded canonical values and readback. Load untouched fields
+on late authorization while retaining choices already made in this connection.
+Reject duplicate connected identities and malformed records without overwriting
+them. Failed readback blocks further writes for the connection; unavailable
+storage does not prevent session menus or respawn loadouts.
+
+The existing read-only language native exposes the effective restored choice
+to the map addon. Client configuration, global AMXX language, rank thresholds,
+statistics format and inventory timing stay unchanged. Reverse upgrade to the
+accepted addon ignores but retains the separate preferences vault; deleting or
+rewriting it is not part of installation or rollback.

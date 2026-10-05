@@ -169,6 +169,7 @@ jobs:
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -MapStatsFixture
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -PersistentStatsFixture
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -PlayerMenuFixture
+          ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -PlayerPreferencesFixture
           ./tools/smoke/weapon-selection-package.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'weapon-addon') -Target game-host-addon
 
   container-smoke:

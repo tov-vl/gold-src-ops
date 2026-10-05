@@ -17,6 +17,10 @@ const WELCOME_TASK_BASE = 1000;
 const MAP_LEADER_LIMIT = 5;
 const STATS_COUNTER_LIMIT = 1000000000;
 new const STATS_VAULT_NAME[] = "goldsrcops-player-stats-v1";
+new const PREFERENCES_VAULT_NAME[] = "goldsrcops-player-preferences-v1";
+const PREFERENCE_LANGUAGE = 1;
+const PREFERENCE_PRIMARY = 2;
+const PREFERENCE_PISTOL = 4;
 new const RANK_KEYS[][] = { "GS_RECRUIT", "GS_FIGHTER", "GS_VETERAN", "GS_ELITE", "GS_LEGEND" };
 new const RANK_KILLS[] = { 0, 25, 100, 250, 500 };
 new const PLAYER_LANGUAGES[][] = { "ru", "en" };
@@ -41,6 +45,12 @@ new g_saved_deaths[MAX_PLAYERS + 1];
 new bool:g_saved_ready[MAX_PLAYERS + 1];
 new bool:g_saved_blocked[MAX_PLAYERS + 1];
 new g_storage_errors;
+new g_preferences_vault = INVALID_HANDLE;
+new g_preferences_key[MAX_PLAYERS + 1][40];
+new bool:g_preferences_ready[MAX_PLAYERS + 1];
+new bool:g_preferences_blocked[MAX_PLAYERS + 1];
+new g_preferences_dirty[MAX_PLAYERS + 1];
+new g_preferences_errors;
 
 public plugin_natives()
 {
@@ -62,7 +72,7 @@ public NativePlayerLanguage(plugin, params)
 
 public plugin_init()
 {
-    register_plugin("GoldSrcOps Weapon Selection", "0.8.1", "GoldSrcOps");
+    register_plugin("GoldSrcOps Weapon Selection", "0.9.0", "GoldSrcOps");
     if (!register_dictionary("goldsrcops-player-menu.txt"))
     {
         set_fail_state("Player menu dictionary unavailable.");
@@ -72,6 +82,11 @@ public plugin_init()
     if (g_stats_vault == INVALID_HANDLE)
     {
         log_amx("Player stats storage unavailable; connection/map stats remain available.");
+    }
+    g_preferences_vault = nvault_open(PREFERENCES_VAULT_NAME);
+    if (g_preferences_vault == INVALID_HANDLE)
+    {
+        log_amx("Player preferences storage unavailable; selections remain connection-only.");
     }
     g_enabled = register_cvar("goldsrcops_weapons_enabled", "0");
     AutoExecConfig(false, "goldsrcops-weapon-selection");
@@ -144,13 +159,25 @@ public plugin_end()
         nvault_close(g_stats_vault);
         g_stats_vault = INVALID_HANDLE;
     }
+    if (g_preferences_vault != INVALID_HANDLE)
+    {
+        nvault_close(g_preferences_vault);
+        g_preferences_vault = INVALID_HANDLE;
+    }
 }
 
 public OnStatusCommand()
 {
-    server_print("WEAPON_SELECTION_STATUS version=0.8.1 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
+    server_print("WEAPON_SELECTION_STATUS version=0.9.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
         get_pcvar_num(g_enabled) != 0, sizeof WEAPON_NAMES, sizeof PISTOL_NAMES);
-    server_print("PLAYER_MENU_STATUS version=0.8.1 languages=ru,en unset=ru unsupported=en override=connection entries=7 map_commands=delegated language_native=1");
+    server_print("PLAYER_MENU_STATUS version=0.9.0 languages=ru,en unset=ru unsupported=en override=steam_or_connection entries=7 map_commands=delegated language_native=1");
+    new loaded;
+    for (new id = 1; id <= MaxClients; id++)
+    {
+        if (IsStatsClient(id) && g_preferences_ready[id]) { loaded++; }
+    }
+    server_print("PLAYER_PREFERENCES_STATUS version=0.9.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+        g_preferences_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_preferences_errors);
     return PLUGIN_HANDLED;
 }
 
@@ -163,7 +190,9 @@ public client_putinserver(id)
     g_pistol_choice[id] = 0;
     ResetMapStats(id);
     ResetSavedStats(id);
+    ResetPlayerPreferences(id);
     EnsureSavedStats(id);
+    EnsurePlayerPreferences(id);
 }
 
 public client_authorized(id, const authid[])
@@ -171,6 +200,7 @@ public client_authorized(id, const authid[])
     #pragma unused authid
     // Authorization can arrive before or after client_putinserver.
     EnsureSavedStats(id);
+    EnsurePlayerPreferences(id);
 }
 
 public client_disconnected(id)
@@ -182,6 +212,7 @@ public client_disconnected(id)
     g_pistol_choice[id] = 0;
     ResetMapStats(id);
     ResetSavedStats(id);
+    ResetPlayerPreferences(id);
 }
 
 bool:IsPlaying(id)
@@ -197,6 +228,7 @@ bool:IsPlaying(id)
 
 PlayerLanguage(id)
 {
+    EnsurePlayerPreferences(id);
     if (g_language_override[id])
     {
         return g_language_override[id] - 1;
@@ -246,6 +278,8 @@ public OnLanguageSelected(id, menu, item)
     if (item >= 0 && item < sizeof PLAYER_LANGUAGES)
     {
         g_language_override[id] = item + 1;
+        g_preferences_dirty[id] |= PREFERENCE_LANGUAGE;
+        SavePlayerPreferences(id);
         OpenPlayerMenu(id);
     }
     return PLUGIN_HANDLED;
@@ -272,6 +306,8 @@ public OnWeaponSelected(id, menu, item)
     }
 
     g_choice[id] = item;
+    g_preferences_dirty[id] |= PREFERENCE_PRIMARY;
+    SavePlayerPreferences(id);
     client_print(id, print_chat, "[GoldSrcOps] %L", PLAYER_LANGUAGES[PlayerLanguage(id)], "GS_PRIMARY_SELECTED", WEAPON_NAMES[item]);
     menu_display(id, g_pistol_menu[PlayerLanguage(id)]);
     return PLUGIN_HANDLED;
@@ -287,6 +323,8 @@ public OnPistolSelected(id, menu, item)
     }
 
     g_pistol_choice[id] = item;
+    g_preferences_dirty[id] |= PREFERENCE_PISTOL;
+    SavePlayerPreferences(id);
     client_print(id, print_chat, "[GoldSrcOps] %L", PLAYER_LANGUAGES[PlayerLanguage(id)], "GS_PISTOL_SELECTED",
         WEAPON_NAMES[g_choice[id]], PISTOL_NAMES[item]);
     return PLUGIN_HANDLED;
@@ -299,6 +337,7 @@ public OnSpawnPost(id)
         return HC_CONTINUE;
     }
 
+    EnsurePlayerPreferences(id);
     // Clear both slots before granting ammo: MP5 and Glock share 9mm reserve.
     new bool:primary_ready = bool:rg_remove_items_by_slot(id, PRIMARY_WEAPON_SLOT);
     new bool:pistol_ready = bool:rg_remove_items_by_slot(id, PISTOL_SLOT);
@@ -598,7 +637,7 @@ public ShowMapLeaders(id)
 public OnMapStatsStatus()
 {
     new leaders[MAP_LEADER_LIMIT];
-    server_print("MAP_STATS_STATUS version=0.8.1 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
+    server_print("MAP_STATS_STATUS version=0.9.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
         get_pcvar_num(g_enabled) != 0, BuildMapLeaders(leaders));
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
@@ -608,9 +647,9 @@ public OnMapStatsStatus()
             loaded++;
         }
     }
-    server_print("PLAYER_STATS_STATUS version=0.8.1 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_STATS_STATUS version=0.9.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
         g_stats_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_storage_errors);
-    server_print("PLAYER_RANK_STATUS version=0.8.1 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
+    server_print("PLAYER_RANK_STATUS version=0.9.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
         get_pcvar_num(g_enabled) != 0);
     return PLUGIN_HANDLED;
 }
@@ -736,4 +775,81 @@ SavePlayerStats(id)
         g_storage_errors++;
         log_amx("Player stats readback failed; connection/map stats only until reconnect.");
     }
+}
+
+ResetPlayerPreferences(id)
+{
+    g_preferences_key[id][0] = 0;
+    g_preferences_ready[id] = false;
+    g_preferences_blocked[id] = false;
+    g_preferences_dirty[id] = 0;
+}
+
+bool:DecodePlayerPreferences(const value[], &language, &primary, &pistol)
+{
+    new schema[8], language_text[8], primary_text[8], pistol_text[8], extra[8], canonical[32];
+    if (parse(value, schema, charsmax(schema), language_text, charsmax(language_text),
+        primary_text, charsmax(primary_text), pistol_text, charsmax(pistol_text), extra, charsmax(extra)) != 4
+        || !equal(schema, "1") || !ParseStatsCounter(language_text, language)
+        || !ParseStatsCounter(primary_text, primary) || !ParseStatsCounter(pistol_text, pistol)
+        || language > sizeof PLAYER_LANGUAGES || primary >= sizeof WEAPON_NAMES || pistol >= sizeof PISTOL_NAMES)
+    {
+        return false;
+    }
+    formatex(canonical, charsmax(canonical), "1 %d %d %d", language, primary, pistol);
+    return bool:equal(value, canonical);
+}
+
+EnsurePlayerPreferences(id)
+{
+    if (g_preferences_vault == INVALID_HANDLE || !get_pcvar_num(g_enabled) || !IsStatsClient(id)
+        || g_preferences_ready[id] || g_preferences_blocked[id])
+    {
+        return;
+    }
+    new authid[32], key[40];
+    get_user_authid(id, authid, charsmax(authid));
+    if (!BuildStatsKey(authid, key, charsmax(key))) { return; }
+    for (new other = 1; other <= MaxClients; other++)
+    {
+        if (other != id && IsStatsClient(other) && equal(g_preferences_key[other], key)) { return; }
+    }
+    copy(g_preferences_key[id], charsmax(g_preferences_key[]), key);
+    new value[32], timestamp, language, primary, pistol;
+    if (nvault_lookup(g_preferences_vault, key, value, charsmax(value), timestamp))
+    {
+        if (!DecodePlayerPreferences(value, language, primary, pistol))
+        {
+            g_preferences_blocked[id] = true;
+            g_preferences_errors++;
+            log_amx("Player preferences record rejected; existing data retained, selections connection-only.");
+            return;
+        }
+        // Late authorization must not replace choices made during this connection.
+        if (!(g_preferences_dirty[id] & PREFERENCE_LANGUAGE)) { g_language_override[id] = language; }
+        if (!(g_preferences_dirty[id] & PREFERENCE_PRIMARY)) { g_choice[id] = primary; }
+        if (!(g_preferences_dirty[id] & PREFERENCE_PISTOL)) { g_pistol_choice[id] = pistol; }
+    }
+    g_preferences_ready[id] = true;
+    if (g_preferences_dirty[id]) { SavePlayerPreferences(id); }
+}
+
+SavePlayerPreferences(id)
+{
+    if (!get_pcvar_num(g_enabled) || !IsStatsClient(id)) { return; }
+    EnsurePlayerPreferences(id);
+    if (!g_preferences_ready[id] || !g_preferences_dirty[id]) { return; }
+    new value[32], stored[32], timestamp;
+    formatex(value, charsmax(value), "1 %d %d %d", g_language_override[id], g_choice[id], g_pistol_choice[id]);
+    nvault_set(g_preferences_vault, g_preferences_key[id], value);
+    if (!nvault_lookup(g_preferences_vault, g_preferences_key[id], stored, charsmax(stored), timestamp)
+        || !equal(value, stored))
+    {
+        g_preferences_ready[id] = false;
+        g_preferences_blocked[id] = true;
+        g_preferences_errors++;
+        log_amx("Player preferences readback failed; selections connection-only until reconnect.");
+        return;
+    }
+    g_preferences_dirty[id] = 0;
 }
