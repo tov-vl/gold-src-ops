@@ -2687,6 +2687,16 @@ hashes, map/configuration/guards/agent and settled queue/spool without errors.
 No tags, control-plane rollout, reboot or mandatory player session. See the
 [v2.42 boundary and evidence](v2.42-kill-heal.md).
 
+### v2.43 - Kill Ammo Refill
+
+Addon 0.13.0 tops up reserve ammunition after an alive human's legitimate
+enemy-human kill. It uses owned loadout weapons and their spawn reserve limits,
+including the shared MP5/Glock pool; clips and ordinary reloads are unchanged.
+`goldsrcops_kill_ammo 0` disables only refill. Focused native-damage engine
+checks passed for all nine loadouts, eligibility and existing healing/scoring.
+The immutable package passed verification. Product CI and one addon-only
+installation remain pending. See the [v2.43 record](v2.43-kill-ammo.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.
