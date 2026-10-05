@@ -8,6 +8,7 @@
 #define is_user_bot(%1) FixtureIsBot(%1)
 #define get_user_authid(%1,%2,%3) FixtureAuthId(%1,%2,%3)
 #define nvault_lookup(%1,%2,%3,%4,%5) FixtureLookup(%1,%2,%3,%4,%5)
+#define nvault_set(%1,%2,%3) FixtureSet(%1,%2,%3)
 #define client_print FixturePrint
 #define menu_display(%1,%2) FixtureDisplay(%1,%2)
 #include <goldsrcops_weapon_selection.sma>
@@ -15,6 +16,7 @@
 #undef is_user_bot
 #undef get_user_authid
 #undef nvault_lookup
+#undef nvault_set
 #undef client_print
 #undef menu_display
 
@@ -22,6 +24,7 @@ new g_clients[2];
 new g_auth[MAX_PLAYERS + 1][32];
 new g_failures;
 new bool:g_fail_lookup;
+new g_preference_writes;
 new const KEY[] = "v1:STEAM_0:1:434343";
 
 public plugin_init()
@@ -36,6 +39,11 @@ FixtureAuthId(id, buffer[], length) { return copy(buffer, length, g_auth[id]); }
 FixtureLookup(vault, const key[], value[], length, &timestamp)
 {
     return g_fail_lookup && vault == g_preferences_vault ? 0 : nvault_lookup(vault, key, value, length, timestamp);
+}
+FixtureSet(vault, const key[], const value[])
+{
+    if (vault == g_preferences_vault) { g_preference_writes++; }
+    return nvault_set(vault, key, value);
 }
 FixturePrint(id, type, const message[], any:...)
 {
@@ -97,10 +105,27 @@ public RunPreferencesSmoke()
     client_authorized(id, g_auth[id]);
     CheckPreferences(g_preferences_ready[id] && !nvault_lookup(g_preferences_vault, KEY, value, charsmax(value), timestamp),
         "join is read-only with no default record");
+    CheckPreferences(!PlayerPreferencesSaved(id), "new defaults are not described as saved");
+    new writes = g_preference_writes;
+    OpenPlayerSettings(id);
+    CheckPreferences(g_preference_writes == writes && !nvault_lookup(g_preferences_vault, KEY, value, charsmax(value), timestamp), "settings inspection does not create defaults");
     OnLanguageSelected(id, g_language_menu, 1);
     OnWeaponSelected(id, g_menu[1], 1);
     OnPistolSelected(id, g_pistol_menu[1], 2);
     CheckPreferences(StoredPreferences("1 2 1 2"), "menu choices saved with readback");
+    CheckPreferences(PlayerPreferencesSaved(id), "matching validated record is described as saved");
+    nvault_lookup(g_preferences_vault, KEY, value, charsmax(value), timestamp);
+    new saved_timestamp = timestamp;
+    writes = g_preference_writes;
+    OpenPlayerSettings(id);
+    nvault_lookup(g_preferences_vault, KEY, value, charsmax(value), timestamp);
+    CheckPreferences(g_preference_writes == writes && StoredPreferences("1 2 1 2") && timestamp == saved_timestamp, "settings inspection does not rewrite saved record");
+    g_choice[id] = 0;
+    CheckPreferences(!PlayerPreferencesSaved(id), "different session choice is not described as saved");
+    g_choice[id] = 1;
+    g_preferences_dirty[id] = PREFERENCE_LANGUAGE;
+    CheckPreferences(!PlayerPreferencesSaved(id), "pending choice is not described as saved");
+    g_preferences_dirty[id] = 0;
     OnWeaponSelected(id, g_menu[0], 2);
     OnWeaponSelected(id, g_menu[1], MENU_EXIT);
     OnPistolSelected(id, g_pistol_menu[1], 3);
@@ -120,6 +145,7 @@ public RunPreferencesSmoke()
     client_putinserver(other);
     OnLanguageSelected(other, g_language_menu, 0);
     CheckPreferences(!g_preferences_ready[other] && StoredPreferences("1 2 1 2"), "duplicate cannot overwrite live owner");
+    CheckPreferences(!PlayerPreferencesSaved(other), "duplicate connection is not described as saved");
     copy(g_auth[other], charsmax(g_auth[]), "STEAM_ID_LAN");
     client_putinserver(other);
     OnLanguageSelected(other, g_language_menu, 1);
@@ -144,9 +170,11 @@ public RunPreferencesSmoke()
     CheckPreferences(StoredPreferences("1 1 2 2"), "disabled callbacks cannot write");
     set_pcvar_num(g_enabled, 1);
     g_fail_lookup = true;
+    CheckPreferences(!PlayerPreferencesSaved(id), "lookup failure is not described as saved");
     OnLanguageSelected(id, g_language_menu, 1);
     g_fail_lookup = false;
     CheckPreferences(g_preferences_blocked[id] && !g_preferences_ready[id], "failed readback blocks further writes");
+    CheckPreferences(!PlayerPreferencesSaved(id), "blocked connection is not described as saved");
     OnWeaponSelected(id, g_menu[1], 0);
     CheckPreferences(StoredPreferences("1 2 2 2") && !g_choice[id], "failed storage keeps usable session choice without retry");
 
@@ -154,11 +182,13 @@ public RunPreferencesSmoke()
     client_putinserver(id);
     OnLanguageSelected(id, g_language_menu, 1);
     CheckPreferences(g_preferences_blocked[id] && StoredPreferences("2 99 99 99"), "corrupt record retained without overwrite");
+    CheckPreferences(!PlayerPreferencesSaved(id), "corrupt record is not described as saved");
     nvault_close(g_preferences_vault);
     g_preferences_vault = INVALID_HANDLE;
     client_putinserver(id);
     OnLanguageSelected(id, g_language_menu, 1);
     CheckPreferences(PlayerLanguage(id) == 1 && !g_preferences_ready[id], "unavailable vault keeps connection selection");
+    CheckPreferences(!PlayerPreferencesSaved(id), "unavailable storage is not described as saved");
     g_preferences_vault = nvault_open(PREFERENCES_VAULT_NAME);
     CheckPreferences(nvault_lookup(g_stats_vault, KEY, value, charsmax(value), timestamp) && equal(value, "1 7 3"),
         "stats vault sentinel unchanged by preferences");

@@ -2645,6 +2645,16 @@ and agent, settled queue/spool and no new AMXX errors. Human-client persistence
 remains an optional MVP observation. See the
 [v2.39 boundary and acceptance](v2.39-player-preferences.md).
 
+### v2.40 - Player Settings
+
+Addon 0.10.0 adds bilingual `/settings` and a seventh-item hub submenu for
+next-spawn weapons, effective language and verified saved/connection-only
+status. Existing weapon/language actions and Back remain native AMXX menus;
+no new storage, reset, scoring, map-vote or infrastructure change is included.
+Pinned compilation, dictionary/package and focused engine checks passed;
+required CI and one game-only installation remain pending. See the
+[v2.40 boundary](v2.40-player-settings.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.
