@@ -24,12 +24,13 @@ const PREFERENCE_PISTOL = 4;
 new const RANK_KEYS[][] = { "GS_RECRUIT", "GS_FIGHTER", "GS_VETERAN", "GS_ELITE", "GS_LEGEND" };
 new const RANK_KILLS[] = { 0, 25, 100, 250, 500 };
 new const PLAYER_LANGUAGES[][] = { "ru", "en" };
-new const PLAYER_MENU_KEYS[][] = { "GS_GUNS", "GS_STATS", "GS_RANK", "GS_TOP", "GS_MAPS", "GS_TIMELEFT", "GS_LANGUAGE" };
+new const PLAYER_MENU_KEYS[][] = { "GS_GUNS", "GS_STATS", "GS_RANK", "GS_TOP", "GS_MAPS", "GS_TIMELEFT", "GS_SETTINGS" };
 
 new g_enabled;
 new g_menu[2];
 new g_pistol_menu[2];
 new g_player_menu[2];
+new g_settings_menu[2];
 new g_language_menu;
 new g_language_override[MAX_PLAYERS + 1];
 new g_choice[MAX_PLAYERS + 1];
@@ -72,7 +73,7 @@ public NativePlayerLanguage(plugin, params)
 
 public plugin_init()
 {
-    register_plugin("GoldSrcOps Weapon Selection", "0.9.0", "GoldSrcOps");
+    register_plugin("GoldSrcOps Weapon Selection", "0.10.0", "GoldSrcOps");
     if (!register_dictionary("goldsrcops-player-menu.txt"))
     {
         set_fail_state("Player menu dictionary unavailable.");
@@ -96,6 +97,9 @@ public plugin_init()
     register_clcmd("say /menu", "OpenPlayerMenu");
     register_clcmd("say_team /menu", "OpenPlayerMenu");
     register_clcmd("menu", "OpenPlayerMenu");
+    register_clcmd("say /settings", "OpenPlayerSettings");
+    register_clcmd("say_team /settings", "OpenPlayerSettings");
+    register_clcmd("settings", "OpenPlayerSettings");
     register_srvcmd("goldsrcops_weapons_status", "OnStatusCommand");
     register_clcmd("say /stats", "ShowMapStats");
     register_clcmd("say_team /stats", "ShowMapStats");
@@ -132,7 +136,16 @@ public plugin_init()
             formatex(text, charsmax(text), "%L", PLAYER_LANGUAGES[language], PLAYER_MENU_KEYS[index]);
             menu_additem(g_player_menu[language], text);
         }
+        formatex(text, charsmax(text), "%L", PLAYER_LANGUAGES[language], "GS_SETTINGS");
+        g_settings_menu[language] = menu_create(text, "OnSettingsSelected");
+        formatex(text, charsmax(text), "%L", PLAYER_LANGUAGES[language], "GS_GUNS");
+        menu_additem(g_settings_menu[language], text);
+        formatex(text, charsmax(text), "%L", PLAYER_LANGUAGES[language], "GS_LANGUAGE");
+        menu_additem(g_settings_menu[language], text);
+        formatex(text, charsmax(text), "%L", PLAYER_LANGUAGES[language], "GS_BACK");
+        menu_additem(g_settings_menu[language], text);
         formatex(text, charsmax(text), "%L", PLAYER_LANGUAGES[language], "GS_EXIT");
+        menu_setprop(g_settings_menu[language], MPROP_EXITNAME, text);
         menu_setprop(g_menu[language], MPROP_EXITNAME, text);
         menu_setprop(g_pistol_menu[language], MPROP_EXITNAME, text);
         menu_setprop(g_player_menu[language], MPROP_EXITNAME, text);
@@ -152,6 +165,7 @@ public plugin_end()
         menu_destroy(g_menu[language]);
         menu_destroy(g_pistol_menu[language]);
         menu_destroy(g_player_menu[language]);
+        menu_destroy(g_settings_menu[language]);
     }
     menu_destroy(g_language_menu);
     if (g_stats_vault != INVALID_HANDLE)
@@ -168,15 +182,16 @@ public plugin_end()
 
 public OnStatusCommand()
 {
-    server_print("WEAPON_SELECTION_STATUS version=0.9.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
+    server_print("WEAPON_SELECTION_STATUS version=0.10.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
         get_pcvar_num(g_enabled) != 0, sizeof WEAPON_NAMES, sizeof PISTOL_NAMES);
-    server_print("PLAYER_MENU_STATUS version=0.9.0 languages=ru,en unset=ru unsupported=en override=steam_or_connection entries=7 map_commands=delegated language_native=1");
+    server_print("PLAYER_MENU_STATUS version=0.10.0 languages=ru,en unset=ru unsupported=en override=steam_or_connection entries=7 map_commands=delegated language_native=1");
+    server_print("PLAYER_SETTINGS_STATUS version=0.10.0 languages=ru,en summary=next_spawn saved=verified_record reset=none");
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
     {
         if (IsStatsClient(id) && g_preferences_ready[id]) { loaded++; }
     }
-    server_print("PLAYER_PREFERENCES_STATUS version=0.9.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_PREFERENCES_STATUS version=0.10.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
         g_preferences_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_preferences_errors);
     return PLUGIN_HANDLED;
 }
@@ -264,9 +279,46 @@ public OnPlayerMenuSelected(id, menu, item)
         case 3: { ShowMapLeaders(id); OpenPlayerMenu(id); }
         case 4: amxclient_cmd(id, "say", "/maps");
         case 5: { amxclient_cmd(id, "say", "/timeleft"); OpenPlayerMenu(id); }
-        case 6: menu_display(id, g_language_menu);
+        case 6: OpenPlayerSettings(id);
     }
     return PLUGIN_HANDLED;
+}
+
+public OpenPlayerSettings(id)
+{
+    if (!get_pcvar_num(g_enabled) || !IsStatsClient(id)) { return PLUGIN_HANDLED; }
+    remove_task(WELCOME_TASK_BASE + id);
+    g_welcomed[id] = true;
+    new language = PlayerLanguage(id);
+    client_print(id, print_chat, "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_SETTINGS_LOADOUT",
+        WEAPON_NAMES[g_choice[id]], PISTOL_NAMES[g_pistol_choice[id]], language == 0 ? "RU" : "EN");
+    client_print(id, print_chat, "[GoldSrcOps] %L", PLAYER_LANGUAGES[language],
+        PlayerPreferencesSaved(id) ? "GS_SETTINGS_SAVED" : "GS_SETTINGS_SESSION");
+    menu_display(id, g_settings_menu[language]);
+    return PLUGIN_HANDLED;
+}
+
+public OnSettingsSelected(id, menu, item)
+{
+    if (item < 0 || item >= 3 || !get_pcvar_num(g_enabled) || !IsStatsClient(id)
+        || menu != g_settings_menu[PlayerLanguage(id)]) { return PLUGIN_HANDLED; }
+    switch (item)
+    {
+        case 0: OpenWeapons(id);
+        case 1: menu_display(id, g_language_menu);
+        case 2: OpenPlayerMenu(id);
+    }
+    return PLUGIN_HANDLED;
+}
+
+bool:PlayerPreferencesSaved(id)
+{
+    if (g_preferences_vault == INVALID_HANDLE || !g_preferences_ready[id]
+        || g_preferences_blocked[id] || g_preferences_dirty[id]) { return false; }
+    new value[32], timestamp, language, primary, pistol;
+    return bool:(nvault_lookup(g_preferences_vault, g_preferences_key[id], value, charsmax(value), timestamp)
+        && DecodePlayerPreferences(value, language, primary, pistol)
+        && language == g_language_override[id] && primary == g_choice[id] && pistol == g_pistol_choice[id]);
 }
 
 public OnLanguageSelected(id, menu, item)
@@ -637,7 +689,7 @@ public ShowMapLeaders(id)
 public OnMapStatsStatus()
 {
     new leaders[MAP_LEADER_LIMIT];
-    server_print("MAP_STATS_STATUS version=0.9.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
+    server_print("MAP_STATS_STATUS version=0.10.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
         get_pcvar_num(g_enabled) != 0, BuildMapLeaders(leaders));
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
@@ -647,9 +699,9 @@ public OnMapStatsStatus()
             loaded++;
         }
     }
-    server_print("PLAYER_STATS_STATUS version=0.9.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_STATS_STATUS version=0.10.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
         g_stats_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_storage_errors);
-    server_print("PLAYER_RANK_STATUS version=0.9.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
+    server_print("PLAYER_RANK_STATUS version=0.10.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
         get_pcvar_num(g_enabled) != 0);
     return PLUGIN_HANDLED;
 }
