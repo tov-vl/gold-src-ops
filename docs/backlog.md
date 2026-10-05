@@ -2651,9 +2651,14 @@ Addon 0.10.0 adds bilingual `/settings` and a seventh-item hub submenu for
 next-spawn weapons, effective language and verified saved/connection-only
 status. Existing weapon/language actions and Back remain native AMXX menus;
 no new storage, reset, scoring, map-vote or infrastructure change is included.
-Pinned compilation, dictionary/package and focused engine checks passed;
-required CI and one game-only installation remain pending. See the
-[v2.40 boundary](v2.40-player-settings.md).
+Pinned compilation, dictionary/package and focused engine checks passed.
+Product PR #255 merged after the single required CI run; one game-only
+installation and independent A2S/RCON/file checks accepted addon 0.10.0.
+Closed statistics/preferences vault hashes were retained through replacement;
+map files, configuration, guards and agent stayed unchanged, queues settled,
+and no new AMXX errors appeared. No tag, API/Web rollout, reboot or credential
+prompt was needed. Human rendering remains an optional MVP observation. See
+the [v2.40 boundary and acceptance](v2.40-player-settings.md).
 
 The released v1 baseline includes:
 
