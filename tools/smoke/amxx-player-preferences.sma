@@ -120,6 +120,11 @@ public RunPreferencesSmoke()
     OpenPlayerSettings(id);
     nvault_lookup(g_preferences_vault, KEY, value, charsmax(value), timestamp);
     CheckPreferences(g_preference_writes == writes && StoredPreferences("1 2 1 2") && timestamp == saved_timestamp, "settings inspection does not rewrite saved record");
+    new hud_text[256];
+    BuildPlayerHudText(id, hud_text, charsmax(hud_text));
+    OnSettingsSelected(id, g_settings_menu[1][0], 2);
+    OnSettingsSelected(id, g_settings_menu[1][1], 2);
+    CheckPreferences(g_preference_writes == writes && StoredPreferences("1 2 1 2") && !g_hud_disabled[id], "HUD formatting and toggles do not rewrite preferences");
     g_choice[id] = 0;
     CheckPreferences(!PlayerPreferencesSaved(id), "different session choice is not described as saved");
     g_choice[id] = 1;
