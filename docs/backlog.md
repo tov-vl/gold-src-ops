@@ -2674,6 +2674,17 @@ agent, settled queue/spool and no new AMXX errors. No reboot, credential prompt,
 API/Web rollout or tag was needed. Human rendering is optional. See the
 [v2.41 boundary and acceptance](v2.41-player-hud.md).
 
+### v2.42 - Kill Health Restore
+
+Addon 0.12.0 restores 15 HP after an alive human's legitimate enemy-human kill,
+capped at 100. `goldsrcops_kill_heal 0` disables only healing. Existing scoring
+exclusions also exclude healing; posthumous kills cannot revive players.
+Weapons, armor, ranks, language, menus and storage are unchanged. Focused
+native-damage engine and frozen-package checks passed. Required CI and one
+addon-only installation remain pending; no tags, control-plane rollout,
+reboot or mandatory player session. See the
+[v2.42 boundary and evidence](v2.42-kill-heal.md).
+
 The released v1 baseline includes:
 
 - One-command local startup.
