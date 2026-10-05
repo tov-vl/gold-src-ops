@@ -42,7 +42,7 @@ run_case() {
     printf 'quit\n' >&3
     wait "$pid"
     pid=
-    if ! grep -q "$marker=passed failures=0" "$log" || grep -Eq 'ASSERTION_FAILED|Run time error|Load fails|bad load|ML_NOTFOUND' "$log"; then
+    if ! grep -Eq "^${marker}=passed( [^[:space:]]+)* failures=0( |$)" "$log" || grep -Eq 'ASSERTION_FAILED|Run time error|Load fails|bad load|ML_NOTFOUND' "$log"; then
         cat "$log"
         return 1
     fi

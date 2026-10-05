@@ -2637,8 +2637,8 @@ separate nVault, restoring them after reconnect/map reload without changing
 stats/ranks or applying inventory before spawn. Late auth merges untouched
 fields; unknown/shared/duplicate identities remain connection-only. Joining
 does not write defaults; corrupt records are retained and failed readback
-blocks writes until reconnect. Implementation and pinned compilation complete;
-engine smoke, required CI and active installation pending. See the
+blocks writes until reconnect. Implementation, pinned compilation and isolated
+engine smoke complete; required CI and active installation pending. See the
 [v2.39 boundary](v2.39-player-preferences.md).
 
 The released v1 baseline includes:
