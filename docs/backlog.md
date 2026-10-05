@@ -2709,8 +2709,13 @@ Addon 0.14.0 adds an RU/EN current-streak HUD line, connection/map best in
 resets the current streak, including excluded encounters; no posthumous
 credit, persistent record or extra combat reward is added. Focused engine,
 dictionary and immutable package checks passed with existing healing, ammo,
-HUD/menu and saved-statistics/rank checks. Product CI and one addon installation
-remain pending. See the [v2.44 record](v2.44-kill-streaks.md).
+HUD/menu and saved-statistics/rank checks. Product PR #263 merged after required
+CI passed on the final revision. One addon/dictionary installation and
+independent A2S/RCON/host checks accepted 0.14.0 with retained closed vault
+hashes, unchanged map/configuration/guards/agent, settled queue/spool and no
+new AMXX errors. No tag, control-plane rollout, reboot or mandatory player
+session. Human rendering and multiplayer pacing remain optional. See the
+[v2.44 record](v2.44-kill-streaks.md).
 
 The released v1 baseline includes:
 
