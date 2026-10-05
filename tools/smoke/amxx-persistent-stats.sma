@@ -149,7 +149,7 @@ public RunPersistentStatsSmoke()
     CheckSaved(g_saved_ready[player] && g_saved_kills[player] == 1
         && !g_map_kills[player] && !g_map_deaths[player], "reconnect restores totals not map leaders");
     ShowMapStats(player);
-    CheckSaved(contain(g_last_print, "Saved totals: K 1 | D 0 | K/D 1.00") >= 0 && g_prints == 1, "saved private response");
+    CheckSaved(contain(g_last_print, "Saved totals: K 1 | D 0 | K/D 1.00") >= 0 && g_prints == 2, "saved private response with connection streak");
 
     copy(g_auth[duplicate], charsmax(g_auth[]), "STEAM_1:1:424242");
     client_putinserver(duplicate);
@@ -225,10 +225,10 @@ CheckPlayerRanks(player, victim)
     ShowPlayerRank(player);
     CheckSaved(g_prints == 1, "rank repeat throttled");
     ShowMapStats(player);
-    CheckSaved(g_prints == 2, "rank cooldown independent of stats");
+    CheckSaved(g_prints == 3, "rank cooldown independent of stats");
     g_stats_next[player][2] = get_gametime();
     ShowPlayerRank(player);
-    CheckSaved(g_prints == 3, "rank cooldown expires");
+    CheckSaved(g_prints == 4, "rank cooldown expires");
 
     nvault_set(g_stats_vault, key, "1 24 7");
     client_putinserver(player);

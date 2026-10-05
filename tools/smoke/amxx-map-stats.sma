@@ -25,6 +25,8 @@ new g_disconnected_id;
 new g_failures;
 new g_prints;
 new g_last_print[192];
+new g_previous_print[192];
+new g_print_target;
 new Float:g_clock = 10.0;
 
 public plugin_init()
@@ -55,8 +57,10 @@ Float:FixtureTime()
 
 FixturePrint(id, type, const message[], any:...)
 {
-    #pragma unused id, type
+    #pragma unused type
+    g_print_target = id;
     g_prints++;
+    copy(g_previous_print, charsmax(g_previous_print), g_last_print);
     vformat(g_last_print, charsmax(g_last_print), message, 4);
     return strlen(g_last_print);
 }
@@ -177,11 +181,11 @@ public RunMapStatsSmoke()
     CheckStats(g_prints == printed, "stats cooldown suppresses immediate repeat");
     g_clock += 2.0;
     ShowMapStats(killer);
-    CheckStats(g_prints == printed + 1, "cooldown expires");
+    CheckStats(g_prints == printed + 2, "cooldown expires for stats and streaks together");
     rg_set_user_team(killer, TEAM_SPECTATOR);
     g_clock += 2.0;
     ShowMapStats(killer);
-    CheckStats(g_prints == printed + 2, "spectator can read retained stats");
+    CheckStats(g_prints == printed + 4, "spectator can read retained stats");
 
     for (new index = 0; index < sizeof g_clients; index++)
     {
@@ -233,9 +237,111 @@ public RunMapStatsSmoke()
     OnMapStatsStatus();
     RunKillHealChecks(killer, victim);
     RunKillAmmoChecks(killer, victim);
+    RunKillStreakChecks(killer, victim, bot);
     server_print("MAP_STATS_SMOKE=%s failures=%d synthetic_clients=6 native_damage=1",
         g_failures ? "failed" : "passed", g_failures);
     return PLUGIN_HANDLED;
+}
+
+RunKillStreakChecks(killer, victim, bot)
+{
+    rg_set_user_team(killer, TEAM_CT);
+    rg_set_user_team(victim, TEAM_TERRORIST);
+    set_pcvar_num(g_enabled, 1);
+    for (new language = 0; language < 2; language++)
+    {
+        ResetMapStats(killer);
+        ResetMapStats(victim);
+        g_language_override[killer] = language + 1;
+        rg_round_respawn(killer);
+        new prints = g_prints, milestones;
+        for (new count = 1; count <= 11; count++)
+        {
+            EmitDeath(killer, victim);
+            CheckStats(g_kill_streak[killer] == count && g_best_streak[killer] == count,
+                "native enemy kills advance current and best once");
+            if (count == 3 || count == 5 || count == 10)
+            {
+                milestones++;
+                new expected[192];
+                formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_STREAK_MILESTONE", count);
+                CheckStats(equal(g_last_print, expected) && g_print_target == killer,
+                    "milestone message is translated and private");
+            }
+            CheckStats(g_prints == prints + milestones, "only 3 5 10 announce once per life");
+        }
+        new expected[192];
+        formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_STREAK_STATS", 11, 11);
+        ShowMapStats(killer);
+        CheckStats(equal(g_previous_print, expected) && g_print_target == killer,
+            "stats includes translated current and best without replacing totals");
+        prints = g_prints;
+        ShowMapStats(killer);
+        CheckStats(g_prints == prints, "streak stats shares command cooldown");
+        EmitDeath(victim, killer);
+        CheckStats(!g_kill_streak[killer] && g_best_streak[killer] == 11, "enemy death resets current not best");
+        RecordMapDeath(killer, victim);
+        CheckStats(!g_kill_streak[killer] && g_best_streak[killer] == 11, "posthumous kill cannot start new streak");
+        rg_round_respawn(killer);
+        prints = g_prints;
+        for (new count = 0; count < 3; count++) { EmitDeath(killer, victim); }
+        CheckStats(g_kill_streak[killer] == 3 && g_best_streak[killer] == 11
+            && g_prints == prints + 1, "new life can earn milestone again without lowering best");
+    }
+
+    new prints = g_prints;
+    rg_set_user_team(victim, TEAM_CT);
+    EmitDeath(killer, victim);
+    rg_set_user_team(victim, TEAM_TERRORIST);
+    g_human[victim] = false;
+    EmitDeath(killer, victim);
+    g_human[victim] = true;
+    g_hltv_id = victim;
+    EmitDeath(killer, victim);
+    g_hltv_id = 0;
+    g_disconnected_id = killer;
+    RecordMapDeath(killer, victim);
+    g_disconnected_id = 0;
+    rg_set_user_team(killer, TEAM_SPECTATOR);
+    RecordMapDeath(killer, victim);
+    rg_set_user_team(killer, TEAM_CT);
+    CheckStats(g_kill_streak[killer] == 3 && g_prints == prints, "excluded kills do not advance or announce");
+
+    // Scoring exclusions must not let a player carry a streak through death.
+    for (new kind = 0; kind < 6; kind++)
+    {
+        g_kill_streak[killer] = 7;
+        if (kind == 0) { EmitDeath(killer, killer); }
+        if (kind == 1) { EmitDeath(0, killer); }
+        if (kind == 2) { EmitDeath(bot, killer); }
+        if (kind == 3) { g_human[bot] = false; EmitDeath(bot, killer); g_human[bot] = true; }
+        if (kind == 4) { g_hltv_id = bot; EmitDeath(bot, killer); g_hltv_id = 0; }
+        if (kind == 5) { set_pcvar_num(g_enabled, 0); EmitDeath(victim, killer); set_pcvar_num(g_enabled, 1); }
+        CheckStats(!g_kill_streak[killer] && g_best_streak[killer] == 11,
+            "suicide world team bot HLTV and disabled deaths reset only current");
+    }
+    rg_round_respawn(killer);
+    set_pcvar_num(g_enabled, 0);
+    EmitDeath(killer, victim);
+    set_pcvar_num(g_enabled, 1);
+    CheckStats(!g_kill_streak[killer], "disabled addon does not advance streak");
+    g_kill_streak[killer] = STATS_COUNTER_LIMIT;
+    g_best_streak[killer] = STATS_COUNTER_LIMIT;
+    EmitDeath(killer, victim);
+    CheckStats(g_kill_streak[killer] == STATS_COUNTER_LIMIT && g_best_streak[killer] == STATS_COUNTER_LIMIT,
+        "streak counters saturate without overflow");
+    new rejected[128];
+    client_disconnected(killer, false, rejected, charsmax(rejected));
+    CheckStats(!g_kill_streak[killer] && !g_best_streak[killer], "disconnect clears both streak counters");
+    g_kill_streak[killer] = 7;
+    g_best_streak[killer] = 9;
+    client_putinserver(killer);
+    CheckStats(!g_kill_streak[killer] && !g_best_streak[killer], "slot reuse cannot inherit streak counters");
+    g_kill_streak[killer] = 7;
+    g_best_streak[killer] = 9;
+    ResetMapStats(killer);
+    CheckStats(!g_kill_streak[killer] && !g_best_streak[killer], "fresh connection map reset clears streak counters");
+    server_print("KILL_STREAK_SMOKE=%s failures=%d native_damage=1 languages=2 storage=none", g_failures ? "failed" : "passed", g_failures);
 }
 
 RunKillHealChecks(killer, victim)
