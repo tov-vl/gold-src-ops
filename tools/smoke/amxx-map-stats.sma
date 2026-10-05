@@ -232,6 +232,7 @@ public RunMapStatsSmoke()
     CheckStats(g_prints == printed + 1, "invalid command IDs refuse");
     OnMapStatsStatus();
     RunKillHealChecks(killer, victim);
+    RunKillAmmoChecks(killer, victim);
     server_print("MAP_STATS_SMOKE=%s failures=%d synthetic_clients=6 native_damage=1",
         g_failures ? "failed" : "passed", g_failures);
     return PLUGIN_HANDLED;
@@ -279,4 +280,81 @@ RunKillHealChecks(killer, victim)
     CheckStats(get_entvar(killer, var_health) == 60.0, "disconnected spectator and global disable do not heal");
     OnStatusCommand();
     server_print("KILL_HEAL_SMOKE=%s failures=%d native_damage=1", g_failures ? "failed" : "passed", g_failures);
+}
+
+RunKillAmmoChecks(killer, victim)
+{
+    rg_set_user_team(killer, TEAM_CT);
+    rg_set_user_team(victim, TEAM_TERRORIST);
+    for (new primary = 0; primary < sizeof WEAPON_IDS; primary++)
+    {
+        for (new pistol = 0; pistol < sizeof PISTOL_IDS; pistol++)
+        {
+            g_choice[killer] = primary;
+            g_pistol_choice[killer] = pistol;
+            rg_round_respawn(killer);
+            rg_set_user_bpammo(killer, WEAPON_IDS[primary], 1);
+            rg_set_user_bpammo(killer, PISTOL_IDS[pistol], 1);
+            rg_set_user_ammo(killer, WEAPON_IDS[primary], 2);
+            rg_set_user_ammo(killer, PISTOL_IDS[pistol], 2);
+            new active = get_member(killer, m_pActiveItem);
+            new weapons_before[32], count_before, weapons_after[32], count_after;
+            get_user_weapons(killer, weapons_before, count_before);
+            EmitDeath(killer, victim);
+            get_user_weapons(killer, weapons_after, count_after);
+            CheckStats(rg_get_user_bpammo(killer, WEAPON_IDS[primary]) == BACKPACK_AMMO[primary]
+                && rg_get_user_bpammo(killer, PISTOL_IDS[pistol]) == PISTOL_AMMO[pistol], "native kill refills all nine loadouts including shared 9mm");
+            CheckStats(rg_get_user_ammo(killer, WEAPON_IDS[primary]) == 2
+                && rg_get_user_ammo(killer, PISTOL_IDS[pistol]) == 2
+                && get_member(killer, m_pActiveItem) == active && count_before == count_after, "reserve refill leaves clip active weapon and inventory alone");
+        }
+    }
+    // Next-spawn MP5/USP choices must not replace the held M4A1/Deagle.
+    g_choice[killer] = 0;
+    g_pistol_choice[killer] = 0;
+    new reserve_9mm_index = rg_get_weapon_info(WEAPON_MP5N, WI_AMMO_TYPE);
+    new reserve_45_index = rg_get_weapon_info(WEAPON_USP, WI_AMMO_TYPE);
+    set_member(killer, m_rgAmmo, 7, reserve_9mm_index);
+    set_member(killer, m_rgAmmo, 8, reserve_45_index);
+    rg_set_user_bpammo(killer, WEAPON_M4A1, 150);
+    EmitDeath(killer, victim);
+    CheckStats(!user_has_weapon(killer, _:WEAPON_MP5N) && !user_has_weapon(killer, _:WEAPON_USP)
+        && get_member(killer, m_rgAmmo, reserve_9mm_index) == 7 && get_member(killer, m_rgAmmo, reserve_45_index) == 8,
+        "next-spawn selection and unowned ammo pools untouched");
+    CheckStats(rg_get_user_bpammo(killer, WEAPON_M4A1) == 150, "external surplus reserve retained");
+    rg_set_user_bpammo(killer, WEAPON_M4A1, 1);
+    set_pcvar_num(g_kill_ammo, 0);
+    new kills = g_map_kills[killer];
+    set_entvar(killer, var_health, 60.0);
+    EmitDeath(killer, victim);
+    CheckStats(rg_get_user_bpammo(killer, WEAPON_M4A1) == 1 && g_map_kills[killer] == kills + 1
+        && get_entvar(killer, var_health) == 75.0, "ammo disable preserves scoring and healing");
+    set_pcvar_num(g_kill_ammo, 1);
+    rg_set_user_team(victim, TEAM_CT);
+    EmitDeath(killer, victim);
+    rg_set_user_team(victim, TEAM_TERRORIST);
+    EmitDeath(victim, victim);
+    EmitDeath(0, victim);
+    g_human[victim] = false;
+    EmitDeath(killer, victim);
+    g_human[victim] = true;
+    g_hltv_id = victim;
+    EmitDeath(killer, victim);
+    g_hltv_id = 0;
+    g_disconnected_id = killer;
+    RecordMapDeath(killer, victim);
+    g_disconnected_id = 0;
+    rg_set_user_team(killer, TEAM_SPECTATOR);
+    RecordMapDeath(killer, victim);
+    rg_set_user_team(killer, TEAM_CT);
+    set_pcvar_num(g_enabled, 0);
+    EmitDeath(killer, victim);
+    set_pcvar_num(g_enabled, 1);
+    CheckStats(rg_get_user_bpammo(killer, WEAPON_M4A1) == 1, "excluded kills and global disable do not refill");
+    EmitDeath(killer, killer);
+    new dead_ammo = rg_get_user_bpammo(killer, WEAPON_M4A1);
+    RecordMapDeath(killer, victim);
+    CheckStats(!is_user_alive(killer) && rg_get_user_bpammo(killer, WEAPON_M4A1) == dead_ammo, "posthumous kill cannot refill");
+    OnStatusCommand();
+    server_print("KILL_AMMO_SMOKE=%s failures=%d native_damage=1 loadouts=9", g_failures ? "failed" : "passed", g_failures);
 }

@@ -52,4 +52,5 @@ run_case() {
 
 run_case map_stats_smoke goldsrcops_map_stats_smoke MAP_STATS_SMOKE de_dust2
 grep -q '^KILL_HEAL_SMOKE=passed failures=0 native_damage=1' /tmp/goldsrcops_map_stats_smoke.log
-echo KILL_HEAL_RUNTIME=passed
+grep -q '^KILL_AMMO_SMOKE=passed failures=0 native_damage=1 loadouts=9' /tmp/goldsrcops_map_stats_smoke.log
+echo KILL_REWARDS_RUNTIME=passed
