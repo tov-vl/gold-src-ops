@@ -7,15 +7,15 @@
 #define is_user_bot(%1) FixtureIsBot(%1)
 #define menu_display(%1,%2) FixtureMenuDisplay(%1,%2)
 #define client_print FixturePrint
-#define ShowSyncHudMsg FixtureHud
-#define ClearSyncHud(%1,%2) FixtureClearHud(%1,%2)
+#define show_dhudmessage FixtureHud
+#define set_dhudmessage FixtureHudParameters
 #include <goldsrcops_weapon_selection.sma>
 #undef plugin_init
 #undef is_user_bot
 #undef menu_display
 #undef client_print
-#undef ShowSyncHudMsg
-#undef ClearSyncHud
+#undef show_dhudmessage
+#undef set_dhudmessage
 
 new g_client;
 new bool:g_human = true;
@@ -27,20 +27,32 @@ new g_prints;
 new g_maps_calls;
 new g_timeleft_calls;
 new g_hud_messages;
-new g_hud_clears;
+new g_hud_parts;
 new g_last_hud[256];
 
-FixtureHud(id, sync, const message[], any:...)
+FixtureHudParameters(red, green, blue, Float:x, Float:y, effects, Float:fxtime, Float:hold, Float:fadein, Float:fadeout)
 {
-    CheckMenu(id == g_client && sync == g_hud_sync, "HUD is private and synchronized");
-    g_hud_messages++;
-    vformat(g_last_hud, charsmax(g_last_hud), message, 4);
-    return ShowSyncHudMsg(id, sync, "%s", g_last_hud);
+    CheckMenu(hold == 1.0 && fadein == 0.0 && fadeout == 0.0 && effects == 0, "director frame expires within one second");
+    CheckMenu(x == 0.02 && y == (g_hud_parts % 2 == 0 ? 0.22 : 0.29), "statistics and rank occupy separate positions");
+    set_dhudmessage(red, green, blue, x, y, effects, fxtime, hold, fadein, fadeout);
 }
-FixtureClearHud(id, sync)
+FixtureHud(id, const message[], any:...)
 {
-    g_hud_clears++;
-    ClearSyncHud(id, sync);
+    CheckMenu(id == g_client, "director HUD remains private");
+    new part[256];
+    vformat(part, charsmax(part), message, 3);
+    CheckMenu(strlen(part) < 128 && contain(part, "ML_NOTFOUND") < 0, "each translated director message fits without truncation");
+    if (g_hud_parts++ % 2 == 0)
+    {
+        copy(g_last_hud, charsmax(g_last_hud), part);
+    }
+    else
+    {
+        add(g_last_hud, charsmax(g_last_hud), "^n");
+        add(g_last_hud, charsmax(g_last_hud), part);
+        g_hud_messages++;
+    }
+    return show_dhudmessage(id, "%s", part);
 }
 
 public plugin_init()
@@ -49,6 +61,13 @@ public plugin_init()
     register_srvcmd("goldsrcops_player_menu_smoke", "RunPlayerMenuSmoke");
     register_clcmd("say /maps", "FixtureMaps");
     register_clcmd("say /timeleft", "FixtureTimeLeft");
+    register_menucmd(register_menuid("HUD fixture external"), MENU_KEY_1, "FixtureExternalMenuSelected");
+}
+
+public FixtureExternalMenuSelected(id, key)
+{
+    #pragma unused id, key
+    return PLUGIN_HANDLED;
 }
 
 bool:FixtureIsBot(id) { return !(g_human && id == g_client) && is_user_bot(id); }
@@ -215,6 +234,7 @@ RunHudChecks(id)
     remove_task(WELCOME_TASK_BASE + id);
     menu_cancel(id);
     show_menu(id, 0, "");
+    RunMenuCloseChecks(id);
     g_map_kills[id] = STATS_COUNTER_LIMIT;
     g_map_deaths[id] = STATS_COUNTER_LIMIT;
     g_kill_streak[id] = STATS_COUNTER_LIMIT;
@@ -260,11 +280,11 @@ RunHudChecks(id)
         show_menu(id, 0, "");
     }
     UpdatePlayerHuds();
-    new messages = g_hud_messages, clears = g_hud_clears;
+    new messages = g_hud_messages;
     set_pcvar_num(g_enabled, 0);
     UpdatePlayerHuds();
     UpdatePlayerHuds();
-    CheckMenu(g_hud_messages == messages && g_hud_clears == clears + 1 && !g_hud_visible[id], "global disable clears only once");
+    CheckMenu(g_hud_messages == messages && !g_hud_visible[id], "global disable stops director refresh");
     set_pcvar_num(g_enabled, 1);
     g_human = false;
     UpdatePlayerHuds();
@@ -283,4 +303,74 @@ RunHudChecks(id)
     CheckMenu(g_hud_messages == messages + 1, "HUD resumes after respawn");
     HidePlayerHud(0);
     HidePlayerHud(MAX_PLAYERS + 1);
+}
+
+RunMenuCloseChecks(id)
+{
+    for (new language = 0; language < 2; language++)
+    {
+        g_language_override[id] = language + 1;
+        for (new attempt = 0; attempt < 3; attempt++)
+        {
+            OpenPlayerMenu(id);
+            new messages = g_hud_messages;
+            UpdatePlayerHuds();
+            CheckMenu(g_hud_messages == messages, "hub suppresses HUD while open");
+            FixtureCloseMenu(id);
+            new menu, keys;
+            get_user_menu(id, menu, keys);
+            CheckMenu(menu == 0 && keys != 0, "native menu state retains exit key mask without an active menu");
+            UpdatePlayerHuds();
+            CheckMenu(g_hud_messages == messages + 1, "HUD resumes after hub exit with stale keys");
+        }
+        OpenPlayerSettings(id);
+        FixtureCloseMenu(id);
+        OnSettingsSelected(id, g_settings_menu[language][0], 2);
+        FixtureCloseMenu(id);
+        new messages = g_hud_messages;
+        UpdatePlayerHuds();
+        CheckMenu(g_hud_disabled[id] && g_hud_messages == messages, "HUD stays off after settings exit with stale keys");
+        OpenPlayerSettings(id);
+        FixtureCloseMenu(id);
+        OnSettingsSelected(id, g_settings_menu[language][1], 2);
+        FixtureCloseMenu(id);
+        UpdatePlayerHuds();
+        CheckMenu(!g_hud_disabled[id] && g_hud_messages == messages + 1, "HUD returns after toggle and exit with stale keys");
+        OpenWeapons(id);
+        FixtureCloseMenu(id);
+        OnWeaponSelected(id, g_menu[language], 0);
+        messages = g_hud_messages;
+        UpdatePlayerHuds();
+        CheckMenu(g_hud_messages == messages, "weapon submenu still suppresses HUD");
+        FixtureCloseMenu(id);
+        OnPistolSelected(id, g_pistol_menu[language], 0);
+        UpdatePlayerHuds();
+        CheckMenu(g_hud_messages == messages + 1, "HUD resumes after weapon selection with stale keys");
+        OpenPlayerSettings(id);
+        FixtureCloseMenu(id);
+        OnSettingsSelected(id, g_settings_menu[language][0], 3);
+        messages = g_hud_messages;
+        UpdatePlayerHuds();
+        CheckMenu(g_hud_messages == messages, "Back keeps HUD hidden under the reopened hub");
+        FixtureCloseMenu(id);
+        UpdatePlayerHuds();
+        CheckMenu(g_hud_messages == messages + 1, "HUD returns after Back and hub exit");
+        show_menu(id, MENU_KEY_1, "HUD fixture external", -1, "HUD fixture external");
+        messages = g_hud_messages;
+        UpdatePlayerHuds();
+        CheckMenu(g_hud_messages == messages, "external legacy menu suppresses HUD");
+        FixtureCloseMenu(id);
+        UpdatePlayerHuds();
+        CheckMenu(g_hud_messages == messages + 1, "HUD resumes after external menu selection");
+    }
+}
+
+FixtureCloseMenu(id)
+{
+    // AMXX's menuselect clears menu ids, but leaves keys. amxclient_cmd bypasses that handler.
+    // Use real menu natives to recreate that state; do not stub the product's menu query.
+    new menu, keys;
+    get_user_menu(id, menu, keys);
+    menu_cancel(id);
+    show_menu(id, keys, "");
 }

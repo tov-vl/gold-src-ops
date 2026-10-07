@@ -2717,9 +2717,20 @@ new AMXX errors. No tag, control-plane rollout, reboot or mandatory player
 session. Human rendering and multiplayer pacing remain optional. See the
 [v2.44 record](v2.44-kill-streaks.md).
 
+### v2.45 - HUD Recovery And Readability
+
+Local addon 0.15.0 fixes HUD suppression after menu exit by ignoring AMXX's
+stale key mask when no menu is active. Director HUD provides larger text with
+two private message blocks and one-second expiry. The owner reported the other
+non-combat checks successful; combat observation remains pending. The focused
+menu/HUD engine fixture passes, and restoring the old predicate produces the
+expected regression failures. Publication, installation and visual acceptance
+at 2560x1600 remain pending. See the [v2.45 record](v2.45-hud-recovery.md).
+
 ### Addon CI Optimization
 
-Status: implemented locally; remote CI validation and timing comparison pending.
+Status as of 2026-10-05: merged into `main`; required PR and post-merge CI passed.
+Actual `addon-only` timing remains unmeasured.
 
 An explicit `addon-only` scope preserves addon compilation, dictionary/package
 checks and both isolated installer/rollback fixtures while omitting unrelated
@@ -2733,9 +2744,20 @@ syntax checks and actionlint 1.7.12 pass locally. The completed
 [v2.44 PR CI run #760](https://github.com/tov-vl/gold-src-ops/actions/runs/37309514691)
 provides the comparison baseline: 10 minutes 3 seconds from run start to
 completion, including scheduling; the addon compile job took 59 seconds.
-These are observed durations for one full run, not an addon-only result. See the
-[CI scope contract](release-process.md#ci-scope-for-game-addons). No game-server
-installation or remote action is part of this work.
+These are observed durations for one full run, not an addon-only result.
+
+[PR #265](https://github.com/tov-vl/gold-src-ops/pull/265) passed all five checks
+on reviewed head `258bd14e0a08bd48d9f71869426610cb845b2a6c` and was squash-merged
+into `main` as `4ce9e049d875f39a02cb77cc83db53699b26e691`; the merged tree matches
+the reviewed tree. The [PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/37351179667)
+completed in 8 minutes 29 seconds, and the
+[post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/37353531270)
+completed in 9 minutes 11 seconds with Change Scope, Quality Gate, Map Menu
+Compile, Container Smoke and Browser Smoke successful. Both runs selected
+`full` because the change includes the workflow; their durations do not measure
+the `addon-only` improvement. Measure that mode on the next eligible product PR.
+See the [CI scope contract](release-process.md#ci-scope-for-game-addons).
+No game-server installation or release publication was performed.
 
 The released v1 baseline includes:
 
