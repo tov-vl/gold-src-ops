@@ -119,6 +119,9 @@ sudo python3 -I /opt/goldsrcops-player-backup/ops/production/player-data-schedul
    Dispatcher повторно проверяет argv, очищает окружение
    и запускает фиксированный Python-файл с `-I`. Проверить sudoers через
    `visudo -cf` и эффективные ограничения sshd для этого пользователя.
+   Если действует AllowUsers, добавить только выделенного пользователя с
+   источником control-plane, сохранив операторское правило. При разборе
+   `sshd -T` учитывать несколько строк `allowusers`.
 5. При необходимости добавить ровно один SSH ingress от control-plane `/32`.
    Существующий операторский доступ сохранить; проверить provider firewall/UFW
    и сохранность действующих runtime guards. Новые публичные порты не нужны.
@@ -134,7 +137,10 @@ sudo python3 -I /opt/goldsrcops-player-backup/ops/production/player-data-schedul
    Снять reviewed `player-data-backup-baseline.sha256` с текущих plugin,
    dictionary, map payload, receipts и остальных принятых baseline-файлов.
 8. Подготовить приватные state directories. Импортировать проверенную v2.49
-   запись и bundle только на control-plane. Проверить `status`.
+   запись и bundle только на control-plane. Проверить `status` и чтение backend
+   из transient service с теми же sandbox properties. При использовании общего
+   restic helper явно выбрать `--host <backup-host>.players` вместе с workload
+   tag: у helper основной RESTIC_HOST относится к PostgreSQL.
 9. Проверить запрет произвольных SSH-команд, shell/forwarding и выхода за
    расписание; в этот момент игровой сервис не останавливать.
 10. Проверить units через `systemd-analyze verify`, календарь через
