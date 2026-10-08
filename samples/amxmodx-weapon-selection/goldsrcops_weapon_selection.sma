@@ -28,6 +28,8 @@ new const RANK_KEYS[][] = { "GS_RECRUIT", "GS_FIGHTER", "GS_VETERAN", "GS_ELITE"
 new const RANK_KILLS[] = { 0, 25, 100, 250, 500 };
 new const PLAYER_LANGUAGES[][] = { "ru", "en" };
 new const PLAYER_MENU_KEYS[][] = { "GS_GUNS", "GS_STATS", "GS_RANK", "GS_TOP", "GS_MAPS", "GS_TIMELEFT", "GS_SETTINGS" };
+new const PLAYER_HELP_KEYS[][] = { "GS_HELP_MENU", "GS_HELP_GUNS", "GS_HELP_STATS", "GS_HELP_MAPS" };
+const Float:HELP_COOLDOWN = 5.0;
 
 new g_enabled;
 new g_kill_heal;
@@ -43,6 +45,7 @@ new g_language_override[MAX_PLAYERS + 1];
 new g_choice[MAX_PLAYERS + 1];
 new g_pistol_choice[MAX_PLAYERS + 1];
 new bool:g_welcomed[MAX_PLAYERS + 1];
+new Float:g_help_next[MAX_PLAYERS + 1];
 new g_map_kills[MAX_PLAYERS + 1];
 new g_map_deaths[MAX_PLAYERS + 1];
 new g_kill_streak[MAX_PLAYERS + 1];
@@ -85,7 +88,7 @@ public NativePlayerLanguage(plugin, params)
 
 public plugin_init()
 {
-    register_plugin("GoldSrcOps Weapon Selection", "0.17.0", "GoldSrcOps");
+    register_plugin("GoldSrcOps Weapon Selection", "0.18.0", "GoldSrcOps");
     if (!register_dictionary("goldsrcops-player-menu.txt"))
     {
         set_fail_state("Player menu dictionary unavailable.");
@@ -114,6 +117,9 @@ public plugin_init()
     register_clcmd("say /settings", "OpenPlayerSettings");
     register_clcmd("say_team /settings", "OpenPlayerSettings");
     register_clcmd("settings", "OpenPlayerSettings");
+    register_clcmd("say /help", "ShowPlayerHelp");
+    register_clcmd("say_team /help", "ShowPlayerHelp");
+    register_clcmd("help", "ShowPlayerHelp");
     register_srvcmd("goldsrcops_weapons_status", "OnStatusCommand");
     register_clcmd("say /stats", "ShowMapStats");
     register_clcmd("say_team /stats", "ShowMapStats");
@@ -205,23 +211,24 @@ public plugin_end()
 
 public OnStatusCommand()
 {
-    server_print("WEAPON_SELECTION_STATUS version=0.17.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
+    server_print("WEAPON_SELECTION_STATUS version=0.18.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
         get_pcvar_num(g_enabled) != 0, sizeof WEAPON_NAMES, sizeof PISTOL_NAMES);
-    server_print("PLAYER_MENU_STATUS version=0.17.0 languages=ru,en unset=ru unsupported=en override=steam_or_connection entries=7 map_commands=delegated language_native=1");
-    server_print("PLAYER_SETTINGS_STATUS version=0.17.0 languages=ru,en summary=next_spawn saved=verified_record hud_saved=separate_verified_record reset=none");
-    server_print("PLAYER_HUD_STATUS version=0.17.0 languages=ru,en interval=1 renderer=director expiry=1.5 messages=2 menus=visible scope=connection_map rank=saved_kills toggle=steam_or_connection storage_writes=explicit_toggle");
-    server_print("KILL_STREAK_STATUS version=0.17.0 enabled=%d scope=connection_map reset=any_death alive_only=1 milestones=3,5,10 feedback=private languages=ru,en storage=none",
+    server_print("PLAYER_MENU_STATUS version=0.18.0 languages=ru,en unset=ru unsupported=en override=steam_or_connection entries=7 map_commands=delegated language_native=1");
+    server_print("PLAYER_SETTINGS_STATUS version=0.18.0 languages=ru,en summary=next_spawn saved=verified_record hud_saved=separate_verified_record reset=none");
+    server_print("PLAYER_HELP_STATUS version=0.18.0 languages=ru,en lines=6 cooldown=5 scope=private storage_writes=none welcome=once_per_connection");
+    server_print("PLAYER_HUD_STATUS version=0.18.0 languages=ru,en interval=1 renderer=director expiry=1.5 messages=2 menus=visible scope=connection_map rank=saved_kills toggle=steam_or_connection storage_writes=explicit_toggle");
+    server_print("KILL_STREAK_STATUS version=0.18.0 enabled=%d scope=connection_map reset=any_death alive_only=1 milestones=3,5,10 feedback=private languages=ru,en storage=none",
         get_pcvar_num(g_enabled) != 0);
-    server_print("KILL_HEAL_STATUS version=0.17.0 enabled=%d amount=%d max_health=100 scope=enemy_human_kill alive_only=1",
+    server_print("KILL_HEAL_STATUS version=0.18.0 enabled=%d amount=%d max_health=100 scope=enemy_human_kill alive_only=1",
         get_pcvar_num(g_enabled) != 0 && KillHealAmount() > 0, KillHealAmount());
-    server_print("KILL_AMMO_STATUS version=0.17.0 enabled=%d scope=enemy_human_kill alive_only=1 weapons=loadout_owned reserve=spawn_limit clip=unchanged",
+    server_print("KILL_AMMO_STATUS version=0.18.0 enabled=%d scope=enemy_human_kill alive_only=1 weapons=loadout_owned reserve=spawn_limit clip=unchanged",
         get_pcvar_num(g_enabled) != 0 && get_pcvar_num(g_kill_ammo) > 0);
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
     {
         if (IsStatsClient(id) && g_preferences_ready[id]) { loaded++; }
     }
-    server_print("PLAYER_PREFERENCES_STATUS version=0.17.0 storage=%s schema=1 hud_schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_PREFERENCES_STATUS version=0.18.0 storage=%s schema=1 hud_schema=1 identity=steam loaded=%d errors=%d",
         g_preferences_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_preferences_errors);
     return PLUGIN_HANDLED;
 }
@@ -230,6 +237,7 @@ public client_putinserver(id)
 {
     remove_task(WELCOME_TASK_BASE + id);
     g_welcomed[id] = false;
+    g_help_next[id] = 0.0;
     g_language_override[id] = 0;
     g_choice[id] = 0;
     g_pistol_choice[id] = 0;
@@ -256,6 +264,7 @@ public client_disconnected(id)
     g_hud_disabled[id] = false;
     remove_task(WELCOME_TASK_BASE + id);
     g_welcomed[id] = false;
+    g_help_next[id] = 0.0;
     g_language_override[id] = 0;
     g_choice[id] = 0;
     g_pistol_choice[id] = 0;
@@ -336,6 +345,25 @@ public OpenPlayerSettings(id)
     client_print(id, print_chat, "[GoldSrcOps] %L", PLAYER_LANGUAGES[language],
         PlayerHudPreferenceSaved(id) ? "GS_HUD_SAVED" : "GS_HUD_SESSION");
     menu_display(id, g_settings_menu[language][g_hud_disabled[id]]);
+    return PLUGIN_HANDLED;
+}
+
+public ShowPlayerHelp(id)
+{
+    if (!get_pcvar_num(g_enabled) || !IsStatsClient(id)) { return PLUGIN_HANDLED; }
+    new Float:now = get_gametime();
+    if (now < g_help_next[id]) { return PLUGIN_HANDLED; }
+    g_help_next[id] = now + HELP_COOLDOWN;
+    // Reading help must not flush pending preferences or consume the welcome.
+    new language = EffectivePlayerLanguage(id);
+    for (new index = 0; index < sizeof PLAYER_HELP_KEYS; index++)
+    {
+        client_print(id, print_chat, "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], PLAYER_HELP_KEYS[index]);
+    }
+    client_print(id, print_chat, "[GoldSrcOps] %L", PLAYER_LANGUAGES[language],
+        PlayerPreferencesSaved(id) ? "GS_SETTINGS_SAVED" : "GS_SETTINGS_SESSION");
+    client_print(id, print_chat, "[GoldSrcOps] %L", PLAYER_LANGUAGES[language],
+        PlayerHudPreferenceSaved(id) ? "GS_HUD_SAVED" : "GS_HUD_SESSION");
     return PLUGIN_HANDLED;
 }
 
@@ -856,7 +884,7 @@ public ShowMapLeaders(id)
 public OnMapStatsStatus()
 {
     new leaders[MAP_LEADER_LIMIT];
-    server_print("MAP_STATS_STATUS version=0.17.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
+    server_print("MAP_STATS_STATUS version=0.18.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
         get_pcvar_num(g_enabled) != 0, BuildMapLeaders(leaders));
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
@@ -866,9 +894,9 @@ public OnMapStatsStatus()
             loaded++;
         }
     }
-    server_print("PLAYER_STATS_STATUS version=0.17.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_STATS_STATUS version=0.18.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
         g_stats_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_storage_errors);
-    server_print("PLAYER_RANK_STATUS version=0.17.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
+    server_print("PLAYER_RANK_STATUS version=0.18.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
         get_pcvar_num(g_enabled) != 0);
     return PLUGIN_HANDLED;
 }

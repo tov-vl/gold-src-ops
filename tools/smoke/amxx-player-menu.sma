@@ -25,6 +25,9 @@ new g_last_menu;
 new g_last_text[512];
 new g_previous_text[512];
 new g_prints;
+new bool:g_collect_help;
+new g_help_lines[6][192];
+new g_help_line_count;
 new g_maps_calls;
 new g_timeleft_calls;
 new g_hud_messages;
@@ -101,6 +104,15 @@ FixturePrint(id, type, const message[], any:...)
     g_prints++;
     copy(g_previous_text, charsmax(g_previous_text), g_last_text);
     vformat(g_last_text, charsmax(g_last_text), message, 4);
+    if (g_collect_help)
+    {
+        CheckMenu(id == g_client && type == print_chat, "help remains private chat");
+        if (g_help_line_count < sizeof g_help_lines)
+        {
+            copy(g_help_lines[g_help_line_count], charsmax(g_help_lines[]), g_last_text);
+        }
+        g_help_line_count++;
+    }
     CheckMenu(strlen(g_last_text) <= 190 && contain(g_last_text, "ML_NOTFOUND") < 0, "bounded translated chat");
     return strlen(g_last_text);
 }
@@ -236,10 +248,12 @@ public RunPlayerMenuSmoke()
     displays = g_displays;
     OnSettingsSelected(id, g_settings_menu[1][0], 0);
     CheckMenu(g_displays == displays, "settings does not grant spectator weapons");
+    RunHelpChecks(id);
     RunHudChecks(id);
     g_hud_disabled[id] = true;
     client_disconnected(id, false, rejected, charsmax(rejected));
     client_putinserver(id);
+    CheckMenu(g_help_next[id] == 0.0, "reconnect resets help cooldown");
     CheckMenu(g_language_override[id] == 0 && PlayerLanguage(id) == 1, "reconnect clears override without changing client preference");
     CheckMenu(!g_hud_disabled[id] && !g_hud_visible[id], "reconnect resets HUD without a persistent identity");
     rg_round_respawn(id);
@@ -269,6 +283,68 @@ public FinishHudContinuity()
         g_periodic_samples[0], g_periodic_samples[1]);
     server_print("PLAYER_HUD_SMOKE=%s failures=%d languages=2 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
     server_print("PLAYER_MENU_SMOKE=%s failures=%d languages=2 map_hooks=delegated", g_failures ? "failed" : "passed", g_failures);
+    server_print("PLAYER_HELP_SMOKE=%s failures=%d languages=2 lines=6 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
+}
+
+RunHelpChecks(id)
+{
+    new displays = g_displays, expected[192];
+    for (new language = 0; language < 2; language++)
+    {
+        g_language_override[id] = language + 1;
+        g_help_next[id] = 0.0;
+        g_help_line_count = 0;
+        g_collect_help = true;
+        ShowPlayerHelp(id);
+        g_collect_help = false;
+        CheckMenu(g_help_line_count == 6 && g_displays == displays, "help prints six lines without replacing a menu");
+        for (new line = 0; line < 4; line++)
+        {
+            formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], PLAYER_HELP_KEYS[line]);
+            CheckMenu(SameUtf8Bytes(g_help_lines[line], expected), "RU/EN help command translation");
+        }
+        formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_SETTINGS_SESSION");
+        CheckMenu(SameUtf8Bytes(g_help_lines[4], expected), "help reports unsaved language and loadout honestly");
+        formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_HUD_SESSION");
+        CheckMenu(SameUtf8Bytes(g_help_lines[5], expected), "help reports independent session HUD status");
+        new prints = g_prints;
+        ShowPlayerHelp(id);
+        CheckMenu(g_prints == prints && g_help_next[id] == get_gametime() + 5.0, "repeated help is rate limited");
+        g_help_next[id] = get_gametime();
+        ShowPlayerHelp(id);
+        CheckMenu(g_prints == prints + 6, "help becomes available at cooldown boundary");
+    }
+    new prints = g_prints;
+    ShowPlayerHelp(0);
+    ShowPlayerHelp(MAX_PLAYERS + 1);
+    g_help_next[id] = 0.0;
+    set_pcvar_num(g_enabled, 0);
+    ShowPlayerHelp(id);
+    set_pcvar_num(g_enabled, 1);
+    g_human = false;
+    ShowPlayerHelp(id);
+    g_human = true;
+    CheckMenu(g_prints == prints && g_help_next[id] == 0.0, "disabled bot and invalid help has no output or cooldown");
+    rg_set_user_team(id, TEAM_CT);
+    rg_round_respawn(id);
+    set_entvar(id, var_deadflag, DEAD_DEAD);
+    ShowPlayerHelp(id);
+    CheckMenu(g_prints == prints + 6, "dead players can read help");
+    g_welcomed[id] = false;
+    rg_round_respawn(id);
+    g_help_next[id] = 0.0;
+    CheckMenu(bool:task_exists(WELCOME_TASK_BASE + id), "welcome scheduled for eligible spawn");
+    ShowPlayerHelp(id);
+    CheckMenu(!g_welcomed[id] && bool:task_exists(WELCOME_TASK_BASE + id), "help does not consume or cancel pending welcome");
+    g_help_line_count = 0;
+    g_collect_help = true;
+    ShowWelcome(WELCOME_TASK_BASE + id);
+    g_collect_help = false;
+    CheckMenu(contain(g_help_lines[0], "/help") >= 0 && g_welcomed[id], "welcome includes help hint");
+    prints = g_prints;
+    ShowWelcome(WELCOME_TASK_BASE + id);
+    CheckMenu(g_prints == prints, "welcome hint remains once-only");
+    remove_task(WELCOME_TASK_BASE + id);
 }
 
 RunHudChecks(id)
