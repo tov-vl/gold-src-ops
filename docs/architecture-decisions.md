@@ -1758,3 +1758,23 @@ to the map addon. Client configuration, global AMXX language, rank thresholds,
 statistics format and inventory timing stay unchanged. Reverse upgrade to the
 accepted addon ignores but retains the separate preferences vault; deleting or
 rewriting it is not part of installation or rollback.
+
+## Decision 36: Persist HUD In A Separate Preference Record
+
+Decision date: 2026-10-08.
+
+Store explicit HUD state in the existing preferences nVault under
+`hud:<canonical preference key>`, with exact schema-1 values `1 0` for enabled
+and `1 1` for disabled. Keep the language/weapon and statistics formats unchanged.
+Addon 0.16.0 ignores the new namespace while retaining it, so reverse upgrade
+needs no player-data migration, reset or vault restore.
+
+Reuse canonical Steam identity and connected-owner guards. Joining reads without
+creating defaults; late identity preserves an explicit session toggle. HUD writes
+use exact readback and block after an uncertain failure until reconnect. Invalid
+records remain intact. A blocked base preference identity cannot be bypassed,
+while a HUD-only failure does not block separate language/weapon writes.
+
+Report saved/session status independently for HUD and language/weapons. Package
+the plugin and matching RU/EN dictionary together and reverse both on rollback.
+Rendering and menu inspection do not write player state.

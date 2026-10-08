@@ -2752,14 +2752,17 @@ See the [v2.46 record](v2.46-hud-continuity.md).
 
 ### v2.47 - Persistent HUD Preference
 
-Selected next product slice; implementation and runtime delivery have not
-started. Persist the explicit HUD on/off choice by canonical SteamID, restoring
-it after reconnect and map/plugin restart. The current switch is connection-only;
-language and weapon preferences already persist. Preserve the accepted 0.16.0
-HUD timing, position and menu behavior, existing preference/statistics records
-and session fallback when identity or storage is unavailable. Focused real-nVault
-checks can validate this boundary without a two-player combat session.
-See the [v2.47 scope and acceptance plan](v2.47-hud-preference.md).
+Addon 0.17.0 is implemented and verified locally. Explicit HUD on/off persists
+by canonical SteamID in a separate namespaced record in the existing preferences
+vault and restores after reconnect and map/plugin restart. Legacy language/weapon
+records and statistics stay unchanged. Late identity preserves session toggles;
+invalid records and failed readback retain usable session behavior without retry.
+RU/EN settings report HUD persistence independently. Product/all fixture compile,
+real-nVault reconnect/map recovery, a fresh-process 0.16.0 reverse-upgrade check,
+periodic HUD/menu and all nine loadouts passed. Product PR CI and delivery remain
+separate gates; the accepted server stays on 0.16.0. The two-player scenario remains
+deferred indefinitely and is not required for this boundary.
+See the [v2.47 record](v2.47-hud-preference.md).
 
 ### Addon CI Optimization
 

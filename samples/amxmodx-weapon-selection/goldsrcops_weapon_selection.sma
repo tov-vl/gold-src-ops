@@ -61,6 +61,9 @@ new bool:g_preferences_ready[MAX_PLAYERS + 1];
 new bool:g_preferences_blocked[MAX_PLAYERS + 1];
 new g_preferences_dirty[MAX_PLAYERS + 1];
 new g_preferences_errors;
+new bool:g_hud_preference_ready[MAX_PLAYERS + 1];
+new bool:g_hud_preference_blocked[MAX_PLAYERS + 1];
+new bool:g_hud_preference_dirty[MAX_PLAYERS + 1];
 
 public plugin_natives()
 {
@@ -82,7 +85,7 @@ public NativePlayerLanguage(plugin, params)
 
 public plugin_init()
 {
-    register_plugin("GoldSrcOps Weapon Selection", "0.16.0", "GoldSrcOps");
+    register_plugin("GoldSrcOps Weapon Selection", "0.17.0", "GoldSrcOps");
     if (!register_dictionary("goldsrcops-player-menu.txt"))
     {
         set_fail_state("Player menu dictionary unavailable.");
@@ -202,23 +205,23 @@ public plugin_end()
 
 public OnStatusCommand()
 {
-    server_print("WEAPON_SELECTION_STATUS version=0.16.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
+    server_print("WEAPON_SELECTION_STATUS version=0.17.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
         get_pcvar_num(g_enabled) != 0, sizeof WEAPON_NAMES, sizeof PISTOL_NAMES);
-    server_print("PLAYER_MENU_STATUS version=0.16.0 languages=ru,en unset=ru unsupported=en override=steam_or_connection entries=7 map_commands=delegated language_native=1");
-    server_print("PLAYER_SETTINGS_STATUS version=0.16.0 languages=ru,en summary=next_spawn saved=verified_record reset=none");
-    server_print("PLAYER_HUD_STATUS version=0.16.0 languages=ru,en interval=1 renderer=director expiry=1.5 messages=2 menus=visible scope=connection_map rank=saved_kills toggle=connection_only storage_writes=none");
-    server_print("KILL_STREAK_STATUS version=0.16.0 enabled=%d scope=connection_map reset=any_death alive_only=1 milestones=3,5,10 feedback=private languages=ru,en storage=none",
+    server_print("PLAYER_MENU_STATUS version=0.17.0 languages=ru,en unset=ru unsupported=en override=steam_or_connection entries=7 map_commands=delegated language_native=1");
+    server_print("PLAYER_SETTINGS_STATUS version=0.17.0 languages=ru,en summary=next_spawn saved=verified_record hud_saved=separate_verified_record reset=none");
+    server_print("PLAYER_HUD_STATUS version=0.17.0 languages=ru,en interval=1 renderer=director expiry=1.5 messages=2 menus=visible scope=connection_map rank=saved_kills toggle=steam_or_connection storage_writes=explicit_toggle");
+    server_print("KILL_STREAK_STATUS version=0.17.0 enabled=%d scope=connection_map reset=any_death alive_only=1 milestones=3,5,10 feedback=private languages=ru,en storage=none",
         get_pcvar_num(g_enabled) != 0);
-    server_print("KILL_HEAL_STATUS version=0.16.0 enabled=%d amount=%d max_health=100 scope=enemy_human_kill alive_only=1",
+    server_print("KILL_HEAL_STATUS version=0.17.0 enabled=%d amount=%d max_health=100 scope=enemy_human_kill alive_only=1",
         get_pcvar_num(g_enabled) != 0 && KillHealAmount() > 0, KillHealAmount());
-    server_print("KILL_AMMO_STATUS version=0.16.0 enabled=%d scope=enemy_human_kill alive_only=1 weapons=loadout_owned reserve=spawn_limit clip=unchanged",
+    server_print("KILL_AMMO_STATUS version=0.17.0 enabled=%d scope=enemy_human_kill alive_only=1 weapons=loadout_owned reserve=spawn_limit clip=unchanged",
         get_pcvar_num(g_enabled) != 0 && get_pcvar_num(g_kill_ammo) > 0);
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
     {
         if (IsStatsClient(id) && g_preferences_ready[id]) { loaded++; }
     }
-    server_print("PLAYER_PREFERENCES_STATUS version=0.16.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_PREFERENCES_STATUS version=0.17.0 storage=%s schema=1 hud_schema=1 identity=steam loaded=%d errors=%d",
         g_preferences_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_preferences_errors);
     return PLUGIN_HANDLED;
 }
@@ -330,6 +333,8 @@ public OpenPlayerSettings(id)
         WEAPON_NAMES[g_choice[id]], PISTOL_NAMES[g_pistol_choice[id]], language == 0 ? "RU" : "EN");
     client_print(id, print_chat, "[GoldSrcOps] %L", PLAYER_LANGUAGES[language],
         PlayerPreferencesSaved(id) ? "GS_SETTINGS_SAVED" : "GS_SETTINGS_SESSION");
+    client_print(id, print_chat, "[GoldSrcOps] %L", PLAYER_LANGUAGES[language],
+        PlayerHudPreferenceSaved(id) ? "GS_HUD_SAVED" : "GS_HUD_SESSION");
     menu_display(id, g_settings_menu[language][g_hud_disabled[id]]);
     return PLUGIN_HANDLED;
 }
@@ -345,6 +350,8 @@ public OnSettingsSelected(id, menu, item)
         case 2:
         {
             g_hud_disabled[id] = !g_hud_disabled[id];
+            g_hud_preference_dirty[id] = true;
+            SaveHudPreference(id);
             HidePlayerHud(id);
             OpenPlayerSettings(id);
         }
@@ -849,7 +856,7 @@ public ShowMapLeaders(id)
 public OnMapStatsStatus()
 {
     new leaders[MAP_LEADER_LIMIT];
-    server_print("MAP_STATS_STATUS version=0.16.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
+    server_print("MAP_STATS_STATUS version=0.17.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
         get_pcvar_num(g_enabled) != 0, BuildMapLeaders(leaders));
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
@@ -859,9 +866,9 @@ public OnMapStatsStatus()
             loaded++;
         }
     }
-    server_print("PLAYER_STATS_STATUS version=0.16.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_STATS_STATUS version=0.17.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
         g_stats_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_storage_errors);
-    server_print("PLAYER_RANK_STATUS version=0.16.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
+    server_print("PLAYER_RANK_STATUS version=0.17.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
         get_pcvar_num(g_enabled) != 0);
     return PLUGIN_HANDLED;
 }
@@ -995,6 +1002,9 @@ ResetPlayerPreferences(id)
     g_preferences_ready[id] = false;
     g_preferences_blocked[id] = false;
     g_preferences_dirty[id] = 0;
+    g_hud_preference_ready[id] = false;
+    g_hud_preference_blocked[id] = false;
+    g_hud_preference_dirty[id] = false;
 }
 
 bool:DecodePlayerPreferences(const value[], &language, &primary, &pistol)
@@ -1015,10 +1025,11 @@ bool:DecodePlayerPreferences(const value[], &language, &primary, &pistol)
 EnsurePlayerPreferences(id)
 {
     if (g_preferences_vault == INVALID_HANDLE || !get_pcvar_num(g_enabled) || !IsStatsClient(id)
-        || g_preferences_ready[id] || g_preferences_blocked[id])
+        || g_preferences_blocked[id])
     {
         return;
     }
+    if (g_preferences_ready[id]) { EnsureHudPreference(id); return; }
     new authid[32], key[40];
     get_user_authid(id, authid, charsmax(authid));
     if (!BuildStatsKey(authid, key, charsmax(key))) { return; }
@@ -1044,6 +1055,7 @@ EnsurePlayerPreferences(id)
     }
     g_preferences_ready[id] = true;
     if (g_preferences_dirty[id]) { SavePlayerPreferences(id); }
+    EnsureHudPreference(id);
 }
 
 SavePlayerPreferences(id)
@@ -1064,4 +1076,70 @@ SavePlayerPreferences(id)
         return;
     }
     g_preferences_dirty[id] = 0;
+}
+
+BuildHudPreferenceKey(id, key[], length)
+{
+    formatex(key, length, "hud:%s", g_preferences_key[id]);
+}
+
+bool:DecodeHudPreference(const value[], &bool:disabled)
+{
+    if (equal(value, "1 0")) { disabled = false; return true; }
+    if (equal(value, "1 1")) { disabled = true; return true; }
+    return false;
+}
+
+EnsureHudPreference(id)
+{
+    if (g_preferences_vault == INVALID_HANDLE || !get_pcvar_num(g_enabled) || !IsStatsClient(id)
+        || !g_preferences_ready[id] || g_preferences_blocked[id]
+        || g_hud_preference_ready[id] || g_hud_preference_blocked[id]) { return; }
+    new key[48], value[32], timestamp, bool:disabled;
+    BuildHudPreferenceKey(id, key, charsmax(key));
+    if (nvault_lookup(g_preferences_vault, key, value, charsmax(value), timestamp))
+    {
+        if (!DecodeHudPreference(value, disabled))
+        {
+            g_hud_preference_blocked[id] = true;
+            g_preferences_errors++;
+            log_amx("HUD preference record rejected; existing data retained, HUD connection-only.");
+            return;
+        }
+        // Preserve an explicit toggle made before authorization arrived.
+        if (!g_hud_preference_dirty[id]) { g_hud_disabled[id] = disabled; }
+    }
+    g_hud_preference_ready[id] = true;
+    if (g_hud_preference_dirty[id]) { SaveHudPreference(id); }
+}
+
+SaveHudPreference(id)
+{
+    if (!get_pcvar_num(g_enabled) || !IsStatsClient(id)) { return; }
+    EnsurePlayerPreferences(id);
+    if (g_preferences_vault == INVALID_HANDLE || !g_preferences_ready[id] || g_preferences_blocked[id]
+        || !g_hud_preference_ready[id] || g_hud_preference_blocked[id] || !g_hud_preference_dirty[id]) { return; }
+    new key[48], value[8], stored[32], timestamp;
+    BuildHudPreferenceKey(id, key, charsmax(key));
+    formatex(value, charsmax(value), "1 %d", g_hud_disabled[id]);
+    nvault_set(g_preferences_vault, key, value);
+    if (!nvault_lookup(g_preferences_vault, key, stored, charsmax(stored), timestamp) || !equal(value, stored))
+    {
+        g_hud_preference_ready[id] = false;
+        g_hud_preference_blocked[id] = true;
+        g_preferences_errors++;
+        log_amx("HUD preference readback failed; HUD connection-only until reconnect.");
+        return;
+    }
+    g_hud_preference_dirty[id] = false;
+}
+
+bool:PlayerHudPreferenceSaved(id)
+{
+    if (g_preferences_vault == INVALID_HANDLE || !g_preferences_ready[id] || g_preferences_blocked[id]
+        || !g_hud_preference_ready[id] || g_hud_preference_blocked[id] || g_hud_preference_dirty[id]) { return false; }
+    new key[48], value[32], timestamp, bool:disabled;
+    BuildHudPreferenceKey(id, key, charsmax(key));
+    return bool:(nvault_lookup(g_preferences_vault, key, value, charsmax(value), timestamp)
+        && DecodeHudPreference(value, disabled) && disabled == g_hud_disabled[id]);
 }
