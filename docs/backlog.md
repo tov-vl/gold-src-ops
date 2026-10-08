@@ -2777,9 +2777,12 @@ saved/session feedback for language/weapons and HUD. The welcome gains a short
 hint without repeated automatic messages. Reading help does not change menus,
 inventory, statistics or preferences; a five-second cooldown bounds repeated
 calls. Product/all fixture compilation, real-nVault/help/menu/HUD regressions,
-nine loadouts and frozen package checks passed locally. Product PR CI, merge
-and installation remain separate gates. The accepted server remains on 0.17.0 until one frozen upgrade and
-independent acceptance. The two-player scenario remains deferred indefinitely.
+nine loadouts and frozen package checks passed locally. PR #271 is merged;
+required and post-merge CI passed. One controlled plugin/dictionary upgrade and
+independent A2S/RCON/host checks accepted 0.18.0 with both vaults preserved before
+restart, unchanged baseline/map files/agent, settled queue/spool and no new AMXX
+errors. The 0.17.0 rollback package remains available. Human-client readability
+was not rechecked; the two-player scenario remains deferred indefinitely.
 See the [v2.48 record](v2.48-player-help.md).
 
 ### Addon CI Optimization
