@@ -1778,3 +1778,23 @@ while a HUD-only failure does not block separate language/weapon writes.
 Report saved/session status independently for HUD and language/weapons. Package
 the plugin and matching RU/EN dictionary together and reverse both on rollback.
 Rendering and menu inspection do not write player state.
+
+## Решение 37: Закрытый снимок игровых vault и отдельная проверка восстановления
+
+Дата решения: 2026-10-08.
+
+Сохранять статистику и preferences вместе с их журналами только при остановленном
+игровом процессе. Низкоуровневое сравнение байтов не заменяет согласованное окно
+обслуживания. Manifest фиксирует отсутствие журнала явно; форматы игровых
+записей остаются неизменными.
+
+Использовать существующий зашифрованный off-host restic backend через control-plane,
+без копирования credentials на игровой хост. Отдельные host/tag/path и общая
+recovery-блокировка отделяют player-data от PostgreSQL retention. Первая версия
+ручная, без автоматического удаления snapshot или остановки игры по расписанию.
+
+Восстанавливать только точный snapshot с ожидаемым хешем в новый закрытый каталог.
+Не заменять рабочие vault и не смешивать файлы разных снимков. Побайтовый readback,
+проверка настоящим движком и production acceptance - отдельные результаты.
+Автоматическое повторение неизвестной загрузки и production restore запрещены.
+Процедура и ограничения описаны в [игровом backup runbook](game-player-data-backup.md).
