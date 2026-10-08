@@ -1,0 +1,32 @@
+[Unit]
+Description=GoldSrcOps weekly encrypted player-data backup
+Requires=docker.service
+After=docker.service network-online.target time-sync.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/goldsrcops-player-backup
+UMask=0077
+ExecStart=/usr/bin/python3 -I /opt/goldsrcops-player-backup/ops/production/player-data-scheduled.py run
+ExecStartPost=/usr/bin/python3 -I /opt/goldsrcops-player-backup/ops/production/player-data-scheduled.py status
+TimeoutStartSec=1h
+Restart=no
+Nice=10
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadOnlyPaths=/etc/goldsrcops /opt/goldsrcops-player-backup
+ReadWritePaths=/var/lib/goldsrcops/player-data-backup /var/lock
+RemoveIPC=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
