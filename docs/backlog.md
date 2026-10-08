@@ -2722,7 +2722,8 @@ session. Human rendering and multiplayer pacing remain optional. See the
 Addon 0.15.0 fixes HUD suppression after menu exit by ignoring AMXX's
 stale key mask when no menu is active. Director HUD provides larger text with
 two private message blocks and one-second expiry. The owner reported the other
-non-combat checks successful; combat observation remains pending. The focused
+non-combat checks successful; the two-player combat scenario is deferred
+indefinitely at the owner's request on 2026-10-08. The focused
 menu/HUD engine fixture passes, and restoring the old predicate produces the
 expected regression failures. PR #266 is merged; required and post-merge CI
 passed. One installation and independent server checks passed with both vaults
@@ -2737,8 +2738,28 @@ margin beyond the one-second refresh. Both blocks move up by 8% of screen height
 and continue refreshing while menus are open. Pinned compilation, the real
 periodic HUD task under RU/EN menus, real-nVault preferences runtime and frozen
 package checks pass locally. Restoring only the old frame lifetime reproduces
-three periodic-margin failures. Remote delivery and human-client visual
-acceptance remain pending. See the [v2.46 record](v2.46-hud-continuity.md).
+three periodic-margin failures. PR #267 is merged; required and post-merge CI
+passed. After the initial network deferral, one installation and independent
+A2S/RCON/host checks accepted 0.16.0 with both vaults preserved, unchanged
+baseline/map addon/configurations/agent, settled queue/spool and no new AMXX
+errors. The 0.15.0 package remains available for rollback. On 2026-10-08, the
+owner completed client testing and accepted the current HUD as-is, closing
+v2.46 visual acceptance. The two-player combat scenario is deferred indefinitely
+at the owner's request on 2026-10-08; no session is scheduled. Human evidence for
+combat rewards, streak milestones and multiplayer balance remains absent and
+does not block unrelated product work.
+See the [v2.46 record](v2.46-hud-continuity.md).
+
+### v2.47 - Persistent HUD Preference
+
+Selected next product slice; implementation and runtime delivery have not
+started. Persist the explicit HUD on/off choice by canonical SteamID, restoring
+it after reconnect and map/plugin restart. The current switch is connection-only;
+language and weapon preferences already persist. Preserve the accepted 0.16.0
+HUD timing, position and menu behavior, existing preference/statistics records
+and session fallback when identity or storage is unavailable. Focused real-nVault
+checks can validate this boundary without a two-player combat session.
+See the [v2.47 scope and acceptance plan](v2.47-hud-preference.md).
 
 ### Addon CI Optimization
 
