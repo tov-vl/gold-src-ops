@@ -1,0 +1,21 @@
+Host goldsrcops-player-backup
+    HostName gameserver.example.invalid
+    Port 22
+    User gso-player-backup
+    IdentityFile /etc/goldsrcops/player-data-backup/id_ed25519
+    UserKnownHostsFile /etc/goldsrcops/player-data-backup/known_hosts
+    IdentityAgent none
+    IdentitiesOnly yes
+    BatchMode yes
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    PubkeyAuthentication yes
+    StrictHostKeyChecking yes
+    RequestTTY no
+    ClearAllForwardings yes
+    PermitLocalCommand no
+    ProxyCommand none
+    ProxyJump none
+    ConnectTimeout 15
+    ConnectionAttempts 1
+    LogLevel ERROR
