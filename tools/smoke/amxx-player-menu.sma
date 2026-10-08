@@ -23,6 +23,7 @@ new g_failures;
 new g_displays;
 new g_last_menu;
 new g_last_text[512];
+new g_previous_text[512];
 new g_prints;
 new g_maps_calls;
 new g_timeleft_calls;
@@ -98,6 +99,7 @@ FixturePrint(id, type, const message[], any:...)
 {
     #pragma unused id, type
     g_prints++;
+    copy(g_previous_text, charsmax(g_previous_text), g_last_text);
     vformat(g_last_text, charsmax(g_last_text), message, 4);
     CheckMenu(strlen(g_last_text) <= 190 && contain(g_last_text, "ML_NOTFOUND") < 0, "bounded translated chat");
     return strlen(g_last_text);
@@ -182,8 +184,10 @@ public RunPlayerMenuSmoke()
         OnPlayerMenuSelected(id, g_player_menu[language], 6);
         CheckMenu(g_last_menu == g_settings_menu[language][0], "settings action opens translated settings");
         new saved[192];
+        formatex(saved, charsmax(saved), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_HUD_SESSION");
+        CheckMenu(SameUtf8Bytes(g_last_text, saved), "unknown identity displays session-only HUD preference");
         formatex(saved, charsmax(saved), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_SETTINGS_SESSION");
-        CheckMenu(SameUtf8Bytes(g_last_text, saved), "unknown identity displays session-only preferences");
+        CheckMenu(SameUtf8Bytes(g_previous_text, saved), "unknown identity displays session-only language and weapon preferences");
         OnSettingsSelected(id, g_settings_menu[language][0], 0);
         CheckMenu(g_last_menu == g_menu[language], "settings dispatches weapons");
         OnSettingsSelected(id, g_settings_menu[language][0], 3);
@@ -237,7 +241,7 @@ public RunPlayerMenuSmoke()
     client_disconnected(id, false, rejected, charsmax(rejected));
     client_putinserver(id);
     CheckMenu(g_language_override[id] == 0 && PlayerLanguage(id) == 1, "reconnect clears override without changing client preference");
-    CheckMenu(!g_hud_disabled[id] && !g_hud_visible[id], "reconnect resets connection-only HUD setting");
+    CheckMenu(!g_hud_disabled[id] && !g_hud_visible[id], "reconnect resets HUD without a persistent identity");
     rg_round_respawn(id);
     remove_task(WELCOME_TASK_BASE + id);
     g_language_override[id] = 1;

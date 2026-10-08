@@ -51,6 +51,7 @@ run_case() {
 }
 
 run_case player_preferences_smoke goldsrcops_preferences_smoke PLAYER_PREFERENCES_SMOKE de_dust2
+grep -Eq '^PLAYER_HUD_PREFERENCE_SMOKE=passed failures=0 storage=real_nvault$' /tmp/goldsrcops_preferences_smoke.log
 run_case player_preferences_smoke goldsrcops_preferences_seed PLAYER_PREFERENCES_SEED de_dust2
 run_case player_preferences_smoke goldsrcops_preferences_verify PLAYER_PREFERENCES_RELOAD cs_office
 run_case player_menu_smoke goldsrcops_player_menu_smoke PLAYER_MENU_SMOKE de_dust2
