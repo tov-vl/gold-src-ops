@@ -2785,6 +2785,16 @@ errors. The 0.17.0 rollback package remains available. Human-client readability
 was not rechecked; the two-player scenario remains deferred indefinitely.
 See the [v2.48 record](v2.48-player-help.md).
 
+### v2.49 - Резервное копирование игровых данных
+
+Подготовлен R3 recovery-процесс для двух nVault и журналов: guarded capture
+остановленного runtime, ограниченный архив с SHA-256, существующий зашифрованный
+off-host restic backend и восстановление только в новый каталог. Локальные
+негативные проверки, encrypted roundtrip и восстановление статистики, языка,
+оружия и HUD настоящим AMXX прошли. Публикация/CI и backup с приемкой данных
+действующего хоста еще не выполнены. Авторасписание, retention и production
+restore не входят в этап. См. [границу и результаты v2.49](v2.49-player-data-backup.md).
+
 ### Addon CI Optimization
 
 Status as of 2026-10-07: merged into `main`; required PR and post-merge CI passed.
