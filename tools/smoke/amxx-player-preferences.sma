@@ -117,6 +117,8 @@ public RunPreferencesSmoke()
     new writes = g_preference_writes;
     OpenPlayerSettings(id);
     CheckPreferences(g_preference_writes == writes && !nvault_lookup(g_preferences_vault, KEY, value, charsmax(value), timestamp), "settings inspection does not create defaults");
+    ShowPlayerHelp(id);
+    CheckPreferences(g_preference_writes == writes && !nvault_lookup(g_preferences_vault, KEY, value, charsmax(value), timestamp), "help does not create default preferences");
     OnLanguageSelected(id, g_language_menu, 1);
     OnWeaponSelected(id, g_menu[1], 1);
     OnPistolSelected(id, g_pistol_menu[1], 2);
@@ -134,10 +136,24 @@ public RunPreferencesSmoke()
     OnSettingsSelected(id, g_settings_menu[1][1], 2);
     CheckPreferences(g_preference_writes == writes + 2 && StoredPreferences("1 2 1 2") && !g_hud_disabled[id], "HUD toggles save separately without rewriting language and weapons");
     CheckPreferences(StoredHudPreference("1 0") && PlayerHudPreferenceSaved(id), "explicit on is saved with readback");
+    g_help_next[id] = 0.0;
+    ShowPlayerHelp(id);
+    new help_expected[256];
+    formatex(help_expected, charsmax(help_expected), "[GoldSrcOps] %L", "en", "GS_HUD_SAVED");
+    CheckPreferences(bool:equal(g_last_print, help_expected), "help reports verified saved HUD");
+    formatex(help_expected, charsmax(help_expected), "[GoldSrcOps] %L", "en", "GS_SETTINGS_SAVED");
+    CheckPreferences(bool:equal(g_previous_print, help_expected), "help reports verified saved language and loadout");
     g_choice[id] = 0;
     CheckPreferences(!PlayerPreferencesSaved(id), "different session choice is not described as saved");
     g_choice[id] = 1;
     g_preferences_dirty[id] = PREFERENCE_LANGUAGE;
+    writes = g_preference_writes;
+    g_help_next[id] = 0.0;
+    ShowPlayerHelp(id);
+    CheckPreferences(g_preference_writes == writes && g_preferences_dirty[id] == PREFERENCE_LANGUAGE
+        && StoredPreferences("1 2 1 2"), "help cannot flush pending preferences");
+    formatex(help_expected, charsmax(help_expected), "[GoldSrcOps] %L", "en", "GS_SETTINGS_SESSION");
+    CheckPreferences(bool:equal(g_previous_print, help_expected), "help distinguishes pending loadout from saved HUD");
     CheckPreferences(!PlayerPreferencesSaved(id), "pending choice is not described as saved");
     g_preferences_dirty[id] = 0;
     OnWeaponSelected(id, g_menu[0], 2);

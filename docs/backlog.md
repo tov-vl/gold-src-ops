@@ -2770,6 +2770,18 @@ reconnect check; the v2.47 settings boundary is accepted. The two-player scenari
 remains deferred indefinitely and is not required for this boundary.
 See the [v2.47 record](v2.47-hud-preference.md).
 
+### v2.48 - Player Help
+
+Addon 0.18.0 adds private RU/EN `/help` with existing commands and independent
+saved/session feedback for language/weapons and HUD. The welcome gains a short
+hint without repeated automatic messages. Reading help does not change menus,
+inventory, statistics or preferences; a five-second cooldown bounds repeated
+calls. Product/all fixture compilation, real-nVault/help/menu/HUD regressions,
+nine loadouts and frozen package checks passed locally. Product PR CI, merge
+and installation remain separate gates. The accepted server remains on 0.17.0 until one frozen upgrade and
+independent acceptance. The two-player scenario remains deferred indefinitely.
+See the [v2.48 record](v2.48-player-help.md).
+
 ### Addon CI Optimization
 
 Status as of 2026-10-07: merged into `main`; required PR and post-merge CI passed.
