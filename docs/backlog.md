@@ -2719,18 +2719,31 @@ session. Human rendering and multiplayer pacing remain optional. See the
 
 ### v2.45 - HUD Recovery And Readability
 
-Local addon 0.15.0 fixes HUD suppression after menu exit by ignoring AMXX's
+Addon 0.15.0 fixes HUD suppression after menu exit by ignoring AMXX's
 stale key mask when no menu is active. Director HUD provides larger text with
 two private message blocks and one-second expiry. The owner reported the other
 non-combat checks successful; combat observation remains pending. The focused
 menu/HUD engine fixture passes, and restoring the old predicate produces the
-expected regression failures. Publication, installation and visual acceptance
-at 2560x1600 remain pending. See the [v2.45 record](v2.45-hud-recovery.md).
+expected regression failures. PR #266 is merged; required and post-merge CI
+passed. One installation and independent server checks passed with both vaults
+preserved and no new AMXX errors. The owner confirmed functional checks but
+reported HUD flicker; the visual follow-up is tracked in v2.46.
+See the [v2.45 record](v2.45-hud-recovery.md).
+
+### v2.46 - HUD Continuity And Menu Coexistence
+
+Addon 0.16.0 extends Director frame lifetime to 1.5 seconds for a half-second
+margin beyond the one-second refresh. Both blocks move up by 8% of screen height
+and continue refreshing while menus are open. Pinned compilation, the real
+periodic HUD task under RU/EN menus, real-nVault preferences runtime and frozen
+package checks pass locally. Restoring only the old frame lifetime reproduces
+three periodic-margin failures. Remote delivery and human-client visual
+acceptance remain pending. See the [v2.46 record](v2.46-hud-continuity.md).
 
 ### Addon CI Optimization
 
-Status as of 2026-10-05: merged into `main`; required PR and post-merge CI passed.
-Actual `addon-only` timing remains unmeasured.
+Status as of 2026-10-07: merged into `main`; required PR and post-merge CI passed.
+The first eligible product PR measured the addon-only route at 1 minute 26 seconds.
 
 An explicit `addon-only` scope preserves addon compilation, dictionary/package
 checks and both isolated installer/rollback fixtures while omitting unrelated
@@ -2755,9 +2768,17 @@ completed in 8 minutes 29 seconds, and the
 completed in 9 minutes 11 seconds with Change Scope, Quality Gate, Map Menu
 Compile, Container Smoke and Browser Smoke successful. Both runs selected
 `full` because the change includes the workflow; their durations do not measure
-the `addon-only` improvement. Measure that mode on the next eligible product PR.
+the `addon-only` improvement.
+
+The v2.45 [PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/37592652239)
+selected `addon-only` and passed in 1 minute 26 seconds; its compile job took
+38 seconds and installer/rollback checks took 28 seconds. The
+[post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/37592933547)
+passed in 1 minute 30 seconds. Compared with the 10-minute-3-second full baseline,
+the observed PR run was 8 minutes 37 seconds shorter. Scheduling and runner
+variation remain part of these individual measurements.
 See the [CI scope contract](release-process.md#ci-scope-for-game-addons).
-No game-server installation or release publication was performed.
+The workflow change itself required no game-server installation or release.
 
 The released v1 baseline includes:
 

@@ -29,11 +29,17 @@ new g_timeleft_calls;
 new g_hud_messages;
 new g_hud_parts;
 new g_last_hud[256];
+new Float:g_last_hold;
+new bool:g_periodic_checks;
+new g_periodic_samples[2];
+new Float:g_previous_frame_time;
+new Float:g_previous_frame_hold;
 
 FixtureHudParameters(red, green, blue, Float:x, Float:y, effects, Float:fxtime, Float:hold, Float:fadein, Float:fadeout)
 {
-    CheckMenu(hold == 1.0 && fadein == 0.0 && fadeout == 0.0 && effects == 0, "director frame expires within one second");
-    CheckMenu(x == 0.02 && y == (g_hud_parts % 2 == 0 ? 0.22 : 0.29), "statistics and rank occupy separate positions");
+    CheckMenu(hold == 1.5 && fadein == 0.0 && fadeout == 0.0 && effects == 0, "director frame has bounded expiry with no fades");
+    CheckMenu(x == 0.02 && y == (g_hud_parts % 2 == 0 ? 0.14 : 0.21), "statistics and rank occupy separate positions above the menu");
+    g_last_hold = hold;
     set_dhudmessage(red, green, blue, x, y, effects, fxtime, hold, fadein, fadeout);
 }
 FixtureHud(id, const message[], any:...)
@@ -44,6 +50,17 @@ FixtureHud(id, const message[], any:...)
     CheckMenu(strlen(part) < 128 && contain(part, "ML_NOTFOUND") < 0, "each translated director message fits without truncation");
     if (g_hud_parts++ % 2 == 0)
     {
+        if (g_periodic_checks)
+        {
+            new Float:now = get_gametime();
+            if (g_periodic_samples[0] + g_periodic_samples[1] > 0)
+            {
+                CheckMenu(now + 0.25 < g_previous_frame_time + g_previous_frame_hold, "periodic frame arrives with a quarter-second delivery margin");
+            }
+            g_previous_frame_time = now;
+            g_previous_frame_hold = g_last_hold;
+            g_periodic_samples[PlayerLanguage(id)]++;
+        }
         copy(g_last_hud, charsmax(g_last_hud), part);
     }
     else
@@ -221,9 +238,33 @@ public RunPlayerMenuSmoke()
     client_putinserver(id);
     CheckMenu(g_language_override[id] == 0 && PlayerLanguage(id) == 1, "reconnect clears override without changing client preference");
     CheckMenu(!g_hud_disabled[id] && !g_hud_visible[id], "reconnect resets connection-only HUD setting");
+    rg_round_respawn(id);
+    remove_task(WELCOME_TASK_BASE + id);
+    g_language_override[id] = 1;
+    OpenPlayerMenu(id);
+    g_periodic_checks = true;
+    set_task(2.2, "SwitchHudContinuityLanguage");
+    set_task(4.3, "FinishHudContinuity");
+    return PLUGIN_HANDLED;
+}
+
+public SwitchHudContinuityLanguage()
+{
+    g_language_override[g_client] = 2;
+    OpenPlayerMenu(g_client);
+}
+
+public FinishHudContinuity()
+{
+    g_periodic_checks = false;
+    CheckMenu(g_periodic_samples[0] >= 2 && g_periodic_samples[1] >= 2, "real periodic task refreshes HUD under RU/EN menus");
+    new old_menu, new_menu;
+    player_menu_info(g_client, old_menu, new_menu);
+    CheckMenu(new_menu == g_player_menu[1] && g_hud_visible[g_client], "HUD refresh preserves the active menu");
+    server_print("PLAYER_HUD_CONTINUITY_SMOKE=%s failures=%d ru=%d en=%d", g_failures ? "failed" : "passed", g_failures,
+        g_periodic_samples[0], g_periodic_samples[1]);
     server_print("PLAYER_HUD_SMOKE=%s failures=%d languages=2 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
     server_print("PLAYER_MENU_SMOKE=%s failures=%d languages=2 map_hooks=delegated", g_failures ? "failed" : "passed", g_failures);
-    return PLUGIN_HANDLED;
 }
 
 RunHudChecks(id)
@@ -263,9 +304,11 @@ RunHudChecks(id)
         formatex(rank_text, charsmax(rank_text), "%L", PLAYER_LANGUAGES[language], "GS_HUD_RANK_UNAVAILABLE");
         CheckMenu(contain(g_last_hud, rank_text) >= 0, "unavailable saved rank is not invented from map score");
         OpenPlayerSettings(id);
+        CheckMenu(g_hud_visible[id], "opening settings preserves the current HUD frame");
         messages = g_hud_messages;
         UpdatePlayerHuds();
-        CheckMenu(g_hud_messages == messages && !g_hud_visible[id], "open menu suppresses HUD");
+        CheckMenu(g_hud_messages == messages + 1 && g_hud_visible[id], "open settings keeps HUD updating");
+        messages = g_hud_messages;
         OnSettingsSelected(id, g_settings_menu[language][0], 2);
         CheckMenu(g_hud_disabled[id] && g_last_menu == g_settings_menu[language][1], "toggle opens private off-state menu");
         OnSettingsSelected(id, g_settings_menu[language][0], 2);
@@ -315,7 +358,10 @@ RunMenuCloseChecks(id)
             OpenPlayerMenu(id);
             new messages = g_hud_messages;
             UpdatePlayerHuds();
-            CheckMenu(g_hud_messages == messages, "hub suppresses HUD while open");
+            CheckMenu(g_hud_messages == messages + 1 && g_hud_visible[id], "hub keeps HUD updating while open");
+            OpenPlayerMenu(id);
+            CheckMenu(g_hud_visible[id], "reopening hub preserves the current HUD frame");
+            messages = g_hud_messages;
             FixtureCloseMenu(id);
             new menu, keys;
             get_user_menu(id, menu, keys);
@@ -341,7 +387,12 @@ RunMenuCloseChecks(id)
         OnWeaponSelected(id, g_menu[language], 0);
         messages = g_hud_messages;
         UpdatePlayerHuds();
-        CheckMenu(g_hud_messages == messages, "weapon submenu still suppresses HUD");
+        CheckMenu(g_hud_messages == messages + 1 && g_hud_visible[id], "weapon submenu keeps HUD updating");
+        OpenWeapons(id);
+        CheckMenu(g_hud_visible[id], "opening weapons preserves the current HUD frame");
+        FixtureCloseMenu(id);
+        OnWeaponSelected(id, g_menu[language], 0);
+        messages = g_hud_messages;
         FixtureCloseMenu(id);
         OnPistolSelected(id, g_pistol_menu[language], 0);
         UpdatePlayerHuds();
@@ -351,14 +402,16 @@ RunMenuCloseChecks(id)
         OnSettingsSelected(id, g_settings_menu[language][0], 3);
         messages = g_hud_messages;
         UpdatePlayerHuds();
-        CheckMenu(g_hud_messages == messages, "Back keeps HUD hidden under the reopened hub");
+        CheckMenu(g_hud_messages == messages + 1 && g_hud_visible[id], "Back keeps HUD updating under the reopened hub");
+        messages = g_hud_messages;
         FixtureCloseMenu(id);
         UpdatePlayerHuds();
         CheckMenu(g_hud_messages == messages + 1, "HUD returns after Back and hub exit");
         show_menu(id, MENU_KEY_1, "HUD fixture external", -1, "HUD fixture external");
         messages = g_hud_messages;
         UpdatePlayerHuds();
-        CheckMenu(g_hud_messages == messages, "external legacy menu suppresses HUD");
+        CheckMenu(g_hud_messages == messages + 1 && g_hud_visible[id], "external legacy menu keeps HUD updating");
+        messages = g_hud_messages;
         FixtureCloseMenu(id);
         UpdatePlayerHuds();
         CheckMenu(g_hud_messages == messages + 1, "HUD resumes after external menu selection");
