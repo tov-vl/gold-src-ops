@@ -2752,16 +2752,22 @@ See the [v2.46 record](v2.46-hud-continuity.md).
 
 ### v2.47 - Persistent HUD Preference
 
-Addon 0.17.0 is implemented and verified locally. Explicit HUD on/off persists
-by canonical SteamID in a separate namespaced record in the existing preferences
-vault and restores after reconnect and map/plugin restart. Legacy language/weapon
-records and statistics stay unchanged. Late identity preserves session toggles;
+Addon 0.17.0 is merged, installed once and independently verified. Explicit HUD
+on/off persists by canonical SteamID in a separate namespaced record in the
+existing preferences vault and restores after reconnect and map/plugin restart.
+Legacy language/weapon records and statistics stay unchanged. Late identity
+preserves session toggles;
 invalid records and failed readback retain usable session behavior without retry.
 RU/EN settings report HUD persistence independently. Product/all fixture compile,
 real-nVault reconnect/map recovery, a fresh-process 0.16.0 reverse-upgrade check,
-periodic HUD/menu and all nine loadouts passed. Product PR CI and delivery remain
-separate gates; the accepted server stays on 0.16.0. The two-player scenario remains
-deferred indefinitely and is not required for this boundary.
+periodic HUD/menu and all nine loadouts passed. PR #269 is merged; required and
+post-merge CI passed. One installation replaced the plugin and matching RU/EN
+dictionary with both vaults preserved before restart. Independent A2S/RCON/host
+checks accepted 0.17.0 with unchanged map addon/configurations/baseline/agent,
+settled queue/spool and no new AMXX errors. The 0.16.0 package remains available
+for rollback. On 2026-10-08 the owner confirmed the human-client HUD toggle and
+reconnect check; the v2.47 settings boundary is accepted. The two-player scenario
+remains deferred indefinitely and is not required for this boundary.
 See the [v2.47 record](v2.47-hud-preference.md).
 
 ### Addon CI Optimization
