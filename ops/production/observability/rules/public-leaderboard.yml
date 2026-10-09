@@ -1,20 +1,22 @@
 groups:
   - name: goldsrcops-public-leaderboard
     rules:
+      - record: goldsrcops_leaderboard:current_instance
+        expr: topk(1, goldsrcops_leaderboard_observed_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"})
       - record: goldsrcops_leaderboard:monitor_live
         expr: |
-          (max(goldsrcops_leaderboard_observed_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) > time() - 180) and (max(goldsrcops_leaderboard_observed_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) <= time() + 30) and ((max(goldsrcops_leaderboard_enabled{job="goldsrcops",service_name="GoldSrcOps"}) == 0) or (max(goldsrcops_leaderboard_enabled{job="goldsrcops",service_name="GoldSrcOps"}) == 1))
-          and ((max(goldsrcops_leaderboard_snapshot_available{job="goldsrcops",service_name="GoldSrcOps"}) == 0) or (max(goldsrcops_leaderboard_snapshot_available{job="goldsrcops",service_name="GoldSrcOps"}) == 1))
-          and (max(goldsrcops_leaderboard_snapshot_age_seconds{job="goldsrcops",service_name="GoldSrcOps"}) >= 0)
-          and (max(goldsrcops_leaderboard_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) >= 0)
-          and (max(goldsrcops_leaderboard_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) <= time() + 30)
-          and (max(goldsrcops_leaderboard_last_attempt_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) >= 0)
-          and (max(goldsrcops_leaderboard_last_attempt_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) <= time() + 30)
-          and (max(goldsrcops_leaderboard_last_success_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) >= 0)
-          and (max(goldsrcops_leaderboard_last_success_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) <= time() + 30)
+          (max(goldsrcops_leaderboard_observed_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) > time() - 180) and (max(goldsrcops_leaderboard_observed_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) <= time() + 30) and ((max(goldsrcops_leaderboard_enabled{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) == 0) or (max(goldsrcops_leaderboard_enabled{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) == 1))
+          and ((max(goldsrcops_leaderboard_snapshot_available{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) == 0) or (max(goldsrcops_leaderboard_snapshot_available{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) == 1))
+          and (max(goldsrcops_leaderboard_snapshot_age_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) >= 0)
+          and (max(goldsrcops_leaderboard_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) >= 0)
+          and (max(goldsrcops_leaderboard_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) <= time() + 30)
+          and (max(goldsrcops_leaderboard_last_attempt_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) >= 0)
+          and (max(goldsrcops_leaderboard_last_attempt_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) <= time() + 30)
+          and (max(goldsrcops_leaderboard_last_success_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) >= 0)
+          and (max(goldsrcops_leaderboard_last_success_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) <= time() + 30)
       - record: goldsrcops_leaderboard:enabled
         expr: |
-          (max(goldsrcops_leaderboard_enabled{job="goldsrcops",service_name="GoldSrcOps"}) == 1) and goldsrcops_leaderboard:monitor_live
+          (max(goldsrcops_leaderboard_enabled{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) == 1) and goldsrcops_leaderboard:monitor_live
       - alert: PublicLeaderboardMonitorUnavailable
         expr: |
           absent(goldsrcops_leaderboard:monitor_live)
@@ -27,7 +29,7 @@ groups:
           description: "Проверьте API, Collector и scrape. Состояние обновления рейтинга неизвестно."
       - alert: PublicLeaderboardRefreshDelayed
         expr: |
-          (max(goldsrcops_leaderboard_last_attempt_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) < time() - 180) and goldsrcops_leaderboard:enabled
+          (max(goldsrcops_leaderboard_last_attempt_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) < time() - 180) and goldsrcops_leaderboard:enabled
         for: 5m
         labels:
           severity: warning
@@ -37,7 +39,7 @@ groups:
           description: "Проверьте worker и его зависимости. Повторный RCON вручную не требуется."
       - alert: PublicLeaderboardDataUnavailable
         expr: |
-          ((max(goldsrcops_leaderboard_snapshot_available{job="goldsrcops",service_name="GoldSrcOps"}) == 0) and goldsrcops_leaderboard:enabled) unless ((max(goldsrcops_leaderboard_last_result{job="goldsrcops",service_name="GoldSrcOps",result="operator_busy"}) == 1) and (max(goldsrcops_leaderboard_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) > time() - 900))
+          ((max(goldsrcops_leaderboard_snapshot_available{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) == 0) and goldsrcops_leaderboard:enabled) unless ((max(goldsrcops_leaderboard_last_result{job="goldsrcops",service_name="GoldSrcOps",result="operator_busy"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) == 1) and (max(goldsrcops_leaderboard_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) > time() - 900))
         for: 5m
         labels:
           severity: warning
@@ -47,7 +49,7 @@ groups:
           description: "Проверьте исход чтения и привязку источника. Пустой успешный снимок является доступным."
       - alert: PublicLeaderboardSnapshotStale
         expr: |
-          ((max(goldsrcops_leaderboard_snapshot_available{job="goldsrcops",service_name="GoldSrcOps"}) == 1) and (max(goldsrcops_leaderboard_snapshot_age_seconds{job="goldsrcops",service_name="GoldSrcOps"}) > 180) and goldsrcops_leaderboard:enabled) unless ((max(goldsrcops_leaderboard_last_result{job="goldsrcops",service_name="GoldSrcOps",result="operator_busy"}) == 1) and (max(goldsrcops_leaderboard_snapshot_age_seconds{job="goldsrcops",service_name="GoldSrcOps"}) <= 900))
+          ((max(goldsrcops_leaderboard_snapshot_available{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) == 1) and (max(goldsrcops_leaderboard_snapshot_age_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) > 180) and goldsrcops_leaderboard:enabled) unless ((max(goldsrcops_leaderboard_last_result{job="goldsrcops",service_name="GoldSrcOps",result="operator_busy"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) == 1) and (max(goldsrcops_leaderboard_snapshot_age_seconds{job="goldsrcops",service_name="GoldSrcOps"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) <= 900))
         for: 5m
         labels:
           severity: warning

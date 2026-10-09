@@ -1,6 +1,6 @@
 # GoldSrcOps v2.58 - Leaderboard Freshness Monitoring
 
-Candidate `v2.58.0-rc.1` and stable `v2.58.0` are pending verification/publication.
+Candidate `v2.58.0-rc.2` and stable `v2.58.0` are pending verification/publication.
 
 - API records last successful update, snapshot availability/age and bounded
   reading outcomes without player identifiers or raw errors.

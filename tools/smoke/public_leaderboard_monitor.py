@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OBS = ROOT / "ops/production/observability"
 RULES = OBS / "rules/public-leaderboard.yml"
 PREFIX = "goldsrcops_leaderboard_"
-LABELS = '{job="goldsrcops",service_name="GoldSrcOps"}'
+LABELS = '{job="goldsrcops",service_name="GoldSrcOps",service_instance_id="current"}'
 ALERTS = ["PublicLeaderboardMonitorUnavailable", "PublicLeaderboardRefreshDelayed",
           "PublicLeaderboardDataUnavailable", "PublicLeaderboardSnapshotStale"]
 
@@ -66,6 +66,35 @@ def fixtures():
                       "exp_alerts": [{"exp_labels": {"severity": "warning", "component": "public-leaderboard"},
                                       "exp_annotations": annotations[alert]}] if i in expected else []}
                       for i, alert in enumerate(ALERTS)]})
+    # A retained older API resource must not supply fields or busy status for
+    # the current resource. Alert identities stay independent of expressions.
+    retained = dict(healthy, observed_timestamp_seconds="0+0x40",
+                    last_attempt_timestamp_seconds="0+0x40",
+                    last_success_timestamp_seconds="0+0x40")
+    for name, changes, expected in [
+        ("restart-unavailable-old-fresh", {"snapshot_available": "0+0x40"}, [2]),
+        ("restart-disabled-old-enabled", {"enabled": "0+0x40", "snapshot_available": "0+0x40",
+                                           "last_attempt_timestamp_seconds": "0+0x40"}, []),
+        ("restart-failed-old-busy", {"snapshot_age_seconds": "240+60x40"}, [3]),
+        ("restart-missing-gauge-old-valid", {"snapshot_available": None}, [0])]:
+        values = dict(healthy, **changes)
+        series = []
+        for resource, data in [("current", values), ("previous", retained)]:
+            data = dict(data)
+            if name == "restart-failed-old-busy" and resource == "previous":
+                data['last_result{result="operator_busy"}'] = "1+0x40"
+            for key, value in data.items():
+                if value is None:
+                    continue
+                metric, _, tags = key.partition("{")
+                labels = LABELS.replace('service_instance_id="current"', 'service_instance_id="' + resource + '"')
+                labels = labels[:-1] + "," + tags if tags else labels
+                series.append({"series": PREFIX + metric + labels, "values": value})
+        tests.append({"name": name, "interval": "1m", "input_series": series,
+                      "alert_rule_test": [{"eval_time": "10m", "alertname": alert,
+                      "exp_alerts": [{"exp_labels": {"severity": "warning", "component": "public-leaderboard"},
+                                      "exp_annotations": annotations[alert]}] if i in expected else []}
+                      for i, alert in enumerate(ALERTS)]})
     return {"rule_files": ["/rules/public-leaderboard.yml"], "evaluation_interval": "1m", "tests": tests}
 
 
@@ -77,7 +106,7 @@ def validate_rules(docker, mount, image, temporary):
            "--security-opt", "no-new-privileges", "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m", "--mount", mount(OBS / "rules", "/rules"),
            "--mount", mount(path, "/fixtures.json"), "--entrypoint", "/bin/promtool", image,
            "test", "rules", "/fixtures.json")
-    print("PUBLIC_LEADERBOARD_RULES=21_scenarios_passed", flush=True)
+    print("PUBLIC_LEADERBOARD_RULES=25_scenarios_passed", flush=True)
 
 
 def check_stack(collector_url, graf_url, query, request, wait):
@@ -96,7 +125,8 @@ def check_stack(collector_url, graf_url, query, request, wait):
             {"asInt": "1", "timeUnixNano": str(time.time_ns()), "attributes": [
                 {"key": "result", "value": {"stringValue": "success"}}]}]}})
         payload = {"resourceMetrics": [{"resource": {"attributes": [
-            {"key": "service.name", "value": {"stringValue": "GoldSrcOps"}}]},
+            {"key": "service.name", "value": {"stringValue": "GoldSrcOps"}},
+            {"key": "service.instance.id", "value": {"stringValue": "current"}}]},
             "scopeMetrics": [{"scope": {"name": "GoldSrcOps"}, "metrics": metrics}]}]}
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         with opener.open(urllib.request.Request(collector_url + "/v1/metrics", data=json.dumps(payload).encode(),
