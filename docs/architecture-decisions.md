@@ -1840,3 +1840,24 @@ capture/status/bundle dispatcher на игре. Личные ключи и backu
 Предупреждения пока видны только в Prometheus/Grafana по решению владельца.
 Отказ всего monitoring stack остается за пределами этой доставки.
 См. [runbook мониторинга](game-player-data-monitoring.md).
+
+
+## Decision 40: Overall Player Leaders Use A Rebuildable Local Index
+
+The overall leaderboard derives its counts from the existing schema-1 statistics
+vault. At map initialization, bounded readers collect canonical keys from the
+vault and pending journal before native nVault recovery consumes the journal.
+The native recovered values are authoritative. The in-memory index is disposable;
+no alternate totals, migration, live file scan or new backup file is introduced.
+Uncertain source data or capacity overflow makes the whole table unavailable.
+
+Ordering is kills descending, deaths ascending, then canonical key for stable
+ties. Only ten rows are exposed; identities remain private. A shared five-second
+cache and an independent command cooldown bound repeated display work.
+
+Names use an additive namespace in the existing preferences vault, recorded once
+per authenticated connection when changed. Existing stats, preferences and HUD
+records remain compatible with addon 0.18.0. Unknown legacy names have an explicit
+localized fallback. The existing two-vault backup continues to cover the data;
+engine recovery and a reverse-upgrade exercise are required for this R2 change.
+See [the v2.52 record](v2.52-player-leaderboard.md).
