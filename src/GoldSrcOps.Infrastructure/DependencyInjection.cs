@@ -94,6 +94,7 @@ public static class DependencyInjection
         services.AddSingleton(static provider => PublicLeaderboardOptions.FromConfiguration(
             provider.GetRequiredService<IConfiguration>()));
         services.AddSingleton<PublicLeaderboardStore>();
+        services.AddSingleton<PublicLeaderboardMetrics>();
         services.AddScoped<PublicLeaderboardPoller>();
         services.AddHostedService<PublicLeaderboardBackgroundService>();
         services.AddScoped<SnapshotRetentionService>();

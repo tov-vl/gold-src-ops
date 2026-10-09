@@ -16,38 +16,38 @@ internal sealed class PublicLeaderboardPoller(
     PublicLeaderboardStore store,
     IClock clock)
 {
-    public async Task PollAsync(CancellationToken cancellationToken)
+    public async Task<PublicLeaderboardPollResult> PollAsync(CancellationToken cancellationToken)
     {
         if (!settings.Enabled)
         {
-            return;
+            return PublicLeaderboardPollResult.Disabled;
         }
 
         var server = await servers.GetAsync(settings.ServerId, cancellationToken);
         if (server is not { IsEnabled: true, Endpoint.RconPort: not null })
         {
             store.RecordFailure(sourceUnavailable: true);
-            return;
+            return PublicLeaderboardPollResult.SourceUnavailable;
         }
 
         if (await credentials.HasIncompleteCommandsAsync(server.Id, cancellationToken))
         {
             store.RecordFailure();
-            return;
+            return PublicLeaderboardPollResult.OperatorBusy;
         }
 
         var credential = await credentials.GetAsync(server.Id, ServerCredentialKind.RconPassword, cancellationToken);
         if (credential is not { IsConfigured: true })
         {
             store.RecordFailure(sourceUnavailable: true);
-            return;
+            return PublicLeaderboardPollResult.CredentialUnavailable;
         }
 
         var resolved = await secrets.ResolveAsync(credential.SecretReference, cancellationToken);
         if (resolved.Kind != SecretReferenceResolutionResultKind.Resolved || string.IsNullOrWhiteSpace(resolved.Secret))
         {
             store.RecordFailure(sourceUnavailable: true);
-            return;
+            return PublicLeaderboardPollResult.CredentialUnavailable;
         }
 
         var response = await rcon.ExecuteAsync(new GoldSrcRconRequest(
@@ -57,10 +57,12 @@ internal sealed class PublicLeaderboardPoller(
         if (snapshot is null)
         {
             store.RecordFailure(sourceUnavailable: true);
+            return PublicLeaderboardPollResult.SourceUnavailable;
         }
         else
         {
             store.Publish(snapshot);
+            return PublicLeaderboardPollResult.Success;
         }
     }
 }

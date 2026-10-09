@@ -211,3 +211,13 @@ The owner chose in-stack visibility only; direct delivery is deferred. Loss of
 Prometheus/Grafana itself is outside this monitoring path. The
 [monitor runbook](game-player-data-monitoring.md) defines installation,
 thresholds, target acceptance and rollback without running a backup.
+
+## Public Leaderboard Freshness
+
+The API leaderboard worker emits bounded observations through the existing
+`GoldSrcOps` Meter and Collector. Dashboard `goldsrcops-public-leaderboard` and
+four pending warnings cover stale/unavailable data, stalled passes and missing
+observations. Disabled and valid-empty states do not produce data warnings;
+operator busy allowance expires after 15 minutes. See the
+[v2.58 contract](v2.58-leaderboard-monitoring.md) for metric names, thresholds,
+recovery boundary and claim limits. Direct notification delivery remains deferred.

@@ -1010,6 +1010,14 @@ try {
         -BaseUri $prometheusBaseUri `
         -Query 'http_server_request_duration_seconds_count{service_name="GoldSrcOps"}' `
         -TimeoutSeconds $StartupTimeoutSeconds
+    Wait-PrometheusQuery `
+        -BaseUri $prometheusBaseUri `
+        -Query 'goldsrcops_leaderboard_enabled{service_name="GoldSrcOps"} == 0' `
+        -TimeoutSeconds $StartupTimeoutSeconds
+    Wait-PrometheusQuery `
+        -BaseUri $prometheusBaseUri `
+        -Query 'goldsrcops_leaderboard_observed_timestamp_seconds{service_name="GoldSrcOps"} > 0' `
+        -TimeoutSeconds $StartupTimeoutSeconds
     Write-Host "Application and ASP.NET Core metrics crossed the private OTLP boundary."
 
     Write-Step "Verify alert delivery startup and log safety"

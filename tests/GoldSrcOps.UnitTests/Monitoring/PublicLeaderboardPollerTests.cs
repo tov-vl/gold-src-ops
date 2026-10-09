@@ -54,7 +54,15 @@ public sealed class PublicLeaderboardPollerTests
         }
         else
         {
-            await poller.PollAsync(token);
+            var result = await poller.PollAsync(token);
+            result.Should().Be(scenario switch
+            {
+                "ready" => PublicLeaderboardPollResult.Success,
+                "busy" => PublicLeaderboardPollResult.OperatorBusy,
+                "disabled" => PublicLeaderboardPollResult.Disabled,
+                "missing-credential" or "missing-secret" => PublicLeaderboardPollResult.CredentialUnavailable,
+                _ => PublicLeaderboardPollResult.SourceUnavailable
+            });
             store.Read().State.Should().Be(scenario switch
             {
                 "ready" or "disabled" => "fresh",

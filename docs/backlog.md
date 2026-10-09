@@ -2987,3 +2987,11 @@ jobs прошли. Независимые source/API строки совпали
 прежние. First weekly backup, отложенная клиентская проверка, игра вдвоем и
 личные уведомления остаются независимыми. См.
 [границу](v2.57-public-leaderboard.md) и [доказательства](v2.57-readiness.md).
+
+### v2.58 - Мониторинг свежести рейтинга
+
+Реализация и проверка в работе: метрики API, provisioned Grafana dashboard и
+четыре warning правила Prometheus. Короткие пропуски и отключенный источник
+учтены; длительная занятость не скрывает устаревание. Scope API/monitoring,
+без gameplay, схемы, scoring и личных уведомлений. См. [контракт](v2.58-leaderboard-monitoring.md)
+и [readiness](v2.58-readiness.md).
