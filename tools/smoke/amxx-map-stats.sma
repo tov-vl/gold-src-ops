@@ -181,11 +181,11 @@ public RunMapStatsSmoke()
     CheckStats(g_prints == printed, "stats cooldown suppresses immediate repeat");
     g_clock += 2.0;
     ShowMapStats(killer);
-    CheckStats(g_prints == printed + 2, "cooldown expires for stats and streaks together");
+    CheckStats(g_prints == printed + 3, "cooldown expires for stats and streaks together");
     rg_set_user_team(killer, TEAM_SPECTATOR);
     g_clock += 2.0;
     ShowMapStats(killer);
-    CheckStats(g_prints == printed + 4, "spectator can read retained stats");
+    CheckStats(g_prints == printed + 6, "spectator can read retained stats");
 
     for (new index = 0; index < sizeof g_clients; index++)
     {

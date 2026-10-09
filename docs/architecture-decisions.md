@@ -1867,3 +1867,29 @@ Its denominator includes every eligible saved score, not just connected players
 or visible rows. A bounded scan applies the same comparator; newly saved first
 scores report pending until that snapshot advances. This adds no persistent
 record or scoring rule. See [the v2.53 record](v2.53-player-standing.md).
+
+
+## Decision 41: Saved Streak Records Use An Additive Player Namespace
+
+Keep the best recorded eligible kill streak under `streak:<canonical player key>`
+in the existing preferences nVault, alongside HUD and name metadata. The exact
+schema-1 value is `1 N`, with a bounded nonnegative counter. Existing statistics,
+language/weapon, HUD and name records retain their formats. Addon 0.20.0 ignores
+but retains this namespace; the existing two-vault backup covers the new data.
+No new storage file, migration or backfill is needed.
+
+Only living enemy-human kills can advance a record. Count the persistent life
+from the point a verified, unique connected identity and its storage become
+available; do not import preceding unknown-identity kills or reconstruct past
+records from accumulated totals. Any death ends this life counter. Disconnect,
+map change and process restart clear active counters while retaining the record.
+The saved maximum is independent of map best and does not affect rank ordering.
+
+Joining and reading do not create a default record. Write only a strict increase,
+require exact readback before announcing success, and block further record writes
+for the connection after an uncertain result. Reconnect reads actual stored state
+without replaying the attempted event. Corrupt records remain intact and unavailable;
+record failure does not block separate preferences or statistics. The existing
+preference identity guard remains authoritative, including duplicate ownership
+and blocked base records. Record feedback is private and replaces a coincident
+3/5/10 streak message. See [the v2.54 record](v2.54-saved-streak.md).
