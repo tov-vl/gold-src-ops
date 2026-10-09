@@ -60,9 +60,12 @@ Freeze these inputs before publication work starts:
 | Evidence plan | Required repository and target-environment checks |
 | Claim boundary | What the release proves and what remains unverified |
 
-Changing the version, candidate source, runtime scope, or compatibility claim
-after this point creates a new release plan and invalidates the prior approval
-bundle.
+Changing the version or candidate source requires a refreshed identity record
+and appropriate verification before publication or rollout. Routine review
+fixes and merge/tag revision transitions within the agreed milestone do not
+require another confirmation. A material expansion of the requested outcome,
+target environment, runtime scope, risk class, compatibility claim, or rollback
+boundary requires a new decision. Published artifacts remain immutable.
 
 ## Risk Classification
 
@@ -114,8 +117,14 @@ those boundaries.
 
 ## Approval Bundle
 
-One explicit approval for a named release and frozen scope may cover the
-following standard sequence:
+The owner's standing authorization for this repository treats a request to
+implement, continue, or release an agreed milestone as authorization for its
+ordinary delivery. Explicit narrower instructions, including read-only,
+local-only, no push, or no deployment, take precedence. Record the exact version,
+revision, runtime, risk, artifact identity, and rollback inputs before execution;
+this technical freeze does not create another consent checkpoint.
+
+The following standard sequence is covered where applicable to that milestone:
 
 1. ordinary branch push without force;
 2. pull request creation against `main`;
@@ -130,10 +139,15 @@ following standard sequence:
 8. creation and squash merge of the final evidence pull request after its
    required checks pass.
 
-Do not ask for another confirmation while the action remains inside that exact
-bundle. Stop and obtain a new decision when any of these conditions appears:
+Do not ask for another confirmation after implementation, at artifact freeze,
+or before an ordinary action inside the agreed milestone. Use only applicable
+stages: addon-only packages require their immutable package and host acceptance
+flow, not unrelated image or tag publication; game-server installation requires
+an empty server immediately before stopping it. A D0 follow-up has no rollout.
+Stop and obtain a new decision when any of these conditions appears:
 
-- the version, candidate commit, affected runtime, or change class changes;
+- the requested outcome, target environment, affected runtime, risk class,
+  compatibility claim, or rollback boundary materially expands;
 - a force push, history rewrite, tag replacement, registry deletion, or other
   destructive operation becomes necessary;
 - a database restore, down migration, data correction, queue drain, manual
