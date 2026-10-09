@@ -1820,3 +1820,23 @@ capture/status/bundle dispatcher на игре. Личные ключи и backu
 пропущенной попытки. Weekly schedule не обещает RPO в семь суток при занятом
 сервере. Snapshot deletion и автоматическое снятие блокировок не добавляются.
 См. [weekly backup runbook](game-player-data-schedule.md).
+
+## Решение 39: Наблюдение backup независимо от выполнения backup
+
+Дата решения: 2026-10-09.
+
+Читать закрытый control-plane ledger и фиксированные systemd properties
+отдельной минутной службой без backup lock, SSH к игре или обращения к restic.
+Передавать только числовую проекцию через внутренний OTLP/HTTP receiver
+существующего Collector. Новые credentials и публичный endpoint не нужны.
+
+Ошибочный sample целиком недостоверен; его отдельный heartbeat позволяет
+отличить ошибку данных от отсутствующего наблюдателя. Prometheus вычисляет
+свежесть по исходному capture timestamp и не считает повторяемые старые gauges
+новым наблюдением. Обычный skipped-busy не ошибка и не обновляет capture time.
+
+Незавершенная попытка требует сверки после выхода backup service; выполняющаяся
+попытка имеет конечный срок. Мониторинг не удаляет pending и не инициирует retry.
+Предупреждения пока видны только в Prometheus/Grafana по решению владельца.
+Отказ всего monitoring stack остается за пределами этой доставки.
+См. [runbook мониторинга](game-player-data-monitoring.md).

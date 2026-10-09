@@ -245,6 +245,7 @@ services:
     expose:
       - "13133"
       - "4317"
+      - "4318"
       - "8888"
       - "9464"
     networks:
@@ -286,6 +287,10 @@ services:
       - type: bind
         source: ./observability/prometheus.yml
         target: /etc/prometheus/prometheus.yml
+        read_only: true
+      - type: bind
+        source: ./observability/rules
+        target: /etc/prometheus/rules
         read_only: true
       - prometheus-data:/prometheus
     expose:

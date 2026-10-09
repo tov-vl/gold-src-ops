@@ -1,0 +1,32 @@
+[Unit]
+Description=Read-only player backup observation into private telemetry
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/usr/bin/python3 -I -B /opt/goldsrcops-player-monitor/ops/production/player-data-monitor.py publish
+TimeoutStartSec=30s
+Restart=no
+MemoryMax=64M
+TasksMax=16
+Nice=10
+NoNewPrivileges=true
+CapabilityBoundingSet=
+PrivateDevices=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadOnlyPaths=/var/lib/goldsrcops/player-data-backup /etc/goldsrcops/player-data-monitor.json /opt/goldsrcops-player-monitor
+InaccessiblePaths=-/etc/goldsrcops/player-data-backup -/etc/goldsrcops/deployment.env -/etc/goldsrcops/secrets -/run/docker.sock
+RemoveIPC=true
+RestrictAddressFamilies=AF_UNIX AF_INET
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native

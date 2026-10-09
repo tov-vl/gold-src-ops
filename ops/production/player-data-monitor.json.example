@@ -1,0 +1,5 @@
+{
+  "schema": 1,
+  "collectorAddress": "<GOLDSRCOPS_OTEL_COLLECTOR_IP>",
+  "enabledSinceUtc": "<first-monitor-installation-time-in-UTC>"
+}
