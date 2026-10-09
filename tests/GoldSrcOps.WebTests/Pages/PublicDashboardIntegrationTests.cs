@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
 using AwesomeAssertions;
@@ -96,13 +97,19 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
 
     private readonly bool statusUnavailable;
     private readonly bool serverJoinUnavailable;
+    private readonly PublicServerJoinResponse? serverJoinResponse;
+    private readonly HttpStatusCode? serverJoinFailureStatus;
 
     public PublicDashboardWebApplicationFactory(
         bool statusUnavailable = false,
-        bool serverJoinUnavailable = false)
+        bool serverJoinUnavailable = false,
+        PublicServerJoinResponse? serverJoinResponse = null,
+        HttpStatusCode? serverJoinFailureStatus = null)
     {
         this.statusUnavailable = statusUnavailable;
         this.serverJoinUnavailable = serverJoinUnavailable;
+        this.serverJoinResponse = serverJoinResponse;
+        this.serverJoinFailureStatus = serverJoinFailureStatus;
     }
 
     public FixturePublicStatusHandler Handler { get; private set; } = null!;
@@ -121,7 +128,8 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
         });
         builder.ConfigureServices(services =>
         {
-            Handler = new FixturePublicStatusHandler(statusUnavailable, serverJoinUnavailable);
+            Handler = new FixturePublicStatusHandler(
+                statusUnavailable, serverJoinUnavailable, serverJoinResponse, serverJoinFailureStatus);
             var httpClient = new HttpClient(Handler)
             {
                 BaseAddress = new Uri("https://api.example.test/")
@@ -133,8 +141,12 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
 
     internal sealed class FixturePublicStatusHandler(
         bool statusUnavailable,
-        bool serverJoinUnavailable = false) : HttpMessageHandler
+        bool serverJoinUnavailable = false,
+        PublicServerJoinResponse? serverJoinResponse = null,
+        HttpStatusCode? serverJoinFailureStatus = null) : HttpMessageHandler
     {
+        public ConcurrentQueue<string> RequestedPaths { get; } = new();
+
         public string? LastHistoryWindow { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(
@@ -142,6 +154,7 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
             CancellationToken cancellationToken)
         {
             var requestUri = request.RequestUri;
+            RequestedPaths.Enqueue(requestUri?.AbsolutePath ?? string.Empty);
             if (string.Equals(
                 requestUri?.AbsolutePath,
                 "/api/public/status",
@@ -172,9 +185,17 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
                 "/api/public/server",
                 StringComparison.Ordinal))
             {
+                if (serverJoinFailureStatus is { } failureStatus)
+                {
+                    return Task.FromResult(new HttpResponseMessage(failureStatus)
+                    {
+                        Content = new StringContent(PrivateDataSentinel)
+                    });
+                }
+
                 return Task.FromResult(serverJoinUnavailable
                     ? new HttpResponseMessage(HttpStatusCode.NotFound)
-                    : JsonResponse(new PublicServerJoinResponse(
+                    : JsonResponse(serverJoinResponse ?? new PublicServerJoinResponse(
                         "GoldSrcOps Public Classic",
                         "play.example.test",
                         27015,

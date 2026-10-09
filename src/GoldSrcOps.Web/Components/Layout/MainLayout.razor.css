@@ -66,7 +66,7 @@ footer {
     gap: 26px;
 }
 
-.primary-nav a {
+.primary-nav ::deep a {
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -76,11 +76,11 @@ footer {
     text-decoration: none;
 }
 
-.primary-nav a.active {
+.primary-nav ::deep a.active {
     color: var(--ink);
 }
 
-.primary-nav a.active::after {
+.primary-nav ::deep a.active::after {
     position: absolute;
     right: 0;
     bottom: -1px;
@@ -90,7 +90,7 @@ footer {
     content: "";
 }
 
-.primary-nav a:focus-visible,
+.primary-nav ::deep a:focus-visible,
 .session-button:focus-visible {
     outline: 3px solid var(--focus);
     outline-offset: 4px;
@@ -194,7 +194,7 @@ footer {
         white-space: normal;
     }
 
-    .primary-nav a {
+    .primary-nav ::deep a {
         min-height: 34px;
     }
 

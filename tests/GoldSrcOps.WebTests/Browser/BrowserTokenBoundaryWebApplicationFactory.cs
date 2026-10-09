@@ -1,4 +1,6 @@
+using System.Net;
 using System.Security.Claims;
+using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Web.Security;
 using GoldSrcOps.Web.Services;
 using GoldSrcOps.WebTests.Pages;
@@ -24,10 +26,17 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
         "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJicm93c2VyLWlkIn0.c2lnbmF0dXJl";
 
     private readonly bool serverEnabled;
+    private readonly PublicServerJoinResponse? serverJoinResponse;
+    private readonly HttpStatusCode? serverJoinFailureStatus;
 
-    public BrowserTokenBoundaryWebApplicationFactory(bool serverEnabled = true)
+    public BrowserTokenBoundaryWebApplicationFactory(
+        bool serverEnabled = true,
+        PublicServerJoinResponse? serverJoinResponse = null,
+        HttpStatusCode? serverJoinFailureStatus = null)
     {
         this.serverEnabled = serverEnabled;
+        this.serverJoinResponse = serverJoinResponse;
+        this.serverJoinFailureStatus = serverJoinFailureStatus;
         UseKestrel(0);
     }
 
@@ -55,7 +64,10 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
             services.AddSingleton<IProviderOperationsClient>(
                 new ReaderWebApplicationFactory.FixtureProviderOperationsClient());
             var publicStatusHandler =
-                new PublicDashboardWebApplicationFactory.FixturePublicStatusHandler(statusUnavailable: false);
+                new PublicDashboardWebApplicationFactory.FixturePublicStatusHandler(
+                    statusUnavailable: false,
+                    serverJoinResponse: serverJoinResponse,
+                    serverJoinFailureStatus: serverJoinFailureStatus);
             services.RemoveAll<PublicStatusClient>();
             services.AddSingleton(new PublicStatusClient(new HttpClient(publicStatusHandler)
             {
