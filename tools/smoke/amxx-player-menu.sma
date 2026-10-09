@@ -167,6 +167,8 @@ public RunPlayerMenuSmoke()
     {
         OnLanguageSelected(id, g_language_menu, language);
         CheckMenu(PlayerLanguage(id) == language && g_last_menu == g_player_menu[language], "manual language opens translated hub");
+        CheckMenu(menu_items(g_player_menu[language]) == 9 && menu_pages(g_player_menu[language]) == 1,
+            "nine hub items including profile fit one native menu page");
         new info[8], name[128], expected[128], access, callback;
         for (new item = 0; item < sizeof PLAYER_MENU_KEYS; item++)
         {
@@ -209,7 +211,7 @@ public RunPlayerMenuSmoke()
         new displays = g_displays;
         OnPlayerMenuSelected(id, g_player_menu[1 - language], 0);
         OnPlayerMenuSelected(id, g_player_menu[language], MENU_EXIT);
-        OnPlayerMenuSelected(id, g_player_menu[language], 8);
+        OnPlayerMenuSelected(id, g_player_menu[language], sizeof PLAYER_MENU_KEYS);
         OnLanguageSelected(id, g_language_menu, MENU_EXIT);
         OnSettingsSelected(id, g_settings_menu[1 - language][0], 0);
         OnSettingsSelected(id, g_settings_menu[language][0], 4);
