@@ -6,14 +6,15 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.27.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.27.0)
-is the current public release. Its fixed experimental `fast-reentry-v1` game
-profile is active on the pilot host; one player observed quick respawn after
-controlled deaths. Protection effects, round endings, and multiplayer balance
-remain unverified. The stable tag promotes the accepted `v2.27.0-rc.1` API,
-Web, and AlertReceiver image digests without rebuilding or redeploying the
-control plane. See [release notes](docs/release-notes-v2.27.md) and
-[bounded evidence](docs/v2.27-readiness.md).
+**Status:** [v2.56.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.56.0)
+is the current public release. The Russian [player guide](https://goldsrcops.com/play)
+explains the existing CS 1.6 fast-respawn pilot, weapon selection, saved ranks
+and first steps, with observed join state and a copyable connection command.
+The accepted Web digest is deployed; the other control-plane services retained
+their runtime identities. Stable API, Web and AlertReceiver references reuse
+the verified candidate artifacts without rebuilding. See
+[release notes](docs/release-notes-v2.56.md) and
+[bounded evidence](docs/v2.56-readiness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
