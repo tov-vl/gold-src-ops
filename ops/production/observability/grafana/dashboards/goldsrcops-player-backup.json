@@ -1,0 +1,643 @@
+{
+  "id": null,
+  "uid": "goldsrcops-player-backup",
+  "title": "GoldSrcOps - Backup игровых данных",
+  "description": "Private weekly player backup monitoring; no direct notification delivery.",
+  "editable": false,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "30s",
+  "timezone": "Europe/Moscow",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "tags": [
+    "goldsrcops",
+    "backup"
+  ],
+  "annotations": {
+    "list": []
+  },
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Границы наблюдения",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Проверка раз в минуту. Backup: воскресенье, 04:00 МСК, только при пустом сервере. Возраст копии считается от capture; порог - восемь суток. Предупреждения видны здесь и в Prometheus. Личная доставка пока не настроена. Свежий журнал не подтверждает доступность off-host хранилища или восстановление движком."
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Наблюдение",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "Данные проверены",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "Журнал недостоверен",
+                  "color": "red",
+                  "index": 1
+                },
+                "-1": {
+                  "text": "Нет свежих данных",
+                  "color": "red",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max(goldsrcops_player_backup_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) and goldsrcops_player_backup:monitor_live) or vector(-1)",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Возраст копии",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 3,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "dtdurations",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 691201
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(time() - max(goldsrcops_player_backup_last_success_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"})) and (max(goldsrcops_player_backup_copy_present{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) == 1) and goldsrcops_player_backup:observation_valid",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Weekly timer",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 3,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "Включен, расписание верно",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "Проверьте расписание",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(goldsrcops_player_backup_timer_enabled{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) and goldsrcops_player_backup:observation_valid",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Последняя попытка",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 3,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Еще не было",
+                  "color": "blue",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Копия проверена",
+                  "color": "green",
+                  "index": 1
+                },
+                "2": {
+                  "text": "Сервер занят",
+                  "color": "blue",
+                  "index": 2
+                },
+                "3": {
+                  "text": "Окно пропущено",
+                  "color": "yellow",
+                  "index": 3
+                },
+                "4": {
+                  "text": "Выполняется",
+                  "color": "blue",
+                  "index": 4
+                },
+                "5": {
+                  "text": "Требуется сверка",
+                  "color": "red",
+                  "index": 5
+                },
+                "6": {
+                  "text": "Ошибка службы",
+                  "color": "red",
+                  "index": 6
+                },
+                "7": {
+                  "text": "Неизвестно",
+                  "color": "red",
+                  "index": 7
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(goldsrcops_player_backup_last_attempt_status{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) and goldsrcops_player_backup:observation_valid",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Последний capture",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "dateTimeAsIso",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(goldsrcops_player_backup_last_success_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) * 1000 and (max(goldsrcops_player_backup_copy_present{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) == 1) and goldsrcops_player_backup:observation_valid",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Возраст наблюдения",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 180
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - max(goldsrcops_player_backup_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"})",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Требуется вмешательство",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Нет",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Да",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max(goldsrcops_player_backup_requires_reconciliation{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) + max(goldsrcops_player_backup_service_failed{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"})) > bool 0 and goldsrcops_player_backup:observation_valid",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Пропущен недельный слот",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Нет",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Да",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(goldsrcops_player_backup_missed_cycle{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) and goldsrcops_player_backup:observation_valid",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Предупреждения Prometheus (pending и firing)",
+      "description": "Пустая таблица означает отсутствие активных правил, только если наблюдение свежее. Личная доставка не настроена.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ALERTS{component=\"player-backup\"}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    }
+  ]
+}

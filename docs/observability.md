@@ -16,6 +16,8 @@ The production path is deliberately private:
 ```text
 GoldSrcOps API
   -> OTLP gRPC :4317
+Player backup monitor (control-plane host)
+  -> OTLP HTTP :4318 (v2.51 configuration)
 OpenTelemetry Collector
   -> Prometheus exporter :9464
 Prometheus :9090
@@ -44,12 +46,12 @@ digest:
 - Prometheus `3.14.0`;
 - Grafana `13.2.1`.
 
-The Collector accepts only OTLP gRPC metrics, applies a memory limiter and
-batching, and exposes a private Prometheus target. Prometheus retains at most 15
+The Collector accepts OTLP gRPC and private OTLP/HTTP metrics, applies a memory
+limiter and batching, and exposes a private Prometheus target. Prometheus retains at most 15
 days or 1 GB, whichever limit is reached first. Grafana provisions one immutable
-Prometheus datasource and the `GoldSrcOps Operations` dashboard from tracked
-files. Prometheus and Grafana data use named volumes; Collector state is
-ephemeral.
+Prometheus datasource, the `GoldSrcOps Operations` dashboard and the v2.51
+player-backup dashboard from tracked files. Prometheus and Grafana data use
+named volumes; Collector state is ephemeral.
 
 ## Secret And Access Boundary
 
@@ -119,7 +121,7 @@ sudo docker compose `
 The result must contain one series with value `1`. In Grafana, confirm that the
 provisioned datasource is healthy and that the Operations dashboard has recent
 API and GoldSrcOps application data. Finally, rerun host readiness and retain
-sanitized evidence that ports `3000`, `4317`, `8888`, `9090`, `9464`, and
+sanitized evidence that ports `3000`, `4317`, `4318`, `8888`, `9090`, `9464`, and
 `13133` are not publicly listening.
 
 In this topology, `up{job="goldsrcops"}` reports Prometheus reachability of the
@@ -191,3 +193,21 @@ Configuration and provisioned dashboards are restored from the reviewed
 revision. Prometheus history and mutable Grafana state are intentionally not
 part of the PostgreSQL recovery contract. Their loss must be recorded, but it
 does not block restoration of GoldSrcOps durable workflows.
+
+## Player Backup Monitoring
+
+The v2.51 configuration adds a read-only host observer, a private HTTP receiver,
+a mounted Prometheus rule file and provisioned dashboard
+`goldsrcops-player-backup`. Source configuration is separate from installation
+evidence; see [v2.51 readiness](v2.51-player-data-monitoring.md).
+
+Rules detect old or missing copies, disabled/missed schedules, failed or
+unfinished attempts, invalid observations and missing monitor heartbeats.
+A busy server alone does not alert. Current-state panels suppress expired or
+invalid observations. These are Prometheus rules, not Grafana-managed rules:
+Grafana displays the `ALERTS` series and does not send notifications.
+
+The owner chose in-stack visibility only; direct delivery is deferred. Loss of
+Prometheus/Grafana itself is outside this monitoring path. The
+[monitor runbook](game-player-data-monitoring.md) defines installation,
+thresholds, target acceptance and rollback without running a backup.

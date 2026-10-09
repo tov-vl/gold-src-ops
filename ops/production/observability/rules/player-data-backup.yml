@@ -1,0 +1,68 @@
+groups:
+  - name: goldsrcops-player-backup
+    rules:
+      - record: goldsrcops_player_backup:monitor_live
+        expr: |
+          (max(goldsrcops_player_backup_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-player-backup-monitor"}) > time() - 180)
+          and
+          (max(goldsrcops_player_backup_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-player-backup-monitor"}) <= time() + 300)
+      - record: goldsrcops_player_backup:observation_valid
+        expr: |
+          (max(goldsrcops_player_backup_observation_success{job="goldsrcops",service_name="goldsrcops-player-backup-monitor"}) == 1)
+          and goldsrcops_player_backup:monitor_live
+      - alert: PlayerBackupMonitorUnavailable
+        expr: absent(goldsrcops_player_backup:monitor_live)
+        for: 5m
+        labels:
+          severity: warning
+          component: player-backup
+        annotations:
+          summary: "Нет свежих наблюдений backup"
+          description: "Проверьте monitor timer, его конфигурацию и Collector. Состояние backup неизвестно."
+      - alert: PlayerBackupObservationInvalid
+        expr: |
+          (max(goldsrcops_player_backup_observation_success{job="goldsrcops",service_name="goldsrcops-player-backup-monitor"}) == 0)
+          and goldsrcops_player_backup:monitor_live
+        for: 5m
+        labels:
+          severity: warning
+          component: player-backup
+        annotations:
+          summary: "Журнал backup не прошел проверку"
+          description: "Проверьте закрытый журнал и systemd. Не удаляйте pending и не повторяйте backup автоматически."
+      - alert: PlayerBackupInterventionRequired
+        expr: |
+          ((max(goldsrcops_player_backup_requires_reconciliation{job="goldsrcops",service_name="goldsrcops-player-backup-monitor"}) == 1)
+          or (max(goldsrcops_player_backup_service_failed{job="goldsrcops",service_name="goldsrcops-player-backup-monitor"}) == 1))
+          and goldsrcops_player_backup:observation_valid
+        for: 5m
+        labels:
+          severity: warning
+          component: player-backup
+        annotations:
+          summary: "Backup требует проверки владельцем"
+          description: "Попытка завершилась ошибкой или требует сверки. Не повторяйте неопределенную операцию."
+      - alert: PlayerBackupScheduleProblem
+        expr: |
+          ((max(goldsrcops_player_backup_timer_enabled{job="goldsrcops",service_name="goldsrcops-player-backup-monitor"}) == 0)
+          or (max(goldsrcops_player_backup_missed_cycle{job="goldsrcops",service_name="goldsrcops-player-backup-monitor"}) == 1))
+          and goldsrcops_player_backup:observation_valid
+        for: 5m
+        labels:
+          severity: warning
+          component: player-backup
+        annotations:
+          summary: "Нарушено расписание backup"
+          description: "Проверьте weekly timer и пропущенный слот. Догоняющая остановка игры не разрешена."
+      - alert: PlayerBackupCopyUnavailable
+        expr: |
+          ((max(goldsrcops_player_backup_copy_present{job="goldsrcops",service_name="goldsrcops-player-backup-monitor"}) == 0)
+          or (max(goldsrcops_player_backup_last_success_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-player-backup-monitor"}) < time() - 691200))
+          and goldsrcops_player_backup:observation_valid
+        for: 5m
+        labels:
+          severity: warning
+          component: player-backup
+        annotations:
+          summary: "Копия отсутствует или старше восьми суток"
+          description: "Возраст считается от capture. Занятый сервер не обновляет дату копии и сам по себе не является ошибкой."

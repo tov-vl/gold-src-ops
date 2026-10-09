@@ -2812,6 +2812,17 @@ snapshot остаются самостоятельной приемкой. См.
 [запись v2.50](v2.50-weekly-player-data-backup.md) и
 [weekly runbook](game-player-data-schedule.md).
 
+### v2.51 - Мониторинг backup игровых данных
+
+Локально реализованы read-only наблюдение на control-plane раз в минуту, передача
+санитизированных метрик через существующий Collector, правила Prometheus
+и отдельный dashboard Grafana. По решению владельца личная доставка отложена.
+Контролируются свежесть copy/observation, weekly timer, пропущенный слот
+и незавершенная/неуспешная попытка; занятость игры сама по себе не тревога.
+Локальные focused checks, интеграционный monitoring smoke и полный Quality Gate
+прошли. Публикация и target acceptance еще не выполнены.
+См. [запись v2.51](v2.51-player-data-monitoring.md).
+
 ### Addon CI Optimization
 
 Status as of 2026-10-07: merged into `main`; required PR and post-merge CI passed.

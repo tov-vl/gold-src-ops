@@ -724,6 +724,7 @@ try {
     Write-Step "Start private observability stack"
     $collectorConfigPath = Join-Path $repoRoot "ops/production/observability/otel-collector.yml"
     $prometheusConfigPath = Join-Path $repoRoot "ops/production/observability/prometheus.yml"
+    $prometheusRulesPath = Join-Path $repoRoot "ops/production/observability/rules"
     $grafanaDatasourceProvisioningPath = Join-Path $repoRoot "ops/production/observability/grafana/provisioning/datasources"
     $grafanaDashboardProvisioningPath = Join-Path $repoRoot "ops/production/observability/grafana/provisioning/dashboards"
     $grafanaDashboardsPath = Join-Path $repoRoot "ops/production/observability/grafana/dashboards"
@@ -784,6 +785,8 @@ try {
         "no-new-privileges",
         "--mount",
         "type=bind,source=$prometheusConfigPath,target=/etc/prometheus/prometheus.yml,readonly",
+        "--mount",
+        "type=bind,source=$prometheusRulesPath,target=/etc/prometheus/rules,readonly",
         $prometheusImage,
         "--config.file=/etc/prometheus/prometheus.yml",
         "--storage.tsdb.path=/prometheus",

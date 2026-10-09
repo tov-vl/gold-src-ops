@@ -881,6 +881,11 @@ Assert-TrackedBindMount `
     -Target "/etc/prometheus/prometheus.yml" `
     -ExpectedPath (Join-Path $PSScriptRoot "observability/prometheus.yml")
 Assert-TrackedBindMount `
+    -Service $prometheus `
+    -ServiceName "prometheus" `
+    -Target "/etc/prometheus/rules" `
+    -ExpectedPath (Join-Path $PSScriptRoot "observability/rules")
+Assert-TrackedBindMount `
     -Service $grafana `
     -ServiceName "grafana" `
     -Target "/etc/grafana/provisioning/datasources" `
@@ -1174,6 +1179,7 @@ if (-not $ContractOnly) {
         --security-opt no-new-privileges `
         --entrypoint /bin/promtool `
         --volume "${PSScriptRoot}/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro" `
+        --volume "${PSScriptRoot}/observability/rules:/etc/prometheus/rules:ro" `
         $prometheus.image `
         check `
         config `
