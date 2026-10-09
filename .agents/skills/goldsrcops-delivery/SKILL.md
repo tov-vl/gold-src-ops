@@ -1,6 +1,6 @@
 ---
 name: goldsrcops-delivery
-description: Implement, verify, package, and release GoldSrcOps product slices using the repository architecture, risk gates, evidence records, and bundled approval model. Use for milestone development, release readiness, candidate publication, production acceptance, stable promotion, or release closure in this repository.
+description: Implement, verify, package, and release GoldSrcOps product slices using the repository architecture, risk gates, evidence records, and established release workflow. Use for milestone development, release readiness, candidate publication, production acceptance, stable promotion, or release closure in this repository.
 ---
 
 # GoldSrcOps Delivery
@@ -78,11 +78,26 @@ merge only when GitHub reports the PR mergeable and every required check is
 green. A documentation-only follow-up must remain documentation-only for the
 repository's fail-closed CI fast path.
 
-Remote actions require either an exact request or a frozen named release bundle
-that includes them. A bundle described in `docs/release-process.md` is one
-authorization boundary; do not interrupt it with repeated confirmation prompts
-while version, revision, affected runtime, risk class, and action remain
-unchanged.
+The owner's standing authorization for this repository covers ordinary delivery
+when they ask to implement, continue, or release an agreed milestone: local
+changes, verification, packaging, normal branch push, product PR, required CI,
+squash merge, the reviewed rollout, bounded acceptance, rollback to the recorded
+known-good artifact if a gate fails, and the final evidence PR and merge. Signed
+tags, immutable publication, and stable promotion are included only when the
+applicable release flow requires them. A game-addon rollout requires an empty
+server immediately before stopping it.
+
+Do not add a separate confirmation checkpoint after implementation, when
+freezing the artifact, or before these ordinary delivery actions. The release
+bundle in `docs/release-process.md` records the exact execution boundary; it is
+not another request for consent. Honor explicit narrower instructions such as
+read-only, local-only, no push, or no deployment. Keep unrelated runtime,
+infrastructure, gameplay, and credential changes outside the agreed milestone.
+
+Routine review fixes, evidence edits, and normal merge/tag revision transitions
+within that boundary require appropriate verification and an updated identity
+record, not another approval. Never substitute a new artifact for a deployed
+or accepted one without recording and checking its exact identity.
 
 ## Run A Release
 
@@ -104,6 +119,10 @@ unchanged.
 7. Close with one sanitized evidence PR that updates readiness, release notes,
    links, anomalies, and claim limits.
 
+Use only the release stages applicable to the changed runtime. An addon-only
+package follows its immutable package and host acceptance flow; it does not
+require unrelated container images or tags. A D0 follow-up needs no rollout.
+
 Use external wait time for non-mutating preparation, documentation, and
 evidence drafting. Do not parallelize competing production mutations, tag
 creation before identity freeze, or stable promotion before candidate
@@ -113,7 +132,8 @@ acceptance.
 
 Pause forward progress and obtain a new decision when:
 
-- the frozen version, revision, affected runtime, risk class, or claim changes;
+- the requested outcome, target environment, affected runtime, risk class,
+  compatibility claim, or rollback boundary materially expands;
 - force push, history rewrite, tag replacement, registry deletion, database
   restore, down migration, queue drain, manual command retry, or another
   unplanned mutation becomes necessary;
