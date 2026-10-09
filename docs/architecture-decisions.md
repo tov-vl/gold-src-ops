@@ -1861,3 +1861,9 @@ records remain compatible with addon 0.18.0. Unknown legacy names have an explic
 localized fallback. The existing two-vault backup continues to cover the data;
 engine recovery and a reverse-upgrade exercise are required for this R2 change.
 See [the v2.52 record](v2.52-player-leaderboard.md).
+
+Personal standing uses the same five-second score snapshot as the top ten.
+Its denominator includes every eligible saved score, not just connected players
+or visible rows. A bounded scan applies the same comparator; newly saved first
+scores report pending until that snapshot advances. This adds no persistent
+record or scoring rule. See [the v2.53 record](v2.53-player-standing.md).

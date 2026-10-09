@@ -28,6 +28,7 @@ new g_failures;
 new g_prints;
 new g_print_target;
 new g_last_print[192];
+new g_previous_print[192];
 new bool:g_fail_readback;
 new g_leader_html[1536];
 new g_leader_title[64];
@@ -39,6 +40,7 @@ public plugin_init()
 {
     ProductPluginInit();
     register_srvcmd("goldsrcops_leaderboard_smoke", "RunLeaderboardSmoke");
+    register_srvcmd("goldsrcops_standing_smoke", "RunPlayerStandingSmoke");
     register_srvcmd("goldsrcops_leaderboard_seed", "SeedLeaderboardRestart");
     register_srvcmd("goldsrcops_leaderboard_verify", "VerifyLeaderboardRestart");
     register_srvcmd("goldsrcops_persistent_stats_smoke", "RunPersistentStatsSmoke");
@@ -61,6 +63,7 @@ FixturePrint(id, type, const message[], any:...)
     #pragma unused type
     g_prints++;
     g_print_target = id;
+    copy(g_previous_print, charsmax(g_previous_print), g_last_print);
     vformat(g_last_print, charsmax(g_last_print), message, 4);
     return strlen(g_last_print);
 }
@@ -229,22 +232,22 @@ CheckPlayerRanks(player, victim)
         "welcome is once and does not consume manual rank cooldown");
     g_prints = 0;
     ShowPlayerRank(player);
-    CheckSaved(g_prints == 1 && g_print_target == player
-        && contain(g_last_print, "Saved rank: Recruit | K 0 | 25 kills to Fighter.") >= 0,
+    CheckSaved(g_prints == 2 && g_print_target == player
+        && contain(g_previous_print, "Saved rank: Recruit | K 0 | 25 kills to Fighter.") >= 0,
         "private initial rank from saved totals");
     CheckSaved(!nvault_lookup(g_stats_vault, key, value, charsmax(value), timestamp), "rank query never creates a zero record");
     ShowPlayerRank(player);
-    CheckSaved(g_prints == 1, "rank repeat throttled");
+    CheckSaved(g_prints == 2, "rank repeat throttled");
     ShowMapStats(player);
-    CheckSaved(g_prints == 3, "rank cooldown independent of stats");
+    CheckSaved(g_prints == 4, "rank cooldown independent of stats");
     g_stats_next[player][2] = get_gametime();
     ShowPlayerRank(player);
-    CheckSaved(g_prints == 4, "rank cooldown expires");
+    CheckSaved(g_prints == 6, "rank cooldown expires");
 
     nvault_set(g_stats_vault, key, "1 24 7");
     client_putinserver(player);
     ShowPlayerRank(player);
-    CheckSaved(contain(g_last_print, "Recruit | K 24 | 1 kills to Fighter.") >= 0
+    CheckSaved(contain(g_previous_print, "Recruit | K 24 | 1 kills to Fighter.") >= 0
         && nvault_lookup(g_stats_vault, key, value, charsmax(value), timestamp)
         && equal(value, "1 24 7"), "rank read preserves existing schema record");
     rg_round_respawn(victim);
@@ -263,7 +266,7 @@ CheckPlayerRanks(player, victim)
     client_disconnected(player, false, rejected, charsmax(rejected));
     client_putinserver(player);
     ShowPlayerRank(player);
-    CheckSaved(contain(g_last_print, "Fighter | K 26 | 74 kills to Veteran.") >= 0,
+    CheckSaved(contain(g_previous_print, "Fighter | K 26 | 74 kills to Veteran.") >= 0,
         "rank restored after reconnect and cooldown reset");
 
     for (new rank = 2; rank < sizeof RANK_KILLS; rank++)
@@ -295,7 +298,7 @@ CheckPlayerRanks(player, victim)
     nvault_set(g_stats_vault, key, "1 1000000000 7");
     client_putinserver(player);
     ShowPlayerRank(player);
-    CheckSaved(contain(g_last_print, "Legend | K 1000000000 | Highest rank reached.") >= 0,
+    CheckSaved(contain(g_previous_print, "Legend | K 1000000000 | Highest rank reached.") >= 0,
         "highest rank has no overflow or next tier");
     nvault_set(g_stats_vault, key, "2 99 99");
     client_putinserver(player);
@@ -517,10 +520,14 @@ public RunLeaderboardSmoke()
         g_leader_scores[rank][0] = STATS_COUNTER_LIMIT;
         g_leader_scores[rank][1] = STATS_COUNTER_LIMIT;
     }
-    g_stats_next[player][3] = 0.0;
-    ShowSavedLeaders(player);
-    CheckSaved(strlen(g_leader_html) < 1535 && contain(g_leader_html, "</pre></body></html>") >= 0,
-        "maximal names and counters fit the full MOTD including closing markup");
+    for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
+    {
+        g_language_override[player] = language + 1;
+        g_stats_next[player][3] = 0.0;
+        ShowSavedLeaders(player);
+        CheckSaved(strlen(g_leader_html) < 1535 && contain(g_leader_html, "</pre></body></html>") >= 0,
+            "maximal names counters and personal footer fit RU and EN MOTD including closing markup");
+    }
 
     CloseLeaderFixture();
     new path[256];
@@ -576,6 +583,10 @@ public RunLeaderboardSmoke()
     g_leader_refresh_after = 0.0;
     RefreshSavedLeaders();
     CheckSaved(g_leader_count == 10 && g_leader_scores[0][0] == LEADER_INDEX_LIMIT, "full-capacity in-memory ranking stays bounded");
+    copy(g_saved_key[player], charsmax(g_saved_key[]), "v1:STEAM_0:1:900001");
+    g_saved_ready[player] = true;
+    CheckSaved(SavedPlayerPosition(player) == LEADER_INDEX_LIMIT && g_leader_total == LEADER_INDEX_LIMIT,
+        "personal position remains bounded and correct at full capacity");
     UpdateLeaderScore("v1:STEAM_0:1:999999", 1, 1);
     CheckSaved(!g_leader_ready && g_leader_count == 0 && ArraySize(g_leader_records) == LEADER_INDEX_LIMIT,
         "capacity overflow disables ranking without unbounded allocation");
@@ -600,6 +611,138 @@ public VerifyLeaderboardRestart()
         && equal(g_leader_names[1], "<script>&^"%s"), "new process and map preserve all leaders and metadata");
     CheckSaved(nvault_lookup(g_stats_vault, DURABLE_KEY, value, charsmax(value), stamp) && equal(value, "1 0 2"),
         "predecessor-compatible statistics remain intact");
+    if (!CreateStatsClients()) { set_fail_state("Standing reload fixture unavailable."); return PLUGIN_HANDLED; }
+    JoinStandingPlayer(g_clients[0], 1);
+    ShowPlayerRank(g_clients[0]);
+    CheckSaved(contain(g_last_print, "Your place: 12 of 13.") >= 0, "fresh process restores personal place including offline death-only player");
+    ShowSavedLeaders(g_clients[0]);
+    CheckSaved(contain(g_leader_html, "Your place: 12 of 13.") >= 0, "fresh map restores the same personal MOTD footer");
     server_print("PLAYER_LEADERBOARD_RELOAD=%s failures=%d", g_failures ? "failed" : "passed", g_failures);
+    return PLUGIN_HANDLED;
+}
+
+
+JoinStandingPlayer(id, number)
+{
+    new rejected[128];
+    client_disconnected(id, false, rejected, charsmax(rejected));
+    formatex(g_auth[id], charsmax(g_auth[]), "STEAM_0:1:%d", 800000 + number);
+    client_putinserver(id);
+}
+
+public RunPlayerStandingSmoke()
+{
+    if (!CreateStatsClients()) { set_fail_state("Standing fixture unavailable."); return PLUGIN_HANDLED; }
+    SeedLeaderboardRecords();
+    new player = g_clients[0], rejected[128], value[64], before_stamp, after_stamp;
+    JoinStandingPlayer(player, 1);
+    CheckSaved(g_leader_total == 12, "denominator includes offline scores and excludes zero-zero records");
+    nvault_lookup(g_stats_vault, "v1:STEAM_0:1:800001", value, charsmax(value), before_stamp);
+    new writes = g_vault_writes, reads = g_leader_reads, rebuilds = g_leader_rebuilds;
+    for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
+    {
+        new expected[160];
+        g_language_override[player] = language + 1;
+        formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], "GS_STANDING_POSITION", 12, 12);
+        g_stats_next[player][2] = 0.0;
+        new prints = g_prints;
+        ShowPlayerRank(player);
+        CheckSaved(g_prints == prints + 2 && g_print_target == player && contain(g_last_print, expected) >= 0,
+            "RU and EN rank adds exactly one private personal-place line");
+        ShowPlayerRank(player);
+        CheckSaved(g_prints == prints + 2, "existing rank cooldown covers progress and standing together");
+        g_stats_next[player][3] = 0.0;
+        ShowSavedLeaders(player);
+        CheckSaved(contain(g_leader_html, expected) >= 0 && contain(g_leader_html, "#10 ") >= 0
+            && contain(g_leader_html, "#11 ") < 0 && contain(g_leader_html, "STEAM_") < 0,
+            "outside-top-ten player gets a private footer without an extra public row or identity");
+    }
+    nvault_lookup(g_stats_vault, "v1:STEAM_0:1:800001", value, charsmax(value), after_stamp);
+    CheckSaved(g_vault_writes == writes && g_leader_reads == reads && g_leader_rebuilds == rebuilds
+        && equal(value, "1 10 1") && before_stamp == after_stamp,
+        "rank and MOTD preserve source values timestamps and cache without storage writes or file reads");
+
+    JoinStandingPlayer(player, 11);
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Your place: 1 of 12.") >= 0, "exact tie follows the canonical key order");
+    ShowSavedLeaders(player);
+    CheckSaved(contain(g_leader_html, "Your place:") < 0, "top-ten player does not get a duplicate personal footer");
+    g_saved_deaths[player] = 3;
+    SavePlayerStats(player);
+    g_stats_next[player][2] = 0.0;
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Your place: 1 of 12.") >= 0 && TopKey(0, "v1:STEAM_0:1:800011"),
+        "personal place and top ten stay on the same snapshot during the refresh window");
+    g_leader_refresh_after = 0.0;
+    RefreshSavedLeaders();
+    g_stats_next[player][2] = 0.0;
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Your place: 2 of 12.") >= 0 && TopKey(0, "v1:STEAM_0:1:800012"),
+        "fewer deaths wins and both views advance together after refresh");
+    JoinStandingPlayer(player, 11);
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Your place: 2 of 12.") >= 0 && g_saved_deaths[player] == 3,
+        "reconnect retains saved standing and resets only command cooldown");
+
+    JoinStandingPlayer(player, 14);
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "after your first saved kill or death") >= 0 && g_leader_total == 12,
+        "new identity is unranked and does not inflate denominator");
+    ShowSavedLeaders(player);
+    CheckSaved(contain(g_leader_html, "after your first saved kill or death") >= 0, "MOTD explains absent personal results");
+    RecordMapDeath(0, player);
+    g_stats_next[player][2] = 0.0;
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "when the leaderboard refreshes") >= 0 && g_leader_total == 12,
+        "first score within the cache window is pending rather than a fabricated position");
+    g_stats_next[player][3] = 0.0;
+    ShowSavedLeaders(player);
+    CheckSaved(contain(g_leader_html, "when the leaderboard refreshes") >= 0, "MOTD shares the first-score pending state");
+    g_leader_refresh_after = 0.0;
+    RefreshSavedLeaders();
+    g_stats_next[player][2] = 0.0;
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Your place: 13 of 13.") >= 0, "death-only result joins the shared denominator after refresh");
+    rg_set_user_team(player, TEAM_SPECTATOR);
+    g_stats_next[player][2] = 0.0;
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Your place: 13 of 13.") >= 0, "spectator keeps personal standing");
+
+    new prints = g_prints, motds = g_motds;
+    g_stats_next[player][2] = 0.0; g_stats_next[player][3] = 0.0;
+    set_pcvar_num(g_enabled, 0);
+    ShowPlayerRank(player); ShowSavedLeaders(player);
+    set_pcvar_num(g_enabled, 1);
+    g_human[player] = false;
+    ShowPlayerRank(player); ShowSavedLeaders(player);
+    ShowPlayerRank(0); ShowSavedLeaders(0);
+    g_human[player] = true;
+    CheckSaved(g_prints == prints && g_motds == motds, "disabled bot and invalid callers receive neither standing surface");
+
+    client_disconnected(player, false, rejected, charsmax(rejected));
+    copy(g_auth[player], charsmax(g_auth[]), "STEAM_ID_PENDING");
+    client_putinserver(player);
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_last_print, "Saved rank unavailable") >= 0, "pending identity never reuses the previous occupant position");
+    ShowSavedLeaders(player);
+    CheckSaved(contain(g_leader_html, "Your overall place is temporarily unavailable") >= 0,
+        "leaderboard remains readable while personal identity is unavailable");
+    JoinStandingPlayer(player, 14);
+    g_leader_ready = false;
+    ShowPlayerRank(player);
+    CheckSaved(contain(g_previous_print, "Saved rank: Recruit") >= 0
+        && contain(g_last_print, "Your overall place is temporarily unavailable") >= 0,
+        "unavailable index keeps the saved rank tier without a stale personal position");
+    g_leader_ready = true;
+    nvault_prune(g_stats_vault, 0, 0);
+    CloseLeaderFixture(); OpenLeaderFixture();
+    JoinStandingPlayer(player, 14);
+    motds = g_motds;
+    ShowSavedLeaders(player);
+    CheckSaved(g_motds == motds && contain(g_previous_print, "No saved human scores yet") >= 0
+        && contain(g_last_print, "after your first saved kill or death") >= 0 && g_leader_total == 0,
+        "empty table explains the first-score requirement without a zero-of-zero position");
+    server_print("PLAYER_STANDING_SMOKE=%s failures=%d languages=2 snapshot=shared storage_writes=none",
+        g_failures ? "failed" : "passed", g_failures);
     return PLUGIN_HANDLED;
 }

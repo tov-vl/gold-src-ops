@@ -2840,6 +2840,16 @@ map addon/baseline/agent. MOTD в реальном клиенте пока не 
 остается отложенной.
 См. [границу и проверки v2.52](v2.52-player-leaderboard.md).
 
+### v2.53 - Личное место в общем рейтинге
+
+Локально готово: addon 0.20.0 добавляет личную позицию в ручной `/rank` и footer
+`/topall` для игрока вне топ-10. Место и число участников используют тот же
+снимок счетчиков и порядок, что и таблица лидеров. Для первого результата,
+ожидания обновления и недоступных данных есть RU/EN сообщения. Новые записи
+хранилища не вводятся. Компиляция, focused/full gameplay regression,
+fresh-process восстановление и package checks прошли; required CI, публикация
+и установка еще не выполнены. См. [границу v2.53](v2.53-player-standing.md).
+
 ### Addon CI Optimization
 
 Status as of 2026-10-07: merged into `main`; required PR and post-merge CI passed.
