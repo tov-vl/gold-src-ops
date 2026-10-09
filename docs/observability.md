@@ -218,6 +218,9 @@ The API leaderboard worker emits bounded observations through the existing
 `GoldSrcOps` Meter and Collector. Dashboard `goldsrcops-public-leaderboard` and
 four pending warnings cover stale/unavailable data, stalled passes and missing
 observations. Disabled and valid-empty states do not produce data warnings;
-operator busy allowance expires after 15 minutes. See the
+operator busy allowance expires after 15 minutes. Gauge aggregation selects the
+current API resource before reading retained Collector data. The existing API
+OTLP interval is 60 seconds; snapshot age describes that observation, which can
+precede the latest public API snapshot. See the
 [v2.58 contract](v2.58-leaderboard-monitoring.md) for metric names, thresholds,
 recovery boundary and claim limits. Direct notification delivery remains deferred.

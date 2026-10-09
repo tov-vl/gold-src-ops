@@ -2990,8 +2990,13 @@ jobs прошли. Независимые source/API строки совпали
 
 ### v2.58 - Мониторинг свежести рейтинга
 
-Реализация и проверка в работе: метрики API, provisioned Grafana dashboard и
-четыре warning правила Prometheus. Короткие пропуски и отключенный источник
-учтены; длительная занятость не скрывает устаревание. Scope API/monitoring,
-без gameplay, схемы, scoring и личных уведомлений. См. [контракт](v2.58-leaderboard-monitoring.md)
-и [readiness](v2.58-readiness.md).
+Принято 2026-10-09: stable `v2.58.0` опубликован из `v2.58.0-rc.2`.
+Метрики API, provisioned Grafana dashboard и четыре Prometheus warning правила
+проверены на target. Сохраненные метрики прежнего API не смешиваются с текущими;
+25 policy сценариев покрывают в том числе четыре restart regression.
+Автоматические успешные проходы продвинулись на 60,128 секунды, соответствующие
+API/telemetry снимки совпали. Пересозданы только API/Prometheus, остальные пять
+контейнеров, private ports и volumes сохранены. CI и stable promotion зеленые,
+новой сборки или повторного rollout при promotion не было. См. [контракт](v2.58-leaderboard-monitoring.md)
+и [readiness](v2.58-readiness.md). Первый weekly backup 2026-10-11 в 04:00 МСК
+и отложенная клиентская приемка остаются отдельными этапами.
