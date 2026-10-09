@@ -6,7 +6,9 @@ using GoldSrcOps.Application.Servers;
 using GoldSrcOps.Application.Telemetry;
 using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Domain.Commands;
+using GoldSrcOps.Infrastructure.Monitoring;
 using GoldSrcOps.UnitTests.Helpers;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GoldSrcOps.UnitTests.Api;
 
@@ -99,6 +101,22 @@ public sealed class MetricsEndpointIntegrationTests
         body.Should().Contain("goldsrcops_snapshot_retention_runs");
         body.Should().Contain("goldsrcops_snapshot_retention_snapshots_deleted");
         body.Should().Contain("goldsrcops_snapshot_retention_duration");
+    }
+
+    [Fact]
+    public async Task Disabled_leaderboard_worker_exports_live_freshness_gauges()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(
+            configureTestServices: services => services.AddHostedService<PublicLeaderboardBackgroundService>());
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync("/metrics");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("goldsrcops_leaderboard_enabled");
+        body.Should().Contain("goldsrcops_leaderboard_observed_timestamp_seconds");
+        body.Should().Contain("goldsrcops_leaderboard_snapshot_available");
+        body.Should().Contain("goldsrcops_leaderboard_last_success_timestamp_seconds");
+        body.Should().Contain("state=\"disabled\"");
     }
 
     [Fact]

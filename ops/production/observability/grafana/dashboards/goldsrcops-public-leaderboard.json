@@ -1,0 +1,625 @@
+{
+  "id": null,
+  "uid": "goldsrcops-public-leaderboard",
+  "title": "GoldSrcOps - Свежесть рейтинга",
+  "description": "Bounded API leaderboard observations; in-stack warnings only.",
+  "editable": false,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "30s",
+  "timezone": "Europe/Moscow",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "tags": [
+    "goldsrcops",
+    "leaderboard"
+  ],
+  "annotations": {
+    "list": []
+  },
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Границы наблюдения",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Обновление раз в минуту. Возраст считается от снимка источника; время успеха - от завершения чтения API. Пустой успешный снимок допустим. Предупреждения ждут пять минут; операторские пропуски допускаются до 15 минут. Отключенный рейтинг не создает предупреждений о данных. Личная доставка пока не настроена."
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Монитор доступен",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(count(goldsrcops_leaderboard:monitor_live)) and on() goldsrcops_leaderboard:monitor_live",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Рейтинг включен",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 3,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max(goldsrcops_leaderboard_enabled{job=\"goldsrcops\",service_name=\"GoldSrcOps\"})) and on() goldsrcops_leaderboard:monitor_live",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Снимок доступен",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 3,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max(goldsrcops_leaderboard_snapshot_available{job=\"goldsrcops\",service_name=\"GoldSrcOps\"})) and on() goldsrcops_leaderboard:monitor_live",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Строки",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 3,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max(goldsrcops_leaderboard_rows{job=\"goldsrcops\",service_name=\"GoldSrcOps\"})) and on() goldsrcops_leaderboard:monitor_live",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Возраст снимка",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max(goldsrcops_leaderboard_snapshot_age_seconds{job=\"goldsrcops\",service_name=\"GoldSrcOps\"}) and (max(goldsrcops_leaderboard_snapshot_available{job=\"goldsrcops\",service_name=\"GoldSrcOps\"}) == 1)) and on() goldsrcops_leaderboard:monitor_live",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Последний успех",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "dateTimeFromNow",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((max(goldsrcops_leaderboard_last_success_timestamp_seconds{job=\"goldsrcops\",service_name=\"GoldSrcOps\"}) > 0) * 1000) and on() goldsrcops_leaderboard:monitor_live",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Последний проход",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "dateTimeFromNow",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((max(goldsrcops_leaderboard_last_attempt_timestamp_seconds{job=\"goldsrcops\",service_name=\"GoldSrcOps\"}) > 0) * 1000) and on() goldsrcops_leaderboard:monitor_live",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Предупреждения",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(ALERTS{component=\"public-leaderboard\",alertstate=\"firing\"}) or vector(0)",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Исход последнего прохода",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_leaderboard_last_result{job=\"goldsrcops\",service_name=\"GoldSrcOps\"} == 1) and on() goldsrcops_leaderboard:monitor_live",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Проходы за пять минут",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum by (result) (increase(goldsrcops_leaderboard_poll_attempts_total{job=\"goldsrcops\",service_name=\"GoldSrcOps\"}[5m]))) and on() goldsrcops_leaderboard:monitor_live",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Время чтения, p95",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(histogram_quantile(0.95, sum by (le, result) (rate(goldsrcops_leaderboard_poll_duration_seconds_bucket{job=\"goldsrcops\",service_name=\"GoldSrcOps\"}[5m])))) and on() goldsrcops_leaderboard:monitor_live",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    }
+  ]
+}

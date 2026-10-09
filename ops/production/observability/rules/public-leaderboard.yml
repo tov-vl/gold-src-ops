@@ -1,0 +1,57 @@
+groups:
+  - name: goldsrcops-public-leaderboard
+    rules:
+      - record: goldsrcops_leaderboard:monitor_live
+        expr: |
+          (max(goldsrcops_leaderboard_observed_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) > time() - 180) and (max(goldsrcops_leaderboard_observed_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) <= time() + 30) and ((max(goldsrcops_leaderboard_enabled{job="goldsrcops",service_name="GoldSrcOps"}) == 0) or (max(goldsrcops_leaderboard_enabled{job="goldsrcops",service_name="GoldSrcOps"}) == 1))
+          and ((max(goldsrcops_leaderboard_snapshot_available{job="goldsrcops",service_name="GoldSrcOps"}) == 0) or (max(goldsrcops_leaderboard_snapshot_available{job="goldsrcops",service_name="GoldSrcOps"}) == 1))
+          and (max(goldsrcops_leaderboard_snapshot_age_seconds{job="goldsrcops",service_name="GoldSrcOps"}) >= 0)
+          and (max(goldsrcops_leaderboard_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) >= 0)
+          and (max(goldsrcops_leaderboard_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) <= time() + 30)
+          and (max(goldsrcops_leaderboard_last_attempt_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) >= 0)
+          and (max(goldsrcops_leaderboard_last_attempt_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) <= time() + 30)
+          and (max(goldsrcops_leaderboard_last_success_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) >= 0)
+          and (max(goldsrcops_leaderboard_last_success_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) <= time() + 30)
+      - record: goldsrcops_leaderboard:enabled
+        expr: |
+          (max(goldsrcops_leaderboard_enabled{job="goldsrcops",service_name="GoldSrcOps"}) == 1) and goldsrcops_leaderboard:monitor_live
+      - alert: PublicLeaderboardMonitorUnavailable
+        expr: |
+          absent(goldsrcops_leaderboard:monitor_live)
+        for: 5m
+        labels:
+          severity: warning
+          component: public-leaderboard
+        annotations:
+          summary: "Нет свежих наблюдений рейтинга"
+          description: "Проверьте API, Collector и scrape. Состояние обновления рейтинга неизвестно."
+      - alert: PublicLeaderboardRefreshDelayed
+        expr: |
+          (max(goldsrcops_leaderboard_last_attempt_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) < time() - 180) and goldsrcops_leaderboard:enabled
+        for: 5m
+        labels:
+          severity: warning
+          component: public-leaderboard
+        annotations:
+          summary: "Не завершается обновление рейтинга"
+          description: "Проверьте worker и его зависимости. Повторный RCON вручную не требуется."
+      - alert: PublicLeaderboardDataUnavailable
+        expr: |
+          ((max(goldsrcops_leaderboard_snapshot_available{job="goldsrcops",service_name="GoldSrcOps"}) == 0) and goldsrcops_leaderboard:enabled) unless ((max(goldsrcops_leaderboard_last_result{job="goldsrcops",service_name="GoldSrcOps",result="operator_busy"}) == 1) and (max(goldsrcops_leaderboard_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"}) > time() - 900))
+        for: 5m
+        labels:
+          severity: warning
+          component: public-leaderboard
+        annotations:
+          summary: "Нет доступного снимка рейтинга"
+          description: "Проверьте исход чтения и привязку источника. Пустой успешный снимок является доступным."
+      - alert: PublicLeaderboardSnapshotStale
+        expr: |
+          ((max(goldsrcops_leaderboard_snapshot_available{job="goldsrcops",service_name="GoldSrcOps"}) == 1) and (max(goldsrcops_leaderboard_snapshot_age_seconds{job="goldsrcops",service_name="GoldSrcOps"}) > 180) and goldsrcops_leaderboard:enabled) unless ((max(goldsrcops_leaderboard_last_result{job="goldsrcops",service_name="GoldSrcOps",result="operator_busy"}) == 1) and (max(goldsrcops_leaderboard_snapshot_age_seconds{job="goldsrcops",service_name="GoldSrcOps"}) <= 900))
+        for: 5m
+        labels:
+          severity: warning
+          component: public-leaderboard
+        annotations:
+          summary: "Снимок рейтинга устарел"
+          description: "Проверьте исход чтения. Пропуски из-за операторских команд допускаются до 15 минут, затем предупреждение ожидает еще пять минут."

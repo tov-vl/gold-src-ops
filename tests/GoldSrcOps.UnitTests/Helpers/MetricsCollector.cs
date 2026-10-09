@@ -8,11 +8,12 @@ internal sealed class MetricsCollector : IDisposable
     private readonly MeterListener _listener = new();
     private readonly ConcurrentQueue<CollectedMetric> _measurements = new();
 
-    public MetricsCollector(string meterName)
+    public MetricsCollector(string meterName, Predicate<Instrument>? instrumentFilter = null)
     {
         _listener.InstrumentPublished = (instrument, listener) =>
         {
-            if (string.Equals(instrument.Meter.Name, meterName, StringComparison.Ordinal))
+            if (string.Equals(instrument.Meter.Name, meterName, StringComparison.Ordinal) &&
+                (instrumentFilter is null || instrumentFilter(instrument)))
             {
                 listener.EnableMeasurementEvents(instrument);
             }
