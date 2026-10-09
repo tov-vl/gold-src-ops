@@ -34,6 +34,12 @@ new g_leader_html[1536];
 new g_leader_title[64];
 new g_motds;
 new g_vault_writes;
+new g_streak_writes;
+new bool:g_fail_streak_readback;
+new bool:g_drop_streak_write;
+new bool:g_streak_write_seen;
+new g_streak_print[192];
+new g_streak_print_target;
 new const DURABLE_KEY[] = "v1:STEAM_0:1:424242";
 
 public plugin_init()
@@ -41,6 +47,9 @@ public plugin_init()
     ProductPluginInit();
     register_srvcmd("goldsrcops_leaderboard_smoke", "RunLeaderboardSmoke");
     register_srvcmd("goldsrcops_standing_smoke", "RunPlayerStandingSmoke");
+    register_srvcmd("goldsrcops_saved_streak_smoke", "RunSavedStreakSmoke");
+    register_srvcmd("goldsrcops_saved_streak_seed", "SeedSavedStreak");
+    register_srvcmd("goldsrcops_saved_streak_verify", "VerifySavedStreak");
     register_srvcmd("goldsrcops_leaderboard_seed", "SeedLeaderboardRestart");
     register_srvcmd("goldsrcops_leaderboard_verify", "VerifyLeaderboardRestart");
     register_srvcmd("goldsrcops_persistent_stats_smoke", "RunPersistentStatsSmoke");
@@ -61,6 +70,20 @@ FixtureAuthId(id, buffer[], length)
 FixturePrint(id, type, const message[], any:...)
 {
     #pragma unused type
+    if (contain(message, "%L") >= 0 && numargs() >= 5)
+    {
+        new key[64];
+        for (new index = 0; index < charsmax(key); index++)
+        {
+            key[index] = getarg(4, index);
+            if (!key[index]) { break; }
+        }
+        if (equal(key, "GS_STREAK_SAVED") || equal(key, "GS_STREAK_UNAVAILABLE") || equal(key, "GS_STREAK_RECORD"))
+        {
+            vformat(g_streak_print, charsmax(g_streak_print), message, 4);
+            g_streak_print_target = id;
+        }
+    }
     g_prints++;
     g_print_target = id;
     copy(g_previous_print, charsmax(g_previous_print), g_last_print);
@@ -70,7 +93,8 @@ FixturePrint(id, type, const message[], any:...)
 
 FixtureVaultLookup(vault, const key[], value[], maxlen, &timestamp)
 {
-    return g_fail_readback ? 0 : nvault_lookup(vault, key, value, maxlen, timestamp);
+    if (g_fail_readback || (g_fail_streak_readback && g_streak_write_seen && equal(key, "streak:", 7))) { return 0; }
+    return nvault_lookup(vault, key, value, maxlen, timestamp);
 }
 
 CheckSaved(bool:passed, const label[])
@@ -162,8 +186,9 @@ public RunPersistentStatsSmoke()
     client_putinserver(player);
     CheckSaved(g_saved_ready[player] && g_saved_kills[player] == 1
         && !g_map_kills[player] && !g_map_deaths[player], "reconnect restores totals not map leaders");
+    g_prints = 0;
     ShowMapStats(player);
-    CheckSaved(contain(g_last_print, "Saved totals: K 1 | D 0 | K/D 1.00") >= 0 && g_prints == 2, "saved private response with connection streak");
+    CheckSaved(contain(g_last_print, "Saved totals: K 1 | D 0 | K/D 1.00") >= 0 && g_prints == 3, "saved private response with connection streak");
 
     copy(g_auth[duplicate], charsmax(g_auth[]), "STEAM_1:1:424242");
     client_putinserver(duplicate);
@@ -219,6 +244,8 @@ CheckPlayerRanks(player, victim)
     new const key[] = "v1:STEAM_0:1:424246";
     new value[64], timestamp, rejected[128];
     nvault_remove(g_stats_vault, key);
+    // Keep this rank-specific test below an existing streak record.
+    nvault_set(g_preferences_vault, "streak:v1:STEAM_0:1:424246", "1 100");
     copy(g_auth[player], charsmax(g_auth[]), "STEAM_0:1:424246");
     client_putinserver(player);
     g_prints = 0;
@@ -239,10 +266,10 @@ CheckPlayerRanks(player, victim)
     ShowPlayerRank(player);
     CheckSaved(g_prints == 2, "rank repeat throttled");
     ShowMapStats(player);
-    CheckSaved(g_prints == 4, "rank cooldown independent of stats");
+    CheckSaved(g_prints == 5, "rank cooldown independent of stats");
     g_stats_next[player][2] = get_gametime();
     ShowPlayerRank(player);
-    CheckSaved(g_prints == 6, "rank cooldown expires");
+    CheckSaved(g_prints == 7, "rank cooldown expires");
 
     nvault_set(g_stats_vault, key, "1 24 7");
     client_putinserver(player);
@@ -378,6 +405,12 @@ FixtureMotd(id, const html[], const title[])
 FixtureStatsSet(vault, const key[], const value[])
 {
     g_vault_writes++;
+    if (equal(key, "streak:", 7))
+    {
+        g_streak_writes++;
+        g_streak_write_seen = true;
+        if (g_drop_streak_write) { return 0; }
+    }
     return nvault_set(vault, key, value);
 }
 
@@ -744,5 +777,246 @@ public RunPlayerStandingSmoke()
         "empty table explains the first-score requirement without a zero-of-zero position");
     server_print("PLAYER_STANDING_SMOKE=%s failures=%d languages=2 snapshot=shared storage_writes=none",
         g_failures ? "failed" : "passed", g_failures);
+    return PLUGIN_HANDLED;
+}
+
+new const STREAK_TEST_KEY[] = "streak:v1:STEAM_0:1:910001";
+
+StreakEnemyKill(player, victim)
+{
+    rg_set_user_team(victim, TEAM_TERRORIST);
+    rg_round_respawn(victim);
+    ExecuteHamB(Ham_TakeDamage, victim, player, player, 1000.0, DMG_BULLET);
+}
+
+public RunSavedStreakSmoke()
+{
+    if (!CreateStatsClients() || g_preferences_vault == INVALID_HANDLE)
+    {
+        set_fail_state("Saved streak fixture unavailable.");
+        return PLUGIN_HANDLED;
+    }
+    new best, value[96], stamp, expected[192];
+    CheckSaved(DecodeSavedStreak("1 0", best) && !best, "zero record decodes without a default write");
+    CheckSaved(DecodeSavedStreak("1 1000000000", best) && best == STATS_COUNTER_LIMIT, "record upper bound");
+    new const invalid[][] = { "", "2 7", "1 -1", "1 x", "1 7 8", "1 1000000001", "1 999999999999",
+        "1 01", "1 7 ", " 1 7", "^"1^" 7", "1 7x" };
+    for (new index = 0; index < sizeof invalid; index++)
+    {
+        CheckSaved(!DecodeSavedStreak(invalid[index], best), "noncanonical record rejected");
+    }
+    new player = g_clients[0], victim = g_clients[1], duplicate = g_clients[2];
+    nvault_remove(g_preferences_vault, STREAK_TEST_KEY);
+    g_streak_print[0] = 0;
+    RecordKillStreak(player);
+    CheckSaved(g_kill_streak[player] == 1 && !g_streak_ready[player] && !g_streak_writes,
+        "unknown identity cannot create a record");
+    copy(g_auth[player], charsmax(g_auth[]), "STEAM_0:1:910001");
+    nvault_set(g_stats_vault, "v1:STEAM_0:1:910001", "1 7 3");
+    nvault_touch(g_stats_vault, "v1:STEAM_0:1:910001", 123456789);
+    nvault_set(g_preferences_vault, "v1:STEAM_0:1:910001", "1 2 1 2");
+    nvault_touch(g_preferences_vault, "v1:STEAM_0:1:910001", 123456789);
+    nvault_set(g_preferences_vault, "hud:v1:STEAM_0:1:910001", "1 1");
+    nvault_touch(g_preferences_vault, "hud:v1:STEAM_0:1:910001", 123456789);
+    client_authorized(player, g_auth[player]);
+    CheckSaved(g_streak_ready[player] && !g_saved_streak[player] && !g_record_streak[player] && !g_streak_writes,
+        "late identity loads empty record without importing unknown streak");
+    new writes = g_vault_writes, prints = g_prints;
+    ShowMapStats(player);
+    CheckSaved(g_vault_writes == writes && g_prints == prints + 3 && g_streak_print_target == player
+        && contain(g_streak_print, "Saved best streak: 0") >= 0,
+        "three private stats lines are read-only including absent saved record");
+    ShowMapStats(player);
+    CheckSaved(g_prints == prints + 3, "existing stats cooldown covers record line");
+    StreakEnemyKill(player, victim);
+    CheckSaved(g_saved_streak[player] == 1 && g_record_streak[player] == 1 && g_kill_streak[player] == 2
+        && nvault_lookup(g_preferences_vault, STREAK_TEST_KEY, value, charsmax(value), stamp) && equal(value, "1 1"),
+        "native kill persists only the authorized part of a life");
+    CheckSaved(contain(g_streak_print, "New saved streak record: 1!") >= 0 && g_streak_print_target == player,
+        "native saved record notification stays private");
+    CheckSaved(nvault_lookup(g_preferences_vault, "v1:STEAM_0:1:910001", value, charsmax(value), stamp)
+        && equal(value, "1 2 1 2") && stamp == 123456789, "record does not change legacy preference value or timestamp");
+    CheckSaved(nvault_lookup(g_preferences_vault, "hud:v1:STEAM_0:1:910001", value, charsmax(value), stamp)
+        && equal(value, "1 1") && stamp == 123456789, "record does not change HUD value or timestamp");
+
+    for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
+    {
+        nvault_set(g_preferences_vault, STREAK_TEST_KEY, "1 2");
+        client_putinserver(player);
+        rg_round_respawn(player);
+        g_language_override[player] = language + 1;
+        new before = g_streak_writes;
+        prints = g_prints;
+        StreakEnemyKill(player, victim);
+        StreakEnemyKill(player, victim);
+        CheckSaved(g_streak_writes == before && g_prints == prints && g_saved_streak[player] == 2,
+            "lower and equal streaks neither rewrite nor announce record");
+        StreakEnemyKill(player, victim);
+        formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_STREAK_RECORD", 3);
+        CheckSaved(g_streak_writes == before + 1 && g_prints == prints + 1
+            && equal(g_last_print, expected) && g_print_target == player,
+            "RU EN new record replaces coincident milestone with one confirmed message");
+        StreakEnemyKill(player, victim);
+        CheckSaved(g_saved_streak[player] == 4 && g_streak_writes == before + 2, "record increases monotonically within life");
+        g_stats_next[player][0] = 0.0;
+        ShowMapStats(player);
+        formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_STREAK_SAVED", 4);
+        CheckSaved(bool:equal(g_streak_print, expected), "RU EN stats distinguishes saved record from current and map best");
+        RecordMapDeath(0, player);
+        CheckSaved(!g_record_streak[player] && !g_kill_streak[player] && g_saved_streak[player] == 4,
+            "world death ends both life counters and retains saved record");
+    }
+    new rejected[128];
+    client_disconnected(player, false, rejected, charsmax(rejected));
+    client_putinserver(player);
+    rg_round_respawn(player);
+    CheckSaved(g_saved_streak[player] == 4 && !g_record_streak[player] && !g_best_streak[player],
+        "reconnect restores only the saved record");
+    copy(g_auth[duplicate], charsmax(g_auth[]), "STEAM_1:1:910001");
+    client_putinserver(duplicate);
+    rg_round_respawn(duplicate);
+    writes = g_streak_writes;
+    RecordKillStreak(duplicate);
+    CheckSaved(!g_streak_ready[duplicate] && g_streak_writes == writes, "duplicate connected identity cannot save record");
+    client_disconnected(player, false, rejected, charsmax(rejected));
+    EnsureSavedStreak(duplicate);
+    CheckSaved(g_streak_ready[duplicate] && g_saved_streak[duplicate] == 4 && !g_record_streak[duplicate],
+        "duplicate acquires record only after owner leaves without importing its previous life");
+    client_disconnected(duplicate, false, rejected, charsmax(rejected));
+    copy(g_auth[duplicate], charsmax(g_auth[]), "STEAM_ID_PENDING");
+    client_putinserver(player);
+    rg_round_respawn(player);
+
+    writes = g_streak_writes;
+    rg_set_user_team(victim, TEAM_CT);
+    RecordMapDeath(player, victim);
+    rg_set_user_team(victim, TEAM_TERRORIST);
+    g_human[victim] = false;
+    RecordMapDeath(player, victim);
+    g_human[victim] = true;
+    rg_set_user_team(player, TEAM_SPECTATOR);
+    RecordMapDeath(player, victim);
+    rg_set_user_team(player, TEAM_CT);
+    set_pcvar_num(g_enabled, 0);
+    RecordMapDeath(player, victim);
+    set_pcvar_num(g_enabled, 1);
+    CheckSaved(!g_record_streak[player] && g_streak_writes == writes, "team bot spectator and disabled kills cannot advance saved streak");
+    for (new kind = 0; kind < 4; kind++)
+    {
+        g_record_streak[player] = 3;
+        if (kind == 0) { RecordMapDeath(player, player); }
+        if (kind == 1) { g_human[victim] = false; RecordMapDeath(victim, player); g_human[victim] = true; }
+        if (kind == 2) { rg_set_user_team(victim, TEAM_CT); RecordMapDeath(victim, player); rg_set_user_team(victim, TEAM_TERRORIST); }
+        if (kind == 3) { set_pcvar_num(g_enabled, 0); RecordMapDeath(victim, player); set_pcvar_num(g_enabled, 1); }
+        CheckSaved(!g_record_streak[player] && g_saved_streak[player] == 4, "excluded deaths clear record life counter without lowering saved best");
+    }
+    ExecuteHamB(Ham_TakeDamage, player, victim, victim, 1000.0, DMG_BULLET);
+    RecordMapDeath(player, victim);
+    CheckSaved(!g_record_streak[player] && g_streak_writes == writes, "posthumous kill cannot advance saved record");
+    rg_round_respawn(player);
+
+    nvault_set(g_preferences_vault, STREAK_TEST_KEY, "2 99");
+    client_putinserver(player);
+    writes = g_streak_writes;
+    RecordKillStreak(player);
+    CheckSaved(g_streak_blocked[player] && !g_streak_ready[player] && g_streak_writes == writes
+        && nvault_lookup(g_preferences_vault, STREAK_TEST_KEY, value, charsmax(value), stamp) && equal(value, "2 99"),
+        "corrupt record remains intact and blocks writes");
+    g_stats_next[player][0] = 0.0;
+    ShowMapStats(player);
+    CheckSaved(contain(g_streak_print, "unavailable") >= 0 && g_saved_ready[player] && g_preferences_ready[player],
+        "record failure is explicit and leaves saved stats and preferences available");
+    g_preferences_dirty[player] = PREFERENCE_PRIMARY;
+    SavePlayerPreferences(player);
+    CheckSaved(g_preferences_ready[player] && !g_preferences_dirty[player], "record-only failure does not block preference write");
+    nvault_set(g_preferences_vault, STREAK_TEST_KEY, "1 4");
+    nvault_set(g_preferences_vault, "v1:STEAM_0:1:910001", "2 1 1 1");
+    client_putinserver(player);
+    RecordKillStreak(player);
+    CheckSaved(!g_streak_ready[player] && g_streak_writes == writes, "blocked preference identity cannot be bypassed");
+    nvault_set(g_preferences_vault, "v1:STEAM_0:1:910001", "1 2 1 2");
+
+    for (new failure = 0; failure < 2; failure++)
+    {
+        nvault_set(g_preferences_vault, STREAK_TEST_KEY, "1 4");
+        client_putinserver(player);
+        g_record_streak[player] = 4;
+        g_streak_write_seen = false;
+        g_fail_streak_readback = failure == 0;
+        g_drop_streak_write = failure == 1;
+        prints = g_prints;
+        writes = g_streak_writes;
+        RecordKillStreak(player);
+        g_fail_streak_readback = false;
+        g_drop_streak_write = false;
+        CheckSaved(g_streak_blocked[player] && !g_streak_ready[player] && g_saved_streak[player] == 4
+            && g_streak_writes == writes + 1 && g_prints == prints, "missing or mismatched readback never announces saved success");
+        RecordKillStreak(player);
+        EnsureSavedStreak(player);
+        CheckSaved(g_streak_writes == writes + 1, "uncertain write is never automatically retried");
+        client_putinserver(player);
+        CheckSaved(g_streak_ready[player] && g_saved_streak[player] == (failure == 0 ? 5 : 4),
+            "reconnect reconciles actual vault state without replay");
+    }
+    new vault = g_preferences_vault;
+    g_preferences_vault = INVALID_HANDLE;
+    client_putinserver(player);
+    writes = g_streak_writes;
+    RecordKillStreak(player);
+    CheckSaved(!g_streak_ready[player] && g_kill_streak[player] == 1 && g_streak_writes == writes,
+        "unavailable vault retains local streak without persistence");
+    g_preferences_vault = vault;
+    nvault_set(g_preferences_vault, STREAK_TEST_KEY, "1 1000000000");
+    client_putinserver(player);
+    g_record_streak[player] = STATS_COUNTER_LIMIT;
+    writes = g_streak_writes;
+    RecordKillStreak(player);
+    CheckSaved(g_record_streak[player] == STATS_COUNTER_LIMIT && g_saved_streak[player] == STATS_COUNTER_LIMIT
+        && g_streak_writes == writes, "saturation neither wraps nor rewrites saved record");
+    g_human[player] = false;
+    g_stats_next[player][0] = 0.0;
+    prints = g_prints;
+    ShowMapStats(player);
+    ShowMapStats(0);
+    g_human[player] = true;
+    set_pcvar_num(g_enabled, 0);
+    ShowMapStats(player);
+    set_pcvar_num(g_enabled, 1);
+    CheckSaved(g_prints == prints, "record display honors invalid bot and disabled gates");
+    OnMapStatsStatus();
+    server_print("PLAYER_SAVED_STREAK_SMOKE=%s failures=%d languages=2 storage=real_nvault native_damage=1",
+        g_failures ? "failed" : "passed", g_failures);
+    return PLUGIN_HANDLED;
+}
+
+public SeedSavedStreak()
+{
+    SeedLeaderboardRestart();
+    if (!CreateStatsClients()) { set_fail_state("Record seed fixture unavailable."); return PLUGIN_HANDLED; }
+    nvault_set(g_preferences_vault, "v1:STEAM_0:1:800001", "1 2 1 2");
+    nvault_touch(g_preferences_vault, "v1:STEAM_0:1:800001", 123456789);
+    nvault_set(g_preferences_vault, "hud:v1:STEAM_0:1:800001", "1 1");
+    nvault_touch(g_preferences_vault, "hud:v1:STEAM_0:1:800001", 123456789);
+    JoinStandingPlayer(g_clients[0], 1);
+    rg_round_respawn(g_clients[0]);
+    for (new count = 0; count < 7; count++) { RecordKillStreak(g_clients[0]); }
+    CheckSaved(g_saved_streak[g_clients[0]] == 7 && g_streak_writes == 7, "seed saved record through real vault writes");
+    server_print("PLAYER_SAVED_STREAK_SEED=%s failures=%d", g_failures ? "failed" : "passed", g_failures);
+    return PLUGIN_HANDLED;
+}
+
+public VerifySavedStreak()
+{
+    VerifyLeaderboardRestart();
+    new player = g_clients[0], value[64], stamp;
+    CheckSaved(g_streak_ready[player] && g_saved_streak[player] == 7 && !g_record_streak[player]
+        && !g_kill_streak[player] && !g_best_streak[player] && !g_streak_writes,
+        "fresh process and different map restore saved record without importing active streak");
+    CheckSaved(nvault_lookup(g_preferences_vault, "v1:STEAM_0:1:800001", value, charsmax(value), stamp)
+        && equal(value, "1 2 1 2") && stamp == 123456789 && g_hud_disabled[player],
+        "record recovery retains old preferences and HUD");
+    ShowMapStats(player);
+    CheckSaved(contain(g_streak_print, "Saved best streak: 7") >= 0, "restored record is visible in stats");
+    server_print("PLAYER_SAVED_STREAK_RELOAD=%s failures=%d", g_failures ? "failed" : "passed", g_failures);
     return PLUGIN_HANDLED;
 }
