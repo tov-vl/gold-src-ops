@@ -2825,6 +2825,18 @@ Read-only наблюдатель control-plane раз в минуту перед
 Личная доставка отложена. Первый weekly cycle 2026-10-11 в 04:00 МСК остается
 отдельной приемкой v2.50. См. [запись v2.51](v2.51-player-data-monitoring.md).
 
+### v2.52 - Общий рейтинг игроков
+
+Локально готово: addon 0.19.0, приватный RU/EN `/topall` и восьмой пункт меню.
+Топ-10 строится по сохраненной статистике и включает отключившихся игроков.
+Индекс восстанавливается из прежних vault/journal при старте карты; старые
+счетчики и timestamps не мигрируют. Имена хранятся отдельным namespace
+существующего preferences vault и входят в действующий backup. Компиляция,
+focused engine smoke, общая регрессия, fresh-process recovery, backup/restore,
+обратный переход через 0.18.0 и package checks прошли. Required CI, публикация
+и установка еще не выполнены. Игра вдвоем остается отложенной.
+См. [границу и проверки v2.52](v2.52-player-leaderboard.md).
+
 ### Addon CI Optimization
 
 Status as of 2026-10-07: merged into `main`; required PR and post-merge CI passed.

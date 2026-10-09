@@ -9,12 +9,16 @@
 #define is_user_bot(%1) FixtureIsBot(%1)
 #define get_user_authid(%1,%2,%3) FixtureAuthId(%1,%2,%3)
 #define client_print FixturePrint
+#define show_motd(%1,%2,%3) FixtureMotd(%1,%2,%3)
+#define nvault_set(%1,%2,%3) FixtureStatsSet(%1,%2,%3)
 #define nvault_lookup(%1,%2,%3,%4,%5) FixtureVaultLookup(%1,%2,%3,%4,%5)
 #include <goldsrcops_weapon_selection.sma>
 #undef plugin_init
 #undef is_user_bot
 #undef get_user_authid
 #undef client_print
+#undef show_motd
+#undef nvault_set
 #undef nvault_lookup
 
 new g_clients[3];
@@ -25,11 +29,18 @@ new g_prints;
 new g_print_target;
 new g_last_print[192];
 new bool:g_fail_readback;
+new g_leader_html[1536];
+new g_leader_title[64];
+new g_motds;
+new g_vault_writes;
 new const DURABLE_KEY[] = "v1:STEAM_0:1:424242";
 
 public plugin_init()
 {
     ProductPluginInit();
+    register_srvcmd("goldsrcops_leaderboard_smoke", "RunLeaderboardSmoke");
+    register_srvcmd("goldsrcops_leaderboard_seed", "SeedLeaderboardRestart");
+    register_srvcmd("goldsrcops_leaderboard_verify", "VerifyLeaderboardRestart");
     register_srvcmd("goldsrcops_persistent_stats_smoke", "RunPersistentStatsSmoke");
     register_srvcmd("goldsrcops_persistent_stats_seed", "SeedRestartStats");
     register_srvcmd("goldsrcops_persistent_stats_verify", "VerifyRestartStats");
@@ -349,5 +360,246 @@ public VerifyRestartStats()
     CheckSaved(g_saved_ready[player] && !g_saved_kills[player] && g_saved_deaths[player] == 2
         && !g_map_deaths[player], "fresh plugin/process restored saved identity");
     server_print("PERSISTENT_STATS_RELOAD=%s failures=%d", g_failures ? "failed" : "passed", g_failures);
+    return PLUGIN_HANDLED;
+}
+
+
+FixtureMotd(id, const html[], const title[])
+{
+    CheckSaved(id == g_clients[0], "leaderboard MOTD stays private");
+    copy(g_leader_html, charsmax(g_leader_html), html);
+    copy(g_leader_title, charsmax(g_leader_title), title);
+    g_motds++;
+    return 1;
+}
+FixtureStatsSet(vault, const key[], const value[])
+{
+    g_vault_writes++;
+    return nvault_set(vault, key, value);
+}
+
+CloseLeaderFixture()
+{
+    if (g_stats_vault != INVALID_HANDLE) { nvault_close(g_stats_vault); g_stats_vault = INVALID_HANDLE; }
+    ArrayDestroy(g_leader_records);
+    TrieDestroy(g_leader_keys);
+}
+OpenLeaderFixture()
+{
+    PrepareLeaderIndex();
+    g_stats_vault = nvault_open(STATS_VAULT_NAME);
+    LoadLeaderScores();
+    g_leader_refresh_after = 0.0;
+    RefreshSavedLeaders();
+}
+LeaderFixturePath(path[], length, const extension[])
+{
+    new directory[192];
+    get_localinfo("amxx_datadir", directory, charsmax(directory));
+    formatex(path, length, "%s/vault/%s.%s", directory, STATS_VAULT_NAME, extension);
+}
+SeedLeaderboardRecords()
+{
+    nvault_prune(g_stats_vault, 0, 0);
+    nvault_prune(g_preferences_vault, 0, 0);
+    for (new index = 1; index <= 12; index++)
+    {
+        new key[40], value[40];
+        formatex(key, charsmax(key), "v1:STEAM_0:1:%d", 800000 + index);
+        formatex(value, charsmax(value), "1 %d %d", index >= 11 ? 120 : index * 10, index >= 11 ? 2 : index);
+        nvault_set(g_stats_vault, key, value);
+    }
+    nvault_set(g_stats_vault, "v1:STEAM_0:1:800013", "1 0 0");
+    nvault_set(g_preferences_vault, "name:v1:STEAM_0:1:800012", "1 <script>&^"%s");
+    nvault_set(g_preferences_vault, "name:v1:STEAM_0:1:800010", "1 Кириллица");
+    CloseLeaderFixture();
+    OpenLeaderFixture();
+}
+bool:TopKey(rank, const expected[])
+{
+    if (rank < 0 || rank >= g_leader_count) { return false; }
+    new record[LeaderRecord];
+    ArrayGetArray(g_leader_records, g_leader_top[rank], record);
+    return bool:equal(record[LeaderKey], expected);
+}
+WriteLeaderInsert(file, const key[], const value[])
+{
+    fwrite(file, 3, BLOCK_CHAR);
+    fwrite(file, get_systime(), BLOCK_INT);
+    fwrite(file, strlen(key), BLOCK_CHAR);
+    fwrite_blocks(file, key, strlen(key), BLOCK_CHAR);
+    fwrite(file, strlen(value), BLOCK_SHORT);
+    fwrite_blocks(file, value, strlen(value), BLOCK_CHAR);
+}
+
+public RunLeaderboardSmoke()
+{
+    if (!CreateStatsClients()) { set_fail_state("Leaderboard fixture unavailable."); return PLUGIN_HANDLED; }
+    SeedLeaderboardRecords();
+    CheckSaved(g_leader_ready && ArraySize(g_leader_records) == 13 && g_leader_count == 10,
+        "closed legacy vault imports all disconnected players with a ten-row bound");
+    CheckSaved(TopKey(0, "v1:STEAM_0:1:800011") && TopKey(1, "v1:STEAM_0:1:800012")
+        && TopKey(9, "v1:STEAM_0:1:800003"), "kills deaths and canonical identity produce deterministic order");
+    new player = g_clients[0], victim = g_clients[1], key[48], before[64], after[64], timestamp, before_stamp;
+    nvault_lookup(g_stats_vault, "v1:STEAM_0:1:800011", before, charsmax(before), before_stamp);
+    new reads = g_leader_reads, rebuilds = g_leader_rebuilds, writes = g_vault_writes;
+    for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
+    {
+        g_language_override[player] = language + 1;
+        g_stats_next[player][3] = 0.0;
+        OnPlayerMenuSelected(player, g_player_menu[language], 7);
+        new expected[64];
+        formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], "GS_TOPALL");
+        CheckSaved(equal(g_leader_title, expected) && contain(g_leader_html, "ML_NOTFOUND") < 0,
+            "RU and EN menu dispatch opens localized overall leaders");
+        CheckSaved(contain(g_leader_html, "#10 ") >= 0 && contain(g_leader_html, "#11 ") < 0
+            && contain(g_leader_html, "STEAM_") < 0 && contain(g_leader_html, "<script>") < 0
+            && contain(g_leader_html, "&lt;script&gt;&amp;&quot;%s") >= 0
+            && contain(g_leader_html, "Кириллица") >= 0, "ten bounded rows escape HTML and hide identities while preserving UTF-8");
+        new motds = g_motds;
+        ShowSavedLeaders(player);
+        CheckSaved(g_motds == motds, "repeated display is throttled");
+    }
+    CheckSaved(g_vault_writes == writes && g_leader_reads == reads && g_leader_rebuilds == rebuilds,
+        "inspection uses the shared cache without writes file reads or repeated sorting");
+    nvault_lookup(g_stats_vault, "v1:STEAM_0:1:800011", after, charsmax(after), timestamp);
+    CheckSaved(equal(before, after) && before_stamp == timestamp, "index and display preserve legacy value and timestamp");
+
+    copy(g_auth[player], charsmax(g_auth[]), "STEAM_1:1:800011");
+    client_putinserver(player);
+    CheckSaved(g_saved_ready[player], "existing identity joins without a reset");
+    copy(g_auth[victim], charsmax(g_auth[]), "STEAM_0:1:800012");
+    client_putinserver(victim);
+    rg_set_user_team(player, TEAM_CT);
+    rg_set_user_team(victim, TEAM_TERRORIST);
+    rg_round_respawn(player);
+    rg_round_respawn(victim);
+    ExecuteHamB(Ham_TakeDamage, victim, player, player, 1000.0, DMG_BULLET);
+    CheckSaved(g_saved_kills[player] == 121 && g_saved_deaths[victim] == 3 && g_leader_dirty,
+        "native enemy death updates the verified saved source and invalidates cache");
+    RefreshSavedLeaders();
+    CheckSaved(g_leader_scores[0][0] == 120, "global refresh interval bounds sorting during bursts");
+    g_leader_refresh_after = 0.0;
+    RefreshSavedLeaders();
+    CheckSaved(g_leader_scores[0][0] == 121 && g_leader_scores[1][1] == 3,
+        "next refresh publishes new saved totals");
+    new rejected[128];
+    client_disconnected(player, false, rejected, charsmax(rejected));
+    CheckSaved(TopKey(0, "v1:STEAM_0:1:800011"), "disconnect retains overall standing");
+    formatex(key, charsmax(key), "name:%s", "v1:STEAM_0:1:800011");
+    CheckSaved(nvault_lookup(g_preferences_vault, key, after, charsmax(after), timestamp)
+        && contain(after, "Saved stats fixture") == 2, "join stores bounded name metadata separately");
+    new record_count = ArraySize(g_leader_records);
+    CheckSaved(AddLeaderKey("v1:STEAM_0:1:800011") && ArraySize(g_leader_records) == record_count
+        && !AddLeaderKey("v1:STEAM_1:1:800011"), "canonical index refuses aliases and duplicate rows");
+
+    new motds = g_motds, prints = g_prints;
+    g_stats_next[player][3] = 0.0;
+    set_pcvar_num(g_enabled, 0);
+    ShowSavedLeaders(player);
+    set_pcvar_num(g_enabled, 1);
+    g_human[player] = false;
+    ShowSavedLeaders(player);
+    ShowSavedLeaders(0);
+    g_human[player] = true;
+    CheckSaved(g_motds == motds && g_prints == prints, "disabled bot and invalid callers receive no output");
+    rg_set_user_team(player, TEAM_SPECTATOR);
+    g_stats_next[player][3] = 0.0;
+    ShowSavedLeaders(player);
+    CheckSaved(g_motds == motds + 1, "spectators may inspect overall leaders");
+    new escaped[64];
+    EscapeLeaderName("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&", escaped, charsmax(escaped));
+    CheckSaved(strlen(escaped) <= 63 && contain(escaped, "...") >= 0 && contain(escaped, "&amp;") == 0,
+        "worst-case escaping truncates only complete entities");
+    for (new rank = 0; rank < SAVED_LEADER_LIMIT; rank++)
+    {
+        copy(g_leader_names[rank], charsmax(g_leader_names[]), "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
+        g_leader_scores[rank][0] = STATS_COUNTER_LIMIT;
+        g_leader_scores[rank][1] = STATS_COUNTER_LIMIT;
+    }
+    g_stats_next[player][3] = 0.0;
+    ShowSavedLeaders(player);
+    CheckSaved(strlen(g_leader_html) < 1535 && contain(g_leader_html, "</pre></body></html>") >= 0,
+        "maximal names and counters fit the full MOTD including closing markup");
+
+    CloseLeaderFixture();
+    new path[256];
+    LeaderFixturePath(path, charsmax(path), "journal");
+    new file = fopen(path, "wb");
+    WriteLeaderInsert(file, "v1:STEAM_0:1:800022", "1 999 1");
+    WriteLeaderInsert(file, "v1:STEAM_0:1:800011", "1 1 1");
+    fwrite(file, 4, BLOCK_CHAR);
+    new removed[] = "v1:STEAM_0:1:800012";
+    fwrite(file, strlen(removed), BLOCK_CHAR);
+    fwrite_blocks(file, removed, strlen(removed), BLOCK_CHAR);
+    fclose(file);
+    OpenLeaderFixture();
+    CheckSaved(g_leader_ready && TopKey(0, "v1:STEAM_0:1:800022") && g_leader_scores[0][0] == 999
+        && !nvault_lookup(g_stats_vault, removed, after, charsmax(after), timestamp),
+        "native crash replay includes journal-only insertion replacement and removal");
+    CheckSaved(TopKey(1, "v1:STEAM_0:1:800010"), "replayed removal cannot leave a phantom leader");
+
+    // These malformed bytes never enter the real source vault.
+    new const malformed[] = "addons/amxmodx/data/leaderboard-fixture-invalid.bin";
+    file = fopen(malformed, "wb"); fwrite(file, 0x12345678, BLOCK_INT); fclose(file);
+    CheckSaved(!ReadLeaderVault(malformed), "bad vault header rejected");
+    file = fopen(malformed, "wb"); fwrite(file, 0x6E564C54, BLOCK_INT); fwrite(file, 0x0200, BLOCK_SHORT);
+    fwrite(file, LEADER_INDEX_LIMIT + 1, BLOCK_INT); fclose(file);
+    CheckSaved(!ReadLeaderVault(malformed), "oversized entry count rejected before traversal");
+    file = fopen(malformed, "wb"); fwrite(file, 3, BLOCK_CHAR); fwrite(file, 1, BLOCK_CHAR); fclose(file);
+    CheckSaved(!ReadLeaderJournal(malformed), "truncated journal rejected");
+    file = fopen(malformed, "wb"); fwrite(file, 5, BLOCK_CHAR); fclose(file);
+    CheckSaved(!ReadLeaderJournal(malformed), "unknown journal operation rejected");
+    file = fopen(malformed, "wb"); fwrite(file, 0, BLOCK_CHAR); fwrite(file, 1, BLOCK_CHAR); fclose(file);
+    CheckSaved(!ReadLeaderJournal(malformed), "journal bytes after end marker rejected");
+    delete_file(malformed);
+
+    nvault_set(g_stats_vault, "v1:STEAM_0:1:800022", "2 999 1");
+    CloseLeaderFixture(); OpenLeaderFixture();
+    CheckSaved(!g_leader_ready && g_leader_count == 0, "invalid current score hides the entire table");
+    g_stats_next[player][3] = 0.0;
+    motds = g_motds;
+    ShowSavedLeaders(player);
+    CheckSaved(g_motds == motds && contain(g_last_print, "Overall leaders are temporarily unavailable") >= 0,
+        "unavailable index never presents partial success");
+    nvault_lookup(g_stats_vault, "v1:STEAM_0:1:800022", after, charsmax(after), timestamp);
+    CheckSaved(bool:equal(after, "2 999 1"), "rejected source record remains unchanged");
+
+    nvault_prune(g_stats_vault, 0, 0);
+    CloseLeaderFixture(); OpenLeaderFixture();
+    for (new index = 1; index <= LEADER_INDEX_LIMIT; index++)
+    {
+        formatex(key, charsmax(key), "v1:STEAM_0:1:%d", 900000 + index);
+        UpdateLeaderScore(key, index, 1);
+    }
+    CheckSaved(g_leader_ready && ArraySize(g_leader_records) == LEADER_INDEX_LIMIT, "documented capacity remains usable");
+    g_leader_refresh_after = 0.0;
+    RefreshSavedLeaders();
+    CheckSaved(g_leader_count == 10 && g_leader_scores[0][0] == LEADER_INDEX_LIMIT, "full-capacity in-memory ranking stays bounded");
+    UpdateLeaderScore("v1:STEAM_0:1:999999", 1, 1);
+    CheckSaved(!g_leader_ready && g_leader_count == 0 && ArraySize(g_leader_records) == LEADER_INDEX_LIMIT,
+        "capacity overflow disables ranking without unbounded allocation");
+    server_print("PLAYER_LEADERBOARD_SMOKE=%s failures=%d", g_failures ? "failed" : "passed", g_failures);
+    return PLUGIN_HANDLED;
+}
+
+public SeedLeaderboardRestart()
+{
+    SeedLeaderboardRecords();
+    nvault_set(g_stats_vault, DURABLE_KEY, "1 0 2");
+    server_print("PLAYER_LEADERBOARD_SEED=passed failures=0");
+    return PLUGIN_HANDLED;
+}
+public VerifyLeaderboardRestart()
+{
+    new value[64], stamp;
+    CheckSaved(g_leader_ready && ArraySize(g_leader_records) == 14 && g_leader_dirty,
+        "fresh process enumerates preexisting statistics without client joins");
+    RefreshSavedLeaders();
+    CheckSaved(g_leader_count == 10 && TopKey(0, "v1:STEAM_0:1:800011") && TopKey(9, "v1:STEAM_0:1:800003")
+        && equal(g_leader_names[1], "<script>&^"%s"), "new process and map preserve all leaders and metadata");
+    CheckSaved(nvault_lookup(g_stats_vault, DURABLE_KEY, value, charsmax(value), stamp) && equal(value, "1 0 2"),
+        "predecessor-compatible statistics remain intact");
+    server_print("PLAYER_LEADERBOARD_RELOAD=%s failures=%d", g_failures ? "failed" : "passed", g_failures);
     return PLUGIN_HANDLED;
 }

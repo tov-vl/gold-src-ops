@@ -209,7 +209,7 @@ public RunPlayerMenuSmoke()
         new displays = g_displays;
         OnPlayerMenuSelected(id, g_player_menu[1 - language], 0);
         OnPlayerMenuSelected(id, g_player_menu[language], MENU_EXIT);
-        OnPlayerMenuSelected(id, g_player_menu[language], 7);
+        OnPlayerMenuSelected(id, g_player_menu[language], 8);
         OnLanguageSelected(id, g_language_menu, MENU_EXIT);
         OnSettingsSelected(id, g_settings_menu[1 - language][0], 0);
         OnSettingsSelected(id, g_settings_menu[language][0], 4);
