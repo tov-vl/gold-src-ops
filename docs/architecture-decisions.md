@@ -1893,3 +1893,20 @@ record failure does not block separate preferences or statistics. The existing
 preference identity guard remains authoritative, including duplicate ownership
 and blocked base records. Record feedback is private and replaces a coincident
 3/5/10 streak message. See [the v2.54 record](v2.54-saved-streak.md).
+
+## Decision 42: Public Leaderboard Reads The Authoritative Addon Cache
+
+Expose the existing `/topall` snapshot through one fixed read-only RCON command,
+not a second scoring pipeline or direct vault parser in the control plane.
+Transfer at most ten rows as a versioned ASCII frame with strict UTF-8 hex names,
+complete framing and source timestamps. Private tie-break keys stay in the addon.
+The existing registered server and external RCON secret reference are reused.
+
+A default-off API worker polls only the configured public server once per minute,
+with bounded transport and no queue or database writes. Anonymous HTTP requests
+read a process-local sanitized projection and cannot trigger a game request.
+A failed attempt makes the prior snapshot stale; source unavailability clears it,
+and a one-day ceiling hides retained rows. Static SSR Web encodes names and
+shows explicit fresh, stale, empty and unavailable states. Restart begins empty.
+This is a public pilot, with no persistent leaderboard history or real-time promise.
+See [the v2.57 contract and recovery boundary](v2.57-public-leaderboard.md).

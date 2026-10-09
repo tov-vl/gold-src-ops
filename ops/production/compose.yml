@@ -59,6 +59,7 @@ services:
       GOLDSRCOPS_RCON_SECRET_ALIAS: ${GOLDSRCOPS_RCON_SECRET_ALIAS:?Set GOLDSRCOPS_RCON_SECRET_ALIAS}
       AlertDelivery__Enabled: "false"
       Polling__Enabled: "true"
+      PublicLeaderboard__Enabled: ${GOLDSRCOPS_PUBLIC_LEADERBOARD_ENABLED:-false}
       PublicServerJoin__ServerId: ${GOLDSRCOPS_PUBLIC_SERVER_ID:-}
       PublicServerJoin__Name: ${GOLDSRCOPS_PUBLIC_SERVER_NAME:-}
       PublicServerJoin__Host: ${GOLDSRCOPS_PUBLIC_SERVER_HOST:-}

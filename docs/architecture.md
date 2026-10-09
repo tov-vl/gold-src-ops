@@ -497,3 +497,14 @@ The current test suite keeps the layers visible:
   atomic incident/outbox commit, concurrent outbox claims, per-incident
   ordering, recovery, statistics, and retention, and repeat migration
   application when the database role and application schema share a name.
+
+## Public Player Leaderboard
+
+The addon owns scoring and ordering; the control plane only projects the shared
+`/topall` cache. Infrastructure polls a fixed read-only export command with the
+existing server registration and credential resolver. Application owns the
+thread-safe last-good snapshot and freshness/expiry policy; Contracts and API
+expose bounded sanitized rows. Static SSR Web reads that public projection on
+its server side. No game address, key, secret, arbitrary command, browser token,
+or raw RCON response enters the leaderboard contract. See
+[the v2.57 transport contract](v2.57-public-leaderboard.md).

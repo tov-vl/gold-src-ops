@@ -189,6 +189,24 @@ public sealed class GoldSrcRconClientTests
         await serverTask.WaitAsync(TimeSpan.FromSeconds(2));
     }
 
+    [Fact]
+    public async Task ExecuteAsync_preserves_complete_ascii_leaderboard_frame_across_datagrams()
+    {
+        using var server = CreateServer();
+        var endpoint = GetLocalEndpoint(server);
+        var now = DateTimeOffset.UtcNow;
+        var stamp = now.ToUnixTimeSeconds();
+        var name = Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes("Кириллица"));
+        var serverTask = RunLeaderboardServerAsync(server, $"lGSLEADER 1 {stamp} 1\n",
+            $"lGSLROW 1 2 120 2 {name}\n", $"lGSLEND 1 {stamp} 1\n");
+        var response = await CreateSut().ExecuteAsync(
+            new(endpoint.Address.ToString(), endpoint.Port, "secret", "goldsrcops_leaderboard_snapshot", TimeSpan.FromSeconds(2)),
+            CancellationToken.None);
+        var parsed = GoldSrcOps.Infrastructure.Monitoring.PublicLeaderboardProtocol.Parse(response, now);
+        parsed!.Entries.Single().Name.Should().Be("Кириллица");
+        await serverTask.WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
     private static GoldSrcRconClient CreateSut(
         int maxResponseDatagrams = 32,
         int maxResponseBytes = 64 * 1_024,
@@ -215,6 +233,15 @@ public sealed class GoldSrcRconClientTests
 
     private static IPEndPoint GetLocalEndpoint(UdpClient server) =>
         (IPEndPoint)server.Client.LocalEndPoint!;
+
+    private static async Task RunLeaderboardServerAsync(UdpClient server, params string[] responseChunks)
+    {
+        var request = await CompleteChallengeAsync(server, CancellationToken.None, "goldsrcops_leaderboard_snapshot");
+        foreach (var chunk in responseChunks)
+        {
+            await server.SendAsync(Packet(chunk), request.RemoteEndPoint, CancellationToken.None);
+        }
+    }
 
     private static async Task RunRconServerAsync(UdpClient server, params string[] responseChunks)
     {
@@ -292,7 +319,8 @@ public sealed class GoldSrcRconClientTests
 
     private static async Task<UdpReceiveResult> CompleteChallengeAsync(
         UdpClient server,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string commandText = "say hello")
     {
         var challengeRequest = await ReceiveAsync(server, cancellationToken);
         challengeRequest.Buffer.Should().Equal(GoldSrcRconProtocol.BuildChallengeRequest(Encoding));
@@ -307,7 +335,7 @@ public sealed class GoldSrcRconClientTests
             GoldSrcRconProtocol.BuildCommandRequest(
                 "123456789",
                 "secret",
-                "say hello",
+                commandText,
                 Encoding));
 
         return commandRequest;

@@ -2973,3 +2973,9 @@ product or release gate. It requires no production mutation or new release.
 VIP entitlements and payment integration remain a separate, later milestone.
 The first entitlement experiment must stay sandbox-only and must not process
 real money.
+
+### v2.57 - Публичный топ-10
+
+В работе: готовый рейтинг addon через bounded read-only снимок, anonymous SSR
+`/leaderboard`, fresh/stale/unavailable и переход на `/play`. R2: addon/API/Web;
+сохранения и ранги не меняются. См. [границу v2.57](v2.57-public-leaderboard.md).
