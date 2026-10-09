@@ -76,7 +76,11 @@ Heartbeat содержит время самого чтения. Повторя�
 5. Проверить production preflight с новым rule mount и pinned images.
    Обновить только Collector и Prometheus; dashboard использует существующий
    provisioned каталог Grafana. Пересоздавать Grafana только если изменился
-   источник его bind mount. API/Web/PostgreSQL/game/agent не перезапускать.
+   источник его bind mount. Одинаковый текстовый путь не доказывает, что
+   контейнер видит действующий каталог: сверить inode и наличие нового файла
+   внутри контейнера. При подтвержденном старом каталоге сохранить прежние
+   image digest, effective Compose и named data volume при пересоздании Grafana.
+   API/Web/PostgreSQL/game/agent не перезапускать.
 6. Выполнить read-only `player-data-monitor.py inspect` и один publish из sandbox
    нового service. Установить units, daemon-reload и включить только
    `goldsrcops-player-data-monitor.timer`.
