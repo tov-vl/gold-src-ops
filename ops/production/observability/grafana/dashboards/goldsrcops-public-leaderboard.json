@@ -139,7 +139,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(max(goldsrcops_leaderboard_enabled{job=\"goldsrcops\",service_name=\"GoldSrcOps\"})) and on() goldsrcops_leaderboard:monitor_live",
+          "expr": "(max(goldsrcops_leaderboard_enabled{job=\"goldsrcops\",service_name=\"GoldSrcOps\"} and on(service_instance_id) goldsrcops_leaderboard:current_instance)) and on() goldsrcops_leaderboard:monitor_live",
           "instant": true
         }
       ]
@@ -193,7 +193,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(max(goldsrcops_leaderboard_snapshot_available{job=\"goldsrcops\",service_name=\"GoldSrcOps\"})) and on() goldsrcops_leaderboard:monitor_live",
+          "expr": "(max(goldsrcops_leaderboard_snapshot_available{job=\"goldsrcops\",service_name=\"GoldSrcOps\"} and on(service_instance_id) goldsrcops_leaderboard:current_instance)) and on() goldsrcops_leaderboard:monitor_live",
           "instant": true
         }
       ]
@@ -247,7 +247,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(max(goldsrcops_leaderboard_rows{job=\"goldsrcops\",service_name=\"GoldSrcOps\"})) and on() goldsrcops_leaderboard:monitor_live",
+          "expr": "(max(goldsrcops_leaderboard_rows{job=\"goldsrcops\",service_name=\"GoldSrcOps\"} and on(service_instance_id) goldsrcops_leaderboard:current_instance)) and on() goldsrcops_leaderboard:monitor_live",
           "instant": true
         }
       ]
@@ -301,7 +301,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(max(goldsrcops_leaderboard_snapshot_age_seconds{job=\"goldsrcops\",service_name=\"GoldSrcOps\"}) and (max(goldsrcops_leaderboard_snapshot_available{job=\"goldsrcops\",service_name=\"GoldSrcOps\"}) == 1)) and on() goldsrcops_leaderboard:monitor_live",
+          "expr": "(max(goldsrcops_leaderboard_snapshot_age_seconds{job=\"goldsrcops\",service_name=\"GoldSrcOps\"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) and (max(goldsrcops_leaderboard_snapshot_available{job=\"goldsrcops\",service_name=\"GoldSrcOps\"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) == 1)) and on() goldsrcops_leaderboard:monitor_live",
           "instant": true
         }
       ]
@@ -355,7 +355,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "((max(goldsrcops_leaderboard_last_success_timestamp_seconds{job=\"goldsrcops\",service_name=\"GoldSrcOps\"}) > 0) * 1000) and on() goldsrcops_leaderboard:monitor_live",
+          "expr": "((max(goldsrcops_leaderboard_last_success_timestamp_seconds{job=\"goldsrcops\",service_name=\"GoldSrcOps\"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) > 0) * 1000) and on() goldsrcops_leaderboard:monitor_live",
           "instant": true
         }
       ]
@@ -409,7 +409,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "((max(goldsrcops_leaderboard_last_attempt_timestamp_seconds{job=\"goldsrcops\",service_name=\"GoldSrcOps\"}) > 0) * 1000) and on() goldsrcops_leaderboard:monitor_live",
+          "expr": "((max(goldsrcops_leaderboard_last_attempt_timestamp_seconds{job=\"goldsrcops\",service_name=\"GoldSrcOps\"} and on(service_instance_id) goldsrcops_leaderboard:current_instance) > 0) * 1000) and on() goldsrcops_leaderboard:monitor_live",
           "instant": true
         }
       ]
@@ -514,7 +514,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(goldsrcops_leaderboard_last_result{job=\"goldsrcops\",service_name=\"GoldSrcOps\"} == 1) and on() goldsrcops_leaderboard:monitor_live",
+          "expr": "((goldsrcops_leaderboard_last_result{job=\"goldsrcops\",service_name=\"GoldSrcOps\"} == 1) and on(service_instance_id) goldsrcops_leaderboard:current_instance) and on() goldsrcops_leaderboard:monitor_live",
           "legendFormat": "{{result}}"
         }
       ]
