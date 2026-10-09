@@ -39,6 +39,20 @@ public sealed class PublicStatusClient(HttpClient httpClient)
             ?? throw new InvalidDataException("The public A2S history response was empty.");
     }
 
+    public async Task<PublicLeaderboardResponse?> GetLeaderboardAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.GetAsync(
+            "api/public/leaderboard", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<PublicLeaderboardResponse>(cancellationToken)
+            ?? throw new InvalidDataException("The public leaderboard response was empty.");
+    }
+
     public async Task<PublicServerJoinResponse?> GetServerJoinAsync(
         CancellationToken cancellationToken = default)
     {

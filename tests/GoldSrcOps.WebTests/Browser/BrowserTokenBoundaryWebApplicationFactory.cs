@@ -28,15 +28,21 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
     private readonly bool serverEnabled;
     private readonly PublicServerJoinResponse? serverJoinResponse;
     private readonly HttpStatusCode? serverJoinFailureStatus;
+    private readonly PublicLeaderboardResponse? leaderboard;
+    private readonly HttpStatusCode? leaderboardFailure;
 
     public BrowserTokenBoundaryWebApplicationFactory(
         bool serverEnabled = true,
         PublicServerJoinResponse? serverJoinResponse = null,
-        HttpStatusCode? serverJoinFailureStatus = null)
+        HttpStatusCode? serverJoinFailureStatus = null,
+        PublicLeaderboardResponse? leaderboard = null,
+        HttpStatusCode? leaderboardFailure = null)
     {
         this.serverEnabled = serverEnabled;
         this.serverJoinResponse = serverJoinResponse;
         this.serverJoinFailureStatus = serverJoinFailureStatus;
+        this.leaderboard = leaderboard;
+        this.leaderboardFailure = leaderboardFailure;
         UseKestrel(0);
     }
 
@@ -67,7 +73,8 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
                 new PublicDashboardWebApplicationFactory.FixturePublicStatusHandler(
                     statusUnavailable: false,
                     serverJoinResponse: serverJoinResponse,
-                    serverJoinFailureStatus: serverJoinFailureStatus);
+                    serverJoinFailureStatus: serverJoinFailureStatus,
+                    leaderboard: leaderboard, leaderboardFailure: leaderboardFailure);
             services.RemoveAll<PublicStatusClient>();
             services.AddSingleton(new PublicStatusClient(new HttpClient(publicStatusHandler)
             {

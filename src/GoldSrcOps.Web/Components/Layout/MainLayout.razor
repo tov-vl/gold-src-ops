@@ -14,6 +14,7 @@
         <nav class="primary-nav" aria-label="Primary navigation">
             <NavLink href="/" Match="NavLinkMatch.All">Status</NavLink>
             <NavLink href="/play" lang="ru">Играть</NavLink>
+            <NavLink href="/leaderboard" lang="ru">Топ-10</NavLink>
             <AuthorizeView Policy="@WebSecurity.ReaderPolicy">
                 <Authorized>
                     <NavLink href="/operator/servers">Servers</NavLink>

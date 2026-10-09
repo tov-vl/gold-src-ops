@@ -1,0 +1,92 @@
+@page "/leaderboard"
+@inject PublicStatusClient StatusClient
+@inject ILogger<Leaderboard> Logger
+
+<PageTitle>Топ-10 игроков - GoldSrcOps</PageTitle>
+<HeadContent>
+    <meta name="description" content="Сохраненный топ-10 игроков CS 1.6: ранги, убийства и смерти. Тот же рейтинг, что и /topall на игровом сервере." />
+</HeadContent>
+
+<div class="leaderboard-page" lang="ru">
+    <header class="leaderboard-header">
+        <p class="eyebrow">Counter-Strike 1.6 / Рейтинг игроков</p>
+        <h1>Топ-10 игроков</h1>
+        <p>Тот же сохраненный рейтинг, что и <code>/topall</code> в игре. Сначала больше убийств, при равенстве - меньше смертей.</p>
+        <a class="leaderboard-join" href="/play">Играть на сервере <span aria-hidden="true">→</span></a>
+    </header>
+
+    <section class="leaderboard-panel" aria-labelledby="leaderboard-title">
+        <div class="leaderboard-panel__heading">
+            <h2 id="leaderboard-title">Сохраненные результаты</h2>
+            <p class="leaderboard-state leaderboard-state--@State" role="status">@StateLabel</p>
+        </div>
+        @if (_snapshot is { CapturedAtUtc: { } captured } && State is "fresh" or "stale")
+        {
+            <p class="leaderboard-updated">Снимок рейтинга:
+                <time datetime="@captured.ToString("O")">@captured.ToUniversalTime().ToString("dd.MM.yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture)</time>
+            </p>
+        }
+        @if (string.Equals(State, "stale", StringComparison.Ordinal))
+        {
+            <p class="leaderboard-notice">Это последний доступный снимок. Свежий рейтинг пока не подтвержден; результаты в игре могли измениться.</p>
+        }
+        @if (_snapshot is { Entries.Count: > 0 } && State is "fresh" or "stale")
+        {
+            <table class="leaderboard-table">
+                <caption class="visually-hidden">Десять лучших сохраненных результатов</caption>
+                <colgroup><col class="place-column" /><col class="name-column" /><col class="rank-column" /><col class="score-column" /><col class="score-column" /></colgroup>
+                <thead><tr><th scope="col"><span class="wide-label">Место</span><abbr class="compact-label" title="Место">#</abbr></th><th scope="col">Игрок</th><th scope="col">Ранг</th><th scope="col"><span class="wide-label">Убийства</span><abbr class="compact-label" title="Убийства">Уб.</abbr></th><th scope="col"><span class="wide-label">Смерти</span><abbr class="compact-label" title="Смерти">См.</abbr></th></tr></thead>
+                <tbody>
+                    @foreach (var entry in _snapshot.Entries)
+                    {
+                        <tr><td class="leaderboard-place">@entry.Position</td><th scope="row">@entry.Name</th><td class="leaderboard-rank">@RankLabel(entry.Rank)</td><td>@entry.Kills</td><td>@entry.Deaths</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else if (State is "fresh" or "stale")
+        {
+            <p class="leaderboard-empty">В рейтинге пока нет результатов.</p>
+            <p>Подключись к серверу и начни игру. Сохраненные убийства и смерти появляются в рейтинге после первых боев.</p>
+        }
+        else
+        {
+            <p class="leaderboard-empty">Не удалось получить рейтинг.</p>
+            <p>Попробуй обновить страницу позже. Подключение и команды для начала игры доступны на странице "Играть".</p>
+        }
+    </section>
+    <p class="leaderboard-footnote">Ники берутся из сохраненного профиля при подключении. Результаты обновляются примерно раз в минуту. Обнови страницу, чтобы увидеть новый снимок. Личный прогресс смотри через <code>/profile</code> в игре.</p>
+</div>
+
+@code {
+    private PublicLeaderboardResponse? _snapshot;
+    private string State => _snapshot?.State is "fresh" or "stale" ? _snapshot.State : "unavailable";
+    private string StateLabel => State switch
+    {
+        "fresh" => "Свежий снимок",
+        "stale" => "Устаревший снимок",
+        _ => "Рейтинг временно недоступен"
+    };
+
+    private static string RankLabel(int rank) => rank switch
+    {
+        0 => "Новичок", 1 => "Боец", 2 => "Ветеран", 3 => "Элита", 4 => "Легенда", _ => "Данных нет"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var snapshot = await StatusClient.GetLeaderboardAsync();
+            if (snapshot is { Entries.Count: <= 10 } &&
+                (snapshot.State is not ("fresh" or "stale") || snapshot.CapturedAtUtc is not null))
+            {
+                _snapshot = snapshot;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException or System.Text.Json.JsonException)
+        {
+            Logger.LogWarning("Unable to load the public leaderboard projection.");
+        }
+    }
+}

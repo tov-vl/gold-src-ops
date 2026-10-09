@@ -31,6 +31,10 @@ public static class PublicStatusEndpoints
             .CacheOutput(ServerJoinCachePolicyName)
             .WithName("GetPublicServerJoin");
 
+        group.MapGet("/leaderboard", GetLeaderboard)
+            .AllowAnonymous()
+            .WithName("GetPublicLeaderboard");
+
         return group;
     }
 
@@ -84,6 +88,22 @@ public static class PublicStatusEndpoints
             server.Players,
             server.MaxPlayers,
             server.LastObservedAtUtc));
+    }
+
+    private static Results<Ok<PublicLeaderboardResponse>, NotFound> GetLeaderboard(
+        PublicLeaderboardSettings settings,
+        PublicServerJoinOptions options,
+        PublicLeaderboardStore store)
+    {
+        if (!settings.Enabled || !options.Enabled)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var snapshot = store.Read();
+        return TypedResults.Ok(new PublicLeaderboardResponse(snapshot.State, snapshot.CapturedAtUtc,
+            snapshot.Entries.Select(static entry => new PublicLeaderboardEntryResponse(
+                entry.Position, entry.Name, entry.Rank, entry.Kills, entry.Deaths)).ToArray()));
     }
 
     private static PublicStatusResponse Map(PublicStatusDto status) =>

@@ -91,6 +91,11 @@ public static class DependencyInjection
         services.AddScoped<IRconCommandExecutor, GoldSrcRconCommandExecutor>();
         services.AddScoped<CommandDispatcher>();
         services.AddScoped<ServerPollingService>();
+        services.AddSingleton(static provider => PublicLeaderboardOptions.FromConfiguration(
+            provider.GetRequiredService<IConfiguration>()));
+        services.AddSingleton<PublicLeaderboardStore>();
+        services.AddScoped<PublicLeaderboardPoller>();
+        services.AddHostedService<PublicLeaderboardBackgroundService>();
         services.AddScoped<SnapshotRetentionService>();
         services.AddScoped<GameEventRetentionService>();
         services.AddSingleton<IGoldSrcServerQueryClient>(_ =>

@@ -13,7 +13,9 @@
 #define show_motd(%1,%2,%3) FixtureMotd(%1,%2,%3)
 #define nvault_set(%1,%2,%3) FixtureStatsSet(%1,%2,%3)
 #define nvault_lookup(%1,%2,%3,%4,%5) FixtureVaultLookup(%1,%2,%3,%4,%5)
+#define server_print FixtureTransportPrint
 #include <goldsrcops_weapon_selection.sma>
+#undef server_print
 #undef plugin_init
 #undef is_user_bot
 #undef is_user_hltv
@@ -49,6 +51,7 @@ public plugin_init()
 {
     ProductPluginInit();
     register_srvcmd("goldsrcops_leaderboard_smoke", "RunLeaderboardSmoke");
+    register_srvcmd("goldsrcops_public_leaderboard_smoke", "RunPublicLeaderboardSmoke");
     register_srvcmd("goldsrcops_standing_smoke", "RunPlayerStandingSmoke");
     register_srvcmd("goldsrcops_profile_smoke", "RunPlayerProfileSmoke");
     register_srvcmd("goldsrcops_saved_streak_smoke", "RunSavedStreakSmoke");
@@ -1265,5 +1268,71 @@ public RunPlayerProfileSmoke()
     OnMapStatsStatus();
     server_print("PLAYER_PROFILE_SMOKE=%s failures=%d languages=2 storage=real_nvault display=private_motd",
         g_failures ? "failed" : "passed", g_failures);
+    return PLUGIN_HANDLED;
+}
+
+new g_snapshot_frame[2048];
+
+FixtureTransportPrint(const message[], any:...)
+{
+    new line[192];
+    vformat(line, charsmax(line), message, 2);
+    if (equal(line, "GSL", 3))
+    {
+        add(g_snapshot_frame, charsmax(g_snapshot_frame), line);
+        add(g_snapshot_frame, charsmax(g_snapshot_frame), "^n");
+    }
+    server_print("%s", line);
+}
+
+public RunPublicLeaderboardSmoke()
+{
+    if (!CreateStatsClients()) { set_fail_state("Public leaderboard fixture unavailable."); return PLUGIN_HANDLED; }
+    SeedLeaderboardRecords();
+    new writes = g_vault_writes, reads = g_leader_reads, rebuilds = g_leader_rebuilds;
+    g_snapshot_frame[0] = 0;
+    OnLeaderboardSnapshot();
+    new header[64], footer[64], stamp = get_systime();
+    formatex(header, charsmax(header), "GSLEADER 1 %d 10^n", stamp);
+    formatex(footer, charsmax(footer), "GSLEND 1 %d 10^n", stamp);
+    CheckSaved(equal(g_snapshot_frame, header, strlen(header)) && contain(g_snapshot_frame, footer) > 0,
+        "version timestamp and complete ten-row frame");
+    CheckSaved(contain(g_snapshot_frame, "GSLROW 1 2 120 2 -^nGSLROW 2 2 120 2 3C7363726970743E26222573^n") > 0,
+        "authoritative tied order and markup encoded as bytes");
+    CheckSaved(contain(g_snapshot_frame, "D09AD0B8D180D0B8D0BBD0BBD0B8D186D0B0") > 0
+        && contain(g_snapshot_frame, "GSLROW 10 ") > 0 && contain(g_snapshot_frame, "GSLROW 11 ") < 0,
+        "UTF-8 nickname and ten-row ceiling");
+    CheckSaved(contain(g_snapshot_frame, "STEAM_") < 0 && contain(g_snapshot_frame, "v1:") < 0,
+        "identity and storage keys excluded");
+    CheckSaved(writes == g_vault_writes && reads == g_leader_reads && rebuilds == g_leader_rebuilds,
+        "export uses shared cache without writes file scan or rebuild during cooldown");
+    UpdateLeaderScore("v1:STEAM_0:1:800010", 999, 0);
+    g_snapshot_frame[0] = 0;
+    OnLeaderboardSnapshot();
+    CheckSaved(contain(g_snapshot_frame, "GSLROW 1 2 120 2 -") > 0,
+        "dirty state does not bypass shared cooldown");
+    g_leader_refresh_after = 0.0;
+    g_snapshot_frame[0] = 0;
+    OnLeaderboardSnapshot();
+    CheckSaved(contain(g_snapshot_frame, "GSLROW 1 4 999 0 ") > 0,
+        "next shared refresh publishes updated rank and order");
+    CheckSaved(writes == g_vault_writes && reads == g_leader_reads,
+        "cache refresh does not write or scan files");
+    g_leader_count = 0;
+    g_snapshot_frame[0] = 0;
+    OnLeaderboardSnapshot();
+    formatex(header, charsmax(header), "GSLEADER 1 %d 0^nGSLEND 1 %d 0^n", get_systime(), get_systime());
+    CheckSaved(bool:equal(g_snapshot_frame, header), "empty frame remains complete");
+    g_leader_ready = false;
+    g_snapshot_frame[0] = 0;
+    OnLeaderboardSnapshot();
+    CheckSaved(bool:equal(g_snapshot_frame, "GSLEADER 1 unavailable^n"), "unavailable source has no rows");
+    g_leader_ready = true;
+    set_pcvar_num(g_enabled, 0);
+    g_snapshot_frame[0] = 0;
+    OnLeaderboardSnapshot();
+    CheckSaved(bool:equal(g_snapshot_frame, "GSLEADER 1 unavailable^n"), "disabled source has no rows");
+    set_pcvar_num(g_enabled, 1);
+    server_print("PUBLIC_LEADERBOARD_SMOKE=%s failures=%d", g_failures ? "failed" : "passed", g_failures);
     return PLUGIN_HANDLED;
 }

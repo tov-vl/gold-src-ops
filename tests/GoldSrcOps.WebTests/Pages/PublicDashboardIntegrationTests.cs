@@ -99,17 +99,23 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
     private readonly bool serverJoinUnavailable;
     private readonly PublicServerJoinResponse? serverJoinResponse;
     private readonly HttpStatusCode? serverJoinFailureStatus;
+    private readonly PublicLeaderboardResponse? leaderboard;
+    private readonly HttpStatusCode? leaderboardFailure;
 
     public PublicDashboardWebApplicationFactory(
         bool statusUnavailable = false,
         bool serverJoinUnavailable = false,
         PublicServerJoinResponse? serverJoinResponse = null,
-        HttpStatusCode? serverJoinFailureStatus = null)
+        HttpStatusCode? serverJoinFailureStatus = null,
+        PublicLeaderboardResponse? leaderboard = null,
+        HttpStatusCode? leaderboardFailure = null)
     {
         this.statusUnavailable = statusUnavailable;
         this.serverJoinUnavailable = serverJoinUnavailable;
         this.serverJoinResponse = serverJoinResponse;
         this.serverJoinFailureStatus = serverJoinFailureStatus;
+        this.leaderboard = leaderboard;
+        this.leaderboardFailure = leaderboardFailure;
     }
 
     public FixturePublicStatusHandler Handler { get; private set; } = null!;
@@ -129,7 +135,7 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
         builder.ConfigureServices(services =>
         {
             Handler = new FixturePublicStatusHandler(
-                statusUnavailable, serverJoinUnavailable, serverJoinResponse, serverJoinFailureStatus);
+                statusUnavailable, serverJoinUnavailable, serverJoinResponse, serverJoinFailureStatus, leaderboard, leaderboardFailure);
             var httpClient = new HttpClient(Handler)
             {
                 BaseAddress = new Uri("https://api.example.test/")
@@ -143,7 +149,9 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
         bool statusUnavailable,
         bool serverJoinUnavailable = false,
         PublicServerJoinResponse? serverJoinResponse = null,
-        HttpStatusCode? serverJoinFailureStatus = null) : HttpMessageHandler
+        HttpStatusCode? serverJoinFailureStatus = null,
+        PublicLeaderboardResponse? leaderboard = null,
+        HttpStatusCode? leaderboardFailure = null) : HttpMessageHandler
     {
         public ConcurrentQueue<string> RequestedPaths { get; } = new();
 
@@ -155,6 +163,14 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
         {
             var requestUri = request.RequestUri;
             RequestedPaths.Enqueue(requestUri?.AbsolutePath ?? string.Empty);
+            if (string.Equals(requestUri?.AbsolutePath, "/api/public/leaderboard", StringComparison.Ordinal))
+            {
+                return Task.FromResult(leaderboardFailure is { } failure
+                    ? new HttpResponseMessage(failure)
+                    : JsonResponse(leaderboard ?? new PublicLeaderboardResponse("fresh", DateTimeOffset.UtcNow,
+                        [new(1, "Игрок <script>alert(1)</script>", 4, 500, 20), new(2, "Другой игрок", 1, 25, 9)])));
+            }
+
             if (string.Equals(
                 requestUri?.AbsolutePath,
                 "/api/public/status",
