@@ -1,0 +1,172 @@
+@page "/play"
+@inject PublicStatusClient StatusClient
+@inject ILogger<Play> Logger
+
+<PageTitle>Играть в CS 1.6 - GoldSrcOps</PageTitle>
+<HeadContent>
+    <meta name="description" content="CS 1.6 с быстрым возрождением, выбором оружия и сохраненными рангами. Подключение к серверу, текущая карта и команды для первых шагов." />
+</HeadContent>
+
+<div class="play-page" lang="ru">
+    <section class="play-hero" aria-labelledby="play-title">
+        <div class="play-intro">
+            <p class="eyebrow">Counter-Strike 1.6 / Пилотный сервер</p>
+            <h1 id="play-title">Больше игры.<br />Меньше ожидания.</h1>
+            <p class="play-lede">Командный CS 1.6 с быстрым возрождением, оружием на выбор и сохраненными рангами.</p>
+            <p class="play-intro__hint">После смерти быстро возвращайся в бой. Для первых шагов достаточно команды <code>/menu</code> в игровом чате.</p>
+            <a class="play-intro__link" href="#first-steps">Как начать игру <span aria-hidden="true">↓</span></a>
+        </div>
+
+        <section class="join-panel join-panel--@ServerState" aria-labelledby="join-title">
+            <p class="eyebrow">Подключение к серверу</p>
+            <h2 id="join-title">@(_server?.Name ?? "GoldSrcOps")</h2>
+            @if (_isLoading)
+            {
+                <p class="join-panel__notice" role="status" aria-busy="true">Проверяем состояние сервера...</p>
+            }
+            else if (_server is null)
+            {
+                <p class="join-panel__notice" role="status">Подключение пока недоступно</p>
+                <p class="join-panel__detail">Не удалось получить адрес для подключения. Попробуй обновить страницу позже.</p>
+                <a class="join-panel__status-link" href="/">Проверить общий статус</a>
+            }
+            else
+            {
+                <p class="join-panel__state" role="status">
+                    <span class="join-panel__signal" aria-hidden="true"></span>@ServerStateLabel
+                </p>
+                <p class="join-panel__detail">@ServerStateDescription</p>
+                <dl class="join-panel__facts">
+                    <div><dt>Карта</dt><dd>@MapLabel</dd></div>
+                    <div><dt>Игроки</dt><dd>@PlayerLabel</dd></div>
+                </dl>
+                <p class="join-panel__observed">
+                    Последняя проверка:
+                    @if (_server.LastObservedAtUtc is { } observedAt)
+                    {
+                        <time datetime="@observedAt.ToString("O")">@observedAt.ToUniversalTime().ToString("dd.MM.yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture)</time>
+                    }
+                    else
+                    {
+                        <span>данных пока нет</span>
+                    }
+                </p>
+                <a class="join-panel__steam" href="@SteamConnectUri">@(IsOnline ? "Подключиться через Steam" : "Попробовать подключиться")</a>
+                <p class="join-panel__command-label">Или введи в консоли CS 1.6:</p>
+                <code class="join-panel__command">@ConnectCommand</code>
+                <button class="join-panel__copy" type="button"
+                        data-copy-connect="@ConnectCommand"
+                        data-copy-success="Команда подключения скопирована."
+                        data-copy-failure="Не удалось скопировать. Выдели команду и скопируй вручную."
+                        aria-describedby="play-copy-status">Скопировать команду</button>
+                <p id="play-copy-status" class="join-panel__copy-status" aria-live="polite"></p>
+            }
+        </section>
+    </section>
+
+    <section id="first-steps" class="play-section" aria-labelledby="first-steps-title">
+        <div class="play-section__heading">
+            <p class="eyebrow">Первое подключение</p>
+            <h2 id="first-steps-title">Три шага до первого боя</h2>
+        </div>
+        <ol class="first-steps">
+            <li><span class="step-number" aria-hidden="true">01</span><div><h3>Подключись и выбери команду</h3><p>Запусти CS 1.6, используй кнопку Steam или команду подключения выше. В игре выбери сторону.</p></div></li>
+            <li><span class="step-number" aria-hidden="true">02</span><div><h3>Выбери свое оружие</h3><p>Напиши <code>/guns</code> в чате. MP5, AK-47 или M4A1 и выбранный пистолет выдаются при следующем возрождении.</p></div></li>
+            <li><span class="step-number" aria-hidden="true">03</span><div><h3>Следи за своим прогрессом</h3><p>Открой <code>/profile</code>: статистика, звание, место в рейтинге и рекорд серии собраны на одном экране.</p></div></li>
+        </ol>
+    </section>
+
+    <section class="play-section progress-guide" aria-labelledby="progress-title">
+        <div class="play-section__heading">
+            <p class="eyebrow">Прогресс между играми</p>
+            <h2 id="progress-title">Твой следующий ранг</h2>
+        </div>
+        <div class="progress-guide__body">
+            <div>
+                <p>Убийства противников повышают звание: Recruit, Fighter, Veteran, Elite и Legend. В профиле видно, сколько осталось до следующего ранга.</p>
+                <p>Ранг не дает боевых преимуществ. Общий рейтинг учитывает сохраненные результаты, включая игроков, которые сейчас не на сервере.</p>
+            </div>
+            <div class="progress-guide__saved">
+                <h3>Вернись к своему прогрессу</h3>
+                <p>При подтвержденной Steam-идентичности статистика, рекорд серии, язык и выбранные настройки сохраняются после выхода и смены карты.</p>
+                <p>Если сохранение недоступно, игра продолжается. В <code>/settings</code> можно проверить, какие настройки сохранены. Текущая серия начинается заново после выхода или смены карты.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="play-section" aria-labelledby="commands-title">
+        <div class="play-section__heading">
+            <p class="eyebrow">Всегда под рукой</p>
+            <h2 id="commands-title">Команды в игровом чате</h2>
+            <p>Введи команду в обычном или командном чате. Меню и личные результаты видишь только ты.</p>
+        </div>
+        <dl class="command-guide">
+            <div><dt><code>/menu</code></dt><dd>Главное меню: оружие, профиль, статистика, карты и настройки.</dd></div>
+            <div><dt><code>/guns</code></dt><dd>Основное оружие и пистолет для следующего возрождения.</dd></div>
+            <div><dt><code>/profile</code></dt><dd>Твои сохраненные результаты, ранг, место в рейтинге и серии.</dd></div>
+            <div><dt><code>/settings</code></dt><dd>Язык RU/EN, выбор оружия, HUD и статус сохранения настроек.</dd></div>
+            <div><dt><code>/maps</code></dt><dd>Меню голосования за карту. Смена зависит от голосов игроков.</dd></div>
+            <div><dt><code>/help</code></dt><dd>Краткая справка, включая статистику, рейтинг и время до смены карты.</dd></div>
+        </dl>
+    </section>
+
+    <p class="play-footer-note">Начни с <code>/menu</code>. Доступность сервера показывается по последней проверке; карта и онлайн обновляются при загрузке страницы.</p>
+</div>
+
+@code {
+    private PublicServerJoinResponse? _server;
+    private bool _isLoading = true;
+
+    private string ServerState => _server?.State switch
+    {
+        "online" => "online",
+        "offline" => "offline",
+        _ => "unknown"
+    };
+
+    private bool IsOnline => string.Equals(ServerState, "online", StringComparison.Ordinal);
+
+    private string ServerStateLabel => ServerState switch
+    {
+        "online" => "Сервер отвечает",
+        "offline" => "Сервер не отвечает",
+        _ => "Свежий статус не подтвержден"
+    };
+
+    private string ServerStateDescription => ServerState switch
+    {
+        "online" => "Карта и число игроков показаны по последней проверке.",
+        "offline" => "Последняя проверка не получила ответ. Сохрани команду и попробуй подключиться позже.",
+        _ => "Свежих данных пока нет. Подключение можно попробовать, но доступность сервера не подтверждена."
+    };
+
+    private string MapLabel => IsOnline ? _server?.Map ?? "Данных пока нет" : "Нет свежих данных";
+
+    private string PlayerLabel => IsOnline && _server is { Players: { } players, MaxPlayers: { } capacity }
+        ? $"{players} / {capacity}"
+        : "Нет свежих данных";
+
+    private string ConnectAddress => _server is null
+        ? string.Empty
+        : $"{_server.Host}:{_server.Port.ToString(CultureInfo.InvariantCulture)}";
+
+    private string ConnectCommand => $"connect {ConnectAddress}";
+
+    private string SteamConnectUri => $"steam://connect/{ConnectAddress}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _server = await StatusClient.GetServerJoinAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            Logger.LogWarning(exception, "Unable to load the public player guide server projection.");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

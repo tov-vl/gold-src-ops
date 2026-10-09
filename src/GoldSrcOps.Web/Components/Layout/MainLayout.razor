@@ -13,6 +13,7 @@
         </a>
         <nav class="primary-nav" aria-label="Primary navigation">
             <NavLink href="/" Match="NavLinkMatch.All">Status</NavLink>
+            <NavLink href="/play" lang="ru">Играть</NavLink>
             <AuthorizeView Policy="@WebSecurity.ReaderPolicy">
                 <Authorized>
                     <NavLink href="/operator/servers">Servers</NavLink>
