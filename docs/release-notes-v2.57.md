@@ -1,7 +1,7 @@
 # GoldSrcOps v2.57 Release Notes
 
-Status as of 2026-10-09: implementation under verification; production and
-stable release are pending.
+Status as of 2026-10-09: [stable v2.57.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.57.0)
+is published and addon/API/Web production acceptance passed.
 
 ## What Changed
 
@@ -24,6 +24,12 @@ for rollback. See [readiness](v2.57-readiness.md) and
 
 Parser/store/poller/API, SSR and isolated engine checks passed. Local Quality
 Gate passed with 930 tests and no vulnerable packages; all 26 Chromium boundary
-cases passed. Immutable publication and target acceptance are pending.
+cases passed. All 11 candidate publication jobs and addon/API/Web target
+acceptance passed. Source/API rows matched, the periodic snapshot advanced by
+60 seconds, and production Chromium passed at 1440/390/320 pixels with no
+errors or browser API requests. Five other services retained their identities.
+All 11 stable jobs passed and all three references reuse accepted candidate
+digests without rebuilding. Signed tags target
+`7c83493a19c477555aa0709b85cbc17fa6244be7`; rollback was not needed.
 Client v2.55 acceptance, two-player play, first weekly backup and personal
 notifications remain separate tasks. This pilot makes no real-time or SLO claim.

@@ -2976,6 +2976,14 @@ real money.
 
 ### v2.57 - Публичный топ-10
 
-В работе: готовый рейтинг addon через bounded read-only снимок, anonymous SSR
-`/leaderboard`, fresh/stale/unavailable и переход на `/play`. R2: addon/API/Web;
-сохранения и ранги не меняются. См. [границу v2.57](v2.57-public-leaderboard.md).
+Принято 2026-10-09: stable `v2.57.0` опубликован. Готовый рейтинг addon через
+bounded read-only снимок доступен на anonymous SSR `/leaderboard` с состояниями
+fresh/stale/unavailable и переходом на `/play`. R2: точный addon 0.23.0 и API/Web
+digests установлены; vault и пять остальных сервисов сохранены. Local Quality
+Gate (930 тестов), 26 browser cases, required PR/main CI и все 11 candidate/stable
+jobs прошли. Независимые source/API строки совпали; плановый снимок обновился
+через 60 секунд. Production Chromium 1440/390/320px прошел без ошибок, overflow,
+токенов или browser API requests. Откат не потребовался. Сохранения и ранги
+прежние. First weekly backup, отложенная клиентская проверка, игра вдвоем и
+личные уведомления остаются независимыми. См.
+[границу](v2.57-public-leaderboard.md) и [доказательства](v2.57-readiness.md).
