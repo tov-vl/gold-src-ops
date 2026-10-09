@@ -60,9 +60,13 @@ run_case spawn_loadout_smoke goldsrcops_loadout_smoke SPAWN_LOADOUT_SMOKE de_dus
 run_case persistent_stats_smoke goldsrcops_persistent_stats_smoke PERSISTENT_STATS_SMOKE de_dust2
 run_case persistent_stats_smoke goldsrcops_leaderboard_smoke PLAYER_LEADERBOARD_SMOKE de_dust2
 run_case persistent_stats_smoke goldsrcops_standing_smoke PLAYER_STANDING_SMOKE de_dust2
+run_case persistent_stats_smoke goldsrcops_profile_smoke PLAYER_PROFILE_SMOKE de_dust2
+grep -Eq '^PLAYER_MENU_STATUS version=[^ ]+ .* entries=9 map_commands=delegated language_native=1$' /tmp/goldsrcops_profile_smoke.log
+grep -Eq '^PLAYER_PROFILE_STATUS version=[^ ]+ display=private_motd languages=ru_en cooldown=5 source=loaded_player_state standing=leaderboard_cache storage_writes=none$' /tmp/goldsrcops_profile_smoke.log
 run_case persistent_stats_smoke goldsrcops_saved_streak_smoke PLAYER_SAVED_STREAK_SMOKE de_dust2
 run_case persistent_stats_smoke goldsrcops_saved_streak_seed PLAYER_SAVED_STREAK_SEED de_dust2
 run_case persistent_stats_smoke goldsrcops_saved_streak_verify PLAYER_SAVED_STREAK_RELOAD cs_office
+grep -Eq '^PLAYER_PROFILE_RELOAD=passed failures=0$' /tmp/goldsrcops_saved_streak_verify.log
 run_case persistent_stats_smoke goldsrcops_leaderboard_seed PLAYER_LEADERBOARD_SEED de_dust2
 run_case persistent_stats_smoke goldsrcops_leaderboard_verify PLAYER_LEADERBOARD_RELOAD cs_office
 
