@@ -216,3 +216,35 @@ Docker. После запуска существующего Docker Desktop focu
 полные 955 ordinary cases, restore с AuditPipeline, format, build без warnings/
 errors и vulnerable-package audit без находок прошли. 40 BrowserFact выполняются
 отдельным required CI job. Ссылки документации и итоговый diff проверены.
+
+## Уточнение после post-merge CI второго пакета
+
+[PR #299](https://github.com/tov-vl/gold-src-ops/pull/299) прошел все required
+checks, включая 40 browser cases. Однако в
+[post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38053347875)
+на `b0b433b02228cf8c4e304a534fde35af3d9508b5` сценарий автоматического перехода
+`/play` увидел unknown вместо offline. Остальные четыре required jobs прошли.
+Этот запуск сохранен с исходным failure; он не перезапускался ради green.
+
+Причина воспроизведена локально: после паузы около десятой секунды
+`RunForAsync(60_000)` последовательно запускает минутный refresh и его
+8-секундный timeout, пока реальный HTTP-ответ еще доставляется. Управляемое
+удержание первого ответа до завершения движения часов воспроизводит то же
+падение без зависимости от скорости транспорта.
+
+В трех сценариях обычного автообновления `/play` и `/leaderboard` восемь таких
+переходов заменены на `FastForwardAsync(60_000)`. Он запускает просроченный poll
+однократно и оставляет часы остановленными, пока assertions ждут результат.
+Семантика сверена с [Playwright Clock](https://playwright.dev/dotnet/docs/api/class-clock).
+Удержание первого ответа сохранено в transition test как проверка этой границы.
+Для ответа unknown отдельно проверяется успешное завершение refresh, чтобы
+ошибка транспорта не могла удовлетворить assertion только по названию состояния.
+Проверки timeout, отсутствия overlap, hidden tab и lifecycle продолжают двигать
+часы прежним способом. Production JS и число browser cases не меняются.
+
+Контрольное воспроизведение со старым движением часов ожидаемо упало; после
+исправления все три затронутых сценария прошли. Полный Chromium прогон:
+40 passed, 0 failed, 0 skipped. Локальный Quality Gate прошел: restore с
+AuditPipeline, format, build без warnings/errors, 955 ordinary cases и
+vulnerable-package audit без находок. Проверены 153 Markdown файла и 897
+локальных ссылок. Required CI и post-merge CI фиксируются отдельно в PR.
