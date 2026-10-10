@@ -106,10 +106,10 @@ Playwright документирует ограниченный состав `Req
 
 ## Следующие пакеты
 
-| Приоритет | Наблюдение | Ограниченное изменение | Критерий приемки |
+| Приоритет / статус | Наблюдение | Ограниченное изменение | Критерий приемки |
 | --- | --- | --- | --- |
-| 1 | Concurrent replay ждет 200 мс и считает незавершенность доказательством блокировки | В [PostgreSqlDeadLetterReplayEndpointIntegrationTests](../tests/GoldSrcOps.UnitTests/Api/PostgreSqlDeadLetterReplayEndpointIntegrationTests.cs), сценарий `Concurrent_incident_close_preserves_aggregate_dispatch_order`, дождаться подтвержденного входа запроса/ожидания DB lock с конечным timeout | Проверка различает еще не начавшийся запрос и настоящий конфликт; итоговый порядок dispatch сохранен |
-| 1 | [A2SPacketParserTests](../tests/GoldSrcOps.UnitTests/A2S/A2SPacketParserTests.cs) содержит три положительных формата | Добавить отрицательные случаи malformed header/type, split и truncation согласно текущему контракту parser | Отказ проверяется на узком уровне; хорошие пакеты продолжают разбираться; без сетевых sleeps |
+| Выполнено, пакет 2 | Concurrent replay ждал 200 мс и считал незавершенность доказательством блокировки | В [PostgreSqlDeadLetterReplayEndpointIntegrationTests](../tests/GoldSrcOps.UnitTests/Api/PostgreSqlDeadLetterReplayEndpointIntegrationTests.cs), сценарий `Concurrent_incident_close_preserves_aggregate_dispatch_order`, дождаться подтвержденного входа запроса/ожидания DB lock с конечным timeout | Проверка различает еще не начавшийся запрос и настоящий конфликт; итоговый порядок dispatch сохранен |
+| Выполнено, пакет 2 | [A2SPacketParserTests](../tests/GoldSrcOps.UnitTests/A2S/A2SPacketParserTests.cs) содержал только три положительных формата | Добавить отрицательные случаи malformed header/type, split и truncation согласно текущему контракту parser | Отказ проверяется на узком уровне; хорошие пакеты продолжают разбираться; без сетевых sleeps |
 | 2 | PostgreSQL fixtures многократно запускают контейнеры и миграции | Пилот общей жизни контейнера с отдельной БД на тест для одной группы; холодную миграцию оставить отдельно | Нет общих изменяемых данных, сохранены concurrency и failure isolation; измерение до/после |
 | 2 | После действий остаются 12 NetworkIdle | По одному заменить на условия результата формы/URL/DOM | Все роли и отрицательные операции сохраняются; Chromium зеленый |
 | 3 | Длинный критический путь Container Smoke | Разделить измерение setup/download/runtime в backup/recovery и API smoke; затем оценить повторное использование pinned fixtures и существующие границы routing | Сохранены restore/rollback и полный CI для общих/неизвестных изменений; ускорение подтверждено несколькими сравнимыми прогонами |
@@ -167,3 +167,52 @@ Jobs идут параллельно, строки таблицы нельзя �
 release tag или production rollout. Live OIDC/RCON, игровой клиент и сценарий
 двух игроков не выполнялись. Выводы о качестве тестов не заменяют эти виды
 приемки. Сокращение количества тестов не является целью следующего пакета.
+
+## Пакет 2 - синхронизация replay и отрицательные A2S случаи
+
+Изменение от 2026-10-10 продолжает аудит с ревизии
+`1fedecf6a676f216bd2ae62f2c34f3b8de565afa`. Меняются только два тестовых файла
+и эта документация с backlog; production source, зависимости и CI прежние.
+
+Concurrent replay теперь получает PID транзакции, удерживающей incident row lock,
+и через отдельный DbContext без явной транзакции наблюдает `pg_stat_activity` и
+`pg_blocking_pids`. Короткий интервал между наблюдениями не является условием
+успеха: commit разрешается только после обнаружения настоящей блокировки
+другой сессии этой транзакцией в тестовой БД. Наблюдение ограничено 10 секундами;
+завершившийся до обнаружения блокировки replay немедленно проваливает проверку.
+После commit ответ также ожидается не более 10 секунд. Assertions порядка
+исходного и recovery событий сохранены. Изолированная БД и отключенные фоновые
+workers исключают постороннюю работу приложения из этого наблюдения.
+
+Семантика PID и блокировки сверена с
+[PostgreSQL 16](https://www.postgresql.org/docs/16/functions-info.html),
+scalar SQL с параметром использует
+[EF Core SqlQuery](https://learn.microsoft.com/en-us/ef/core/querying/sql-queries#querying-scalar-non-entity-types).
+Отдельный observer не удерживает transaction snapshot активности между polls.
+
+В A2S добавлены 11 отрицательных случаев: неизвестный header при корректном
+остальном payload, два неподдерживаемых response type, split packet, шесть
+обрезанных числовых полей и незавершенная финальная строка version. Проверяются
+точные типы исключений текущего parser без привязки к тексту ошибок. Три
+исходных положительных случая сохранены; всего A2S выполняет 14 случаев.
+
+Контрольные временные подмены подтвердили чувствительность тестов:
+
+- разрешение неправильного header и незавершенной строки дает ровно два
+  ожидаемых падения новых parser tests;
+- удаление incident `FOR UPDATE` дает ожидаемое падение replay assertion:
+  запрос завершился до commit удерживающей транзакции;
+- после каждой подмены исходный production файл восстановлен побайтово.
+
+Первый PostgreSQL запуск не дошел до assertions из-за остановленного локального
+Docker. После запуска существующего Docker Desktop focused проверка прошла:
+14 A2S случаев и один concurrent replay. Это сбой тестового окружения,
+а не обнаруженный дефект продукта. Полные результаты проверки пакета фиксируются
+в его PR отдельно от этих контрольных экспериментов. Browser и live проверки
+локально повторно не запускаются: измененная граница находится в UnitTests;
+обычный required CI сохраняет свой полный маршрут.
+
+Итоговая локальная проверка второго пакета: все 21 parser/replay endpoint случая,
+полные 955 ordinary cases, restore с AuditPipeline, format, build без warnings/
+errors и vulnerable-package audit без находок прошли. 40 BrowserFact выполняются
+отдельным required CI job. Ссылки документации и итоговый diff проверены.
