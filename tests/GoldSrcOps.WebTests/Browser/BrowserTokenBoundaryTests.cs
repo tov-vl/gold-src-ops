@@ -364,10 +364,8 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
 
             await Page.Locator(".activity-pagination a", new PageLocatorOptions { HasText = "Older" })
                 .ClickAsync();
-            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            await Expect(Page.Locator(".activity-pagination__status")).ToHaveTextAsync("Earlier page");
             Page.Url.Should().Contain("cursor=older-page");
-            (await Page.Locator(".activity-pagination__status").TextContentAsync())
-                .Should().Be("Earlier page");
             (await Page.Locator(".activity-row:not(.activity-row--header)").CountAsync()).Should().Be(1);
             (await Page.Locator(".activity-pagination a", new PageLocatorOptions { HasText = "Newer" })
                     .IsVisibleAsync())
@@ -380,29 +378,29 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             await Page.Locator(".activity-range__link")
                 .Filter(new LocatorFilterOptions { HasText = "6h" })
                 .ClickAsync();
-            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            await Expect(Page.Locator(".activity-range__link[aria-current='page']")).ToHaveTextAsync("6h");
             Page.Url.Should().Contain("range=6h");
-            (await Page.Locator(".activity-range__link[aria-current='page']").InnerTextAsync())
-                .Should().Be("6h");
 
             await Page.Locator("select[name='serverId']")
                 .SelectOptionAsync(ReaderWebApplicationFactory.ServerId.ToString("D"));
             await Page.Locator("form.activity-filter button[type='submit']").ClickAsync();
-            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-            Page.Url.Should().Contain($"serverId={ReaderWebApplicationFactory.ServerId:D}");
+            await Expect(Page).ToHaveURLAsync(
+                new Regex(
+                    $"[?&]serverId={ReaderWebApplicationFactory.ServerId:D}(?:&|$)",
+                    RegexOptions.None,
+                    TimeSpan.FromSeconds(1)));
+            await Expect(Page.Locator(".activity-filter-actions a")).ToHaveTextAsync("Clear server");
             Page.Url.Should().Contain("range=6h");
 
             await Page.Locator(".activity-tab")
                 .Filter(new LocatorFilterOptions { HasText = "Rounds" })
                 .ClickAsync();
-            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            await Expect(Page.Locator(".activity-tab[aria-current='page']")).ToContainTextAsync("Rounds");
             Page.Url.Should().Contain("kind=gameplay");
             Page.Url.Should().Contain($"serverId={ReaderWebApplicationFactory.ServerId:D}");
             Page.Url.Should().Contain("range=6h");
             (await Page.Locator("select[name='serverId']").InputValueAsync())
                 .Should().Be(ReaderWebApplicationFactory.ServerId.ToString("D"));
-            (await Page.Locator(".activity-tab[aria-current='page']").InnerTextAsync())
-                .Should().Contain("Rounds");
             (await Page.Locator(".heading-meta a").GetAttributeAsync("href"))
                 .Should().Contain("range=6h");
             (await Page.Locator(".activity-row:not(.activity-row--header)").CountAsync()).Should().Be(1);
@@ -431,24 +429,20 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         await Page.Locator("input[name='q']").FillAsync("dust2");
         await Page.Locator("select[name='sort']").SelectOptionAsync("name");
         await Page.Locator("form.filter-bar button[type='submit']").ClickAsync();
-        await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-
-        Page.Url.Should().Contain("q=dust2");
+        await Expect(Page).ToHaveURLAsync(
+            new Regex("[?&]q=dust2(?:&|$)", RegexOptions.None, TimeSpan.FromSeconds(1)));
         Page.Url.Should().Contain("sort=name");
-        (await Page.Locator(".server-row:not(.server-row--header)").CountAsync()).Should().Be(1);
+        await Expect(Page.Locator(".server-row:not(.server-row--header)")).ToHaveCountAsync(1);
         (await Page.Locator(".server-row:not(.server-row--header)").InnerTextAsync())
             .Should().Contain(ReaderWebApplicationFactory.ServerName);
 
         await Page.Locator(".filter-actions a").ClickAsync();
-        await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-        Page.Url.Should().EndWith("/operator/servers");
+        await Expect(Page).ToHaveURLAsync(new Uri(baseAddress, "/operator/servers").AbsoluteUri);
+        await Expect(Page.Locator("input[name='q']")).ToHaveValueAsync(string.Empty);
 
         await Page.Locator("a[href='/operator/servers?state=attention']").ClickAsync();
-        await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-
+        await Expect(Page.Locator(".triage-tab[aria-current='page']")).ToContainTextAsync("Attention");
         Page.Url.Should().EndWith("/operator/servers?state=attention");
-        (await Page.Locator(".triage-tab[aria-current='page']").InnerTextAsync())
-            .Should().Contain("Attention");
         (await Page.Locator(".server-row:not(.server-row--header)").CountAsync()).Should().Be(3);
         (await Page.Locator(".server-row--attention").AllInnerTextsAsync())
             .Should().Contain(text =>
@@ -501,12 +495,10 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             await CaptureScreenshotIfRequestedAsync("incident-investigation", viewport);
 
             await relatedActivityLink.ClickAsync();
-            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            await Expect(Page.Locator(".activity-tab[aria-current='page']")).ToContainTextAsync("Incidents");
             Page.Url.Should().Contain("kind=incidents");
             Page.Url.Should().Contain($"serverId={ReaderWebApplicationFactory.ServerId:D}");
             Page.Url.Should().Contain("range=24h");
-            (await Page.Locator(".activity-tab[aria-current='page']").InnerTextAsync())
-                .Should().Contain("Incidents");
             (await Page.Locator("select[name='serverId']").InputValueAsync())
                 .Should().Be(ReaderWebApplicationFactory.ServerId.ToString("D"));
         }
@@ -646,10 +638,9 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             (await Page.Locator("#map-name").IsVisibleAsync()).Should().BeTrue();
             await Page.Locator("#map-name").FillAsync("viewport_map");
             await Page.Locator("form.map-change-form button[type='submit']").ClickAsync();
-            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            await Expect(Page.Locator("form.map-change-confirmation")).ToBeVisibleAsync();
 
             (await Page.Locator("section.review-section").IsVisibleAsync()).Should().BeTrue();
-            (await Page.Locator("form.map-change-confirmation").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("input[name='Confirmed']").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("form.map-change-confirmation input[name='Map']").CountAsync())
                 .Should().Be(0);
@@ -729,9 +720,8 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             await Page.Locator("#server-name").FillAsync("Viewport test server");
             await Page.Locator("#server-host").FillAsync("game.example.test");
             await Page.Locator("form.registration-form button[type='submit']").ClickAsync();
-            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            await Expect(Page.Locator("form.registration-confirmation")).ToBeVisibleAsync();
 
-            (await Page.Locator("form.registration-confirmation").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("input[name='Confirmed']").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("form.registration-confirmation button[type='submit']").IsVisibleAsync())
                 .Should().BeTrue();
@@ -779,10 +769,9 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             await Page.Locator("#poll-interval").FillAsync("45");
             await Page.Locator("#server-notes").FillAsync("Reviewed non-secret settings");
             await Page.Locator("form.settings-form button[type='submit']").ClickAsync();
-            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            await Expect(Page.Locator("form.settings-confirmation")).ToBeVisibleAsync();
 
             (await Page.Locator("section.review-section").IsVisibleAsync()).Should().BeTrue();
-            (await Page.Locator("form.settings-confirmation").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("input[name='Confirmed']").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("form.settings-confirmation button[type='submit']").IsVisibleAsync())
                 .Should().BeTrue();
@@ -829,10 +818,9 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             (await Page.Locator("input[type='password']").CountAsync()).Should().Be(0);
             await Page.Locator("#credential-alias").FillAsync("viewport_server");
             await Page.Locator("form.credential-form button[type='submit']").ClickAsync();
-            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            await Expect(Page.Locator("form.credential-confirmation")).ToBeVisibleAsync();
 
             (await Page.Locator("section.review-section").IsVisibleAsync()).Should().BeTrue();
-            (await Page.Locator("form.credential-confirmation").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("input[name='Confirmed']").IsVisibleAsync()).Should().BeTrue();
             (await Page.Locator("input[type='password']").CountAsync()).Should().Be(0);
             (await Page.Locator("section.review-section").TextContentAsync())
