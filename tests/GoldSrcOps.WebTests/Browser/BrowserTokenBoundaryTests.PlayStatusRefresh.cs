@@ -50,19 +50,27 @@ public sealed partial class BrowserTokenBoundaryTests
             await PlayBodyAsync(null, HttpStatusCode.NotFound),
             await PlayBodyAsync(PlayServer("online"))
         ]);
-        await Page.RouteAsync("**/play", async route => await route.FulfillAsync(new() { ContentType = "text/html", Body = responses.Dequeue() }));
+        // Hold the response until the clock stops, independently of transport speed.
+        var releaseFirstResponse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await Page.RouteAsync("**/play", async route =>
+        {
+            await releaseFirstResponse.Task;
+            await route.FulfillAsync(new() { ContentType = "text/html", Body = responses.Dequeue() });
+        });
         await Page.Locator(".join-panel__copy").FocusAsync();
-        await Page.Clock.RunForAsync(60_000);
+        await Page.Clock.FastForwardAsync(60_000);
+        releaseFirstResponse.SetResult();
         await Expect(Page.Locator(".join-panel__state")).ToHaveTextAsync("Сервер не отвечает");
         await Expect(Page.Locator(".join-panel__copy")).ToBeFocusedAsync();
         await Expect(Page.Locator(".join-panel__facts dd").First).ToHaveTextAsync("Нет свежих данных");
-        await Page.Clock.RunForAsync(60_000);
+        await Page.Clock.FastForwardAsync(60_000);
         await Expect(Page.Locator(".join-panel__state")).ToHaveTextAsync("Свежий статус не подтвержден");
-        await Page.Clock.RunForAsync(60_000);
+        await Expect(Page.Locator("#play-refresh-status")).ToHaveTextAsync("Проверка завершена.");
+        await Page.Clock.FastForwardAsync(60_000);
         await Expect(Page.Locator(".join-panel__notice")).ToHaveTextAsync("Подключение пока недоступно");
         await Expect(Page.Locator(".join-panel__copy")).ToHaveCountAsync(0);
         await Expect(Page.Locator("[data-play-refresh]")).ToBeFocusedAsync();
-        await Page.Clock.RunForAsync(60_000);
+        await Page.Clock.FastForwardAsync(60_000);
         await Expect(Page.Locator(".join-panel__state")).ToHaveTextAsync("Сервер отвечает");
         await Expect(Page.Locator(".join-panel__facts dd").First).ToHaveTextAsync("de_new");
         await Expect(Page.Locator(".join-panel__copy")).ToHaveCountAsync(1);
@@ -84,12 +92,12 @@ public sealed partial class BrowserTokenBoundaryTests
                 ? new() { Status = 503, ContentType = "text/plain", Body = "fixture error" }
                 : new() { ContentType = "text/html", Body = body });
         });
-        await Page.Clock.RunForAsync(60_000);
+        await Page.Clock.FastForwardAsync(60_000);
         await Expect(Page.Locator(".join-panel__state")).ToHaveTextAsync("Свежий статус не подтвержден");
         await Expect(Page.Locator(".join-panel__facts dd").First).ToHaveTextAsync("Нет свежих данных");
         await Expect(Page.Locator("[data-play-warning]")).ToBeVisibleAsync();
         await Expect(Page.Locator(".join-panel__command")).ToHaveTextAsync("connect play.example.test:27015");
-        await Page.Clock.RunForAsync(60_000);
+        await Page.Clock.FastForwardAsync(60_000);
         await Expect(Page.Locator(".join-panel__state")).ToHaveTextAsync("Сервер отвечает");
         await Expect(Page.Locator("[data-play-warning]")).ToBeHiddenAsync();
         requests.Should().Be(2);

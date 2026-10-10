@@ -47,11 +47,11 @@ public sealed partial class BrowserTokenBoundaryTests
                 ? new() { Status = 503, ContentType = "text/plain", Body = "fixture failure" }
                 : new() { ContentType = "text/html", Body = body });
         });
-        await Page.Clock.RunForAsync(60_000);
+        await Page.Clock.FastForwardAsync(60_000);
         await Expect(Page.Locator(".leaderboard-state")).ToHaveTextAsync("Устаревший снимок");
         await Expect(Page.Locator(".leaderboard-table tbody tr")).ToHaveCountAsync(2);
         await Expect(Page.Locator("[data-leaderboard-notice]")).ToBeVisibleAsync();
-        await Page.Clock.RunForAsync(60_000);
+        await Page.Clock.FastForwardAsync(60_000);
         await Expect(Page.Locator(".leaderboard-state")).ToHaveTextAsync("Свежий снимок");
         await Expect(Page.Locator("[data-leaderboard-notice]")).ToBeHiddenAsync();
         requests.Should().Be(2);
