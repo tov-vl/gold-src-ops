@@ -3020,11 +3020,16 @@ volumes сохранены. Откат не понадобился; stable бе�
 
 ### v2.60 - Актуальный статус на странице подключения
 
-В работе 2026-10-10. R1, Web-only: видимая вкладка `/play` раз в минуту
-и вручную обновляет существующую публичную SSR проекцию. Возраст проверки
-растет между ответами; ошибки и проверки старше трех минут скрывают текущую
-карту/онлайн, сохраняя возможность попробовать известный адрес. Фокус и
-копирование сохраняются; недоступная SSR проекция убирает адрес до нового
-подтвержденного ответа. Локальный Quality Gate (944 .NET tests) и 40 browser cases прошли;
-CI, artifact и production приемка еще не завершены. См. [контракт](v2.60-play-status-refresh.md) и
-[readiness](v2.60-readiness.md). Backup и отложенные игровые проверки независимы.
+Принято 2026-10-10: stable `v2.60.0` опубликован из принятого rc.1.
+Web обновляет `/play` раз в минуту в видимой вкладке и вручную. Возраст A2S
+проверки растет между ответами; ошибки/expiry убирают текущую карту и онлайн.
+Online/offline/unknown/unavailable и recovery проверены; документ, фокус и
+работающее копирование команды сохраняются. Local Quality Gate (944 .NET tests),
+40 browser cases, три local container smokes, required CI и все 11 candidate/
+stable jobs прошли. Один Web-only R1 rollout и независимая runtime/Chromium
+приемка подтвердили реальный минутный refresh, advancing observation, actual
+clipboard и layouts 1440/390/320px без overflow/browser API requests. Шесть
+прочих контейнеров и полные mounts/volumes сохранены; rollback не понадобился.
+Stable использует те же digests без пересборки или повторного rollout.
+Weekly backup 2026-10-11 в 04:00 МСК и отложенные client/two-player независимы.
+См. [контракт](v2.60-play-status-refresh.md) и [readiness](v2.60-readiness.md).
