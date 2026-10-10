@@ -15,6 +15,8 @@ public sealed class OperatorProviderReviewConfirmationStoreTests
 
         token.Should().HaveLength(OperatorProviderReviewConfirmationStore.TokenLength);
         store.TryConsume(token!, "other", messageId, requestId).Should().BeFalse();
+        store.TryConsume(token!, "operator", Guid.NewGuid(), requestId).Should().BeFalse();
+        store.TryConsume(token!, "operator", messageId, Guid.NewGuid()).Should().BeFalse();
         store.TryConsume(token!, "operator", messageId, requestId).Should().BeTrue();
         store.TryConsume(token!, "operator", messageId, requestId).Should().BeFalse();
     }

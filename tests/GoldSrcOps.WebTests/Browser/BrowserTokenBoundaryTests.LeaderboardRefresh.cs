@@ -10,15 +10,14 @@ public sealed partial class BrowserTokenBoundaryTests
     {
         await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
         factory.StartServer();
+        await Page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
+        (await Context.CookiesAsync()).Should().Contain(cookie => cookie.Name == BrowserTokenBoundaryWebApplicationFactory.AuthenticationCookieName);
         await Page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, "/leaderboard").AbsoluteUri);
         var body = await Page.ContentAsync();
-        var requests = 0;
+        var requests = new List<IRequest>();
         await Page.RouteAsync("**/leaderboard", async route =>
         {
-            route.Request.IsNavigationRequest.Should().BeFalse();
-            route.Request.Headers.ContainsKey("authorization").Should().BeFalse();
-            route.Request.Headers.ContainsKey("cookie").Should().BeFalse();
-            requests++;
+            requests.Add(route.Request);
             await route.FulfillAsync(new() { ContentType = "text/html", Body = body.Replace("Другой игрок", "Обновленный игрок", StringComparison.Ordinal) });
         });
         await Page.EvaluateAsync("window.__documentMarker = 42");
@@ -28,7 +27,7 @@ public sealed partial class BrowserTokenBoundaryTests
         await Expect(Page.Locator("[data-leaderboard-refresh]")).ToBeFocusedAsync();
         (await Page.EvaluateAsync<int>("window.__documentMarker")).Should().Be(42);
         await Expect(Page.Locator(".leaderboard-table tbody th").First).ToHaveTextAsync("Игрок <script>alert(1)</script>");
-        requests.Should().Be(1);
+        await AssertAnonymousRefreshAsync(requests.Should().ContainSingle().Which);
         AssertTokenFree(await Page.ContentAsync());
         await AssertBrowserStorageIsEmptyAsync();
     }
