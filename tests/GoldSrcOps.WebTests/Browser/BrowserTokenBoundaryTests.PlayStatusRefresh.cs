@@ -14,14 +14,16 @@ public sealed partial class BrowserTokenBoundaryTests
         await using var factory = new BrowserTokenBoundaryWebApplicationFactory();
         factory.StartServer();
         await Page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
+        (await Context.CookiesAsync()).Should().Contain(cookie => cookie.Name == BrowserTokenBoundaryWebApplicationFactory.AuthenticationCookieName);
         await Page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, "/play").AbsoluteUri);
         var body = await PlayBodyAsync(PlayServer("online") with { Host = "new.example.test", Name = "Игрок <script>alert(1)</script>" });
         var requests = 0;
         await Page.RouteAsync("**/play", async route =>
         {
             route.Request.IsNavigationRequest.Should().BeFalse();
-            route.Request.Headers.ContainsKey("authorization").Should().BeFalse();
-            route.Request.Headers.ContainsKey("cookie").Should().BeFalse();
+            var headers = await route.Request.AllHeadersAsync();
+            headers.ContainsKey("authorization").Should().BeFalse();
+            headers.ContainsKey("cookie").Should().BeFalse();
             requests++;
             await route.FulfillAsync(new() { ContentType = "text/html", Body = body });
         });
