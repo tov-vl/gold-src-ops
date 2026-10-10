@@ -133,6 +133,24 @@ def main():
            "--mount", mount(OBS / "prometheus.yml", "/etc/prometheus/prometheus.yml"),
            "--mount", mount(OBS / "rules", "/etc/prometheus/rules"),
            "--entrypoint", "/bin/promtool", images["PROMETHEUS"], "check", "config", "/etc/prometheus/prometheus.yml")
+    # Keep the production config validation above; accelerate only this disposable stack.
+    with tempfile.TemporaryDirectory(prefix="player-monitor-config-") as temporary:
+        path = Path(temporary) / "prometheus.yml"
+        production = (OBS / "prometheus.yml").read_text(encoding="utf-8")
+        timing = "global:\n  scrape_interval: 15s\n  scrape_timeout: 10s\n  evaluation_interval: 15s\n"
+        assert production.startswith(timing), "Review smoke timing overrides after production config changes."
+        fast_timing = "global:\n  scrape_interval: 1s\n  scrape_timeout: 1s\n  evaluation_interval: 1s\n"
+        path.write_text(fast_timing + production[len(timing):], encoding="utf-8")
+        path.chmod(0o644)
+        Path(temporary).chmod(0o755)
+        docker("run", "--rm", "--network", "none", *safe,
+               "--mount", mount(path, "/etc/prometheus/prometheus.yml"),
+               "--mount", mount(OBS / "rules", "/etc/prometheus/rules"),
+               "--entrypoint", "/bin/promtool", images["PROMETHEUS"], "check", "config", "/etc/prometheus/prometheus.yml")
+        run_stack(images, safe, path)
+
+
+def run_stack(images, safe, prometheus_config):
     prefix = "player-monitor-" + uuid.uuid4().hex[:10]
     containers = []
     network_created = False
@@ -151,7 +169,7 @@ def main():
                           images["OTEL_COLLECTOR"], "--config=/config.yml"])
         prometheus = start("prometheus", ["--publish", "127.0.0.1::9090",
                            "--tmpfs", "/prometheus:rw,noexec,nosuid,uid=65534,gid=65534,mode=0700,size=64m",
-                           "--mount", mount(OBS / "prometheus.yml", "/etc/prometheus/prometheus.yml"),
+                           "--mount", mount(prometheus_config, "/etc/prometheus/prometheus.yml"),
                            "--mount", mount(OBS / "rules", "/etc/prometheus/rules"),
                            images["PROMETHEUS"], "--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"])
         grafana = start("grafana", ["--publish", "127.0.0.1::3000",

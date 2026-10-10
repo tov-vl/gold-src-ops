@@ -357,3 +357,82 @@ restore с AuditPipeline, format, build без warnings/errors, 957 ordinary cas
 локальные ссылки. Required CI и post-merge CI фиксируются отдельно в PR.
 Release tag, публикация образов, rollout и live-проверки для этого тестового
 пакета не требуются.
+
+
+## Пакет 5 - интервалы Prometheus в Container Smoke
+
+Изменение от 2026-10-10 подготовлено на базе
+`b240bf6e7780ebfee39921da631c61b8aefc4408`. Измерены шесть успешных первых
+попыток CI: [38054424665](https://github.com/tov-vl/gold-src-ops/actions/runs/38054424665),
+[38055243102](https://github.com/tov-vl/gold-src-ops/actions/runs/38055243102),
+[38057123523](https://github.com/tov-vl/gold-src-ops/actions/runs/38057123523),
+[38058041302](https://github.com/tov-vl/gold-src-ops/actions/runs/38058041302),
+[38059617089](https://github.com/tov-vl/gold-src-ops/actions/runs/38059617089) и
+[38060397396](https://github.com/tov-vl/gold-src-ops/actions/runs/38060397396).
+Три PR и три main запуска используют одинаковые workflow, затронутые smoke
+скрипты, конфигурации Collector/Prometheus и файлы правил.
+
+Медиана Container Smoke - 466,5 секунды (диапазон 443-545). Медианы этапов:
+player-data capture/recovery 159,5 секунды, API 133,5, AlertReceiver 70,
+Web 22. Медианы этапов не складываются в медиану всей job. Внутри player-data
+этапа запуск мониторинга вместе с загрузкой образов и переходами состояний
+занимает 141,28 секунды, encrypted roundtrip с отрицательными проверками -
+11,87 секунды. Сборка API-образа занимает 60,22 секунды. CI timestamps не
+позволяют отдельно измерить каждую загрузку образа внутри monitor stack;
+141,28 секунды не объявляются чистым временем ожидания.
+
+### Граница изменения
+
+[Monitor smoke](../tools/smoke/player-data-monitor-stack.py) проверяет исходную
+production-конфигурацию через `promtool check config`, затем создает временную
+копию, меняя ровно три глобальных значения: `scrape_interval` и
+`evaluation_interval` с 15s на 1s, `scrape_timeout` с 10s на 1s. Ожидаемый
+исходный блок проверяется явно: изменение production cadence требует пересмотра
+тестового override. Временная копия также проверяется через `promtool` и живет
+до удаления тестовых контейнеров. Источники правил, scrape targets, pinned
+образы, loopback ports и hardening прежние.
+
+Все 19 backup и 25 leaderboard policy сценариев сохранены, включая временные
+границы и восстановление. Live stack по-прежнему проходит healthy, invalid,
+recovered, disabled и re-enabled состояния, проверяет Grafana panels и datasource.
+Условия и `for: 5m` правил, Collector batch timeout 5s и timeout ожидания 90s
+сохранены. API container smoke продолжает использовать исходные production
+интервалы. Production source/configuration, workflow и зависимости не меняются.
+
+Структурное сравнение Python AST подтвердило сохранение всех функций проверок
+и тела запуска стека, кроме пути Prometheus config. Отдельная локальная проверка
+подтвердила ровно три различия конфигурации, а контрольная подмена исходного
+scrape interval на 30s остановила сценарий до запуска стека.
+
+### Парное измерение monitor stack
+
+Одна Windows-машина с Docker Desktop и уже загруженными pinned образами.
+После успешного прогрева ускоренной версии выполнены три последовательные пары
+исходный/ускоренный smoke без параллельных сборок и контейнерных тестов.
+Исходный Python module взят из указанного Git commit, ускоренный - из рабочего
+дерева; обе версии используют одни файлы правил и остальные fixtures.
+`time.monotonic` измеряет весь `main`: promtool, создание стека, live проверки
+и удаление контейнеров/сети. Прогрев и загрузка Python module не входят в таблицу.
+
+| Вариант | Прогон 1, с | Прогон 2, с | Прогон 3, с | Медиана, с |
+| --- | ---: | ---: | ---: | ---: |
+| Исходный | 278,906 | 235,469 | 203,094 | 235,469 |
+| Ускоренный | 49,515 | 52,094 | 49,969 | 49,969 |
+
+Медиана снизилась на 78,8%, или 185,5 секунды. Все шесть измеренных запусков
+и отдельный прогрев прошли: каждый выполнил 44 policy сценария и полный набор
+live проверок. Тестовые контейнеры и сети удалены. Это локальный результат
+monitor smoke, а не измерение ускорения всей Linux CI job или доказательство
+отсутствия flakes на других runners.
+
+Дополнительные 20 offline monitor tests прошли в существующей Ubuntu.
+Попытка запустить этот POSIX-набор в Windows завершилась ошибками отсутствия
+`os.geteuid`; код не менялся для обхода проверки прав файлов, набор повторен
+в предназначенной для него Linux-среде. Парные stack измерения выше выполнялись
+успешно на Windows и не используют этот POSIX fixture.
+
+Полный .NET Quality Gate, Browser Smoke и вся Container Smoke job в этом пакете
+локально не повторялись. Required CI и измерение полной Container Smoke job на
+Linux фиксируются отдельно в PR. Локальные результаты выше не заменяют этот
+CI gate. Release tag, публикация образов и rollout для этой тестовой правки
+не требуются.
