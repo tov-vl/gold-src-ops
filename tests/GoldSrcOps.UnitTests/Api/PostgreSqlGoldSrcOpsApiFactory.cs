@@ -14,27 +14,37 @@ namespace GoldSrcOps.UnitTests.Api;
 internal sealed class PostgreSqlGoldSrcOpsApiFactory : WebApplicationFactory<Program>
 {
     private readonly Action<IServiceCollection>? _configureTestServices;
-    private readonly PostgreSqlContainer _database;
+    private readonly PostgreSqlContainer? _database;
+    private readonly PostgreSqlDatabaseLease? _databaseLease;
     private readonly TestApiPrincipal _principal;
 
     private PostgreSqlGoldSrcOpsApiFactory(
         Action<IServiceCollection>? configureTestServices,
-        TestApiPrincipal? principal)
+        TestApiPrincipal? principal,
+        PostgreSqlDatabaseLease? databaseLease)
     {
         _configureTestServices = configureTestServices;
         _principal = principal ?? TestApiPrincipal.Operator();
-        _database = new PostgreSqlBuilder("postgres:16-alpine")
-            .WithDatabase("goldsrcops_tests")
-            .WithUsername("goldsrcops")
-            .WithPassword("goldsrcops")
-            .Build();
+        _databaseLease = databaseLease;
+        if (databaseLease is null)
+        {
+            _database = new PostgreSqlBuilder("postgres:16-alpine")
+                .WithDatabase("goldsrcops_tests")
+                .WithUsername("goldsrcops")
+                .WithPassword("goldsrcops")
+                .Build();
+        }
     }
+
+    private string ConnectionString => _databaseLease?.ConnectionString ?? _database!.GetConnectionString();
 
     public static async Task<PostgreSqlGoldSrcOpsApiFactory> CreateAsync(
         Action<IServiceCollection>? configureTestServices = null,
-        TestApiPrincipal? principal = null)
+        TestApiPrincipal? principal = null,
+        PostgreSqlDatabaseFixture? databaseFixture = null)
     {
-        var factory = new PostgreSqlGoldSrcOpsApiFactory(configureTestServices, principal);
+        var databaseLease = databaseFixture is null ? null : await databaseFixture.CreateDatabaseAsync();
+        var factory = new PostgreSqlGoldSrcOpsApiFactory(configureTestServices, principal, databaseLease);
 
         try
         {
@@ -66,21 +76,35 @@ internal sealed class PostgreSqlGoldSrcOpsApiFactory : WebApplicationFactory<Pro
 
     public override async ValueTask DisposeAsync()
     {
-        await base.DisposeAsync();
-        await _database.DisposeAsync();
+        try
+        {
+            await base.DisposeAsync();
+        }
+        finally
+        {
+            if (_databaseLease is not null)
+            {
+                await _databaseLease.DisposeAsync();
+            }
+
+            if (_database is not null)
+            {
+                await _database.DisposeAsync();
+            }
+        }
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
-        builder.UseSetting("ConnectionStrings:GoldSrcOps", _database.GetConnectionString());
+        builder.UseSetting("ConnectionStrings:GoldSrcOps", ConnectionString);
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)
             {
                 ["Authentication:Schemes:Bearer:ValidAudiences:0"] = "goldsrcops-tests",
                 ["Authentication:Schemes:Bearer:ValidIssuer"] = "goldsrcops-tests",
-                ["ConnectionStrings:GoldSrcOps"] = _database.GetConnectionString(),
+                ["ConnectionStrings:GoldSrcOps"] = ConnectionString,
                 ["CommandDispatcher:Enabled"] = "false",
                 ["Polling:Enabled"] = "false",
                 ["SnapshotRetention:Enabled"] = "false",
@@ -98,7 +122,7 @@ internal sealed class PostgreSqlGoldSrcOpsApiFactory : WebApplicationFactory<Pro
 
             services.AddDbContext<GoldSrcOpsDbContext>(options =>
                 options.UseNpgsql(
-                    _database.GetConnectionString(),
+                    ConnectionString,
                     GoldSrcOpsNpgsqlOptions.Configure));
 
             _configureTestServices?.Invoke(services);
@@ -108,7 +132,10 @@ internal sealed class PostgreSqlGoldSrcOpsApiFactory : WebApplicationFactory<Pro
 
     private async Task InitializeDatabaseAsync()
     {
-        await _database.StartAsync();
+        if (_database is not null)
+        {
+            await _database.StartAsync();
+        }
 
         await using var scope = Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<GoldSrcOpsDbContext>();

@@ -14,9 +14,15 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace GoldSrcOps.UnitTests.Api;
 
-public sealed class PostgreSqlDeadLetterReplayEndpointIntegrationTests
+public sealed class PostgreSqlDeadLetterReplayEndpointIntegrationTests : IClassFixture<PostgreSqlDatabaseFixture>
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+    private readonly PostgreSqlDatabaseFixture _databaseFixture;
+
+    public PostgreSqlDeadLetterReplayEndpointIntegrationTests(PostgreSqlDatabaseFixture databaseFixture)
+    {
+        _databaseFixture = databaseFixture;
+    }
 
     [Fact]
     [Trait("Category", "PostgreSqlIntegration")]
@@ -540,14 +546,15 @@ public sealed class PostgreSqlDeadLetterReplayEndpointIntegrationTests
             }
         });
 
-    private static Task<PostgreSqlGoldSrcOpsApiFactory> CreateFactoryAsync(TestClock clock) =>
+    private Task<PostgreSqlGoldSrcOpsApiFactory> CreateFactoryAsync(TestClock clock) =>
         PostgreSqlGoldSrcOpsApiFactory.CreateAsync(
             services =>
             {
                 services.RemoveAll<IClock>();
                 services.AddSingleton<IClock>(clock);
             },
-            TestApiPrincipal.Operator("operator-42"));
+            TestApiPrincipal.Operator("operator-42"),
+            databaseFixture: _databaseFixture);
 
     private static async Task<SeededDeadLetter> SeedDeadLetterAsync(
         PostgreSqlGoldSrcOpsApiFactory factory,
