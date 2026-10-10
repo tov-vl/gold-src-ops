@@ -110,7 +110,7 @@ Playwright документирует ограниченный состав `Req
 | --- | --- | --- | --- |
 | Выполнено, пакет 2 | Concurrent replay ждал 200 мс и считал незавершенность доказательством блокировки | В [PostgreSqlDeadLetterReplayEndpointIntegrationTests](../tests/GoldSrcOps.UnitTests/Api/PostgreSqlDeadLetterReplayEndpointIntegrationTests.cs), сценарий `Concurrent_incident_close_preserves_aggregate_dispatch_order`, дождаться подтвержденного входа запроса/ожидания DB lock с конечным timeout | Проверка различает еще не начавшийся запрос и настоящий конфликт; итоговый порядок dispatch сохранен |
 | Выполнено, пакет 2 | [A2SPacketParserTests](../tests/GoldSrcOps.UnitTests/A2S/A2SPacketParserTests.cs) содержал только три положительных формата | Добавить отрицательные случаи malformed header/type, split и truncation согласно текущему контракту parser | Отказ проверяется на узком уровне; хорошие пакеты продолжают разбираться; без сетевых sleeps |
-| 2 | PostgreSQL fixtures многократно запускают контейнеры и миграции | Пилот общей жизни контейнера с отдельной БД на тест для одной группы; холодную миграцию оставить отдельно | Нет общих изменяемых данных, сохранены concurrency и failure isolation; измерение до/после |
+| Выполнено, пакет 3 | PostgreSQL fixtures многократно запускают контейнеры и миграции | Один контейнер на replay-класс, отдельная БД и полный набор миграций на тест; холодные migration cases сохранены | Изоляция, очистка после ошибки и параллельные записи проверены; локальная медиана группы 34,09 -> 16,32 секунды |
 | 2 | После действий остаются 12 NetworkIdle | По одному заменить на условия результата формы/URL/DOM | Все роли и отрицательные операции сохраняются; Chromium зеленый |
 | 3 | Длинный критический путь Container Smoke | Разделить измерение setup/download/runtime в backup/recovery и API smoke; затем оценить повторное использование pinned fixtures и существующие границы routing | Сохранены restore/rollback и полный CI для общих/неизвестных изменений; ускорение подтверждено несколькими сравнимыми прогонами |
 
@@ -248,3 +248,67 @@ checks, включая 40 browser cases. Однако в
 AuditPipeline, format, build без warnings/errors, 955 ordinary cases и
 vulnerable-package audit без находок. Проверены 153 Markdown файла и 897
 локальных ссылок. Required CI и post-merge CI фиксируются отдельно в PR.
+
+## Пакет 3 - пилот PostgreSQL fixture
+
+Пилот от 2026-10-10 подготовлен на базе
+`724667b6a14491ee900d5d1ae905c251961bcb74`. Семь случаев
+[dead-letter replay](../tests/GoldSrcOps.UnitTests/Api/PostgreSqlDeadLetterReplayEndpointIntegrationTests.cs)
+используют один контейнер PostgreSQL на класс вместо отдельного контейнера на
+каждый случай. Тела сценариев и assertions сохранены. Для каждой фабрики
+создается отдельная БД со случайным именем и выполняется полный набор миграций.
+Общей схемы, очистки таблиц между случаями и копирования готовой БД нет.
+
+Контейнер принадлежит [class fixture](../tests/GoldSrcOps.UnitTests/Api/PostgreSqlDatabaseFixture.cs)
+xUnit и удаляется при завершении класса. Collection fixture, глобальный кэш и
+Testcontainers resource reuse не используются; параллельность разных классов
+не ограничивается. Остальные PostgreSQL группы, включая оба холодных migration
+случая, сохраняют прежний путь с собственным контейнером.
+
+[Фабрика](../tests/GoldSrcOps.UnitTests/Api/PostgreSqlGoldSrcOpsApiFactory.cs)
+сначала завершает host, затем освобождает только собственную
+[БД](../tests/GoldSrcOps.UnitTests/Api/PostgreSqlDatabaseLease.cs): очищает ее
+connection pool и выполняет `DROP DATABASE ... WITH (FORCE)` через отдельное
+непулируемое административное соединение. Административная операция ограничена
+30 секундами. Имена генерируются внутри helper; внешние БД он не принимает.
+Ошибка инициализации также освобождает БД, повторный Dispose после успешной
+очистки безопасен. Семантика сверена с
+[xUnit class fixtures](https://xunit.net/docs/shared-context),
+[Npgsql ClearPool](https://www.npgsql.org/doc/api/Npgsql.NpgsqlConnection.html) и
+[PostgreSQL 16 DROP DATABASE](https://www.postgresql.org/docs/16/sql-dropdatabase.html).
+
+Две новые [проверки жизненного цикла](../tests/GoldSrcOps.UnitTests/Api/PostgreSqlDatabaseFixtureIntegrationTests.cs)
+используют собственный class fixture. Первая одновременно записывает одинаковый
+endpoint в две БД, проверяет независимые данные и доступность второй БД после
+удаления первой, затем отсутствие обеих БД в каталоге. Вторая принудительно
+ломает запуск host, проверяет отсутствие оставшейся БД и успешное создание
+следующей фабрики с примененными миграциями и пустыми данными.
+
+### Локальное измерение
+
+Одна Windows-машина, тот же образ PostgreSQL, прогрев перед каждой серией,
+затем три последовательных запуска тех же семи replay cases с `--no-build`.
+Stopwatch охватывает весь `dotnet test`, включая runner, создание и удаление
+fixture. Каждый TRX проверен: ровно 7 passed, 0 failed, 0 skipped.
+Прогрев и сборка исключены из сравнения.
+
+| Серия | Прогон 1, с | Прогон 2, с | Прогон 3, с | Медиана, с |
+| --- | ---: | ---: | ---: | ---: |
+| Отдельный контейнер на случай | 34,085 | 34,373 | 33,882 | 34,085 |
+| Один контейнер, отдельная БД на случай | 16,589 | 15,160 | 16,318 | 16,318 |
+
+Медиана этой группы снизилась на 52,1%. Измерение не доказывает такое же
+ускорение полного проекта или CI и не является доказательством отсутствия
+flakes. Распространение fixture на остальные классы требует отдельного
+ограниченного изменения и проверки их границ.
+
+Focused запуск: все 11 случаев прошли - семь replay, две проверки fixture и
+два холодных migration случая. Полный локальный Quality Gate прошел: restore
+с AuditPipeline, format, build без warnings/errors, 957 ordinary cases
+(614 UnitTests, 289 WebTests, 54 AlertReceiver) и vulnerable-package audit без
+находок. Проверены 153 Markdown файла и 902 локальные ссылки. Required CI и
+post-merge CI фиксируются отдельно в PR.
+
+Production source, зависимости, CI routing и runtime не меняются. Локальные
+browser/live проверки не повторяются; обычный required CI сохраняет Browser
+Smoke. Пакет не требует release tag, публикации образов или rollout.
