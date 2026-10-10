@@ -20,46 +20,60 @@
         <section class="join-panel join-panel--@ServerState" aria-labelledby="join-title">
             <p class="eyebrow">Подключение к серверу</p>
             <h2 id="join-title">@(_server?.Name ?? "GoldSrcOps")</h2>
-            @if (_isLoading)
+            <a class="join-panel__refresh" href="/play" data-play-refresh aria-describedby="play-refresh-status">Обновить статус</a>
+            <p id="play-refresh-status" class="join-panel__refresh-status" aria-live="polite">Для обновления статуса нажми "Обновить статус".</p>
+            <div data-play-status data-state="@ServerState" data-age-seconds="@AgeAttribute">
+                @if (_isLoading)
+                {
+                    <p class="join-panel__notice" role="status" aria-busy="true">Проверяем состояние сервера...</p>
+                }
+                else if (_server is null)
+                {
+                    <p class="join-panel__notice" role="status">Подключение пока недоступно</p>
+                    <p class="join-panel__detail">Не удалось получить адрес для подключения. Попробуй обновить страницу позже.</p>
+                    <a class="join-panel__status-link" href="/">Проверить общий статус</a>
+                }
+                else
+                {
+                    <p class="join-panel__state" role="status">
+                        <span class="join-panel__signal" aria-hidden="true"></span>@ServerStateLabel
+                    </p>
+                    <p class="join-panel__detail">@ServerStateDescription</p>
+                    <dl class="join-panel__facts">
+                        <div><dt>Карта</dt><dd>@MapLabel</dd></div>
+                        <div><dt>Игроки</dt><dd>@PlayerLabel</dd></div>
+                    </dl>
+                    <p class="join-panel__observed">
+                        Последняя проверка:
+                        @if (_server.LastObservedAtUtc is { } observedAt)
+                        {
+                            <time datetime="@observedAt.ToString("O")">@observedAt.ToUniversalTime().ToString("dd.MM.yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture)</time>
+                        }
+                        else
+                        {
+                            <span>данных пока нет</span>
+                        }
+                        @if (ObservationAgeSeconds is { } age)
+                        {
+                            <span class="join-panel__age" data-play-age>Возраст: @Math.Ceiling(age) сек.</span>
+                        }
+                    </p>
+                    <p class="join-panel__warning" data-play-warning hidden="@(ServerState is "online" or "offline")">Свежая проверка пока не подтверждена. Карта и онлайн могут измениться.</p>
+                }
+            </div>
+            @if (_server is not null)
             {
-                <p class="join-panel__notice" role="status" aria-busy="true">Проверяем состояние сервера...</p>
-            }
-            else if (_server is null)
-            {
-                <p class="join-panel__notice" role="status">Подключение пока недоступно</p>
-                <p class="join-panel__detail">Не удалось получить адрес для подключения. Попробуй обновить страницу позже.</p>
-                <a class="join-panel__status-link" href="/">Проверить общий статус</a>
-            }
-            else
-            {
-                <p class="join-panel__state" role="status">
-                    <span class="join-panel__signal" aria-hidden="true"></span>@ServerStateLabel
-                </p>
-                <p class="join-panel__detail">@ServerStateDescription</p>
-                <dl class="join-panel__facts">
-                    <div><dt>Карта</dt><dd>@MapLabel</dd></div>
-                    <div><dt>Игроки</dt><dd>@PlayerLabel</dd></div>
-                </dl>
-                <p class="join-panel__observed">
-                    Последняя проверка:
-                    @if (_server.LastObservedAtUtc is { } observedAt)
-                    {
-                        <time datetime="@observedAt.ToString("O")">@observedAt.ToUniversalTime().ToString("dd.MM.yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture)</time>
-                    }
-                    else
-                    {
-                        <span>данных пока нет</span>
-                    }
-                </p>
-                <a class="join-panel__steam" href="@SteamConnectUri">@(IsOnline ? "Подключиться через Steam" : "Попробовать подключиться")</a>
-                <p class="join-panel__command-label">Или введи в консоли CS 1.6:</p>
-                <code class="join-panel__command">@ConnectCommand</code>
-                <button class="join-panel__copy" type="button"
-                        data-copy-connect="@ConnectCommand"
-                        data-copy-success="Команда подключения скопирована."
-                        data-copy-failure="Не удалось скопировать. Выдели команду и скопируй вручную."
-                        aria-describedby="play-copy-status">Скопировать команду</button>
-                <p id="play-copy-status" class="join-panel__copy-status" aria-live="polite"></p>
+                <div data-play-connection>
+                    <a class="join-panel__steam" href="@SteamConnectUri">@(IsOnline ? "Подключиться через Steam" : "Попробовать подключиться")</a>
+                    <p class="join-panel__command-label">Или введи в консоли CS 1.6:</p>
+                    <code class="join-panel__command">@ConnectCommand</code>
+                    <button class="join-panel__copy" type="button"
+                            data-copy-connect="@ConnectCommand"
+                            data-copy-success="Команда подключения скопирована."
+                            data-copy-failure="Не удалось скопировать. Выдели команду и скопируй вручную."
+                            aria-describedby="play-copy-status">Скопировать команду</button>
+                    <p id="play-copy-status" class="join-panel__copy-status" aria-live="polite"></p>
+                </div>
             }
         </section>
     </section>
@@ -111,14 +125,19 @@
     </section>
 
     <p><a href="/leaderboard">Посмотреть топ-10 игроков</a></p>
-    <p class="play-footer-note">Начни с <code>/menu</code>. Доступность сервера показывается по последней проверке; карта и онлайн обновляются при загрузке страницы.</p>
+    <p class="play-footer-note">Начни с <code>/menu</code>. Доступность сервера показывается по последней проверке; статус обновляется раз в минуту с JavaScript в видимой вкладке. Без JavaScript используй "Обновить статус".</p>
 </div>
 
 @code {
     private PublicServerJoinResponse? _server;
     private bool _isLoading = true;
 
-    private string ServerState => _server?.State switch
+    private double? ObservationAgeSeconds => _server?.LastObservedAtUtc is { } observed
+        ? Math.Max(0, (DateTimeOffset.UtcNow - observed).TotalSeconds) : null;
+
+    private string AgeAttribute => ObservationAgeSeconds?.ToString("F3", CultureInfo.InvariantCulture) ?? string.Empty;
+
+    private string ServerState => _server is null ? "unavailable" : ObservationAgeSeconds is null or > 180 ? "unknown" : _server.State switch
     {
         "online" => "online",
         "offline" => "offline",
@@ -161,9 +180,9 @@
         {
             _server = await StatusClient.GetServerJoinAsync();
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException or System.Text.Json.JsonException)
         {
-            Logger.LogWarning(exception, "Unable to load the public player guide server projection.");
+            Logger.LogWarning("Unable to load the public player guide server projection.");
         }
         finally
         {

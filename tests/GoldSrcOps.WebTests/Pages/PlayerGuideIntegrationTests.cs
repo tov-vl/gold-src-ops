@@ -37,8 +37,9 @@ public sealed class PlayerGuideIntegrationTests
         string state,
         string expectedLabel)
     {
+        var server = Server(state);
         await using var factory = new PublicDashboardWebApplicationFactory(
-            serverJoinResponse: Server(state));
+            serverJoinResponse: server);
         using var client = factory.CreateClient();
 
         var body = WebUtility.HtmlDecode(await client.GetStringAsync("/play"));
@@ -49,7 +50,7 @@ public sealed class PlayerGuideIntegrationTests
         body.Should().NotContain("17 / 31");
         body.Should().Contain("Попробовать подключиться");
         body.Should().Contain("connect play.example.test:27015");
-        body.Should().Contain("2026-09-07T12:00:00.0000000+00:00");
+        body.Should().Contain(server.LastObservedAtUtc!.Value.ToString("O"));
     }
 
     [Theory]
@@ -93,6 +94,40 @@ public sealed class PlayerGuideIntegrationTests
         body.Should().NotContain(server.Map);
     }
 
+    [Theory]
+    [InlineData("online")]
+    [InlineData("offline")]
+    public async Task Player_status_expired_observations_are_not_presented_as_current(string state)
+    {
+        var server = Server(state) with { LastObservedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-4) };
+        await using var factory = new PublicDashboardWebApplicationFactory(serverJoinResponse: server);
+        using var client = factory.CreateClient();
+
+        var body = WebUtility.HtmlDecode(await client.GetStringAsync("/play"));
+
+        body.Should().Contain("Свежий статус не подтвержден");
+        body.Should().NotContain("stale-map-must-not-render");
+        body.Should().NotContain("17 / 31");
+        body.Should().Contain("Возраст:");
+        body.Should().Contain("data-play-refresh");
+        body.Should().Contain("connect play.example.test:27015");
+    }
+
+    [Fact]
+    public async Task Player_status_without_observation_cannot_claim_online()
+    {
+        await using var factory = new PublicDashboardWebApplicationFactory(
+            serverJoinResponse: Server("online") with { LastObservedAtUtc = null });
+        using var client = factory.CreateClient();
+
+        var body = WebUtility.HtmlDecode(await client.GetStringAsync("/play"));
+
+        body.Should().Contain("Свежий статус не подтвержден");
+        body.Should().Contain("данных пока нет");
+        body.Should().NotContain("data-play-age>");
+        body.Should().NotContain("17 / 31");
+    }
+
     internal static PublicServerJoinResponse Server(string state) => new(
         "GoldSrcOps CS 1.6",
         "play.example.test",
@@ -101,5 +136,5 @@ public sealed class PlayerGuideIntegrationTests
         "stale-map-must-not-render",
         17,
         31,
-        new DateTimeOffset(2026, 9, 7, 12, 0, 0, TimeSpan.Zero));
+        DateTimeOffset.UtcNow);
 }
