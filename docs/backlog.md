@@ -3000,3 +3000,12 @@ API/telemetry снимки совпали. Пересозданы только A
 новой сборки или повторного rollout при promotion не было. См. [контракт](v2.58-leaderboard-monitoring.md)
 и [readiness](v2.58-readiness.md). Первый weekly backup 2026-10-11 в 04:00 МСК
 и отложенная клиентская приемка остаются отдельными этапами.
+
+### v2.59 - Обновление рейтинга на открытой странице
+
+В работе: Web-only R1, видимая вкладка обновляет SSR результаты раз в минуту;
+ручное обновление, возраст снимка и явные ошибки. Ограниченный same-origin GET
+не передает credentials и не вызывает API из браузера. API/addon/scoring/save/
+schema и weekly backup прежние. Focused SSR/browser cases прошли; полный gate,
+CI и release acceptance в работе. См. [контракт](v2.59-leaderboard-refresh.md)
+и [readiness](v2.59-readiness.md).
