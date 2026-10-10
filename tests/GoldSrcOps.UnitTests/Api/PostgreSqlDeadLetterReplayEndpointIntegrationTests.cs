@@ -478,16 +478,18 @@ public sealed class PostgreSqlDeadLetterReplayEndpointIntegrationTests
                 "{\"sequence\":2}"));
             await dbContext.SaveChangesAsync();
 
+            var blockingProcessId = await dbContext.Database
+                .SqlQuery<int>($"SELECT pg_backend_pid() AS \"Value\"")
+                .SingleAsync();
             var replayTask = ReplayAsync(
                 client,
                 target.EventId,
                 Guid.NewGuid(),
                 "endpoint restored");
-            await Task.Delay(TimeSpan.FromMilliseconds(200));
-            replayTask.IsCompleted.Should().BeFalse();
+            await WaitForReplayBlockedAsync(factory, blockingProcessId, replayTask);
 
             await transaction.CommitAsync();
-            using var replay = await replayTask;
+            using var replay = await replayTask.WaitAsync(TimeSpan.FromSeconds(10));
             replay.StatusCode.Should().Be(HttpStatusCode.Accepted);
         }
 
@@ -500,6 +502,43 @@ public sealed class PostgreSqlDeadLetterReplayEndpointIntegrationTests
         recoveredClaim.Should().NotBeNull();
         recoveredClaim!.Id.Should().Be(recoveredEventId);
     }
+
+    private static Task WaitForReplayBlockedAsync(
+        PostgreSqlGoldSrcOpsApiFactory factory,
+        int blockingProcessId,
+        Task<HttpResponseMessage> replayTask) =>
+        factory.ExecuteDbContextAsync(async observer =>
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            try
+            {
+                while (true)
+                {
+                    replayTask.IsCompleted.Should().BeFalse(
+                        "replay must wait for the incident transaction to commit");
+                    var blocked = await observer.Database
+                        .SqlQuery<bool>($$"""
+                            SELECT EXISTS (
+                                SELECT 1
+                                FROM pg_stat_activity AS activity
+                                WHERE activity.datname = current_database()
+                                  AND {{blockingProcessId}} = ANY(pg_blocking_pids(activity.pid))
+                            ) AS "Value"
+                            """)
+                        .SingleAsync(timeout.Token);
+                    if (blocked)
+                    {
+                        return;
+                    }
+
+                    await Task.Delay(TimeSpan.FromMilliseconds(25), timeout.Token);
+                }
+            }
+            catch (OperationCanceledException exception) when (timeout.IsCancellationRequested)
+            {
+                throw new TimeoutException("Replay did not block on the incident transaction within 10 seconds.", exception);
+            }
+        });
 
     private static Task<PostgreSqlGoldSrcOpsApiFactory> CreateFactoryAsync(TestClock clock) =>
         PostgreSqlGoldSrcOpsApiFactory.CreateAsync(

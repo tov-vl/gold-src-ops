@@ -80,6 +80,59 @@ public sealed class A2SPacketParserTests
         Assert.Equal(0x12345678, challengePacket.Challenge);
     }
 
+    [Fact]
+    public void Parse_rejects_invalid_header_with_otherwise_valid_payload()
+    {
+        var datagram = Hex("000000004178563412");
+
+        Assert.Throws<InvalidOperationException>(() =>
+            A2SPacket.Parse(datagram, Encoding.UTF8, TimeSpan.Zero));
+    }
+
+    [Theory]
+    [InlineData("FFFFFFFF0078563412")]
+    [InlineData("FFFFFFFF5478563412")]
+    public void Parse_rejects_unsupported_response_types(string packet)
+    {
+        var datagram = Hex(packet);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            A2SPacket.Parse(datagram, Encoding.UTF8, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void Parse_rejects_split_packets()
+    {
+        var datagram = Hex("FEFFFFFF4178563412");
+
+        Assert.Throws<NotSupportedException>(() =>
+            A2SPacket.Parse(datagram, Encoding.UTF8, TimeSpan.Zero));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("FFFFFF")]
+    [InlineData("FFFFFFFF")]
+    [InlineData("FFFFFFFF41785634")]
+    [InlineData("FFFFFFFF49")]
+    [InlineData("FFFFFFFF49304E004D00460047000A")]
+    public void Parse_rejects_truncated_numeric_fields(string packet)
+    {
+        var datagram = Hex(packet);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            A2SPacket.Parse(datagram, Encoding.UTF8, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void Parse_rejects_unterminated_final_version_string()
+    {
+        var datagram = Hex("FFFFFFFF49304E004D00460047000A00012000646C0001312E30");
+
+        Assert.Throws<InvalidOperationException>(() =>
+            A2SPacket.Parse(datagram, Encoding.UTF8, TimeSpan.Zero));
+    }
+
     private static byte[] Hex(string value)
     {
         return Convert.FromHexString(value.Replace(" ", string.Empty).ReplaceLineEndings(string.Empty));
