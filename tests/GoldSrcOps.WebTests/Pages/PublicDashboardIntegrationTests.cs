@@ -219,7 +219,7 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
                         "de_dust2",
                         4,
                         20,
-                        new DateTimeOffset(2026, 9, 7, 12, 0, 0, TimeSpan.Zero))));
+                        DateTimeOffset.UtcNow)));
             }
 
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));

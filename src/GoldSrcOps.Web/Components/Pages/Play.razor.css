@@ -364,3 +364,31 @@
         gap: 8px;
     }
 }
+
+.join-panel__refresh {
+    display: inline-block;
+    padding: 10px 14px;
+    border: 1px solid var(--line-strong);
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    text-decoration: none;
+}
+
+.join-panel__refresh[aria-disabled="true"] {
+    opacity: 0.6;
+}
+
+.join-panel__refresh-status,
+.join-panel__warning {
+    color: var(--ink-muted);
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+.join-panel__age {
+    display: block;
+}
+
+.join-panel__warning[hidden] {
+    display: none;
+}

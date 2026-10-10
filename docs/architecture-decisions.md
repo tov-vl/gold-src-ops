@@ -1917,3 +1917,15 @@ interactive server circuits or browser access to the API. Visible-tab reads
 are serialized and timed out; monotonic browser age downgrades retained data
 between responses. A normal SSR reload remains available without JavaScript.
 See [the v2.59 refresh boundary](v2.59-leaderboard-refresh.md).
+
+
+## Decision 43: Refresh Public Connection Status Without Browser API Access
+
+The player guide reuses the public A2S-derived join projection through bounded,
+credential-free same-origin SSR reads. Keep the existing static rendering and
+polling source; no browser API endpoint or interactive server circuit is needed.
+Server-computed observation age advances by monotonic browser time. Expiration
+or a transport failure removes current map/population claims, while confirmed
+configuration unavailability removes connection controls. Preserve existing
+controls/focus when applying a successful address update; retain normal SSR
+reload without JavaScript. See [v2.60](v2.60-play-status-refresh.md).
