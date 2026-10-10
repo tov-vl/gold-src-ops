@@ -1,14 +1,22 @@
 # GoldSrcOps v2.59 - Leaderboard Page Refresh
 
-Candidate `v2.59.0-rc.1` and stable `v2.59.0` pending publication/acceptance.
+Stable [v2.59.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.59.0)
+promoted from accepted rc.1 at `64233f4132aaf46caeb3524689508a5b4767d611`,
+without rebuilding or repeating rollout.
 
-- Public leaderboard refreshes in a visible tab once a minute without replacing
-  the whole document; manual refresh preserves focus and join navigation.
-- Age continues between reads; errors mark previous results stale, and
-  unavailable/expired data do not retain old rows as fresh.
-- Hidden tabs stop reads; no overlapping requests, immediate retries, browser
-  API credentials or persistent browser state. SSR still works without JS.
-- Web-only runtime scope. API, addon, gameplay, saves, scoring, schema,
-  monitoring and weekly backup schedule are unchanged.
+- The public leaderboard updates results once a minute in a visible tab and
+  supports manual refresh, preserving document, focus and join navigation.
+- Age advances between reads. Failure makes old results stale; unavailable or
+  expired data clear them. Hidden tabs pause reads; timeout and response bounds
+  prevent overlapping or unbounded work. Normal SSR reload works without JS.
+- Only Web was recreated. Six other services, complete mount/volume identities,
+  existing API/addon/gameplay/save/scoring/schema, monitoring and backup retained.
 
-See [readiness](v2.59-readiness.md) and [contract](v2.59-leaderboard-refresh.md).
+941 .NET tests, 32 browser cases, full local quality, required CI and published
+artifact checks passed. Independent production acceptance verified manual and
+real-minute refresh, source-capture progression, layouts 1440/390/320px and the
+anonymous browser boundary without reload, credentials or direct API calls.
+
+Personal delivery, first weekly backup on 2026-10-11 at 04:00 MSK and deferred
+game-client/two-player acceptance remain separate work. See
+[readiness](v2.59-readiness.md) and [contract](v2.59-leaderboard-refresh.md).

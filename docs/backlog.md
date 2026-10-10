@@ -3003,9 +3003,16 @@ API/telemetry снимки совпали. Пересозданы только A
 
 ### v2.59 - Обновление рейтинга на открытой странице
 
-В работе: Web-only R1, видимая вкладка обновляет SSR результаты раз в минуту;
-ручное обновление, возраст снимка и явные ошибки. Ограниченный same-origin GET
-не передает credentials и не вызывает API из браузера. API/addon/scoring/save/
-schema и weekly backup прежние. Focused SSR/browser cases прошли; полный gate,
-CI и release acceptance в работе. См. [контракт](v2.59-leaderboard-refresh.md)
+Принято 2026-10-10: stable `v2.59.0` опубликован из принятого rc.1.
+Web обновляет SSR результаты раз в минуту в видимой вкладке и вручную,
+сохраняя документ/фокус; возраст растет между запросами, ошибки переводят
+прежние строки в stale. Timeout/size/overlap/hidden/expiry и fallback без JS
+проверены. Local Quality Gate (941 .NET tests), 32 browser cases, required CI,
+все 11 candidate/stable jobs и независимые artifact checks прошли.
+Один Web-only R1 rollout и независимая runtime/Chromium приемка подтвердили
+реальное минутное обновление, advancing capture и layouts 1440/390/320px
+без overflow/browser API requests; шесть прочих контейнеров и полные mounts/
+volumes сохранены. Откат не понадобился; stable без пересборки или rollout.
+Первый weekly backup 2026-10-11 в 04:00 МСК и отложенные client/two-player
+остаются отдельными задачами. См. [контракт](v2.59-leaderboard-refresh.md)
 и [readiness](v2.59-readiness.md).
