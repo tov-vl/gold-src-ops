@@ -15,7 +15,12 @@
         <a class="leaderboard-join" href="/play">Играть на сервере <span aria-hidden="true">→</span></a>
     </header>
 
-    <section class="leaderboard-panel" aria-labelledby="leaderboard-title">
+    <div class="leaderboard-refresh">
+        <a class="leaderboard-refresh__button" href="/leaderboard" data-leaderboard-refresh aria-describedby="leaderboard-refresh-status">Обновить</a>
+        <p id="leaderboard-refresh-status" role="status" aria-live="polite">Для нового снимка нажми "Обновить".</p>
+    </div>
+    <section class="leaderboard-panel" aria-labelledby="leaderboard-title" data-leaderboard-panel
+             data-state="@State" data-age-seconds="@SnapshotAgeSeconds.ToString(CultureInfo.InvariantCulture)">
         <div class="leaderboard-panel__heading">
             <h2 id="leaderboard-title">Сохраненные результаты</h2>
             <p class="leaderboard-state leaderboard-state--@State" role="status">@StateLabel</p>
@@ -24,12 +29,10 @@
         {
             <p class="leaderboard-updated">Снимок рейтинга:
                 <time datetime="@captured.ToString("O")">@captured.ToUniversalTime().ToString("dd.MM.yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture)</time>
+                <span class="leaderboard-age" data-leaderboard-age>Возраст: @Math.Ceiling(SnapshotAgeSeconds) сек.</span>
             </p>
         }
-        @if (string.Equals(State, "stale", StringComparison.Ordinal))
-        {
-            <p class="leaderboard-notice">Это последний доступный снимок. Свежий рейтинг пока не подтвержден; результаты в игре могли измениться.</p>
-        }
+        <p class="leaderboard-notice" data-leaderboard-notice hidden="@(State != "stale")">Это последний доступный снимок. Свежий рейтинг пока не подтвержден; результаты в игре могли измениться.</p>
         @if (_snapshot is { Entries.Count: > 0 } && State is "fresh" or "stale")
         {
             <table class="leaderboard-table">
@@ -55,11 +58,12 @@
             <p>Попробуй обновить страницу позже. Подключение и команды для начала игры доступны на странице "Играть".</p>
         }
     </section>
-    <p class="leaderboard-footnote">Ники берутся из сохраненного профиля при подключении. Результаты обновляются примерно раз в минуту. Обнови страницу, чтобы увидеть новый снимок. Личный прогресс смотри через <code>/profile</code> в игре.</p>
+    <p class="leaderboard-footnote">Ники берутся из сохраненного профиля при подключении. Результаты обновляются примерно раз в минуту. Автообновление работает с JavaScript в видимой вкладке. Личный прогресс смотри через <code>/profile</code> в игре.</p>
 </div>
 
 @code {
     private PublicLeaderboardResponse? _snapshot;
+    private double SnapshotAgeSeconds => _snapshot?.CapturedAtUtc is { } captured ? Math.Max(0, (DateTimeOffset.UtcNow - captured).TotalSeconds) : 0;
     private string State => _snapshot?.State is "fresh" or "stale" ? _snapshot.State : "unavailable";
     private string StateLabel => State switch
     {

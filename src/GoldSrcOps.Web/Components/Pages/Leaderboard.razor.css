@@ -46,3 +46,11 @@
     .rank-column { width: 22%; }
     .score-column { width: 17%; }
 }
+
+.leaderboard-refresh { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-bottom: 20px; }
+.leaderboard-refresh__button { border: 1px solid var(--line); border-radius: 6px; padding: 10px 18px; font-weight: 650; text-decoration: none; }
+.leaderboard-refresh__button:focus-visible { outline: 2px solid var(--signal-green); outline-offset: 3px; }
+.leaderboard-refresh__button[aria-disabled="true"] { opacity: 0.6; cursor: wait; }
+.leaderboard-refresh p { flex: 1 1 200px; margin: 0; color: var(--ink-muted); font-size: 0.85rem; line-height: 1.6; }
+.leaderboard-age { display: inline-block; margin-left: 12px; }
+.leaderboard-notice[hidden] { display: none; }

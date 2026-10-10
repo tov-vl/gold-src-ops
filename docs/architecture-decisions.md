@@ -1910,3 +1910,10 @@ and a one-day ceiling hides retained rows. Static SSR Web encodes names and
 shows explicit fresh, stale, empty and unavailable states. Restart begins empty.
 This is a public pilot, with no persistent leaderboard history or real-time promise.
 See [the v2.57 contract and recovery boundary](v2.57-public-leaderboard.md).
+
+The public page may progressively refresh its existing SSR results through a
+bounded anonymous same-origin GET with credentials omitted. It does not add
+interactive server circuits or browser access to the API. Visible-tab reads
+are serialized and timed out; monotonic browser age downgrades retained data
+between responses. A normal SSR reload remains available without JavaScript.
+See [the v2.59 refresh boundary](v2.59-leaderboard-refresh.md).
