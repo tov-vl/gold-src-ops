@@ -140,8 +140,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         async Task<PageContent> VisitAsync(string relativePath)
         {
             var response = await Page.GotoAsync(
-                new Uri(baseAddress, relativePath).AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                new Uri(baseAddress, relativePath).AbsoluteUri);
             var body = await RequireResponseBodyAsync(response);
             var dom = await Page.ContentAsync();
             await AssertBrowserStorageIsEmptyAsync();
@@ -156,8 +155,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -167,8 +165,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         {
             await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
             var response = await Page.GotoAsync(
-                new Uri(baseAddress, "/operator/servers").AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                new Uri(baseAddress, "/operator/servers").AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -194,8 +191,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -205,8 +201,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         {
             await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
             var response = await Page.GotoAsync(
-                new Uri(baseAddress, "/operator/alert-delivery").AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                new Uri(baseAddress, "/operator/alert-delivery").AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -232,8 +227,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -243,8 +237,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         {
             await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
             var response = await Page.GotoAsync(
-                new Uri(baseAddress, "/operator/provider-delivery").AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                new Uri(baseAddress, "/operator/provider-delivery").AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -269,8 +262,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -283,8 +275,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 new Uri(
                     baseAddress,
                     $"/operator/provider-delivery/dead-letters/{ReaderWebApplicationFactory.ProviderMessageId:D}")
-                    .AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    .AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -306,8 +297,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -317,8 +307,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         {
             await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
             var response = await Page.GotoAsync(
-                new Uri(baseAddress, "/operator/alert-delivery/pending").AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                new Uri(baseAddress, "/operator/alert-delivery/pending").AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -342,8 +331,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -353,8 +341,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         {
             await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
             var response = await Page.GotoAsync(
-                new Uri(baseAddress, "/operator/activity").AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                new Uri(baseAddress, "/operator/activity").AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -388,8 +375,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             await CaptureScreenshotIfRequestedAsync("recent-activity-pagination-older", viewport);
 
             await Page.GotoAsync(
-                new Uri(baseAddress, "/operator/activity").AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                new Uri(baseAddress, "/operator/activity").AbsoluteUri);
 
             await Page.Locator(".activity-range__link")
                 .Filter(new LocatorFilterOptions { HasText = "6h" })
@@ -435,11 +421,9 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
         await Page.GotoAsync(
-            new Uri(baseAddress, "/operator/servers").AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, "/operator/servers").AbsoluteUri);
 
         (await Page.Locator(".triage-tab[aria-current='page']").InnerTextAsync())
             .Should().Contain("All");
@@ -479,8 +463,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -493,8 +476,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 new Uri(
                     baseAddress,
                     $"/operator/incidents/{ReaderWebApplicationFactory.OpenIncidentId:D}")
-                    .AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    .AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -537,8 +519,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -551,8 +532,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 new Uri(
                     baseAddress,
                     $"/operator/dead-letters/{ReaderWebApplicationFactory.DeadLetterEventId:D}")
-                    .AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    .AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -574,8 +554,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -588,8 +567,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 new Uri(
                     baseAddress,
                     $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands/new")
-                    .AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    .AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -611,8 +589,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -625,8 +602,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 new Uri(
                     baseAddress,
                     $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands/restart")
-                    .AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    .AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -649,8 +625,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -663,8 +638,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 new Uri(
                     baseAddress,
                     $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/commands/change-map")
-                    .AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    .AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -698,8 +672,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -712,8 +685,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 new Uri(
                     baseAddress,
                     $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/monitoring")
-                    .AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    .AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -736,8 +708,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -747,8 +718,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         {
             await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
             var response = await Page.GotoAsync(
-                new Uri(baseAddress, "/operator/servers/new").AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                new Uri(baseAddress, "/operator/servers/new").AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -780,8 +750,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -794,8 +763,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 new Uri(
                     baseAddress,
                     $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/settings")
-                    .AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    .AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -839,8 +807,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -853,8 +820,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 new Uri(
                     baseAddress,
                     $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/credentials")
-                    .AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    .AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -886,8 +852,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var historyWindow in new[]
                  {
@@ -906,8 +871,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                     new Uri(
                         baseAddress,
                         $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/history?range={historyWindow.Value}")
-                    .AbsoluteUri,
-                    new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    .AbsoluteUri);
 
                 response.Should().NotBeNull();
                 response!.Ok.Should().BeTrue();
@@ -939,8 +903,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -953,8 +916,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 new Uri(
                     baseAddress,
                     $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}")
-                    .AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    .AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -985,8 +947,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         factory.StartServer();
         var baseAddress = factory.ClientOptions.BaseAddress;
         await Page.GotoAsync(
-            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri,
-            new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+            new Uri(baseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
 
         foreach (var viewport in new[]
                  {
@@ -999,8 +960,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
                 new Uri(
                     baseAddress,
                     $"/operator/servers/{ReaderWebApplicationFactory.ServerId:D}/events")
-                    .AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    .AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -1042,8 +1002,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             {
                 await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
                 var response = await Page.GotoAsync(
-                    new Uri(baseAddress, $"/?range={historyWindow.Value}").AbsoluteUri,
-                    new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                    new Uri(baseAddress, $"/?range={historyWindow.Value}").AbsoluteUri);
 
                 response.Should().NotBeNull();
                 response!.Ok.Should().BeTrue();
@@ -1080,8 +1039,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         {
             await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
             var response = await Page.GotoAsync(
-                baseAddress.AbsoluteUri,
-                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+                baseAddress.AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();
@@ -1101,6 +1059,15 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
 
             await CaptureScreenshotIfRequestedAsync("public-server-join", viewport);
         }
+    }
+
+    private static async Task AssertAnonymousRefreshAsync(IRequest request)
+    {
+        request.IsNavigationRequest.Should().BeFalse();
+        request.Method.Should().Be("GET");
+        var headers = await request.AllHeadersAsync();
+        headers.ContainsKey("authorization").Should().BeFalse("public refresh must omit credentials");
+        headers.ContainsKey("cookie").Should().BeFalse("public refresh must omit the existing session cookie");
     }
 
     private async Task AssertBrowserStorageIsEmptyAsync()

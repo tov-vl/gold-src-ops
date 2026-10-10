@@ -3033,3 +3033,20 @@ clipboard и layouts 1440/390/320px без overflow/browser API requests. Шес
 Stable использует те же digests без пересборки или повторного rollout.
 Weekly backup 2026-10-11 в 04:00 МСК и отложенные client/two-player независимы.
 См. [контракт](v2.60-play-status-refresh.md) и [readiness](v2.60-readiness.md).
+
+### Аудит тестов - октябрь 2026
+
+Аудит от 2026-10-10 охватил 138 C# test/helper файлов и 54 smoke/fixture файла.
+Первый пакет усиливает cookie boundary публичного refresh, отрицательные
+проверки возраста наблюдения и привязки provider confirmation. В браузерных
+тестах удалены 42 избыточных ожидания NetworkIdle при навигации; все сценарии
+сохранены. Local Quality Gate, focused проверки и 40 Chromium случаев прошли.
+Одна пара локальных browser прогонов: 130,5 -> 79,8 секунды; это не оценка
+ускорения полного CI. Продуктовый runtime, зависимости и CI routing прежние.
+Пакет проходит обычный PR CI и не требует release tag или rollout.
+
+Следующий ограниченный пакет: детерминированная синхронизация concurrent replay
+и отрицательные A2S parser случаи. Затем можно измерить пилот PostgreSQL fixture
+с отдельной БД на тест и стоимость подготовки Container Smoke. Массовое удаление
+тестов не обосновано. См. [отчет](test-suite-audit-2026-10.md) и
+[полную инвентаризацию](test-suite-inventory-2026-10.md).

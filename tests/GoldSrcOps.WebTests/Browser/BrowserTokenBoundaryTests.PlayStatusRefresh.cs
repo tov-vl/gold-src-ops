@@ -17,14 +17,10 @@ public sealed partial class BrowserTokenBoundaryTests
         (await Context.CookiesAsync()).Should().Contain(cookie => cookie.Name == BrowserTokenBoundaryWebApplicationFactory.AuthenticationCookieName);
         await Page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, "/play").AbsoluteUri);
         var body = await PlayBodyAsync(PlayServer("online") with { Host = "new.example.test", Name = "Игрок <script>alert(1)</script>" });
-        var requests = 0;
+        var requests = new List<IRequest>();
         await Page.RouteAsync("**/play", async route =>
         {
-            route.Request.IsNavigationRequest.Should().BeFalse();
-            var headers = await route.Request.AllHeadersAsync();
-            headers.ContainsKey("authorization").Should().BeFalse();
-            headers.ContainsKey("cookie").Should().BeFalse();
-            requests++;
+            requests.Add(route.Request);
             await route.FulfillAsync(new() { ContentType = "text/html", Body = body });
         });
         await Page.EvaluateAsync("window.__documentMarker = 42");
@@ -37,7 +33,7 @@ public sealed partial class BrowserTokenBoundaryTests
         await Page.Locator(".join-panel__copy").ClickAsync();
         await Expect(Page.Locator("#play-copy-status")).ToHaveTextAsync("Команда подключения скопирована.");
         (await Page.EvaluateAsync<string>("window.__copiedCommand")).Should().Be("connect new.example.test:27015");
-        requests.Should().Be(1);
+        await AssertAnonymousRefreshAsync(requests.Should().ContainSingle().Which);
         AssertTokenFree(await Page.ContentAsync());
         await AssertBrowserStorageIsEmptyAsync();
     }

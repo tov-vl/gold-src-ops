@@ -109,6 +109,7 @@ public sealed class PlayerGuideIntegrationTests
         body.Should().NotContain("stale-map-must-not-render");
         body.Should().NotContain("17 / 31");
         body.Should().Contain("Возраст:");
+        body.Should().Contain("data-play-age");
         body.Should().Contain("data-play-refresh");
         body.Should().Contain("connect play.example.test:27015");
     }
@@ -124,7 +125,7 @@ public sealed class PlayerGuideIntegrationTests
 
         body.Should().Contain("Свежий статус не подтвержден");
         body.Should().Contain("данных пока нет");
-        body.Should().NotContain("data-play-age>");
+        body.Should().NotContain("data-play-age");
         body.Should().NotContain("17 / 31");
     }
 
