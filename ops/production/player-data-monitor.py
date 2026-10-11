@@ -14,6 +14,9 @@ import subprocess
 import sys
 from zoneinfo import ZoneInfo
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "gameserver"))
+import player_data_manual as manual
+
 ROOT = Path('/var/lib/goldsrcops/player-data-backup')
 CONFIG = Path('/etc/goldsrcops/player-data-monitor.json')
 UTC = dt.timezone.utc
@@ -28,7 +31,7 @@ PREFIX = 'goldsrcops_player_backup_'
 STATES = {'none': 0, 'verified': 1, 'skipped-busy': 2, 'skipped-window': 3,
           'running': 4, 'reconcile': 5, 'failed': 6, 'unknown': 7, 'reconciled-no-capture': 8}
 KEYS = ('observation_success', 'observed_timestamp_seconds',
-        'last_success_timestamp_seconds', 'copy_present', 'fresh',
+        'last_success_timestamp_seconds', 'copy_present', 'fresh', 'copy_source',
         'timer_enabled', 'requires_reconciliation', 'service_failed',
         'missed_cycle', 'in_progress', 'last_attempt_status',
         'last_attempt_timestamp_seconds')
@@ -151,6 +154,7 @@ def observe(root, units, moment, enabled_since):
             last_success = read_json(root / 'last-success.json')
             captured = success(last_success, moment)
             metrics['last_success_timestamp_seconds'] = captured.timestamp()
+            metrics['copy_source'] = 2 if last_success.get('source') == 'reviewed-manual-baseline' else 1
             metrics['copy_present'] = 1
             metrics['fresh'] = int((moment - captured).total_seconds() <= MAX_AGE)
         cycles = []
@@ -222,6 +226,15 @@ def observe(root, units, moment, enabled_since):
         due = last_due(moment)
         metrics['missed_cycle'] = int(due >= enabled and moment > due + dt.timedelta(minutes=10)
                                       and due.date().isoformat() not in cycles and not metrics['in_progress'])
+        # Weekly identity/reconciliation checks above always use the untouched weekly record.
+        manual_record = manual.read_success(root, moment, read_json, private)
+        if manual_record is not None:
+            captured = success(manual_record, moment)
+            if captured.timestamp() > metrics['last_success_timestamp_seconds']:
+                metrics['last_success_timestamp_seconds'] = captured.timestamp()
+                metrics['copy_present'] = 1
+                metrics['copy_source'] = 2
+                metrics['fresh'] = int((moment - captured).total_seconds() <= MAX_AGE)
         metrics['observation_success'] = 1
     except (ValueError, KeyError, TypeError, OSError, OverflowError):
         # No partial values survive malformed/private/concurrently changing data.

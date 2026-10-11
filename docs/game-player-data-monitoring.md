@@ -113,3 +113,19 @@ backup на production искусственно не создавать; она 
 
 Источники протокола: [OTLP/HTTP JSON](https://opentelemetry.io/docs/specs/otlp/)
 и [OTLP receiver 0.159.0](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.159.0/receiver/otlpreceiver/README.md).
+
+## Ручные копии
+
+Наблюдатель также читает закрытый `manual-copies` registry, создаваемый только
+[явной регистрацией принятой копии](game-player-data-schedule.md#учет-проверенной-ручной-копии).
+Он проверяет связность сохраненных Archive/Recover/manifest и выбирает самый
+свежий capture. Все проверки weekly-журнала выполняются независимо до этого
+выбора. Ручная копия не обновляет время weekly-попытки и не скрывает ее ошибку.
+
+Gauge `copy_source`: 0 - копии нет, 1 - weekly, 2 - ручная, включая начальный
+ручной baseline. Панель "Источник последней копии" показывает этот источник,
+а "Последняя попытка" продолжает описывать weekly cycle. Поврежденная или
+незавершенная ручная запись дает unknown sample. Проверяются не более 52 ручных
+каталогов, в каждом ровно четыре ограниченных JSON. В метриках нет путей,
+идентификаторов snapshot и хешей. Проверка свежести runner использует тот же
+реестр, чтобы старый weekly baseline не создавал ложный freshness failure.
