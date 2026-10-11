@@ -3087,10 +3087,10 @@ Grafana и проверки восстановления сохранены. И�
 
 ## v2.61 - Backup baseline и reconciliation
 
-Статус на 2026-10-11: первый weekly backup завершился до capture из-за устаревшего
-baseline после принятых addon upgrades. Игра продолжает работать; monitoring
-корректно требует сверки. Подготовлены hash-bound обновление baseline,
-reconciliation только доказанно неисполненного слота и отдельное состояние
-monitor/Grafana без обновления возраста копии. Focused local проверки прошли;
-публикация, установка и production reconciliation pending. См.
+Статус на 2026-10-11: [PR #305](https://github.com/tov-vl/gold-src-ops/pull/305)
+слит после полного CI; исправление установлено и принято. Обновлены три записи
+baseline принятого addon; слот завершен как reconciled-no-capture с сохранением
+исходных записей. Monitor/Grafana показывают код 8, предупреждение снято.
+Игра, агент, контейнеры и weekly timer сохранены; новой копии нет, ее возраст
+не обновлен. Первый успешный weekly cycle остается отдельной приемкой. См.
 [границу исправления и приемку](v2.61-backup-reconciliation.md).
