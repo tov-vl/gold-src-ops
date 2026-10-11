@@ -2,7 +2,7 @@
   "id": null,
   "uid": "goldsrcops-player-backup",
   "title": "GoldSrcOps - Backup игровых данных",
-  "description": "Private weekly player backup monitoring; no direct notification delivery.",
+  "description": "Private player backup monitoring with separate weekly attempts and verified manual copies.",
   "editable": false,
   "schemaVersion": 41,
   "version": 1,
@@ -33,7 +33,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Проверка раз в минуту. Backup: воскресенье, 04:00 МСК, только при пустом сервере. Возраст копии считается от capture; порог - восемь суток. Предупреждения видны здесь и в Prometheus. Личная доставка пока не настроена. Свежий журнал не подтверждает доступность off-host хранилища или восстановление движком."
+        "content": "Проверка раз в минуту. Weekly backup: воскресенье, 04:00 МСК, только при пустом сервере. Возраст считается от capture самой свежей подтвержденной weekly или ручной копии; порог - восемь суток. Ручная копия не меняет статус weekly-попытки. Источник: weekly или ручная. Предупреждения видны здесь и в Prometheus; личная доставка не настроена. Наблюдение не выполняет новую проверку off-host хранилища или движком."
       }
     },
     {
@@ -643,6 +643,81 @@
       "options": {
         "showHeader": true
       }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Источник последней копии",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 8,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Нет копии",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "Weekly",
+                  "color": "green"
+                },
+                "2": {
+                  "text": "Ручная",
+                  "color": "blue"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(goldsrcops_player_backup_copy_source{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) and goldsrcops_player_backup:observation_valid",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ],
+      "description": "Самая свежая копия по времени capture. Ручная регистрация не подтверждает успешный weekly cycle."
     }
   ]
 }

@@ -111,6 +111,70 @@ def bootstrap(root, operation_path, bundle_path, clock=policy.now):
     return record
 
 
+def register_manual(root, archive_path, recovery_path, archive_hash, recovery_hash, bundle_hash, clock=policy.now):
+    """Accept existing Archive/Recover bytes only; no backend call or weekly mutation."""
+    root = policy.private_path(root, directory=True)
+    policy.require(not (root / "pending.json").exists() and not (root / "pending.json").is_symlink())
+    moment = clock()
+    # Reject an incomplete previous registration before creating another entry.
+    policy.manual_success(root, moment)
+    policy.require(all(re.fullmatch(r"[a-f0-9]{64}", h) for h in (archive_hash, recovery_hash, bundle_hash)))
+    originals = []
+    operations = []
+    data = None
+    for path, expected, action in ((archive_path, archive_hash, "Archive"), (recovery_path, recovery_hash, "Recover")):
+        path = policy.private_path(path)
+        policy.require(path.stat().st_size <= 16384)
+        raw = bundle.read_regular(path, 16384)
+        operation = json.loads(raw, object_pairs_hook=bundle.unique_object,
+                               parse_constant=lambda _: policy.require(False))
+        policy.require(hashlib.sha256(raw).hexdigest() == expected)
+        policy.require(operation["schemaVersion"] == 1 and operation["action"] == action
+                       and operation["state"] == "verified" and operation["bundleSha256"] == bundle_hash
+                       and re.fullmatch(r"[a-f0-9]{64}", operation["snapshotId"]) is not None)
+        readback = policy.private_path(path.parent / "readback" / "player-data.tar")
+        current = bundle.read_regular(readback, bundle.MAX_ARCHIVE)
+        policy.require(bundle.digest(current) == bundle_hash and (data is None or current == data))
+        data = current
+        originals.append(raw); operations.append(operation)
+    policy.require(operations[0]["snapshotId"] == operations[1]["snapshotId"])
+    manifest, _ = bundle.inspect(data)
+    captured = dt.datetime.fromisoformat(manifest["captured_utc"])
+    policy.require(0 <= (moment - captured).total_seconds() <= 8 * 86400)
+    registered = moment.isoformat()
+    previous = captured
+    for operation in operations:
+        started = dt.datetime.fromisoformat(operation["startedUtc"])
+        completed = dt.datetime.fromisoformat(operation["completedUtc"])
+        policy.require(started.tzinfo is not None and completed.tzinfo is not None
+                       and previous <= started <= completed <= moment)
+        previous = completed
+    registry = root / "manual-copies"
+    if not registry.exists(): registry.mkdir(mode=0o700)
+    policy.private_path(registry, directory=True)
+    directory = registry / bundle_hash
+    if directory.exists() or directory.is_symlink():
+        existing = policy.read_json(policy.private_path(directory, directory=True) / "success.json")
+        policy.require(existing["archiveSha256"] == archive_hash and existing["recoverySha256"] == recovery_hash)
+        return existing
+    policy.require(len(list(registry.iterdir())) < policy.MAX_CYCLES)
+    directory.mkdir(mode=0o700)
+    # Publishing success last keeps interruption visible as incomplete evidence.
+    for name, raw in zip(("archive.json", "recovery.json"), originals):
+        bundle.write_new(directory / name, raw)
+    policy.write_json(directory / "manifest.json", manifest)
+    record = {"schema": 1, "state": "verified", "source": "reviewed-manual-copy",
+              "workload": "goldsrcops-player-data-v1", "capturedUtc": manifest["captured_utc"],
+              "registeredUtc": registered, "bundleSha256": bundle_hash,
+              "snapshotId": operations[0]["snapshotId"], "archiveSha256": archive_hash,
+              "recoverySha256": recovery_hash,
+              "manifestSha256": hashlib.sha256((directory / "manifest.json").read_bytes()).hexdigest(),
+              "engineAcceptance": "separate-operator-evidence"}
+    policy.write_json(directory / "success.json", record)
+    policy.manual_success(root, moment)
+    return record
+
+
 def reconcile_no_capture(ledger, transport, slot, pending_hash, success_hash, clock=policy.now):
     """Close only a proved unstarted slot; retain exact original evidence and copy age."""
     policy.valid_slot(slot)
@@ -164,6 +228,23 @@ def reconcile_no_capture(ledger, transport, slot, pending_hash, success_hash, cl
 def main():
     policy.require(os.geteuid() == 0 and len(sys.argv) >= 2)
     action = sys.argv[1]
+    if action == 'register-manual':
+        parser = argparse.ArgumentParser(description='Register a verified manual copy without capture or upload.')
+        parser.add_argument('--archive-operation', type=Path, required=True)
+        parser.add_argument('--recovery-operation', type=Path, required=True)
+        parser.add_argument('--expected-archive-sha256', required=True)
+        parser.add_argument('--expected-recovery-sha256', required=True)
+        parser.add_argument('--expected-bundle-sha256', required=True)
+        args = parser.parse_args(sys.argv[2:])
+        active = policy.run(['systemctl', 'show', 'goldsrcops-player-data-backup.service',
+                             '-p', 'ActiveState', '--value']).strip()
+        policy.require(active in (b'inactive', b'failed'))
+        with policy.lock(ROOT / 'schedule.lock'):
+            register_manual(ROOT, args.archive_operation, args.recovery_operation,
+                            args.expected_archive_sha256, args.expected_recovery_sha256,
+                            args.expected_bundle_sha256)
+        print('PLAYER_DATA_MANUAL_COPY=registered_verified_bytes')
+        return
     if action == 'reconcile-no-capture':
         parser = argparse.ArgumentParser(description='Explicit reconciliation without capture, archive or retry.')
         parser.add_argument('slot')

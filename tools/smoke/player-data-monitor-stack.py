@@ -235,6 +235,14 @@ def run_stack(images, safe, prometheus_config):
         wait(lambda: query(PREFIX + "last_attempt_status" + LABELS)[0]["value"][1] == "8")
         assert float(query(PREFIX + "last_success_timestamp_seconds" + LABELS)[0]["value"][1]) == previous_capture
         assert not query('ALERTS{component="player-backup"}')
+        manual_panel = next(p for p in dashboard['dashboard']['panels'] if p['id'] == 11)
+        assert manual_panel['fieldConfig']['defaults']['mappings'][0]['options']['2']['text'] == 'Ручная'
+        metrics.update(copy_source=2, last_success_timestamp_seconds=time.time()-60,
+                       observed_timestamp_seconds=time.time())
+        publish()
+        wait(lambda: query(PREFIX + "copy_source" + LABELS)[0]["value"][1] == "2")
+        assert query(PREFIX + "last_attempt_status" + LABELS)[0]["value"][1] == "8"
+        assert float(query(PREFIX + "last_success_timestamp_seconds" + LABELS)[0]["value"][1]) > previous_capture
         leaderboard.check_stack(collector_url, graf_url, query, request, wait)
         metrics.update(observation_success=0, observed_timestamp_seconds=time.time())
         publish()

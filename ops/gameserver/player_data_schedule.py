@@ -10,6 +10,7 @@ import socket
 import stat
 import subprocess
 from zoneinfo import ZoneInfo
+import player_data_manual as manual
 
 MOSCOW = ZoneInfo("Europe/Moscow")
 UTC = dt.timezone.utc
@@ -197,16 +198,25 @@ def probe(config):
     return players == 0 and bots == 0
 
 
+def manual_success(root, moment, reader=read_json, private=private_path):
+    return manual.read_success(root, moment, reader, private)
+
+
 def freshness(root, moment=None):
     root = private_path(root, directory=True)
     require(not (root / "pending.json").exists() and not (root / "pending.json").is_symlink(), "Backup attempt requires reconciliation.")
     record = read_json(root / "last-success.json")
     require(record["schema"] == 1 and record["state"] == "verified")
     require(record["workload"] == "goldsrcops-player-data-v1")
-    captured = dt.datetime.fromisoformat(record["capturedUtc"])
-    require(captured.tzinfo is not None)
-    age = ((moment or now()) - captured).total_seconds()
-    require(-300 <= age <= 8 * 86400, "Player backup is older than eight days.")
     require(re.fullmatch(r"[a-f0-9]{64}", record["bundleSha256"]) is not None)
     require(re.fullmatch(r"[a-f0-9]{64}", record["snapshotId"]) is not None)
+    captured = dt.datetime.fromisoformat(record["capturedUtc"])
+    require(captured.tzinfo is not None)
+    moment = moment or now()
+    manual = manual_success(root, moment)
+    if manual is not None and dt.datetime.fromisoformat(manual["capturedUtc"]) > captured:
+        record = manual
+        captured = dt.datetime.fromisoformat(record["capturedUtc"])
+    age = (moment - captured).total_seconds()
+    require(-300 <= age <= 8 * 86400, "Player backup is older than eight days.")
     return {"state": "fresh", "ageHours": round(max(age, 0) / 3600, 2)}

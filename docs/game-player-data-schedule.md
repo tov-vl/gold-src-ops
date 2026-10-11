@@ -204,3 +204,47 @@ gameplay и сохраненные snapshot остаются доступны. �
 
 Источники семантики: [systemd v255 timer](https://github.com/systemd/systemd/blob/v255/man/systemd.timer.xml)
 и [OpenSSH authorized_keys](https://man.openbsd.org/sshd.8#AUTHORIZED_KEYS_FILE_FORMAT).
+
+## Учет проверенной ручной копии
+
+После отдельной приемки ручного Archive и Recover можно зарегистрировать их
+существующие записи, не создавая новый snapshot. `register-manual` получает пути
+к двум `operation.json` и заранее проверенные SHA-256 обоих файлов и bundle:
+
+```bash
+sudo python3 -I -B /opt/goldsrcops-player-backup/ops/production/player-data-scheduled.py \
+  register-manual --archive-operation "$ARCHIVE_OPERATION" \
+  --recovery-operation "$RECOVERY_OPERATION" \
+  --expected-archive-sha256 "$ARCHIVE_SHA256" \
+  --expected-recovery-sha256 "$RECOVERY_SHA256" \
+  --expected-bundle-sha256 "$BUNDLE_SHA256"
+```
+
+Обе операции должны быть verified и относиться к одному snapshot и bundle.
+Каждый соседний `readback/player-data.tar` проверяется побайтно; capture time
+берется из проверенного manifest. Capture должен быть не старше восьми суток,
+а времена capture, Archive, Recover и регистрации должны идти по порядку.
+Файлы и все каталоги приватные, symlink и небезопасные права отклоняются.
+Проверка движком остается отдельным доказательством оператора.
+
+Под общим schedule lock, при неработающем service и отсутствии pending команда
+создает `manual-copies/<bundle-sha256>` в control-plane state directory.
+Сохраняются исходные Archive/Recover JSON, manifest и success record. Результат
+публикуется последним; незавершенная регистрация дает недостоверное наблюдение
+и требует сверки. Точный повтор полностью принятой регистрации только читает
+результат. Не более 52 ручных записей; автоматического удаления нет.
+
+Weekly `last-success.json`, записи слотов, pending и расписание не меняются.
+`status` и мониторинг выбирают более свежий capture из weekly и ручных копий,
+но сохраняют проверку достоверности weekly evidence и блокировку pending.
+Ручная копия не подтверждает работу timer и не скрывает пропущенный слот либо
+ошибку service. Команда не обращается к backend или игре, не запускает backup,
+restore, prune и не исправляет неподтвержденную операцию.
+
+Сначала установить совместимый reader и общий `player_data_manual.py` рядом с
+`player_data_schedule.py` в source tree backup, а также в `ops/gameserver` source
+tree monitor. Только затем регистрировать копию. При обновлении source tree игры
+также сохранять эту зависимость, даже если игра не использует manual registry.
+Откат после регистрации должен сохранить registry и reader, понимающий ручные
+копии: старый reader молча вернет прежний возраст. Не удалять evidence ради
+возврата старого отображения.

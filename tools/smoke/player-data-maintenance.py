@@ -4,9 +4,12 @@ import datetime as dt
 import hashlib
 import importlib.util
 import json
+import io
+import tarfile
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tempfile
 import unittest
@@ -237,6 +240,154 @@ class MaintenanceTests(unittest.TestCase):
         (self.root/SLOT).unlink()
         self.write(self.root/'pending.json',b'{}')
         with self.assertRaises(ValueError):inspect()
+
+
+    def manual_fixture(self):
+        self.setup_cycle(); self.reconcile()
+        self.captured = WHEN + dt.timedelta(minutes=30)
+        vault = self.root / 'inputs' / 'vault'
+        for name in control.bundle.NAMES:
+            if name.endswith('.vault'): self.write(vault / name, b'fixture')
+        manifest, members = control.bundle.inspect(control.bundle.create(vault))
+        manifest['captured_utc'] = self.captured.isoformat()
+        data = io.BytesIO()
+        with tarfile.open(fileobj=data, mode='w', format=tarfile.USTAR_FORMAT) as archive:
+            for name, raw in dict(members, **{'manifest.json': json.dumps(manifest).encode()}).items():
+                info = tarfile.TarInfo(name); info.size = len(raw); info.mode = 0o600
+                archive.addfile(info, io.BytesIO(raw))
+        self.manual_data = data.getvalue(); self.manual_hash = sha(self.manual_data)
+        self.operations = []
+        for index, action in enumerate(('Archive', 'Recover')):
+            directory = self.root / 'inputs' / action
+            self.write(directory / 'readback' / 'player-data.tar', self.manual_data)
+            operation = {'schemaVersion': 1, 'action': action, 'state': 'verified',
+                         'bundleSha256': self.manual_hash, 'snapshotId': 'd' * 64,
+                         'startedUtc': (self.captured + dt.timedelta(minutes=index * 10 + 1)).isoformat(),
+                         'completedUtc': (self.captured + dt.timedelta(minutes=index * 10 + 2)).isoformat()}
+            self.operations.append(self.write(directory / 'operation.json', json.dumps(operation).encode()))
+        self.units = {'timer': {'LoadState': 'loaded', 'ActiveState': 'active', 'UnitFileState': 'enabled',
+                               'Persistent': 'no', 'TimersCalendar': '{ OnCalendar=Sun *-*-* 04:00:00 Europe/Moscow ; next_elapse=x }'},
+                      'service': {'LoadState': 'loaded', 'ActiveState': 'inactive', 'Result': 'success'}}
+
+    def register(self, **kwargs):
+        args = dict(root=self.root, archive_path=self.operations[0], recovery_path=self.operations[1],
+                    archive_hash=sha(self.operations[0].read_bytes()), recovery_hash=sha(self.operations[1].read_bytes()),
+                    bundle_hash=self.manual_hash, clock=lambda: LATER)
+        args.update(kwargs)
+        return control.register_manual(**args)
+
+    def observation(self, moment=LATER):
+        return monitor.observe(self.root, self.units, moment, (WHEN-dt.timedelta(days=4)).isoformat())
+
+    def test_manual_copy_updates_capture_age_but_preserves_weekly_reconciliation_and_is_idempotent(self):
+        self.manual_fixture()
+        with mock.patch.object(policy, 'run', side_effect=AssertionError('No external calls')):
+            record = self.register(); self.assertEqual(self.register(), record)
+        self.assertEqual((self.root/'last-success.json').read_bytes(), self.success_bytes)
+        self.assertEqual((self.cycle/'original-pending.json').read_bytes(), self.original_pending)
+        data = self.observation()
+        self.assertEqual((data['observation_success'], data['copy_source'], data['last_attempt_status']), (1,2,8))
+        self.assertEqual(data['last_success_timestamp_seconds'], self.captured.timestamp())
+        self.assertEqual(data['requires_reconciliation'], 0)
+        self.assertEqual(policy.freshness(self.root, self.captured+dt.timedelta(days=8))['state'], 'fresh')
+        self.assertEqual(self.observation(self.captured+dt.timedelta(days=8,seconds=1))['fresh'], 0)
+        with self.assertRaises(ValueError): policy.freshness(self.root, self.captured+dt.timedelta(days=8,seconds=1))
+
+    def test_manual_copy_does_not_hide_service_failure_or_pending(self):
+        self.manual_fixture(); self.register(); self.units['service']['Result'] = 'exit-code'
+        self.assertEqual(self.observation()['service_failed'], 1)
+        self.assertEqual(self.observation()['last_attempt_status'], 6)
+        self.units['service']['Result'] = 'success'
+        policy.write_json(self.root/'pending.json', json.loads(self.original_pending))
+        self.assertEqual(self.observation()['requires_reconciliation'], 1)
+        with self.assertRaises(ValueError): self.register()
+        with self.assertRaises(ValueError): policy.freshness(self.root, LATER)
+
+    def test_new_weekly_copy_wins_without_removing_manual_evidence(self):
+        self.manual_fixture(); self.register()
+        next_time = WHEN+dt.timedelta(days=7)
+        self.write(self.root/'2026-10-18'/'result.json', json.dumps(dict(
+            schema=1,state='verified',workload='goldsrcops-player-data-v1',slot='2026-10-18',
+            startedUtc=next_time.isoformat(),completedUtc=(next_time+dt.timedelta(seconds=20)).isoformat(),
+            capturedUtc=(next_time+dt.timedelta(seconds=10)).isoformat(),snapshotId='e'*64,bundleSha256='f'*64)).encode())
+        self.write(self.root/'last-success.json',(self.root/'2026-10-18'/'result.json').read_bytes())
+        data=self.observation(next_time+dt.timedelta(minutes=20))
+        self.assertEqual((data['observation_success'],data['copy_source'],data['last_attempt_status']),(1,1,1))
+        self.assertEqual(data['last_success_timestamp_seconds'],(next_time+dt.timedelta(seconds=10)).timestamp())
+
+    def test_manual_registration_rejects_wrong_hash_unknown_archive_and_mismatched_snapshot(self):
+        self.manual_fixture()
+        with self.assertRaises(ValueError): self.register(archive_hash='0'*64)
+        for path, field, value in [(self.operations[0],'state','uploaded'),(self.operations[1],'snapshotId','e'*64),
+                                   (self.operations[1],'action','Archive'),(self.operations[1],'completedUtc',WHEN.isoformat())]:
+            old=path.read_bytes(); record=json.loads(old); record[field]=value
+            self.write(path,json.dumps(record).encode())
+            with self.assertRaises(ValueError): self.register()
+            path.write_bytes(old)
+        self.assertFalse((self.root/'manual-copies').exists())
+
+    def test_manual_registration_requires_both_exact_private_readbacks(self):
+        self.manual_fixture(); path=self.operations[1].parent/'readback'/'player-data.tar'
+        old=path.read_bytes(); path.write_bytes(b'corrupt')
+        with self.assertRaises(ValueError): self.register()
+        path.write_bytes(old); path.chmod(0o644)
+        with self.assertRaises(ValueError): self.register()
+        path.chmod(0o600); path.unlink(); path.symlink_to(self.operations[0].parent/'readback'/'player-data.tar')
+        with self.assertRaises(ValueError): self.register()
+        self.assertFalse((self.root/'manual-copies').exists())
+
+    def test_manual_registration_rejects_stale_future_and_duplicate_json_keys(self):
+        self.manual_fixture()
+        for moment in (self.captured-dt.timedelta(seconds=1),self.captured+dt.timedelta(days=8,seconds=1)):
+            with self.assertRaises(ValueError): self.register(clock=lambda:moment)
+        path=self.operations[0]; raw=path.read_bytes(); path.write_bytes(raw[:-1]+b',"state":"verified"}')
+        with self.assertRaises(ValueError): self.register()
+        self.assertFalse((self.root/'manual-copies').exists())
+
+    def test_interrupted_manual_registration_is_unknown_without_weekly_mutation_or_retry(self):
+        self.manual_fixture(); real=policy.write_json
+        def fail(path,*args,**kwargs):
+            if path.name=='success.json': raise OSError('interrupted')
+            return real(path,*args,**kwargs)
+        with mock.patch.object(policy,'write_json',side_effect=fail):
+            with self.assertRaises(OSError): self.register()
+        self.assertEqual((self.root/'last-success.json').read_bytes(),self.success_bytes)
+        self.assertEqual(self.observation()['observation_success'],0)
+        with self.assertRaises((ValueError,FileNotFoundError)): self.register()
+
+    def test_corrupt_retained_manual_proof_and_symlink_are_unknown(self):
+        self.manual_fixture(); self.register(); path=self.root/'manual-copies'/self.manual_hash/'archive.json'
+        old=path.read_bytes(); path.write_bytes(old+b' ')
+        self.assertEqual(self.observation()['observation_success'],0)
+        path.write_bytes(old); path.unlink(); path.symlink_to(self.operations[0])
+        self.assertEqual(self.observation()['observation_success'],0)
+
+    def test_manual_registry_capacity_is_bounded_without_deletion(self):
+        self.manual_fixture(); self.register(); registry=self.root/'manual-copies'
+        template=registry/self.manual_hash
+        for index in range(52):
+            digest=f'{index:064x}'; target=registry/digest
+            shutil.copytree(template,target)
+            record=json.loads((target/'success.json').read_bytes()); record['bundleSha256']=digest
+            for name in ('archive','recovery'):
+                path=target/(name+'.json'); operation=json.loads(path.read_bytes()); operation['bundleSha256']=digest
+                self.write(path,json.dumps(operation).encode()); record[name+'Sha256']=sha(path.read_bytes())
+            self.write(target/'success.json',json.dumps(record).encode())
+        self.assertEqual(self.observation()['observation_success'],0)
+        with self.assertRaises(ValueError): self.register()
+        self.assertEqual(len(list(registry.iterdir())),53)
+
+
+    def test_manual_copy_cannot_mask_corrupt_weekly_success_or_missing_cycle(self):
+        self.manual_fixture(); self.register()
+        saved=(self.root/'last-success.json').read_bytes(); record=json.loads(saved)
+        record['snapshotId']='invalid'; self.write(self.root/'last-success.json',json.dumps(record).encode())
+        self.assertEqual(self.observation()['observation_success'],0)
+        with self.assertRaises(ValueError): policy.freshness(self.root,LATER)
+        self.write(self.root/'last-success.json',saved)
+        shutil.rmtree(self.cycle)
+        self.assertEqual(self.observation()['missed_cycle'],1)
+        self.assertEqual(self.observation()['copy_source'],2)
 
 
 if __name__ == '__main__':
