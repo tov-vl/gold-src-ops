@@ -64,8 +64,13 @@ public sealed partial class BrowserTokenBoundaryTests
                 (await context.CookiesAsync()).Should().BeEmpty();
             }
 
-            async Task AssertFitsAsync() =>
-                (await page.EvaluateAsync<bool>("document.documentElement.scrollWidth > document.documentElement.clientWidth")).Should().BeFalse();
+            async Task AssertFitsAsync()
+            {
+                await page.WaitForLoadStateAsync(LoadState.Load);
+                var overflow = await page.EvaluateAsync<string[]>("Array.from(document.querySelectorAll('body *')).filter(e => e.getBoundingClientRect().right > document.documentElement.clientWidth + 0.5).map(e => e.tagName + '.' + e.className + ': ' + e.getBoundingClientRect().width)");
+                (await page.EvaluateAsync<bool>("document.documentElement.scrollWidth > document.documentElement.clientWidth"))
+                    .Should().BeFalse("page {0} must fit width {1}; overflowing elements: {2}", page.Url, page.ViewportSize?.Width, string.Join(", ", overflow));
+            }
         }
     }
 }
