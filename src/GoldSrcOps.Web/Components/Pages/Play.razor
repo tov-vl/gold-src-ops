@@ -27,7 +27,7 @@
             <h1 id="play-title">@Text["MorePlay"]<br />@Text["LessWaiting"]</h1>
             <p class="play-lede">@Text["PlayLede"]</p>
             <p class="play-intro__hint">@Text["IntroBefore"] <code>/menu</code> @Text["IntroAfter"]</p>
-            <a class="play-intro__link" href="#first-steps">@Text["HowToStart"] <span aria-hidden="true">↓</span></a>
+            <a class="play-intro__link" href="@(Text.Link("/play") + "#first-steps")">@Text["HowToStart"] <span aria-hidden="true">↓</span></a>
         </div>
 
         <section class="join-panel join-panel--@ServerState" aria-labelledby="join-title">
@@ -44,7 +44,7 @@
                 {
                     <p class="join-panel__notice" role="status">@Text["JoinUnavailable"]</p>
                     <p class="join-panel__detail">@Text["JoinUnavailableDetail"]</p>
-                    <a class="join-panel__status-link" href="/">@Text["GeneralStatus"]</a>
+                    <a class="join-panel__status-link" href="@Text.Link("/")">@Text["GeneralStatus"]</a>
                 }
                 else
                 {

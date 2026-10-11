@@ -1945,11 +1945,14 @@ acceptance. See [v2.64](v2.64-addon-upgrade-workflow.md).
 
 ## Decision 45: Keep Public Page Language In The URL
 
-The player guide and leaderboard use a bounded RU/EN query parameter and a
+The public status page, player guide and leaderboard use a bounded RU/EN query parameter and a
 shared Web resource catalog. Russian remains the default. Preserve language in
 links between these pages and in their anonymous refresh reads, including
 normal navigation without JavaScript. Do not change request culture, BFF
 sessions, API contracts, browser storage or the independent in-game preference.
 Pass static translated refresh messages through encoded HTML attributes and
 reject a refresh response whose page language differs from the open document.
-See [v2.66](v2.66-public-language.md).
+The status page preserves its bounded history window when switching language.
+Shared public navigation and footer use the same language; Operator content
+remains English. See [v2.66](v2.66-public-language.md) and
+[v2.67](v2.67-public-status-language.md).

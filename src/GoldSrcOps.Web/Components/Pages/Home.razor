@@ -2,16 +2,17 @@
 @inject PublicStatusClient StatusClient
 @inject ILogger<Home> Logger
 
-<PageTitle>GoldSrcOps status</PageTitle>
+<PageTitle>@Text["StatusTitle"]</PageTitle>
 <HeadContent>
-    <meta name="description" content="Live public status and A2S reachability history for the GoldSrcOps monitored game-server fleet." />
+    <meta name="description" content="@Text["StatusDescription"]" />
 </HeadContent>
 
-<div class="status-page">
+<div class="status-page" lang="@Text.Code">
+    <PublicLanguageSwitch Path="@HistoryPath" Language="@Text.Code" />
     <section class="intro" aria-labelledby="page-title">
-        <p class="eyebrow">Fleet control plane</p>
+        <p class="eyebrow">@Text["FleetEyebrow"]</p>
         <h1 id="page-title">GoldSrcOps</h1>
-        <p class="lede">Live status for the monitored GoldSrc server fleet.</p>
+        <p class="lede">@Text["StatusLede"]</p>
     </section>
 
     @if (_isLoading)
@@ -19,8 +20,8 @@
         <section class="status-loading" aria-busy="true" aria-live="polite">
             <div class="loading-signal" aria-hidden="true"></div>
             <div>
-                <p class="loading-title">Loading current status</p>
-                <p class="loading-copy">Reading the latest monitoring observations.</p>
+                <p class="loading-title">@Text["LoadingStatus"]</p>
+                <p class="loading-copy">@Text["LoadingStatusDetail"]</p>
             </div>
         </section>
     }
@@ -32,9 +33,9 @@
                 <div class="summary-copy">
                     <span class="status-signal" aria-hidden="true"></span>
                     <div>
-                        <p class="status-kicker">Status unavailable</p>
-                        <h2>Monitoring data could not be reached</h2>
-                        <p>Please try again shortly. No last-known state is shown as current data.</p>
+                        <p class="status-kicker">@Text["StatusUnavailable"]</p>
+                        <h2>@Text["StatusUnavailableHeading"]</h2>
+                        <p>@Text["StatusUnavailableDetail"]</p>
                     </div>
                 </div>
             </section>
@@ -52,7 +53,7 @@
                 </div>
 
                 <div class="observation-time">
-                    <span>Last observation</span>
+                    <span>@Text["LastObservation"]</span>
                     @if (_status.LastObservedAtUtc is { } observedAtUtc)
                     {
                         <time datetime="@observedAtUtc.ToString("O")">
@@ -61,7 +62,7 @@
                     }
                     else
                     {
-                        <strong>Not available</strong>
+                        <strong>@Text["NotAvailable"]</strong>
                     }
                 </div>
             </section>
@@ -69,8 +70,8 @@
             <section class="fleet" aria-labelledby="fleet-title">
                 <div class="section-heading">
                     <div>
-                        <p class="eyebrow">Current snapshot</p>
-                        <h2 id="fleet-title">Monitored fleet</h2>
+                        <p class="eyebrow">@Text["CurrentSnapshot"]</p>
+                        <h2 id="fleet-title">@Text["MonitoredFleet"]</h2>
                     </div>
                     <p>@FleetSummary</p>
                 </div>
@@ -89,24 +90,24 @@
 
                 <div class="metrics">
                     <article class="metric">
-                        <span class="metric-label">Monitored</span>
+                        <span class="metric-label">@Text["Monitored"]</span>
                         <strong>@_status.MonitoredServers</strong>
-                        <span>enabled servers</span>
+                        <span>@Text["EnabledServers"]</span>
                     </article>
                     <article class="metric metric--online">
-                        <span class="metric-label">Online</span>
+                        <span class="metric-label">@Text["StatusOnline"]</span>
                         <strong>@_status.OnlineServers</strong>
-                        <span>responding normally</span>
+                        <span>@Text["RespondingNormally"]</span>
                     </article>
                     <article class="metric metric--attention">
-                        <span class="metric-label">Attention</span>
+                        <span class="metric-label">@Text["Attention"]</span>
                         <strong>@_status.ServersRequiringAttention</strong>
-                        <span>offline or awaiting data</span>
+                        <span>@Text["OfflineOrUnknown"]</span>
                     </article>
                     <article class="metric metric--incidents">
-                        <span class="metric-label">Open incidents</span>
+                        <span class="metric-label">@Text["OpenIncidents"]</span>
                         <strong>@_status.OpenIncidents</strong>
-                        <span>active availability events</span>
+                        <span>@Text["ActiveAvailabilityEvents"]</span>
                     </article>
                 </div>
             </section>
@@ -118,7 +119,7 @@
                      aria-labelledby="public-server-title">
                 <div class="public-server__heading">
                     <div>
-                        <p class="eyebrow">Public CS 1.6 server</p>
+                        <p class="eyebrow">@Text["PublicServer"]</p>
                         <h2 id="public-server-title">@_publicServer.Name</h2>
                     </div>
                     <p class="public-server__state">
@@ -130,15 +131,15 @@
                 <div class="public-server__body">
                     <dl class="public-server__facts">
                         <div>
-                            <dt>Map</dt>
-                            <dd>@(_publicServer.Map ?? "Not available")</dd>
+                            <dt>@Text["Map"]</dt>
+                            <dd>@(_publicServer.Map ?? Text["NotAvailable"])</dd>
                         </div>
                         <div>
-                            <dt>Players</dt>
+                            <dt>@Text["Players"]</dt>
                             <dd>@PlayerSummary</dd>
                         </div>
                         <div>
-                            <dt>Observed</dt>
+                            <dt>@Text["Observed"]</dt>
                             <dd>
                                 @if (_publicServer.LastObservedAtUtc is { } serverObservedAtUtc)
                                 {
@@ -148,24 +149,26 @@
                                 }
                                 else
                                 {
-                                    <span>Not available</span>
+                                    <span>@Text["NotAvailable"]</span>
                                 }
                             </dd>
                         </div>
                     </dl>
 
                     <div class="public-server__connect">
-                        <span class="public-server__connect-label">Connection command</span>
+                        <span class="public-server__connect-label">@Text["ConnectionCommand"]</span>
                         <code>@ConnectCommand</code>
                         <div class="public-server__actions">
-                            <a class="public-server__steam" href="@SteamConnectUri">Connect with Steam</a>
+                            <a class="public-server__steam" href="@SteamConnectUri">@Text["ConnectWithSteam"]</a>
                             <button class="public-server__copy"
                                     type="button"
                                     data-copy-connect="@ConnectCommand"
-                                    aria-describedby="public-server-copy-status">Copy command</button>
+                                    data-copy-success="@Text["CopySuccess"]"
+                                    data-copy-failure="@Text["CopyFailure"]"
+                                    aria-describedby="public-server-copy-status">@Text["CopyCommand"]</button>
                         </div>
                         <p id="public-server-copy-status" class="public-server__copy-status" aria-live="polite"></p>
-                        <a href="/play" lang="ru">Как начать игру: режим и команды</a>
+                        <a href="@Text.Link("/play")">@Text["PlayGuideLink"]</a>
                     </div>
                 </div>
             </section>
@@ -174,36 +177,36 @@
         <section class="history" aria-labelledby="history-title">
             <div class="history-heading">
                 <div>
-                    <p class="eyebrow">Recorded game-server probes</p>
-                    <h2 id="history-title">A2S reachability history</h2>
+                    <p class="eyebrow">@Text["RecordedProbes"]</p>
+                    <h2 id="history-title">@Text["HistoryTitle"]</h2>
                 </div>
-                <nav class="range-switch" aria-label="A2S history window">
+                <nav class="range-switch" aria-label="@Text["HistoryWindow"]">
                     <a class="@GetRangeClass(PublicStatusClient.Last24HoursWindow)"
-                       href="/?range=24h"
-                       aria-current="@GetRangeAriaCurrent(PublicStatusClient.Last24HoursWindow)">24 hours</a>
+                       href="@Text.Link("/?range=24h")"
+                       aria-current="@GetRangeAriaCurrent(PublicStatusClient.Last24HoursWindow)">@Text["Hours24"]</a>
                     <a class="@GetRangeClass(PublicStatusClient.Last7DaysWindow)"
-                       href="/?range=7d"
-                       aria-current="@GetRangeAriaCurrent(PublicStatusClient.Last7DaysWindow)">7 days</a>
+                       href="@Text.Link("/?range=7d")"
+                       aria-current="@GetRangeAriaCurrent(PublicStatusClient.Last7DaysWindow)">@Text["Days7"]</a>
                 </nav>
             </div>
 
             @if (_history is null)
             {
                 <div class="history-unavailable" role="status">
-                    <strong>A2S history unavailable</strong>
-                    <span>Current fleet status may still be available above.</span>
+                    <strong>@Text["HistoryUnavailable"]</strong>
+                    <span>@Text["HistoryUnavailableDetail"]</span>
                 </div>
             }
             else
             {
                 <div class="history-summary">
                     <div>
-                        <span>Observed reachability</span>
+                        <span>@Text["ObservedReachability"]</span>
                         <strong>@HistoryPercentage</strong>
                     </div>
                     <div>
-                        <span>Observation coverage</span>
-                        <strong>@_history.ObservedBuckets of @_history.TotalBuckets buckets</strong>
+                        <span>@Text["ObservationCoverage"]</span>
+                        <strong>@Text.Format("Coverage", _history.ObservedBuckets, _history.TotalBuckets)</strong>
                     </div>
                 </div>
 
@@ -227,30 +230,32 @@
                     <time datetime="@_history.ToUtc.ToString("O")">@FormatAxisTime(_history.ToUtc)</time>
                 </div>
 
-                <div class="history-legend" aria-label="Chart legend">
-                    <span><i class="legend-signal legend-signal--operational" aria-hidden="true"></i>All observed probes reached</span>
-                    <span><i class="legend-signal legend-signal--degraded" aria-hidden="true"></i>Mixed results</span>
-                    <span><i class="legend-signal legend-signal--unreachable" aria-hidden="true"></i>No observed probe reached</span>
-                    <span><i class="legend-signal legend-signal--unknown" aria-hidden="true"></i>No observations</span>
+                <div class="history-legend" aria-label="@Text["ChartLegend"]">
+                    <span><i class="legend-signal legend-signal--operational" aria-hidden="true"></i>@Text["AllProbesReached"]</span>
+                    <span><i class="legend-signal legend-signal--degraded" aria-hidden="true"></i>@Text["MixedResults"]</span>
+                    <span><i class="legend-signal legend-signal--unreachable" aria-hidden="true"></i>@Text["NoProbeReached"]</span>
+                    <span><i class="legend-signal legend-signal--unknown" aria-hidden="true"></i>@Text["NoObservations"]</span>
                 </div>
             }
         </section>
 
         <section class="scope-note" aria-labelledby="scope-title">
-            <h2 id="scope-title">What this page reports</h2>
+            <h2 id="scope-title">@Text["ReportScopeTitle"]</h2>
             <p>
-                This public view shows aggregate fleet status, recorded A2S probe outcomes, and one
-                explicitly advertised public connection endpoint.
-                Missing buckets are unknown and excluded from the observed percentage. A2S history is
-                not API uptime and does not activate or prove an SLO. The advertised game endpoint is
-                configured separately from private inventory; provider identifiers, command history,
-                credentials, and administrative data remain private.
+                @Text["ReportScope"]
             </p>
         </section>
     }
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "lang")]
+    private string? Language { get; set; }
+
+    private PublicPageText Text => PublicPageText.For(Language);
+
+    private string HistoryPath => $"/?range={SelectedWindow}";
+
     [Parameter]
     [SupplyParameterFromQuery(Name = "range")]
     public string? Range { get; set; }
@@ -276,55 +281,54 @@
 
     private string StatusLabel => _status?.State switch
     {
-        "operational" => "Operational",
-        "degraded" => "Degraded",
-        _ => "Status unknown"
+        "operational" => Text["Operational"],
+        "degraded" => Text["Degraded"],
+        _ => Text["StatusUnknown"]
     };
 
     private string StatusHeading => _status?.State switch
     {
-        "operational" => "All monitored servers are online",
-        "degraded" => "Some servers require attention",
-        _ => "Monitoring is waiting for observations"
+        "operational" => Text["OperationalHeading"],
+        "degraded" => Text["DegradedHeading"],
+        _ => Text["UnknownHeading"]
     };
 
     private string StatusDescription => _status?.State switch
     {
-        "operational" => "The latest monitoring snapshot reports normal availability.",
-        "degraded" => "At least one server is offline, unobserved, or has an open incident.",
-        _ => "No complete observation is available for the enabled fleet yet."
+        "operational" => Text["OperationalDetail"],
+        "degraded" => Text["DegradedDetail"],
+        _ => Text["StatusUnknownDetail"]
     };
 
     private string FleetSummary => _status is null
-        ? "No fleet data available."
-        : $"{_status.OnlineServers} of {_status.MonitoredServers} monitored servers online.";
+        ? Text["NoFleetData"]
+        : Text.Format("FleetSummary", _status.OnlineServers, _status.MonitoredServers);
 
     private string HistoryPercentage => _history?.ObservedReachabilityPercent is { } percentage
         ? $"{percentage.ToString("0.0", CultureInfo.InvariantCulture)}%"
-        : "No observations";
+        : Text["NoObservations"];
 
     private string HistoryWindowLabel => string.Equals(
         SelectedWindow,
         PublicStatusClient.Last7DaysWindow,
         StringComparison.Ordinal)
-        ? "Six-hour buckets"
-        : "Hourly buckets";
+        ? Text["SixHourBuckets"]
+        : Text["HourlyBuckets"];
 
     private string HistoryChartLabel => _history is null
-        ? "A2S reachability history is unavailable."
-        : $"A2S reachability from {FormatAxisTime(_history.FromUtc)} to {FormatAxisTime(_history.ToUtc)}; " +
-          $"{_history.ObservedBuckets} of {_history.TotalBuckets} buckets contain observations.";
+        ? Text["HistoryChartUnavailable"]
+        : Text.Format("HistoryChart", FormatAxisTime(_history.FromUtc), FormatAxisTime(_history.ToUtc), _history.ObservedBuckets, _history.TotalBuckets);
 
     private string PublicServerStateLabel => _publicServer?.State switch
     {
-        "online" => "Online",
-        "offline" => "Offline",
-        _ => "Status unknown"
+        "online" => Text["StatusOnline"],
+        "offline" => Text["StatusOffline"],
+        _ => Text["StatusUnknown"]
     };
 
     private string PlayerSummary => _publicServer is { Players: { } players, MaxPlayers: { } maxPlayers }
         ? $"{players} / {maxPlayers}"
-        : "Not available";
+        : Text["NotAvailable"];
 
     private string ConnectAddress => _publicServer is null
         ? string.Empty
@@ -412,14 +416,14 @@
         return $"height: {height.ToString("0.#", CultureInfo.InvariantCulture)}%;";
     }
 
-    private static string GetBucketLabel(PublicA2sBucketResponse bucket)
+    private string GetBucketLabel(PublicA2sBucketResponse bucket)
     {
         var startedAt = bucket.StartedAtUtc.ToUniversalTime()
             .ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture);
         var result = bucket.ObservedReachabilityPercent is { } percentage
-            ? $"{percentage.ToString("0.0", CultureInfo.InvariantCulture)} percent reachable"
-            : "no observations";
-        return $"Bucket starting {startedAt}: {result}.";
+            ? Text.Format("BucketPercent", percentage.ToString("0.0", CultureInfo.InvariantCulture))
+            : Text["NoObservations"];
+        return Text.Format("BucketLabel", startedAt, result);
     }
 
     private static string FormatAxisTime(DateTimeOffset value) => value.ToUniversalTime()

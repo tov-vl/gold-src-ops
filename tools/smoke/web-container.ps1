@@ -332,7 +332,7 @@ try {
 
     $hostPort = [int]$Matches["port"]
     $healthUri = [Uri]"http://127.0.0.1:$hostPort/health/live"
-    $homeUri = [Uri]"http://127.0.0.1:$hostPort/"
+    $homeUri = [Uri]"http://127.0.0.1:$hostPort/?lang=en"
     $readerPortalUri = [Uri]"http://127.0.0.1:$hostPort/operator/servers"
     $loginUri = [Uri]"http://127.0.0.1:$hostPort/auth/login"
 
