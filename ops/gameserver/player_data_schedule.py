@@ -118,7 +118,7 @@ class Ledger:
         if cycle.exists() or cycle.is_symlink():
             existing = read_json(cycle / "result.json")
             require(existing["slot"] == slot and existing["state"] in
-                    ("skipped-busy", "skipped-window", "captured", "verified"))
+                    ("skipped-busy", "skipped-window", "captured", "verified", "reconciled-no-capture"))
             return cycle, existing
         require(len(list(self.root.glob("????-??-??"))) < MAX_CYCLES,
                 "Review private evidence capacity before another cycle.")

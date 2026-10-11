@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Read-only projection of the player backup ledger into private OTLP metrics."""
 import datetime as dt
+import hashlib
 import http.client
 import ipaddress
 import json
@@ -25,7 +26,7 @@ SERVICE = 'goldsrcops-player-data-backup.service'
 PREFIX = 'goldsrcops_player_backup_'
 # Stable public codes; filenames, identities, hashes and errors are never labels.
 STATES = {'none': 0, 'verified': 1, 'skipped-busy': 2, 'skipped-window': 3,
-          'running': 4, 'reconcile': 5, 'failed': 6, 'unknown': 7}
+          'running': 4, 'reconcile': 5, 'failed': 6, 'unknown': 7, 'reconciled-no-capture': 8}
 KEYS = ('observation_success', 'observed_timestamp_seconds',
         'last_success_timestamp_seconds', 'copy_present', 'fresh',
         'timer_enabled', 'requires_reconciliation', 'service_failed',
@@ -170,10 +171,31 @@ def observe(root, units, moment, enabled_since):
             require(slot(latest) - dt.timedelta(minutes=5) <= started
                     <= slot(latest) + dt.timedelta(minutes=10))
             metrics['last_attempt_timestamp_seconds'] = started.timestamp()
-            require(record['state'] in ('started', 'stopping', 'archiving', 'verified', 'skipped-busy', 'skipped-window'))
-            if record['state'] in ('verified', 'skipped-busy', 'skipped-window'):
+            require(record['state'] in ('started', 'stopping', 'archiving', 'verified', 'skipped-busy', 'skipped-window', 'reconciled-no-capture'))
+            if record['state'] in ('verified', 'skipped-busy', 'skipped-window', 'reconciled-no-capture'):
                 require(timestamp(record['completedUtc'], moment) >= started)
                 metrics['last_attempt_status'] = STATES[record['state']]
+            if record['state'] == 'reconciled-no-capture':
+                evidence = read_json(root / latest / 'reconciliation.json')
+                require(evidence['schema'] == 1 and evidence['state'] == record['state']
+                        and all(evidence[k] == record[k] for k in ('slot', 'startedUtc', 'completedUtc')))
+                original = evidence['originalPending']
+                require(original == evidence['originalResult'] and original['schema'] == 1
+                        and original['state'] == 'started' and original['slot'] == latest
+                        and original['startedUtc'] == record['startedUtc'])
+                require(read_json(root / latest / 'original-pending.json') == original
+                        and read_json(root / latest / 'original-result.json') == original
+                        and hashlib.sha256((root / latest / 'original-pending.json').read_bytes()).hexdigest()
+                        == evidence['pendingSha256'])
+                # A reconciliation never creates a success record or renews its capture time.
+                require(metrics['copy_present'] == 1
+                        and hashlib.sha256((root / 'last-success.json').read_bytes()).hexdigest()
+                        == evidence['lastSuccessSha256'])
+                proof = evidence['gameProof']
+                require(proof['schema'] == 1 and proof['state'] == 'not-started' and proof['slot'] == latest
+                        and timestamp(proof['gameStartedUtc'], moment) < slot(latest)
+                        and started <= timestamp(proof['observedUtc'], moment)
+                        <= timestamp(record['completedUtc'], moment) + dt.timedelta(seconds=30))
             if record['state'] == 'verified':
                 capture = success(record, moment)
                 require(capture >= started - dt.timedelta(minutes=5))

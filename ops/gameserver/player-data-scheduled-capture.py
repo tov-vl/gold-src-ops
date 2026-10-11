@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Restricted game-host endpoint. No caller-supplied paths or shell commands."""
+import datetime as dt
 import importlib.util
 import json
 import os
 from pathlib import Path
 import signal
+import subprocess
 import sys
 import time
 
@@ -126,6 +128,30 @@ def capture(slot, ledger, host, clock=policy.now):
             host.start()
 
 
+def no_capture_status(root, slot, clock=policy.now):
+    """Prove absence under the schedule/transition locks, never infer it from SSH failure."""
+    moment = clock()
+    due = dt.datetime.combine(dt.date.fromisoformat(policy.valid_slot(slot)), dt.time(4), policy.MOSCOW)
+    policy.require(moment > due + dt.timedelta(minutes=5))
+    policy.private_path(root, directory=True)
+    policy.require(all(not p.exists() and not p.is_symlink() for p in
+                       (root / 'pending.json', root / slot)))
+    names = ('ActiveState', 'SubState', 'MainPID', 'InvocationID', 'ExecMainStartTimestamp')
+    result = subprocess.run(['systemctl', 'show', GAME, '--property=' + ','.join(names)],
+                            capture_output=True, timeout=5, check=False,
+                            env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'TZ': 'UTC', 'LC_ALL': 'C'})
+    policy.require(result.returncode == 0 and len(result.stdout) <= 4096)
+    fields = dict(line.split('=', 1) for line in result.stdout.decode().splitlines())
+    policy.require(set(fields) == set(names) and fields['ActiveState'] == 'active'
+                   and fields['SubState'] == 'running' and int(fields['MainPID']) > 0
+                   and len(fields['InvocationID']) == 32)
+    started = dt.datetime.strptime(fields['ExecMainStartTimestamp'][4:], '%Y-%m-%d %H:%M:%S UTC').replace(tzinfo=policy.UTC)
+    policy.require(started < due)
+    return {'schema': 1, 'slot': slot, 'state': 'not-started',
+            'observedUtc': moment.isoformat(), 'gameStartedUtc': started.isoformat(),
+            'gameInvocationId': fields['InvocationID']}
+
+
 def main():
     policy.require(os.geteuid() == 0 and len(sys.argv) == 3)
     action, slot = sys.argv[1:]
@@ -139,6 +165,12 @@ def main():
                     result = capture(slot, ledger, Host())
             print(json.dumps(result, separators=(",", ":")))
         else:
+            if action == "status" and not (ROOT / slot).exists():
+                with policy.lock(Path("/etc/goldsrcops/gameserver/player-data-backup.lock"), shared=True):
+                    with policy.lock(Path("/etc/goldsrcops/gameserver/game-event-pilot-install.lock"), shared=True):
+                        result = no_capture_status(ROOT, slot)
+                print(json.dumps(result, separators=(",", ":")))
+                return
             result = policy.read_json(ROOT / slot / "result.json")
             policy.require(result["slot"] == slot)
             if action == "status":

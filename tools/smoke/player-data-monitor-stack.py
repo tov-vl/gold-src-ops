@@ -78,6 +78,8 @@ def fixtures():
     scenarios = [
         ("healthy", {}, [], "10m"),
         ("busy", {"last_attempt_status": "2+0x30"}, [], "10m"),
+        ("reconciled-no-capture", {"last_attempt_status": "8+0x30"}, [], "10m"),
+        ("reconciled-stale", {"last_attempt_status": "8+0x30", "last_success_timestamp_seconds": "-691201+0x30"}, [4], "10m"),
         ("busy-stale", {"last_attempt_status": "2+0x30", "last_success_timestamp_seconds": "-691201+0x30"}, [4], "10m"),
         ("in-progress", {"last_attempt_status": "4+0x30", "in_progress": "1+0x30"}, [], "10m"),
         ("orphan", {"requires_reconciliation": "1+0x30"}, [2], "10m"),
@@ -126,7 +128,7 @@ def main():
         docker("run", "--rm", "--network", "none", *safe,
                "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m", "--mount", mount(OBS / "rules", "/rules"), "--mount", mount(path, "/fixtures.json"),
                "--entrypoint", "/bin/promtool", images["PROMETHEUS"], "test", "rules", "/fixtures.json")
-        print("PLAYER_BACKUP_RULES=19_scenarios_passed", flush=True)
+        print("PLAYER_BACKUP_RULES=21_scenarios_passed", flush=True)
     docker("run", "--rm", "--network", "none", *safe, "--mount", mount(OBS / "otel-collector.yml", "/config.yml"),
            images["OTEL_COLLECTOR"], "validate", "--config=/config.yml")
     docker("run", "--rm", "--network", "none", *safe,
@@ -224,6 +226,15 @@ def run_stack(images, safe, prometheus_config):
             for target in panel.get("targets", []):
                 query(target["expr"])
         assert request(graf_url + "/api/datasources/uid/goldsrcops-prometheus/health", True)["status"] == "OK"
+        status_panel = next(panel for panel in dashboard["dashboard"]["panels"] if panel["id"] == 5)
+        mapping = status_panel["fieldConfig"]["defaults"]["mappings"][0]["options"]["8"]
+        assert mapping["color"] == "yellow" and "capture" in mapping["text"]
+        previous_capture = metrics["last_success_timestamp_seconds"]
+        metrics.update(last_attempt_status=8, observed_timestamp_seconds=time.time())
+        publish()
+        wait(lambda: query(PREFIX + "last_attempt_status" + LABELS)[0]["value"][1] == "8")
+        assert float(query(PREFIX + "last_success_timestamp_seconds" + LABELS)[0]["value"][1]) == previous_capture
+        assert not query('ALERTS{component="player-backup"}')
         leaderboard.check_stack(collector_url, graf_url, query, request, wait)
         metrics.update(observation_success=0, observed_timestamp_seconds=time.time())
         publish()
