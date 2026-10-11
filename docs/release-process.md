@@ -207,6 +207,13 @@ execution and Playwright. Documentation and stable-promotion runs get a small
 Ubuntu confirmation from `Map Menu Compile`; they do not start a Windows
 compiler runner or leave a skipped ancestor in the publication dependency chain.
 
+When player-data backup is installed, addon acceptance also requires updating
+its hash-bound backup baseline using the accepted manifest and the reviewed old
+baseline hash. Follow [the weekly backup runbook](game-player-data-schedule.md#обновление-addon-и-сверка-неисполненного-слота),
+then require the backup host preflight/postflight to pass. Preserve the old
+baseline and runtime identities. Apply the same gate after addon rollback;
+never waive unrelated baseline drift or mark an interrupted backup successful.
+
 Compilation and shell syntax do not prove gameplay behavior. Run the focused
 isolated engine scenario required by the changed mechanic separately. None of
 these CI checks connects to the live game server. Validate changes to this

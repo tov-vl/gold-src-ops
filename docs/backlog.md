@@ -3084,3 +3084,13 @@ Grafana и проверки восстановления сохранены. И�
 с предварительными замерами и отдельной проверкой изоляции.
 Массовое удаление тестов не обосновано. См. [отчет](test-suite-audit-2026-10.md) и
 [полную инвентаризацию](test-suite-inventory-2026-10.md).
+
+## v2.61 - Backup baseline и reconciliation
+
+Статус на 2026-10-11: первый weekly backup завершился до capture из-за устаревшего
+baseline после принятых addon upgrades. Игра продолжает работать; monitoring
+корректно требует сверки. Подготовлены hash-bound обновление baseline,
+reconciliation только доказанно неисполненного слота и отдельное состояние
+monitor/Grafana без обновления возраста копии. Focused local проверки прошли;
+публикация, установка и production reconciliation pending. См.
+[границу исправления и приемку](v2.61-backup-reconciliation.md).

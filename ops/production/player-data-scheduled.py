@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Weekly control-plane cycle using the existing encrypted restic implementation."""
+import argparse
 import datetime as dt
+import hashlib
 import importlib.util
 import json
 import os
@@ -109,9 +111,74 @@ def bootstrap(root, operation_path, bundle_path, clock=policy.now):
     return record
 
 
+def reconcile_no_capture(ledger, transport, slot, pending_hash, success_hash, clock=policy.now):
+    """Close only a proved unstarted slot; retain exact original evidence and copy age."""
+    policy.valid_slot(slot)
+    moment = clock()
+    due = dt.datetime.combine(dt.date.fromisoformat(slot), dt.time(4), policy.MOSCOW)
+    policy.require(moment > due + dt.timedelta(minutes=5))
+    cycle = policy.private_path(ledger.root / slot, directory=True)
+    policy.require({p.name for p in cycle.iterdir()} == {'result.json'})
+    pending = policy.read_json(ledger.pending)
+    record = policy.read_json(cycle / 'result.json')
+    success_path = ledger.root / 'last-success.json'
+    last_success = policy.read_json(success_path)
+    policy.require(all(re.fullmatch(r'[a-f0-9]{64}', h) for h in (pending_hash, success_hash)))
+    policy.require(hashlib.sha256(ledger.pending.read_bytes()).hexdigest() == pending_hash
+                   and hashlib.sha256(success_path.read_bytes()).hexdigest() == success_hash)
+    policy.require(set(pending) == {'schema', 'slot', 'state', 'startedUtc'} and pending == record
+                   and pending['schema'] == 1 and pending['slot'] == slot and pending['state'] == 'started')
+    started = dt.datetime.fromisoformat(pending['startedUtc'])
+    policy.require(policy.weekly_slot(started) == slot and last_success['state'] == 'verified')
+    # The caller holds the same exclusive lock as the timer for the entire exchange.
+    proof = json.loads(transport.remote('status', slot))
+    policy.require(set(proof) == {'schema', 'slot', 'state', 'observedUtc', 'gameStartedUtc', 'gameInvocationId'}
+                   and proof['schema'] == 1 and proof['slot'] == slot and proof['state'] == 'not-started'
+                   and re.fullmatch(r'[a-f0-9]{32}', proof['gameInvocationId']) is not None)
+    observed = dt.datetime.fromisoformat(proof['observedUtc'])
+    game_started = dt.datetime.fromisoformat(proof['gameStartedUtc'])
+    completed = clock()
+    policy.require(observed.tzinfo is not None and game_started.tzinfo is not None
+                   and moment - dt.timedelta(seconds=30) <= observed <= completed + dt.timedelta(seconds=30)
+                   and completed - observed <= dt.timedelta(minutes=2) and game_started < due)
+    policy.require(policy.read_json(ledger.pending) == pending
+                   and policy.read_json(cycle / 'result.json') == record
+                   and hashlib.sha256(success_path.read_bytes()).hexdigest() == success_hash)
+    evidence = {'schema': 1, 'state': 'reconciled-no-capture', 'slot': slot,
+                'startedUtc': pending['startedUtc'], 'completedUtc': completed.isoformat(),
+                'originalPending': pending, 'originalResult': record, 'gameProof': proof,
+                'lastSuccessSha256': success_hash, 'pendingSha256': pending_hash}
+    # Preserve original bytes as well as the structured proof before changing state.
+    for name, source in (('original-pending.json', ledger.pending), ('original-result.json', cycle / 'result.json')):
+        with (cycle / name).open('xb') as output:
+            os.chmod(output.name, 0o600)
+            output.write(policy.private_path(source).read_bytes())
+            output.flush(); os.fsync(output.fileno())
+    # Publish durable proof before changing state. Interruption leaves pending and fails closed.
+    policy.write_json(cycle / 'reconciliation.json', evidence)
+    record = dict(record, state='reconciled-no-capture', completedUtc=completed.isoformat())
+    ledger.finish(cycle, record)
+    return record
+
+
 def main():
-    policy.require(os.geteuid() == 0 and len(sys.argv) in (2, 4))
+    policy.require(os.geteuid() == 0 and len(sys.argv) >= 2)
     action = sys.argv[1]
+    if action == 'reconcile-no-capture':
+        parser = argparse.ArgumentParser(description='Explicit reconciliation without capture, archive or retry.')
+        parser.add_argument('slot')
+        parser.add_argument('--expected-pending-sha256', required=True)
+        parser.add_argument('--expected-last-success-sha256', required=True)
+        args = parser.parse_args(sys.argv[2:])
+        # An executing service cannot be reconciled, even during its lock-free startup.
+        active = policy.run(['systemctl', 'show', 'goldsrcops-player-data-backup.service',
+                             '-p', 'ActiveState', '--value']).strip()
+        policy.require(active in (b'inactive', b'failed'))
+        with policy.lock(ROOT / 'schedule.lock'):
+            reconcile_no_capture(policy.Ledger(ROOT), Transport(), args.slot,
+                                 args.expected_pending_sha256, args.expected_last_success_sha256)
+        print('PLAYER_DATA_WEEKLY=reconciled-no-capture')
+        return
     policy.require((action in ("run", "status") and len(sys.argv) == 2)
                    or (action == "baseline" and len(sys.argv) == 4))
     with policy.lock(ROOT / "schedule.lock"):
