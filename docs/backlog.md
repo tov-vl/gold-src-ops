@@ -3142,5 +3142,5 @@ Production addon 0.24.0
 Локально проверены переход 0.23.0 -> 0.24.0, обратный plan и отказ приемки
 с возвратом предыдущего addon. Настоящие ReHLDS, RCON, A2S и nVault дополняют
 изолированный workflow v2.64. Стандартный read-only probe связывает manifest
-с загруженной версией, состоянием хранилищ и AMXX errors. Required CI ожидается;
-production source/игра не меняются. См. [сценарии и границы](v2.65-addon-engine-rehearsal.md).
+с загруженной версией, состоянием хранилищ и AMXX errors. PR #313 слит; полный
+PR CI и post-merge CI прошли. Production source/игра не менялись. См. [сценарии и границы](v2.65-addon-engine-rehearsal.md).
