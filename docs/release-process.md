@@ -213,6 +213,9 @@ baseline hash. Follow [the weekly backup runbook](game-player-data-schedule.md#Ð
 then require the backup host preflight/postflight to pass. Preserve the old
 baseline and runtime identities. Apply the same gate after addon rollback;
 never waive unrelated baseline drift or mark an interrupted backup successful.
+For enabled schema-2 updates, use the [claimed addon workflow](v2.64-addon-upgrade-workflow.md)
+with its compatible source tree and frozen read-only acceptance probe. Its
+pending journal blocks repeat execution and scheduled capture after an uncertain outcome.
 
 Compilation and shell syntax do not prove gameplay behavior. Run the focused
 isolated engine scenario required by the changed mechanic separately. None of

@@ -1929,3 +1929,16 @@ or a transport failure removes current map/population claims, while confirmed
 configuration unavailability removes connection controls. Preserve existing
 controls/focus when applying a successful address update; retain normal SSR
 reload without JavaScript. See [v2.60](v2.60-play-status-refresh.md).
+
+## Decision 44: Claim Addon Transitions Through Baseline Acceptance
+
+Use one hash-bound operator workflow for an enabled schema-2 addon update.
+Reuse the existing installer and baseline helper; keep schedule, backup and
+transition locks across the operation, passing the same transition descriptor
+to the installer. Record intent before every service/file effect. A completed
+failure may restore only a verified predecessor and reconcile its baseline;
+unknown outcomes retain a pending claim and block later updates and scheduled
+capture. Never restore player data to make an addon rollback pass. Runtime
+acceptance is a separately reviewed, hash-pinned read-only probe for both
+artifacts. Host acceptance does not replace external monitoring or client
+acceptance. See [v2.64](v2.64-addon-upgrade-workflow.md).

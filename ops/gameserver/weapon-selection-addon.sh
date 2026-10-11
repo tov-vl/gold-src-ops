@@ -8,6 +8,7 @@ ws_directory="$(dirname "$(realpath -e -- "${BASH_SOURCE[0]}")")"
 source "$ws_directory/game-event-persistent.sh"
 
 ws_operation=""
+ws_transition_fd=""
 ws_apply=false
 ws_bundle=""
 ws_manifest_sha=""
@@ -237,6 +238,7 @@ while (($# > 0)); do
         --bundle) (($# >= 2)) || fail "Missing bundle path."; ws_bundle="$2"; shift 2 ;;
         --manifest-sha256) (($# >= 2)) || fail "Missing manifest digest."; ws_manifest_sha="$2"; shift 2 ;;
         --expected-manifest-sha256) (($# >= 2)) || fail "Missing predecessor digest."; ws_expected_manifest_sha="$2"; shift 2 ;;
+        --transition-lock-fd) (($# >= 2)) || fail "Missing transition lock descriptor."; ws_transition_fd="$2"; shift 2 ;;
         --apply) ws_apply=true; shift ;;
         --map-menu) ws_map_menu=true; shift ;;
         *) fail "Unknown addon argument." ;;
@@ -286,10 +288,18 @@ if [[ "$ws_operation" != status && "$ws_apply" == false ]]; then
 fi
 [[ "$ws_operation" != status || "$ws_apply" == false ]] || fail "Status does not accept --apply."
 [[ "$EUID" == 0 ]] || fail "Addon operation requires root."
+[[ -z "$ws_transition_fd" || ( "$ws_operation" == upgrade && "$ws_apply" == true ) ]] || fail "Inherited lock is upgrade/apply-only."
 read_prepared_marker
 if [[ "$ws_operation" == status ]]; then ws_verify; log "${ws_label}_ADDON=$ws_state"; exit 0; fi
 [[ "${SUDO_USER:-}" == "$prepared_operator_user" && -n "${SSH_CONNECTION:-}" ]] || fail "Apply requires the reviewed SSH operator."
-acquire_lock
+if [[ -n "$ws_transition_fd" ]]; then
+    [[ "$ws_transition_fd" =~ ^[0-9]+$ && "$ws_transition_fd" -ge 10 && "$ws_transition_fd" -le 1024 ]] || fail "Invalid transition lock descriptor."
+    [[ -f "/proc/self/fd/$ws_transition_fd" && -f "$transition_lock" && ! -L "$transition_lock" ]] || fail "Missing transition lock."
+    [[ "$(stat -Lc '%d:%i' "/proc/self/fd/$ws_transition_fd")" == "$(stat -c '%d:%i' "$transition_lock")" ]] || fail "Wrong transition lock."
+    flock --nonblock "$ws_transition_fd" || fail "Transition lock is busy."
+else
+    acquire_lock
+fi
 exec 7>"$configuration_directory/managed-profile.lock"
 flock --nonblock 7 || fail "A managed-profile transition is in progress."
 verify_persistent_files

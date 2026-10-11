@@ -82,6 +82,9 @@ class Host:
 
 def capture(slot, ledger, host, clock=policy.now):
     policy.require(policy.weekly_slot(clock()) == slot, "Outside the Sunday maintenance window.")
+    pending_addon = ledger.root / 'addon-upgrade-pending.json'
+    policy.require(not pending_addon.exists() and not pending_addon.is_symlink(),
+                   'An addon transition requires reconciliation.')
     cycle, existing = ledger.claim(slot)
     if existing:
         return existing

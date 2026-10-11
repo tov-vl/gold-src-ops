@@ -97,7 +97,7 @@ def lock(path, shared=False):
         else:
             private_path(path)
         fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        yield
+        yield descriptor
     finally:
         os.close(descriptor)
 
