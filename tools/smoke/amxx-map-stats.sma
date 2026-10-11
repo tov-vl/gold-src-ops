@@ -9,6 +9,7 @@
 #define is_user_hltv(%1) FixtureIsHltv(%1)
 #define is_user_connected(%1) FixtureIsConnected(%1)
 #define client_print FixturePrint
+#define client_print_color FixtureColorPrint
 #define get_gametime FixtureTime
 #include <goldsrcops_weapon_selection.sma>
 #undef plugin_init
@@ -16,6 +17,7 @@
 #undef is_user_hltv
 #undef is_user_connected
 #undef client_print
+#undef client_print_color
 #undef get_gametime
 
 new g_clients[6];
@@ -53,6 +55,19 @@ bool:FixtureIsConnected(id)
 Float:FixtureTime()
 {
     return g_clock;
+}
+
+FixtureColorPrint(id, sender, const message[], any:...)
+{
+    #pragma unused sender
+    new colored[512], plain[192], written;
+    vformat(colored, charsmax(colored), message, 4);
+    for (new index = 0; colored[index] && written < charsmax(plain); index++)
+    {
+        if (colored[index] != 1 && colored[index] != 4) { plain[written++] = colored[index]; }
+    }
+    plain[written] = 0;
+    return FixturePrint(id, print_chat, "%s", plain);
 }
 
 FixturePrint(id, type, const message[], any:...)
