@@ -351,6 +351,8 @@ jobs:
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-schedule.py
           sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-maintenance.py
           sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/addon-upgrade.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/addon-runtime-probe.py
+          bash -n ./tools/smoke/game-addon-upgrade-runtime.sh
           bash -n ./ops/gameserver/addon-upgrade-guard.sh
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor.py
           systemd-analyze verify ./ops/production/systemd/goldsrcops-player-data-monitor.service ./ops/production/systemd/goldsrcops-player-data-monitor.timer
