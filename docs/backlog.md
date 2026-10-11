@@ -3128,10 +3128,11 @@ payload/хранилища приняты; backup baseline согласован,
 
 ## v2.64 - Проверяемое обновление и откат addon
 
-Разрабатывается общий operator workflow: frozen plan, empty-server gate,
+Реализован общий operator workflow: frozen plan, empty-server gate,
 существующий installer, независимый version probe, сохранение player files,
 согласование backup baseline и журнал этапов. Изолированные upgrade/rollback
-и failure cases проходят; required CI ожидается. Production addon 0.24.0
+и failure cases прошли; PR #311 слит, полный PR CI и post-merge CI прошли.
+Production addon 0.24.0
 не меняется, визуальная приемка v2.63 отложена владельцем. Первое реальное
 использование инструмента относится к следующему addon release.
 См. [контракт, запуск и пределы приемки](v2.64-addon-upgrade-workflow.md).
