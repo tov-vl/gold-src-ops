@@ -15,8 +15,8 @@ namespace GoldSrcOps.WebTests.Pages;
 public sealed class PublicDashboardIntegrationTests
 {
     [Theory]
-    [InlineData("/", PublicStatusClient.Last24HoursWindow, 24, 23, "Hourly buckets")]
-    [InlineData("/?range=7d", PublicStatusClient.Last7DaysWindow, 28, 27, "Six-hour buckets")]
+    [InlineData("/?lang=en", PublicStatusClient.Last24HoursWindow, 24, 23, "Hourly buckets")]
+    [InlineData("/?range=7d&lang=en", PublicStatusClient.Last7DaysWindow, 28, 27, "Six-hour buckets")]
     public async Task Public_dashboard_renders_sanitized_A2s_history_for_the_selected_window(
         string requestPath,
         string expectedWindow,
@@ -51,7 +51,7 @@ public sealed class PublicDashboardIntegrationTests
         await using var factory = new PublicDashboardWebApplicationFactory();
         using var client = factory.CreateClient();
 
-        using var response = await client.GetAsync("/?range=https%3A%2F%2Fprivate.example%2Fsecret");
+        using var response = await client.GetAsync("/?lang=en&range=https%3A%2F%2Fprivate.example%2Fsecret");
         var body = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -66,7 +66,7 @@ public sealed class PublicDashboardIntegrationTests
         await using var factory = new PublicDashboardWebApplicationFactory(statusUnavailable: true);
         using var client = factory.CreateClient();
 
-        using var response = await client.GetAsync("/");
+        using var response = await client.GetAsync("/?lang=en");
         var body = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -81,7 +81,7 @@ public sealed class PublicDashboardIntegrationTests
         await using var factory = new PublicDashboardWebApplicationFactory(serverJoinUnavailable: true);
         using var client = factory.CreateClient();
 
-        using var response = await client.GetAsync("/");
+        using var response = await client.GetAsync("/?lang=en");
         var body = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);

@@ -118,4 +118,74 @@
   <data name="Language" xml:space="preserve"><value>Язык страницы</value></data>
   <data name="PlayNav" xml:space="preserve"><value>Играть</value></data>
   <data name="TopNav" xml:space="preserve"><value>Топ-10</value></data>
+  <data name="StatusTitle" xml:space="preserve"><value>Статус GoldSrcOps</value></data>
+  <data name="StatusDescription" xml:space="preserve"><value>Текущий статус игровых серверов GoldSrcOps и история доступности по проверкам A2S.</value></data>
+  <data name="FleetEyebrow" xml:space="preserve"><value>Мониторинг серверов</value></data>
+  <data name="StatusLede" xml:space="preserve"><value>Текущий статус игровых серверов GoldSrc.</value></data>
+  <data name="LoadingStatus" xml:space="preserve"><value>Загружаем текущий статус</value></data>
+  <data name="LoadingStatusDetail" xml:space="preserve"><value>Получаем последние результаты мониторинга.</value></data>
+  <data name="StatusUnavailable" xml:space="preserve"><value>Статус недоступен</value></data>
+  <data name="StatusUnavailableHeading" xml:space="preserve"><value>Не удалось получить данные мониторинга</value></data>
+  <data name="StatusUnavailableDetail" xml:space="preserve"><value>Попробуй позже. Предыдущие результаты не выдаются за текущие данные.</value></data>
+  <data name="LastObservation" xml:space="preserve"><value>Последняя проверка</value></data>
+  <data name="NotAvailable" xml:space="preserve"><value>Нет данных</value></data>
+  <data name="CurrentSnapshot" xml:space="preserve"><value>Текущий снимок</value></data>
+  <data name="MonitoredFleet" xml:space="preserve"><value>Серверы под наблюдением</value></data>
+  <data name="Monitored" xml:space="preserve"><value>Под наблюдением</value></data>
+  <data name="EnabledServers" xml:space="preserve"><value>включенных серверов</value></data>
+  <data name="StatusOnline" xml:space="preserve"><value>Доступен</value></data>
+  <data name="RespondingNormally" xml:space="preserve"><value>отвечают на запросы</value></data>
+  <data name="Attention" xml:space="preserve"><value>Требуют внимания</value></data>
+  <data name="OfflineOrUnknown" xml:space="preserve"><value>недоступны или ожидают данных</value></data>
+  <data name="OpenIncidents" xml:space="preserve"><value>Открытые инциденты</value></data>
+  <data name="ActiveAvailabilityEvents" xml:space="preserve"><value>события доступности</value></data>
+  <data name="PublicServer" xml:space="preserve"><value>Публичный сервер CS 1.6</value></data>
+  <data name="Observed" xml:space="preserve"><value>Проверено</value></data>
+  <data name="ConnectionCommand" xml:space="preserve"><value>Команда подключения</value></data>
+  <data name="ConnectWithSteam" xml:space="preserve"><value>Подключиться через Steam</value></data>
+  <data name="RecordedProbes" xml:space="preserve"><value>Результаты проверок сервера</value></data>
+  <data name="HistoryTitle" xml:space="preserve"><value>История доступности по A2S</value></data>
+  <data name="HistoryWindow" xml:space="preserve"><value>Период истории A2S</value></data>
+  <data name="Hours24" xml:space="preserve"><value>24 часа</value></data>
+  <data name="Days7" xml:space="preserve"><value>7 дней</value></data>
+  <data name="HistoryUnavailable" xml:space="preserve"><value>История A2S недоступна</value></data>
+  <data name="HistoryUnavailableDetail" xml:space="preserve"><value>Текущий статус серверов может быть доступен выше.</value></data>
+  <data name="ObservedReachability" xml:space="preserve"><value>Доступность по проверкам</value></data>
+  <data name="ObservationCoverage" xml:space="preserve"><value>Полнота наблюдений</value></data>
+  <data name="ChartLegend" xml:space="preserve"><value>Обозначения графика</value></data>
+  <data name="AllProbesReached" xml:space="preserve"><value>Все проверки успешны</value></data>
+  <data name="MixedResults" xml:space="preserve"><value>Смешанные результаты</value></data>
+  <data name="NoProbeReached" xml:space="preserve"><value>Ни одной успешной проверки</value></data>
+  <data name="NoObservations" xml:space="preserve"><value>Нет наблюдений</value></data>
+  <data name="ReportScopeTitle" xml:space="preserve"><value>Что показывает эта страница</value></data>
+  <data name="Operational" xml:space="preserve"><value>Все в порядке</value></data>
+  <data name="Degraded" xml:space="preserve"><value>Есть проблемы</value></data>
+  <data name="StatusUnknown" xml:space="preserve"><value>Статус неизвестен</value></data>
+  <data name="OperationalHeading" xml:space="preserve"><value>Все серверы под наблюдением доступны</value></data>
+  <data name="DegradedHeading" xml:space="preserve"><value>Некоторые серверы требуют внимания</value></data>
+  <data name="UnknownHeading" xml:space="preserve"><value>Мониторинг ожидает результатов проверок</value></data>
+  <data name="OperationalDetail" xml:space="preserve"><value>Последние проверки подтверждают доступность серверов.</value></data>
+  <data name="DegradedDetail" xml:space="preserve"><value>Хотя бы один сервер недоступен, еще не проверен или имеет открытый инцидент.</value></data>
+  <data name="StatusUnknownDetail" xml:space="preserve"><value>Полных результатов проверок включенных серверов пока нет.</value></data>
+  <data name="NoFleetData" xml:space="preserve"><value>Нет данных о серверах.</value></data>
+  <data name="SixHourBuckets" xml:space="preserve"><value>Интервалы по 6 часов</value></data>
+  <data name="HourlyBuckets" xml:space="preserve"><value>Часовые интервалы</value></data>
+  <data name="HistoryChartUnavailable" xml:space="preserve"><value>История доступности по A2S недоступна.</value></data>
+  <data name="StatusOffline" xml:space="preserve"><value>Недоступен</value></data>
+  <data name="PlayGuideLink" xml:space="preserve"><value>Как начать игру: режим и команды</value></data>
+  <data name="Coverage" xml:space="preserve"><value>Интервалов с данными: {0} из {1}</value></data>
+  <data name="FleetSummary" xml:space="preserve"><value>Доступно серверов: {0} из {1}.</value></data>
+  <data name="HistoryChart" xml:space="preserve"><value>Доступность по A2S с {0} по {1}; интервалы с данными: {2} из {3}.</value></data>
+  <data name="BucketPercent" xml:space="preserve"><value>Успешных проверок: {0}%</value></data>
+  <data name="BucketLabel" xml:space="preserve"><value>Интервал с {0}: {1}.</value></data>
+  <data name="ReportScope" xml:space="preserve"><value>Здесь показаны общий статус серверов, результаты проверок A2S и один публичный адрес подключения. Интервалы без наблюдений считаются неизвестными и не входят в расчет доступности. История A2S не отражает время работы API и не подтверждает SLO. Публичный игровой адрес задается отдельно от внутреннего списка серверов. Идентификаторы провайдера, история команд, учетные данные и служебная информация остаются закрытыми.</value></data>
+  <data name="HomeLabel" xml:space="preserve"><value>Главная GoldSrcOps</value></data>
+  <data name="PrimaryNavigation" xml:space="preserve"><value>Основная навигация</value></data>
+  <data name="StatusNav" xml:space="preserve"><value>Статус</value></data>
+  <data name="SignIn" xml:space="preserve"><value>Войти</value></data>
+  <data name="SignOut" xml:space="preserve"><value>Выйти</value></data>
+  <data name="SignedIn" xml:space="preserve"><value>Вход выполнен</value></data>
+  <data name="PublicStatus" xml:space="preserve"><value>Публичный статус</value></data>
+  <data name="FleetFooter" xml:space="preserve"><value>Мониторинг серверов GoldSrc</value></data>
+  <data name="UtcFooter" xml:space="preserve"><value>Время указано в UTC</value></data>
 </root>

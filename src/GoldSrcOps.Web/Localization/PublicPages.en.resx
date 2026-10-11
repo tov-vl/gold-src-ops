@@ -118,4 +118,74 @@
   <data name="Language" xml:space="preserve"><value>Page language</value></data>
   <data name="PlayNav" xml:space="preserve"><value>Play</value></data>
   <data name="TopNav" xml:space="preserve"><value>Top 10</value></data>
+  <data name="StatusTitle" xml:space="preserve"><value>GoldSrcOps status</value></data>
+  <data name="StatusDescription" xml:space="preserve"><value>Live public status and A2S reachability history for the GoldSrcOps monitored game-server fleet.</value></data>
+  <data name="FleetEyebrow" xml:space="preserve"><value>Fleet control plane</value></data>
+  <data name="StatusLede" xml:space="preserve"><value>Live status for the monitored GoldSrc server fleet.</value></data>
+  <data name="LoadingStatus" xml:space="preserve"><value>Loading current status</value></data>
+  <data name="LoadingStatusDetail" xml:space="preserve"><value>Reading the latest monitoring observations.</value></data>
+  <data name="StatusUnavailable" xml:space="preserve"><value>Status unavailable</value></data>
+  <data name="StatusUnavailableHeading" xml:space="preserve"><value>Monitoring data could not be reached</value></data>
+  <data name="StatusUnavailableDetail" xml:space="preserve"><value>Please try again shortly. No last-known state is shown as current data.</value></data>
+  <data name="LastObservation" xml:space="preserve"><value>Last observation</value></data>
+  <data name="NotAvailable" xml:space="preserve"><value>Not available</value></data>
+  <data name="CurrentSnapshot" xml:space="preserve"><value>Current snapshot</value></data>
+  <data name="MonitoredFleet" xml:space="preserve"><value>Monitored fleet</value></data>
+  <data name="Monitored" xml:space="preserve"><value>Monitored</value></data>
+  <data name="EnabledServers" xml:space="preserve"><value>enabled servers</value></data>
+  <data name="StatusOnline" xml:space="preserve"><value>Online</value></data>
+  <data name="RespondingNormally" xml:space="preserve"><value>responding normally</value></data>
+  <data name="Attention" xml:space="preserve"><value>Attention</value></data>
+  <data name="OfflineOrUnknown" xml:space="preserve"><value>offline or awaiting data</value></data>
+  <data name="OpenIncidents" xml:space="preserve"><value>Open incidents</value></data>
+  <data name="ActiveAvailabilityEvents" xml:space="preserve"><value>active availability events</value></data>
+  <data name="PublicServer" xml:space="preserve"><value>Public CS 1.6 server</value></data>
+  <data name="Observed" xml:space="preserve"><value>Observed</value></data>
+  <data name="ConnectionCommand" xml:space="preserve"><value>Connection command</value></data>
+  <data name="ConnectWithSteam" xml:space="preserve"><value>Connect with Steam</value></data>
+  <data name="RecordedProbes" xml:space="preserve"><value>Recorded game-server probes</value></data>
+  <data name="HistoryTitle" xml:space="preserve"><value>A2S reachability history</value></data>
+  <data name="HistoryWindow" xml:space="preserve"><value>A2S history window</value></data>
+  <data name="Hours24" xml:space="preserve"><value>24 hours</value></data>
+  <data name="Days7" xml:space="preserve"><value>7 days</value></data>
+  <data name="HistoryUnavailable" xml:space="preserve"><value>A2S history unavailable</value></data>
+  <data name="HistoryUnavailableDetail" xml:space="preserve"><value>Current fleet status may still be available above.</value></data>
+  <data name="ObservedReachability" xml:space="preserve"><value>Observed reachability</value></data>
+  <data name="ObservationCoverage" xml:space="preserve"><value>Observation coverage</value></data>
+  <data name="ChartLegend" xml:space="preserve"><value>Chart legend</value></data>
+  <data name="AllProbesReached" xml:space="preserve"><value>All observed probes reached</value></data>
+  <data name="MixedResults" xml:space="preserve"><value>Mixed results</value></data>
+  <data name="NoProbeReached" xml:space="preserve"><value>No observed probe reached</value></data>
+  <data name="NoObservations" xml:space="preserve"><value>No observations</value></data>
+  <data name="ReportScopeTitle" xml:space="preserve"><value>What this page reports</value></data>
+  <data name="Operational" xml:space="preserve"><value>Operational</value></data>
+  <data name="Degraded" xml:space="preserve"><value>Degraded</value></data>
+  <data name="StatusUnknown" xml:space="preserve"><value>Status unknown</value></data>
+  <data name="OperationalHeading" xml:space="preserve"><value>All monitored servers are online</value></data>
+  <data name="DegradedHeading" xml:space="preserve"><value>Some servers require attention</value></data>
+  <data name="UnknownHeading" xml:space="preserve"><value>Monitoring is waiting for observations</value></data>
+  <data name="OperationalDetail" xml:space="preserve"><value>The latest monitoring snapshot reports normal availability.</value></data>
+  <data name="DegradedDetail" xml:space="preserve"><value>At least one server is offline, unobserved, or has an open incident.</value></data>
+  <data name="StatusUnknownDetail" xml:space="preserve"><value>No complete observation is available for the enabled fleet yet.</value></data>
+  <data name="NoFleetData" xml:space="preserve"><value>No fleet data available.</value></data>
+  <data name="SixHourBuckets" xml:space="preserve"><value>Six-hour buckets</value></data>
+  <data name="HourlyBuckets" xml:space="preserve"><value>Hourly buckets</value></data>
+  <data name="HistoryChartUnavailable" xml:space="preserve"><value>A2S reachability history is unavailable.</value></data>
+  <data name="StatusOffline" xml:space="preserve"><value>Offline</value></data>
+  <data name="PlayGuideLink" xml:space="preserve"><value>How to start: mode and commands</value></data>
+  <data name="Coverage" xml:space="preserve"><value>{0} of {1} buckets</value></data>
+  <data name="FleetSummary" xml:space="preserve"><value>{0} of {1} monitored servers online.</value></data>
+  <data name="HistoryChart" xml:space="preserve"><value>A2S reachability from {0} to {1}; {2} of {3} buckets contain observations.</value></data>
+  <data name="BucketPercent" xml:space="preserve"><value>{0} percent reachable</value></data>
+  <data name="BucketLabel" xml:space="preserve"><value>Bucket starting {0}: {1}.</value></data>
+  <data name="ReportScope" xml:space="preserve"><value>This public view shows aggregate fleet status, recorded A2S probe outcomes, and one explicitly advertised public connection endpoint. Missing buckets are unknown and excluded from the observed percentage. A2S history is not API uptime and does not activate or prove an SLO. The advertised game endpoint is configured separately from private inventory; provider identifiers, command history, credentials, and administrative data remain private.</value></data>
+  <data name="HomeLabel" xml:space="preserve"><value>GoldSrcOps home</value></data>
+  <data name="PrimaryNavigation" xml:space="preserve"><value>Primary navigation</value></data>
+  <data name="StatusNav" xml:space="preserve"><value>Status</value></data>
+  <data name="SignIn" xml:space="preserve"><value>Sign in</value></data>
+  <data name="SignOut" xml:space="preserve"><value>Sign out</value></data>
+  <data name="SignedIn" xml:space="preserve"><value>Signed in</value></data>
+  <data name="PublicStatus" xml:space="preserve"><value>Public status</value></data>
+  <data name="FleetFooter" xml:space="preserve"><value>GoldSrc fleet monitoring</value></data>
+  <data name="UtcFooter" xml:space="preserve"><value>All times shown in UTC</value></data>
 </root>

@@ -1,9 +1,10 @@
 @inherits LayoutComponentBase
 @inject WebAuthenticationState AuthenticationState
+@inject NavigationManager Navigation
 
-<div class="site-shell">
+<div class="site-shell" lang="@Chrome.Code">
     <header class="topbar">
-        <a class="brand" href="/" aria-label="GoldSrcOps home">
+        <a class="brand" href="@Text.Link("/")" aria-label="@Chrome["HomeLabel"]">
             <span class="brand-mark" aria-hidden="true">
                 <span></span>
                 <span></span>
@@ -11,8 +12,8 @@
             </span>
             <span>GoldSrcOps</span>
         </a>
-        <nav class="primary-nav" aria-label="Primary navigation">
-            <NavLink href="/" Match="NavLinkMatch.All">Status</NavLink>
+        <nav class="primary-nav" aria-label="@Chrome["PrimaryNavigation"]">
+            <NavLink href="@Text.Link("/")" Match="NavLinkMatch.All">@Chrome["StatusNav"]</NavLink>
             <NavLink href="@Text.Link("/play")" lang="@Text.Code">@Text["PlayNav"]</NavLink>
             <NavLink href="@Text.Link("/leaderboard")" lang="@Text.Code">@Text["TopNav"]</NavLink>
             <AuthorizeView Policy="@WebSecurity.ReaderPolicy">
@@ -33,17 +34,17 @@
                         <span class="session-name">@GetDisplayName(authentication.User)</span>
                         <form method="post" action="/auth/logout">
                             <AntiforgeryToken />
-                            <button class="session-button" type="submit">Sign out</button>
+                            <button class="session-button" type="submit">@Chrome["SignOut"]</button>
                         </form>
                     </Authorized>
                     <NotAuthorized>
-                        <a class="session-button" href="/auth/login">Sign in</a>
+                        <a class="session-button" href="/auth/login">@Chrome["SignIn"]</a>
                     </NotAuthorized>
                 </AuthorizeView>
             }
             else
             {
-                <span class="surface-label">Public status</span>
+                <span class="surface-label">@Chrome["PublicStatus"]</span>
             }
         </div>
     </header>
@@ -53,8 +54,8 @@
     </main>
 
     <footer>
-        <span>GoldSrc fleet monitoring</span>
-        <span>All times shown in UTC</span>
+        <span>@Chrome["FleetFooter"]</span>
+        <span>@Chrome["UtcFooter"]</span>
     </footer>
 </div>
 
@@ -64,6 +65,9 @@
 
     private PublicPageText Text => PublicPageText.For(Language);
 
-    private static string GetDisplayName(System.Security.Claims.ClaimsPrincipal user) =>
-        user.Identity?.Name ?? "Signed in";
+    private PublicPageText Chrome => new Uri(Navigation.Uri).AbsolutePath is "/" or "/play" or "/leaderboard"
+        ? Text : PublicPageText.For("en");
+
+    private string GetDisplayName(System.Security.Claims.ClaimsPrincipal user) =>
+        user.Identity?.Name ?? Chrome["SignedIn"];
 }

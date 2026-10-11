@@ -1,6 +1,6 @@
 <nav class="public-language" aria-label="@Text["Language"]">
     <a href="@Path" lang="ru" hreflang="ru" aria-current="@(Text.Code == "ru" ? "true" : null)">RU</a>
-    <a href="@(Path + "?lang=en")" lang="en" hreflang="en" aria-current="@(Text.Code == "en" ? "true" : null)">EN</a>
+    <a href="@PublicPageText.For("en").Link(Path)" lang="en" hreflang="en" aria-current="@(Text.Code == "en" ? "true" : null)">EN</a>
 </nav>
 
 @code {

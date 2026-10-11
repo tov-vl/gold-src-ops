@@ -990,7 +990,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
             {
                 await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
                 var response = await Page.GotoAsync(
-                    new Uri(baseAddress, $"/?range={historyWindow.Value}").AbsoluteUri);
+                    new Uri(baseAddress, $"/?range={historyWindow.Value}&lang=en").AbsoluteUri);
 
                 response.Should().NotBeNull();
                 response!.Ok.Should().BeTrue();
@@ -1027,7 +1027,7 @@ public sealed partial class BrowserTokenBoundaryTests : PageTest
         {
             await Page.SetViewportSizeAsync(viewport.Width, viewport.Height);
             var response = await Page.GotoAsync(
-                baseAddress.AbsoluteUri);
+                new Uri(baseAddress, "/?lang=en").AbsoluteUri);
 
             response.Should().NotBeNull();
             response!.Ok.Should().BeTrue();

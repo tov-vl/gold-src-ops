@@ -24,7 +24,9 @@ public sealed class PublicPageText
     public string this[string key] => Resources.GetString(key, _culture)
         ?? throw new InvalidOperationException($"Missing public page text: {key}");
 
-    public string Link(string path) => string.Equals(Code, "en", StringComparison.Ordinal) ? $"{path}?lang=en" : path;
+    public string Link(string path) => string.Equals(Code, "en", StringComparison.Ordinal) ? $"{path}{(path.Contains('?', StringComparison.Ordinal) ? "&" : "?")}lang=en" : path;
+
+    public string Format(string key, params object[] arguments) => string.Format(CultureInfo.InvariantCulture, this[key], arguments);
 
     public string Age(double seconds) => string.Format(CultureInfo.InvariantCulture, this["Age"], Math.Ceiling(seconds));
 }
