@@ -27,23 +27,23 @@
         const signal = document.createElement("span");
         signal.className = "join-panel__signal";
         signal.setAttribute("aria-hidden", "true");
-        label.append(signal, "Свежий статус не подтвержден");
-        panel.querySelector(".join-panel__detail").textContent = "Свежих данных пока нет. Подключение можно попробовать, но доступность сервера не подтверждена.";
-        panel.querySelectorAll(".join-panel__facts dd").forEach(fact => { fact.textContent = "Нет свежих данных"; });
+        label.append(signal, page.dataset.unknown);
+        panel.querySelector(".join-panel__detail").textContent = page.dataset.unknownDetail;
+        panel.querySelectorAll(".join-panel__facts dd").forEach(fact => { fact.textContent = page.dataset.noFreshData; });
         const warning = panel.querySelector("[data-play-warning]");
         warning.hidden = false;
         warning.textContent = message;
         const steam = card.querySelector(".join-panel__steam");
-        if (steam) steam.textContent = "Попробовать подключиться";
+        if (steam) steam.textContent = page.dataset.tryJoin;
     }
 
     function updateAge() {
         if (initialAge === null) return;
         const age = initialAge + Math.max(0, performance.now() - observedAt) / 1000;
         const display = panel.querySelector("[data-play-age]");
-        if (display) display.textContent = `Возраст: ${Math.ceil(age)} сек.`;
+        if (display) display.textContent = page.dataset.age.replace("{0}", Math.ceil(age));
         if (age > 180 && ["online", "offline"].includes(panel.dataset.state)) {
-            markUnconfirmed("Проверка устарела. Обнови статус перед подключением.");
+            markUnconfirmed(page.dataset.expiredCheck);
         }
     }
 
@@ -120,14 +120,16 @@
         const timeout = setTimeout(() => active.abort(), requestTimeout);
         button.setAttribute("aria-disabled", "true");
         panel.setAttribute("aria-busy", "true");
-        status.textContent = "Обновляем статус...";
+        status.textContent = page.dataset.refreshingStatus;
         try {
-            const response = await fetch("/play", {
+            const response = await fetch(page.lang === "en" ? "/play?lang=en" : "/play", {
                 method: "GET", credentials: "omit", cache: "no-store", redirect: "error", signal: active.signal
             });
             const html = await readPage(response);
             if (stopped || document.hidden || active.signal.aborted) return;
-            const nextCard = new DOMParser().parseFromString(html, "text/html").querySelector(".play-page .join-panel");
+            const nextPage = new DOMParser().parseFromString(html, "text/html").querySelector(".play-page");
+            if (nextPage?.lang !== page.lang) throw new Error();
+            const nextCard = nextPage.querySelector(".join-panel");
             const { next, connection, age } = validate(nextCard);
             updateConnection(connection);
             card.querySelector("#join-title").textContent = nextCard.querySelector("#join-title").textContent;
@@ -137,11 +139,11 @@
             observedAt = performance.now();
             initialAge = age;
             updateAge();
-            status.textContent = "Проверка завершена.";
+            status.textContent = page.dataset.statusDone;
         } catch {
             if (!stopped && !document.hidden && active.signal.reason !== "hidden") {
-                markUnconfirmed("Не удалось обновить статус. Последняя проверка больше не подтверждает текущую доступность.");
-                status.textContent = "Не удалось обновить статус. Повторим через минуту; можно обновить вручную.";
+                markUnconfirmed(page.dataset.statusFailureWarning);
+                status.textContent = page.dataset.statusFailure;
                 updateAge();
             }
         } finally {
@@ -162,9 +164,9 @@
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
             controller?.abort("hidden");
-            status.textContent = "Автообновление приостановлено, пока вкладка скрыта.";
+            status.textContent = page.dataset.refreshPaused;
         } else {
-            status.textContent = "Автообновление раз в минуту, пока вкладка видима.";
+            status.textContent = page.dataset.refreshActive;
             tick();
         }
     });
@@ -175,7 +177,7 @@
         tickId = setInterval(tick, 1000);
         tick();
     });
-    status.textContent = "Автообновление раз в минуту, пока вкладка видима.";
+    status.textContent = page.dataset.refreshActive;
     updateAge();
     tickId = setInterval(tick, 1000);
 })();

@@ -3144,3 +3144,11 @@ Production addon 0.24.0
 изолированный workflow v2.64. Стандартный read-only probe связывает manifest
 с загруженной версией, состоянием хранилищ и AMXX errors. PR #313 слит; полный
 PR CI и post-merge CI прошли. Production source/игра не менялись. См. [сценарии и границы](v2.65-addon-engine-rehearsal.md).
+
+## v2.66 - RU/EN публичных страниц
+
+В работе: переключатель языка и переводы `/play` и `/leaderboard`, включая
+состояния, ошибки и refresh/copy. Выбор сохраняется в URL и переходах между
+двумя страницами без cookies/browser storage. Scope R1, Web-only; игра и addon
+не меняются. См. [контракт](v2.66-public-language.md) и
+[readiness](v2.66-readiness.md).

@@ -1,0 +1,4 @@
+.public-language { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 24px; }
+.public-language a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; border: 1px solid var(--line); border-radius: 6px; font-weight: 700; text-decoration: none; }
+.public-language a[aria-current="true"] { color: var(--signal-green); border-color: currentColor; }
+.public-language a:focus-visible { outline: 2px solid var(--signal-green); outline-offset: 3px; }

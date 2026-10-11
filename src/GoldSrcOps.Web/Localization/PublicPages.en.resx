@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="PlayTitle" xml:space="preserve"><value>Play CS 1.6 - GoldSrcOps</value></data>
+  <data name="PlayDescription" xml:space="preserve"><value>CS 1.6 with fast respawns, weapon selection and persistent ranks. Join the server, check the current map and learn the essential commands.</value></data>
+  <data name="PilotServer" xml:space="preserve"><value>Pilot server</value></data>
+  <data name="MorePlay" xml:space="preserve"><value>More action.</value></data>
+  <data name="LessWaiting" xml:space="preserve"><value>Less waiting.</value></data>
+  <data name="PlayLede" xml:space="preserve"><value>Team-based CS 1.6 with fast respawns, weapon selection and persistent ranks.</value></data>
+  <data name="IntroBefore" xml:space="preserve"><value>Get back into the action after each death. Start with</value></data>
+  <data name="IntroAfter" xml:space="preserve"><value>in the game chat.</value></data>
+  <data name="HowToStart" xml:space="preserve"><value>How to start</value></data>
+  <data name="JoinServer" xml:space="preserve"><value>Join the server</value></data>
+  <data name="RefreshStatus" xml:space="preserve"><value>Refresh status</value></data>
+  <data name="RefreshStatusHint" xml:space="preserve"><value>Select "Refresh status" to check for an update.</value></data>
+  <data name="CheckingServer" xml:space="preserve"><value>Checking server status...</value></data>
+  <data name="JoinUnavailable" xml:space="preserve"><value>Connection is currently unavailable</value></data>
+  <data name="JoinUnavailableDetail" xml:space="preserve"><value>Could not load the connection address. Try refreshing the page later.</value></data>
+  <data name="GeneralStatus" xml:space="preserve"><value>Check overall status</value></data>
+  <data name="Map" xml:space="preserve"><value>Map</value></data>
+  <data name="Players" xml:space="preserve"><value>Players</value></data>
+  <data name="LastCheck" xml:space="preserve"><value>Last checked:</value></data>
+  <data name="NoObservation" xml:space="preserve"><value>no data yet</value></data>
+  <data name="Age" xml:space="preserve"><value>Age: {0} sec.</value></data>
+  <data name="UnconfirmedWarning" xml:space="preserve"><value>A fresh check is not yet confirmed. The map and player count may have changed.</value></data>
+  <data name="JoinSteam" xml:space="preserve"><value>Connect via Steam</value></data>
+  <data name="TryJoin" xml:space="preserve"><value>Try connecting</value></data>
+  <data name="ConsoleHint" xml:space="preserve"><value>Or enter this in the CS 1.6 console:</value></data>
+  <data name="CopySuccess" xml:space="preserve"><value>Connection command copied.</value></data>
+  <data name="CopyFailure" xml:space="preserve"><value>Could not copy. Select the command and copy it manually.</value></data>
+  <data name="CopyCommand" xml:space="preserve"><value>Copy command</value></data>
+  <data name="FirstConnection" xml:space="preserve"><value>Your first connection</value></data>
+  <data name="ThreeSteps" xml:space="preserve"><value>Three steps to your first match</value></data>
+  <data name="ChooseTeam" xml:space="preserve"><value>Connect and choose a team</value></data>
+  <data name="ChooseTeamDetail" xml:space="preserve"><value>Start CS 1.6 and use the Steam button or the connection command above. Choose a side in the game.</value></data>
+  <data name="ChooseWeapons" xml:space="preserve"><value>Choose your weapons</value></data>
+  <data name="Write" xml:space="preserve"><value>Type</value></data>
+  <data name="WeaponsAfter" xml:space="preserve"><value>in chat. Your MP5, AK-47 or M4A1 and selected pistol are given at the next respawn.</value></data>
+  <data name="FollowProgress" xml:space="preserve"><value>Track your progress</value></data>
+  <data name="Open" xml:space="preserve"><value>Open</value></data>
+  <data name="ProfileAfter" xml:space="preserve"><value>: your stats, rank, leaderboard position and best streak are all on one screen.</value></data>
+  <data name="ProgressBetween" xml:space="preserve"><value>Progress between sessions</value></data>
+  <data name="NextRank" xml:space="preserve"><value>Your next rank</value></data>
+  <data name="RankGuide" xml:space="preserve"><value>Enemy kills raise your rank: Recruit, Fighter, Veteran, Elite and Legend. Your profile shows how many kills you need for the next rank.</value></data>
+  <data name="RankFairness" xml:space="preserve"><value>Ranks give no combat advantages. The overall leaderboard includes saved results, even for players who are currently offline.</value></data>
+  <data name="ReturnProgress" xml:space="preserve"><value>Pick up where you left off</value></data>
+  <data name="SavedIdentity" xml:space="preserve"><value>With a verified Steam identity, your stats, best streak, language and preferences are saved across disconnects and map changes.</value></data>
+  <data name="SettingsBefore" xml:space="preserve"><value>If saving is unavailable, you can still play. Use</value></data>
+  <data name="SettingsAfter" xml:space="preserve"><value>to check which preferences are saved. Your current streak resets after disconnecting or changing maps.</value></data>
+  <data name="Handy" xml:space="preserve"><value>Always within reach</value></data>
+  <data name="ChatCommands" xml:space="preserve"><value>In-game chat commands</value></data>
+  <data name="CommandsHint" xml:space="preserve"><value>Enter a command in public or team chat. Only you can see your menus and personal results.</value></data>
+  <data name="MenuCommand" xml:space="preserve"><value>Main menu: weapons, profile, stats, maps and preferences.</value></data>
+  <data name="GunsCommand" xml:space="preserve"><value>Primary weapon and pistol for your next respawn.</value></data>
+  <data name="ProfileCommand" xml:space="preserve"><value>Your saved results, rank, leaderboard position and streaks.</value></data>
+  <data name="SettingsCommand" xml:space="preserve"><value>RU/EN language, weapon selection, HUD and preference save status.</value></data>
+  <data name="MapsCommand" xml:space="preserve"><value>Map voting menu. Map changes depend on player votes.</value></data>
+  <data name="HelpCommand" xml:space="preserve"><value>Quick help, including stats, rankings and time until the next map.</value></data>
+  <data name="ViewTop" xml:space="preserve"><value>View the top 10 players</value></data>
+  <data name="StartWith" xml:space="preserve"><value>Start with</value></data>
+  <data name="PlayFootnote" xml:space="preserve"><value>. Server availability reflects the last check. With JavaScript, status refreshes every minute in a visible tab. Without JavaScript, use "Refresh status".</value></data>
+  <data name="Online" xml:space="preserve"><value>Server is responding</value></data>
+  <data name="Offline" xml:space="preserve"><value>Server is not responding</value></data>
+  <data name="Unknown" xml:space="preserve"><value>Current status is unconfirmed</value></data>
+  <data name="OnlineDetail" xml:space="preserve"><value>The map and player count reflect the last check.</value></data>
+  <data name="OfflineDetail" xml:space="preserve"><value>The last check received no response. Save the command and try connecting later.</value></data>
+  <data name="UnknownDetail" xml:space="preserve"><value>No fresh data is available. You can try connecting, but server availability is unconfirmed.</value></data>
+  <data name="NoDataYet" xml:space="preserve"><value>No data yet</value></data>
+  <data name="NoFreshData" xml:space="preserve"><value>No fresh data</value></data>
+  <data name="LeaderboardTitle" xml:space="preserve"><value>Top 10 players - GoldSrcOps</value></data>
+  <data name="LeaderboardDescription" xml:space="preserve"><value>The saved CS 1.6 top 10: ranks, kills and deaths. The same leaderboard as /topall on the game server.</value></data>
+  <data name="PlayerRanking" xml:space="preserve"><value>Player rankings</value></data>
+  <data name="TopTen" xml:space="preserve"><value>Top 10 players</value></data>
+  <data name="LeaderboardBefore" xml:space="preserve"><value>The same saved leaderboard as</value></data>
+  <data name="LeaderboardAfter" xml:space="preserve"><value>in the game. More kills first, with fewer deaths breaking ties.</value></data>
+  <data name="PlayOnServer" xml:space="preserve"><value>Play on the server</value></data>
+  <data name="Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="RefreshHint" xml:space="preserve"><value>Select "Refresh" to load a new snapshot.</value></data>
+  <data name="SavedResults" xml:space="preserve"><value>Saved results</value></data>
+  <data name="SnapshotTime" xml:space="preserve"><value>Leaderboard snapshot:</value></data>
+  <data name="StaleNotice" xml:space="preserve"><value>This is the last available snapshot. A fresh leaderboard is not yet confirmed; in-game results may have changed.</value></data>
+  <data name="TableCaption" xml:space="preserve"><value>The ten best saved results</value></data>
+  <data name="Place" xml:space="preserve"><value>Place</value></data>
+  <data name="Player" xml:space="preserve"><value>Player</value></data>
+  <data name="Rank" xml:space="preserve"><value>Rank</value></data>
+  <data name="Kills" xml:space="preserve"><value>Kills</value></data>
+  <data name="Deaths" xml:space="preserve"><value>Deaths</value></data>
+  <data name="KillsShort" xml:space="preserve"><value>K</value></data>
+  <data name="DeathsShort" xml:space="preserve"><value>D</value></data>
+  <data name="EmptyLeaderboard" xml:space="preserve"><value>No results on the leaderboard yet.</value></data>
+  <data name="EmptyLeaderboardDetail" xml:space="preserve"><value>Join the server and start playing. Saved kills and deaths appear after your first matches.</value></data>
+  <data name="LeaderboardUnavailable" xml:space="preserve"><value>Could not load the leaderboard.</value></data>
+  <data name="LeaderboardUnavailableDetail" xml:space="preserve"><value>Try refreshing the page later. Visit "Play" for connection details and essential commands.</value></data>
+  <data name="LeaderboardFootnoteBefore" xml:space="preserve"><value>Names come from the saved profile at connection time. Results update about once a minute. Automatic refresh requires JavaScript and a visible tab. Check your personal progress with</value></data>
+  <data name="InGame" xml:space="preserve"><value>in the game.</value></data>
+  <data name="Fresh" xml:space="preserve"><value>Fresh snapshot</value></data>
+  <data name="Stale" xml:space="preserve"><value>Stale snapshot</value></data>
+  <data name="Unavailable" xml:space="preserve"><value>Leaderboard temporarily unavailable</value></data>
+  <data name="Recruit" xml:space="preserve"><value>Recruit</value></data>
+  <data name="Fighter" xml:space="preserve"><value>Fighter</value></data>
+  <data name="Veteran" xml:space="preserve"><value>Veteran</value></data>
+  <data name="Elite" xml:space="preserve"><value>Elite</value></data>
+  <data name="Legend" xml:space="preserve"><value>Legend</value></data>
+  <data name="NoData" xml:space="preserve"><value>No data</value></data>
+  <data name="ExpiredCheck" xml:space="preserve"><value>This check has expired. Refresh the status before connecting.</value></data>
+  <data name="RefreshingStatus" xml:space="preserve"><value>Refreshing status...</value></data>
+  <data name="StatusDone" xml:space="preserve"><value>Check complete.</value></data>
+  <data name="StatusFailureWarning" xml:space="preserve"><value>Could not refresh the status. The last check no longer confirms current availability.</value></data>
+  <data name="StatusFailure" xml:space="preserve"><value>Could not refresh the status. We will try again in a minute; you can also refresh manually.</value></data>
+  <data name="RefreshPaused" xml:space="preserve"><value>Automatic refresh is paused while the tab is hidden.</value></data>
+  <data name="RefreshActive" xml:space="preserve"><value>Automatically refreshing every minute while the tab is visible.</value></data>
+  <data name="ExpiredLeaderboard" xml:space="preserve"><value>Could not load the leaderboard. Try refreshing later.</value></data>
+  <data name="RefreshingLeaderboard" xml:space="preserve"><value>Refreshing leaderboard...</value></data>
+  <data name="LeaderboardDone" xml:space="preserve"><value>Check complete. Fresh snapshot received.</value></data>
+  <data name="LeaderboardDoneStale" xml:space="preserve"><value>Check complete. A fresh snapshot is not yet available.</value></data>
+  <data name="LeaderboardFailure" xml:space="preserve"><value>Could not refresh the leaderboard. We will try again in a minute; you can also refresh manually.</value></data>
+  <data name="Language" xml:space="preserve"><value>Page language</value></data>
+  <data name="PlayNav" xml:space="preserve"><value>Play</value></data>
+  <data name="TopNav" xml:space="preserve"><value>Top 10</value></data>
+</root>
