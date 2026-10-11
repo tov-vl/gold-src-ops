@@ -2,43 +2,54 @@
 @inject PublicStatusClient StatusClient
 @inject ILogger<Leaderboard> Logger
 
-<PageTitle>Топ-10 игроков - GoldSrcOps</PageTitle>
+<PageTitle>@Text["LeaderboardTitle"]</PageTitle>
 <HeadContent>
-    <meta name="description" content="Сохраненный топ-10 игроков CS 1.6: ранги, убийства и смерти. Тот же рейтинг, что и /topall на игровом сервере." />
+    <meta name="description" content="@Text["LeaderboardDescription"]" />
 </HeadContent>
 
-<div class="leaderboard-page" lang="ru">
+<div class="leaderboard-page" lang="@Text.Code"
+     data-age="@Text["Age"]"
+     data-refresh-paused="@Text["RefreshPaused"]"
+     data-refresh-active="@Text["RefreshActive"]"
+     data-stale="@Text["Stale"]"
+     data-unavailable="@Text["Unavailable"]"
+     data-expired-leaderboard="@Text["ExpiredLeaderboard"]"
+     data-refreshing-leaderboard="@Text["RefreshingLeaderboard"]"
+     data-leaderboard-done="@Text["LeaderboardDone"]"
+     data-leaderboard-done-stale="@Text["LeaderboardDoneStale"]"
+     data-leaderboard-failure="@Text["LeaderboardFailure"]">
+    <PublicLanguageSwitch Path="/leaderboard" Language="@Text.Code" />
     <header class="leaderboard-header">
-        <p class="eyebrow">Counter-Strike 1.6 / Рейтинг игроков</p>
-        <h1>Топ-10 игроков</h1>
-        <p>Тот же сохраненный рейтинг, что и <code>/topall</code> в игре. Сначала больше убийств, при равенстве - меньше смертей.</p>
-        <a class="leaderboard-join" href="/play">Играть на сервере <span aria-hidden="true">→</span></a>
+        <p class="eyebrow">Counter-Strike 1.6 / @Text["PlayerRanking"]</p>
+        <h1>@Text["TopTen"]</h1>
+        <p>@Text["LeaderboardBefore"] <code>/topall</code> @Text["LeaderboardAfter"]</p>
+        <a class="leaderboard-join" href="@Text.Link("/play")">@Text["PlayOnServer"] <span aria-hidden="true">→</span></a>
     </header>
 
     <div class="leaderboard-refresh">
-        <a class="leaderboard-refresh__button" href="/leaderboard" data-leaderboard-refresh aria-describedby="leaderboard-refresh-status">Обновить</a>
-        <p id="leaderboard-refresh-status" role="status" aria-live="polite">Для нового снимка нажми "Обновить".</p>
+        <a class="leaderboard-refresh__button" href="@Text.Link("/leaderboard")" data-leaderboard-refresh aria-describedby="leaderboard-refresh-status">@Text["Refresh"]</a>
+        <p id="leaderboard-refresh-status" role="status" aria-live="polite">@Text["RefreshHint"]</p>
     </div>
     <section class="leaderboard-panel" aria-labelledby="leaderboard-title" data-leaderboard-panel
              data-state="@State" data-age-seconds="@SnapshotAgeSeconds.ToString(CultureInfo.InvariantCulture)">
         <div class="leaderboard-panel__heading">
-            <h2 id="leaderboard-title">Сохраненные результаты</h2>
+            <h2 id="leaderboard-title">@Text["SavedResults"]</h2>
             <p class="leaderboard-state leaderboard-state--@State" role="status">@StateLabel</p>
         </div>
         @if (_snapshot is { CapturedAtUtc: { } captured } && State is "fresh" or "stale")
         {
-            <p class="leaderboard-updated">Снимок рейтинга:
+            <p class="leaderboard-updated">@Text["SnapshotTime"]
                 <time datetime="@captured.ToString("O")">@captured.ToUniversalTime().ToString("dd.MM.yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture)</time>
-                <span class="leaderboard-age" data-leaderboard-age>Возраст: @Math.Ceiling(SnapshotAgeSeconds) сек.</span>
+                <span class="leaderboard-age" data-leaderboard-age>@Text.Age(SnapshotAgeSeconds)</span>
             </p>
         }
-        <p class="leaderboard-notice" data-leaderboard-notice hidden="@(State != "stale")">Это последний доступный снимок. Свежий рейтинг пока не подтвержден; результаты в игре могли измениться.</p>
+        <p class="leaderboard-notice" data-leaderboard-notice hidden="@(State != "stale")">@Text["StaleNotice"]</p>
         @if (_snapshot is { Entries.Count: > 0 } && State is "fresh" or "stale")
         {
             <table class="leaderboard-table">
-                <caption class="visually-hidden">Десять лучших сохраненных результатов</caption>
+                <caption class="visually-hidden">@Text["TableCaption"]</caption>
                 <colgroup><col class="place-column" /><col class="name-column" /><col class="rank-column" /><col class="score-column" /><col class="score-column" /></colgroup>
-                <thead><tr><th scope="col"><span class="wide-label">Место</span><abbr class="compact-label" title="Место">#</abbr></th><th scope="col">Игрок</th><th scope="col">Ранг</th><th scope="col"><span class="wide-label">Убийства</span><abbr class="compact-label" title="Убийства">Уб.</abbr></th><th scope="col"><span class="wide-label">Смерти</span><abbr class="compact-label" title="Смерти">См.</abbr></th></tr></thead>
+                <thead><tr><th scope="col"><span class="wide-label">@Text["Place"]</span><abbr class="compact-label" title="@Text["Place"]">#</abbr></th><th scope="col">@Text["Player"]</th><th scope="col">@Text["Rank"]</th><th scope="col"><span class="wide-label">@Text["Kills"]</span><abbr class="compact-label" title="@Text["Kills"]">@Text["KillsShort"]</abbr></th><th scope="col"><span class="wide-label">@Text["Deaths"]</span><abbr class="compact-label" title="@Text["Deaths"]">@Text["DeathsShort"]</abbr></th></tr></thead>
                 <tbody>
                     @foreach (var entry in _snapshot.Entries)
                     {
@@ -49,32 +60,37 @@
         }
         else if (State is "fresh" or "stale")
         {
-            <p class="leaderboard-empty">В рейтинге пока нет результатов.</p>
-            <p>Подключись к серверу и начни игру. Сохраненные убийства и смерти появляются в рейтинге после первых боев.</p>
+            <p class="leaderboard-empty">@Text["EmptyLeaderboard"]</p>
+            <p>@Text["EmptyLeaderboardDetail"]</p>
         }
         else
         {
-            <p class="leaderboard-empty">Не удалось получить рейтинг.</p>
-            <p>Попробуй обновить страницу позже. Подключение и команды для начала игры доступны на странице "Играть".</p>
+            <p class="leaderboard-empty">@Text["LeaderboardUnavailable"]</p>
+            <p>@Text["LeaderboardUnavailableDetail"]</p>
         }
     </section>
-    <p class="leaderboard-footnote">Ники берутся из сохраненного профиля при подключении. Результаты обновляются примерно раз в минуту. Автообновление работает с JavaScript в видимой вкладке. Личный прогресс смотри через <code>/profile</code> в игре.</p>
+    <p class="leaderboard-footnote">@Text["LeaderboardFootnoteBefore"] <code>/profile</code> @Text["InGame"]</p>
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "lang")]
+    private string? Language { get; set; }
+
+    private PublicPageText Text => PublicPageText.For(Language);
+
     private PublicLeaderboardResponse? _snapshot;
     private double SnapshotAgeSeconds => _snapshot?.CapturedAtUtc is { } captured ? Math.Max(0, (DateTimeOffset.UtcNow - captured).TotalSeconds) : 0;
     private string State => _snapshot?.State is "fresh" or "stale" ? _snapshot.State : "unavailable";
     private string StateLabel => State switch
     {
-        "fresh" => "Свежий снимок",
-        "stale" => "Устаревший снимок",
-        _ => "Рейтинг временно недоступен"
+        "fresh" => Text["Fresh"],
+        "stale" => Text["Stale"],
+        _ => Text["Unavailable"]
     };
 
-    private static string RankLabel(int rank) => rank switch
+    private string RankLabel(int rank) => rank switch
     {
-        0 => "Новичок", 1 => "Боец", 2 => "Ветеран", 3 => "Элита", 4 => "Легенда", _ => "Данных нет"
+        0 => Text["Recruit"], 1 => Text["Fighter"], 2 => Text["Veteran"], 3 => Text["Elite"], 4 => Text["Legend"], _ => Text["NoData"]
     };
 
     protected override async Task OnInitializedAsync()

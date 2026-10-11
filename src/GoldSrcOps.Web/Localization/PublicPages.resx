@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="PlayTitle" xml:space="preserve"><value>Играть в CS 1.6 - GoldSrcOps</value></data>
+  <data name="PlayDescription" xml:space="preserve"><value>CS 1.6 с быстрым возрождением, выбором оружия и сохраненными рангами. Подключение к серверу, текущая карта и команды для первых шагов.</value></data>
+  <data name="PilotServer" xml:space="preserve"><value>Пилотный сервер</value></data>
+  <data name="MorePlay" xml:space="preserve"><value>Больше игры.</value></data>
+  <data name="LessWaiting" xml:space="preserve"><value>Меньше ожидания.</value></data>
+  <data name="PlayLede" xml:space="preserve"><value>Командный CS 1.6 с быстрым возрождением, оружием на выбор и сохраненными рангами.</value></data>
+  <data name="IntroBefore" xml:space="preserve"><value>После смерти быстро возвращайся в бой. Для первых шагов достаточно команды</value></data>
+  <data name="IntroAfter" xml:space="preserve"><value>в игровом чате.</value></data>
+  <data name="HowToStart" xml:space="preserve"><value>Как начать игру</value></data>
+  <data name="JoinServer" xml:space="preserve"><value>Подключение к серверу</value></data>
+  <data name="RefreshStatus" xml:space="preserve"><value>Обновить статус</value></data>
+  <data name="RefreshStatusHint" xml:space="preserve"><value>Для обновления статуса нажми "Обновить статус".</value></data>
+  <data name="CheckingServer" xml:space="preserve"><value>Проверяем состояние сервера...</value></data>
+  <data name="JoinUnavailable" xml:space="preserve"><value>Подключение пока недоступно</value></data>
+  <data name="JoinUnavailableDetail" xml:space="preserve"><value>Не удалось получить адрес для подключения. Попробуй обновить страницу позже.</value></data>
+  <data name="GeneralStatus" xml:space="preserve"><value>Проверить общий статус</value></data>
+  <data name="Map" xml:space="preserve"><value>Карта</value></data>
+  <data name="Players" xml:space="preserve"><value>Игроки</value></data>
+  <data name="LastCheck" xml:space="preserve"><value>Последняя проверка:</value></data>
+  <data name="NoObservation" xml:space="preserve"><value>данных пока нет</value></data>
+  <data name="Age" xml:space="preserve"><value>Возраст: {0} сек.</value></data>
+  <data name="UnconfirmedWarning" xml:space="preserve"><value>Свежая проверка пока не подтверждена. Карта и онлайн могут измениться.</value></data>
+  <data name="JoinSteam" xml:space="preserve"><value>Подключиться через Steam</value></data>
+  <data name="TryJoin" xml:space="preserve"><value>Попробовать подключиться</value></data>
+  <data name="ConsoleHint" xml:space="preserve"><value>Или введи в консоли CS 1.6:</value></data>
+  <data name="CopySuccess" xml:space="preserve"><value>Команда подключения скопирована.</value></data>
+  <data name="CopyFailure" xml:space="preserve"><value>Не удалось скопировать. Выдели команду и скопируй вручную.</value></data>
+  <data name="CopyCommand" xml:space="preserve"><value>Скопировать команду</value></data>
+  <data name="FirstConnection" xml:space="preserve"><value>Первое подключение</value></data>
+  <data name="ThreeSteps" xml:space="preserve"><value>Три шага до первого боя</value></data>
+  <data name="ChooseTeam" xml:space="preserve"><value>Подключись и выбери команду</value></data>
+  <data name="ChooseTeamDetail" xml:space="preserve"><value>Запусти CS 1.6, используй кнопку Steam или команду подключения выше. В игре выбери сторону.</value></data>
+  <data name="ChooseWeapons" xml:space="preserve"><value>Выбери свое оружие</value></data>
+  <data name="Write" xml:space="preserve"><value>Напиши</value></data>
+  <data name="WeaponsAfter" xml:space="preserve"><value>в чате. MP5, AK-47 или M4A1 и выбранный пистолет выдаются при следующем возрождении.</value></data>
+  <data name="FollowProgress" xml:space="preserve"><value>Следи за своим прогрессом</value></data>
+  <data name="Open" xml:space="preserve"><value>Открой</value></data>
+  <data name="ProfileAfter" xml:space="preserve"><value>: статистика, звание, место в рейтинге и рекорд серии собраны на одном экране.</value></data>
+  <data name="ProgressBetween" xml:space="preserve"><value>Прогресс между играми</value></data>
+  <data name="NextRank" xml:space="preserve"><value>Твой следующий ранг</value></data>
+  <data name="RankGuide" xml:space="preserve"><value>Убийства противников повышают звание: Recruit, Fighter, Veteran, Elite и Legend. В профиле видно, сколько осталось до следующего ранга.</value></data>
+  <data name="RankFairness" xml:space="preserve"><value>Ранг не дает боевых преимуществ. Общий рейтинг учитывает сохраненные результаты, включая игроков, которые сейчас не на сервере.</value></data>
+  <data name="ReturnProgress" xml:space="preserve"><value>Вернись к своему прогрессу</value></data>
+  <data name="SavedIdentity" xml:space="preserve"><value>При подтвержденной Steam-идентичности статистика, рекорд серии, язык и выбранные настройки сохраняются после выхода и смены карты.</value></data>
+  <data name="SettingsBefore" xml:space="preserve"><value>Если сохранение недоступно, игра продолжается. В</value></data>
+  <data name="SettingsAfter" xml:space="preserve"><value>можно проверить, какие настройки сохранены. Текущая серия начинается заново после выхода или смены карты.</value></data>
+  <data name="Handy" xml:space="preserve"><value>Всегда под рукой</value></data>
+  <data name="ChatCommands" xml:space="preserve"><value>Команды в игровом чате</value></data>
+  <data name="CommandsHint" xml:space="preserve"><value>Введи команду в обычном или командном чате. Меню и личные результаты видишь только ты.</value></data>
+  <data name="MenuCommand" xml:space="preserve"><value>Главное меню: оружие, профиль, статистика, карты и настройки.</value></data>
+  <data name="GunsCommand" xml:space="preserve"><value>Основное оружие и пистолет для следующего возрождения.</value></data>
+  <data name="ProfileCommand" xml:space="preserve"><value>Твои сохраненные результаты, ранг, место в рейтинге и серии.</value></data>
+  <data name="SettingsCommand" xml:space="preserve"><value>Язык RU/EN, выбор оружия, HUD и статус сохранения настроек.</value></data>
+  <data name="MapsCommand" xml:space="preserve"><value>Меню голосования за карту. Смена зависит от голосов игроков.</value></data>
+  <data name="HelpCommand" xml:space="preserve"><value>Краткая справка, включая статистику, рейтинг и время до смены карты.</value></data>
+  <data name="ViewTop" xml:space="preserve"><value>Посмотреть топ-10 игроков</value></data>
+  <data name="StartWith" xml:space="preserve"><value>Начни с</value></data>
+  <data name="PlayFootnote" xml:space="preserve"><value>. Доступность сервера показывается по последней проверке; статус обновляется раз в минуту с JavaScript в видимой вкладке. Без JavaScript используй "Обновить статус".</value></data>
+  <data name="Online" xml:space="preserve"><value>Сервер отвечает</value></data>
+  <data name="Offline" xml:space="preserve"><value>Сервер не отвечает</value></data>
+  <data name="Unknown" xml:space="preserve"><value>Свежий статус не подтвержден</value></data>
+  <data name="OnlineDetail" xml:space="preserve"><value>Карта и число игроков показаны по последней проверке.</value></data>
+  <data name="OfflineDetail" xml:space="preserve"><value>Последняя проверка не получила ответ. Сохрани команду и попробуй подключиться позже.</value></data>
+  <data name="UnknownDetail" xml:space="preserve"><value>Свежих данных пока нет. Подключение можно попробовать, но доступность сервера не подтверждена.</value></data>
+  <data name="NoDataYet" xml:space="preserve"><value>Данных пока нет</value></data>
+  <data name="NoFreshData" xml:space="preserve"><value>Нет свежих данных</value></data>
+  <data name="LeaderboardTitle" xml:space="preserve"><value>Топ-10 игроков - GoldSrcOps</value></data>
+  <data name="LeaderboardDescription" xml:space="preserve"><value>Сохраненный топ-10 игроков CS 1.6: ранги, убийства и смерти. Тот же рейтинг, что и /topall на игровом сервере.</value></data>
+  <data name="PlayerRanking" xml:space="preserve"><value>Рейтинг игроков</value></data>
+  <data name="TopTen" xml:space="preserve"><value>Топ-10 игроков</value></data>
+  <data name="LeaderboardBefore" xml:space="preserve"><value>Тот же сохраненный рейтинг, что и</value></data>
+  <data name="LeaderboardAfter" xml:space="preserve"><value>в игре. Сначала больше убийств, при равенстве - меньше смертей.</value></data>
+  <data name="PlayOnServer" xml:space="preserve"><value>Играть на сервере</value></data>
+  <data name="Refresh" xml:space="preserve"><value>Обновить</value></data>
+  <data name="RefreshHint" xml:space="preserve"><value>Для нового снимка нажми "Обновить".</value></data>
+  <data name="SavedResults" xml:space="preserve"><value>Сохраненные результаты</value></data>
+  <data name="SnapshotTime" xml:space="preserve"><value>Снимок рейтинга:</value></data>
+  <data name="StaleNotice" xml:space="preserve"><value>Это последний доступный снимок. Свежий рейтинг пока не подтвержден; результаты в игре могли измениться.</value></data>
+  <data name="TableCaption" xml:space="preserve"><value>Десять лучших сохраненных результатов</value></data>
+  <data name="Place" xml:space="preserve"><value>Место</value></data>
+  <data name="Player" xml:space="preserve"><value>Игрок</value></data>
+  <data name="Rank" xml:space="preserve"><value>Ранг</value></data>
+  <data name="Kills" xml:space="preserve"><value>Убийства</value></data>
+  <data name="Deaths" xml:space="preserve"><value>Смерти</value></data>
+  <data name="KillsShort" xml:space="preserve"><value>Уб.</value></data>
+  <data name="DeathsShort" xml:space="preserve"><value>См.</value></data>
+  <data name="EmptyLeaderboard" xml:space="preserve"><value>В рейтинге пока нет результатов.</value></data>
+  <data name="EmptyLeaderboardDetail" xml:space="preserve"><value>Подключись к серверу и начни игру. Сохраненные убийства и смерти появляются в рейтинге после первых боев.</value></data>
+  <data name="LeaderboardUnavailable" xml:space="preserve"><value>Не удалось получить рейтинг.</value></data>
+  <data name="LeaderboardUnavailableDetail" xml:space="preserve"><value>Попробуй обновить страницу позже. Подключение и команды для начала игры доступны на странице "Играть".</value></data>
+  <data name="LeaderboardFootnoteBefore" xml:space="preserve"><value>Ники берутся из сохраненного профиля при подключении. Результаты обновляются примерно раз в минуту. Автообновление работает с JavaScript в видимой вкладке. Личный прогресс смотри через</value></data>
+  <data name="InGame" xml:space="preserve"><value>в игре.</value></data>
+  <data name="Fresh" xml:space="preserve"><value>Свежий снимок</value></data>
+  <data name="Stale" xml:space="preserve"><value>Устаревший снимок</value></data>
+  <data name="Unavailable" xml:space="preserve"><value>Рейтинг временно недоступен</value></data>
+  <data name="Recruit" xml:space="preserve"><value>Новичок</value></data>
+  <data name="Fighter" xml:space="preserve"><value>Боец</value></data>
+  <data name="Veteran" xml:space="preserve"><value>Ветеран</value></data>
+  <data name="Elite" xml:space="preserve"><value>Элита</value></data>
+  <data name="Legend" xml:space="preserve"><value>Легенда</value></data>
+  <data name="NoData" xml:space="preserve"><value>Данных нет</value></data>
+  <data name="ExpiredCheck" xml:space="preserve"><value>Проверка устарела. Обнови статус перед подключением.</value></data>
+  <data name="RefreshingStatus" xml:space="preserve"><value>Обновляем статус...</value></data>
+  <data name="StatusDone" xml:space="preserve"><value>Проверка завершена.</value></data>
+  <data name="StatusFailureWarning" xml:space="preserve"><value>Не удалось обновить статус. Последняя проверка больше не подтверждает текущую доступность.</value></data>
+  <data name="StatusFailure" xml:space="preserve"><value>Не удалось обновить статус. Повторим через минуту; можно обновить вручную.</value></data>
+  <data name="RefreshPaused" xml:space="preserve"><value>Автообновление приостановлено, пока вкладка скрыта.</value></data>
+  <data name="RefreshActive" xml:space="preserve"><value>Автообновление раз в минуту, пока вкладка видима.</value></data>
+  <data name="ExpiredLeaderboard" xml:space="preserve"><value>Не удалось получить рейтинг. Попробуй обновить позже.</value></data>
+  <data name="RefreshingLeaderboard" xml:space="preserve"><value>Обновляем рейтинг...</value></data>
+  <data name="LeaderboardDone" xml:space="preserve"><value>Проверка завершена. Свежий снимок получен.</value></data>
+  <data name="LeaderboardDoneStale" xml:space="preserve"><value>Проверка завершена. Свежий снимок пока недоступен.</value></data>
+  <data name="LeaderboardFailure" xml:space="preserve"><value>Не удалось обновить рейтинг. Повторим через минуту; можно обновить вручную.</value></data>
+  <data name="Language" xml:space="preserve"><value>Язык страницы</value></data>
+  <data name="PlayNav" xml:space="preserve"><value>Играть</value></data>
+  <data name="TopNav" xml:space="preserve"><value>Топ-10</value></data>
+</root>

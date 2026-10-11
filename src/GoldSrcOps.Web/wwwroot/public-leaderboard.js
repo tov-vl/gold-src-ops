@@ -20,14 +20,14 @@
         panel.dataset.state = state;
         const label = panel.querySelector(".leaderboard-state");
         label.className = `leaderboard-state leaderboard-state--${state}`;
-        label.textContent = state === "stale" ? "Устаревший снимок" : "Рейтинг временно недоступен";
+        label.textContent = state === "stale" ? page.dataset.stale : page.dataset.unavailable;
         panel.querySelector("[data-leaderboard-notice]").hidden = state !== "stale";
     }
 
     function updateAge() {
         const age = initialAge + Math.max(0, performance.now() - observedAt) / 1000;
         const display = panel.querySelector("[data-leaderboard-age]");
-        if (display) display.textContent = `Возраст: ${Math.ceil(age)} сек.`;
+        if (display) display.textContent = page.dataset.age.replace("{0}", Math.ceil(age));
         if (panel.dataset.state === "fresh" && age > 180) changeState("stale");
         if (age > 86_400 && panel.dataset.state !== "unavailable") {
             changeState("unavailable");
@@ -36,7 +36,7 @@
             panel.querySelector(".leaderboard-empty")?.remove();
             const notice = document.createElement("p");
             notice.className = "leaderboard-empty";
-            notice.textContent = "Не удалось получить рейтинг. Попробуй обновить позже.";
+            notice.textContent = page.dataset.expiredLeaderboard;
             panel.append(notice);
         }
     }
@@ -71,14 +71,16 @@
         const timeout = setTimeout(() => active.abort(), requestTimeout);
         button.setAttribute("aria-disabled", "true");
         panel.setAttribute("aria-busy", "true");
-        status.textContent = "Обновляем рейтинг...";
+        status.textContent = page.dataset.refreshingLeaderboard;
         try {
-            const response = await fetch("/leaderboard", {
+            const response = await fetch(page.lang === "en" ? "/leaderboard?lang=en" : "/leaderboard", {
                 method: "GET", credentials: "omit", cache: "no-store", redirect: "error", signal: active.signal
             });
             const html = await readPage(response);
             if (stopped || document.hidden || active.signal.aborted) return;
-            const next = new DOMParser().parseFromString(html, "text/html").querySelector("[data-leaderboard-panel]");
+            const nextPage = new DOMParser().parseFromString(html, "text/html").querySelector(".leaderboard-page");
+            if (nextPage?.lang !== page.lang) throw new Error();
+            const next = nextPage.querySelector("[data-leaderboard-panel]");
             const age = Number(next?.dataset.ageSeconds);
             if (!next || !Number.isFinite(age) || age < 0 ||
                 !["fresh", "stale", "unavailable"].includes(next.dataset.state) ||
@@ -91,12 +93,12 @@
             initialAge = age;
             updateAge();
             status.textContent = panel.dataset.state === "fresh"
-                ? "Проверка завершена. Свежий снимок получен."
-                : "Проверка завершена. Свежий снимок пока недоступен.";
+                ? page.dataset.leaderboardDone
+                : page.dataset.leaderboardDoneStale;
         } catch {
             if (!stopped && !document.hidden && active.signal.reason !== "hidden") {
                 if (panel.dataset.state === "fresh") changeState("stale");
-                status.textContent = "Не удалось обновить рейтинг. Повторим через минуту; можно обновить вручную.";
+                status.textContent = page.dataset.leaderboardFailure;
                 updateAge();
             }
         } finally {
@@ -117,9 +119,9 @@
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
             controller?.abort("hidden");
-            status.textContent = "Автообновление приостановлено, пока вкладка скрыта.";
+            status.textContent = page.dataset.refreshPaused;
         } else {
-            status.textContent = "Автообновление раз в минуту, пока вкладка видима.";
+            status.textContent = page.dataset.refreshActive;
             tick();
         }
     });
@@ -130,7 +132,7 @@
         tickId = setInterval(tick, 1000);
         tick();
     });
-    status.textContent = "Автообновление раз в минуту, пока вкладка видима.";
+    status.textContent = page.dataset.refreshActive;
     updateAge();
     tickId = setInterval(tick, 1000);
 })();

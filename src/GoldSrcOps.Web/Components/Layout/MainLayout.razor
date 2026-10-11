@@ -13,8 +13,8 @@
         </a>
         <nav class="primary-nav" aria-label="Primary navigation">
             <NavLink href="/" Match="NavLinkMatch.All">Status</NavLink>
-            <NavLink href="/play" lang="ru">Играть</NavLink>
-            <NavLink href="/leaderboard" lang="ru">Топ-10</NavLink>
+            <NavLink href="@Text.Link("/play")" lang="@Text.Code">@Text["PlayNav"]</NavLink>
+            <NavLink href="@Text.Link("/leaderboard")" lang="@Text.Code">@Text["TopNav"]</NavLink>
             <AuthorizeView Policy="@WebSecurity.ReaderPolicy">
                 <Authorized>
                     <NavLink href="/operator/servers">Servers</NavLink>
@@ -59,6 +59,11 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "lang")]
+    private string? Language { get; set; }
+
+    private PublicPageText Text => PublicPageText.For(Language);
+
     private static string GetDisplayName(System.Security.Claims.ClaimsPrincipal user) =>
         user.Identity?.Name ?? "Signed in";
 }
