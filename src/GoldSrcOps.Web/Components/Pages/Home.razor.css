@@ -559,7 +559,8 @@
 
 .metric strong {
     color: var(--ink);
-    font-size: 3.25rem;
+    font-size: clamp(2rem, 13vw, 3.25rem);
+        overflow-wrap: anywhere;
     line-height: 1;
     font-variant-numeric: tabular-nums;
 }
@@ -662,7 +663,8 @@
     }
 
     .intro h1 {
-        font-size: 3.25rem;
+        font-size: clamp(2rem, 13vw, 3.25rem);
+        overflow-wrap: anywhere;
     }
 
     .summary-copy h2 {

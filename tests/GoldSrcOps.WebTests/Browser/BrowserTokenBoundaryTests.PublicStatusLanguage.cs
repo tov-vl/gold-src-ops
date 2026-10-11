@@ -67,6 +67,8 @@ public sealed partial class BrowserTokenBoundaryTests
             async Task AssertFitsAsync()
             {
                 await page.WaitForLoadStateAsync(LoadState.Load);
+                var titleFits = await page.Locator(".intro h1").EvaluateAsync<bool>("e => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().right <= document.documentElement.clientWidth; }");
+                titleFits.Should().BeTrue("the title text must fit even when the system font is wider");
                 var overflow = await page.EvaluateAsync<string[]>("Array.from(document.querySelectorAll('body *')).filter(e => e.getBoundingClientRect().right > document.documentElement.clientWidth + 0.5).map(e => e.tagName + '.' + e.className + ': ' + e.getBoundingClientRect().width)");
                 (await page.EvaluateAsync<bool>("document.documentElement.scrollWidth > document.documentElement.clientWidth"))
                     .Should().BeFalse("page {0} must fit width {1}; overflowing elements: {2}", page.Url, page.ViewportSize?.Width, string.Join(", ", overflow));
