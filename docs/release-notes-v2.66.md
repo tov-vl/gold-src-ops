@@ -1,6 +1,7 @@
 # v2.66 Release Notes
 
-Status: pending release.
+Released on 2026-10-11 as [v2.66.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.66.0).
+The accepted candidate digests were promoted without rebuilding.
 
 The public player guide and top-10 leaderboard support Russian and English.
 The RU/EN links preserve language between these pages and during status updates,
@@ -16,5 +17,10 @@ rejects responses in a different language.
 This is a Web-only release. Game runtime, addon, public API contracts, durable
 data, authentication and backup scheduling are unchanged. The deferred in-game
 visual acceptance remains open.
+
+Local Quality Gate passed all 963 ordinary tests; all 43 browser cases passed.
+Production acceptance covered RU/EN, mobile layouts, clipboard, real-minute
+refresh on both pages and navigation without JavaScript. Only Web was
+recreated; six other services and their mounts were preserved.
 
 See [contract](v2.66-public-language.md) and [readiness](v2.66-readiness.md).

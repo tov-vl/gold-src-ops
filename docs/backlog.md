@@ -3147,8 +3147,10 @@ PR CI и post-merge CI прошли. Production source/игра не менял�
 
 ## v2.66 - RU/EN публичных страниц
 
-В работе: переключатель языка и переводы `/play` и `/leaderboard`, включая
-состояния, ошибки и refresh/copy. Выбор сохраняется в URL и переходах между
-двумя страницами без cookies/browser storage. Scope R1, Web-only; игра и addon
-не меняются. См. [контракт](v2.66-public-language.md) и
+Принято 2026-10-11: stable `v2.66.0`, [PR #315](https://github.com/tov-vl/gold-src-ops/pull/315)
+и полный CI прошли. RU/EN для `/play` и `/leaderboard` сохраняется в URL,
+переходах и refresh без cookies/browser storage. Production RU/EN,
+1440/390/320px, реальный минутный refresh, clipboard и no-JavaScript приняты.
+Обновлен только Web; шесть других сервисов и volumes сохранены. Игра и addon
+не менялись. См. [контракт](v2.66-public-language.md) и
 [readiness](v2.66-readiness.md).
