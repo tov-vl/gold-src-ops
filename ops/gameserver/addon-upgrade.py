@@ -111,13 +111,14 @@ class Journal:
         self.pending = root / 'addon-upgrade-pending.json'
         self.directory = root / ('addon-upgrade-' + identity)
 
-    def claim(self):
+    def claim(self, plan):
         policy.require(not self.pending.exists() and not self.pending.is_symlink(),
                        'An addon transition requires reconciliation.')
         policy.require(not self.directory.exists() and not self.directory.is_symlink(),
                        'This plan was already claimed; inspect its result.')
         policy.require(len(list(self.root.glob('addon-upgrade-*'))) < 52, 'Review evidence capacity.')
         self.directory.mkdir(mode=0o700)
+        policy.write_json(self.directory / 'plan.json', plan)
         policy.write_json(self.pending, {'schema': 1, 'planSha256': self.identity})
         self.step('claimed')
 
@@ -226,7 +227,7 @@ class Host:
 
 
 def execute(plan, journal, host):
-    journal.claim()
+    journal.claim(plan)
     previous, candidate = plan['previous'], plan['candidate']
     current_baseline = plan['baselineSha256']
     stopped = False
@@ -237,7 +238,8 @@ def execute(plan, journal, host):
         old, new = host.prepare(previous, current_baseline)
         policy.require(old == new, 'Predecessor baseline is not current.')
         host.accept(previous)
-        journal.step('preflight-passed')
+        journal.step('preflight-passed', game=host.unit(GAME), agent=agent,
+                     baselineSha256=current_baseline)
         policy.require(host.empty(), 'Server is occupied.')
         journal.step('stopping')
         stopped = True

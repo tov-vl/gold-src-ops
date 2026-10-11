@@ -148,6 +148,8 @@ if [[ -e "$FIXTURE/reject-candidate" && "$2" == "$(cat "$FIXTURE/candidate-hash"
     def assert_final(self, expected, manifest):
         self.assertEqual(expected, self.execute())
         self.assertFalse(self.journal.pending.exists())
+        self.assertEqual(self.plan, u.policy.read_json(self.journal.directory/'plan.json'))
+        self.assertEqual('agent', u.policy.read_json(self.journal.directory/'preflight-passed.json')['agent']['InvocationID'])
         self.assertIn('manifest_sha256='+manifest['sha256'], (self.config/(self.kind+'-installed')).read_text())
         old,new = self.host.prepare(manifest, u.digest_file(self.base))
         self.assertEqual(old,new)
@@ -268,9 +270,9 @@ if [[ -e "$FIXTURE/reject-candidate" && "$2" == "$(cat "$FIXTURE/candidate-hash"
         self.host.guard('identity')
 
     def test_pending_blocks_different_plan(self):
-        self.journal.claim()
+        self.journal.claim(self.plan)
         other=u.Journal(self.state,'b'*64)
-        with self.assertRaises(ValueError):other.claim()
+        with self.assertRaises(ValueError):other.claim(self.plan)
         self.assertTrue(self.journal.pending.exists())
 
     def test_process_timeout_kills_command_group(self):
