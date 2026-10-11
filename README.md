@@ -6,22 +6,21 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.60.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.60.0)
+**Status:** [v2.66.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.66.0)
 is the current public release. The [player guide](https://goldsrcops.com/play)
-now refreshes server status in a visible tab once a minute or on request,
-without replacing the document. Observation age grows between responses;
-errors or expired checks clear current map/population claims. Connection
-controls and clipboard retain focus, and unavailable data can recover.
-Normal SSR reload remains available without JavaScript. The
-[top-ten leaderboard](https://goldsrcops.com/leaderboard) retains its refresh.
+and [top-ten leaderboard](https://goldsrcops.com/leaderboard) offer RU/EN.
+Language stays in links between these pages and in their bounded anonymous
+refreshes, including normal navigation without JavaScript. Use `?lang=en` for
+English; Russian remains the default. No preference cookie or browser storage
+is introduced, and the in-game language remains independent.
 
-Production acceptance verified manual and real-minute refresh, advancing A2S
-observation, actual clipboard and layouts 1440/390/320px without browser API
-requests. Only Web was recreated; six other services and complete mount/volume
-identities were preserved. Stable references reuse accepted candidate digests
-without rebuild or repeated rollout. API, addon 0.23.0, gameplay, scoring, saves,
-schema, monitoring and weekly backup scheduling are unchanged. See
-[release notes](docs/release-notes-v2.60.md) and [evidence](docs/v2.60-readiness.md).
+Production acceptance verified both languages, manual and real-minute refresh,
+actual clipboard and layouts 1440/390/320px without browser API requests.
+Only Web was recreated; six other services and full mount/volume identities
+were preserved. Stable references reuse accepted candidate digests without
+rebuilding or another rollout. Game runtime, API contracts, durable data,
+authentication and backup scheduling remain unchanged. See
+[release notes](docs/release-notes-v2.66.md) and [evidence](docs/v2.66-readiness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
