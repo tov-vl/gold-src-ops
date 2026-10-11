@@ -10,6 +10,7 @@
 #define is_user_hltv(%1) FixtureIsHltv(%1)
 #define get_user_authid(%1,%2,%3) FixtureAuthId(%1,%2,%3)
 #define client_print FixturePrint
+#define client_print_color FixtureColorPrint
 #define show_motd(%1,%2,%3) FixtureMotd(%1,%2,%3)
 #define nvault_set(%1,%2,%3) FixtureStatsSet(%1,%2,%3)
 #define nvault_lookup(%1,%2,%3,%4,%5) FixtureVaultLookup(%1,%2,%3,%4,%5)
@@ -21,6 +22,7 @@
 #undef is_user_hltv
 #undef get_user_authid
 #undef client_print
+#undef client_print_color
 #undef show_motd
 #undef nvault_set
 #undef nvault_lookup
@@ -31,6 +33,7 @@ new bool:g_hltv[MAX_PLAYERS + 1];
 new g_auth[MAX_PLAYERS + 1][32];
 new g_failures;
 new g_prints;
+new g_color_text[192];
 new g_print_target;
 new g_last_print[192];
 new g_previous_print[192];
@@ -74,6 +77,21 @@ bool:FixtureIsHltv(id) { return g_hltv[id] || is_user_hltv(id); }
 FixtureAuthId(id, buffer[], length)
 {
     return copy(buffer, length, g_auth[id]);
+}
+
+FixtureColorPrint(id, sender, const message[], any:...)
+{
+    #pragma unused sender
+    new colored[512], plain[192], written;
+    vformat(colored, charsmax(colored), message, 4);
+    CheckSaved(strlen(colored) <= 190 && contain(colored, "ML_NOTFOUND") < 0, "colored transport respects chat byte budget");
+    copy(g_color_text, charsmax(g_color_text), colored);
+    for (new index = 0; colored[index] && written < charsmax(plain); index++)
+    {
+        if (colored[index] != 1 && colored[index] != 4) { plain[written++] = colored[index]; }
+    }
+    plain[written] = 0;
+    return FixturePrint(id, print_chat, "%s", plain);
 }
 
 FixturePrint(id, type, const message[], any:...)
@@ -408,6 +426,10 @@ FixtureMotd(id, const html[], const title[])
     CheckSaved(id == g_clients[0], "player MOTD stays private");
     copy(g_leader_html, charsmax(g_leader_html), html);
     copy(g_leader_title, charsmax(g_leader_title), title);
+    CheckSaved(contain(html, "background:#18212b") >= 0 && contain(html, "font:18px Arial") >= 0
+        && contain(html, "</body></html>") == strlen(html) - 14,
+        "all MOTD surfaces share a readable complete bounded shell");
+    CheckSaved(contain(html, "^4") < 0 && contain(html, "^1") < 0, "chat colors never enter HTML");
     g_motds++;
     return 1;
 }
@@ -497,7 +519,7 @@ public RunLeaderboardSmoke()
         formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], "GS_TOPALL");
         CheckSaved(equal(g_leader_title, expected) && contain(g_leader_html, "ML_NOTFOUND") < 0,
             "RU and EN menu dispatch opens localized overall leaders");
-        CheckSaved(contain(g_leader_html, "#10 ") >= 0 && contain(g_leader_html, "#11 ") < 0
+        CheckSaved(contain(g_leader_html, "<tr><td>10<td>") >= 0 && contain(g_leader_html, "<tr><td>11<td>") < 0
             && contain(g_leader_html, "STEAM_") < 0 && contain(g_leader_html, "<script>") < 0
             && contain(g_leader_html, "&lt;script&gt;&amp;&quot;%s") >= 0
             && contain(g_leader_html, "Кириллица") >= 0, "ten bounded rows escape HTML and hide identities while preserving UTF-8");
@@ -567,7 +589,7 @@ public RunLeaderboardSmoke()
         g_language_override[player] = language + 1;
         g_stats_next[player][3] = 0.0;
         ShowSavedLeaders(player);
-        CheckSaved(strlen(g_leader_html) < 1535 && contain(g_leader_html, "</pre></body></html>") >= 0,
+        CheckSaved(strlen(g_leader_html) < 1535 && contain(g_leader_html, "</body></html>") >= 0,
             "maximal names counters and personal footer fit RU and EN MOTD including closing markup");
     }
 
@@ -695,8 +717,8 @@ public RunPlayerStandingSmoke()
         CheckSaved(g_prints == prints + 2, "existing rank cooldown covers progress and standing together");
         g_stats_next[player][3] = 0.0;
         ShowSavedLeaders(player);
-        CheckSaved(contain(g_leader_html, expected) >= 0 && contain(g_leader_html, "#10 ") >= 0
-            && contain(g_leader_html, "#11 ") < 0 && contain(g_leader_html, "STEAM_") < 0,
+        CheckSaved(contain(g_leader_html, expected) >= 0 && contain(g_leader_html, "<tr><td>10<td>") >= 0
+            && contain(g_leader_html, "<tr><td>11<td>") < 0 && contain(g_leader_html, "STEAM_") < 0,
             "outside-top-ten player gets a private footer without an extra public row or identity");
     }
     nvault_lookup(g_stats_vault, "v1:STEAM_0:1:800001", value, charsmax(value), after_stamp);
@@ -1091,7 +1113,7 @@ public RunPlayerProfileSmoke()
             "saved record and connection series remain distinct");
         CheckSaved(contain(g_leader_html, "STEAM_") < 0 && contain(g_leader_html, "<script>") < 0
             && contain(g_leader_html, "800001") < 0 && contain(g_leader_html, "ML_NOTFOUND") < 0
-            && contain(g_leader_html, "</pre></body></html>") == strlen(g_leader_html) - 20,
+            && contain(g_leader_html, "</body></html>") == strlen(g_leader_html) - 14,
             "complete bounded profile exposes no identity or stored name");
         ShowPlayerProfile(player);
         OnPlayerMenuSelected(player, g_player_menu[language], 8);
@@ -1237,7 +1259,7 @@ public RunPlayerProfileSmoke()
         g_stats_next[player][4] = 0.0;
         ShowPlayerProfile(player);
         CheckSaved(strlen(g_leader_html) < charsmax(g_leader_html)
-            && contain(g_leader_html, "</pre></body></html>") == strlen(g_leader_html) - 20
+            && contain(g_leader_html, "</body></html>") == strlen(g_leader_html) - 14
             && contain(g_leader_html, "1000000000.00") >= 0 && contain(g_leader_html, "ML_NOTFOUND") < 0,
             "maximal counters and zero deaths fit complete RU and EN profiles");
     }

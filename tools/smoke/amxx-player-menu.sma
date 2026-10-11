@@ -7,6 +7,7 @@
 #define is_user_bot(%1) FixtureIsBot(%1)
 #define menu_display(%1,%2) FixtureMenuDisplay(%1,%2)
 #define client_print FixturePrint
+#define client_print_color FixtureColorPrint
 #define show_dhudmessage FixtureHud
 #define set_dhudmessage FixtureHudParameters
 #include <goldsrcops_weapon_selection.sma>
@@ -14,6 +15,7 @@
 #undef is_user_bot
 #undef menu_display
 #undef client_print
+#undef client_print_color
 #undef show_dhudmessage
 #undef set_dhudmessage
 
@@ -25,6 +27,7 @@ new g_last_menu;
 new g_last_text[512];
 new g_previous_text[512];
 new g_prints;
+new g_color_text[192];
 new bool:g_collect_help;
 new g_help_lines[6][192];
 new g_help_line_count;
@@ -98,6 +101,21 @@ FixtureMenuDisplay(id, menu)
     g_last_menu = menu;
     return menu_display(id, menu);
 }
+FixtureColorPrint(id, sender, const message[], any:...)
+{
+    #pragma unused sender
+    new colored[512], plain[192], written;
+    vformat(colored, charsmax(colored), message, 4);
+    CheckMenu(strlen(colored) <= 190 && contain(colored, "ML_NOTFOUND") < 0, "colored transport respects chat byte budget");
+    copy(g_color_text, charsmax(g_color_text), colored);
+    for (new index = 0; colored[index] && written < charsmax(plain); index++)
+    {
+        if (colored[index] != 1 && colored[index] != 4) { plain[written++] = colored[index]; }
+    }
+    plain[written] = 0;
+    return FixturePrint(id, print_chat, "%s", plain);
+}
+
 FixturePrint(id, type, const message[], any:...)
 {
     #pragma unused id, type
@@ -155,6 +173,16 @@ public RunPlayerMenuSmoke()
     set_member(g_client, m_iJoiningState, JOINED);
     set_pcvar_num(g_enabled, 1);
     new id = g_client;
+    PlayerChat(id, "[GoldSrcOps] /rank: 25 kills.");
+    new number_offset = contain(g_color_text, "25");
+    CheckMenu(contain(g_color_text, "^4/rank^1") >= 0 && number_offset > 0
+        && g_color_text[number_offset - 1] == 4 && g_color_text[number_offset + 2] == 1,
+        "commands and numeric values have explicit accents and reset colors");
+    new boundary[191];
+    for (new n = 0; n < charsmax(boundary); n++) { boundary[n] = n % 2 == 0 ? '1' : ' '; }
+    boundary[charsmax(boundary)] = 0;
+    PlayerChat(id, "%s", boundary);
+    CheckMenu(equal(g_color_text, boundary) != 0, "over-budget accents fall back without truncating text");
     set_user_info(id, "lang", "");
     CheckMenu(PlayerLanguage(id) == 0, "unset language defaults to ru");
     set_user_info(id, "lang", "ru");
@@ -169,6 +197,12 @@ public RunPlayerMenuSmoke()
         CheckMenu(PlayerLanguage(id) == language && g_last_menu == g_player_menu[language], "manual language opens translated hub");
         CheckMenu(menu_items(g_player_menu[language]) == 9 && menu_pages(g_player_menu[language]) == 1,
             "nine hub items including profile fit one native menu page");
+        CheckMenu(menu_find_id(g_player_menu[language], 0, 10) == MENU_EXIT,
+            "zero key maps to exit on the nine-item native menu");
+        new exit_displays = g_displays, original_choice = g_choice[id];
+        OnPlayerMenuSelected(id, g_player_menu[language], MENU_EXIT);
+        CheckMenu(g_displays == exit_displays && g_choice[id] == original_choice,
+            "exit neither reopens the menu nor changes the loadout");
         new info[8], name[128], expected[128], access, callback;
         for (new item = 0; item < sizeof PLAYER_MENU_KEYS; item++)
         {

@@ -10,6 +10,7 @@
 #define nvault_lookup(%1,%2,%3,%4,%5) FixtureLookup(%1,%2,%3,%4,%5)
 #define nvault_set(%1,%2,%3) FixtureSet(%1,%2,%3)
 #define client_print FixturePrint
+#define client_print_color FixtureColorPrint
 #define menu_display(%1,%2) FixtureDisplay(%1,%2)
 #include <goldsrcops_weapon_selection.sma>
 #undef plugin_init
@@ -18,6 +19,7 @@
 #undef nvault_lookup
 #undef nvault_set
 #undef client_print
+#undef client_print_color
 #undef menu_display
 
 new g_clients[2];
@@ -51,6 +53,19 @@ FixtureSet(vault, const key[], const value[])
     if (vault == g_preferences_vault) { g_preference_writes++; }
     return nvault_set(vault, key, value);
 }
+FixtureColorPrint(id, sender, const message[], any:...)
+{
+    #pragma unused sender
+    new colored[512], plain[192], written;
+    vformat(colored, charsmax(colored), message, 4);
+    for (new index = 0; colored[index] && written < charsmax(plain); index++)
+    {
+        if (colored[index] != 1 && colored[index] != 4) { plain[written++] = colored[index]; }
+    }
+    plain[written] = 0;
+    return FixturePrint(id, print_chat, "%s", plain);
+}
+
 FixturePrint(id, type, const message[], any:...)
 {
     #pragma unused id, type
