@@ -6,23 +6,18 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.69.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.69.0)
-is the current public release. The [status page](https://goldsrcops.com/),
-[player guide](https://goldsrcops.com/play) and
-[leaderboard](https://goldsrcops.com/leaderboard) support RU/EN keyboard
-navigation, a skip-to-content link, visible focus and enlarged text reflow.
-Manual refresh announces its result; automatic refresh announces availability
-changes without repeating routine checks or age counters.
+**Status:** [v2.70.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.70.0)
+is the current public release. The [player guide](https://goldsrcops.com/play)
+includes RU/EN help for Steam launch failures, manual copying, server status
+and first steps. Native disclosures and keyboard links work without JavaScript;
+background refresh preserves open help and the selected language.
 
-Production acceptance verified keyboard navigation with and without JavaScript,
-actual clipboard, doubled text at 1440/720/320 CSS pixels and a real automatic
-refresh interval on each page. Only Web was recreated; six other services and
-full mount identities were preserved. Stable references reuse accepted digests.
-The owner confirmed the manual screen-reader checklist passed on 2026-10-12.
-Complete WCAG conformance is not claimed. Game,
-API, durable data, authentication and backup contracts remain unchanged.
-See [release notes](docs/release-notes-v2.69.md) and
-[evidence](docs/v2.69-readiness.md).
+Production acceptance checked both languages, keyboard navigation, actual
+clipboard and enlarged desktop/mobile layouts. Only Web was recreated; six
+other services and all mount identities were preserved. Stable references reuse
+accepted digests without rebuilding. Game, API, durable data, authentication
+and backup contracts remain unchanged. See [release notes](docs/release-notes-v2.70.md)
+and [evidence](docs/v2.70-readiness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
