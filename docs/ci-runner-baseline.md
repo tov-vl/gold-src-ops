@@ -31,8 +31,9 @@ manually dispatched as part of this change.
 
 ## Verification boundary
 
-Local routing smoke and documentation validation, full PR CI and post-merge
-CI are required. New tag publication and external availability operations are
+Local routing smoke and documentation validation passed; full PR CI and
+post-merge CI passed after the CSS assertion follow-up.
+New tag publication and external availability operations are
 not exercised; their runner selections are reviewed against the successful
 baseline above. No release, deployment or production restart is required.
 
@@ -50,4 +51,20 @@ A narrow test follow-up uses Playwright's bounded `ToHaveCSSAsync` assertion
 for the same expected style, allowing the browser to apply CSS after navigation.
 No timeout increase, test retry, weakened expectation or application change is
 introduced. The timing race is the working explanation, not a reproduced root
-cause. Acceptance remains pending the follow-up PR and post-merge CI.
+cause. The follow-up PR and post-merge CI passed; acceptance is complete.
+
+## Accepted evidence
+
+Accepted on 2026-10-12 through [PR #326](https://github.com/tov-vl/gold-src-ops/pull/326).
+
+- [Full PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38250301112) passed.
+- [CSS assertion follow-up PR #327](https://github.com/tov-vl/gold-src-ops/pull/327) and [its full CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38252690196) passed.
+- [Post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38253948590) passed at revision 2c4ffd072c2aefe44323d28778cb984a6c941b8c.
+- Runner setup logs independently confirmed ubuntu-24.04 for Linux checks and
+  the unchanged Windows runner for actual addon compilation.
+- Local CI release fast-path smoke passed; documentation validation checked
+  175 Markdown files and 982 local links before publication.
+- The narrow CSS assertion follow-up passed a focused build, format check and
+  five local runs of the four-viewport scenario.
+- The local .NET suite was not repeated for this change; full .NET,
+  addon, browser and container gates ran in CI.
