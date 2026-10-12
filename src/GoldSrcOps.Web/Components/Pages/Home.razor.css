@@ -837,3 +837,5 @@
 [data-status-fleet][data-stale="true"] .metric strong {
     color: var(--ink-muted);
 }
+
+.status-page { overflow-wrap: anywhere; }

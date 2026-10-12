@@ -27,14 +27,15 @@
     </header>
 
     <div class="leaderboard-refresh">
-        <a class="leaderboard-refresh__button" href="@Text.Link("/leaderboard")" data-leaderboard-refresh aria-describedby="leaderboard-refresh-status">@Text["Refresh"]</a>
-        <p id="leaderboard-refresh-status" role="status" aria-live="polite">@Text["RefreshHint"]</p>
+        <a class="leaderboard-refresh__button" href="@Text.Link("/leaderboard")" data-leaderboard-refresh>@Text["Refresh"]</a>
+        <p id="leaderboard-refresh-status">@Text["RefreshHint"]</p>
+        <p class="visually-hidden" role="status" aria-atomic="true" data-refresh-announcement></p>
     </div>
     <section class="leaderboard-panel" aria-labelledby="leaderboard-title" data-leaderboard-panel
              data-state="@State" data-age-seconds="@SnapshotAgeSeconds.ToString(CultureInfo.InvariantCulture)">
         <div class="leaderboard-panel__heading">
             <h2 id="leaderboard-title">@Text["SavedResults"]</h2>
-            <p class="leaderboard-state leaderboard-state--@State" role="status">@StateLabel</p>
+            <p class="leaderboard-state leaderboard-state--@State">@StateLabel</p>
         </div>
         @if (_snapshot is { CapturedAtUtc: { } captured } && State is "fresh" or "stale")
         {

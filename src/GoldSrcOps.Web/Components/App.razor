@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="@DocumentLanguage">
 
 <head>
     <meta charset="utf-8" />
@@ -23,3 +23,11 @@
 </body>
 
 </html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext Context { get; set; } = default!;
+
+    private string DocumentLanguage => Context.Request.Path.Value is "/" or "/play" or "/leaderboard"
+        ? PublicPageText.For(Context.Request.Query["lang"].FirstOrDefault()).Code : "en";
+}

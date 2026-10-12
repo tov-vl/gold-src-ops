@@ -392,3 +392,5 @@
 .join-panel__warning[hidden] {
     display: none;
 }
+
+.play-page { overflow-wrap: anywhere; }

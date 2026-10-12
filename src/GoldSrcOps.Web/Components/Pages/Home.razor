@@ -22,8 +22,9 @@
     </section>
 
     <div class="status-refresh">
-        <a href="@Text.Link(HistoryPath)" data-status-refresh aria-describedby="status-refresh-message">@Text["Refresh"]</a>
-        <p id="status-refresh-message" aria-live="polite">@Text["RefreshHint"]</p>
+        <a href="@Text.Link(HistoryPath)" data-status-refresh>@Text["Refresh"]</a>
+        <p id="status-refresh-message">@Text["RefreshHint"]</p>
+        <p class="visually-hidden" role="status" aria-atomic="true" data-refresh-announcement></p>
     </div>
 
     @if (_isLoading)

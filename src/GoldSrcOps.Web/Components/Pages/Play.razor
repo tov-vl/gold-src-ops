@@ -33,22 +33,23 @@
         <section class="join-panel join-panel--@ServerState" aria-labelledby="join-title">
             <p class="eyebrow">@Text["JoinServer"]</p>
             <h2 id="join-title">@(_server?.Name ?? "GoldSrcOps")</h2>
-            <a class="join-panel__refresh" href="@Text.Link("/play")" data-play-refresh aria-describedby="play-refresh-status">@Text["RefreshStatus"]</a>
-            <p id="play-refresh-status" class="join-panel__refresh-status" aria-live="polite">@Text["RefreshStatusHint"]</p>
+            <a class="join-panel__refresh" href="@Text.Link("/play")" data-play-refresh>@Text["RefreshStatus"]</a>
+            <p id="play-refresh-status" class="join-panel__refresh-status">@Text["RefreshStatusHint"]</p>
+            <p class="visually-hidden" role="status" aria-atomic="true" data-refresh-announcement></p>
             <div data-play-status data-state="@ServerState" data-age-seconds="@AgeAttribute">
                 @if (_isLoading)
                 {
-                    <p class="join-panel__notice" role="status" aria-busy="true">@Text["CheckingServer"]</p>
+                    <p class="join-panel__notice" aria-busy="true">@Text["CheckingServer"]</p>
                 }
                 else if (_server is null)
                 {
-                    <p class="join-panel__notice" role="status">@Text["JoinUnavailable"]</p>
+                    <p class="join-panel__notice">@Text["JoinUnavailable"]</p>
                     <p class="join-panel__detail">@Text["JoinUnavailableDetail"]</p>
                     <a class="join-panel__status-link" href="@Text.Link("/")">@Text["GeneralStatus"]</a>
                 }
                 else
                 {
-                    <p class="join-panel__state" role="status">
+                    <p class="join-panel__state">
                         <span class="join-panel__signal" aria-hidden="true"></span>@ServerStateLabel
                     </p>
                     <p class="join-panel__detail">@ServerStateDescription</p>
