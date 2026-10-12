@@ -18,7 +18,8 @@ Production acceptance verified keyboard navigation with and without JavaScript,
 actual clipboard, doubled text at 1440/720/320 CSS pixels and a real automatic
 refresh interval on each page. Only Web was recreated; six other services and
 full mount identities were preserved. Stable references reuse accepted digests.
-Screen-reader listening and complete WCAG conformance are not claimed. Game,
+The owner confirmed the manual screen-reader checklist passed on 2026-10-12.
+Complete WCAG conformance is not claimed. Game,
 API, durable data, authentication and backup contracts remain unchanged.
 See [release notes](docs/release-notes-v2.69.md) and
 [evidence](docs/v2.69-readiness.md).
