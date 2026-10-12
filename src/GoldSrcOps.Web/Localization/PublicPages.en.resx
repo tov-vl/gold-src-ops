@@ -188,4 +188,8 @@
   <data name="PublicStatus" xml:space="preserve"><value>Public status</value></data>
   <data name="FleetFooter" xml:space="preserve"><value>GoldSrc fleet monitoring</value></data>
   <data name="UtcFooter" xml:space="preserve"><value>All times shown in UTC</value></data>
+  <data name="LastSnapshot" xml:space="preserve"><value>Last snapshot</value></data>
+  <data name="SnapshotUnconfirmed" xml:space="preserve"><value>Current status is unconfirmed</value></data>
+  <data name="SnapshotUnconfirmedDetail" xml:space="preserve"><value>The last snapshot does not confirm current availability. Refresh the page or check again.</value></data>
+  <data name="SnapshotWarning" xml:space="preserve"><value>Data is stale or unconfirmed. The last known snapshot is shown.</value></data>
 </root>
