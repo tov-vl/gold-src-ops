@@ -10,6 +10,10 @@ changes without repeating routine checks or age counters.
 Keyboard copying remains available with JavaScript; navigation and refresh
 also work without it.
 
+The owner confirmed the RU/EN manual screen-reader checklist passed on
+2026-10-12. This supplements automated browser evidence; it does not establish
+complete WCAG conformance or cross-reader coverage.
+
 Web-only R1. No game, API, database, authentication or backup changes.
 See [contract and limits](v2.69-public-accessibility.md) and
 [readiness](v2.69-readiness.md).
