@@ -188,4 +188,8 @@
   <data name="PublicStatus" xml:space="preserve"><value>Публичный статус</value></data>
   <data name="FleetFooter" xml:space="preserve"><value>Мониторинг серверов GoldSrc</value></data>
   <data name="UtcFooter" xml:space="preserve"><value>Время указано в UTC</value></data>
+  <data name="LastSnapshot" xml:space="preserve"><value>Последний снимок</value></data>
+  <data name="SnapshotUnconfirmed" xml:space="preserve"><value>Свежий статус не подтвержден</value></data>
+  <data name="SnapshotUnconfirmedDetail" xml:space="preserve"><value>Последний снимок не подтверждает текущую доступность. Обновите страницу или повторите проверку.</value></data>
+  <data name="SnapshotWarning" xml:space="preserve"><value>Данные устарели или не подтверждены. Показан последний известный снимок.</value></data>
 </root>

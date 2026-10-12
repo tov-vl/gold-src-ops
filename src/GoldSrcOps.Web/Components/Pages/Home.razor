@@ -7,13 +7,24 @@
     <meta name="description" content="@Text["StatusDescription"]" />
 </HeadContent>
 
-<div class="status-page" lang="@Text.Code">
+<div class="status-page" lang="@Text.Code" data-window="@SelectedWindow"
+     data-refresh-active="@Text["RefreshActive"]" data-refresh-paused="@Text["RefreshPaused"]"
+     data-refreshing-status="@Text["RefreshingStatus"]" data-status-done="@Text["StatusDone"]"
+     data-status-failure="@Text["StatusFailure"]" data-age="@Text["Age"]"
+     data-snapshot-warning="@Text["SnapshotWarning"]" data-status-unknown="@Text["StatusUnknown"]"
+     data-unconfirmed="@Text["SnapshotUnconfirmed"]" data-unconfirmed-detail="@Text["SnapshotUnconfirmedDetail"]"
+     data-no-fresh-data="@Text["NoFreshData"]">
     <PublicLanguageSwitch Path="@HistoryPath" Language="@Text.Code" />
     <section class="intro" aria-labelledby="page-title">
         <p class="eyebrow">@Text["FleetEyebrow"]</p>
         <h1 id="page-title">GoldSrcOps</h1>
         <p class="lede">@Text["StatusLede"]</p>
     </section>
+
+    <div class="status-refresh">
+        <a href="@Text.Link(HistoryPath)" data-status-refresh aria-describedby="status-refresh-message">@Text["Refresh"]</a>
+        <p id="status-refresh-message" aria-live="polite">@Text["RefreshHint"]</p>
+    </div>
 
     @if (_isLoading)
     {
@@ -27,152 +38,164 @@
     }
     else
     {
-        @if (_status is null)
-        {
-            <section class="status-summary status-summary--unavailable" role="status">
-                <div class="summary-copy">
-                    <span class="status-signal" aria-hidden="true"></span>
-                    <div>
-                        <p class="status-kicker">@Text["StatusUnavailable"]</p>
-                        <h2>@Text["StatusUnavailableHeading"]</h2>
-                        <p>@Text["StatusUnavailableDetail"]</p>
-                    </div>
-                </div>
-            </section>
-        }
-        else
-        {
-            <section class="status-summary @SummaryClass" role="status">
-                <div class="summary-copy">
-                    <span class="status-signal" aria-hidden="true"></span>
-                    <div>
-                        <p class="status-kicker">@StatusLabel</p>
-                        <h2>@StatusHeading</h2>
-                        <p>@StatusDescription</p>
-                    </div>
-                </div>
-
-                <div class="observation-time">
-                    <span>@Text["LastObservation"]</span>
-                    @if (_status.LastObservedAtUtc is { } observedAtUtc)
-                    {
-                        <time datetime="@observedAtUtc.ToString("O")">
-                            @observedAtUtc.ToUniversalTime().ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture)
-                        </time>
-                    }
-                    else
-                    {
-                        <strong>@Text["NotAvailable"]</strong>
-                    }
-                </div>
-            </section>
-
-            <section class="fleet" aria-labelledby="fleet-title">
-                <div class="section-heading">
-                    <div>
-                        <p class="eyebrow">@Text["CurrentSnapshot"]</p>
-                        <h2 id="fleet-title">@Text["MonitoredFleet"]</h2>
-                    </div>
-                    <p>@FleetSummary</p>
-                </div>
-
-                <div class="fleet-meter" role="img" aria-label="@FleetSummary">
-                    @if (_status.MonitoredServers > 0)
-                    {
-                        <span class="fleet-meter__online" style="flex-grow: @_status.OnlineServers"></span>
-                        <span class="fleet-meter__attention" style="flex-grow: @_status.ServersRequiringAttention"></span>
-                    }
-                    else
-                    {
-                        <span class="fleet-meter__empty"></span>
-                    }
-                </div>
-
-                <div class="metrics">
-                    <article class="metric">
-                        <span class="metric-label">@Text["Monitored"]</span>
-                        <strong>@_status.MonitoredServers</strong>
-                        <span>@Text["EnabledServers"]</span>
-                    </article>
-                    <article class="metric metric--online">
-                        <span class="metric-label">@Text["StatusOnline"]</span>
-                        <strong>@_status.OnlineServers</strong>
-                        <span>@Text["RespondingNormally"]</span>
-                    </article>
-                    <article class="metric metric--attention">
-                        <span class="metric-label">@Text["Attention"]</span>
-                        <strong>@_status.ServersRequiringAttention</strong>
-                        <span>@Text["OfflineOrUnknown"]</span>
-                    </article>
-                    <article class="metric metric--incidents">
-                        <span class="metric-label">@Text["OpenIncidents"]</span>
-                        <strong>@_status.OpenIncidents</strong>
-                        <span>@Text["ActiveAvailabilityEvents"]</span>
-                    </article>
-                </div>
-            </section>
-        }
-
-        @if (_publicServer is not null)
-        {
-            <section class="public-server public-server--@NormalizeServerState(_publicServer.State)"
-                     aria-labelledby="public-server-title">
-                <div class="public-server__heading">
-                    <div>
-                        <p class="eyebrow">@Text["PublicServer"]</p>
-                        <h2 id="public-server-title">@_publicServer.Name</h2>
-                    </div>
-                    <p class="public-server__state">
-                        <span class="public-server__signal" aria-hidden="true"></span>
-                        @PublicServerStateLabel
-                    </p>
-                </div>
-
-                <div class="public-server__body">
-                    <dl class="public-server__facts">
+        <div data-status-fleet data-age-seconds="@AgeAttribute(_status?.LastObservedAtUtc)"
+             data-state="@FleetState" data-stale="@(!IsFresh(_status?.LastObservedAtUtc) ? "true" : "false")">
+            <p class="snapshot-warning" data-status-warning hidden="@IsFresh(_status?.LastObservedAtUtc)">@Text["SnapshotWarning"]</p>
+            <p class="snapshot-age" data-status-age>@AgeLabel(_status?.LastObservedAtUtc)</p>
+            @if (_status is null)
+            {
+                <section class="status-summary status-summary--unavailable" role="status">
+                    <div class="summary-copy">
+                        <span class="status-signal" aria-hidden="true"></span>
                         <div>
-                            <dt>@Text["Map"]</dt>
-                            <dd>@(_publicServer.Map ?? Text["NotAvailable"])</dd>
+                            <p class="status-kicker">@Text["StatusUnavailable"]</p>
+                            <h2>@Text["StatusUnavailableHeading"]</h2>
+                            <p>@Text["StatusUnavailableDetail"]</p>
                         </div>
-                        <div>
-                            <dt>@Text["Players"]</dt>
-                            <dd>@PlayerSummary</dd>
-                        </div>
-                        <div>
-                            <dt>@Text["Observed"]</dt>
-                            <dd>
-                                @if (_publicServer.LastObservedAtUtc is { } serverObservedAtUtc)
-                                {
-                                    <time datetime="@serverObservedAtUtc.ToString("O")">
-                                        @serverObservedAtUtc.ToUniversalTime().ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture)
-                                    </time>
-                                }
-                                else
-                                {
-                                    <span>@Text["NotAvailable"]</span>
-                                }
-                            </dd>
-                        </div>
-                    </dl>
-
-                    <div class="public-server__connect">
-                        <span class="public-server__connect-label">@Text["ConnectionCommand"]</span>
-                        <code>@ConnectCommand</code>
-                        <div class="public-server__actions">
-                            <a class="public-server__steam" href="@SteamConnectUri">@Text["ConnectWithSteam"]</a>
-                            <button class="public-server__copy"
-                                    type="button"
-                                    data-copy-connect="@ConnectCommand"
-                                    data-copy-success="@Text["CopySuccess"]"
-                                    data-copy-failure="@Text["CopyFailure"]"
-                                    aria-describedby="public-server-copy-status">@Text["CopyCommand"]</button>
-                        </div>
-                        <p id="public-server-copy-status" class="public-server__copy-status" aria-live="polite"></p>
-                        <a href="@Text.Link("/play")">@Text["PlayGuideLink"]</a>
                     </div>
-                </div>
-            </section>
-        }
+                </section>
+            }
+            else
+            {
+                <section class="status-summary @SummaryClass" role="status">
+                    <div class="summary-copy">
+                        <span class="status-signal" aria-hidden="true"></span>
+                        <div>
+                            <p class="status-kicker">@StatusLabel</p>
+                            <h2>@StatusHeading</h2>
+                            <p>@StatusDescription</p>
+                        </div>
+                    </div>
+
+                    <div class="observation-time">
+                        <span>@Text["LastObservation"]</span>
+                        @if (_status.LastObservedAtUtc is { } observedAtUtc)
+                        {
+                            <time datetime="@observedAtUtc.ToString("O")">
+                                @observedAtUtc.ToUniversalTime().ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture)
+                            </time>
+                        }
+                        else
+                        {
+                            <strong>@Text["NotAvailable"]</strong>
+                        }
+                    </div>
+                </section>
+
+                <section class="fleet" aria-labelledby="fleet-title">
+                    <div class="section-heading">
+                        <div>
+                            <p class="eyebrow">@Text["LastSnapshot"]</p>
+                            <h2 id="fleet-title">@Text["MonitoredFleet"]</h2>
+                        </div>
+                        <p>@FleetSummary</p>
+                    </div>
+
+                    <div class="fleet-meter" role="img" aria-label="@FleetSummary">
+                        @if (_status.MonitoredServers > 0)
+                        {
+                            <span class="fleet-meter__online" style="flex-grow: @_status.OnlineServers"></span>
+                            <span class="fleet-meter__attention" style="flex-grow: @_status.ServersRequiringAttention"></span>
+                        }
+                        else
+                        {
+                            <span class="fleet-meter__empty"></span>
+                        }
+                    </div>
+
+                    <div class="metrics">
+                        <article class="metric">
+                            <span class="metric-label">@Text["Monitored"]</span>
+                            <strong>@_status.MonitoredServers</strong>
+                            <span>@Text["EnabledServers"]</span>
+                        </article>
+                        <article class="metric metric--online">
+                            <span class="metric-label">@Text["StatusOnline"]</span>
+                            <strong>@_status.OnlineServers</strong>
+                            <span>@Text["RespondingNormally"]</span>
+                        </article>
+                        <article class="metric metric--attention">
+                            <span class="metric-label">@Text["Attention"]</span>
+                            <strong>@_status.ServersRequiringAttention</strong>
+                            <span>@Text["OfflineOrUnknown"]</span>
+                        </article>
+                        <article class="metric metric--incidents">
+                            <span class="metric-label">@Text["OpenIncidents"]</span>
+                            <strong>@_status.OpenIncidents</strong>
+                            <span>@Text["ActiveAvailabilityEvents"]</span>
+                        </article>
+                    </div>
+                </section>
+            }
+
+        </div>
+
+        <div data-status-server data-age-seconds="@AgeAttribute(_publicServer?.LastObservedAtUtc)"
+             data-state="@ServerState" data-failed="@(_serverLoadFailed ? "true" : "false")">
+            @if (_publicServer is not null)
+            {
+                <section class="public-server public-server--@ServerState"
+                         aria-labelledby="public-server-title">
+                    <div class="public-server__heading">
+                        <div>
+                            <p class="eyebrow">@Text["PublicServer"]</p>
+                            <h2 id="public-server-title">@_publicServer.Name</h2>
+                        </div>
+                        <p class="public-server__state">
+                            <span class="public-server__signal" aria-hidden="true"></span>
+                            @PublicServerStateLabel
+                        </p>
+                    </div>
+
+                    <p class="snapshot-warning" data-status-warning hidden="@IsFresh(_publicServer.LastObservedAtUtc)">@Text["SnapshotWarning"]</p>
+                    <p class="snapshot-age" data-status-age>@AgeLabel(_publicServer.LastObservedAtUtc)</p>
+                    <div class="public-server__body">
+                        <dl class="public-server__facts">
+                            <div>
+                                <dt>@Text["Map"]</dt>
+                                <dd>@(ServerState == "online" ? _publicServer.Map ?? Text["NotAvailable"] : Text["NoFreshData"])</dd>
+                            </div>
+                            <div>
+                                <dt>@Text["Players"]</dt>
+                                <dd>@PlayerSummary</dd>
+                            </div>
+                            <div>
+                                <dt>@Text["Observed"]</dt>
+                                <dd>
+                                    @if (_publicServer.LastObservedAtUtc is { } serverObservedAtUtc)
+                                    {
+                                        <time datetime="@serverObservedAtUtc.ToString("O")">
+                                            @serverObservedAtUtc.ToUniversalTime().ToString("dd MMM yyyy, HH:mm 'UTC'", CultureInfo.InvariantCulture)
+                                        </time>
+                                    }
+                                    else
+                                    {
+                                        <span>@Text["NotAvailable"]</span>
+                                    }
+                                </dd>
+                            </div>
+                        </dl>
+
+                        <div class="public-server__connect">
+                            <span class="public-server__connect-label">@Text["ConnectionCommand"]</span>
+                            <code>@ConnectCommand</code>
+                            <div class="public-server__actions">
+                                <a class="public-server__steam" href="@SteamConnectUri">@Text["ConnectWithSteam"]</a>
+                                <button class="public-server__copy"
+                                        type="button"
+                                        data-copy-connect="@ConnectCommand"
+                                        data-copy-success="@Text["CopySuccess"]"
+                                        data-copy-failure="@Text["CopyFailure"]"
+                                        aria-describedby="public-server-copy-status">@Text["CopyCommand"]</button>
+                            </div>
+                            <p id="public-server-copy-status" class="public-server__copy-status" aria-live="polite"></p>
+                            <a href="@Text.Link("/play")">@Text["PlayGuideLink"]</a>
+                        </div>
+                    </div>
+                </section>
+            }
+
+        </div>
 
         <section class="history" aria-labelledby="history-title">
             <div class="history-heading">
@@ -190,53 +213,55 @@
                 </nav>
             </div>
 
-            @if (_history is null)
-            {
-                <div class="history-unavailable" role="status">
-                    <strong>@Text["HistoryUnavailable"]</strong>
-                    <span>@Text["HistoryUnavailableDetail"]</span>
-                </div>
-            }
-            else
-            {
-                <div class="history-summary">
-                    <div>
-                        <span>@Text["ObservedReachability"]</span>
-                        <strong>@HistoryPercentage</strong>
+            <div data-status-history data-available="@(_history is not null ? "true" : "false")">
+                @if (_history is null)
+                {
+                    <div class="history-unavailable" role="status">
+                        <strong>@Text["HistoryUnavailable"]</strong>
+                        <span>@Text["HistoryUnavailableDetail"]</span>
                     </div>
-                    <div>
-                        <span>@Text["ObservationCoverage"]</span>
-                        <strong>@Text.Format("Coverage", _history.ObservedBuckets, _history.TotalBuckets)</strong>
+                }
+                else
+                {
+                    <div class="history-summary">
+                        <div>
+                            <span>@Text["ObservedReachability"]</span>
+                            <strong>@HistoryPercentage</strong>
+                        </div>
+                        <div>
+                            <span>@Text["ObservationCoverage"]</span>
+                            <strong>@Text.Format("Coverage", _history.ObservedBuckets, _history.TotalBuckets)</strong>
+                        </div>
                     </div>
-                </div>
 
-                <div class="history-chart"
-                     style="--history-columns: @_history.TotalBuckets"
-                     role="list"
-                     aria-label="@HistoryChartLabel">
-                    @foreach (var bucket in _history.Buckets)
-                    {
-                        <span class="history-bar history-bar--@NormalizeBucketState(bucket.State)"
-                              style="@GetBucketStyle(bucket)"
-                              role="listitem"
-                              title="@GetBucketLabel(bucket)"
-                              aria-label="@GetBucketLabel(bucket)"></span>
-                    }
-                </div>
+                    <div class="history-chart"
+                         style="--history-columns: @_history.TotalBuckets"
+                         role="list"
+                         aria-label="@HistoryChartLabel">
+                        @foreach (var bucket in _history.Buckets)
+                        {
+                            <span class="history-bar history-bar--@NormalizeBucketState(bucket.State)"
+                                  style="@GetBucketStyle(bucket)"
+                                  role="listitem"
+                                  title="@GetBucketLabel(bucket)"
+                                  aria-label="@GetBucketLabel(bucket)"></span>
+                        }
+                    </div>
 
-                <div class="history-axis" aria-hidden="true">
-                    <time datetime="@_history.FromUtc.ToString("O")">@FormatAxisTime(_history.FromUtc)</time>
-                    <span>@HistoryWindowLabel</span>
-                    <time datetime="@_history.ToUtc.ToString("O")">@FormatAxisTime(_history.ToUtc)</time>
-                </div>
+                    <div class="history-axis" aria-hidden="true">
+                        <time datetime="@_history.FromUtc.ToString("O")">@FormatAxisTime(_history.FromUtc)</time>
+                        <span>@HistoryWindowLabel</span>
+                        <time datetime="@_history.ToUtc.ToString("O")">@FormatAxisTime(_history.ToUtc)</time>
+                    </div>
 
-                <div class="history-legend" aria-label="@Text["ChartLegend"]">
-                    <span><i class="legend-signal legend-signal--operational" aria-hidden="true"></i>@Text["AllProbesReached"]</span>
-                    <span><i class="legend-signal legend-signal--degraded" aria-hidden="true"></i>@Text["MixedResults"]</span>
-                    <span><i class="legend-signal legend-signal--unreachable" aria-hidden="true"></i>@Text["NoProbeReached"]</span>
-                    <span><i class="legend-signal legend-signal--unknown" aria-hidden="true"></i>@Text["NoObservations"]</span>
-                </div>
-            }
+                    <div class="history-legend" aria-label="@Text["ChartLegend"]">
+                        <span><i class="legend-signal legend-signal--operational" aria-hidden="true"></i>@Text["AllProbesReached"]</span>
+                        <span><i class="legend-signal legend-signal--degraded" aria-hidden="true"></i>@Text["MixedResults"]</span>
+                        <span><i class="legend-signal legend-signal--unreachable" aria-hidden="true"></i>@Text["NoProbeReached"]</span>
+                        <span><i class="legend-signal legend-signal--unknown" aria-hidden="true"></i>@Text["NoObservations"]</span>
+                    </div>
+                }
+            </div>
         </section>
 
         <section class="scope-note" aria-labelledby="scope-title">
@@ -264,6 +289,24 @@
     private PublicA2sHistoryResponse? _history;
     private PublicServerJoinResponse? _publicServer;
     private bool _isLoading = true;
+    private bool _serverLoadFailed;
+
+    private static double? ObservationAge(DateTimeOffset? observed) => observed is { } value
+        ? Math.Max(0, (DateTimeOffset.UtcNow - value).TotalSeconds) : null;
+
+    private static bool IsFresh(DateTimeOffset? observed) => ObservationAge(observed) is >= 0 and <= 180;
+
+    private static string AgeAttribute(DateTimeOffset? observed) =>
+        ObservationAge(observed)?.ToString("F3", CultureInfo.InvariantCulture) ?? string.Empty;
+
+    private string AgeLabel(DateTimeOffset? observed) => ObservationAge(observed) is { } age
+        ? Text.Format("Age", Math.Ceiling(age)) : Text["NoObservations"];
+
+    private string FleetState => _status is null ? "unavailable" :
+        IsFresh(_status.LastObservedAtUtc) ? _status.State : "unknown";
+
+    private string ServerState => _publicServer is null ? "unavailable" :
+        IsFresh(_publicServer.LastObservedAtUtc) ? NormalizeServerState(_publicServer.State) : "unknown";
 
     private string SelectedWindow => string.Equals(
         Range,
@@ -272,32 +315,32 @@
         ? PublicStatusClient.Last7DaysWindow
         : PublicStatusClient.Last24HoursWindow;
 
-    private string SummaryClass => _status?.State switch
+    private string SummaryClass => FleetState switch
     {
         "operational" => "status-summary--operational",
         "degraded" => "status-summary--degraded",
         _ => "status-summary--unknown"
     };
 
-    private string StatusLabel => _status?.State switch
+    private string StatusLabel => FleetState switch
     {
         "operational" => Text["Operational"],
         "degraded" => Text["Degraded"],
         _ => Text["StatusUnknown"]
     };
 
-    private string StatusHeading => _status?.State switch
+    private string StatusHeading => FleetState switch
     {
         "operational" => Text["OperationalHeading"],
         "degraded" => Text["DegradedHeading"],
-        _ => Text["UnknownHeading"]
+        _ => Text["SnapshotUnconfirmed"]
     };
 
-    private string StatusDescription => _status?.State switch
+    private string StatusDescription => FleetState switch
     {
         "operational" => Text["OperationalDetail"],
         "degraded" => Text["DegradedDetail"],
-        _ => Text["StatusUnknownDetail"]
+        _ => Text["SnapshotUnconfirmedDetail"]
     };
 
     private string FleetSummary => _status is null
@@ -319,16 +362,16 @@
         ? Text["HistoryChartUnavailable"]
         : Text.Format("HistoryChart", FormatAxisTime(_history.FromUtc), FormatAxisTime(_history.ToUtc), _history.ObservedBuckets, _history.TotalBuckets);
 
-    private string PublicServerStateLabel => _publicServer?.State switch
+    private string PublicServerStateLabel => ServerState switch
     {
         "online" => Text["StatusOnline"],
         "offline" => Text["StatusOffline"],
         _ => Text["StatusUnknown"]
     };
 
-    private string PlayerSummary => _publicServer is { Players: { } players, MaxPlayers: { } maxPlayers }
+    private string PlayerSummary => ServerState == "online" && _publicServer is { Players: { } players, MaxPlayers: { } maxPlayers }
         ? $"{players} / {maxPlayers}"
-        : Text["NotAvailable"];
+        : Text["NoFreshData"];
 
     private string ConnectAddress => _publicServer is null
         ? string.Empty
@@ -344,6 +387,7 @@
         _status = null;
         _history = null;
         _publicServer = null;
+        _serverLoadFailed = false;
 
         await Task.WhenAll(
             LoadStatusAsync(),
@@ -384,6 +428,7 @@
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)
         {
+            _serverLoadFailed = true;
             Logger.LogWarning(exception, "Unable to load the public server join projection.");
         }
     }

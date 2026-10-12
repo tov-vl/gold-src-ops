@@ -1930,6 +1930,15 @@ configuration unavailability removes connection controls. Preserve existing
 controls/focus when applying a successful address update; retain normal SSR
 reload without JavaScript. See [v2.60](v2.60-play-status-refresh.md).
 
+The public dashboard follows the same bounded SSR-read model in
+[v2.68](v2.68-public-status-refresh.md), preserving the selected history window.
+Track aggregate and advertised-server observation age separately; aggregate
+last-observed time does not prove that every server has a fresh observation.
+Keep historical counts labeled as the last snapshot, expire current availability
+claims after 180 seconds, and preserve connection configuration on a transient
+join-projection failure. Replace only validated display regions while retaining
+navigation, connection controls, focus and scroll.
+
 ## Decision 44: Claim Addon Transitions Through Baseline Acceptance
 
 Use one hash-bound operator workflow for an enabled schema-2 addon update.

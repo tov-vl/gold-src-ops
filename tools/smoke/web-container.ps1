@@ -348,6 +348,16 @@ try {
         throw "Web dashboard did not complete as a self-contained static SSR response."
     }
 
+    $refreshAsset = [regex]::Match($homeResponse.Content, 'src="(?<path>public-status(?:\.[a-z0-9]+)?\.js)"')
+    if (-not $refreshAsset.Success -or
+        -not $homeResponse.Content.Contains("data-status-refresh", [StringComparison]::Ordinal)) {
+        throw "Web dashboard refresh asset or SSR fallback is missing."
+    }
+    $refreshResponse = Wait-HttpStatus -Uri ([Uri]::new($homeUri, $refreshAsset.Groups["path"].Value)) -TimeoutSeconds $StartupTimeoutSeconds
+    if (-not $refreshResponse.Content.Contains('credentials: "omit"', [StringComparison]::Ordinal)) {
+        throw "Published dashboard refresh asset could not be read."
+    }
+
     $readerPortalResponse = Invoke-WebRequest `
         -UseBasicParsing `
         -Uri $readerPortalUri `
