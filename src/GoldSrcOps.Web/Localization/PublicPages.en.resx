@@ -193,4 +193,19 @@
   <data name="SnapshotUnconfirmedDetail" xml:space="preserve"><value>The last snapshot does not confirm current availability. Refresh the page or check again.</value></data>
   <data name="SnapshotWarning" xml:space="preserve"><value>Data is stale or unconfirmed. The last known snapshot is shown.</value></data>
   <data name="SkipToContent" xml:space="preserve"><value>Skip to content</value></data>
+  <data name="ConnectionHelpTitle" xml:space="preserve"><value>Trouble connecting?</value></data>
+  <data name="ConnectionHelpIntro" xml:space="preserve"><value>Choose the situation that matches yours. These instructions also work without automatic copying.</value></data>
+  <data name="SteamHelpTitle" xml:space="preserve"><value>Steam did not open the game</value></data>
+  <data name="SteamHelpDetail" xml:space="preserve"><value>Start CS 1.6 manually. Copy the entire connection command from the panel above, open the game console, paste the command and press Enter. If no command is shown yet, check the site again later.</value></data>
+  <data name="BackToConnection" xml:space="preserve"><value>Back to the connection command</value></data>
+  <data name="CopyHelpTitle" xml:space="preserve"><value>The command was not copied</value></data>
+  <data name="CopyHelpDetail" xml:space="preserve"><value>Select the entire connection command, including connect and the address. Copy it using the browser menu or Ctrl+C, then paste it into the CS 1.6 console. On a phone, use a long press and text selection.</value></data>
+  <data name="StatusHelpTitle" xml:space="preserve"><value>The server status is unclear</value></data>
+  <data name="OfflineHelpDetail" xml:space="preserve"><value>"Server is not responding" means the last check received no response. Refresh the check or try connecting later.</value></data>
+  <data name="UnknownHelpDetail" xml:space="preserve"><value>"Current status is unconfirmed" means observations are missing or outdated. It does not prove the server is down. If a connection command is available, you can try joining.</value></data>
+  <data name="MissingHelpDetail" xml:space="preserve"><value>If the connection panel is unavailable and no command is shown, the site cannot provide connection details yet. Return to the check button and try refreshing later.</value></data>
+  <data name="BackToCheck" xml:space="preserve"><value>Back to the status check button</value></data>
+  <data name="JoinedHelpTitle" xml:space="preserve"><value>Connected. What next?</value></data>
+  <data name="JoinedHelpBefore" xml:space="preserve"><value>Type</value></data>
+  <data name="JoinedHelpAfter" xml:space="preserve"><value> in the game chat to open the main menu. The first steps explain how to choose a team and weapons, and view your profile.</value></data>
 </root>

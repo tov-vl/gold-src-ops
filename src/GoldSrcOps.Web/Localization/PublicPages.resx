@@ -193,4 +193,19 @@
   <data name="SnapshotUnconfirmedDetail" xml:space="preserve"><value>Последний снимок не подтверждает текущую доступность. Обновите страницу или повторите проверку.</value></data>
   <data name="SnapshotWarning" xml:space="preserve"><value>Данные устарели или не подтверждены. Показан последний известный снимок.</value></data>
   <data name="SkipToContent" xml:space="preserve"><value>Перейти к содержимому</value></data>
+  <data name="ConnectionHelpTitle" xml:space="preserve"><value>Не получается подключиться?</value></data>
+  <data name="ConnectionHelpIntro" xml:space="preserve"><value>Выбери подходящую ситуацию. Инструкции доступны и без автоматического копирования.</value></data>
+  <data name="SteamHelpTitle" xml:space="preserve"><value>Steam не открыл игру</value></data>
+  <data name="SteamHelpDetail" xml:space="preserve"><value>Запусти CS 1.6 вручную. Скопируй всю команду подключения из блока выше, открой консоль игры, вставь команду и нажми Enter. Если команда пока не показана, обнови проверку на сайте позже.</value></data>
+  <data name="BackToConnection" xml:space="preserve"><value>К команде подключения</value></data>
+  <data name="CopyHelpTitle" xml:space="preserve"><value>Команда не скопировалась</value></data>
+  <data name="CopyHelpDetail" xml:space="preserve"><value>Выдели всю строку команды подключения, включая connect и адрес. Скопируй ее через меню браузера или Ctrl+C, затем вставь в консоль CS 1.6. На телефоне используй долгое нажатие и выделение текста.</value></data>
+  <data name="StatusHelpTitle" xml:space="preserve"><value>Статус сервера неясен</value></data>
+  <data name="OfflineHelpDetail" xml:space="preserve"><value>"Сервер не отвечает" означает, что последняя проверка не получила ответ. Попробуй обновить проверку или подключиться позже.</value></data>
+  <data name="UnknownHelpDetail" xml:space="preserve"><value>"Свежий статус не подтвержден" означает, что данных нет или они устарели. Это не доказывает, что сервер выключен. Если команда подключения доступна, можно попробовать войти.</value></data>
+  <data name="MissingHelpDetail" xml:space="preserve"><value>Если блок подключения недоступен и команды нет, сайт пока не может показать данные подключения. Вернись к кнопке проверки и попробуй обновить их позже.</value></data>
+  <data name="BackToCheck" xml:space="preserve"><value>К кнопке проверки статуса</value></data>
+  <data name="JoinedHelpTitle" xml:space="preserve"><value>Подключился. Что дальше?</value></data>
+  <data name="JoinedHelpBefore" xml:space="preserve"><value>Напиши в игровом чате</value></data>
+  <data name="JoinedHelpAfter" xml:space="preserve"><value> - откроется главное меню. Первые шаги помогут выбрать команду, оружие и посмотреть профиль.</value></data>
 </root>

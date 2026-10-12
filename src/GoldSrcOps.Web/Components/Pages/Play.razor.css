@@ -394,3 +394,13 @@
 }
 
 .play-page { overflow-wrap: anywhere; }
+
+.join-panel__help { margin: 20px 0 0; line-height: 1.6; }
+.connection-help details { padding: 18px 0; border-top: 1px solid var(--line); }
+.connection-help summary { cursor: pointer; font-weight: 720; line-height: 1.6; }
+.connection-help details p { max-width: 75ch; margin: 16px 0; color: var(--ink-soft); line-height: 1.75; }
+.connection-help details > a { display: inline-block; margin: 4px 0; line-height: 1.6; }
+.connection-help summary:focus-visible,
+#connection:focus-visible,
+#connection-help:focus-visible,
+#first-steps:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }

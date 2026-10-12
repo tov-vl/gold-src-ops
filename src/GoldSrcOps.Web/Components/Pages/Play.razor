@@ -30,10 +30,10 @@
             <a class="play-intro__link" href="@(Text.Link("/play") + "#first-steps")">@Text["HowToStart"] <span aria-hidden="true">↓</span></a>
         </div>
 
-        <section class="join-panel join-panel--@ServerState" aria-labelledby="join-title">
+        <section id="connection" tabindex="-1" class="join-panel join-panel--@ServerState" aria-labelledby="join-title">
             <p class="eyebrow">@Text["JoinServer"]</p>
             <h2 id="join-title">@(_server?.Name ?? "GoldSrcOps")</h2>
-            <a class="join-panel__refresh" href="@Text.Link("/play")" data-play-refresh>@Text["RefreshStatus"]</a>
+            <a id="check-connection" class="join-panel__refresh" href="@Text.Link("/play")" data-play-refresh>@Text["RefreshStatus"]</a>
             <p id="play-refresh-status" class="join-panel__refresh-status">@Text["RefreshStatusHint"]</p>
             <p class="visually-hidden" role="status" aria-atomic="true" data-refresh-announcement></p>
             <div data-play-status data-state="@ServerState" data-age-seconds="@AgeAttribute">
@@ -89,10 +89,40 @@
                     <p id="play-copy-status" class="join-panel__copy-status" aria-live="polite"></p>
                 </div>
             }
+            <p class="join-panel__help"><a href="@(Text.Link("/play") + "#connection-help")">@Text["ConnectionHelpTitle"]</a></p>
         </section>
     </section>
 
-    <section id="first-steps" class="play-section" aria-labelledby="first-steps-title">
+    <section id="connection-help" tabindex="-1" class="play-section connection-help" aria-labelledby="connection-help-title">
+        <div class="play-section__heading">
+            <h2 id="connection-help-title">@Text["ConnectionHelpTitle"]</h2>
+            <p>@Text["ConnectionHelpIntro"]</p>
+        </div>
+        <details>
+            <summary>@Text["SteamHelpTitle"]</summary>
+            <p>@Text["SteamHelpDetail"]</p>
+            <a href="@(Text.Link("/play") + "#connection")">@Text["BackToConnection"]</a>
+        </details>
+        <details>
+            <summary>@Text["CopyHelpTitle"]</summary>
+            <p>@Text["CopyHelpDetail"]</p>
+            <a href="@(Text.Link("/play") + "#connection")">@Text["BackToConnection"]</a>
+        </details>
+        <details>
+            <summary>@Text["StatusHelpTitle"]</summary>
+            <p>@Text["OfflineHelpDetail"]</p>
+            <p>@Text["UnknownHelpDetail"]</p>
+            <p>@Text["MissingHelpDetail"]</p>
+            <a href="@(Text.Link("/play") + "#check-connection")">@Text["BackToCheck"]</a>
+        </details>
+        <details>
+            <summary>@Text["JoinedHelpTitle"]</summary>
+            <p>@Text["JoinedHelpBefore"] <code>/menu</code>@Text["JoinedHelpAfter"]</p>
+            <a href="@(Text.Link("/play") + "#first-steps")">@Text["HowToStart"]</a>
+        </details>
+    </section>
+
+    <section id="first-steps" tabindex="-1" class="play-section" aria-labelledby="first-steps-title">
         <div class="play-section__heading">
             <p class="eyebrow">@Text["FirstConnection"]</p>
             <h2 id="first-steps-title">@Text["ThreeSteps"]</h2>
