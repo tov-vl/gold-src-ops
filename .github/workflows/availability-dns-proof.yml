@@ -24,7 +24,7 @@ jobs:
   verify-dns:
     name: Verify Diagnostic DNS Classification
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
       name: availability-evidence-shadow

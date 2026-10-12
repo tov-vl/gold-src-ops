@@ -336,7 +336,7 @@ foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
 Assert-Condition -Condition ($containerJob -match '(?m)^      - map-menu-compile$') -Message "Container Smoke must wait for addon compilation."
 Assert-Condition -Condition ($containerJob -match '(?m)^    if: \$\{\{ !cancelled\(\) \}\}$') -Message "Container Smoke must report upstream failures."
 Assert-Condition -Condition ($compileJob -notmatch '(?m)^    if:') -Message "Addon fast paths must report success rather than skip a publication ancestor."
-Assert-Condition -Condition ($compileJob -match "'ubuntu-latest' \|\| 'windows-latest'") -Message "Addon compilation must use Windows; lightweight confirmations use Ubuntu."
+Assert-Condition -Condition ($compileJob -match "'ubuntu-24\.04' \|\| 'windows-latest'") -Message "Addon compilation must use Windows; lightweight confirmations use Ubuntu."
 
 try {
     New-Item -ItemType Directory -Path (Join-Path $temporaryDirectory "docs") | Out-Null

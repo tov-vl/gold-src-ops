@@ -1965,3 +1965,14 @@ The status page preserves its bounded history window when switching language.
 Shared public navigation and footer use the same language; Operator content
 remains English. See [v2.66](v2.66-public-language.md) and
 [v2.67](v2.67-public-status-language.md).
+
+## Decision 46: Select The Linux CI Distribution Explicitly
+
+Use `ubuntu-24.04` for Linux jobs in CI, image publication and availability
+workflows. Successful runs inspected on 2026-10-12 used this image family.
+Keep the existing Windows addon compilation branch unchanged. A distribution
+upgrade requires a reviewed workflow change and relevant CI evidence.
+
+The label pins the Ubuntu release, not the hosted image revision or every
+installed tool. GitHub continues to update the image within that release.
+See [runner baseline evidence](ci-runner-baseline.md).

@@ -31,7 +31,7 @@ env:
 jobs:
   rehearse-primary:
     name: Rehearse Primary Evidence Recovery
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment:
       name: availability-evidence-shadow
