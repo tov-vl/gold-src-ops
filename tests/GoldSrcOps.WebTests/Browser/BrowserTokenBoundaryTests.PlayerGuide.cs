@@ -28,9 +28,8 @@ public sealed partial class BrowserTokenBoundaryTests
             await Expect(Page.Locator(".play-page")).ToBeVisibleAsync();
             await Expect(Page.Locator(".primary-nav a[href='/play']"))
                 .ToHaveAttributeAsync("aria-current", "page");
-            (await Page.Locator(".primary-nav a[href='/play']").EvaluateAsync<string>(
-                "element => getComputedStyle(element).textDecorationLine"))
-                .Should().Be("none");
+            await Expect(Page.Locator(".primary-nav a[href='/play']"))
+                .ToHaveCSSAsync("text-decoration-line", "none");
             (await Page.Locator(".join-panel__steam").GetAttributeAsync("href"))
                 .Should().Be("steam://connect/play.example.test:27015");
             await Page.EvaluateAsync(

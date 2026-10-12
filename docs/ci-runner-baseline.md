@@ -35,3 +35,19 @@ Local routing smoke and documentation validation, full PR CI and post-merge
 CI are required. New tag publication and external availability operations are
 not exercised; their runner selections are reviewed against the successful
 baseline above. No release, deployment or production restart is required.
+
+## Initial post-merge anomaly
+
+[PR #326 CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38250301112)
+passed all required checks. Initial
+[main CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38251527181)
+reported one browser failure: the player-guide navigation test immediately read
+`text-decoration-line` as `underline` instead of `none` after navigation; 53
+other browser cases passed. Both runs reported Ubuntu 24.04.5 and hosted image
+20261004.327.1. This does not establish an OS difference as the cause.
+
+A narrow test follow-up uses Playwright's bounded `ToHaveCSSAsync` assertion
+for the same expected style, allowing the browser to apply CSS after navigation.
+No timeout increase, test retry, weakened expectation or application change is
+introduced. The timing race is the working explanation, not a reproduced root
+cause. Acceptance remains pending the follow-up PR and post-merge CI.
