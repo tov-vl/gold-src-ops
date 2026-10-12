@@ -10,5 +10,5 @@ about seven to five seconds. This is a degradation improvement, not a claim of
 faster ordinary loads. Only Web is affected; API contracts, database,
 authentication and game runtime are unchanged.
 
-Publication and production acceptance are pending. See
+Published and accepted on 2026-10-12: [v2.71.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.71.0). See
 [readiness](v2.71-readiness.md) and [verification](v2.71-public-response-deadline.md).

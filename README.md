@@ -6,18 +6,18 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.70.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.70.0)
-is the current public release. The [player guide](https://goldsrcops.com/play)
-includes RU/EN help for Steam launch failures, manual copying, server status
-and first steps. Native disclosures and keyboard links work without JavaScript;
-background refresh preserves open help and the selected language.
+**Status:** [v2.71.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.71.0)
+is the current public release. Public pages now apply their five-second API
+budget to response headers and the JSON body. A delayed body can no longer
+extend the network wait beyond that budget; existing unavailable states and
+caller cancellation are preserved.
 
-Production acceptance checked both languages, keyboard navigation, actual
-clipboard and enlarged desktop/mobile layouts. Only Web was recreated; six
-other services and all mount identities were preserved. Stable references reuse
-accepted digests without rebuilding. Game, API, durable data, authentication
-and backup contracts remain unchanged. See [release notes](docs/release-notes-v2.70.md)
-and [evidence](docs/v2.70-readiness.md).
+A local seven-second body-delay scenario completed in about five seconds.
+Production acceptance checked all three pages in RU/EN, with and without
+JavaScript, and six successful manual refreshes. Only Web was recreated; six
+other services and all mounts were preserved. Stable references reuse accepted
+digests without rebuilding. See [release notes](docs/release-notes-v2.71.md) and
+[evidence](docs/v2.71-readiness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
