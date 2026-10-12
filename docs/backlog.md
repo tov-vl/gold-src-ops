@@ -3201,3 +3201,10 @@ Production подтвердил клавиатуру,
 сервисов и mounts сохранены. Stable использует принятые digests без пересборки.
 Игровая визуальная приемка независима. См. [границу](v2.70-player-connection-help.md)
 и [readiness](v2.70-readiness.md).
+
+## CI - Явная версия Ubuntu
+
+В работе: закрепить подтвержденную `ubuntu-24.04` в пяти workflow, включая
+публикацию и availability. Проверить существующий CI routing и полный PR CI,
+после объединения проверить main. Приложение и production не меняются;
+релизные теги и повторный rollout не нужны. См. [baseline](ci-runner-baseline.md).

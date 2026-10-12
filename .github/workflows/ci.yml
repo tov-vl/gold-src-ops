@@ -36,7 +36,7 @@ env:
 jobs:
   change-scope:
     name: Change Scope
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       base_revision: ${{ steps.scope.outputs.base_revision }}
       changed_count: ${{ steps.scope.outputs.changed_count }}
@@ -81,7 +81,7 @@ jobs:
     name: Quality Gate
     needs: change-scope
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Require resolved change scope
@@ -156,7 +156,7 @@ jobs:
   map-menu-compile:
     name: Map Menu Compile
     needs: change-scope
-    runs-on: ${{ (needs.change-scope.outputs.docs_only == 'true' || needs.change-scope.outputs.stable_promotion == 'true') && 'ubuntu-latest' || 'windows-latest' }}
+    runs-on: ${{ (needs.change-scope.outputs.docs_only == 'true' || needs.change-scope.outputs.stable_promotion == 'true') && 'ubuntu-24.04' || 'windows-latest' }}
     timeout-minutes: 10
     steps:
       - name: Confirm addon checks unnecessary
@@ -198,7 +198,7 @@ jobs:
       - quality
       - map-menu-compile
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       DOCKER_BUILDKIT: 1
@@ -394,7 +394,7 @@ jobs:
     needs:
       - change-scope
       - quality
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       GOLDSRCOPS_RUN_BROWSER_TESTS: "true"
@@ -459,7 +459,7 @@ jobs:
       - quality
       - container-smoke
       - browser-smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
       group: ghcr-release-publication
@@ -810,7 +810,7 @@ jobs:
   verify-published-image:
     name: Verify Published Image
     needs: publish-image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -876,7 +876,7 @@ jobs:
       - quality
       - container-smoke
       - browser-smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
       group: ghcr-web-release-publication
@@ -1219,7 +1219,7 @@ jobs:
   verify-published-web-image:
     name: Verify Published Web Image
     needs: publish-web-image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -1280,7 +1280,7 @@ jobs:
       - quality
       - container-smoke
       - browser-smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
       group: ghcr-alert-receiver-release-publication
@@ -1623,7 +1623,7 @@ jobs:
   verify-published-alert-receiver-image:
     name: Verify Published AlertReceiver Image
     needs: publish-alert-receiver-image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
