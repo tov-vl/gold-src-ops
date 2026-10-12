@@ -3204,7 +3204,9 @@ Production подтвердил клавиатуру,
 
 ## CI - Явная версия Ubuntu
 
-В работе: закрепить подтвержденную `ubuntu-24.04` в пяти workflow, включая
-публикацию и availability. Проверить существующий CI routing и полный PR CI,
-после объединения проверить main. Приложение и production не меняются;
-релизные теги и повторный rollout не нужны. См. [baseline](ci-runner-baseline.md).
+Принято 2026-10-12: [PR #326](https://github.com/tov-vl/gold-src-ops/pull/326)
+закрепил Ubuntu 24.04 в 15 Linux jobs пяти workflow. Существующий routing smoke
+и полный PR CI прошли. Проверка CSS, упавшая в первом main CI, исправлена PR #327;
+его PR CI и post-merge CI прошли. Windows-компиляция addon сохранена.
+Публикация и ручные availability workflow повторно не запускались.
+Приложение и production не менялись; [baseline и проверки](ci-runner-baseline.md).
