@@ -111,8 +111,20 @@
         }
     }
 
-    async function refresh() {
+    const announcement = page.querySelector("[data-refresh-announcement]");
+    let announcedState;
+    function announceState(manual = false) {
+        const state = JSON.stringify([panel.dataset.state]);
+        if (announcement && (manual || (announcedState !== undefined && state !== announcedState))) {
+            const description = panel.querySelector(".join-panel__state, .join-panel__notice")?.textContent.trim() ?? page.dataset.unknown;
+            announcement.textContent = manual ? `${status.textContent} ${description}` : description;
+        }
+        announcedState = state;
+    }
+
+    async function refresh(manual = false) {
         if (stopped || document.hidden || controller || performance.now() - lastRequest < 5_000) return;
+        if (manual && announcement) announcement.textContent = "";
         lastRequest = performance.now();
         nextRefresh = lastRequest + refreshInterval;
         const active = new AbortController();
@@ -147,6 +159,7 @@
                 updateAge();
             }
         } finally {
+            if (!stopped && !document.hidden && active.signal.reason !== "hidden") announceState(manual);
             clearTimeout(timeout);
             if (controller === active) controller = null;
             button.removeAttribute("aria-disabled");
@@ -157,10 +170,11 @@
     function tick() {
         if (stopped || document.hidden) return;
         updateAge();
+        announceState();
         if (performance.now() >= nextRefresh) void refresh();
     }
 
-    button.addEventListener("click", event => { event.preventDefault(); void refresh(); });
+    button.addEventListener("click", event => { event.preventDefault(); void refresh(true); });
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
             controller?.abort("hidden");
@@ -179,5 +193,6 @@
     });
     status.textContent = page.dataset.refreshActive;
     updateAge();
+    announceState();
     tickId = setInterval(tick, 1000);
 })();

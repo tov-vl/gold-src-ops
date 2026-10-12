@@ -3,6 +3,10 @@
 @inject NavigationManager Navigation
 
 <div class="site-shell" lang="@Chrome.Code">
+    @if (IsPublic)
+    {
+        <a class="skip-link" href="@SkipTarget">@Chrome["SkipToContent"]</a>
+    }
     <header class="topbar">
         <a class="brand" href="@Text.Link("/")" aria-label="@Chrome["HomeLabel"]">
             <span class="brand-mark" aria-hidden="true">
@@ -49,7 +53,7 @@
         </div>
     </header>
 
-    <main>
+    <main id="main-content" tabindex="-1">
         @Body
     </main>
 
@@ -65,8 +69,31 @@
 
     private PublicPageText Text => PublicPageText.For(Language);
 
-    private PublicPageText Chrome => new Uri(Navigation.Uri).AbsolutePath is "/" or "/play" or "/leaderboard"
-        ? Text : PublicPageText.For("en");
+    private string SkipTarget
+    {
+        get
+        {
+            var uri = new Uri(Navigation.Uri);
+            var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+            var bounded = query.All(pair => pair.Value.Count == 1 && (pair.Key.ToLowerInvariant() switch
+            {
+                "lang" => pair.Value[0]?.ToLowerInvariant() is "ru" or "en",
+                "range" => pair.Value[0] is "24h" or "7d",
+                _ => false
+            }));
+            var fallback = uri.AbsolutePath;
+            if (fallback == "/" && query.TryGetValue("range", out var ranges) && ranges.FirstOrDefault() == "7d")
+            {
+                fallback = "/?range=7d";
+            }
+
+            return (bounded ? uri.PathAndQuery : Text.Link(fallback)) + "#main-content";
+        }
+    }
+
+    private bool IsPublic => new Uri(Navigation.Uri).AbsolutePath is "/" or "/play" or "/leaderboard";
+
+    private PublicPageText Chrome => IsPublic ? Text : PublicPageText.For("en");
 
     private string GetDisplayName(System.Security.Claims.ClaimsPrincipal user) =>
         user.Identity?.Name ?? Chrome["SignedIn"];

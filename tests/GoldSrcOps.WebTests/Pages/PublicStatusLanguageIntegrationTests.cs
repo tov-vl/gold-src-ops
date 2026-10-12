@@ -24,6 +24,7 @@ public sealed class PublicStatusLanguageIntegrationTests
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Headers.Should().NotContain(header => header.Key == "Set-Cookie");
         body.Should().Contain($"<title>{title}</title>")
+            .And.Contain($"<html lang=\"{language}\">")
             .And.Contain($"class=\"site-shell\" lang=\"{language}\"")
             .And.Contain($"class=\"status-page\" lang=\"{language}\"")
             .And.Contain($"href=\"/?range={window}&lang=en\"")

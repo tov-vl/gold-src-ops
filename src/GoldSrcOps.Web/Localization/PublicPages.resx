@@ -192,4 +192,5 @@
   <data name="SnapshotUnconfirmed" xml:space="preserve"><value>Свежий статус не подтвержден</value></data>
   <data name="SnapshotUnconfirmedDetail" xml:space="preserve"><value>Последний снимок не подтверждает текущую доступность. Обновите страницу или повторите проверку.</value></data>
   <data name="SnapshotWarning" xml:space="preserve"><value>Данные устарели или не подтверждены. Показан последний известный снимок.</value></data>
+  <data name="SkipToContent" xml:space="preserve"><value>Перейти к содержимому</value></data>
 </root>

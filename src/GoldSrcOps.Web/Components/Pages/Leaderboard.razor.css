@@ -54,3 +54,5 @@
 .leaderboard-refresh p { flex: 1 1 200px; margin: 0; color: var(--ink-muted); font-size: 0.85rem; line-height: 1.6; }
 .leaderboard-age { display: inline-block; margin-left: 12px; }
 .leaderboard-notice[hidden] { display: none; }
+
+.leaderboard-page { overflow-wrap: anywhere; }

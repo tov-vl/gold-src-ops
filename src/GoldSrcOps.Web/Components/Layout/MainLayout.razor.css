@@ -206,3 +206,27 @@ footer {
         gap: 4px;
     }
 }
+
+.skip-link {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 100;
+    max-width: calc(100% - 16px);
+    padding: 12px 18px;
+    background: var(--surface);
+    color: var(--ink);
+    border: 2px solid var(--focus);
+    border-radius: 4px;
+    transform: translateY(calc(-100% - 16px));
+    overflow-wrap: anywhere;
+}
+
+.skip-link:focus { transform: none; }
+main:focus { outline: none; }
+.topbar { overflow-wrap: anywhere; }
+.primary-nav { flex-wrap: wrap; }
+
+@media (max-width: 640px) {
+    .primary-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

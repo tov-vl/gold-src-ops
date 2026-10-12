@@ -151,8 +151,20 @@
         status.textContent = partialFailure ? page.dataset.statusFailure : page.dataset.statusDone;
     }
 
-    async function refresh() {
+    const announcement = page.querySelector("[data-refresh-announcement]");
+    let announcedState;
+    function announceState(manual = false) {
+        const state = JSON.stringify(selectors.map(selector => { const p = page.querySelector(selector); return [p.dataset.state, p.dataset.failed, p.dataset.available]; }));
+        if (announcement && (manual || (announcedState !== undefined && state !== announcedState))) {
+            const description = [".status-summary h2", ".public-server__state", ".history-unavailable"].map(selector => page.querySelector(selector)?.textContent.trim()).filter(Boolean).join(". ");
+            announcement.textContent = manual ? `${status.textContent} ${description}` : description;
+        }
+        announcedState = state;
+    }
+
+    async function refresh(manual = false) {
         if (stopped || document.hidden || controller || performance.now() - lastRequest < 5_000) return;
+        if (manual && announcement) announcement.textContent = "";
         lastRequest = performance.now();
         nextRefresh = lastRequest + interval;
         const active = new AbortController();
@@ -173,6 +185,7 @@
                 updateAges();
             }
         } finally {
+            if (!stopped && !document.hidden && active.signal.reason !== "hidden") announceState(manual);
             clearTimeout(timeout);
             if (controller === active) controller = null;
             button.removeAttribute("aria-disabled");
@@ -182,9 +195,10 @@
     function tick() {
         if (stopped || document.hidden) return;
         updateAges();
+        announceState();
         if (performance.now() >= nextRefresh) void refresh();
     }
-    button.addEventListener("click", event => { event.preventDefault(); void refresh(); });
+    button.addEventListener("click", event => { event.preventDefault(); void refresh(true); });
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) { controller?.abort("hidden"); status.textContent = page.dataset.refreshPaused; }
         else { status.textContent = page.dataset.refreshActive; tick(); }
@@ -198,5 +212,6 @@
     });
     status.textContent = page.dataset.refreshActive;
     updateAges();
+    announceState();
     timer = setInterval(tick, 1000);
 })();
