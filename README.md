@@ -6,18 +6,16 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.72.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.72.0)
-is the current public release. Web now measures complete public API reads through
-JSON parsing and exports bounded operation/outcome metrics to the existing private
-Prometheus/Grafana stack. A compact dashboard shows traffic, latency, failures
-and caller cancellation. The five-second response budget remains unchanged.
+**Status:** [v2.74.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.74.0)
+is the current public release. The player guide shows all five ranks and their
+saved enemy-kill thresholds; the leaderboard explains rank versus top-10 position
+and links directly to the guide. RU/EN, keyboard, mobile and no-JavaScript
+acceptance passed in production.
 
-Production acceptance confirmed all four operations, the provisioned dashboard
-and public RU/EN pages with and without JavaScript. Only Web was recreated; six
-other containers and all mounts were preserved. Stable references reuse accepted
-digests without rebuilding. No public metrics endpoint, new alerts or personal
-notifications were added. See [release notes](docs/release-notes-v2.72.md) and
-[evidence](docs/v2.72-readiness.md).
+Only Web was recreated. Six other containers, mounts and monitoring configuration
+were preserved. Stable references reuse accepted digests without rebuilding.
+Gameplay and saved-player data are unchanged. See
+[release notes](docs/release-notes-v2.74.md) and [evidence](docs/v2.74-readiness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
@@ -954,12 +952,12 @@ The spike follows Valve's documented A2S server query format:
 
 The public repository is configured with private vulnerability reporting,
 Dependabot security updates, and a protected `main` workflow. The current
-[GoldSrcOps v2.59.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.59.0)
-adds leaderboard page refresh. Its signed stable tag promotes the exact three
+[GoldSrcOps v2.74.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.74.0)
+adds the player rank guide. Its signed stable tag promotes the exact three
 accepted candidate digests; only Web was installed in production. Detailed
-evidence and limits are in [docs/v2.59-readiness.md](docs/v2.59-readiness.md).
-[v2.58.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.58.0)
-is the preceding stable release.
+evidence and limits are in [docs/v2.74-readiness.md](docs/v2.74-readiness.md).
+[v2.72.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.72.0)
+is the preceding application release; v2.73 was monitoring configuration only.
 
 ## License
 
