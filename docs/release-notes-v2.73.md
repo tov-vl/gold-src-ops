@@ -1,6 +1,7 @@
 # v2.73 - Public Web API warnings
 
-Pending configuration-only acceptance.
+Configuration-only milestone installed and independently accepted on 2026-10-13.
+Application stable remains v2.72.0; no new images or application tags were needed.
 
 Prometheus warns when one public API operation has at least 10 estimated reads,
 5 failures and a 20% failure ratio over 15 minutes, sustained for five minutes.

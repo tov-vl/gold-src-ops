@@ -37,7 +37,8 @@ Web instance remain part of the 15-minute history, even after replacement.
 
 ## Diagnosis
 
-1. Open the dashboard from the warning's `runbook_url`. Check the operation,
+1. Follow the warning's `runbook_url` to this guide and open dashboard
+   `goldsrcops-web-public-api`. Check the operation,
    pending/firing state, estimated read volume, outcome counts and failure ratio.
 2. Read the affected public page once. Check Web/API health and the Collector
    scrape target. Check whether counts advance; an old constant series or no
