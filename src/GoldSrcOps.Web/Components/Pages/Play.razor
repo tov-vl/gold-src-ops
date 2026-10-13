@@ -134,7 +134,7 @@
         </ol>
     </section>
 
-    <section class="play-section progress-guide" aria-labelledby="progress-title">
+    <section id="ranks" tabindex="-1" class="play-section progress-guide" aria-labelledby="progress-title">
         <div class="play-section__heading">
             <p class="eyebrow">@Text["ProgressBetween"]</p>
             <h2 id="progress-title">@Text["NextRank"]</h2>
@@ -142,6 +142,19 @@
         <div class="progress-guide__body">
             <div>
                 <p>@Text["RankGuide"]</p>
+                <table class="rank-guide-table">
+                    <caption>@Text["RankThresholds"]</caption>
+                    <thead><tr><th scope="col">@Text["Rank"]</th><th scope="col">@Text["SavedEnemyKills"]</th></tr></thead>
+                    <tbody>
+                        <tr><th scope="row">@Text["Recruit"]</th><td>0</td></tr>
+                        <tr><th scope="row">@Text["Fighter"]</th><td>25</td></tr>
+                        <tr><th scope="row">@Text["Veteran"]</th><td>100</td></tr>
+                        <tr><th scope="row">@Text["Elite"]</th><td>250</td></tr>
+                        <tr><th scope="row">@Text["Legend"]</th><td>500</td></tr>
+                    </tbody>
+                </table>
+                <p>@Text["RankThresholdsDetail"]</p>
+                <p>@Text["RankVsPosition"]</p>
                 <p>@Text["RankFairness"]</p>
             </div>
             <div class="progress-guide__saved">

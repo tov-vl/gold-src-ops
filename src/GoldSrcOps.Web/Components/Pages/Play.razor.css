@@ -238,6 +238,7 @@
 
 .progress-guide__body {
     display: grid;
+    align-items: start;
     grid-template-columns: 1fr 1fr;
     gap: 48px;
 }
@@ -404,3 +405,11 @@
 #connection:focus-visible,
 #connection-help:focus-visible,
 #first-steps:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+.rank-guide-table { width: 100%; margin: 24px 0; border-collapse: collapse; table-layout: fixed; }
+.rank-guide-table caption { margin-bottom: 12px; text-align: left; color: var(--ink); font-weight: 720; }
+.rank-guide-table th,
+.rank-guide-table td { padding: 12px 10px; border-bottom: 1px solid var(--line); text-align: left; line-height: 1.6; }
+.rank-guide-table thead th { color: var(--ink-soft); font-size: 0.85rem; }
+.rank-guide-table tbody td { color: var(--signal-green); font-variant-numeric: tabular-nums; }
+#ranks:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }

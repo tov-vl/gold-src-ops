@@ -3251,3 +3251,10 @@ Stable использует принятые digests без пересборки
 не доказывает исправность. Только monitoring configuration; application images,
 игра и личные уведомления не входят в этап. См. [readiness](v2.73-readiness.md)
 и [пороги, диагностику и откат](web-public-api-alerts.md).
+
+## v2.74 - Понятный прогресс игрока на сайте
+
+В работе: таблица рангов и порогов на `/play#ranks`, переход из `/leaderboard`
+и объяснение разницы между рангом и местом в топ-10. RU/EN, клавиатура,
+мобильная версия и no-JavaScript; только Web, без изменений addon и сохранений.
+См. [контракт](v2.74-player-rank-guide.md) и [readiness](v2.74-readiness.md).
