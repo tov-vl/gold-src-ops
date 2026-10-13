@@ -42,7 +42,7 @@
   <data name="ProfileAfter" xml:space="preserve"><value>: статистика, звание, место в рейтинге и рекорд серии собраны на одном экране.</value></data>
   <data name="ProgressBetween" xml:space="preserve"><value>Прогресс между играми</value></data>
   <data name="NextRank" xml:space="preserve"><value>Твой следующий ранг</value></data>
-  <data name="RankGuide" xml:space="preserve"><value>Убийства противников повышают звание: Recruit, Fighter, Veteran, Elite и Legend. В профиле видно, сколько осталось до следующего ранга.</value></data>
+  <data name="RankGuide" xml:space="preserve"><value>Убийства противников повышают ранг. В профиле видно, сколько осталось до следующего ранга.</value></data>
   <data name="RankFairness" xml:space="preserve"><value>Ранг не дает боевых преимуществ. Общий рейтинг учитывает сохраненные результаты, включая игроков, которые сейчас не на сервере.</value></data>
   <data name="ReturnProgress" xml:space="preserve"><value>Вернись к своему прогрессу</value></data>
   <data name="SavedIdentity" xml:space="preserve"><value>При подтвержденной Steam-идентичности статистика, рекорд серии, язык и выбранные настройки сохраняются после выхода и смены карты.</value></data>
@@ -208,4 +208,9 @@
   <data name="JoinedHelpTitle" xml:space="preserve"><value>Подключился. Что дальше?</value></data>
   <data name="JoinedHelpBefore" xml:space="preserve"><value>Напиши в игровом чате</value></data>
   <data name="JoinedHelpAfter" xml:space="preserve"><value> - откроется главное меню. Первые шаги помогут выбрать команду, оружие и посмотреть профиль.</value></data>
+  <data name="RankThresholds" xml:space="preserve"><value>Пороги рангов</value></data>
+  <data name="SavedEnemyKills" xml:space="preserve"><value>Убийств противников, от</value></data>
+  <data name="RankThresholdsDetail" xml:space="preserve"><value>Учитываются сохраненные убийства противников за все подключения, а не только текущая карта. Смерти не уменьшают ранг. Легенда - высший ранг.</value></data>
+  <data name="RankVsPosition" xml:space="preserve"><value>Ранг зависит от числа убийств. Место в топ-10 зависит от результатов других игроков: больше убийств, при равенстве - меньше смертей. Одинаковый ранг не означает одинаковое место.</value></data>
+  <data name="RankGuideLink" xml:space="preserve"><value>Все ранги и условия перехода</value></data>
 </root>

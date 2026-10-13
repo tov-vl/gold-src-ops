@@ -42,7 +42,7 @@
   <data name="ProfileAfter" xml:space="preserve"><value>: your stats, rank, leaderboard position and best streak are all on one screen.</value></data>
   <data name="ProgressBetween" xml:space="preserve"><value>Progress between sessions</value></data>
   <data name="NextRank" xml:space="preserve"><value>Your next rank</value></data>
-  <data name="RankGuide" xml:space="preserve"><value>Enemy kills raise your rank: Recruit, Fighter, Veteran, Elite and Legend. Your profile shows how many kills you need for the next rank.</value></data>
+  <data name="RankGuide" xml:space="preserve"><value>Enemy kills raise your rank. Your profile shows how many kills you need for the next rank.</value></data>
   <data name="RankFairness" xml:space="preserve"><value>Ranks give no combat advantages. The overall leaderboard includes saved results, even for players who are currently offline.</value></data>
   <data name="ReturnProgress" xml:space="preserve"><value>Pick up where you left off</value></data>
   <data name="SavedIdentity" xml:space="preserve"><value>With a verified Steam identity, your stats, best streak, language and preferences are saved across disconnects and map changes.</value></data>
@@ -208,4 +208,9 @@
   <data name="JoinedHelpTitle" xml:space="preserve"><value>Connected. What next?</value></data>
   <data name="JoinedHelpBefore" xml:space="preserve"><value>Type</value></data>
   <data name="JoinedHelpAfter" xml:space="preserve"><value> in the game chat to open the main menu. The first steps explain how to choose a team and weapons, and view your profile.</value></data>
+  <data name="RankThresholds" xml:space="preserve"><value>Rank thresholds</value></data>
+  <data name="SavedEnemyKills" xml:space="preserve"><value>Enemy kills, at least</value></data>
+  <data name="RankThresholdsDetail" xml:space="preserve"><value>Ranks use saved enemy kills across sessions, not just the current map. Deaths do not lower your rank. Legend is the highest rank.</value></data>
+  <data name="RankVsPosition" xml:space="preserve"><value>Your rank depends on your kill count. Your top-10 position depends on other players: more kills first, then fewer deaths. Players with the same rank can have different positions.</value></data>
+  <data name="RankGuideLink" xml:space="preserve"><value>All ranks and unlock requirements</value></data>
 </root>
