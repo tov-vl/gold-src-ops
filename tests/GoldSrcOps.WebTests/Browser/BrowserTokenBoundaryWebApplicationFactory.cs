@@ -76,10 +76,10 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
                     serverJoinFailureStatus: serverJoinFailureStatus,
                     leaderboard: leaderboard, leaderboardFailure: leaderboardFailure);
             services.RemoveAll<PublicStatusClient>();
-            services.AddSingleton(new PublicStatusClient(new HttpClient(publicStatusHandler)
+            services.AddSingleton(provider => new PublicStatusClient(new HttpClient(publicStatusHandler)
             {
                 BaseAddress = new Uri("https://api.example.test/")
-            }));
+            }, provider.GetRequiredService<PublicApiMetrics>()));
             services.AddSingleton<IStartupFilter, BrowserSignInStartupFilter>();
         });
     }

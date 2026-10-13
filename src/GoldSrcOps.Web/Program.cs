@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHealthChecks();
+WebTelemetryConfiguration.Configure(builder.Services, builder.Configuration);
 var reverseProxyEnabled = ReverseProxyConfiguration.Configure(
     builder.Services,
     builder.Configuration);

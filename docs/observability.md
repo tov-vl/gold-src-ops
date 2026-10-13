@@ -224,3 +224,17 @@ OTLP interval is 60 seconds; snapshot age describes that observation, which can
 precede the latest public API snapshot. See the
 [v2.58 contract](v2.58-leaderboard-monitoring.md) for metric names, thresholds,
 recovery boundary and claim limits. Direct notification delivery remains deferred.
+
+## Web public API reads
+
+Web exports its bounded public-read histogram through the existing private OTLP
+Collector. Production Web attaches to internal telemetry and edge, with edge as
+its preferred gateway; Collector availability does not gate startup. Web exposes
+no `/metrics` route. The exporter is disabled unless explicitly enabled and uses
+a fixed 60-second interval and 30-second export timeout.
+
+Dashboard `goldsrcops-web-public-api` shows complete reads including JSON, traffic,
+p95, failures and cancellations. Only four operation labels and five outcomes are
+accepted by the client call sites. Optional 404 and caller cancellation are not
+API failures. Sparse traffic and missing observations do not prove availability;
+see [the metric and recovery contract](v2.72-public-api-observability.md).

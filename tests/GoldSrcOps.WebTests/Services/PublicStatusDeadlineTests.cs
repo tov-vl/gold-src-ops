@@ -18,12 +18,16 @@ public sealed class PublicStatusDeadlineTests
         using var stream = new StalledStream(partialBody);
         using var handler = new DelayedHandler(TimeSpan.Zero, stream);
         using var http = CreateHttpClient(handler, TimeSpan.FromMilliseconds(200));
-        var client = new PublicStatusClient(http);
+        using var metrics = new PublicApiMetrics();
+        using var capture = new PublicApiMeasurementCapture(metrics);
+        var client = new PublicStatusClient(http, metrics);
 
         var action = () => InvokeAsync(client, operation).WaitAsync(TimeSpan.FromSeconds(5));
 
         var exception = await action.Should().ThrowAsync<TaskCanceledException>();
         exception.Which.InnerException.Should().BeOfType<TimeoutException>();
+        capture.Values.Should().ContainSingle().Which.Tags["outcome"].Should().Be("timeout");
+        capture.Values.Single().Seconds.Should().BeGreaterThan(0.1);
         stream.CancellationObserved.Should().BeTrue();
         stream.Disposed.Should().BeTrue();
         handler.RequestCount.Should().Be(1);
@@ -35,13 +39,17 @@ public sealed class PublicStatusDeadlineTests
         using var stream = new StalledStream(false);
         using var handler = new DelayedHandler(TimeSpan.FromMilliseconds(1200), stream);
         using var http = CreateHttpClient(handler, TimeSpan.FromSeconds(2));
-        var client = new PublicStatusClient(http);
+        using var metrics = new PublicApiMetrics();
+        using var capture = new PublicApiMeasurementCapture(metrics);
+        var client = new PublicStatusClient(http, metrics);
         var elapsed = Stopwatch.StartNew();
 
         var action = () => client.GetStatusAsync().WaitAsync(TimeSpan.FromSeconds(5));
 
         await action.Should().ThrowAsync<TaskCanceledException>();
         elapsed.Elapsed.Should().BeLessThan(TimeSpan.FromMilliseconds(2800));
+        capture.Values.Should().ContainSingle().Which.Tags["outcome"].Should().Be("timeout");
+        capture.Values.Single().Seconds.Should().BeGreaterThan(0.1);
         stream.CancellationObserved.Should().BeTrue();
     }
 
@@ -51,11 +59,14 @@ public sealed class PublicStatusDeadlineTests
         using var stream = new StalledStream(false);
         using var handler = new DelayedHandler(Timeout.InfiniteTimeSpan, stream);
         using var http = CreateHttpClient(handler, TimeSpan.FromMilliseconds(200));
-        var client = new PublicStatusClient(http);
+        using var metrics = new PublicApiMetrics();
+        using var capture = new PublicApiMeasurementCapture(metrics);
+        var client = new PublicStatusClient(http, metrics);
 
         var action = () => client.GetStatusAsync().WaitAsync(TimeSpan.FromSeconds(5));
 
         await action.Should().ThrowAsync<TaskCanceledException>();
+        capture.Values.Should().ContainSingle().Which.Tags["outcome"].Should().Be("timeout");
         handler.HeaderCancellationObserved.Should().BeTrue();
         handler.RequestCount.Should().Be(1);
     }
@@ -69,7 +80,9 @@ public sealed class PublicStatusDeadlineTests
         using var handler = new DelayedHandler(duringBody ? TimeSpan.Zero : Timeout.InfiniteTimeSpan, stream);
         using var http = CreateHttpClient(handler, TimeSpan.FromSeconds(5));
         using var caller = new CancellationTokenSource();
-        var client = new PublicStatusClient(http);
+        using var metrics = new PublicApiMetrics();
+        using var capture = new PublicApiMeasurementCapture(metrics);
+        var client = new PublicStatusClient(http, metrics);
         var pending = client.GetStatusAsync(caller.Token);
         await (duringBody ? stream.ReadStarted.Task : handler.RequestStarted.Task).WaitAsync(TimeSpan.FromSeconds(2));
 
@@ -77,6 +90,7 @@ public sealed class PublicStatusDeadlineTests
         var action = async () => await pending.WaitAsync(TimeSpan.FromSeconds(2));
 
         var exception = await action.Should().ThrowAsync<OperationCanceledException>();
+        capture.Values.Should().ContainSingle().Which.Tags["outcome"].Should().Be("canceled");
         (exception.Which.InnerException is TimeoutException).Should().BeFalse();
         (duringBody ? stream.CancellationObserved : handler.HeaderCancellationObserved).Should().BeTrue();
         handler.RequestCount.Should().Be(1);
@@ -90,12 +104,15 @@ public sealed class PublicStatusDeadlineTests
         using var stream = new StalledStream(false);
         using var handler = new DelayedHandler(TimeSpan.Zero, stream, HttpStatusCode.NotFound);
         using var http = CreateHttpClient(handler, TimeSpan.FromSeconds(1));
-        var client = new PublicStatusClient(http);
+        using var metrics = new PublicApiMetrics();
+        using var capture = new PublicApiMeasurementCapture(metrics);
+        var client = new PublicStatusClient(http, metrics);
 
         object? result = string.Equals(operation, "leaderboard", StringComparison.Ordinal)
             ? await client.GetLeaderboardAsync()
             : await client.GetServerJoinAsync();
 
+        capture.Values.Should().ContainSingle().Which.Tags["outcome"].Should().Be("not_found");
         result.Should().BeNull();
         stream.ReadStarted.Task.IsCompleted.Should().BeFalse();
         stream.Disposed.Should().BeTrue();

@@ -25,7 +25,8 @@ public sealed class PublicStatusClientTests
             Content = JsonContent.Create(expected)
         });
         using var httpClient = CreateHttpClient(capture);
-        var client = new PublicStatusClient(httpClient);
+        using var metrics = new PublicApiMetrics();
+        var client = new PublicStatusClient(httpClient, metrics);
 
         var result = await client.GetServerJoinAsync();
 
@@ -38,7 +39,8 @@ public sealed class PublicStatusClientTests
     {
         var capture = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
         using var httpClient = CreateHttpClient(capture);
-        var client = new PublicStatusClient(httpClient);
+        using var metrics = new PublicApiMetrics();
+        var client = new PublicStatusClient(httpClient, metrics);
 
         var result = await client.GetServerJoinAsync();
 
@@ -53,7 +55,8 @@ public sealed class PublicStatusClientTests
             Content = new StringContent("null", System.Text.Encoding.UTF8, "application/json")
         });
         using var httpClient = CreateHttpClient(capture);
-        var client = new PublicStatusClient(httpClient);
+        using var metrics = new PublicApiMetrics();
+        var client = new PublicStatusClient(httpClient, metrics);
 
         var action = () => client.GetServerJoinAsync();
 
@@ -72,7 +75,8 @@ public sealed class PublicStatusClientTests
             Content = JsonContent.Create(expected)
         });
         using var httpClient = CreateHttpClient(capture);
-        var client = new PublicStatusClient(httpClient);
+        using var metrics = new PublicApiMetrics();
+        var client = new PublicStatusClient(httpClient, metrics);
 
         var result = await client.GetA2sHistoryAsync(window);
 
@@ -86,7 +90,8 @@ public sealed class PublicStatusClientTests
     {
         var capture = new CaptureHandler(_ => throw new InvalidOperationException("A request was not expected."));
         using var httpClient = CreateHttpClient(capture);
-        var client = new PublicStatusClient(httpClient);
+        using var metrics = new PublicApiMetrics();
+        var client = new PublicStatusClient(httpClient, metrics);
 
         var action = () => client.GetA2sHistoryAsync("30d");
 
@@ -103,7 +108,8 @@ public sealed class PublicStatusClientTests
             Content = new StringContent("null", System.Text.Encoding.UTF8, "application/json")
         });
         using var httpClient = CreateHttpClient(capture);
-        var client = new PublicStatusClient(httpClient);
+        using var metrics = new PublicApiMetrics();
+        var client = new PublicStatusClient(httpClient, metrics);
 
         var action = () => client.GetA2sHistoryAsync(PublicStatusClient.Last24HoursWindow);
 
