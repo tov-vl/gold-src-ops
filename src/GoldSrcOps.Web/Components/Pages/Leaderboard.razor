@@ -47,6 +47,7 @@
         <p class="leaderboard-notice" data-leaderboard-notice hidden="@(State != "stale")">@Text["StaleNotice"]</p>
         @if (_snapshot is { Entries.Count: > 0 } && State is "fresh" or "stale")
         {
+            <p class="leaderboard-progress-hint">@Text["RankProgressHint"]</p>
             <table class="leaderboard-table">
                 <caption class="visually-hidden">@Text["TableCaption"]</caption>
                 <colgroup><col class="place-column" /><col class="name-column" /><col class="rank-column" /><col class="score-column" /><col class="score-column" /></colgroup>
@@ -54,7 +55,19 @@
                 <tbody>
                     @foreach (var entry in _snapshot.Entries)
                     {
-                        <tr><td class="leaderboard-place">@entry.Position</td><th scope="row">@entry.Name</th><td class="leaderboard-rank">@RankLabel(entry.Rank)</td><td>@entry.Kills</td><td>@entry.Deaths</td></tr>
+                        <tr>
+                            <td class="leaderboard-place">@entry.Position</td>
+                            <th scope="row">@entry.Name</th>
+                            <td class="leaderboard-rank">
+                                @PlayerRankDisplay.Name(Text, entry.Rank)
+                                @if (PlayerRankDisplay.Progress(Text, entry.Rank, entry.Kills) is { } progress)
+                                {
+                                    <small class="leaderboard-rank-progress">@progress</small>
+                                }
+                            </td>
+                            <td>@entry.Kills</td>
+                            <td>@entry.Deaths</td>
+                        </tr>
                     }
                 </tbody>
             </table>
@@ -88,11 +101,6 @@
         "fresh" => Text["Fresh"],
         "stale" => Text["Stale"],
         _ => Text["Unavailable"]
-    };
-
-    private string RankLabel(int rank) => rank switch
-    {
-        0 => Text["Recruit"], 1 => Text["Fighter"], 2 => Text["Veteran"], 3 => Text["Elite"], 4 => Text["Legend"], _ => Text["NoData"]
     };
 
     protected override async Task OnInitializedAsync()

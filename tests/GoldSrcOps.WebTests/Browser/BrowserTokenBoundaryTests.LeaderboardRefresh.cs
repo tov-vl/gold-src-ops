@@ -18,12 +18,13 @@ public sealed partial class BrowserTokenBoundaryTests
         await Page.RouteAsync("**/leaderboard", async route =>
         {
             requests.Add(route.Request);
-            await route.FulfillAsync(new() { ContentType = "text/html", Body = body.Replace("Другой игрок", "Обновленный игрок", StringComparison.Ordinal) });
+            await route.FulfillAsync(new() { ContentType = "text/html", Body = body.Replace("Другой игрок", "Обновленный игрок", StringComparison.Ordinal).Replace("До Ветерана: 75", "До Ветерана: 74", StringComparison.Ordinal) });
         });
         await Page.EvaluateAsync("window.__documentMarker = 42");
         await Page.Locator("[data-leaderboard-refresh]").ClickAsync();
         await Expect(Page.Locator("#leaderboard-refresh-status")).ToHaveTextAsync("Проверка завершена. Свежий снимок получен.");
         await Expect(Page.Locator(".leaderboard-table tbody th").Last).ToHaveTextAsync("Обновленный игрок");
+        await Expect(Page.Locator(".leaderboard-rank-progress").Last).ToHaveTextAsync("До Ветерана: 74");
         await Expect(Page.Locator("[data-leaderboard-refresh]")).ToBeFocusedAsync();
         (await Page.EvaluateAsync<int>("window.__documentMarker")).Should().Be(42);
         await Expect(Page.Locator(".leaderboard-table tbody th").First).ToHaveTextAsync("Игрок <script>alert(1)</script>");
@@ -113,6 +114,7 @@ public sealed partial class BrowserTokenBoundaryTests
         await SetLeaderboardHiddenAsync(false);
         await Expect(Page.Locator(".leaderboard-state")).ToHaveTextAsync("Рейтинг временно недоступен");
         await Expect(Page.Locator(".leaderboard-table")).ToHaveCountAsync(0);
+        await Expect(Page.Locator(".leaderboard-rank-progress")).ToHaveCountAsync(0);
     }
 
     [BrowserFact]

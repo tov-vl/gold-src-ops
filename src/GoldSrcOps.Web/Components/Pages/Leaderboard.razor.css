@@ -56,3 +56,6 @@
 .leaderboard-notice[hidden] { display: none; }
 
 .leaderboard-page { overflow-wrap: anywhere; }
+
+.leaderboard-rank-progress { display: block; margin-top: 6px; font-size: 0.8rem; line-height: 1.5; color: var(--ink-muted); }
+.leaderboard-progress-hint { margin: 20px 0 0; color: var(--ink-soft); font-size: 0.85rem; line-height: 1.6; }

@@ -146,11 +146,10 @@
                     <caption>@Text["RankThresholds"]</caption>
                     <thead><tr><th scope="col">@Text["Rank"]</th><th scope="col">@Text["SavedEnemyKills"]</th></tr></thead>
                     <tbody>
-                        <tr><th scope="row">@Text["Recruit"]</th><td>0</td></tr>
-                        <tr><th scope="row">@Text["Fighter"]</th><td>25</td></tr>
-                        <tr><th scope="row">@Text["Veteran"]</th><td>100</td></tr>
-                        <tr><th scope="row">@Text["Elite"]</th><td>250</td></tr>
-                        <tr><th scope="row">@Text["Legend"]</th><td>500</td></tr>
+                        @foreach (var rank in PlayerRankDisplay.Ranks)
+                        {
+                            <tr><th scope="row">@Text[rank.NameKey]</th><td>@rank.Kills</td></tr>
+                        }
                     </tbody>
                 </table>
                 <p>@Text["RankThresholdsDetail"]</p>
