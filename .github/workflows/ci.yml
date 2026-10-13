@@ -195,7 +195,6 @@ jobs:
     name: Container Smoke
     needs:
       - change-scope
-      - quality
       - map-menu-compile
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
@@ -205,9 +204,9 @@ jobs:
 
     steps:
       - name: Require successful prerequisite checks
-        if: needs.change-scope.result != 'success' || needs.quality.result != 'success'
+        if: needs.change-scope.result != 'success'
         shell: pwsh
-        run: throw "Change Scope and Quality Gate must succeed."
+        run: throw "Change Scope must succeed."
 
       - name: Require successful addon compilation and packaging
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.map-menu-compile.result != 'success'

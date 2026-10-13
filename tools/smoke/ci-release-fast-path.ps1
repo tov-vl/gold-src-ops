@@ -324,7 +324,7 @@ foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
         Assert-Condition -Condition ($guard.Body -match 'run: throw ') -Message "The addon result guard must fail the required check."
     }
     $context['needs.map-menu-compile.result'] = 'success'
-    foreach ($dependency in @('needs.change-scope.result', 'needs.quality.result')) {
+    foreach ($dependency in @('needs.change-scope.result')) {
         foreach ($status in @('failure', 'cancelled', 'skipped')) {
             $context[$dependency] = $status
             $guard = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq 'Require successful prerequisite checks')[0]
@@ -334,6 +334,21 @@ foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
     }
 }
 Assert-Condition -Condition ($containerJob -match '(?m)^      - map-menu-compile$') -Message "Container Smoke must wait for addon compilation."
+Assert-Condition -Condition ($containerJob -notmatch 'needs\.quality|(?m)^      - quality$') -Message "Container Smoke must run independently of Quality Gate."
+# Parallel execution must not turn successful container checks into permission
+# to publish after a failed, cancelled or skipped Quality Gate.
+foreach ($name in @('publish-image', 'publish-web-image', 'publish-alert-receiver-image')) {
+    $publication = Get-WorkflowJobBlock -Workflow $workflow -JobName $name
+    $dependencies = [regex]::Match($publication, '(?ms)^    needs:\r?\n(?<items>(?:      - [a-z-]+\r?\n)+)').Groups['items'].Value
+    foreach ($required in @('quality', 'container-smoke', 'browser-smoke')) {
+        Assert-Condition -Condition ($dependencies -match "(?m)^      - $required\r?$") -Message "$name must require $required success."
+    }
+    $condition = [regex]::Match($publication, '(?ms)^    if: >-\r?\n(?<expression>.*?)(?=^    needs:)').Groups['expression'].Value
+    Assert-Condition -Condition (-not [string]::IsNullOrWhiteSpace($condition)) -Message "$name publication condition missing."
+    Assert-Condition -Condition ($condition -notmatch '(?i)\b(always|cancelled|failure|success)\s*\(') -Message "$name must retain the implicit success gate for all dependencies."
+}
+Assert-Condition -Condition ($qualityJob -notmatch 'continue-on-error:') -Message "Quality Gate failures must remain fatal."
+
 Assert-Condition -Condition ($containerJob -match '(?m)^    if: \$\{\{ !cancelled\(\) \}\}$') -Message "Container Smoke must report upstream failures."
 Assert-Condition -Condition ($compileJob -notmatch '(?m)^    if:') -Message "Addon fast paths must report success rather than skip a publication ancestor."
 Assert-Condition -Condition ($compileJob -match "'ubuntu-24\.04' \|\| 'windows-latest'") -Message "Addon compilation must use Windows; lightweight confirmations use Ubuntu."

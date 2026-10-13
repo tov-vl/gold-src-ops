@@ -197,7 +197,7 @@ The addon path preserves the existing check names:
 - `Quality Gate` validates the CI routing contract and tracked documentation.
 - `Map Menu Compile` compiles both addons and their fixtures with the pinned
   toolchain, validates dictionaries and builds/verifies their packages.
-- `Container Smoke` requires successful scope, quality and compilation checks,
+- `Container Smoke` requires successful scope and compilation checks,
   runs both isolated addon installer/rollback fixtures, and checks the syntax
   of the three local gameplay runtime scripts.
 - `Browser Smoke` records that browser execution is unnecessary for this scope.
@@ -319,6 +319,14 @@ request. A separate pull request for each intermediate release stage is not the
 default.
 
 ## Parallel Work
+
+`Container Smoke` runs alongside `Quality Gate` after successful scope resolution
+and addon compilation, on a separate runner with its own checkout and build.
+Quality, container and browser checks all remain required for merge and for each
+image publication job. No test is omitted or reused from an earlier run. On a
+broken revision, container work can now continue while Quality Gate fails; the
+tradeoff is reduced waiting on successful runs, not lower runner usage.
+See [release timing](ci-release-timing-2026-10.md).
 
 Use unavoidable wait time without crossing release gates:
 
