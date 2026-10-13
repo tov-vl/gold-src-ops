@@ -765,8 +765,8 @@ Assert-Condition `
     -Message "The API must attach only to the edge and telemetry networks."
 $webNetworkNames = @($web.networks.PSObject.Properties.Name)
 Assert-Condition `
-    -Condition ($webNetworkNames.Count -eq 1 -and $webNetworkNames[0] -eq "edge") `
-    -Message "The Web host must attach only to the edge network."
+    -Condition (@(Compare-Object @("edge", "telemetry") $webNetworkNames).Count -eq 0 -and [int]$web.networks.edge.gw_priority -eq 1) `
+    -Message "The Web host must attach only to edge and internal telemetry, preferring edge egress."
 Assert-Condition `
     -Condition ([string]$web.environment.GoldSrcOpsApi__BaseUrl -eq "http://api:8080/") `
     -Message "The Web host must use the private API service endpoint."
@@ -857,6 +857,10 @@ Assert-Condition `
         [string]$api.environment.Telemetry__Otlp__ExportTimeoutMilliseconds -eq "30000") `
     -Message "The production API must use the bounded private OTLP metrics contract."
 
+Assert-Condition `
+    -Condition ([string]$web.environment.Telemetry__Otlp__Enabled -eq "true" -and
+        [string]$web.environment.Telemetry__Otlp__Endpoint -eq "http://otel-collector:4317") `
+    -Message "The Web host must export metrics only to the private OTLP collector."
 $apiDependencyNames = @($api.depends_on.PSObject.Properties.Name)
 Assert-Condition `
     -Condition ($apiDependencyNames.Count -eq 1 -and $apiDependencyNames[0] -eq "postgres") `

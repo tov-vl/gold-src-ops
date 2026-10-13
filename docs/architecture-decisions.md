@@ -1976,3 +1976,17 @@ upgrade requires a reviewed workflow change and relevant CI evidence.
 The label pins the Ubuntu release, not the hosted image revision or every
 installed tool. GitHub continues to update the image within that release.
 See [runner baseline evidence](ci-runner-baseline.md).
+
+## Decision 47: Measure Complete Public API Reads In Web
+
+Keep public read telemetry in the Web host, around the shared request and JSON
+read boundary. HTTP header timings alone do not represent the delay seen by a
+server-rendered page. Export only fixed operation/outcome tags and a duration
+histogram through the existing private OTLP Collector. Treat caller cancellation
+and optional missing projections separately from failure. Do not expose metrics
+or protected API access in the browser.
+
+Web may join the internal telemetry network while retaining edge as its preferred
+egress gateway. Collector availability must not gate Web startup or page reads.
+Dashboard rates and quantiles are passive traffic observations, not an availability
+or SLO claim. See [the v2.72 contract](v2.72-public-api-observability.md).

@@ -144,7 +144,7 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
                 BaseAddress = new Uri("https://api.example.test/")
             };
             services.RemoveAll<PublicStatusClient>();
-            services.AddSingleton(new PublicStatusClient(httpClient));
+            services.AddSingleton(provider => new PublicStatusClient(httpClient, provider.GetRequiredService<PublicApiMetrics>()));
         });
     }
 
