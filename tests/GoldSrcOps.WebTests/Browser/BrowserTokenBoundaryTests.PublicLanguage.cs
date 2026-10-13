@@ -29,7 +29,8 @@ public sealed partial class BrowserTokenBoundaryTests
             await CaptureScreenshotIfRequestedAsync("player-guide-en", new() { Width = width, Height = 900 });
             await Page.Locator(".primary-nav a[href='/leaderboard?lang=en']").ClickAsync();
             await Expect(Page.Locator(".leaderboard-page")).ToHaveAttributeAsync("lang", "en");
-            await Expect(Page.Locator(".leaderboard-rank").First).ToHaveTextAsync("Legend");
+            await Expect(Page.Locator(".leaderboard-rank").First).ToContainTextAsync("Legend");
+            await Expect(Page.Locator(".leaderboard-rank-progress").First).ToHaveTextAsync("Highest rank");
             await Expect(Page.Locator(".primary-nav a[href='/leaderboard?lang=en']")).ToHaveAttributeAsync("aria-current", "page");
             (await Page.EvaluateAsync<bool>("document.documentElement.scrollWidth > document.documentElement.clientWidth")).Should().BeFalse();
             await CaptureScreenshotIfRequestedAsync("leaderboard-en", new() { Width = width, Height = 900 });

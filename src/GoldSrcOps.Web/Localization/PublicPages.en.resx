@@ -213,4 +213,10 @@
   <data name="RankThresholdsDetail" xml:space="preserve"><value>Ranks use saved enemy kills across sessions, not just the current map. Deaths do not lower your rank. Legend is the highest rank.</value></data>
   <data name="RankVsPosition" xml:space="preserve"><value>Your rank depends on your kill count. Your top-10 position depends on other players: more kills first, then fewer deaths. Players with the same rank can have different positions.</value></data>
   <data name="RankGuideLink" xml:space="preserve"><value>All ranks and unlock requirements</value></data>
+  <data name="KillsToFighter" xml:space="preserve"><value>To Fighter: {0}</value></data>
+  <data name="KillsToVeteran" xml:space="preserve"><value>To Veteran: {0}</value></data>
+  <data name="KillsToElite" xml:space="preserve"><value>To Elite: {0}</value></data>
+  <data name="KillsToLegend" xml:space="preserve"><value>To Legend: {0}</value></data>
+  <data name="HighestRank" xml:space="preserve"><value>Highest rank</value></data>
+  <data name="RankProgressHint" xml:space="preserve"><value>Below each rank: kills needed for the next rank, based on this snapshot.</value></data>
 </root>

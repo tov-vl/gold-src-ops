@@ -213,4 +213,10 @@
   <data name="RankThresholdsDetail" xml:space="preserve"><value>Учитываются сохраненные убийства противников за все подключения, а не только текущая карта. Смерти не уменьшают ранг. Легенда - высший ранг.</value></data>
   <data name="RankVsPosition" xml:space="preserve"><value>Ранг зависит от числа убийств. Место в топ-10 зависит от результатов других игроков: больше убийств, при равенстве - меньше смертей. Одинаковый ранг не означает одинаковое место.</value></data>
   <data name="RankGuideLink" xml:space="preserve"><value>Все ранги и условия перехода</value></data>
+  <data name="KillsToFighter" xml:space="preserve"><value>До Бойца: {0}</value></data>
+  <data name="KillsToVeteran" xml:space="preserve"><value>До Ветерана: {0}</value></data>
+  <data name="KillsToElite" xml:space="preserve"><value>До Элиты: {0}</value></data>
+  <data name="KillsToLegend" xml:space="preserve"><value>До Легенды: {0}</value></data>
+  <data name="HighestRank" xml:space="preserve"><value>Высший ранг</value></data>
+  <data name="RankProgressHint" xml:space="preserve"><value>Под рангом указано, сколько убийств осталось до следующего, по данным этого снимка.</value></data>
 </root>
