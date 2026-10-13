@@ -6,18 +6,18 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.71.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.71.0)
-is the current public release. Public pages now apply their five-second API
-budget to response headers and the JSON body. A delayed body can no longer
-extend the network wait beyond that budget; existing unavailable states and
-caller cancellation are preserved.
+**Status:** [v2.72.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.72.0)
+is the current public release. Web now measures complete public API reads through
+JSON parsing and exports bounded operation/outcome metrics to the existing private
+Prometheus/Grafana stack. A compact dashboard shows traffic, latency, failures
+and caller cancellation. The five-second response budget remains unchanged.
 
-A local seven-second body-delay scenario completed in about five seconds.
-Production acceptance checked all three pages in RU/EN, with and without
-JavaScript, and six successful manual refreshes. Only Web was recreated; six
-other services and all mounts were preserved. Stable references reuse accepted
-digests without rebuilding. See [release notes](docs/release-notes-v2.71.md) and
-[evidence](docs/v2.71-readiness.md).
+Production acceptance confirmed all four operations, the provisioned dashboard
+and public RU/EN pages with and without JavaScript. Only Web was recreated; six
+other containers and all mounts were preserved. Stable references reuse accepted
+digests without rebuilding. No public metrics endpoint, new alerts or personal
+notifications were added. See [release notes](docs/release-notes-v2.72.md) and
+[evidence](docs/v2.72-readiness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
