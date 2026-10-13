@@ -3287,3 +3287,11 @@ RU/EN, сохранение stale warning и прогресса при refresh. 
 Web-only rollout и production browser acceptance прошли. Stable использует
 принятые digests без пересборки; остальные шесть контейнеров, mounts и все
 11 monitoring hashes сохранены. Игровые проверки и weekly backup независимы.
+
+## CI - Параллельный запуск Container Smoke
+
+В работе: по замерам выпуска v2.75 устранить ожидание Quality Gate перед
+Container Smoke (187-189 секунд работы предшественника). Сохранить все тесты,
+обязательные проверки и зависимости публикации; сравнить PR/main до и после.
+Без нового application release и production rollout.
+См. [замеры и ограничения](ci-release-timing-2026-10.md).
