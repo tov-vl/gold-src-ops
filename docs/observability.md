@@ -238,3 +238,9 @@ p95, failures and cancellations. Only four operation labels and five outcomes ar
 accepted by the client call sites. Optional 404 and caller cancellation are not
 API failures. Sparse traffic and missing observations do not prove availability;
 see [the metric and recovery contract](v2.72-public-api-observability.md).
+
+The v2.73 configuration adds the `PublicWebApiReadFailures` warning and estimated
+15-minute read totals to that dashboard. The policy combines minimum traffic,
+failures and ratio with a five-minute hold. It does not alert on missing passive
+observations or deliver personal notifications. See the
+[thresholds, diagnosis and recovery guide](web-public-api-alerts.md).

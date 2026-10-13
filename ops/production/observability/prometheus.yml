@@ -6,6 +6,7 @@ global:
 rule_files:
   - /etc/prometheus/rules/player-data-backup.yml
   - /etc/prometheus/rules/public-leaderboard.yml
+  - /etc/prometheus/rules/web-public-api.yml
 
 scrape_configs:
   - job_name: goldsrcops

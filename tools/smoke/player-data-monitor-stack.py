@@ -13,6 +13,7 @@ import urllib.request
 import uuid
 from unittest import mock
 import public_leaderboard_monitor as leaderboard
+import web_public_api_alerts as web_alerts
 
 ROOT = Path(__file__).resolve().parents[2]
 OBS = ROOT / "ops/production/observability"
@@ -121,6 +122,7 @@ def main():
     safe = ["--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges"]
     with tempfile.TemporaryDirectory(prefix="player-monitor-") as temporary:
         leaderboard.validate_rules(docker, mount, images["PROMETHEUS"], temporary)
+        web_alerts.validate_rules(docker, mount, images["PROMETHEUS"], temporary)
         path = Path(temporary) / "rules-test.json"
         path.write_text(json.dumps(fixtures(), ensure_ascii=False), encoding="utf-8")
         path.chmod(0o644)
@@ -244,6 +246,7 @@ def run_stack(images, safe, prometheus_config):
         assert query(PREFIX + "last_attempt_status" + LABELS)[0]["value"][1] == "8"
         assert float(query(PREFIX + "last_success_timestamp_seconds" + LABELS)[0]["value"][1]) > previous_capture
         leaderboard.check_stack(collector_url, graf_url, query, request, wait)
+        web_alerts.check_stack(prom_url, graf_url, query, request, wait, docker, prometheus, prometheus_config)
         metrics.update(observation_success=0, observed_timestamp_seconds=time.time())
         publish()
         wait(lambda: query('ALERTS{alertname="PlayerBackupObservationInvalid",alertstate="pending"}'))
