@@ -6,16 +6,16 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.74.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.74.0)
-is the current public release. The player guide shows all five ranks and their
-saved enemy-kill thresholds; the leaderboard explains rank versus top-10 position
-and links directly to the guide. RU/EN, keyboard, mobile and no-JavaScript
-acceptance passed in production.
+**Status:** [v2.75.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.75.0)
+is the current public release. The top-10 leaderboard shows kills remaining to
+the next rank and marks Legend as the highest rank. Progress comes from the same
+snapshot as the displayed results. RU/EN, keyboard, mobile, 200% text and
+no-JavaScript acceptance passed in production.
 
 Only Web was recreated. Six other containers, mounts and monitoring configuration
 were preserved. Stable references reuse accepted digests without rebuilding.
 Gameplay and saved-player data are unchanged. See
-[release notes](docs/release-notes-v2.74.md) and [evidence](docs/v2.74-readiness.md).
+[release notes](docs/release-notes-v2.75.md) and [evidence](docs/v2.75-readiness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
@@ -952,12 +952,13 @@ The spike follows Valve's documented A2S server query format:
 
 The public repository is configured with private vulnerability reporting,
 Dependabot security updates, and a protected `main` workflow. The current
-[GoldSrcOps v2.74.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.74.0)
-adds the player rank guide. Its signed stable tag promotes the exact three
-accepted candidate digests; only Web was installed in production. Detailed
-evidence and limits are in [docs/v2.74-readiness.md](docs/v2.74-readiness.md).
-[v2.72.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.72.0)
-is the preceding application release; v2.73 was monitoring configuration only.
+[GoldSrcOps v2.75.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.75.0)
+adds snapshot-based progress to the next rank in the top-10 leaderboard. Its signed
+stable tag promotes the exact three accepted candidate digests; only Web was
+installed in production. Detailed evidence and limits are in
+[docs/v2.75-readiness.md](docs/v2.75-readiness.md).
+[v2.74.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.74.0)
+is the preceding application release.
 
 ## License
 
