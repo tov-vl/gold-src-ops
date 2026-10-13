@@ -3290,8 +3290,9 @@ Web-only rollout и production browser acceptance прошли. Stable испо�
 
 ## CI - Параллельный запуск Container Smoke
 
-В работе: по замерам выпуска v2.75 устранить ожидание Quality Gate перед
-Container Smoke (187-189 секунд работы предшественника). Сохранить все тесты,
-обязательные проверки и зависимости публикации; сравнить PR/main до и после.
+Принято: PR #340 и полный PR/main CI прошли. Container Smoke запускается
+параллельно с Quality Gate после компиляции addon. В замере PR CI сократился
+с 11m16s до 7m20s, main - с 10m57s до 7m23s.
+Все тесты, обязательные проверки и зависимости публикации сохранены.
 Без нового application release и production rollout.
 См. [замеры и ограничения](ci-release-timing-2026-10.md).

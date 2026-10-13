@@ -32,7 +32,7 @@ Change Scope and Map Menu Compile. Their runners, checkouts, builds and test
 containers are separate; no build artifact is consumed from Quality Gate.
 The gap between addon completion and quality completion was 187-189 seconds in
 all three successful full runs. This is the modeled critical-path saving when
-job durations and runner availability are comparable, not a measured saving yet.
+job durations and runner availability are comparable. Observed results are below.
 
 Existing required checks and all tests remain. Each of the three publication
 jobs directly needs successful quality, container and browser jobs. GitHub's
@@ -62,11 +62,39 @@ new permission, API lookup, evidence age policy or skipped test.
 Local routing smoke passed with all four modes (full, docs, addon, stable), scope
 and addon failure propagation, and publication dependency checks. Six in-memory
 mutations (removing quality or adding an always override in each publication job)
-were rejected by the smoke. The full local
-.NET suite is not repeated for a workflow-only change; required PR and main CI
-must run the full path. Remote timing comparison is pending.
+were rejected by the smoke. The full local .NET suite was not repeated for this
+workflow-only change; required PR and main CI both passed the full path. The PR
+executed 1025 ordinary tests and all 56 browser tests; no test was removed.
 
 No application version, release tag, registry publication, production configuration
 or deployment is needed for this CI-only change. The first later candidate run
 will provide candidate-specific timing; the current comparison uses full PR/main
 runs and must not claim a measured end-to-end release saving in advance.
+
+## Observed comparison
+
+[PR #340](https://github.com/tov-vl/gold-src-ops/pull/340) was squash-merged at
+`94241fde000b85ee2e3e302231969d1617dea912` after full CI. Main CI also passed.
+No image was published; this change includes no production action or replacement
+of the accepted v2.75 Web artifact.
+
+| Run | Evidence | Wall time | Quality | Container Smoke | Dispatch after addon completion |
+| --- | --- | --- | --- | --- | --- |
+| PR before | [38415593616](https://github.com/tov-vl/gold-src-ops/actions/runs/38415593616) | 11m16s | 3m45s | 7m10s | 190s |
+| PR after | [38422772454](https://github.com/tov-vl/gold-src-ops/actions/runs/38422772454) | 7m20s | 3m46s | 6m23s | 3s |
+| Main before | [38417310527](https://github.com/tov-vl/gold-src-ops/actions/runs/38417310527) | 10m57s | 4m02s | 6m35s | 192s |
+| Main after | [38423907954](https://github.com/tov-vl/gold-src-ops/actions/runs/38423907954) | 7m23s | 3m27s | 6m09s | 3s |
+
+Observed PR wall time fell by 3m56s
+(34.9%), and main by 3m34s
+(32.6%). Container Smoke started
+187s before Quality Gate ended in the PR and
+152s before it ended on main. Previously it started
+3s after Quality Gate in each baseline run. This confirms removal of the serial
+wait. Container execution time and runner dispatch also varied; the entire wall
+clock difference must not be attributed to scheduling alone.
+
+These are one before/after pair per event on unchanged application code, not a
+statistical performance guarantee. Candidate/stable publication and production
+acceptance were not rerun for this CI-only change. Their gates and job dependencies
+are unchanged; candidate-specific elapsed time awaits the next real release.
