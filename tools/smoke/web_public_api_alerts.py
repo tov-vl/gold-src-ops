@@ -59,7 +59,33 @@ def fixtures():
     case("retained-old-instance-has-no-increase", [healthy, series("error", "100+0x40", resource="previous")], [(20, "", [])])
     case("foreign-service-ignored", [healthy, series("error", "0+50x40", service="other")], [(20, "", [])])
     case("unknown-labels-ignored", [healthy, series("error", "0+50x40", "unknown"), series("unknown", "0+50x40")], [(20, "", [])])
-    case("all-four-operations", [series("timeout", "0+2x40", op) for op in ("status", "history", "leaderboard", "server")], [(10, "firing", ["history", "leaderboard", "server", "status"])])
+    case("all-five-operations", [series("timeout", "0+2x40", op) for op in ("status", "history", "leaderboard", "server", "player_search")], [(10, "firing", ["history", "leaderboard", "player_search", "server", "status"])])
+    # Search uses success for a valid empty result; not_found means unavailable API.
+    search_failed = [series("success", "0+1x40", "player_search"), series("error", "0+1x40", "player_search")]
+    case("search-hold-fire-and-operation-isolation", search_failed + [healthy],
+         [(9, "pending", ["player_search"]), (10, "firing", ["player_search"])])
+    case("search-empty-result-is-success", [series("success", "0+2x40", "player_search")], [(20, "", [])])
+    case("search-missing-route-is-failure", [series("not_found", "0+2x40", "player_search")],
+         [(9, "pending", ["player_search"]), (10, "firing", ["player_search"])])
+    case("search-busy-and-canceled-only", [series("busy", "0+100x40", "player_search"),
+         series("canceled", "0+100x40", "player_search")], [(20, "", [])])
+    case("search-busy-does-not-fill-minimum", [series("error", "0 5+0x39", "player_search"),
+         series("busy", "0+100x40", "player_search")], [(10, "", [])])
+    case("search-busy-canceled-and-unknown-do-not-dilute", search_failed +
+         [series(outcome, "0+100x40", "player_search") for outcome in ("busy", "canceled", "unknown")],
+         [(10, "firing", ["player_search"])])
+    # Evaluate the actual dashboard query; the expected ratio is independent.
+    dashboard = json.loads((OBS / "grafana/dashboards/goldsrcops-web-public-api.json").read_text(encoding="utf-8"))
+    ratio = next(p for p in dashboard["panels"] if p["id"] == 5)["targets"][0]["expr"]
+    tests[-1]["promql_expr_test"].append({"eval_time": "10m", "expr": ratio,
+        "exp_samples": [{"labels": '{operation="player_search"}', "value": 0.5}]})
+    case("search-missing-route-ratio-with-busy", [series("not_found", "0+1x40", "player_search"),
+         series("success", "0+1x40", "player_search"), series("busy", "0+100x40", "player_search")],
+         [(10, "firing", ["player_search"])])
+    tests[-1]["promql_expr_test"].append({"eval_time": "10m", "expr": ratio,
+        "exp_samples": [{"labels": '{operation="player_search"}', "value": 0.5}]})
+    case("search-successful-reads-resolve", [series("success", "0+1x10 110+100x30", "player_search"),
+         series("error", "0+1x10 10+0x30", "player_search")], [(10, "firing", ["player_search"]), (12, "", [])])
     return {"rule_files": ["/rules/web-public-api.yml"], "evaluation_interval": "1m", "tests": tests}
 
 
@@ -75,7 +101,7 @@ def validate_rules(docker, mount, image, temporary):
     print("WEB_PUBLIC_API_ALERTS=" + str(len(fixture["tests"])) + "_scenarios_passed", flush=True)
 
 
-def check_stack(prom_url, graf_url, query, request, wait, docker, prometheus, config_path):
+def check_stack(prom_url, graf_url, query, request, wait, docker, prometheus, config_path, rule_path):
     rules = request(prom_url + "/api/v1/rules")["data"]["groups"]
     group = next(g for g in rules if g["name"] == "goldsrcops-web-public-api")
     assert len(group["rules"]) == 3 and all(r["health"] == "ok" for r in group["rules"])
@@ -95,6 +121,32 @@ def check_stack(prom_url, graf_url, query, request, wait, docker, prometheus, co
     assert request(prom_url + "/api/v1/status/runtimeinfo")["data"]["reloadConfigSuccess"]
     after = json.loads(docker("inspect", prometheus))[0]
     assert after["Id"] == identity["Id"] and after["State"]["StartedAt"] == identity["State"]["StartedAt"]
+    # Replace only a disposable rule file, roll back to the four-operation policy,
+    # reject invalid replacement bytes, then restore the reviewed search policy.
+    def definitions():
+        return {g["name"]: [{k: r.get(k) for k in ("name", "query", "duration", "labels", "annotations", "type")}
+                           for r in g["rules"]] for g in request(prom_url + "/api/v1/rules")["data"]["groups"]}
+    reviewed = definitions()
+    current_rule = rule_path.read_text(encoding="utf-8")
+    predecessor = current_rule.replace("|player_search", "")
+    predecessor = "\n".join(line for line in predecessor.splitlines()
+                            if 'or increase(' not in line or 'operation="player_search"' not in line) + "\n"
+    try:
+        rule_path.write_text(predecessor, encoding="utf-8")
+        docker("exec", prometheus, "/bin/promtool", "check", "rules", "/etc/prometheus/rules/web-public-api.yml")
+        docker("kill", "--signal", "HUP", prometheus)
+        wait(lambda: all("player_search" not in r["query"] for r in definitions()["goldsrcops-web-public-api"]))
+        previous = definitions()
+        assert {k: v for k, v in previous.items() if k != "goldsrcops-web-public-api"} == {
+            k: v for k, v in reviewed.items() if k != "goldsrcops-web-public-api"}
+        rule_path.write_text("groups: [", encoding="utf-8")
+        docker("kill", "--signal", "HUP", prometheus)
+        wait(lambda: not request(prom_url + "/api/v1/status/runtimeinfo")["data"]["reloadConfigSuccess"])
+        assert definitions() == previous
+    finally:
+        rule_path.write_text(current_rule, encoding="utf-8")
+        docker("kill", "--signal", "HUP", prometheus)
+    wait(lambda: request(prom_url + "/api/v1/status/runtimeinfo")["data"]["reloadConfigSuccess"] and definitions() == reviewed)
     # Exercise the same in-place write + SIGHUP recovery boundary as production.
     original = config_path.read_text(encoding="utf-8")
     try:
@@ -112,4 +164,4 @@ def check_stack(prom_url, graf_url, query, request, wait, docker, prometheus, co
          any(g["name"] == "goldsrcops-web-public-api" for g in request(prom_url + "/api/v1/rules")["data"]["groups"]))
     after = json.loads(docker("inspect", prometheus))[0]
     assert after["Id"] == identity["Id"] and after["State"]["StartedAt"] == identity["State"]["StartedAt"]
-    print("WEB_PUBLIC_API_STACK=rules_empty_data_dashboard_reload_rollback_invalid_recovery_passed", flush=True)
+    print("WEB_PUBLIC_API_STACK=rules_empty_data_dashboard_reload_rule_rollback_invalid_recovery_passed", flush=True)

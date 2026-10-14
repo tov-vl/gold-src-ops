@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 import time
@@ -151,10 +152,12 @@ def main():
                "--mount", mount(path, "/etc/prometheus/prometheus.yml"),
                "--mount", mount(OBS / "rules", "/etc/prometheus/rules"),
                "--entrypoint", "/bin/promtool", images["PROMETHEUS"], "check", "config", "/etc/prometheus/prometheus.yml")
-        run_stack(images, safe, path)
+        fixture_rules = Path(temporary) / "rules"
+        shutil.copytree(OBS / "rules", fixture_rules)
+        run_stack(images, safe, path, fixture_rules)
 
 
-def run_stack(images, safe, prometheus_config):
+def run_stack(images, safe, prometheus_config, fixture_rules):
     prefix = "player-monitor-" + uuid.uuid4().hex[:10]
     containers = []
     network_created = False
@@ -174,7 +177,7 @@ def run_stack(images, safe, prometheus_config):
         prometheus = start("prometheus", ["--publish", "127.0.0.1::9090",
                            "--tmpfs", "/prometheus:rw,noexec,nosuid,uid=65534,gid=65534,mode=0700,size=64m",
                            "--mount", mount(prometheus_config, "/etc/prometheus/prometheus.yml"),
-                           "--mount", mount(OBS / "rules", "/etc/prometheus/rules"),
+                           "--mount", mount(fixture_rules, "/etc/prometheus/rules"),
                            images["PROMETHEUS"], "--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"])
         grafana = start("grafana", ["--publish", "127.0.0.1::3000",
                         "--tmpfs", "/var/lib/grafana:rw,nosuid,uid=472,gid=0,mode=0700,size=64m",
@@ -246,7 +249,8 @@ def run_stack(images, safe, prometheus_config):
         assert query(PREFIX + "last_attempt_status" + LABELS)[0]["value"][1] == "8"
         assert float(query(PREFIX + "last_success_timestamp_seconds" + LABELS)[0]["value"][1]) > previous_capture
         leaderboard.check_stack(collector_url, graf_url, query, request, wait)
-        web_alerts.check_stack(prom_url, graf_url, query, request, wait, docker, prometheus, prometheus_config)
+        web_alerts.check_stack(prom_url, graf_url, query, request, wait, docker, prometheus, prometheus_config,
+                               fixture_rules / "web-public-api.yml")
         metrics.update(observation_success=0, observed_timestamp_seconds=time.time())
         publish()
         wait(lambda: query('ALERTS{alertname="PlayerBackupObservationInvalid",alertstate="pending"}'))

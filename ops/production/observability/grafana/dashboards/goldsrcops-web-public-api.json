@@ -5,7 +5,7 @@
   "description": "Full public API read duration and bounded outcomes from the Web host.",
   "editable": false,
   "schemaVersion": 41,
-  "version": 2,
+  "version": 3,
   "refresh": "30s",
   "timezone": "Europe/Moscow",
   "time": {
@@ -41,7 +41,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Полное чтение API, включая JSON. Операции: status, history, leaderboard, server. success - данные прочитаны; not_found - допустимое отсутствие рейтинга или адреса подключения; error и timeout - отказы. canceled - отмена вызывающей стороной, исключена из задержки и доли ошибок. Экспорт раз в минуту. Частота, p95 и доля ошибок используют окно 15 минут; при редком трафике p95 приблизителен. Счетчики накоплены с запуска Web и сбрасываются при перезапуске. Нет данных не означает ноль ошибок. Личные уведомления не настроены. Предупреждение по операции: за 15 минут >=10 чтений, >=5 отказов и >=20% ошибок/таймаутов, затем выдержка 5 минут. Числа за окно оценочные. Нет предупреждений не означает исправность: проверьте трафик и Collector. При потере экспорта или трафика окно стареет; снятие предупреждения не доказывает восстановление."
+        "content": "Полное чтение API, включая JSON. Операции: status, history, leaderboard, server, player_search. success - данные прочитаны, включая поиск без совпадений. not_found - допустимое отсутствие рейтинга/адреса; для player_search это недоступный маршрут API и отказ. error и timeout - отказы. busy - ограничение частоты поиска; canceled - отмена вызывающей стороной. busy и canceled видны в исходах и частоте, но исключены из p95, доли отказов и порогов предупреждения. Экспорт раз в минуту. Частота, p95 и доля ошибок используют окно 15 минут; при редком трафике p95 приблизителен. Счетчики накоплены с запуска Web и сбрасываются при перезапуске. Нет данных не означает ноль ошибок. Личные уведомления не настроены. Предупреждение по операции: за 15 минут >=10 чтений, >=5 отказов и >=20% отказов, затем выдержка 5 минут. Числа за окно оценочные. Нет предупреждений не означает исправность: проверьте трафик и Collector. При потере экспорта или трафика окно стареет; снятие предупреждения не доказывает восстановление."
       }
     },
     {
@@ -191,7 +191,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (operation, le) (rate(goldsrcops_web_public_api_duration_seconds_bucket{job=\"goldsrcops\",service_name=\"GoldSrcOps.Web\",outcome!=\"canceled\"}[15m])))",
+          "expr": "histogram_quantile(0.95, sum by (operation, le) (rate(goldsrcops_web_public_api_duration_seconds_bucket{job=\"goldsrcops\",service_name=\"GoldSrcOps.Web\",outcome=~\"success|not_found|error|timeout\"}[15m])))",
           "legendFormat": "{{operation}}",
           "range": true
         }
@@ -200,7 +200,7 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Доля ошибок и таймаутов",
+      "title": "Доля отказов",
       "datasource": {
         "type": "prometheus",
         "uid": "goldsrcops-prometheus"
@@ -242,7 +242,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "((sum by (operation) (rate(goldsrcops_web_public_api_duration_seconds_count{job=\"goldsrcops\",service_name=\"GoldSrcOps.Web\",outcome=~\"error|timeout\"}[15m]))) or on (operation) (0 * (sum by (operation) (rate(goldsrcops_web_public_api_duration_seconds_count{job=\"goldsrcops\",service_name=\"GoldSrcOps.Web\",outcome!=\"canceled\"}[15m]))))) / (sum by (operation) (rate(goldsrcops_web_public_api_duration_seconds_count{job=\"goldsrcops\",service_name=\"GoldSrcOps.Web\",outcome!=\"canceled\"}[15m])))",
+          "expr": "((sum by (operation) (rate(goldsrcops_web_public_api_duration_seconds_count{job=\"goldsrcops\",service_name=\"GoldSrcOps.Web\",outcome=~\"error|timeout\"}[15m]) or rate(goldsrcops_web_public_api_duration_seconds_count{job=\"goldsrcops\",service_name=\"GoldSrcOps.Web\",operation=\"player_search\",outcome=\"not_found\"}[15m]))) or on (operation) (0 * (sum by (operation) (rate(goldsrcops_web_public_api_duration_seconds_count{job=\"goldsrcops\",service_name=\"GoldSrcOps.Web\",outcome=~\"success|not_found|error|timeout\"}[15m]))))) / (sum by (operation) (rate(goldsrcops_web_public_api_duration_seconds_count{job=\"goldsrcops\",service_name=\"GoldSrcOps.Web\",outcome=~\"success|not_found|error|timeout\"}[15m])))",
           "legendFormat": "{{operation}}",
           "range": true
         }
@@ -404,7 +404,7 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "Оценка числа чтений за 15 минут (без отмен)",
+      "title": "Оценка числа чтений за 15 минут (без busy и отмен)",
       "datasource": {
         "type": "prometheus",
         "uid": "goldsrcops-prometheus"
