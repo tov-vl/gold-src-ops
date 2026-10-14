@@ -83,7 +83,7 @@ class EngineRehearsal(f.WorkflowTests):
         put(self.root / 'expectations.json', json.dumps(expectations))
         probe = self.root / 'accept.sh'
         put(probe, '#!/usr/bin/env bash\nset -Eeuo pipefail\nexec python3 -I -B /repo/ops/gameserver/addon-runtime-probe.py '
-            '--expectations '+str(self.root/'expectations.json')+' --expectations-sha256 '+u.digest_file(self.root/'expectations.json')+
+            '--isolated-fixture --expectations '+str(self.root/'expectations.json')+' --expectations-sha256 '+u.digest_file(self.root/'expectations.json')+
             ' --error-directory '+str(self.amxx/'logs')+' --port 27025 "$@" < '+str(self.root/'password')+'\n')
         self.probe = {'path': str(probe), 'sha256': u.digest_file(probe)}
         self.plan['acceptance'] = self.probe

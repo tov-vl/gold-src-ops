@@ -74,6 +74,10 @@ class ProbeTests(unittest.TestCase):
     def test_rcon_fresh_challenge_and_response(self):
         self.assertEqual(GOOD, self.exchange(p.HEADER+b'challenge rcon 123\n', p.HEADER+b'l'+GOOD.encode()+b'\0'))
 
+    def test_auth_failure_is_refused_by_first_query(self):
+        with self.assertRaises(ValueError):
+            self.exchange(p.HEADER+b'challenge rcon 123\n', p.HEADER+b'lBad rcon_password.\n')
+
     def test_rcon_malformed_challenge_header_and_oversized_reply(self):
         with self.assertRaises(ValueError): self.exchange(b'invalid', None)
         for packet in (b'invalid', p.HEADER+b'l'+b'x'*8193):

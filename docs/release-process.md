@@ -270,6 +270,10 @@ and are never implied by an R1 application rollout.
 
 ### 5. Accept Or Roll Back
 
+Use the [repeatable acceptance tools](release-acceptance.md) for the covered
+addon/search boundary. Production RCON belongs on the existing control-plane;
+the local game-host probe is restricted to isolated engine fixtures.
+
 For an R1 pilot release, take one fresh read-only sample after rollout and
 verify the relevant items below. Add repeated samples only when a changed
 failure mode or the release claim requires an observation interval:
