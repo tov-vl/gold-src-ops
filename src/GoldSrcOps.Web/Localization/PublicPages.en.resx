@@ -219,4 +219,18 @@
   <data name="KillsToLegend" xml:space="preserve"><value>To Legend: {0}</value></data>
   <data name="HighestRank" xml:space="preserve"><value>Highest rank</value></data>
   <data name="RankProgressHint" xml:space="preserve"><value>Below each rank: kills needed for the next rank, based on this snapshot.</value></data>
+  <data name="SearchTitle" xml:space="preserve"><value>Find a player</value></data>
+  <data name="SearchHint" xml:space="preserve"><value>Enter the full saved nickname, including letter case. Partial names are not supported.</value></data>
+  <data name="SearchName" xml:space="preserve"><value>Player nickname</value></data>
+  <data name="SearchSubmit" xml:space="preserve"><value>Search</value></data>
+  <data name="SearchPrivacy" xml:space="preserve"><value>Search runs only when you submit the form. The nickname is not added to the page address.</value></data>
+  <data name="SearchEmpty" xml:space="preserve"><value>No matches. Check the case and last saved nickname. Players with no kills or deaths are excluded.</value></data>
+  <data name="SearchFound" xml:space="preserve"><value>Records found: {0}.</value></data>
+  <data name="SearchBusy" xml:space="preserve"><value>Search is busy. Try again manually in {0} seconds.</value></data>
+  <data name="SearchInvalid" xml:space="preserve"><value>Enter a nickname of 1 to 31 UTF-8 bytes, without control characters or SteamID. Non-ASCII names may reach the limit before 31 characters.</value></data>
+  <data name="SearchUnavailable" xml:space="preserve"><value>Search is temporarily unavailable. Try again later.</value></data>
+  <data name="SearchSnapshot" xml:space="preserve"><value>Results captured:</value></data>
+  <data name="SearchResults" xml:space="preserve"><value>Search results</value></data>
+  <data name="SearchMore" xml:space="preserve"><value>Showing the first 10 records. There are more matches.</value></data>
+  <data name="SearchDuplicates" xml:space="preserve"><value>Nicknames are not unique: identical records may belong to different players. Result order is not a global ranking position.</value></data>
 </root>

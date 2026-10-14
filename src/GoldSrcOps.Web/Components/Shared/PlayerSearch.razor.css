@@ -1,0 +1,24 @@
+.player-search { margin-top: 40px; scroll-margin-top: 24px; padding: 28px; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--surface); color: var(--ink); }
+.player-search h2 { margin-top: 0; }
+.player-search p { line-height: 1.6; color: var(--ink-soft); }
+.player-search label { display: block; margin: 20px 0 8px; font-weight: 700; }
+.player-search-controls { display: flex; gap: 12px; }
+.player-search-controls ::deep input { min-width: 0; flex: 1; padding: 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--canvas); color: var(--ink); font: inherit; }
+.player-search button { padding: 12px 24px; border: 0; border-radius: 6px; background: var(--signal-green); color: var(--surface); font: inherit; font-weight: 700; cursor: pointer; }
+.player-search button:focus-visible, .player-search-controls ::deep input:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.player-search .player-search-message { margin: 20px 0; color: var(--ink); }
+.player-search-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 0; list-style: none; }
+.player-search-result { min-width: 0; padding: 20px; background: var(--canvas); border-radius: 10px; overflow-wrap: anywhere; }
+.player-search-result h3 { margin: 0 0 12px; font-size: 1.15rem; }
+.player-search-result .player-search-rank { margin: 0; color: var(--signal-green); font-weight: 700; }
+.player-search-result .player-search-progress { margin-top: 4px; }
+.player-search-result dl { display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 0; }
+.player-search-result dt { color: var(--ink-soft); }
+.player-search-result dd { margin: 4px 0 0; font-size: 1.3rem; font-weight: 700; }
+.player-search .player-search-capture { font-size: 0.875rem; }
+.player-search-notice { border-left: 3px solid var(--signal-green); padding-left: 12px; }
+@media (max-width: 640px) {
+    .player-search { padding: 20px 16px; }
+    .player-search-controls { flex-direction: column; }
+    .player-search-results { grid-template-columns: minmax(0, 1fr); }
+}
