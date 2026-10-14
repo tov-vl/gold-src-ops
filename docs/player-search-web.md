@@ -22,9 +22,12 @@ progress derived from the same row. Identical rows remain separate. Explicit
 copy explains non-unique nicknames, truncation and no matches. Capture time is
 the lookup snapshot time, not the player's last match or last durable save.
 Empty, invalid, busy and unavailable states replace prior results. Busy includes
-a bounded manual retry delay. Search never runs on typing, automatically retries
-or polls. The existing top-ten refresh replaces only its own panel and does not
-repeat or overwrite search, including after an automatic refresh.
+a bounded manual retry delay. The [countdown enhancement](player-search-countdown.md)
+uses that delay to disable early submission with JavaScript and announce when
+manual retry is available; without JavaScript the existing form stays usable.
+Search never runs on typing, automatically retries or polls. The existing top-ten
+refresh replaces only its own panel and does not repeat or overwrite search,
+including after an automatic refresh.
 
 ## Boundaries
 
