@@ -3,10 +3,13 @@ groups:
     rules:
       - record: goldsrcops_web_public_api:reads_15m
         expr: |
-          sum by (operation) (increase(goldsrcops_web_public_api_duration_seconds_count{job="goldsrcops",service_name="GoldSrcOps.Web",operation=~"status|history|leaderboard|server",outcome=~"success|not_found|error|timeout"}[15m]))
+          sum by (operation) (increase(goldsrcops_web_public_api_duration_seconds_count{job="goldsrcops",service_name="GoldSrcOps.Web",operation=~"status|history|leaderboard|server|player_search",outcome=~"success|not_found|error|timeout"}[15m]))
       - record: goldsrcops_web_public_api:failures_15m
         expr: |
-          sum by (operation) (increase(goldsrcops_web_public_api_duration_seconds_count{job="goldsrcops",service_name="GoldSrcOps.Web",operation=~"status|history|leaderboard|server",outcome=~"error|timeout"}[15m]))
+          sum by (operation) (
+            increase(goldsrcops_web_public_api_duration_seconds_count{job="goldsrcops",service_name="GoldSrcOps.Web",operation=~"status|history|leaderboard|server|player_search",outcome=~"error|timeout"}[15m])
+            or increase(goldsrcops_web_public_api_duration_seconds_count{job="goldsrcops",service_name="GoldSrcOps.Web",operation="player_search",outcome="not_found"}[15m])
+          )
       - alert: PublicWebApiReadFailures
         expr: |
           (goldsrcops_web_public_api:failures_15m >= 5)
@@ -18,5 +21,5 @@ groups:
           component: web-public-api
         annotations:
           summary: "Повторяются ошибки чтения публичного API"
-          description: "За 15 минут: не менее 10 чтений, 5 отказов и 20% ошибок/таймаутов; условие держится 5 минут. Проверьте операцию на панели и зависимости Web/API. Отсутствие предупреждения не доказывает доступность."
+          description: "За 15 минут: не менее 10 чтений, 5 отказов и 20% отказов (ошибки, таймауты, отсутствующий маршрут поиска); условие держится 5 минут. Проверьте операцию на панели и зависимости Web/API. Отсутствие предупреждения не доказывает доступность."
           runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/web-public-api-alerts.md"

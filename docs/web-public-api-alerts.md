@@ -3,20 +3,29 @@
 ## Policy
 
 Prometheus evaluates `PublicWebApiReadFailures` separately for `status`, `history`,
-`leaderboard`, and `server`. Over a rolling 15-minute window all three conditions
+`leaderboard`, `server`, and `player_search`. Over a rolling 15-minute window all three conditions
 must hold continuously for five minutes:
 
 - estimated completed reads >= 10;
-- estimated `error` + `timeout` reads >= 5;
+- estimated failures >= 5: `error` + `timeout`, plus `not_found` only for
+  `player_search`;
 - failures / completed reads >= 20%.
 
-`success` and optional `not_found` count in the denominator. Caller `canceled`
-reads count in neither numerator nor denominator. Unknown operations/outcomes
+`success`, `not_found`, `error` and `timeout` count in the denominator.
+Search with no matching players is a successful empty result (`success`). For
+`player_search`, `not_found` means HTTP 404 from a missing/disabled API route,
+so it also counts as a failure; optional 404 for the other operations remains
+non-failing. `busy` is admission/cooldown refusal, not a failed admitted lookup.
+Both `busy` and caller `canceled` count in neither numerator nor denominator;
+they cannot fill the minimum or dilute a real failure ratio. Unknown operations/outcomes
 and other services are excluded. `increase` is applied before summation across
 instances, so a counter reset is not a burst of errors. Prometheus extrapolates
 window increases; these are estimates, not exact request counts. A first sample
 cannot reveal failures before that sample. These are initial pilot thresholds,
-not an SLO. Latency stays on the p95 graph without a new warning threshold.
+not an SLO. Grafana uses the same failure definition and admitted-outcome filter for its
+ratio; p95 excludes `busy`, `canceled` and unknown outcomes. All outcomes remain
+visible on the raw outcome/rate panels. Latency stays without a new warning
+threshold. Sustained busy traffic has no separate warning in this slice.
 
 The rule uses the histogram from [v2.72](v2.72-public-api-observability.md).
 Recording rules `goldsrcops_web_public_api:reads_15m` and
@@ -45,7 +54,10 @@ Web instance remain part of the 15-minute history, even after replacement.
    active warning is not a heartbeat. The fixed Web export interval is 60 seconds.
 3. Separate API errors from timeouts using the outcome panels. Inspect bounded
    server logs and dependency health without copying payloads or credentials.
-   Optional `not_found` is expected absence; caller cancellation is not failure.
+   A successful empty search is expected absence. Search `not_found` is route
+   unavailability: inspect the Web/API feature flags and compatible deployment.
+   For other operations optional `not_found` remains expected absence. `busy`
+   indicates cooldown/admission pressure; caller cancellation is not failure.
 4. After a repair, require fresh successful reads and healthy telemetry. Allow
    the 15-minute window to age out; five minutes is the activation hold, not a
    promised recovery time. Do not force failures, restart the game, replay RCON,
@@ -55,6 +67,8 @@ Loss of Prometheus/Grafana itself is outside this passive path. Independent
 availability evidence and personal notification delivery remain separate.
 
 ## Installation and recovery
+
+### Initial warning installation
 
 R3 configuration-only scope: one added rule file, one rule-file entry in
 `prometheus.yml`, and the existing Web dashboard. No application/image, network,
@@ -86,3 +100,34 @@ validate and reload, and confirm the new rule group is absent. Then remove only
 the newly installed rule file whose hash matches the reviewed artifact. Preserve
 Prometheus history, Grafana state and all unrelated files. An uncertain write or
 reload needs readback before any retry. Keep private rollback data outside Git.
+
+### Player-search extension
+
+The [player-search readiness record](player-search-alerts-readiness.md) freezes
+an R3 configuration-only update of two existing files: `rules/web-public-api.yml`
+and `grafana/dashboards/goldsrcops-web-public-api.json`. `prometheus.yml` and its
+rule-file list are unchanged. Existing alert names, labels, thresholds and hold
+remain stable; there is no application image, game, database or delivery change.
+
+Before installation compare all monitoring files with the accepted baseline and
+save the two predecessor files with ownership/mode, runtime identities and mounts
+in the private operator record. Refuse unexplained drift. Validate the reviewed
+rule with the pinned image before any reload. Replace only the two reviewed
+files through their existing directory mounts, preserving their metadata; check
+the bytes seen inside Prometheus. Validate the full config, send SIGHUP to that
+exact container, and require a successful reload without restart.
+
+Independently verify the reviewed hashes, healthy five-operation recording rules,
+the search-only missing-route failure branch, unchanged other rule groups and
+Grafana provisioning/query results. Preserve all service identities and unrelated
+monitoring files. Do not manufacture live failures or send additional RCON merely
+to trigger a warning. Fresh existing search telemetry may confirm metric visibility;
+no traffic is an explicit limit, not a successful-path observation.
+
+Rollback restores both saved predecessor files and metadata, validates and
+reloads Prometheus, then confirms the previous definitions and dashboard. The
+existing rule file and group must remain present: this is an update, not the
+initial installation described above. An uncertain write/reload requires readback
+before another attempt. The isolated rehearsal checks rule replacement,
+four-operation rollback, invalid-rule rejection and restoration of the reviewed
+policy, in addition to the existing config-reload/recovery checks.

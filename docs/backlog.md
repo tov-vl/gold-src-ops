@@ -3357,7 +3357,7 @@ jobs прошли, digests совпадают с candidate без пересбо
 
 ## Безопасная приемка игровых релизов
 
-Реализовано локально после v2.76: повторяемая read-only проверка addon/A2S/backup baseline
+Принято в main после v2.76: повторяемая read-only проверка addon/A2S/backup baseline
 через существующие SSH aliases, RCON только с control-plane. Локальный probe
 сохранен для явно изолированного engine-теста и отказывает на управляемом хосте
 до чтения пароля и отправки пакетов. Browser checks учитывают директиву no-store
@@ -3379,5 +3379,22 @@ jobs прошли, digests совпадают с candidate без пересбо
   320/390/1440 и текст 200% прошли. Поиск сохраняется после refresh; одна
   отмена запроса коррелирована с успешно завершенным обновлением.
 - Полный локальный .NET Quality Gate не повторялся: application source не
-  менялся. Полный required CI, push/PR и merge остаются следующим gate.
+  менялся. [PR #349](https://github.com/tov-vl/gold-src-ops/pull/349) слит
+  в `74871fb`; все пять проверок
+  [PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38573253943) и
+  [post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38574582919) прошли.
   Production install/restart, новые теги и stable promotion не выполнялись.
+
+## Предупреждения об отказах поиска игроков
+
+Подготовлено локально: `player_search` добавлен в существующую политику Web API.
+Ошибки, таймауты и отсутствующий маршрут поиска считаются отказами; пустой
+успешный поиск остается успехом. `busy` и отмены не создают предупреждение,
+не заполняют минимальный объем и не занижают долю отказов. Grafana использует
+ту же семантику. Пороги и предыдущие четыре операции сохранены.
+
+30 policy scenarios прошли; проверка monitoring stack и готовность к установке
+описаны в [readiness](player-search-alerts-readiness.md). Следующие gates:
+полный PR/main CI, свежая сверка production и согласованная установка двух
+файлов с независимой приемкой. R3 configuration-only; приложение, игра,
+backup schedule и личные уведомления не меняются.
