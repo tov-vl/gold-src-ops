@@ -50,9 +50,9 @@ repeat or overwrite search, including after an automatic refresh.
 - Existing duration metrics add the fixed operation `player_search`. Outcomes
   are `success`, `busy`, `not_found`, `error`, `timeout` and `canceled`; no query
   labels are recorded. Existing Grafana per-operation panels can display these
-  series. Search warning coverage is prepared in the separate
-  [monitoring extension](player-search-alerts-readiness.md); its production
-  installation is independent of this Web slice. Empty matches are `success`;
+  series. Search warning coverage was installed and independently accepted in
+  the separate [monitoring extension](player-search-alerts-readiness.md); its
+  production installation is independent of this Web slice. Empty matches are `success`;
   `not_found` means an unavailable API route, not absence of a matching player.
 
 ## Verification and remaining release gate
