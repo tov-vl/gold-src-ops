@@ -42,6 +42,9 @@ new g_leader_html[1536];
 new g_leader_title[64];
 new g_motds;
 new g_vault_writes;
+new g_vault_reads;
+new bool:g_lookup_quiet;
+new g_lookup_frame[2048];
 new g_streak_writes;
 new bool:g_fail_streak_readback;
 new bool:g_drop_streak_write;
@@ -53,6 +56,8 @@ new const DURABLE_KEY[] = "v1:STEAM_0:1:424242";
 public plugin_init()
 {
     ProductPluginInit();
+    register_srvcmd("goldsrcops_player_lookup_smoke", "RunPlayerLookupSmoke");
+    register_srvcmd("goldsrcops_player_lookup_load", "RunPlayerLookupLoad");
     register_srvcmd("goldsrcops_leaderboard_smoke", "RunLeaderboardSmoke");
     register_srvcmd("goldsrcops_public_leaderboard_smoke", "RunPublicLeaderboardSmoke");
     register_srvcmd("goldsrcops_standing_smoke", "RunPlayerStandingSmoke");
@@ -120,6 +125,7 @@ FixturePrint(id, type, const message[], any:...)
 
 FixtureVaultLookup(vault, const key[], value[], maxlen, &timestamp)
 {
+    g_vault_reads++;
     if (g_fail_readback || (g_fail_streak_readback && g_streak_write_seen && equal(key, "streak:", 7))) { return 0; }
     return nvault_lookup(vault, key, value, maxlen, timestamp);
 }
@@ -830,6 +836,8 @@ public RunSavedStreakSmoke()
     new best, value[96], stamp, expected[192];
     CheckSaved(DecodeSavedStreak("1 0", best) && !best, "zero record decodes without a default write");
     CheckSaved(DecodeSavedStreak("1 1000000000", best) && best == STATS_COUNTER_LIMIT, "record upper bound");
+    new scalar_name[32];
+    CheckSaved(DecodeSearchQuery("F09F9880", scalar_name) && strlen(scalar_name) == 4, "valid four-byte UTF-8 scalar accepted");
     new const invalid[][] = { "", "2 7", "1 -1", "1 x", "1 7 8", "1 1000000001", "1 999999999999",
         "1 01", "1 7 ", " 1 7", "^"1^" 7", "1 7x" };
     for (new index = 0; index < sizeof invalid; index++)
@@ -1299,6 +1307,13 @@ FixtureTransportPrint(const message[], any:...)
 {
     new line[192];
     vformat(line, charsmax(line), message, 2);
+    if (equal(line, "GSLOOKUP ", 9) || equal(line, "GSPROW ", 7) || equal(line, "GSPEND ", 7))
+    {
+        CheckSaved(strlen(g_lookup_frame) + strlen(line) + 1 < sizeof g_lookup_frame, "lookup frame stays within 2048 bytes");
+        add(g_lookup_frame, charsmax(g_lookup_frame), line);
+        add(g_lookup_frame, charsmax(g_lookup_frame), "^n");
+        if (g_lookup_quiet) { return; }
+    }
     if (equal(line, "GSL", 3))
     {
         add(g_snapshot_frame, charsmax(g_snapshot_frame), line);
@@ -1356,5 +1371,240 @@ public RunPublicLeaderboardSmoke()
     CheckSaved(bool:equal(g_snapshot_frame, "GSLEADER 1 unavailable^n"), "disabled source has no rows");
     set_pcvar_num(g_enabled, 1);
     server_print("PUBLIC_LEADERBOARD_SMOKE=%s failures=%d", g_failures ? "failed" : "passed", g_failures);
+    return PLUGIN_HANDLED;
+}
+
+
+CopyLeaderboardRows(output[], capacity)
+{
+    new start = contain(g_snapshot_frame, "^n") + 1, end = contain(g_snapshot_frame, "GSLEND ");
+    CheckSaved(start > 0 && end > start, "top-ten frame has bounded row section");
+    copy(output, min(capacity, end - start), g_snapshot_frame[start]);
+}
+
+new const LOOKUP_NONCE[] = "0123456789abcdef";
+
+LookupFixtureKey(index, key[], length)
+{
+    formatex(key, length, "v1:STEAM_0:1:%d", 900000 + index);
+}
+
+SeedLookupPlayer(index, kills, deaths, const name[])
+{
+    new key[48], value[64];
+    LookupFixtureKey(index, key, charsmax(key));
+    formatex(value, charsmax(value), "1 %d %d", kills, deaths);
+    nvault_set(g_stats_vault, key, value);
+    formatex(key, charsmax(key), "name:v1:STEAM_0:1:%d", 900000 + index);
+    formatex(value, charsmax(value), "1 %s", name);
+    nvault_set(g_preferences_vault, key, value);
+}
+
+QueryLookup(const hex[], bool:reset = true)
+{
+    if (reset) { g_lookup_after = 0.0; }
+    g_lookup_frame[0] = 0;
+    EmitPlayerLookup(LOOKUP_NONCE, hex);
+}
+
+QueryLookupName(const name[])
+{
+    new hex[63], written;
+    for (new index = 0; name[index]; index++)
+    {
+        written += formatex(hex[written], charsmax(hex) - written, "%02X", name[index] & 255);
+    }
+    QueryLookup(hex);
+}
+
+public RunPlayerLookupSmoke()
+{
+    nvault_prune(g_stats_vault, 0, 0);
+    nvault_prune(g_preferences_vault, 0, 0);
+    for (new index = 1; index <= 12; index++) { SeedLookupPlayer(index, index * 10, index, "Twin"); }
+    SeedLookupPlayer(13, 0, 0, "Zero");
+    SeedLookupPlayer(14, 1, 2, "Кириллица");
+    SeedLookupPlayer(15, 1, 2, "ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯa");
+    SeedLookupPlayer(16, 1, 2, "STEAM_0:1:123");
+    new malformed[] = { 192, 175, 0 };
+    SeedLookupPlayer(17, 1, 2, malformed);
+    SeedLookupPlayer(18, 1, 2, "");
+    SeedLookupPlayer(19, 1, 2, "Case");
+    SeedLookupPlayer(20, 1, 2, "<tag>^"&");
+    SeedLookupPlayer(21, 1, 2, "Ctrl^nX");
+    SeedLookupPlayer(22, 42, 5, "Equal");
+    SeedLookupPlayer(23, 42, 5, "Equal");
+    SeedLookupPlayer(24, 1, 2, "Player");
+    CloseLeaderFixture();
+    OpenLeaderFixture();
+    CheckSaved(g_leader_ready && ArraySize(g_leader_records) == 24, "load all offline records including those outside top ten");
+    CheckSaved(get_pcvar_num(g_lookup_enabled) == 0, "lookup defaults off");
+    QueryLookupName("Twin");
+    CheckSaved(contain(g_lookup_frame, "unavailable") > 0, "default-off returns unavailable");
+    set_pcvar_num(g_lookup_enabled, 1);
+    QueryLookup("5477696E", false);
+    CheckSaved(contain(g_lookup_frame, "busy 10") > 0, "enabling does not erase unavailable cooldown");
+    g_snapshot_frame[0] = 0;
+    OnLeaderboardSnapshot();
+    static original_top[2048];
+    CopyLeaderboardRows(original_top, charsmax(original_top));
+    new writes = g_vault_writes, reads = g_vault_reads, files = g_leader_reads, rebuilds = g_leader_rebuilds;
+    QueryLookupName("Twin");
+    CheckSaved(contain(g_lookup_frame, " 10 1^n") > 0 && contain(g_lookup_frame, "GSPROW 1 2 120 12 5477696E^n") > 0
+        && contain(g_lookup_frame, "GSPROW 10 1 30 3 5477696E^n") > 0 && contain(g_lookup_frame, "GSPROW 11") < 0,
+        "ten duplicate names sorted by scores with explicit truncation");
+    new footer[80], frame_marker[16], frame_version[8], frame_nonce[20], frame_time[16];
+    parse(g_lookup_frame, frame_marker, charsmax(frame_marker), frame_version, charsmax(frame_version),
+        frame_nonce, charsmax(frame_nonce), frame_time, charsmax(frame_time));
+    formatex(footer, charsmax(footer), "GSPEND 1 %s %s 10 1^n", LOOKUP_NONCE, frame_time);
+    CheckSaved(contain(g_lookup_frame, footer) > 0 && contain(g_lookup_frame, "STEAM_") < 0, "complete correlated frame without keys");
+    QueryLookupName("Equal");
+    CheckSaved(contain(g_lookup_frame, "GSPROW 1 1 42 5 ") > 0 && contain(g_lookup_frame, "GSPROW 2 1 42 5 ") > 0,
+        "identical records are not collapsed");
+    new matches[SAVED_LEADER_LIMIT], count, total, record[LeaderRecord], key[40];
+    FindSavedPlayers("Equal", matches, count, total);
+    ArrayGetArray(g_leader_records, matches[0], record);
+    LookupFixtureKey(22, key, charsmax(key));
+    CheckSaved(equal(record[LeaderKey], key) && count == 2 && total == 2, "private key breaks identical-score ties");
+    QueryLookupName("Кириллица");
+    CheckSaved(contain(g_lookup_frame, "GSPROW 1 0 1 2 D09AD0B8D180D0B8D0BBD0BBD0B8D186D0B0") > 0,
+        "offline Cyrillic player below top ten is found");
+    QueryLookupName("ЯЯЯЯЯЯЯЯЯЯЯЯЯЯЯa");
+    CheckSaved(contain(g_lookup_frame, " 1 0^n") > 0, "31-byte UTF-8 name is accepted");
+    QueryLookupName("<tag>^"&");
+    CheckSaved(contain(g_lookup_frame, "3C7461673E2226") > 0 && contain(g_lookup_frame, "<tag>") < 0, "markup travels only as hex");
+    QueryLookup("204361736520");
+    CheckSaved(contain(g_lookup_frame, "43617365") > 0, "outer ASCII spaces trimmed consistently");
+    QueryLookupName("case");
+    CheckSaved(contain(g_lookup_frame, " 0 0^n") > 0, "case-sensitive exact match");
+    QueryLookupName("Zero");
+    CheckSaved(contain(g_lookup_frame, " 0 0^n") > 0, "zero results remain excluded");
+    QueryLookupName("Player");
+    CheckSaved(contain(g_lookup_frame, " 1 0^n") > 0, "only actual Player name matches, not missing-name fallbacks");
+    QueryLookupName("Missing");
+    CheckSaved(contain(g_lookup_frame, " 0 0^n") > 0, "empty match has complete valid frame");
+    new scalar_name[32];
+    CheckSaved(DecodeSearchQuery("F09F9880", scalar_name) && strlen(scalar_name) == 4, "valid four-byte UTF-8 scalar accepted");
+    new const invalid[][] = { "", "0", "GG", "00", "20", "0A", "7F", "C285", "C0AF", "E080AF", "EDA080", "F4908080", "F0808080", "E282", "80", "535445414D5F", "737465616d5f", "4141414141414141414141414141414141414141414141414141414141414141" };
+    for (new index = 0; index < sizeof invalid; index++)
+    {
+        QueryLookup(invalid[index]);
+        CheckSaved(bool:equal(g_lookup_frame, "GSLOOKUP 1 invalid^n"), "malformed query rejected");
+    }
+    QueryLookup("43617365", false);
+    CheckSaved(contain(g_lookup_frame, "busy") > 0, "invalid query consumes cooldown without retry");
+    g_lookup_frame[0] = 0;
+    EmitPlayerLookup("bad;nonce", "43617365");
+    CheckSaved(bool:equal(g_lookup_frame, "GSLOOKUP 1 invalid^n"), "nonce cannot inject transport fields");
+    g_lookup_after = 0.0;
+    g_lookup_frame[0] = 0;
+    server_cmd("goldsrcops_player_lookup 0123456789abcdef 43617365 extra");
+    server_exec();
+    CheckSaved(bool:equal(g_lookup_frame, "GSLOOKUP 1 invalid^n"), "server handler rejects extra arguments");
+    g_lookup_frame[0] = 0;
+    server_cmd("goldsrcops_player_lookup 0123456789abcdef 43617365");
+    server_exec();
+    CheckSaved(contain(g_lookup_frame, "GSPROW 1 0 1 2 43617365") > 0, "registered server handler returns expected row");
+    new preferences = g_preferences_vault;
+    g_preferences_vault = INVALID_HANDLE;
+    QueryLookupName("Case");
+    CheckSaved(contain(g_lookup_frame, "unavailable") > 0, "missing preferences is unavailable, not empty");
+    g_preferences_vault = preferences;
+    g_leader_ready = false;
+    QueryLookupName("Case");
+    CheckSaved(contain(g_lookup_frame, "unavailable") > 0, "invalid index is unavailable");
+    g_leader_ready = true;
+    g_snapshot_frame[0] = 0;
+    OnLeaderboardSnapshot();
+    static current_top[2048];
+    CopyLeaderboardRows(current_top, charsmax(current_top));
+    CheckSaved(bool:equal(original_top, current_top), "lookup does not alter shared top-ten cache");
+    CheckSaved(writes == g_vault_writes && reads == g_vault_reads && files == g_leader_reads && rebuilds == g_leader_rebuilds,
+        "lookup does not touch vaults files or leaderboard refresh");
+    // Existing identity path must refresh search names only after successful readback.
+    if (!CreateStatsClients()) { set_fail_state("Lookup identity fixture unavailable."); return PLUGIN_HANDLED; }
+    new player = g_clients[0];
+    copy(g_auth[player], charsmax(g_auth[]), "STEAM_0:1:900024");
+    EnsureSavedStats(player);
+    new observed_name[32];
+    get_user_name(player, observed_name, charsmax(observed_name));
+    g_leader_name_recorded[player] = false;
+    RememberLeaderName(player);
+    new position;
+    CheckSaved(TrieGetCell(g_leader_keys, g_saved_key[player], position), "loaded player belongs to index");
+    ArrayGetArray(g_leader_records, position, record);
+    CheckSaved(bool:equal(record[LeaderSearchName], observed_name), "successful existing name write updates cache");
+    new name_writes = g_vault_writes;
+    UpdateSearchName(g_saved_key[player], "");
+    g_leader_name_recorded[player] = false;
+    RememberLeaderName(player);
+    ArrayGetArray(g_leader_records, position, record);
+    CheckSaved(equal(record[LeaderSearchName], observed_name) && g_vault_writes == name_writes,
+        "equal stored name refreshes cache without another write");
+    UpdateSearchName(g_saved_key[player], "Prior confirmed");
+    g_leader_name_recorded[player] = false;
+    g_fail_readback = true;
+    RememberLeaderName(player);
+    g_fail_readback = false;
+    ArrayGetArray(g_leader_records, position, record);
+    CheckSaved(bool:equal(record[LeaderSearchName], "Prior confirmed"), "failed readback does not publish unconfirmed name");
+    server_print("PLAYER_LOOKUP_SMOKE=%s failures=%d storage=real_nvault", g_failures ? "failed" : "passed", g_failures);
+    return PLUGIN_HANDLED;
+}
+
+public RunPlayerLookupLoad()
+{
+    nvault_prune(g_stats_vault, 0, 0);
+    nvault_prune(g_preferences_vault, 0, 0);
+    for (new index = 0; index < LEADER_INDEX_LIMIT; index++) { SeedLookupPlayer(index, 1000000000, 1000000000, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"); }
+    CloseLeaderFixture();
+    new Float:start = Float:engfunc(EngFunc_Time);
+    OpenLeaderFixture();
+    new Float:startup_ms = (Float:engfunc(EngFunc_Time) - start) * 1000.0;
+    CheckSaved(g_leader_ready && ArraySize(g_leader_records) == LEADER_INDEX_LIMIT, "full 4096-record index loads");
+    set_pcvar_num(g_lookup_enabled, 1);
+    static stamps[LEADER_INDEX_LIMIT], name_stamps[LEADER_INDEX_LIMIT];
+    for (new index = 0; index < LEADER_INDEX_LIMIT; index++)
+    {
+        new key[48], value[64];
+        LookupFixtureKey(index, key, charsmax(key));
+        nvault_lookup(g_stats_vault, key, value, charsmax(value), stamps[index]);
+        formatex(key, charsmax(key), "name:v1:STEAM_0:1:%d", 900000 + index);
+        nvault_lookup(g_preferences_vault, key, value, charsmax(value), name_stamps[index]);
+    }
+    new reads = g_vault_reads, writes = g_vault_writes, files = g_leader_reads;
+    new Float:total_ms, Float:maximum_ms;
+    g_lookup_quiet = true;
+    for (new sample = 0; sample < 30; sample++)
+    {
+        start = Float:engfunc(EngFunc_Time);
+        QueryLookup("41414141414141414141414141414141414141414141414141414141414141");
+        new Float:elapsed_ms = (Float:engfunc(EngFunc_Time) - start) * 1000.0;
+        total_ms += elapsed_ms;
+        maximum_ms = floatmax(maximum_ms, elapsed_ms);
+        CheckSaved(contain(g_lookup_frame, " 10 1^n") > 0, "capacity query stays truncated and complete");
+    }
+    start = Float:engfunc(EngFunc_Time);
+    for (new attempt = 0; attempt < 1000; attempt++)
+    {
+        QueryLookup("41414141414141414141414141414141414141414141414141414141414141", false);
+        CheckSaved(contain(g_lookup_frame, "busy") > 0, "repeated calls cannot bypass cooldown");
+    }
+    new Float:busy_ms = (Float:engfunc(EngFunc_Time) - start) * 1000.0;
+    g_lookup_quiet = false;
+    CheckSaved(reads == g_vault_reads && writes == g_vault_writes && files == g_leader_reads, "load probe performs no vault IO");
+    for (new index = 0; index < LEADER_INDEX_LIMIT; index++)
+    {
+        new key[48], value[64], stamp;
+        LookupFixtureKey(index, key, charsmax(key));
+        CheckSaved(nvault_lookup(g_stats_vault, key, value, charsmax(value), stamp) && equal(value, "1 1000000000 1000000000") && stamp == stamps[index],
+            "all statistics values and timestamps preserved");
+        formatex(key, charsmax(key), "name:v1:STEAM_0:1:%d", 900000 + index);
+        CheckSaved(nvault_lookup(g_preferences_vault, key, value, charsmax(value), stamp) && equal(value, "1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA") && stamp == name_stamps[index],
+            "all name values and timestamps preserved");
+    }
+    CheckSaved(maximum_ms < 25.0 && startup_ms < 1000.0, "lookup under 25ms and index initialization under 1s on constrained fixture");
+    server_print("PLAYER_LOOKUP_LOAD=%s failures=%d records=4096 samples=30 mean_ms=%.3f max_ms=%.3f startup_ms=%.3f busy_1000_ms=%.3f name_payload_bytes=%d",
+        g_failures ? "failed" : "passed", g_failures, total_ms / 30.0, maximum_ms, startup_ms, busy_ms, 32 * 4 * LEADER_INDEX_LIMIT);
     return PLUGIN_HANDLED;
 }

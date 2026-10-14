@@ -40,14 +40,17 @@ run_case() {
         sleep 1
     done
     printf 'quit\n' >&3
-    wait "$pid"
+    if ! wait "$pid"; then cat "$log"; return 1; fi
     pid=
     if ! grep -Eq "^${marker}=passed( [^[:space:]]+)* failures=0( |$)" "$log" || grep -Eq 'ASSERTION_FAILED|Run time error|Load fails|bad load|ML_NOTFOUND' "$log"; then
         cat "$log"
         return 1
     fi
-    grep -E 'SMOKE=|SEED=|RELOAD=' "$log"
-    [[ -z "$(find cstrike/addons/amxmodx/logs -name 'error_*.log' -print -quit)" ]]
+    grep -E 'SMOKE=|SEED=|RELOAD=|PLAYER_LOOKUP_LOAD=' "$log"
+    if [[ -n "$(find cstrike/addons/amxmodx/logs -name 'error_*.log' -print -quit)" ]]; then
+        find cstrike/addons/amxmodx/logs -name 'error_*.log' -exec cat {} +
+        return 1
+    fi
 }
 
 run_case player_preferences_smoke goldsrcops_preferences_smoke PLAYER_PREFERENCES_SMOKE de_dust2
@@ -70,5 +73,8 @@ run_case persistent_stats_smoke goldsrcops_saved_streak_verify PLAYER_SAVED_STRE
 grep -Eq '^PLAYER_PROFILE_RELOAD=passed failures=0$' /tmp/goldsrcops_saved_streak_verify.log
 run_case persistent_stats_smoke goldsrcops_leaderboard_seed PLAYER_LEADERBOARD_SEED de_dust2
 run_case persistent_stats_smoke goldsrcops_leaderboard_verify PLAYER_LEADERBOARD_RELOAD cs_office
+
+run_case persistent_stats_smoke goldsrcops_player_lookup_smoke PLAYER_LOOKUP_SMOKE de_dust2
+run_case persistent_stats_smoke goldsrcops_player_lookup_load PLAYER_LOOKUP_LOAD de_dust2
 
 echo PLAYER_PREFERENCES_RUNTIME=passed

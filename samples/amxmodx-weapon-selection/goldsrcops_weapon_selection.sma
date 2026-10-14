@@ -61,7 +61,7 @@ const LEADER_INDEX_LIMIT = 4096;
 const LEADER_FILE_LIMIT = 4 * 1024 * 1024;
 const LEADER_JOURNAL_OP_LIMIT = 65536;
 const Float:LEADER_REFRESH_INTERVAL = 5.0;
-enum _:LeaderRecord { LeaderKey[40], LeaderKills, LeaderDeaths, LeaderCachedKills, LeaderCachedDeaths };
+enum _:LeaderRecord { LeaderKey[40], LeaderKills, LeaderDeaths, LeaderCachedKills, LeaderCachedDeaths, LeaderSearchName[32] };
 new Array:g_leader_records;
 new Trie:g_leader_keys;
 new bool:g_leader_ready;
@@ -74,6 +74,9 @@ new g_leader_total;
 new g_leader_errors;
 new g_leader_reads;
 new g_leader_rebuilds;
+new g_lookup_enabled;
+new Float:g_lookup_after;
+const Float:PLAYER_LOOKUP_INTERVAL = 10.0;
 new g_leader_names[SAVED_LEADER_LIMIT][32];
 new g_leader_scores[SAVED_LEADER_LIMIT][2];
 new g_stats_vault = INVALID_HANDLE;
@@ -113,7 +116,7 @@ public NativePlayerLanguage(plugin, params)
 
 public plugin_init()
 {
-    register_plugin("GoldSrcOps Weapon Selection", "0.24.0", "GoldSrcOps");
+    register_plugin("GoldSrcOps Weapon Selection", "0.25.0", "GoldSrcOps");
     if (!register_dictionary("goldsrcops-player-menu.txt"))
     {
         set_fail_state("Player menu dictionary unavailable.");
@@ -132,6 +135,7 @@ public plugin_init()
     }
     LoadLeaderScores();
     g_enabled = register_cvar("goldsrcops_weapons_enabled", "0");
+    g_lookup_enabled = register_cvar("goldsrcops_player_lookup_enabled", "0");
     g_kill_heal = register_cvar("goldsrcops_kill_heal", "15");
     g_kill_ammo = register_cvar("goldsrcops_kill_ammo", "1");
     AutoExecConfig(false, "goldsrcops-weapon-selection");
@@ -165,6 +169,7 @@ public plugin_init()
     register_clcmd("profile", "ShowPlayerProfile");
     register_srvcmd("goldsrcops_stats_status", "OnMapStatsStatus");
     register_srvcmd("goldsrcops_leaderboard_snapshot", "OnLeaderboardSnapshot");
+    register_srvcmd("goldsrcops_player_lookup", "OnPlayerLookup");
     register_event("DeathMsg", "OnMapStatsDeath", "a");
     RegisterHookChain(RG_CBasePlayer_Spawn, "OnSpawnPost", true);
     set_task(HUD_REFRESH_INTERVAL, "UpdatePlayerHuds", HUD_TASK_ID, _, _, "b");
@@ -249,25 +254,25 @@ public plugin_end()
 
 public OnStatusCommand()
 {
-    server_print("WEAPON_SELECTION_STATUS version=0.24.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
+    server_print("WEAPON_SELECTION_STATUS version=0.25.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
         get_pcvar_num(g_enabled) != 0, sizeof WEAPON_NAMES, sizeof PISTOL_NAMES);
-    server_print("PLAYER_MENU_STATUS version=0.24.0 languages=ru,en unset=ru unsupported=en override=steam_or_connection entries=%d map_commands=delegated language_native=1",
+    server_print("PLAYER_MENU_STATUS version=0.25.0 languages=ru,en unset=ru unsupported=en override=steam_or_connection entries=%d map_commands=delegated language_native=1",
         sizeof PLAYER_MENU_KEYS);
-    server_print("PLAYER_SETTINGS_STATUS version=0.24.0 languages=ru,en summary=next_spawn saved=verified_record hud_saved=separate_verified_record reset=none");
-    server_print("PLAYER_HELP_STATUS version=0.24.0 languages=ru,en lines=6 cooldown=5 scope=private storage_writes=none welcome=once_per_connection");
-    server_print("PLAYER_HUD_STATUS version=0.24.0 languages=ru,en interval=1 renderer=director expiry=1.5 messages=2 menus=visible scope=connection_map rank=saved_kills toggle=steam_or_connection storage_writes=explicit_toggle");
-    server_print("KILL_STREAK_STATUS version=0.24.0 enabled=%d scope=connection_map reset=any_death alive_only=1 milestones=3,5,10 feedback=private languages=ru,en storage=none",
+    server_print("PLAYER_SETTINGS_STATUS version=0.25.0 languages=ru,en summary=next_spawn saved=verified_record hud_saved=separate_verified_record reset=none");
+    server_print("PLAYER_HELP_STATUS version=0.25.0 languages=ru,en lines=6 cooldown=5 scope=private storage_writes=none welcome=once_per_connection");
+    server_print("PLAYER_HUD_STATUS version=0.25.0 languages=ru,en interval=1 renderer=director expiry=1.5 messages=2 menus=visible scope=connection_map rank=saved_kills toggle=steam_or_connection storage_writes=explicit_toggle");
+    server_print("KILL_STREAK_STATUS version=0.25.0 enabled=%d scope=connection_map reset=any_death alive_only=1 milestones=3,5,10 feedback=private languages=ru,en storage=none",
         get_pcvar_num(g_enabled) != 0);
-    server_print("KILL_HEAL_STATUS version=0.24.0 enabled=%d amount=%d max_health=100 scope=enemy_human_kill alive_only=1",
+    server_print("KILL_HEAL_STATUS version=0.25.0 enabled=%d amount=%d max_health=100 scope=enemy_human_kill alive_only=1",
         get_pcvar_num(g_enabled) != 0 && KillHealAmount() > 0, KillHealAmount());
-    server_print("KILL_AMMO_STATUS version=0.24.0 enabled=%d scope=enemy_human_kill alive_only=1 weapons=loadout_owned reserve=spawn_limit clip=unchanged",
+    server_print("KILL_AMMO_STATUS version=0.25.0 enabled=%d scope=enemy_human_kill alive_only=1 weapons=loadout_owned reserve=spawn_limit clip=unchanged",
         get_pcvar_num(g_enabled) != 0 && get_pcvar_num(g_kill_ammo) > 0);
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
     {
         if (IsStatsClient(id) && g_preferences_ready[id]) { loaded++; }
     }
-    server_print("PLAYER_PREFERENCES_STATUS version=0.24.0 storage=%s schema=1 hud_schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_PREFERENCES_STATUS version=0.25.0 storage=%s schema=1 hud_schema=1 identity=steam loaded=%d errors=%d",
         g_preferences_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_preferences_errors);
     return PLUGIN_HANDLED;
 }
@@ -950,7 +955,7 @@ public ShowMapLeaders(id)
 public OnMapStatsStatus()
 {
     new leaders[MAP_LEADER_LIMIT];
-    server_print("MAP_STATS_STATUS version=0.24.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
+    server_print("MAP_STATS_STATUS version=0.25.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
         get_pcvar_num(g_enabled) != 0, BuildMapLeaders(leaders));
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
@@ -960,20 +965,20 @@ public OnMapStatsStatus()
             loaded++;
         }
     }
-    server_print("PLAYER_STATS_STATUS version=0.24.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_STATS_STATUS version=0.25.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
         g_stats_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_storage_errors);
-    server_print("PLAYER_RANK_STATUS version=0.24.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
+    server_print("PLAYER_RANK_STATUS version=0.25.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
         get_pcvar_num(g_enabled) != 0);
-    server_print("PLAYER_LEADERBOARD_STATUS version=0.24.0 ready=%d entries=%d limit=10 capacity=4096 cache_seconds=5 errors=%d source=saved_stats names=preferences display_ids=none",
+    server_print("PLAYER_LEADERBOARD_STATUS version=0.25.0 ready=%d entries=%d limit=10 capacity=4096 cache_seconds=5 errors=%d source=saved_stats names=preferences display_ids=none",
         g_leader_ready, ArraySize(g_leader_records), g_leader_errors);
-    server_print("PLAYER_STANDING_STATUS version=0.24.0 source=leaderboard_cache order=kills_deaths_key rank=private_line topall=outside_top10 storage_writes=none");
-    server_print("PLAYER_PROFILE_STATUS version=0.24.0 display=private_motd languages=ru_en cooldown=5 source=loaded_player_state standing=leaderboard_cache storage_writes=none");
+    server_print("PLAYER_STANDING_STATUS version=0.25.0 source=leaderboard_cache order=kills_deaths_key rank=private_line topall=outside_top10 storage_writes=none");
+    server_print("PLAYER_PROFILE_STATUS version=0.25.0 display=private_motd languages=ru_en cooldown=5 source=loaded_player_state standing=leaderboard_cache storage_writes=none");
     new streak_loaded;
     for (new id = 1; id <= MaxClients; id++)
     {
         if (IsStatsClient(id) && g_streak_ready[id] && g_preferences_ready[id] && !g_preferences_blocked[id]) { streak_loaded++; }
     }
-    server_print("PLAYER_STREAK_RECORD_STATUS version=0.24.0 storage=%s schema=1 identity=steam loaded=%d errors=%d writes=new_record feedback=private_after_readback history=since_feature",
+    server_print("PLAYER_STREAK_RECORD_STATUS version=0.25.0 storage=%s schema=1 identity=steam loaded=%d errors=%d writes=new_record feedback=private_after_readback history=since_feature",
         g_preferences_vault == INVALID_HANDLE ? "unavailable" : "nvault", streak_loaded, g_streak_errors);
     return PLUGIN_HANDLED;
 }
@@ -1454,6 +1459,7 @@ LoadLeaderScores()
         ArrayGetArray(g_leader_records, index, record);
         if (!nvault_lookup(g_stats_vault, record[LeaderKey], value, charsmax(value), stamp)) { continue; }
         if (!DecodeSavedStats(value, record[LeaderKills], record[LeaderDeaths])) { RejectLeaderIndex(); return; }
+        LoadSearchName(record);
         ArraySetArray(g_leader_records, index, record);
     }
     g_leader_dirty = true;
@@ -1485,9 +1491,17 @@ RememberLeaderName(id)
     if (!name[0]) { return; }
     formatex(key, charsmax(key), "name:%s", g_saved_key[id]);
     formatex(value, charsmax(value), "1 %s", name);
-    if (nvault_lookup(g_preferences_vault, key, stored, charsmax(stored), stamp) && equal(value, stored)) { return; }
+    if (nvault_lookup(g_preferences_vault, key, stored, charsmax(stored), stamp) && equal(value, stored))
+    {
+        UpdateSearchName(g_saved_key[id], name);
+        return;
+    }
     nvault_set(g_preferences_vault, key, value);
-    if (nvault_lookup(g_preferences_vault, key, stored, charsmax(stored), stamp) && equal(value, stored)) { g_leader_dirty = true; }
+    if (nvault_lookup(g_preferences_vault, key, stored, charsmax(stored), stamp) && equal(value, stored))
+    {
+        UpdateSearchName(g_saved_key[id], name);
+        g_leader_dirty = true;
+    }
 }
 
 bool:LeaderBefore(const candidate[LeaderRecord], const other[LeaderRecord])
@@ -1637,6 +1651,158 @@ public OnLeaderboardSnapshot()
     }
     server_print("GSLEND 1 %d %d", stamp, g_leader_count);
     return PLUGIN_HANDLED;
+}
+
+// Strict UTF-8 scalar validation, excluding C0/C1 controls and private identifiers.
+bool:ValidSearchName(const name[])
+{
+    new length = strlen(name);
+    if (length < 1 || length > 31 || containi(name, "STEAM_") >= 0) { return false; }
+    for (new index = 0; index < length; )
+    {
+        new first = name[index] & 255, bytes, codepoint, minimum;
+        if (first < 128) { bytes = 1; codepoint = first; minimum = 0; }
+        else if (first >= 194 && first <= 223) { bytes = 2; codepoint = first & 31; minimum = 128; }
+        else if (first >= 224 && first <= 239) { bytes = 3; codepoint = first & 15; minimum = 2048; }
+        else if (first >= 240 && first <= 244) { bytes = 4; codepoint = first & 7; minimum = 65536; }
+        else { return false; }
+        if (index + bytes > length) { return false; }
+        for (new offset = 1; offset < bytes; offset++)
+        {
+            new continuation = name[index + offset] & 255;
+            if (continuation < 128 || continuation > 191) { return false; }
+            codepoint = (codepoint << 6) | (continuation & 63);
+        }
+        if (codepoint < minimum || codepoint > 1114111 || (codepoint >= 55296 && codepoint <= 57343)
+            || codepoint < 32 || (codepoint >= 127 && codepoint <= 159)) { return false; }
+        index += bytes;
+    }
+    return true;
+}
+
+LoadSearchName(record[LeaderRecord])
+{
+    record[LeaderSearchName][0] = 0;
+    if (g_preferences_vault == INVALID_HANDLE) { return; }
+    new key[48], value[64], stamp;
+    formatex(key, charsmax(key), "name:%s", record[LeaderKey]);
+    if (!nvault_lookup(g_preferences_vault, key, value, charsmax(value), stamp)
+        || !equal(value, "1 ", 2) || strlen(value) > 33 || !ValidSearchName(value[2])) { return; }
+    copy(record[LeaderSearchName], charsmax(record[LeaderSearchName]), value[2]);
+    trim(record[LeaderSearchName]);
+}
+
+UpdateSearchName(const key[], const name[])
+{
+    new index, record[LeaderRecord];
+    if (!g_leader_ready || !TrieGetCell(g_leader_keys, key, index)) { return; }
+    ArrayGetArray(g_leader_records, index, record);
+    record[LeaderSearchName][0] = 0;
+    if (ValidSearchName(name))
+    {
+        copy(record[LeaderSearchName], charsmax(record[LeaderSearchName]), name);
+        trim(record[LeaderSearchName]);
+    }
+    ArraySetArray(g_leader_records, index, record);
+}
+
+LookupHexDigit(character)
+{
+    if (character >= '0' && character <= '9') { return character - '0'; }
+    if (character >= 'A' && character <= 'F') { return character - 'A' + 10; }
+    if (character >= 'a' && character <= 'f') { return character - 'a' + 10; }
+    return -1;
+}
+
+bool:DecodeSearchQuery(const encoded[], name[])
+{
+    new length = strlen(encoded);
+    name[0] = 0;
+    if (length < 2 || length > 62 || length % 2) { return false; }
+    for (new index = 0; index < length; index += 2)
+    {
+        new high = LookupHexDigit(encoded[index]), low = LookupHexDigit(encoded[index + 1]);
+        if (high < 0 || low < 0 || !(high | low)) { return false; }
+        name[index / 2] = (high << 4) | low;
+    }
+    name[length / 2] = 0;
+    if (!ValidSearchName(name)) { return false; }
+    trim(name);
+    return bool:name[0];
+}
+
+// Single engine callback: current saved counters and cached names cannot change mid-scan.
+FindSavedPlayers(const name[], matches[SAVED_LEADER_LIMIT], &count, &total)
+{
+    count = 0;
+    total = 0;
+    for (new index = 0; index < ArraySize(g_leader_records); index++)
+    {
+        new candidate[LeaderRecord], other[LeaderRecord], position;
+        ArrayGetArray(g_leader_records, index, candidate);
+        if (candidate[LeaderKills] < 0 || (!candidate[LeaderKills] && !candidate[LeaderDeaths])
+            || !candidate[LeaderSearchName][0] || !equal(candidate[LeaderSearchName], name)) { continue; }
+        total++;
+        while (position < count)
+        {
+            ArrayGetArray(g_leader_records, matches[position], other);
+            if (LeaderBefore(candidate, other)) { break; }
+            position++;
+        }
+        if (position == SAVED_LEADER_LIMIT) { continue; }
+        for (new move = min(count, SAVED_LEADER_LIMIT - 1); move > position; move--) { matches[move] = matches[move - 1]; }
+        matches[position] = index;
+        count = min(count + 1, SAVED_LEADER_LIMIT);
+    }
+}
+
+public OnPlayerLookup()
+{
+    new nonce[18], encoded[64];
+    read_argv(1, nonce, charsmax(nonce));
+    read_argv(2, encoded, charsmax(encoded));
+    if (read_argc() != 3) { server_print("GSLOOKUP 1 invalid"); return PLUGIN_HANDLED; }
+    EmitPlayerLookup(nonce, encoded);
+    return PLUGIN_HANDLED;
+}
+
+EmitPlayerLookup(const nonce[], const encoded[])
+{
+    if (strlen(nonce) != 16) { server_print("GSLOOKUP 1 invalid"); return; }
+    for (new index = 0; nonce[index]; index++)
+    {
+        if (LookupHexDigit(nonce[index]) < 0) { server_print("GSLOOKUP 1 invalid"); return; }
+    }
+    if (get_gametime() < g_lookup_after)
+    {
+        server_print("GSLOOKUP 1 %s busy %d", nonce, max(1, floatround(g_lookup_after - get_gametime(), floatround_ceil)));
+        return;
+    }
+    // Failed requests consume the slot too; toggling enable flags does not reset it.
+    g_lookup_after = get_gametime() + PLAYER_LOOKUP_INTERVAL;
+    new name[32];
+    if (!DecodeSearchQuery(encoded, name)) { server_print("GSLOOKUP 1 invalid"); return; }
+    if (!get_pcvar_num(g_enabled) || !get_pcvar_num(g_lookup_enabled) || !g_leader_ready
+        || g_stats_vault == INVALID_HANDLE || g_preferences_vault == INVALID_HANDLE)
+    {
+        server_print("GSLOOKUP 1 %s unavailable", nonce);
+        return;
+    }
+    new matches[SAVED_LEADER_LIMIT], count, total, stamp = get_systime();
+    FindSavedPlayers(name, matches, count, total);
+    new hex[63], written;
+    for (new index = 0; name[index]; index++)
+    {
+        written += formatex(hex[written], charsmax(hex) - written, "%02X", name[index] & 255);
+    }
+    server_print("GSLOOKUP 1 %s %d %d %d", nonce, stamp, count, total > count);
+    for (new index = 0; index < count; index++)
+    {
+        new record[LeaderRecord];
+        ArrayGetArray(g_leader_records, matches[index], record);
+        server_print("GSPROW %d %d %d %d %s", index + 1, RankForKills(record[LeaderKills]), record[LeaderKills], record[LeaderDeaths], hex);
+    }
+    server_print("GSPEND 1 %s %d %d %d", nonce, stamp, count, total > count);
 }
 
 // Shared, local-only MOTD shell. Optional table-cell end tags keep ten rows bounded.

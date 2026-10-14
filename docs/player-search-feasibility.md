@@ -1,8 +1,10 @@
 # Player search outside the top ten - feasibility and first slice
 
-Status: design complete on 2026-10-14; implementation and release pending.
+Status: addon foundation implemented and locally verified on 2026-10-14;
+API/Web integration and release pending. See [the wire contract and engine
+results](player-search-addon.md).
 Inspected source: `5dec506a24b98f1b2cb18eaf2dec2a4bbcef847f`.
-This record is D0. The proposed implementation spans addon, API and Web and is
+The original feasibility record was D0. The complete implementation spans addon, API and Web and is
 R2, following the existing public leaderboard precedent.
 
 ## What is available today
@@ -24,7 +26,7 @@ No production player records were queried or exported for this assessment.
 
 Add an anonymous RU/EN search form to `/leaderboard`, with server-rendered
 results and normal form submission working without JavaScript. Search the
-**exact saved nickname**, including case; trim surrounding whitespace, but do
+**exact saved nickname**, including case; trim surrounding ASCII spaces, but do
 not invent transliteration, case folding or Unicode normalization in one layer
 only. Explain the exact-match and last-recorded-name semantics beside the form.
 
@@ -150,7 +152,8 @@ pause, revise the design before a production rollout; do not silently raise limi
    the previous addon/API/Web artifacts and corresponding baseline while retaining
    current player data. No migration, data restore or new credential is planned.
 
-The next implementation step is item 1, the bounded addon lookup and engine
-probe. No game menu/MOTD change is needed. Deferred game-client visual acceptance,
+Item 1, the bounded addon lookup and engine probe, is implemented and locally
+verified. The next step is item 2, API transport/parser/cache/admission. No game menu/MOTD change is needed. Deferred game-client visual acceptance,
 two-player testing and the first successful weekly backup remain independent.
-This design does not claim any implemented, deployed or accepted search feature.
+The addon implementation does not yet provide a deployed or accepted public
+search feature; the website remains unchanged.
