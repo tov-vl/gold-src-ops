@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using AwesomeAssertions;
 using GoldSrcOps.Contracts.Monitoring;
+using GoldSrcOps.Web.Hosting;
 using GoldSrcOps.Web.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -100,6 +101,8 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
     private readonly bool serverJoinUnavailable;
     private readonly PublicServerJoinResponse? serverJoinResponse;
     private readonly HttpStatusCode? serverJoinFailureStatus;
+    private readonly bool searchEnabled;
+    public PlayerSearchFixtureHandler SearchHandler { get; } = new();
     private readonly PublicLeaderboardResponse? leaderboard;
     private readonly HttpStatusCode? leaderboardFailure;
 
@@ -110,8 +113,10 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
         HttpStatusCode? serverJoinFailureStatus = null,
         PublicLeaderboardResponse? leaderboard = null,
         HttpStatusCode? leaderboardFailure = null,
-        PublicStatusResponse? status = null)
+        PublicStatusResponse? status = null,
+        bool searchEnabled = false)
     {
+        this.searchEnabled = searchEnabled;
         this.statusUnavailable = statusUnavailable;
         this.status = status;
         this.serverJoinUnavailable = serverJoinUnavailable;
@@ -132,7 +137,8 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
                 new Dictionary<string, string?>(StringComparer.Ordinal)
                 {
                     ["GoldSrcOpsApi:BaseUrl"] = "https://api.example.test/",
-                    ["Authentication:Enabled"] = "false"
+                    ["Authentication:Enabled"] = "false",
+                    ["PublicPlayerSearch:Enabled"] = searchEnabled.ToString()
                 });
         });
         builder.ConfigureServices(services =>
@@ -143,6 +149,13 @@ internal sealed class PublicDashboardWebApplicationFactory : WebApplicationFacto
             {
                 BaseAddress = new Uri("https://api.example.test/")
             };
+            services.RemoveAll<PublicPlayerSearchOptions>();
+            services.AddSingleton(new PublicPlayerSearchOptions(searchEnabled));
+            services.RemoveAll<PublicPlayerSearchClient>();
+            services.AddSingleton(provider => new PublicPlayerSearchClient(new HttpClient(SearchHandler)
+            {
+                BaseAddress = new Uri("https://api.example.test/")
+            }, provider.GetRequiredService<PublicApiMetrics>()));
             services.RemoveAll<PublicStatusClient>();
             services.AddSingleton(provider => new PublicStatusClient(httpClient, provider.GetRequiredService<PublicApiMetrics>()));
         });

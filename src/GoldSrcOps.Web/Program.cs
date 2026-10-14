@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHealthChecks();
+PublicPlayerSearchConfiguration.Configure(builder.Services, builder.Configuration);
 WebTelemetryConfiguration.Configure(builder.Services, builder.Configuration);
 var reverseProxyEnabled = ReverseProxyConfiguration.Configure(
     builder.Services,
@@ -35,6 +36,11 @@ builder.Services.AddHttpClient<PublicStatusClient>(client =>
     client.BaseAddress = apiBaseAddress;
     client.Timeout = TimeSpan.FromSeconds(5);
 });
+builder.Services.AddHttpClient<PublicPlayerSearchClient>(client =>
+{
+    client.BaseAddress = apiBaseAddress;
+    client.Timeout = TimeSpan.FromSeconds(5);
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<AccessTokenHandler>();
 builder.Services.AddHttpClient<IReaderApiClient, ReaderApiClient>(client =>
 {
@@ -70,6 +76,7 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UsePublicPlayerSearchBoundary();
 app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapHealthChecks("/health/live")

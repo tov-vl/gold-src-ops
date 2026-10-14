@@ -152,10 +152,11 @@ pause, revise the design before a production rollout; do not silently raise limi
    the previous addon/API/Web artifacts and corresponding baseline while retaining
    current player data. No migration, data restore or new credential is planned.
 
-Items 1 and 2, the bounded addon lookup/engine probe and API
-transport/parser/cache/admission, are implemented. The next step is item 3,
-inline Web search and RU/EN acceptance. No game menu/MOTD change is needed.
+Items 1-3 are implemented: the bounded addon lookup/engine probe, API
+transport/parser/cache/admission and [inline Web search](player-search-web.md).
+The next step is required CI and combined R2 release readiness. No game menu/MOTD
+change is needed.
 Deferred game-client visual acceptance,
 two-player testing and the first successful weekly backup remain independent.
-The addon implementation does not yet provide a deployed or accepted public
-search feature; the website remains unchanged.
+These implementations do not yet provide a deployed or accepted public search
+feature. Production remains unchanged; all search flags default to disabled.

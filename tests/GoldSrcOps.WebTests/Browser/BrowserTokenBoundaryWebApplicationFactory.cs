@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using GoldSrcOps.Contracts.Monitoring;
+using GoldSrcOps.Web.Hosting;
 using GoldSrcOps.Web.Security;
 using GoldSrcOps.Web.Services;
 using GoldSrcOps.WebTests.Pages;
@@ -25,6 +26,8 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
     public const string IdTokenSentinel =
         "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJicm93c2VyLWlkIn0.c2lnbmF0dXJl";
 
+    private readonly bool searchEnabled;
+    public PlayerSearchFixtureHandler SearchHandler { get; } = new();
     private readonly bool serverEnabled;
     private readonly PublicServerJoinResponse? serverJoinResponse;
     private readonly HttpStatusCode? serverJoinFailureStatus;
@@ -36,8 +39,10 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
         PublicServerJoinResponse? serverJoinResponse = null,
         HttpStatusCode? serverJoinFailureStatus = null,
         PublicLeaderboardResponse? leaderboard = null,
-        HttpStatusCode? leaderboardFailure = null)
+        HttpStatusCode? leaderboardFailure = null,
+        bool searchEnabled = false)
     {
+        this.searchEnabled = searchEnabled;
         this.serverEnabled = serverEnabled;
         this.serverJoinResponse = serverJoinResponse;
         this.serverJoinFailureStatus = serverJoinFailureStatus;
@@ -57,6 +62,7 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
                 {
                     ["GoldSrcOpsApi:BaseUrl"] = "https://api.example.test/",
                     ["Authentication:Enabled"] = "false",
+                    ["PublicPlayerSearch:Enabled"] = searchEnabled.ToString(),
                 });
         });
         builder.ConfigureTestServices(services =>
@@ -75,6 +81,13 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
                     serverJoinResponse: serverJoinResponse,
                     serverJoinFailureStatus: serverJoinFailureStatus,
                     leaderboard: leaderboard, leaderboardFailure: leaderboardFailure);
+            services.RemoveAll<PublicPlayerSearchOptions>();
+            services.AddSingleton(new PublicPlayerSearchOptions(searchEnabled));
+            services.RemoveAll<PublicPlayerSearchClient>();
+            services.AddSingleton(provider => new PublicPlayerSearchClient(new HttpClient(SearchHandler)
+            {
+                BaseAddress = new Uri("https://api.example.test/")
+            }, provider.GetRequiredService<PublicApiMetrics>()));
             services.RemoveAll<PublicStatusClient>();
             services.AddSingleton(provider => new PublicStatusClient(new HttpClient(publicStatusHandler)
             {

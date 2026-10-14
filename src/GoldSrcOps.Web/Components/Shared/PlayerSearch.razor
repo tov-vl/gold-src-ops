@@ -1,0 +1,74 @@
+@using GoldSrcOps.Web.Hosting
+@inject PublicPlayerSearchClient SearchClient
+@inject PublicPlayerSearchOptions Options
+
+@if (Options.Enabled)
+{
+    <section id="player-search" class="player-search" aria-labelledby="player-search-title">
+        <h2 id="player-search-title">@Text["SearchTitle"]</h2>
+        <p id="player-search-hint">@Text["SearchHint"]</p>
+        <EditForm Model="Model" FormName="player-search" OnSubmit="SearchAsync" method="post" action="@(Text.Link("/leaderboard") + "#player-search")" Enhance="false">
+            <label for="player-search-name">@Text["SearchName"]</label>
+            <div class="player-search-controls">
+                <InputText id="player-search-name" @bind-Value="Model!.Name" maxlength="31" required autocomplete="off" spellcheck="false" aria-describedby="player-search-hint player-search-message" />
+                <button type="submit">@Text["SearchSubmit"]</button>
+            </div>
+        </EditForm>
+        <p id="player-search-message" class="player-search-message" role="status" data-search-state="@(_result?.State ?? "idle")">@Message</p>
+        @if (_result is { State: "fresh", Entries.Count: > 0, CapturedAtUtc: { } captured })
+        {
+            <p class="player-search-capture">@Text["SearchSnapshot"] <time datetime="@captured.ToString("O")">@captured.ToUniversalTime().ToString("dd.MM.yyyy HH:mm:ss 'UTC'", CultureInfo.InvariantCulture)</time></p>
+            <ol class="player-search-results" aria-label="@Text["SearchResults"]">
+                @foreach (var entry in _result.Entries)
+                {
+                    <li class="player-search-result">
+                        <h3>@entry.Name</h3>
+                        <p class="player-search-rank">@PlayerRankDisplay.Name(Text, entry.Rank)</p>
+                        <p class="player-search-progress">@PlayerRankDisplay.Progress(Text, entry.Rank, entry.Kills)</p>
+                        <dl>
+                            <div><dt>@Text["Kills"]</dt><dd>@entry.Kills</dd></div>
+                            <div><dt>@Text["Deaths"]</dt><dd>@entry.Deaths</dd></div>
+                        </dl>
+                    </li>
+                }
+            </ol>
+            @if (_result.HasMore)
+            {
+                <p class="player-search-notice">@Text["SearchMore"]</p>
+            }
+            <p>@Text["SearchDuplicates"]</p>
+        }
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public PublicPageText Text { get; set; } = null!;
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+    [SupplyParameterFromForm(FormName = "player-search")] private SearchForm? Model { get; set; }
+    private PublicPlayerSearchResponse? _result;
+
+    private string Message => _result?.State switch
+    {
+        "fresh" when _result.Entries.Count == 0 => Text["SearchEmpty"],
+        "fresh" => Text.Format("SearchFound", _result.Entries.Count),
+        "busy" => Text.Format("SearchBusy", _result.RetryAfterSeconds ?? 10),
+        "invalid" => Text["SearchInvalid"],
+        "unavailable" => Text["SearchUnavailable"],
+        _ => Text["SearchPrivacy"]
+    };
+
+    protected override void OnInitialized() => Model ??= new();
+
+    private async Task SearchAsync()
+    {
+        if (!Options.Enabled)
+            return;
+        _result = await SearchClient.SearchAsync(Model?.Name, HttpContext?.RequestAborted ?? CancellationToken.None);
+        Model!.Name = PublicPlayerSearchClient.TryNormalize(Model.Name, out var name) ? name : string.Empty;
+    }
+
+    public sealed class SearchForm
+    {
+        public string Name { get; set; } = string.Empty;
+    }
+}
