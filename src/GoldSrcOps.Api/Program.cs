@@ -28,6 +28,7 @@ if (builder.Environment.IsDevelopment())
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
+builder.Services.AddPublicPlayerSearchAdmission();
 builder.Services.AddOutputCache(static options =>
 {
     options.AddPolicy(
@@ -74,6 +75,7 @@ builder.Services.AddOpenTelemetry()
 
 var app = builder.Build();
 _ = app.Services.GetRequiredService<PublicServerJoinOptions>();
+_ = app.Services.GetRequiredService<PublicPlayerSearchSettings>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -89,6 +91,7 @@ if (reverseProxyEnabled)
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseOutputCache();
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
@@ -104,6 +107,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapPrometheusScrapingEndpoint("/metrics")
     .RequireAuthorization(GoldSrcOpsSecurity.ReaderPolicy);
 app.MapPublicStatusEndpoints();
+app.MapPublicPlayerSearchEndpoints();
 app.MapAlertDeliveryEndpoints();
 app.MapServerEndpoints();
 app.MapIncidentEndpoints();

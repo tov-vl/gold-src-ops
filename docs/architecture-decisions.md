@@ -1990,3 +1990,18 @@ Web may join the internal telemetry network while retaining edge as its preferre
 egress gateway. Collector availability must not gate Web startup or page reads.
 Dashboard rates and quantiles are passive traffic observations, not an availability
 or SLO claim. See [the v2.72 contract](v2.72-public-api-observability.md).
+
+## Decision 48: Bound Exact Player Search At API And Addon
+
+Search saved nicknames through a separate default-off, read-only addon command
+and API port. Use exact case-sensitive UTF-8 names without public player IDs.
+Send query text only in a bounded POST body; never put it in URLs or telemetry.
+Bind transport to the existing advertised server and its credential, validate
+nonce/name correlation and complete frames, and preserve duplicate results.
+
+Keep one in-flight API lookup, a ten-second admission interval without a queue,
+and successful results for at most 60 seconds. HTTP admission precedes body
+parsing; the addon independently enforces the game cooldown. A failed or cancelled
+attempt does not reset admission or authorize retry. Missing/old source data is
+unavailable, not a successful empty result. Multiple API replicas require shared
+admission before search is enabled. See [the API contract](player-search-api.md).
