@@ -3296,3 +3296,13 @@ Web-only rollout и production browser acceptance прошли. Stable испо�
 Все тесты, обязательные проверки и зависимости публикации сохранены.
 Без нового application release и production rollout.
 См. [замеры и ограничения](ci-release-timing-2026-10.md).
+
+## CI - Диагностика вспомогательных workflow
+
+Проверено 2026-10-14: четыре отказа push завершились до запуска jobs с ошибкой
+валидации `deployment`. Параметр поддерживается GitHub; неизмененный workflow
+сбора evidence после отказа трижды прошел по расписанию. Ошибка кода репозитория
+не подтверждена, workflow сохранены. Три локальных smoke прошли.
+См. [диагностику и границы вывода](availability-workflow-validation-2026-10.md).
+Проверка повторения при новом docs push и required CI выполняется отдельно;
+новый application release и production rollout не требуются.
