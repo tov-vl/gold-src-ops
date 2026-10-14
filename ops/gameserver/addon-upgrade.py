@@ -84,6 +84,12 @@ def package(item, kind):
     hashes = {x['path']: x['sha256'] for x in value['payload']}
     for path in paths:
         policy.require(digest_file(directory / path) == hashes[path])
+    config = baseline.trusted_bytes(directory / paths[1], 256)
+    command = b'goldsrcops_weapons_enabled "1"\n' if weapon else b'goldsrcops_maps_enabled "1"\n'
+    allowed = (command, command + b'goldsrcops_player_lookup_enabled "1"\n') if weapon else (command,)
+    policy.require(config in allowed, 'Unexpected addon configuration.')
+    policy.require(baseline.trusted_bytes(directory / paths[2], 256) == (names[0] + '\n').encode(),
+                   'Unexpected addon loader.')
     return paths, hashes
 
 
@@ -96,8 +102,8 @@ def read_plan(path, expected):
                    and plan['kind'] in ('weapon-selection', 'map-menu'))
     paths, old = package(plan['previous'], plan['kind'])
     _, new = package(plan['candidate'], plan['kind'])
-    policy.require(old[paths[0]] != new[paths[0]] and all(old[p] == new[p] for p in paths[1:3]),
-                   'Only binary and dictionary updates are supported.')
+    policy.require(old[paths[0]] != new[paths[0]] and old[paths[2]] == new[paths[2]],
+                   'A changed binary and unchanged loader are required.')
     policy.require(re.fullmatch('[a-f0-9]{64}', plan['baselineSha256']))
     check = plan['acceptance']
     policy.require(set(check) == {'path', 'sha256'} and Path(check['path']).is_absolute()

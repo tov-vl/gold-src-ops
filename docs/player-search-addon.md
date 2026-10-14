@@ -2,7 +2,8 @@
 
 Addon 0.25.0 implements the first step of
 [player search outside the top ten](player-search-feasibility.md). This is an
-addon-only implementation boundary within the future R2 addon/API/Web feature.
+addon-only implementation boundary within the R2 addon/API/Web feature.
+The combined release is R3 because it also extends recovery tooling.
 API/Web, HTTP admission/cache and the user-facing form are not implemented here.
 No production installation or application candidate is part of this step.
 
@@ -22,9 +23,13 @@ Leading/trailing ASCII spaces are trimmed; other Unicode whitespace is literal.
 Matching is exact and case-sensitive with no normalization or transliteration.
 
 Both `goldsrcops_weapons_enabled` and `goldsrcops_player_lookup_enabled` must be
-nonzero. The new lookup switch defaults to zero; existing configuration/package
-files are unchanged. Invalid argument count/nonce returns the fixed invalid
-response without echoing input. A valid nonce consumes the shared ten-second
+nonzero. The lookup switch defaults to zero. Ordinary package configuration
+remains unchanged; the builder's explicit `-EnablePlayerLookup` option is valid
+only with `-Target game-host-addon` and adds the persistent lookup command.
+Sandbox activation is rejected. The [v2.76 recovery extension](v2.76-readiness.md)
+accepts only this exact configuration transition and its reverse, preserving
+receipts, backup baseline and current player data. Invalid argument count/nonce
+returns the fixed invalid response without echoing input. A valid nonce consumes the shared ten-second
 cooldown before query/source validation, including on invalid/unavailable
 results. An active cooldown returns busy before scanning. It is independent of
 API process restarts and enable toggles; it resets with the game map/plugin.

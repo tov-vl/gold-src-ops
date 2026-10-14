@@ -11,11 +11,17 @@ param(
     [string]$OutputDirectory,
 
     [ValidateSet("sandbox", "game-host-addon")]
-    [string]$Target = "sandbox"
+    [string]$Target = "sandbox",
+
+    [switch]$EnablePlayerLookup
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ($EnablePlayerLookup -and $Target -ne "game-host-addon") {
+    throw "Player lookup activation requires a game-host-addon package."
+}
 
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../.."))
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
@@ -55,6 +61,9 @@ $relativePaths = @($pluginRelative, $configRelative, $dictionaryRelative)
 if ($Target -eq "game-host-addon") {
     $relativePaths += $loaderRelative
     $configText = 'goldsrcops_weapons_enabled "1"' + "`n"
+    if ($EnablePlayerLookup) {
+        $configText += 'goldsrcops_player_lookup_enabled "1"' + "`n"
+    }
 }
 foreach ($relative in $relativePaths) {
     New-Item -ItemType Directory -Force -Path (Split-Path (Join-Path $content $relative)) | Out-Null

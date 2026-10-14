@@ -22,8 +22,8 @@ put = f.put
 class EngineRehearsal(f.WorkflowTests):
     def make_package(self, name):
         source = Path('/' + name)
-        expected = {'previous': '4e1e3a7de8280c6d4c7df7f250f351cef1b07417123412ef5beb2806107c4c31',
-                    'candidate': '03950d9b54e20718fcb836891652b8879e1ec03a02837f420492d3a12bedef61'}
+        expected = {'previous': '03950d9b54e20718fcb836891652b8879e1ec03a02837f420492d3a12bedef61',
+                    'candidate': '7dbc46af897046258478eca5f8d38a575e36924aa0f92bdd7d79a30f467bb075'}
         self.assertEqual(expected[name], u.baseline.digest((source/'manifest.json').read_bytes()))
         target = self.root / name
         shutil.copytree(source, target)
@@ -79,7 +79,7 @@ class EngineRehearsal(f.WorkflowTests):
         self.saved = self.vault_snapshot()
         self.plugin_list.write_bytes(self.loader)
         self.start_engine()
-        expectations = {self.previous['sha256']: '0.23.0', self.candidate['sha256']: '0.24.0'}
+        expectations = {self.previous['sha256']: '0.24.0', self.candidate['sha256']: '0.25.0'}
         put(self.root / 'expectations.json', json.dumps(expectations))
         probe = self.root / 'accept.sh'
         put(probe, '#!/usr/bin/env bash\nset -Eeuo pipefail\nexec python3 -I -B /repo/ops/gameserver/addon-runtime-probe.py '
@@ -89,6 +89,20 @@ class EngineRehearsal(f.WorkflowTests):
         self.plan['acceptance'] = self.probe
         self.new_plan(self.previous, self.candidate, 'upgrade')
         self.host.accept(self.previous)
+        install = self.host.install
+        def checked_install(*args):
+            before = self.closed_vault_state()
+            install(*args)
+            self.assertEqual(before, self.closed_vault_state())
+        self.host.install = checked_install
+
+    def closed_vault_state(self):
+        self.assertIsNone(self.process)
+        result = {}
+        for path in self.host.vault.iterdir():
+            stat = path.stat()
+            result[path.name] = (path.read_bytes(), stat.st_mode, stat.st_uid, stat.st_gid, stat.st_mtime_ns)
+        return result
 
     def vault_snapshot(self):
         return {p.name: p.read_bytes() for p in self.host.vault.glob('*.vault')}
@@ -177,6 +191,11 @@ class EngineRehearsal(f.WorkflowTests):
         self.start_engine()
         print('ENGINE_TRANSITION='+expected+' operation='+self.plan['operationId'], flush=True)
 
+    def lookup(self, kills):
+        # Exact response row proves both persistent activation and data after restart.
+        self.console('goldsrcops_player_lookup 0123456789abcdef 52656865617273616c',
+                     'GSPROW 1 1 '+kills+' 9 52656865617273616C')
+
     def test_engine_transitions(self):
         self.prepare_engine()
         # A disk-side candidate cannot prove the still-running predecessor.
@@ -191,6 +210,21 @@ class EngineRehearsal(f.WorkflowTests):
         finally:
             binary.write_bytes(predecessor)
         self.transition('accepted', self.candidate)
+        # transition() has already performed a cold restart. No RCON CVAR writes.
+        self.lookup('37')
+        self.console('changelevel de_inferno', 'Mapchange to de_inferno')
+        self.host.accept(self.candidate)
+        self.lookup('37')
+        # Simulate new saved progress after activation using the isolated vault helper.
+        self.stop_engine()
+        self.plugin_list.write_text('addon_upgrade_vault.amxx\n')
+        self.start_engine()
+        self.console('upgrade_vault_advance', 'UPGRADE_VAULT_ADVANCE=passed')
+        self.stop_engine()
+        self.saved = self.vault_snapshot()
+        self.plugin_list.write_bytes(self.loader)
+        self.start_engine()
+        self.lookup('38')
         self.new_plan(self.candidate, self.previous, 'planned-rollback')
         self.transition('accepted', self.previous)
         # Only the candidate fails an additional frozen acceptance condition.
@@ -204,7 +238,7 @@ class EngineRehearsal(f.WorkflowTests):
         self.stop_engine()
         self.plugin_list.write_text('addon_upgrade_vault.amxx\n')
         self.start_engine()
-        self.console('upgrade_vault_verify', 'UPGRADE_VAULT_VERIFY=passed')
+        self.console('upgrade_vault_verify advanced', 'UPGRADE_VAULT_VERIFY=passed')
         self.stop_engine()
         self.assertEqual(self.saved, self.vault_snapshot())
         self.assertFalse(list((self.amxx/'logs').glob('error_*.log')))

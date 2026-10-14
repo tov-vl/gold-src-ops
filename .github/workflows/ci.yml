@@ -190,6 +190,7 @@ jobs:
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -PlayerMenuFixture
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -PlayerPreferencesFixture
           ./tools/smoke/weapon-selection-package.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'weapon-addon') -Target game-host-addon
+          ./tools/smoke/weapon-selection-package.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'weapon-lookup-addon') -Target game-host-addon -EnablePlayerLookup
 
   container-smoke:
     name: Container Smoke
@@ -341,6 +342,10 @@ jobs:
         run: |
           pwsh -NoProfile -File ./tools/smoke/postgres-backup-schedule.ps1
           bash ./tools/smoke/postgres-backup-schedule.sh
+
+      - name: Validate independent public player-search flags
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        run: pwsh -NoProfile -File ./tools/smoke/player-search-compose.ps1
 
       - name: Validate player-data capture and encrypted recovery
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'

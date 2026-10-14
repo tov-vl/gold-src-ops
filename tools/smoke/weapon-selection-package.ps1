@@ -9,13 +9,15 @@ param(
     [string]$OutputDirectory,
 
     [ValidateSet("sandbox", "game-host-addon")]
-    [string]$Target = "sandbox"
+    [string]$Target = "sandbox",
+
+    [switch]$EnablePlayerLookup
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $builder = Join-Path $PSScriptRoot "../release/build-weapon-selection-sandbox.ps1"
-$package = & $builder -CacheDirectory $CacheDirectory -OutputDirectory $OutputDirectory -Target $Target
+$package = & $builder -CacheDirectory $CacheDirectory -OutputDirectory $OutputDirectory -Target $Target -EnablePlayerLookup:$EnablePlayerLookup
 $archiveHash = (Get-FileHash -LiteralPath $package.Archive -Algorithm SHA256).Hash
 $manifest = Get-Content -LiteralPath (Join-Path $package.Content "manifest.json") -Raw | ConvertFrom-Json
 $addon = $Target -eq "game-host-addon"
@@ -66,6 +68,11 @@ if ($addon -and [IO.File]::ReadAllText((Join-Path $package.Content $expectedPayl
     throw "Supplemental loader is not the exact one-plugin list."
 }
 
+if ($addon) {
+    $expectedConfiguration = 'goldsrcops_weapons_enabled "1"' + "`n"
+    if ($EnablePlayerLookup) { $expectedConfiguration += 'goldsrcops_player_lookup_enabled "1"' + "`n" }
+    if ($configuration -cne $expectedConfiguration) { throw "Unexpected lookup activation configuration." }
+}
 $refused = $false
 try {
     & $builder -CacheDirectory $CacheDirectory -OutputDirectory $OutputDirectory -Target $Target | Out-Null
@@ -76,6 +83,19 @@ catch {
 }
 if (-not $refused -or (Get-FileHash -LiteralPath $package.Archive -Algorithm SHA256).Hash -cne $archiveHash) {
     throw "Existing sandbox output was not preserved."
+}
+
+$invalidOutput = $OutputDirectory + "-invalid-sandbox"
+$invalidRefused = $false
+try {
+    & $builder -CacheDirectory $CacheDirectory -OutputDirectory $invalidOutput -Target sandbox -EnablePlayerLookup | Out-Null
+}
+catch {
+    if ($_.Exception.Message -cne "Player lookup activation requires a game-host-addon package.") { throw }
+    $invalidRefused = $true
+}
+if (-not $invalidRefused -or (Test-Path -LiteralPath $invalidOutput)) {
+    throw "Sandbox activation was not refused before creating output."
 }
 
 Write-Output "WEAPON_SELECTION_PACKAGE_SMOKE=passed"

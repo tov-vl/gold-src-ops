@@ -73,6 +73,10 @@ else:
   print('NRestarts=0')
 ''', 0o700)
         put(self.bin / 'install', '''#!/usr/bin/env bash
+if [[ "${!#}" == *goldsrcops-weapon-selection.cfg && -e "$FIXTURE/fail-config" ]]; then
+ printf broken > "${!#}"
+ exit 1
+fi
 if [[ "${!#}" == *goldsrcops_weapon_selection.amxx && -e "$FIXTURE/fail-install" ]]; then
  printf broken > "${!#}"
  exit 1
@@ -132,7 +136,10 @@ if [[ -e "$FIXTURE/reject-candidate" && "$2" == "$(cat "$FIXTURE/candidate-hash"
         paths=['cstrike/addons/amxmodx/'+folder+'/'+n for folder,n in zip(
                ('plugins','configs/plugins','configs','data/lang'),names)]
         command='goldsrcops_weapons_enabled' if weapon else 'goldsrcops_maps_enabled'
-        for p, text in zip(paths, (name, command+' "1"\n', names[0]+'\n', name)):
+        configuration = command+' "1"\n'
+        if weapon and name == 'candidate':
+            configuration += 'goldsrcops_player_lookup_enabled "1"\n'
+        for p, text in zip(paths, (name, configuration, names[0]+'\n', name)):
             put(d / p, text)
         manifest = {'schemaVersion': 2, 'purpose': 'game-host-addon' if weapon else 'map-menu-addon',
                     'productionInstallSupported': True, 'enabledByDefault': True,
@@ -179,7 +186,7 @@ if [[ -e "$FIXTURE/reject-candidate" && "$2" == "$(cat "$FIXTURE/candidate-hash"
     def test_upgrade_and_no_replay(self):
         self.assert_final('accepted', self.candidate)
         self.assertEqual(['stop','start'], (self.root/'calls').read_text().splitlines())
-        self.assertEqual(3, sum(a!=b for a,b in zip(self.original_baseline.splitlines(),self.base.read_bytes().splitlines())))
+        self.assertEqual(4, sum(a!=b for a,b in zip(self.original_baseline.splitlines(),self.base.read_bytes().splitlines())))
 
     def test_map_menu_upgrade(self):
         self.assert_final('accepted',self.candidate)
@@ -214,6 +221,130 @@ if [[ -e "$FIXTURE/reject-candidate" && "$2" == "$(cat "$FIXTURE/candidate-hash"
         self.assertEqual(self.original_baseline,self.base.read_bytes())
         self.assertTrue((self.journal.directory/'baseline-forward-evidence/result.json').exists())
         self.assertTrue((self.journal.directory/'baseline-rollback-evidence/result.json').exists())
+
+    def rewrite_candidate(self, relative, data):
+        directory = Path(self.candidate['directory'])
+        target = directory / relative
+        target.write_bytes(data)
+        manifest = json.loads((directory/'manifest.json').read_text())
+        for item in manifest['payload']:
+            if item['path'] == relative:
+                item['sha256'] = u.baseline.digest(data)
+        put(directory/'manifest.json', json.dumps(manifest))
+        self.candidate['sha256'] = u.digest_file(directory/'manifest.json')
+        put(self.plan_path, json.dumps(self.plan))
+        self.journal = u.Journal(self.state, u.digest_file(self.plan_path))
+        self.host.journal = self.journal
+
+    def test_unapproved_configuration_rejected_by_plan_and_installer(self):
+        relative = u.package(self.candidate, self.kind)[0][1]
+        for data in (b'goldsrcops_weapons_enabled "1"\nexec extra.cfg\n',
+                     b'goldsrcops_weapons_enabled "1"\ngoldsrcops_player_lookup_enabled "2"\n',
+                     b'goldsrcops_weapons_enabled "1"\n\x00',
+                     b'goldsrcops_weapons_enabled "1"\n\n'):
+            with self.subTest(data=data):
+                self.rewrite_candidate(relative, data)
+                with self.assertRaises(ValueError): self.execute()
+                self.host.stop()
+                with self.assertRaises(ValueError): self.host.install(self.candidate, self.previous)
+                self.host.start()
+                self.assertFalse(self.journal.pending.exists())
+                self.assertEqual(self.original_baseline, self.base.read_bytes())
+                old, new = self.host.prepare(self.previous, u.digest_file(self.base))
+                self.assertEqual(old, new)
+
+    def test_map_menu_rejects_lookup_configuration(self):
+        relative = u.package(self.candidate, self.kind)[0][1]
+        self.rewrite_candidate(relative, b'goldsrcops_maps_enabled "1"\ngoldsrcops_player_lookup_enabled "1"\n')
+        with self.assertRaises(ValueError): self.execute()
+        self.host.stop()
+        with self.assertRaises(ValueError): self.host.install(self.candidate, self.previous)
+        self.assertFalse(self.journal.pending.exists())
+
+    def test_config_only_transition_without_new_binary_is_rejected(self):
+        relative = u.package(self.candidate, self.kind)[0][0]
+        self.rewrite_candidate(relative, (Path(self.previous['directory'])/relative).read_bytes())
+        with self.assertRaises(ValueError): self.execute()
+        self.assertFalse(self.journal.pending.exists())
+        self.assertFalse((self.root/'calls').exists())
+
+    def test_loader_change_is_rejected_before_claim(self):
+        relative = u.package(self.candidate, self.kind)[0][2]
+        self.rewrite_candidate(relative, b'goldsrcops_weapon_selection.amxx\nextra.amxx\n')
+        with self.assertRaises(ValueError): self.execute()
+        self.assertFalse(self.journal.pending.exists())
+        self.assertFalse((self.root/'calls').exists())
+
+    def test_unsafe_configuration_metadata_is_rejected(self):
+        relative = u.package(self.candidate, self.kind)[0][1]
+        target = Path(self.candidate['directory'])/relative
+        data = target.read_bytes()
+        target.chmod(0o666)
+        with self.assertRaises(ValueError): self.execute()
+        target.unlink()
+        other = self.root/'unsafe-config'
+        other.write_bytes(data)
+        target.symlink_to(other)
+        with self.assertRaises(ValueError): self.execute()
+        self.assertFalse(self.journal.pending.exists())
+        self.assertFalse((self.root/'calls').exists())
+
+    def test_partial_config_copy_restores_bytes_metadata_and_receipt(self):
+        config = self.server/u.package(self.previous, self.kind)[0][1]
+        before = config.stat()
+        put(self.root/'fail-config','yes')
+        self.assert_final('rolled-back', self.previous)
+        after = config.stat()
+        self.assertEqual((before.st_mode,before.st_uid,before.st_gid,before.st_mtime_ns),
+                         (after.st_mode,after.st_uid,after.st_gid,after.st_mtime_ns))
+        self.assertEqual(self.original_baseline,self.base.read_bytes())
+
+    def assert_interrupted_payload(self, relative):
+        install = self.host.install
+        def interrupt(*args):
+            install(*args)
+            put(relative, 'partial transition')
+            raise u.Uncertain('interrupted mutation')
+        self.host.install = interrupt
+        with self.assertRaises(u.Uncertain): self.execute()
+        self.assertTrue(self.journal.pending.exists())
+        self.assertEqual(['stop'],(self.root/'calls').read_text().splitlines())
+        self.assertEqual(self.original_baseline,self.base.read_bytes())
+        with self.assertRaises(ValueError): self.execute()
+
+    def test_interrupted_configuration_requires_reconciliation(self):
+        self.assert_interrupted_payload(self.server/u.package(self.previous,self.kind)[0][1])
+
+    def test_interrupted_receipt_requires_reconciliation(self):
+        self.assert_interrupted_payload(self.config/(self.kind+'-installed'))
+
+    def test_interrupted_baseline_after_replace_keeps_pending(self):
+        apply = u.baseline.apply
+        def interrupt(*args):
+            apply(*args)
+            raise u.Uncertain('interrupted baseline completion')
+        with patch.object(u.baseline,'apply',interrupt):
+            with self.assertRaises(u.Uncertain): self.execute()
+        self.assertTrue(self.journal.pending.exists())
+        old,new = self.host.prepare(self.candidate,u.digest_file(self.base))
+        self.assertEqual(old,new)
+        self.assertEqual(['stop','start'],(self.root/'calls').read_text().splitlines())
+        with self.assertRaises(ValueError): self.execute()
+
+    def test_progress_after_start_survives_rollback(self):
+        accept = self.host.accept
+        target = self.host.vault/u.bundle.NAMES[0]
+        def reject(item):
+            accept(item)
+            if item == self.candidate:
+                put(target, 'new progress')
+                raise ValueError('candidate rejected after progress')
+        self.host.accept = reject
+        self.assertEqual('rolled-back', self.execute())
+        self.assertEqual('new progress',target.read_text())
+        self.assertFalse(self.journal.pending.exists())
+        self.assertEqual(self.original_baseline,self.base.read_bytes())
+        self.assertEqual(['stop','start','stop','start'],(self.root/'calls').read_text().splitlines())
 
     def test_start_failure_is_not_retried(self):
         put(self.root/'fail-start','yes')
