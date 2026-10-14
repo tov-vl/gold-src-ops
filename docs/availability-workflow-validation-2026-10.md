@@ -61,3 +61,9 @@ recurrence, not proof that every GitHub event parser has recovered. If the same
 annotation recurs, preserve the run URL, event, SHA, exact annotation and zero-job
 count before considering a workaround. Removing environment isolation or
 changing deployment behavior is not an equivalent syntax repair.
+
+The first follow-up branch push at
+`71592698776ee9d3f60b384653a7c44aae1f7a65` produced no auxiliary failure runs
+in the subsequent API inspection. This is expected for these trigger definitions
+and is a non-recurrence observation, not a successful execution of those jobs.
+Required documentation PR/main CI is checked as part of delivery.

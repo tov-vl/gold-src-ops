@@ -3304,5 +3304,5 @@ Web-only rollout и production browser acceptance прошли. Stable испо�
 сбора evidence после отказа трижды прошел по расписанию. Ошибка кода репозитория
 не подтверждена, workflow сохранены. Три локальных smoke прошли.
 См. [диагностику и границы вывода](availability-workflow-validation-2026-10.md).
-Проверка повторения при новом docs push и required CI выполняется отдельно;
+При первом новом docs push отказы не повторились; required docs CI проверяется отдельно;
 новый application release и production rollout не требуются.
