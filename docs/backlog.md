@@ -3354,3 +3354,30 @@ API и Web развернуты по digest, HTTP и browser приемка пр
 `player_search`; warning policy не менялась. v2.76.0 опубликован: все 11 stable
 jobs прошли, digests совпадают с candidate без пересборки, GitHub Release создан.
 См. [приемку, инцидент и ограничения](v2.76-readiness.md).
+
+## Безопасная приемка игровых релизов
+
+Реализовано локально после v2.76: повторяемая read-only проверка addon/A2S/backup baseline
+через существующие SSH aliases, RCON только с control-plane. Локальный probe
+сохранен для явно изолированного engine-теста и отказывает на управляемом хосте
+до чтения пароля и отправки пакетов. Browser checks учитывают директиву no-store
+и только коррелированную отмену полностью завершенного refresh; сравнение mounts
+сохраняет все поля и повторы, но не зависит от порядка. Production rollout,
+смена credentials, исправление ban или новая версия приложения не входят в срез.
+См. [инструменты и границы](release-acceptance.md).
+
+Проверено 2026-10-14:
+
+- Локально: 9 Python acceptance checks, 8 RCON protocol checks и 3 Node checks
+  прошли; real-engine rehearsal прошел upgrade, planned rollback и automatic
+  rollback с сохранением vaults/baseline. CI routing, actionlint и проверка
+  документации прошли.
+- Read-only production acceptance: A2S, addon 0.25.0 и empty lookup исправны;
+  все 24 уникальных файла frozen baseline совпадают, pending отсутствует,
+  game/agent invocations и API container identity/mounts не изменились.
+- Browser acceptance: RU/EN, JavaScript on/off, keyboard POST, ширины
+  320/390/1440 и текст 200% прошли. Поиск сохраняется после refresh; одна
+  отмена запроса коррелирована с успешно завершенным обновлением.
+- Полный локальный .NET Quality Gate не повторялся: application source не
+  менялся. Полный required CI, push/PR и merge остаются следующим gate.
+  Production install/restart, новые теги и stable promotion не выполнялись.
