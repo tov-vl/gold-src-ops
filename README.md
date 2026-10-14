@@ -6,16 +6,16 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.75.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.75.0)
-is the current public release. The top-10 leaderboard shows kills remaining to
-the next rank and marks Legend as the highest rank. Progress comes from the same
-snapshot as the displayed results. RU/EN, keyboard, mobile, 200% text and
-no-JavaScript acceptance passed in production.
+**Status:** [v2.76.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.76.0)
+is the current public release. The leaderboard supports exact saved-nickname
+search across the player index, with at most ten matches and explicit duplicate
+results. RU/EN, keyboard, mobile, 200% text and no-JavaScript acceptance passed
+in production. Search results survive top-ten refresh without repeating a lookup.
 
-Only Web was recreated. Six other containers, mounts and monitoring configuration
-were preserved. Stable references reuse accepted digests without rebuilding.
-Gameplay and saved-player data are unchanged. See
-[release notes](docs/release-notes-v2.75.md) and [evidence](docs/v2.75-readiness.md).
+Addon 0.25, API and Web were accepted with persistent activation and an updated
+backup baseline. Five other containers, mounts and monitoring configuration were
+preserved. Stable references reuse accepted digests without rebuilding.
+See [release notes](docs/release-notes-v2.76.md) and [evidence](docs/v2.76-readiness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.

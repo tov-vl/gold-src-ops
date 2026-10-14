@@ -3307,7 +3307,7 @@ Web-only rollout и production browser acceptance прошли. Stable испо�
 При первом новом docs push отказы не повторились; required docs CI проверяется отдельно;
 новый application release и production rollout не требуются.
 
-## Поиск игрока вне топ-10 - подготовка
+## v2.76 - Поиск игрока вне топ-10
 
 Исследование завершено 2026-10-14. Полный индекс до 4096 записей находится
 в addon; API получает только топ-10, а события PostgreSQL не содержат
@@ -3345,8 +3345,12 @@ Web PR #346 и полный PR/main CI прошли. Подготовлен
 PR/main CI прошел. Candidate v2.76 зафиксирован на `a563cea`: проверены текущие
 addon/API/Web, 24 файла backup baseline и доступность rollback-артефактов.
 Candidate `v2.76.0-rc.1` опубликован, все 11 CI/publication jobs прошли.
-Первый addon upgrade завершился `refused` до остановки игры: локальный A2S
-получает ban response после локальной RCON-проверки. Прежний tooling восстановлен,
-addon/API/Web и backup baseline сохранены. Stable не выпускался.
-Следующий шаг требует отдельного решения о снятии ban только собственного
-игрового адреса, затем новой проверки и нового plan/claim; см. readiness.
+Первый addon upgrade завершился `refused` до остановки игры после локального
+RCON ban. По отдельному разрешению снята только блокировка собственного адреса;
+A2S восстановлен. Новый plan/claim принят: addon 0.25, постоянный lookup,
+24 файла backup baseline и host pre/postflight проверены, pending отсутствует.
+API и Web развернуты по digest, HTTP и browser приемка прошли. Пять остальных
+контейнеров, mounts и 11 monitoring hashes сохранены. В Prometheus виден
+`player_search`; warning policy не менялась. v2.76.0 опубликован: все 11 stable
+jobs прошли, digests совпадают с candidate без пересборки, GitHub Release создан.
+См. [приемку, инцидент и ограничения](v2.76-readiness.md).

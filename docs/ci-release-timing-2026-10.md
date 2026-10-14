@@ -1,4 +1,4 @@
-# Release timing - 2026-10-13
+# Release timing - October 2026
 
 ## Baseline: v2.75
 
@@ -67,9 +67,9 @@ workflow-only change; required PR and main CI both passed the full path. The PR
 executed 1025 ordinary tests and all 56 browser tests; no test was removed.
 
 No application version, release tag, registry publication, production configuration
-or deployment is needed for this CI-only change. The first later candidate run
-will provide candidate-specific timing; the current comparison uses full PR/main
-runs and must not claim a measured end-to-end release saving in advance.
+or deployment was needed for this CI-only change. The initial comparison used
+full PR/main runs and did not establish an end-to-end release saving. The later
+v2.76 candidate measurement is recorded below.
 
 ## Observed comparison
 
@@ -97,4 +97,19 @@ clock difference must not be attributed to scheduling alone.
 These are one before/after pair per event on unchanged application code, not a
 statistical performance guarantee. Candidate/stable publication and production
 acceptance were not rerun for this CI-only change. Their gates and job dependencies
-are unchanged; candidate-specific elapsed time awaits the next real release.
+are unchanged. The later candidate-specific measurement is recorded below.
+
+## First later candidate - v2.76, 2026-10-14
+
+[Candidate run 38561442481](https://github.com/tov-vl/gold-src-ops/actions/runs/38561442481)
+passed all eleven jobs at source `a563cead118a2c040622124835cec026c4d76219`.
+Workflow wall time was 11m22s, including image publication and independent image
+checks. Quality Gate took 3m59s and Container Smoke 6m24s. Container Smoke started
+3s after addon compilation, 3m05s before Quality Gate completed. Publication began
+only after all required prerequisites passed; independent API image verification
+finished last.
+
+This confirms the intended overlap on an actual candidate. It is not a controlled
+before/after release comparison: application scope, runners and image verification
+differ from the earlier release. No additional CI optimization or test removal is
+justified by this single observation. Stable promotion remains a separate workflow.
