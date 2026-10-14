@@ -93,6 +93,11 @@ public static class DependencyInjection
         services.AddScoped<ServerPollingService>();
         services.AddSingleton(static provider => PublicLeaderboardOptions.FromConfiguration(
             provider.GetRequiredService<IConfiguration>()));
+        services.AddSingleton(static provider => PublicPlayerSearchOptions.FromConfiguration(
+            provider.GetRequiredService<IConfiguration>()));
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<PublicPlayerSearchService>();
+        services.AddScoped<IPublicPlayerSearchSource, PublicPlayerSearchSource>();
         services.AddSingleton<PublicLeaderboardStore>();
         services.AddSingleton<PublicLeaderboardMetrics>();
         services.AddScoped<PublicLeaderboardPoller>();

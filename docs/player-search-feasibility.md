@@ -1,8 +1,8 @@
 # Player search outside the top ten - feasibility and first slice
 
-Status: addon foundation implemented and locally verified on 2026-10-14;
-API/Web integration and release pending. See [the wire contract and engine
-results](player-search-addon.md).
+Status: addon foundation and API integration implemented on 2026-10-14;
+Web integration and release pending. See [the API contract](player-search-api.md)
+and [the wire contract and engine results](player-search-addon.md).
 Inspected source: `5dec506a24b98f1b2cb18eaf2dec2a4bbcef847f`.
 The original feasibility record was D0. The complete implementation spans addon, API and Web and is
 R2, following the existing public leaderboard precedent.
@@ -152,8 +152,10 @@ pause, revise the design before a production rollout; do not silently raise limi
    the previous addon/API/Web artifacts and corresponding baseline while retaining
    current player data. No migration, data restore or new credential is planned.
 
-Item 1, the bounded addon lookup and engine probe, is implemented and locally
-verified. The next step is item 2, API transport/parser/cache/admission. No game menu/MOTD change is needed. Deferred game-client visual acceptance,
+Items 1 and 2, the bounded addon lookup/engine probe and API
+transport/parser/cache/admission, are implemented. The next step is item 3,
+inline Web search and RU/EN acceptance. No game menu/MOTD change is needed.
+Deferred game-client visual acceptance,
 two-player testing and the first successful weekly backup remain independent.
 The addon implementation does not yet provide a deployed or accepted public
 search feature; the website remains unchanged.
