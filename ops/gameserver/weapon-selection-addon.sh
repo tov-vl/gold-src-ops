@@ -57,6 +57,14 @@ ws_loader_path() {
     else printf '%s\n' "$ws_disabled_loader"; fi
 }
 
+ws_validate_configuration() {
+    local path="$1"
+    if cmp -s "$path" <(printf '%s\n' "$ws_configuration_command"); then return; fi
+    if [[ "$ws_map_menu" == false ]] && cmp -s "$path" <(printf '%s\n' \
+        "$ws_configuration_command" 'goldsrcops_player_lookup_enabled "1"'); then return; fi
+    fail "Unexpected addon configuration."
+}
+
 ws_verify() {
     validate_file_metadata "$ws_receipt" root "$service_group" 640
     local schema
@@ -79,6 +87,7 @@ ws_verify() {
     verify_sha256 "$(ws_loader_path)" "$(marker_value "$ws_receipt" loader_sha256)"
     validate_file_metadata "$ws_plugin" root "$service_group" 640
     validate_file_metadata "$ws_config" root "$service_group" 640
+    ws_validate_configuration "$ws_config"
     validate_file_metadata "$(ws_loader_path)" root "$service_group" 640
     [[ "$(cat "$(ws_loader_path)")" == "$ws_plugin_name" ]] || fail "Unexpected addon loader."
     if [[ "$ws_state" == enabled ]]; then
@@ -94,6 +103,7 @@ ws_rollback() {
         for file in "${ws_created[@]}"; do rm -f -- "$file" || return 1; done
     elif [[ "$ws_operation" == upgrade ]]; then
         cp -p -- "$ws_upgrade_backup/plugin" "$ws_plugin" || return 1
+        cp -p -- "$ws_upgrade_backup/config" "$ws_config" || return 1
         cp -p -- "$ws_upgrade_backup/receipt" "$ws_receipt" || return 1
         if [[ "$ws_upgrade_had_dictionary" == true ]]; then
             cp -p -- "$ws_upgrade_backup/dictionary" "$ws_dictionary" || return 1
@@ -148,7 +158,7 @@ ws_validate_bundle() {
     for relative in "${relatives[@]}"; do
         verify_sha256 "$ws_bundle/$relative" "$(jq -er --arg path "$relative" '.payload[] | select(.path == $path) | .sha256' "$manifest")"
     done
-    [[ "$(cat "$ws_bundle/${relatives[1]}")" == "$ws_configuration_command" ]] || fail "Unexpected addon configuration."
+    ws_validate_configuration "$ws_bundle/${relatives[1]}"
     [[ "$(cat "$ws_bundle/${relatives[2]}")" == "$ws_plugin_name" ]] || fail "Unexpected addon loader."
 }
 
@@ -183,8 +193,8 @@ ws_upgrade() {
     [[ "$ws_manifest_sha" == "$ws_expected_manifest_sha" ]] || fail "Installed addon does not match the reviewed predecessor."
     ws_manifest_sha="$next_manifest_sha"
     ws_validate_bundle
-    # Retain configuration, loader state and player storage on both schema paths.
-    verify_sha256 "$ws_bundle/$ws_config_relative" "$(sha256_file "$ws_config")"
+    # Both configurations were validated against the fixed command allowlist.
+    # Preserve loader state and player storage; retain config for exact rollback.
     verify_sha256 "$ws_bundle/$ws_loader_relative" "$(sha256_file "$(ws_loader_path)")"
     next_plugin_sha="$(jq -er --arg path "$ws_plugin_relative" '.payload[] | select(.path == $path) | .sha256' "$ws_bundle/manifest.json")"
     [[ "$next_plugin_sha" != "$(sha256_file "$ws_plugin")" ]] || fail "Upgrade must contain a changed plugin."
@@ -194,8 +204,10 @@ ws_upgrade() {
     fi
     ws_upgrade_backup="$(mktemp -d "$configuration_directory/$ws_kind-backup.XXXXXX")"
     cp -p -- "$ws_plugin" "$ws_upgrade_backup/plugin"
+    cp -p -- "$ws_config" "$ws_upgrade_backup/config"
     cp -p -- "$ws_receipt" "$ws_upgrade_backup/receipt"
     verify_sha256 "$ws_upgrade_backup/plugin" "$(sha256_file "$ws_plugin")"
+    verify_sha256 "$ws_upgrade_backup/config" "$(sha256_file "$ws_config")"
     verify_sha256 "$ws_upgrade_backup/receipt" "$(sha256_file "$ws_receipt")"
     if [[ "$ws_upgrade_had_dictionary" == true ]]; then
         cp -p -- "$ws_dictionary" "$ws_upgrade_backup/dictionary"
@@ -209,6 +221,9 @@ ws_upgrade() {
     fi
     ws_has_dictionary="$ws_bundle_has_dictionary"
     install -o root -g "$service_group" -m 0640 "$ws_bundle/$ws_plugin_relative" "$ws_plugin"
+    if ! cmp -s "$ws_bundle/$ws_config_relative" "$ws_config"; then
+        install -o root -g "$service_group" -m 0640 "$ws_bundle/$ws_config_relative" "$ws_config"
+    fi
     ws_write_receipt
 }
 
@@ -340,5 +355,5 @@ trap - ERR
 [[ -z "$ws_receipt_backup" ]] || rm -f -- "$ws_receipt_backup"
 log "${ws_label}_ADDON=$ws_state; game remains stopped"
 if [[ "$ws_operation" == upgrade ]]; then
-    log "${ws_label}_UPGRADE=completed; predecessor binary and receipt retained root-only"
+    log "${ws_label}_UPGRADE=completed; predecessor binary, configuration and receipt retained root-only"
 fi
