@@ -1,7 +1,7 @@
 # Player-search warnings readiness
 
-Status: implemented and verified locally on 2026-10-14; remote CI and production
-installation remain pending. This record does not claim current live coverage.
+Status: installed and independently accepted on 2026-10-14. Product PR and
+post-merge CI passed; the configuration-only monitoring stage is complete.
 
 ## Scope and policy
 
@@ -52,8 +52,8 @@ application images and game configuration are outside the write scope.
   five-operation rules. Other groups and the Prometheus container identity stayed
   unchanged. Existing config-removal/invalid-config recovery also passed.
 - The complete local .NET/browser suites were not repeated: no application code,
-  dependency, contract or browser behavior changed. Full required PR/main CI is
-  still necessary for the monitoring/test changes.
+  dependency, contract or browser behavior changed. Full required PR/main CI
+  passed for the monitoring/test changes on the product and merged revisions.
 
 ## Installation, independent acceptance and rollback plan
 
@@ -80,16 +80,57 @@ application images and game configuration are outside the write scope.
    former rule definitions, dashboard and unchanged runtime. Do not delete the
    pre-existing rule/group, clear monitoring history or recreate containers.
 
-Before installation, obtain authorization for the exact remote update and its
-rollback boundary under the repository's remote-write rule. The planned change
-is reviewable here; this record does not itself grant authorization.
+The owner explicitly authorized product push/PR/CI/squash merge, this two-file
+installation with SIGHUP, independent acceptance, the scoped rollback if needed,
+and the combined evidence PR/CI/squash merge. No additional runtime scope was used.
 
-## Remaining gates and limits
+## Delivery and installed identity
 
-- Ordinary push, PR, full required CI, squash merge and post-merge CI.
-- Fresh target baseline, authorized two-file installation and independent
-  production acceptance; then one combined evidence update.
-- No live firing or restoration claim comes from synthetic tests. No traffic or
-  no warning does not prove availability; cleared warnings can reflect an aged
-  window or lost telemetry. Game-client visual acceptance, two-player testing and
-  weekly backup observations remain independent.
+[Product PR #350](https://github.com/tov-vl/gold-src-ops/pull/350) was squash merged
+from reviewed `353ff174c98e0f40d585aba189d50b2e89a8130f` to deployed
+`c5a54a2679740312323d258e5866bcf3558caac0`; their trees are identical.
+All five jobs passed in both
+[PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38582130600) and
+[post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38583645993).
+No application tag/image was published; application stable remains v2.76.0.
+
+The installed hashes match the two reviewed hashes in the table above. The
+private operator record retains the fresh baseline, predecessor bytes/metadata,
+executor identity, frozen inputs, execution phases and independent readbacks.
+
+## Production acceptance
+
+- Fresh read-only preflight verified all 11 monitoring files, three loaded rule
+  groups, healthy dependencies and seven running service identities. The first
+  check rejected mode 0664 on three unrelated Grafana files. Comparison with the
+  accepted record confirmed unchanged metadata; the check was corrected to
+  require that exact predecessor metadata. No permissions were changed.
+- Exactly the two reviewed files were replaced with preserved ownership/mode.
+  Prometheus saw the exact rule bytes; rule and full-config validation passed.
+  One SIGHUP reloaded the existing container. Grafana provisioned the reviewed
+  dashboard through its existing directory mount.
+- The immediate rule-health gate stopped after reload. A separate readback then
+  verified both file hashes, healthy rules without evaluation errors, exact
+  normalized expressions/annotations, reviewed dashboard and successful reload.
+  The completed installation was reconciled in its evidence journal; there was
+  no repeated installation, extra reload, rollback or change to the rule bytes.
+- A further independent acceptance passed: all three Web rule definitions and
+  Grafana panel queries matched, the other rule groups and nine monitoring files
+  were preserved, and all seven containers retained identity, image, start time,
+  restart counter and complete mounts. Main config inode, Compose and environment
+  hashes stayed unchanged. The atomic file helper separately passed local
+  metadata, rollback, scope, symlink-refusal and temporary-file cleanup checks.
+- No Web warning was active. Existing `player_search` success telemetry was
+  visible, but its 15-minute increase was zero. This proves configured coverage
+  and query visibility, not a new successful search or live failure/recovery.
+  No search traffic, RCON query, game action or synthetic failure was generated.
+
+## Limits
+
+No traffic or no warning does not prove availability; cleared warnings can
+reflect an aged window or lost telemetry. Firing and recovery are demonstrated
+by synthetic cases, not production failure injection. Busy remains visible
+without its own warning; personal notifications are still deferred. Game-client
+visual acceptance, two-player testing and weekly backup observations remain
+independent. No application deployment or further production gate is required
+for this accepted configuration change.
