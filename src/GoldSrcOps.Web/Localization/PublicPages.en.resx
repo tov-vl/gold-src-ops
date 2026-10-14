@@ -227,6 +227,7 @@
   <data name="SearchEmpty" xml:space="preserve"><value>No matches. Check the case and last saved nickname. Players with no kills or deaths are excluded.</value></data>
   <data name="SearchFound" xml:space="preserve"><value>Records found: {0}.</value></data>
   <data name="SearchBusy" xml:space="preserve"><value>Search is busy. Try again manually in {0} seconds.</value></data>
+  <data name="SearchReady" xml:space="preserve"><value>You can search again. Select "Search" or press Enter.</value></data>
   <data name="SearchInvalid" xml:space="preserve"><value>Enter a nickname of 1 to 31 UTF-8 bytes, without control characters or SteamID. Non-ASCII names may reach the limit before 31 characters.</value></data>
   <data name="SearchUnavailable" xml:space="preserve"><value>Search is temporarily unavailable. Try again later.</value></data>
   <data name="SearchSnapshot" xml:space="preserve"><value>Results captured:</value></data>

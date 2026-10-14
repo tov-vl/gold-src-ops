@@ -227,6 +227,7 @@
   <data name="SearchEmpty" xml:space="preserve"><value>Совпадений нет. Проверьте регистр и последний сохраненный ник. Игроки без убийств и смертей не включены.</value></data>
   <data name="SearchFound" xml:space="preserve"><value>Найдено записей: {0}.</value></data>
   <data name="SearchBusy" xml:space="preserve"><value>Поиск занят. Повторите вручную через {0} сек.</value></data>
+  <data name="SearchReady" xml:space="preserve"><value>Можно повторить поиск. Нажмите "Найти" или Enter.</value></data>
   <data name="SearchInvalid" xml:space="preserve"><value>Введите ник длиной от 1 до 31 байта UTF-8 без управляющих символов и SteamID. Для кириллицы предел короче 31 символа.</value></data>
   <data name="SearchUnavailable" xml:space="preserve"><value>Поиск временно недоступен. Повторите позже.</value></data>
   <data name="SearchSnapshot" xml:space="preserve"><value>Снимок результатов:</value></data>

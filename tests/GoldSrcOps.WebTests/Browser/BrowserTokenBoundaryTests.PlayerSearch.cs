@@ -40,7 +40,18 @@ public sealed partial class BrowserTokenBoundaryTests
                     await Expect(Page.Locator(".player-search-notice")).ToContainTextAsync("10");
                     Page.Url.Should().NotContain(name);
                     factory.SearchHandler.RequestCount.Should().Be(calls + 1);
-                    (await Page.EvaluateAsync<bool>("document.documentElement.scrollWidth > document.documentElement.clientWidth")).Should().BeFalse();
+                    var layout = await Page.EvaluateAsync<string>("""
+                        JSON.stringify({ width: document.documentElement.clientWidth,
+                            scrollWidth: document.documentElement.scrollWidth, ready: document.readyState,
+                            overflow: [...document.querySelectorAll('body *')]
+                                .filter(element => element.getBoundingClientRect().right > document.documentElement.clientWidth)
+                                .map(element => `${element.tagName}.${element.className}: ${element.getBoundingClientRect().right}`) })
+                        """);
+                    using (var geometry = System.Text.Json.JsonDocument.Parse(layout))
+                    {
+                        geometry.RootElement.GetProperty("scrollWidth").GetInt32().Should()
+                            .BeLessThanOrEqualTo(geometry.RootElement.GetProperty("width").GetInt32(), $"{language} at {width}px: {layout}");
+                    }
                     await Page.Locator("[data-leaderboard-refresh]").ClickAsync();
                     await Expect(Page.Locator("#leaderboard-refresh-status")).ToHaveTextAsync(string.Equals(language, "en", StringComparison.Ordinal)
                         ? "Check complete. Fresh snapshot received." : "Проверка завершена. Свежий снимок получен.");
@@ -81,6 +92,93 @@ public sealed partial class BrowserTokenBoundaryTests
     }
 
     [BrowserFact]
+    public async Task Player_search_countdown_blocks_early_submit_and_enables_only_manual_retry_in_both_languages()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory(searchEnabled: true);
+        factory.StartServer();
+        var now = DateTime.UtcNow;
+        await Page.Clock.InstallAsync(new() { TimeDate = now });
+        await Page.Clock.PauseAtAsync(now.AddSeconds(1));
+        await Page.SetViewportSizeAsync(320, 740);
+        foreach (var language in new[] { "ru", "en" })
+        {
+            var english = string.Equals(language, "en", StringComparison.Ordinal);
+            factory.SearchHandler.Status = HttpStatusCode.TooManyRequests;
+            factory.SearchHandler.Result = new("busy", null, false, [], 10);
+            await Page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, "/leaderboard?lang=" + language).AbsoluteUri);
+            var calls = factory.SearchHandler.RequestCount;
+            var input = Page.Locator("#player-search-name");
+            var button = Page.Locator(".player-search button");
+            var message = Page.Locator("#player-search-message");
+            await input.FillAsync("Example");
+            await input.PressAsync("Enter");
+            await Expect(button).ToBeDisabledAsync();
+            await Expect(input).ToHaveValueAsync("Example");
+            await Expect(message).ToHaveTextAsync(english
+                ? "Search is busy. Try again manually in 10 seconds." : "Поиск занят. Повторите вручную через 10 сек.");
+            await Expect(message).ToHaveAttributeAsync("aria-live", "off");
+            await Expect(Page.Locator("[data-search-announcement]")).ToBeEmptyAsync();
+            await input.FillAsync("ChangedName");
+            await input.PressAsync("Enter");
+            // Also cover submit events that bypass the disabled button.
+            (await Page.Locator(".player-search form").EvaluateAsync<bool>(
+                "form => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))")).Should().BeFalse();
+            factory.SearchHandler.RequestCount.Should().Be(calls + 1);
+            await Page.Clock.FastForwardAsync(3_000);
+            await Expect(message).ToHaveTextAsync(english
+                ? "Search is busy. Try again manually in 7 seconds." : "Поиск занят. Повторите вручную через 7 сек.");
+            await Page.Locator("[data-leaderboard-refresh]").ClickAsync();
+            await Expect(Page.Locator("#leaderboard-refresh-status")).ToHaveTextAsync(english
+                ? "Check complete. Fresh snapshot received." : "Проверка завершена. Свежий снимок получен.");
+            await Expect(button).ToBeDisabledAsync();
+            await Expect(input).ToHaveValueAsync("ChangedName");
+            (await Page.EvaluateAsync<bool>("document.documentElement.scrollWidth > document.documentElement.clientWidth")).Should().BeFalse();
+            await Page.Locator("#player-search").ScrollIntoViewIfNeededAsync();
+            await CaptureScreenshotIfRequestedAsync("player-search-countdown-" + language, new() { Width = 320, Height = 740 });
+            await Page.Clock.FastForwardAsync(7_000);
+            await Expect(button).ToBeEnabledAsync();
+            await Expect(message).ToHaveTextAsync(english
+                ? "You can search again. Select \"Search\" or press Enter." : "Можно повторить поиск. Нажмите \"Найти\" или Enter.");
+            await Expect(Page.Locator("[data-search-announcement]")).ToHaveTextAsync(await message.InnerTextAsync());
+            await Expect(input).ToHaveValueAsync("ChangedName");
+            factory.SearchHandler.RequestCount.Should().Be(calls + 1);
+            factory.SearchHandler.Status = HttpStatusCode.OK;
+            factory.SearchHandler.Result = null;
+            await input.FocusAsync();
+            await input.PressAsync("Tab");
+            await Expect(button).ToBeFocusedAsync();
+            await button.PressAsync("Enter");
+            await Expect(Page.Locator(".player-search-result")).ToHaveCountAsync(2);
+            factory.SearchHandler.LastName.Should().Be("ChangedName");
+            factory.SearchHandler.RequestCount.Should().Be(calls + 2);
+            Page.Url.Should().NotContain("ChangedName");
+            await AssertBrowserStorageIsEmptyAsync();
+        }
+    }
+
+    [BrowserFact]
+    public async Task Player_search_countdown_catches_up_after_page_restore_without_restarting_or_submitting()
+    {
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory(searchEnabled: true);
+        factory.StartServer();
+        factory.SearchHandler.Status = HttpStatusCode.TooManyRequests;
+        factory.SearchHandler.Result = new("busy", null, false, [], 3);
+        var now = DateTime.UtcNow;
+        await Page.Clock.InstallAsync(new() { TimeDate = now });
+        await Page.Clock.PauseAtAsync(now.AddSeconds(1));
+        await Page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, "/leaderboard").AbsoluteUri);
+        await Page.Locator("#player-search-name").FillAsync("Example");
+        await Page.Locator(".player-search button").ClickAsync();
+        await Expect(Page.Locator(".player-search button")).ToBeDisabledAsync();
+        await Page.EvaluateAsync("window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }))");
+        await Page.Clock.FastForwardAsync(20_000);
+        await Page.EvaluateAsync("window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))");
+        await Expect(Page.Locator(".player-search button")).ToBeEnabledAsync();
+        await Expect(Page.Locator("#player-search-name")).ToHaveValueAsync("Example");
+        factory.SearchHandler.RequestCount.Should().Be(1);
+    }
+
+    [BrowserFact]
     public async Task Player_search_works_without_JavaScript_and_replaces_results_with_empty_busy_or_unavailable()
     {
         await using var factory = new BrowserTokenBoundaryWebApplicationFactory(searchEnabled: true);
@@ -102,6 +200,8 @@ public sealed partial class BrowserTokenBoundaryTests
                 await page.Locator("#player-search-name").FillAsync("Nobody");
                 await page.Locator(".player-search button").ClickAsync();
                 await Expect(page.Locator("[data-search-state]")).ToHaveAttributeAsync("data-search-state", state);
+                await Expect(page.Locator(".player-search button")).ToBeEnabledAsync();
+                await Expect(page.Locator("#player-search-name")).ToHaveValueAsync("Nobody");
                 await Expect(page.Locator(".player-search-result")).ToHaveCountAsync(0);
                 page.Url.Should().NotContain("Nobody").And.NotContain("Example");
             }

@@ -125,6 +125,21 @@ executor identity, frozen inputs, execution phases and independent readbacks.
   and query visibility, not a new successful search or live failure/recovery.
   No search traffic, RCON query, game action or synthetic failure was generated.
 
+## Follow-up browser and telemetry check - 2026-10-14
+
+A bounded public-site check completed at 15:15 UTC. Exact-name lookup returned
+one matching record consistent with the leaderboard; an absent name returned
+the explicit empty state. A second submission encountered cooldown and a manual
+retry after the displayed delay completed. Names are omitted from this record.
+
+The `player_search` success counter advanced from 43 to 45, and the busy counter
+appeared at 1. No counter resets were observed. After the next rule evaluation,
+the successful-read increase and recording rule agreed at about 2.034 (the
+15-minute `increase` is extrapolated). No failure series or active Web warnings
+were present, and all three rules remained healthy. This closes the prior lack
+of a fresh successful-path observation, without claiming live failure/recovery.
+No code, configuration or service changes were made by this check.
+
 ## Limits
 
 No traffic or no warning does not prove availability; cleared warnings can

@@ -4,7 +4,9 @@
 
 @if (Options.Enabled)
 {
-    <section id="player-search" class="player-search" aria-labelledby="player-search-title">
+    <section id="player-search" class="player-search" aria-labelledby="player-search-title"
+             data-search-retry-seconds="@(_result?.State == "busy" ? _result.RetryAfterSeconds : null)"
+             data-search-busy="@Text["SearchBusy"]" data-search-ready="@Text["SearchReady"]">
         <h2 id="player-search-title">@Text["SearchTitle"]</h2>
         <p id="player-search-hint">@Text["SearchHint"]</p>
         <EditForm Model="Model" FormName="player-search" OnSubmit="SearchAsync" method="post" action="@(Text.Link("/leaderboard") + "#player-search")" Enhance="false">
@@ -15,6 +17,7 @@
             </div>
         </EditForm>
         <p id="player-search-message" class="player-search-message" role="status" data-search-state="@(_result?.State ?? "idle")">@Message</p>
+        <p class="visually-hidden" role="status" aria-atomic="true" data-search-announcement></p>
         @if (_result is { State: "fresh", Entries.Count: > 0, CapturedAtUtc: { } captured })
         {
             <p class="player-search-capture">@Text["SearchSnapshot"] <time datetime="@captured.ToString("O")">@captured.ToUniversalTime().ToString("dd.MM.yyyy HH:mm:ss 'UTC'", CultureInfo.InvariantCulture)</time></p>
