@@ -8,6 +8,7 @@ internal sealed class PlayerSearchFixtureHandler : HttpMessageHandler
 {
     public int RequestCount { get; private set; }
     public string? LastName { get; private set; }
+    public string? LastMatch { get; private set; }
     public Uri? LastUri { get; private set; }
     public HttpMethod? LastMethod { get; private set; }
     public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
@@ -18,7 +19,9 @@ internal sealed class PlayerSearchFixtureHandler : HttpMessageHandler
         RequestCount++;
         LastUri = request.RequestUri;
         LastMethod = request.Method;
-        LastName = (await request.Content!.ReadFromJsonAsync<PublicPlayerSearchRequest>(cancellationToken))!.Name;
+        var query = (await request.Content!.ReadFromJsonAsync<PublicPlayerSearchRequest>(cancellationToken))!;
+        LastName = query.Name;
+        LastMatch = query.Match;
         return new HttpResponseMessage(Status)
         {
             Content = JsonContent.Create(Result ?? new PublicPlayerSearchResponse("fresh", DateTimeOffset.UtcNow, false,

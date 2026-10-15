@@ -3,7 +3,8 @@
 This local slice implements the API portion of the
 [substring contract](player-substring-search-feasibility.md), following
 [addon v2](player-substring-addon.md). It does not deploy the addon/API or add
-mode selection to the website.
+mode selection to the website. The subsequent [Web slice](player-substring-web.md)
+adds that selection; the exact-only Web behavior below records the API-stage boundary.
 
 ## Behavior
 
@@ -99,6 +100,10 @@ Results on 2026-10-15:
 - The 61 opt-in browser tests were skipped. Browser/container/real-addon
   integration was not rerun for this API slice. A clean standard CI test run
   remains required; the isolated passes do not replace the failed local gate.
+
+The subsequent [Web-stage verification](player-substring-web.md#verification)
+passed the full local test command without changes to those RCON tests. The
+failure history above remains relevant; its root cause is still unconfirmed.
 
 No remote push, PR, CI, tag, publication, deployment, production query or live
 RCON operation is part of this local slice. No database migration or configuration

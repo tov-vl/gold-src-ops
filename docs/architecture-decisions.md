@@ -2017,9 +2017,11 @@ literal. Return each matched record's actual name and retain score/private-key
 ordering without deduplication or public identity keys.
 
 The API extension explicitly selects the mode, validates the matching version
-and separates cache keys while sharing admission. The current Web remains
-exact-only; its later mode selection must preserve manual retry and privacy
-boundaries. See [API modes](player-substring-api.md). Missing v2 support must not
+and separates cache keys while sharing admission. Web exposes both modes with
+exact as the default, preserves the legacy exact request body and validates
+returned names independently. Its static SSR selector preserves manual retry,
+shared cooldown and privacy boundaries. See [API modes](player-substring-api.md)
+and [Web modes](player-substring-web.md). Missing v2 support must not
 trigger an automatic fallback or reinterpretation as an empty result. See
 [the addon contract and verification](player-substring-addon.md) and [the complete proposed integration
 contract](player-substring-search-feasibility.md).

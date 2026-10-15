@@ -10,6 +10,11 @@
         <h2 id="player-search-title">@Text["SearchTitle"]</h2>
         <p id="player-search-hint">@Text["SearchHint"]</p>
         <EditForm Model="Model" FormName="player-search" OnSubmit="SearchAsync" method="post" action="@(Text.Link("/leaderboard") + "#player-search")" Enhance="false">
+            <label for="player-search-match">@Text["SearchMode"]</label>
+            <InputSelect id="player-search-match" @bind-Value="Model!.Match" aria-describedby="player-search-hint">
+                <option value="exact">@Text["SearchExact"]</option>
+                <option value="contains">@Text["SearchContains"]</option>
+            </InputSelect>
             <label for="player-search-name">@Text["SearchName"]</label>
             <div class="player-search-controls">
                 <InputText id="player-search-name" @bind-Value="Model!.Name" maxlength="31" required autocomplete="off" spellcheck="false" aria-describedby="player-search-hint player-search-message" />
@@ -37,7 +42,7 @@
             </ol>
             @if (_result.HasMore)
             {
-                <p class="player-search-notice">@Text["SearchMore"]</p>
+                <p class="player-search-notice">@Text[Model?.Match is "contains" ? "SearchMoreContains" : "SearchMore"]</p>
             }
             <p>@Text["SearchDuplicates"]</p>
         }
@@ -52,26 +57,33 @@
 
     private string Message => _result?.State switch
     {
-        "fresh" when _result.Entries.Count == 0 => Text["SearchEmpty"],
+        "fresh" when _result.Entries.Count == 0 => Text[Model?.Match is "contains" ? "SearchEmptyContains" : "SearchEmpty"],
         "fresh" => Text.Format("SearchFound", _result.Entries.Count),
         "busy" => Text.Format("SearchBusy", _result.RetryAfterSeconds ?? 10),
-        "invalid" => Text["SearchInvalid"],
+        "invalid" => Text[Model?.Match is "contains" ? "SearchInvalidContains" : "SearchInvalid"],
         "unavailable" => Text["SearchUnavailable"],
         _ => Text["SearchPrivacy"]
     };
 
-    protected override void OnInitialized() => Model ??= new();
+    protected override void OnInitialized()
+    {
+        Model ??= new();
+        // Older forms have no mode field; an explicitly empty or unknown value stays invalid.
+        if (HttpContext?.Request.HasFormContentType == true && !HttpContext.Request.Form.ContainsKey("Model.Match"))
+            Model.Match = "exact";
+    }
 
     private async Task SearchAsync()
     {
         if (!Options.Enabled)
             return;
-        _result = await SearchClient.SearchAsync(Model?.Name, HttpContext?.RequestAborted ?? CancellationToken.None);
+        _result = await SearchClient.SearchAsync(Model?.Name, Model?.Match, HttpContext?.RequestAborted ?? CancellationToken.None);
         Model!.Name = PublicPlayerSearchClient.TryNormalize(Model.Name, out var name) ? name : string.Empty;
     }
 
     public sealed class SearchForm
     {
         public string Name { get; set; } = string.Empty;
+        public string Match { get; set; } = "exact";
     }
 }

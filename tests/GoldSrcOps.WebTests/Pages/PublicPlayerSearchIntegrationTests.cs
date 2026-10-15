@@ -105,21 +105,70 @@ public sealed class PublicPlayerSearchIntegrationTests
         factory.SearchHandler.RequestCount.Should().Be(0);
     }
 
+    [Theory]
+    [InlineData("ru", "Часть ника")]
+    [InlineData("en", "Part of nickname")]
+    public async Task Contains_form_preserves_mode_and_escaped_actual_names_then_allows_short_exact_name(string language, string label)
+    {
+        await using var factory = new PublicDashboardWebApplicationFactory(searchEnabled: true);
+        factory.SearchHandler.Result = new("fresh", DateTimeOffset.UtcNow, false,
+            [new(1, "<script>AbC", 0, 1, 1), new(2, "ABCtail", 0, 1, 1)], null);
+        using var client = factory.CreateClient();
+        var path = "/leaderboard?lang=" + language;
+        var form = await client.GetStringAsync(path);
+        WebUtility.HtmlDecode(form).Should().Contain(label);
+        using var response = await SubmitAsync(client, path, form, " abc ", "contains");
+        var html = await response.Content.ReadAsStringAsync();
+        html.Should().Contain("&lt;script&gt;AbC").And.Contain("ABCtail").And.NotContain("<script>AbC");
+        html.Should().MatchRegex("<option value=\"contains\"[^>]* selected>");
+        factory.SearchHandler.LastMatch.Should().Be("contains");
+        factory.SearchHandler.LastName.Should().Be("abc");
+        response.Headers.CacheControl!.NoStore.Should().BeTrue();
+        response.Headers.Location.Should().BeNull();
+        using var invalid = await SubmitAsync(client, path, html, "ab", "contains");
+        var invalidHtml = WebUtility.HtmlDecode(await invalid.Content.ReadAsStringAsync());
+        invalidHtml.Should().Contain("value=\"ab\"");
+        invalidHtml.Should().MatchRegex("<option value=\"contains\"[^>]* selected>");
+        invalidHtml.Should().Contain("data-search-state=\"invalid\"").And.NotContain("class=\"player-search-result\"");
+        factory.SearchHandler.RequestCount.Should().Be(1);
+        factory.SearchHandler.Result = null;
+        using var exact = await SubmitAsync(client, path, invalidHtml, "ab", "exact");
+        (await exact.Content.ReadAsStringAsync()).Should().MatchRegex("<option value=\"exact\"[^>]* selected>").And.Contain("data-search-state=\"fresh\"");
+        factory.SearchHandler.LastMatch.Should().Be("exact");
+        factory.SearchHandler.LastName.Should().Be("ab");
+        factory.SearchHandler.RequestCount.Should().Be(2);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("CONTAINS")]
+    [InlineData("fuzzy")]
+    public async Task Tampered_form_mode_is_invalid_without_API_access(string match)
+    {
+        await using var factory = new PublicDashboardWebApplicationFactory(searchEnabled: true);
+        using var client = factory.CreateClient();
+        using var response = await SubmitAsync(client, "/leaderboard", await client.GetStringAsync("/leaderboard"), "abc", match);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("data-search-state=\"invalid\"");
+        factory.SearchHandler.RequestCount.Should().Be(0);
+    }
+
     private sealed class NonSeekableStream(byte[] bytes) : MemoryStream(bytes)
     {
         public override bool CanSeek => false;
     }
 
-    private static async Task<HttpResponseMessage> SubmitAsync(HttpClient client, string path, string html, string name)
+    private static async Task<HttpResponseMessage> SubmitAsync(HttpClient client, string path, string html, string name, string? match = null)
     {
         var token = Regex.Match(html, "name=\"__RequestVerificationToken\" value=\"(?<token>[^\"]+)\"", RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture | RegexOptions.NonBacktracking).Groups["token"].Value;
         token.Should().NotBeEmpty();
-        using var content = new FormUrlEncodedContent(new Dictionary<string, string>(StringComparer.Ordinal)
+        var fields = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["__RequestVerificationToken"] = WebUtility.HtmlDecode(token),
             ["_handler"] = "player-search",
             ["Model.Name"] = name
-        });
+        };
+        if (match is not null) fields["Model.Match"] = match;
+        using var content = new FormUrlEncodedContent(fields);
         return await client.PostAsync(path, content);
     }
 }
