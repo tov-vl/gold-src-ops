@@ -46,7 +46,7 @@ The first command is local validation only. The second performs, in order:
 2. Control-plane refusal if a managed game-host directory is present or the
    target is loopback/unspecified/multicast/an address assigned locally. This
    happens before secret access or any RCON packet. The target must also match
-   the current public server projection.
+   the current online public server projection and the running API configuration.
 3. Read the already running API container's existing read-only secret mount into
    memory. Require its established file owner/mode. Send only the two status
    queries and one generated, nonce-correlated empty lookup. Reject wrong
@@ -62,6 +62,32 @@ commands and datagrams have tighter limits. This operator coordinator is not a
 drop-in replacement for the 45-second on-host upgrade hook. That hook must still
 use the reviewed external nonce/manifest/invocation receipt bridge and its own
 hash-bound acceptance contract. No reverse SSH trust is introduced.
+
+The bridge must use `invoke_report('control-plane-hook', profile)` for its
+control-plane leg. This dedicated role binds host/port to the running API's
+unique `PublicServerJoin__Host` / `PublicServerJoin__Port` values before reading
+the secret. It verifies the same live status/version/storage and nonce-correlated
+lookup, then rechecks API identity, mounts and endpoint configuration. It does
+not consult the public online projection: that minute-scale polling view can
+still describe the planned restart after local A2S has recovered. The ordinary
+CLI continues to require public online state for final acceptance.
+
+The hook role has a 15-second remote budget, at most five seconds per local
+command, four seconds per RCON query and a 20-second outer SSH deadline. The
+bridge must account for cooldown and receipt delivery inside its existing
+35-second receipt wait. After any cooldown wait, require at least 25 seconds
+remaining before starting the probe; otherwise reject without probing. Reserve
+five seconds for receipt delivery and never reuse an expired request. Keep the
+manifest, nonce, game invocation and timestamp binding unchanged. None of these
+checks permits local game-host RCON, an automatic query retry or acceptance of
+busy, a wrong version or unhealthy storage.
+
+`invoke_report` returns only bounded stage/category diagnostics on failure;
+it does not return exception text or raw transport output. The bridge must retain
+that report before attempting receipt delivery so a delivery failure cannot
+erase the original check failure. Failed or late reports cannot create an
+accepted receipt. A new reviewed plan/claim and updated hook hashes are required
+after a failed claimed attempt; do not reuse its plan or edit its evidence.
 
 Read-only acceptance allows players to be online. The upgrade workflow retains
 its separate empty-server requirement immediately before stopping the game.

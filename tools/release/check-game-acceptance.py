@@ -19,6 +19,8 @@ class Refusal(Exception):
 
 
 def invoke(role, profile):
+    require(role in ('game-host', 'control-plane', 'control-plane-hook'))
+    validate_profile(profile)
     directory = Path(__file__).resolve().parent
     worker = (directory / 'acceptance_checks.py').read_text(encoding='utf-8')
     protocol = (directory.parents[1] / 'ops/gameserver/addon_runtime_protocol.py').read_bytes()
@@ -29,7 +31,7 @@ def invoke(role, profile):
     alias = profile['gameAlias' if role == 'game-host' else 'controlPlaneAlias']
     args = ['ssh', '-F', profile['sshConfig'], '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
             '-o', 'ConnectTimeout=10', '-o', 'ConnectionAttempts=1', '-T', alias, 'sudo -n python3 -I -B -']
-    result = subprocess.run(args, input=code.encode(), capture_output=True, timeout=65)
+    result = subprocess.run(args, input=code.encode(), capture_output=True, timeout=20 if role == 'control-plane-hook' else 65)
     require(len(result.stdout) <= 8192)
     value = json.loads(result.stdout)
     if result.returncode != 0:
@@ -38,6 +40,20 @@ def invoke(role, profile):
         raise Refusal({'result': 'failed', **report})
     require(value['result'] == 'passed' and value['role'] == role)
     return value
+
+
+def invoke_report(role, profile):
+    """Return sanitized evidence for a nonce-bound external hook receipt."""
+    require(role == 'control-plane-hook')
+    try:
+        return invoke(role, profile)
+    except Refusal as error:
+        return error.report
+    except Exception as error:
+        category = type(error).__name__
+        if category not in ('TimeoutExpired', 'OSError', 'ValueError', 'JSONDecodeError', 'UnicodeDecodeError', 'KeyError', 'TypeError'):
+            category = 'Exception'
+        return {'result': 'failed', 'role': role, 'check': 'coordinator_transport', 'category': category}
 
 
 def main():

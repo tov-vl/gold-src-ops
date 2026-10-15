@@ -140,51 +140,96 @@ def empty_lookup(text, nonce, now):
             and first[1] == nonce and -5 <= now - int(first[2]) <= 30)
 
 
-def control_plane(profile, protocol):
-    # All host guards run before touching the secret or opening an RCON socket.
-    managed_path = Path('/etc/goldsrcops/gameserver')
-    managed = managed_path.exists() or managed_path.is_symlink()
-    addresses = json.loads(run(['ip', '-j', '-4', 'address', 'show']))
-    local = {entry['local'] for item in addresses for entry in item['addr_info'] if entry['family'] == 'inet'}
-    refuse_local_rcon(profile['host'], local, managed)
-    with urllib.request.urlopen('https://api.goldsrcops.com/api/public/server', timeout=10) as response:
-        raw = response.read(65537)
-    require(len(raw) <= 65536)
-    endpoint = json.loads(raw)
-    require(endpoint.get('state') == 'online' and all(endpoint[k] == profile[k] for k in ('host', 'port')))
-    ids = run(['docker', 'ps', '-q', '--filter', 'label=com.docker.compose.service=api']).decode().split()
-    require(len(ids) == 1)
-    container = json.loads(run(['docker', 'inspect', ids[0]]))[0]
-    require(container['State']['Running'])
-    mounts = [m for m in container['Mounts'] if m['Destination'] == '/run/secrets/rcon-password']
-    require(len(mounts) == 1 and mounts[0]['Type'] == 'bind' and not mounts[0]['RW'])
-    password = protocol.read_password(io.BytesIO(trusted(Path(mounts[0]['Source']), 130, owner=1654, mode=0o400)))
-    address = (profile['host'], profile['port'])
-    text = '\n'.join(protocol.query(address, password, command) for command in protocol.COMMANDS)
-    protocol.verify(text, profile['version'])
-    nonce = uuid.uuid4().hex[:16]
-    name = ('release-check-' + uuid.uuid4().hex[:12]).encode().hex().upper()
-    # One lookup only. Busy, auth failure or timeout is a refusal, never a retry.
-    reply = protocol.query(address, password, 'goldsrcops_player_lookup ' + nonce + ' ' + name)
-    empty_lookup(reply, nonce, time.time())
-    after = json.loads(run(['docker', 'inspect', ids[0]]))[0]
-    require(after['State']['Running'] and after['State']['StartedAt'] == container['State']['StartedAt']
-            and after['RestartCount'] == container['RestartCount']
-            and after['Image'] == container['Image']
-            and canonical_mounts(after['Mounts']) == canonical_mounts(container['Mounts']))
-    return {'result': 'passed', 'role': 'control-plane', 'version': profile['version'],
-            'status': True, 'lookup': True, 'apiRuntimeUnchanged': True}
+class CheckFailure(ValueError):
+    def __init__(self, check, category):
+        self.check, self.category = check, category
+        super().__init__('Acceptance check failed.')
+
+
+def configured_endpoint(container, profile):
+    # Deployment values bind the target even while the public polling view is stale.
+    for key, expected in (('PublicServerJoin__Host', profile['host']),
+                          ('PublicServerJoin__Port', str(profile['port']))):
+        values = [line.split('=', 1)[1] for line in container['Config']['Env'] if line.startswith(key + '=')]
+        require(values == [expected])
+
+
+def control_plane(profile, protocol, *, hook=False):
+    phase = 'external_host'
+    deadline = time.monotonic() + (15 if hook else 60)
+
+    def remaining():
+        left = deadline - time.monotonic()
+        require(left > 0)
+        return left
+
+    def command(args):
+        return run(args, timeout=min(5 if hook else 15, remaining()))
+
+    def query(command):
+        # The transport has its own four-second ceiling and never retries.
+        require(remaining() >= 4)
+        return protocol.query((profile['host'], profile['port']), password, command)
+
+    try:
+        # All host/endpoint guards precede secret access and any RCON packet.
+        managed_path = Path('/etc/goldsrcops/gameserver')
+        managed = managed_path.exists() or managed_path.is_symlink()
+        addresses = json.loads(command(['ip', '-j', '-4', 'address', 'show']))
+        local = {entry['local'] for item in addresses for entry in item['addr_info'] if entry['family'] == 'inet'}
+        refuse_local_rcon(profile['host'], local, managed)
+        if not hook:
+            phase = 'public_online_state'
+            with urllib.request.urlopen('https://api.goldsrcops.com/api/public/server', timeout=min(10, remaining())) as response:
+                raw = response.read(65537)
+            require(len(raw) <= 65536)
+            endpoint = json.loads(raw)
+            require(endpoint.get('state') == 'online' and all(endpoint[k] == profile[k] for k in ('host', 'port')))
+        phase = 'api_container'
+        ids = command(['docker', 'ps', '-q', '--filter', 'label=com.docker.compose.service=api']).decode().split()
+        require(len(ids) == 1)
+        container = json.loads(command(['docker', 'inspect', ids[0]]))[0]
+        require(container['State']['Running'])
+        phase = 'configured_endpoint'
+        configured_endpoint(container, profile)
+        phase = 'secret_mount'
+        mounts = [m for m in container['Mounts'] if m['Destination'] == '/run/secrets/rcon-password']
+        require(len(mounts) == 1 and mounts[0]['Type'] == 'bind' and not mounts[0]['RW'])
+        password = protocol.read_password(io.BytesIO(trusted(Path(mounts[0]['Source']), 130, owner=1654, mode=0o400)))
+        phase = 'rcon_status_transport'
+        text = '\n'.join(query(command) for command in protocol.COMMANDS)
+        phase = 'rcon_status'
+        protocol.verify(text, profile['version'])
+        nonce = uuid.uuid4().hex[:16]
+        name = ('release-check-' + uuid.uuid4().hex[:12]).encode().hex().upper()
+        phase = 'lookup_transport'
+        reply = query('goldsrcops_player_lookup ' + nonce + ' ' + name)
+        phase = 'lookup_frame'
+        empty_lookup(reply, nonce, time.time())
+        phase = 'api_runtime'
+        after = json.loads(command(['docker', 'inspect', ids[0]]))[0]
+        require(after['State']['Running'] and after['State']['StartedAt'] == container['State']['StartedAt']
+                and after['RestartCount'] == container['RestartCount']
+                and after['Image'] == container['Image']
+                and canonical_mounts(after['Mounts']) == canonical_mounts(container['Mounts']))
+        configured_endpoint(after, profile)
+        remaining()
+        return {'result': 'passed', 'role': 'control-plane-hook' if hook else 'control-plane',
+                'version': profile['version'], 'status': True, 'lookup': True, 'apiRuntimeUnchanged': True}
+    except Exception as error:
+        raise CheckFailure(phase, type(error).__name__) from None
 
 
 def remote_main(role, profile, protocol):
     try:
-        require(os.geteuid() == 0 and role in ('game-host', 'control-plane'))
+        require(os.geteuid() == 0 and role in ('game-host', 'control-plane', 'control-plane-hook'))
         validate_profile(profile)
-        result = game_host(profile) if role == 'game-host' else control_plane(profile, protocol)
+        result = game_host(profile) if role == 'game-host' else control_plane(profile, protocol, hook=role == 'control-plane-hook')
         print(json.dumps(result, separators=(',', ':')))
     except Exception as error:
         # Function/category only: no exception text, paths, subprocess output or RCON bodies.
         frames = traceback.extract_tb(error.__traceback__)
-        check = frames[-2].name if len(frames) > 1 else 'entrypoint'
-        print(json.dumps({'result': 'failed', 'role': role, 'check': check, 'category': type(error).__name__}))
+        check = error.check if isinstance(error, CheckFailure) else frames[-2].name if len(frames) > 1 else 'entrypoint'
+        category = error.category if isinstance(error, CheckFailure) else type(error).__name__
+        print(json.dumps({'result': 'failed', 'role': role, 'check': check, 'category': category}))
         raise SystemExit(1)
