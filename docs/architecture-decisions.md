@@ -2005,3 +2005,20 @@ parsing; the addon independently enforces the game cooldown. A failed or cancell
 attempt does not reset admission or authorize retry. Missing/old source data is
 unavailable, not a successful empty result. Multiple API replicas require shared
 admission before search is enabled. See [the API contract](player-search-api.md).
+
+## Decision 49: Add Substring Search As A Separate Addon Protocol
+
+Extend Decision 48 with the explicit `goldsrcops_player_lookup_v2` command and
+wire version 2. Preserve v1 exact matching. Both commands share admission,
+source flags and the same bounded in-memory index; no second persistent or
+folded-name index is introduced. Require at least three strict UTF-8 scalars
+within 31 bytes and use the fixed ASCII/Russian case map, leaving other symbols
+literal. Return each matched record's actual name and retain score/private-key
+ordering without deduplication or public identity keys.
+
+The initial implementation is addon-only. API/Web support must explicitly select
+the mode, validate the matching version, separate cache keys and preserve manual
+retry and privacy boundaries. Missing v2 support must not trigger an automatic
+fallback or reinterpretation as an empty result. See [the addon contract and
+verification](player-substring-addon.md) and [the complete proposed integration
+contract](player-substring-search-feasibility.md).
