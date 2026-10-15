@@ -1,6 +1,7 @@
 # v2.78 - Partial player nickname search
 
-Planned joint addon/API/Web release. Not published or deployed.
+Candidate published; stable release blocked by addon acceptance. Production
+retains addon 0.25.0, API v2.76 and Web v2.77. Reconciliation is pending.
 
 - RU/EN search forms offer an exact nickname or a part of it; exact remains the
   default. Partial search needs at least three Unicode scalars and retains the
@@ -19,5 +20,7 @@ Planned joint addon/API/Web release. Not published or deployed.
 
 The product is merged in [PR #355](https://github.com/tov-vl/gold-src-ops/pull/355).
 Full PR/main CI and local real Web/API/RCON integration passed. Production partial
-search, candidate image identity and stable promotion are not yet claimed.
+search and stable promotion are not claimed. Candidate CI and independent image
+identity verification passed; the addon attempt returned to its predecessor,
+with its failed-operation journal retained for reconciliation.
 See the [installation, acceptance and rollback plan](v2.78-readiness.md).
