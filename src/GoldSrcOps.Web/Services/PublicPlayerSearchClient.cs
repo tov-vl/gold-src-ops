@@ -44,7 +44,8 @@ public sealed class PublicPlayerSearchClient(HttpClient httpClient, PublicApiMet
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, "api/public/players/search")
             {
-                Content = JsonContent.Create(new PublicPlayerSearchRequest(name))
+                // Keep the existing exact-only Web request compatible with older APIs.
+                Content = JsonContent.Create(new { name })
             };
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
             if (response.StatusCode == HttpStatusCode.NotFound)

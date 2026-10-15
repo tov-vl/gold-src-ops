@@ -16,9 +16,9 @@ internal sealed class PublicPlayerSearchSource(
     IGoldSrcRconClient rcon,
     TimeProvider timeProvider) : IPublicPlayerSearchSource
 {
-    public async Task<PublicPlayerSearchResult> LookupAsync(string name, CancellationToken cancellationToken)
+    public async Task<PublicPlayerSearchResult> LookupAsync(string name, PublicPlayerSearchMode mode, CancellationToken cancellationToken)
     {
-        if (!settings.Enabled || !PublicPlayerName.TryNormalize(name, out var normalized) ||
+        if (!settings.Enabled || !PublicPlayerSearchMatching.TryNormalize(name, mode, out var normalized) ||
             !string.Equals(name, normalized, StringComparison.Ordinal))
         {
             return PublicPlayerSearchResult.Unavailable;
@@ -47,11 +47,12 @@ internal sealed class PublicPlayerSearchSource(
             return PublicPlayerSearchResult.Unavailable;
         }
 
+        var command = mode == PublicPlayerSearchMode.Contains ? "goldsrcops_player_lookup_v2" : "goldsrcops_player_lookup";
         var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(8));
         var hex = Convert.ToHexString(Encoding.UTF8.GetBytes(name));
         var response = await rcon.ExecuteAsync(new GoldSrcRconRequest(
             server.Endpoint.Host, server.Endpoint.RconPort.Value, resolved.Secret,
-            $"goldsrcops_player_lookup {nonce} {hex}", TimeSpan.FromSeconds(3)), cancellationToken);
-        return PublicPlayerSearchProtocol.Parse(response, nonce, name, timeProvider.GetUtcNow());
+            $"{command} {nonce} {hex}", TimeSpan.FromSeconds(3)), cancellationToken);
+        return PublicPlayerSearchProtocol.Parse(response, nonce, name, timeProvider.GetUtcNow(), mode);
     }
 }

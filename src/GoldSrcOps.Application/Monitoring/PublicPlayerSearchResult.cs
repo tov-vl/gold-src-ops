@@ -19,5 +19,5 @@ public sealed record PublicPlayerSearchSettings(bool Enabled, Guid ServerId);
 
 public interface IPublicPlayerSearchSource
 {
-    Task<PublicPlayerSearchResult> LookupAsync(string name, CancellationToken cancellationToken);
+    Task<PublicPlayerSearchResult> LookupAsync(string name, PublicPlayerSearchMode mode, CancellationToken cancellationToken);
 }

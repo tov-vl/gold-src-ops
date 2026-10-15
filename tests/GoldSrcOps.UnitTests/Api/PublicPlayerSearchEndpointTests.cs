@@ -51,6 +51,14 @@ public sealed class PublicPlayerSearchEndpointTests
     [InlineData("{\"name\":\"A\\n\"}")]
     [InlineData("{\"name\":\"\\uD800\"}")]
     [InlineData("{\"name\":\"A\",\"host\":\"untrusted\"}")]
+    [InlineData("{\"name\":\"abc\",\"match\":null}")]
+    [InlineData("{\"name\":\"abc\",\"match\":\"\"}")]
+    [InlineData("{\"name\":\"abc\",\"match\":\"CONTAINS\"}")]
+    [InlineData("{\"name\":\"abc\",\"match\":\"fuzzy\"}")]
+    [InlineData("{\"name\":\"abc\",\"match\":1}")]
+    [InlineData("{\"name\":\"abc\",\"match\":{}}")]
+    [InlineData("{\"name\":\"ab\",\"match\":\"contains\"}")]
+    [InlineData("{\"name\":\"😀😀\",\"match\":\"contains\"}")]
     public async Task Invalid_body_is_rejected_without_source_access_or_echo(string body)
     {
         var source = new SearchSource((_, _) => throw new InvalidOperationException());
@@ -61,6 +69,30 @@ public sealed class PublicPlayerSearchEndpointTests
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await response.Content.ReadAsStringAsync()).Should().NotContain("STEAM_").And.NotContain("untrusted");
         source.Calls.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("{\"name\":\"ab\"}", PublicPlayerSearchMode.Exact)]
+    [InlineData("{\"name\":\"ab\",\"match\":\"exact\"}", PublicPlayerSearchMode.Exact)]
+    [InlineData("{\"name\":\"abc\",\"match\":\"contains\"}", PublicPlayerSearchMode.Contains)]
+    [InlineData("{\"name\":\"😀😀😀\",\"match\":\"contains\"}", PublicPlayerSearchMode.Contains)]
+    public async Task Optional_mode_defaults_to_exact_and_contains_keeps_response_contract(string body, PublicPlayerSearchMode expected)
+    {
+        var source = new SearchSource((_, _) => Task.FromResult(new PublicPlayerSearchResult(PublicPlayerSearchState.Fresh,
+            DateTimeOffset.UtcNow, false, [new(1, "Actual stored name", 0, 1, 1)])));
+        await using var factory = CreateFactory(source);
+        using var client = factory.CreateClient();
+        using var content = new StringContent(body, Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync("/api/public/players/search", content);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Headers.CacheControl!.NoStore.Should().BeTrue();
+        source.LastMode.Should().Be(expected);
+        var result = await response.Content.ReadFromJsonAsync<PublicPlayerSearchResponse>();
+        result!.Entries.Single().Name.Should().Be("Actual stored name");
+        using var otherMode = await client.PostAsJsonAsync("/api/public/players/search", new PublicPlayerSearchRequest("abc", expected == PublicPlayerSearchMode.Contains ? "exact" : "contains"));
+        otherMode.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        otherMode.Headers.RetryAfter!.Delta.Should().BeGreaterThan(TimeSpan.Zero);
+        source.Calls.Should().Be(1);
     }
 
     [Fact]

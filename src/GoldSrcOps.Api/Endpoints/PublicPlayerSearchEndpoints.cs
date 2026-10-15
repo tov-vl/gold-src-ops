@@ -109,7 +109,12 @@ public static class PublicPlayerSearchEndpoints
             return TypedResults.StatusCode(StatusCodes.Status408RequestTimeout);
         }
 
-        var result = await search.SearchAsync(request?.Name, source, cancellationToken);
+        if (!PublicPlayerSearchMatching.TryParseMode(request?.Match, out var mode))
+        {
+            return TypedResults.Json(Map(new(PublicPlayerSearchState.Invalid, null, false, [])), statusCode: 400);
+        }
+
+        var result = await search.SearchAsync(request?.Name, mode, source, cancellationToken);
         if (result.RetryAfterSeconds is { } retry)
         {
             context.Response.Headers.RetryAfter = retry.ToString(CultureInfo.InvariantCulture);

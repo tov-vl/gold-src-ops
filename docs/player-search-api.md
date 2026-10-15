@@ -1,9 +1,11 @@
 # Player search API foundation
 
-This implements step 2 of [the search plan](player-search-feasibility.md), on top
-of the [addon 0.25.0 protocol](player-search-addon.md). It adds API code only.
-The website, game server, database schema and deployed configuration are unchanged.
-The combined addon/API/Web feature remains a future R2 release.
+This started as step 2 of [the exact search plan](player-search-feasibility.md).
+The additive [API mode extension](player-substring-api.md) supports both the
+[addon v1 protocol](player-search-addon.md) and [addon 0.26.0 v2](player-substring-addon.md).
+The website continues to submit its original exact-only request body. The game
+server, database schema and deployed configuration are unchanged by API work;
+substring selection in Web and the combined release remain separate steps.
 
 ## HTTP contract
 
@@ -18,8 +20,15 @@ with a three-second deadline. Only JSON media types with absent or UTF-8 charset
 are accepted. Unknown JSON properties, invalid text and names are rejected.
 The normalized name must be 1-31 UTF-8 bytes. Trim only surrounding ASCII spaces;
 retain case and other Unicode whitespace. Reject invalid scalar sequences,
-C0/C1 controls and case-insensitive `STEAM_` substrings. No normalization,
-transliteration, wildcard or substring matching is performed.
+C0/C1 controls and case-insensitive `STEAM_` substrings.
+
+An omitted `match` means `exact`. Explicit `"match":"exact"` preserves whole-name,
+case-sensitive comparison. `"match":"contains"` requires at least three Unicode
+scalars and uses the fixed ASCII/Russian case map from the addon v2 contract.
+Explicit null, empty, unknown, differently cased or non-string modes are invalid.
+There is no normalization, transliteration, wildcard matching or automatic fallback.
+For example, `{"name":"abc","match":"contains"}` can match `[TAG]ABC` and returns
+that original stored name, not the query. All modes retain the 256-byte body bound.
 
 | HTTP | Meaning |
 | --- | --- |
@@ -64,8 +73,9 @@ No writes, command-history enqueue or new database storage are introduced.
 The existing top-ten endpoint and poller are unchanged.
 
 Each command uses a new random 16-character hex nonce and up to 62 hex characters
-of name bytes. The strict parser verifies exact nonce and name correlation,
-header/trailer agreement, row count, ordinals, order, rank thresholds, counters,
+of name bytes. The strict parser verifies the requested wire version, exact nonce,
+mode-specific name correlation, header/trailer agreement, row count, ordinals,
+order, rank thresholds, counters,
 UTF-8 and a 2048-character ASCII frame bound. Missing names have no fallback.
 A complete frame must be younger than 60 seconds, with at most 30 seconds of
 future clock skew. An old/disabled addon produces unavailable rather than an
@@ -80,12 +90,13 @@ empty result. Existing RCON datagram/byte limits remain in force.
   separate game gate below still applies.
 - Application permits one in-flight lookup and one new attempt per ten seconds,
   with no waiting queue. The gate is shared by scoped API requests, including
-  different names. Invalid requests do not consume a game slot. Any admitted
-  attempt, including failure/cancellation, retains its cooldown. An addon busy
+  different names and both modes. Invalid requests do not consume a game slot.
+  Any admitted attempt, including failure/cancellation, retains its cooldown. An addon busy
   response can extend the remaining cooldown by its validated delay.
-- Cache successful snapshots and successful empty results only, with ordinal
-  case-sensitive keys. Keep at most 128 entries, remove expired entries on
-  access, and evict the oldest if the capacity is reached. Under the current
+- Cache successful snapshots and successful empty results only, keyed by
+  `(mode, trimmed query)` with ordinal case-sensitive query equality. Keep at most
+  128 entries, remove expired entries on access, and evict the oldest if the
+  capacity is reached. Under the current
   ten-second admission and 60-second TTL, normal occupancy is much smaller.
   Copy rows on publication so later source changes cannot mutate cached data.
 - TTL is at most 60 seconds from capture (and at most 60 seconds after receipt

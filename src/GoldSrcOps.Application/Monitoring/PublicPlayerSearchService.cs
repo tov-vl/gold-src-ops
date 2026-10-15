@@ -4,13 +4,17 @@ namespace GoldSrcOps.Application.Monitoring;
 public sealed class PublicPlayerSearchService(PublicPlayerSearchSettings settings, TimeProvider timeProvider)
 {
     private readonly Lock _sync = new();
-    private readonly Dictionary<string, CachedResult> _cache = new(StringComparer.Ordinal);
+    private readonly Dictionary<(PublicPlayerSearchMode Mode, string Name), CachedResult> _cache = [];
     private bool _inFlight;
     private long? _lastAttempt;
     private TimeSpan _interval = TimeSpan.FromSeconds(10);
 
+    public Task<PublicPlayerSearchResult> SearchAsync(
+        string? query, IPublicPlayerSearchSource source, CancellationToken cancellationToken) =>
+        SearchAsync(query, PublicPlayerSearchMode.Exact, source, cancellationToken);
+
     public async Task<PublicPlayerSearchResult> SearchAsync(
-        string? query, IPublicPlayerSearchSource source, CancellationToken cancellationToken)
+        string? query, PublicPlayerSearchMode mode, IPublicPlayerSearchSource source, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!settings.Enabled)
@@ -18,7 +22,7 @@ public sealed class PublicPlayerSearchService(PublicPlayerSearchSettings setting
             return new(PublicPlayerSearchState.Disabled, null, false, []);
         }
 
-        if (!PublicPlayerName.TryNormalize(query, out var name))
+        if (!PublicPlayerSearchMatching.TryNormalize(query, mode, out var name))
         {
             return new(PublicPlayerSearchState.Invalid, null, false, []);
         }
@@ -32,7 +36,7 @@ public sealed class PublicPlayerSearchService(PublicPlayerSearchSettings setting
                 _cache.Remove(key);
             }
 
-            if (_cache.TryGetValue(name, out var cached))
+            if (_cache.TryGetValue((mode, name), out var cached))
             {
                 return cached.Result;
             }
@@ -52,7 +56,7 @@ public sealed class PublicPlayerSearchService(PublicPlayerSearchSettings setting
         {
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(3), timeProvider);
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
-            var result = await source.LookupAsync(name, linked.Token);
+            var result = await source.LookupAsync(name, mode, linked.Token);
             linked.Token.ThrowIfCancellationRequested();
             lock (_sync)
             {
@@ -80,7 +84,7 @@ public sealed class PublicPlayerSearchService(PublicPlayerSearchSettings setting
                     }
 
                     result = result with { Entries = Array.AsReadOnly(result.Entries.ToArray()) };
-                    _cache.Add(name, new(result, timeProvider.GetTimestamp(), lifetime));
+                    _cache.Add((mode, name), new(result, timeProvider.GetTimestamp(), lifetime));
                 }
             }
 

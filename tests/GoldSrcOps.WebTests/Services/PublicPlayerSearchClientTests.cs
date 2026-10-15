@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using AwesomeAssertions;
 using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Web.Services;
@@ -128,13 +129,31 @@ public sealed class PublicPlayerSearchClientTests
         handler.Calls.Should().Be(1);
     }
 
+    [Fact]
+    public async Task Exact_only_Web_preserves_legacy_request_body_without_mode()
+    {
+        using var metrics = new PublicApiMetrics();
+        using var handler = new FixtureHandler(() => new(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new PublicPlayerSearchResponse("fresh", DateTimeOffset.UtcNow, false, [], null))
+        });
+        using var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.example.test/") };
+        (await new PublicPlayerSearchClient(http, metrics).SearchAsync(" Abc ")).State.Should().Be("fresh");
+        using var body = JsonDocument.Parse(handler.Body!);
+        body.RootElement.EnumerateObject().Select(x => x.Name).Should().Equal("name");
+        body.RootElement.GetProperty("name").GetString().Should().Be("Abc");
+        handler.Calls.Should().Be(1);
+    }
+
     private sealed class FixtureHandler(Func<HttpResponseMessage> response) : HttpMessageHandler
     {
         public int Calls { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        public string? Body { get; private set; }
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Calls++;
-            return Task.FromResult(response());
+            Body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            return response();
         }
     }
 
