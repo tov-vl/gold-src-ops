@@ -2,9 +2,10 @@
 
 This operator tooling checks an already running weapon addon and public search.
 It does not install code, stop services, change a CVAR, remove a ban, restore a
-vault or create a backup. A lookup consumes the existing short cooldown; a busy
-response is a failed check, not permission to retry automatically. The tools are
-opt-in and CI runs their synthetic checks without contacting production.
+vault or create a backup. A lookup consumes the existing short cooldown. Game
+acceptance rejects busy; browser acceptance intentionally checks one busy countdown
+per language and then submits one manual retry. Other failures terminate the run.
+The tools are opt-in and CI runs their synthetic checks without contacting production.
 
 ## Game and control-plane boundary
 
@@ -92,14 +93,26 @@ node ./tools/release/check-player-search-browser.cjs --execute
 Default origin is the public site. `--base-url` accepts an HTTPS origin without
 credentials, query or fragment. The script uses the repository's existing built
 Playwright package; `--playwright-package` may select another reviewed local
-package. It does not install a browser or dependency. Without `--execute`, no
-browser/network operation occurs.
+package. Select an already installed browser with `--browser-channel msedge` or
+`--browser-channel chrome`; otherwise the existing bundled Chromium is used. It does not install a browser or dependency. Without `--execute`, no browser
+or network operation occurs, and the Playwright package is not loaded.
 
 A saved top-ten row is needed for exact-name acceptance. RU/EN with and without
 JavaScript, keyboard submission, mobile/desktop widths and 200% text are checked.
-The form uses the existing name in memory only. POST results must be fresh and
-bounded; refresh must preserve them without another POST or a query in the URL.
-An empty live leaderboard cannot prove the matching-player scenario.
+The form uses the existing name in memory only. The matching-player result must be
+fresh and bounded; refresh must preserve it without another POST or a query in
+the URL. An empty live leaderboard cannot prove the matching-player scenario.
+
+For each JavaScript language, a generated name triggers a natural busy response.
+If that lookup succeeds because the preceding matching-player search was cached,
+only one additional generated-name probe is allowed. Busy must advertise 1-10
+seconds, disable the submit button and block Enter. Refresh must preserve the
+input. Completion must enable the button and publish the ready announcement
+without another POST; only the tool's subsequent keyboard submission may retry.
+A failed or busy manual retry terminates acceptance. JavaScript scenarios are
+separated by an 11-second pause, without changing the server cooldown. Both
+no-JavaScript scenarios still require a fresh matching-player result. Browser
+storage must remain empty; names and raw page content are never reported.
 
 Cache checks look for the `no-store` directive, accepting `no-cache, no-store`.
 Manual refresh requires HTTP 200, no-store and the application's successful
@@ -107,8 +120,21 @@ full-body parse/render state. A Chromium `ERR_ABORTED` is accounted for only whe
 it belongs to that exact completed refresh request. Other request failures,
 incomplete rendering, page/console errors and direct browser API calls still
 fail acceptance. Waiting for transport completion alone is insufficient after
-the bounded reader's cleanup cancellation. The whole browser run is bounded to
-90 seconds and outputs only fixed checks and an accounted-cancellation count.
+the bounded reader's cleanup cancellation.
+
+Across all four contexts, the tool permits at most 10 search POSTs and 256 HTTP
+requests. Each request must use the selected origin, GET or POST, and only the
+`lang` query key. POST is restricted to `/leaderboard`; direct `/api` requests,
+credentials, other origins and redirects are refused. Each intercepted request
+is fetched once with zero redirect hops and zero transport retries, then fulfilled
+to the browser. This buffers responses and disables browser HTTP caching: the
+check proves rendered behavior, not native streaming or cache performance.
+
+Browser launch is limited to 15 seconds, the subsequent browser run to 120 seconds,
+and individual operations to 15 seconds (countdown completion to its advertised
+seconds plus two). The deadline closes the browser and stops further traffic.
+The final JSON includes per-language POST counts, retry duration, total requests,
+limits and accounted cancellations, without names, page bodies or screenshots.
 
 For container comparisons, [canonical_mounts](../tools/release/acceptance_checks.py)
 compares mounts as a sorted multiset of complete objects. Ordering is irrelevant;
@@ -118,7 +144,11 @@ removed, duplicated or changed mounts, including write permissions, still differ
 
 The focused Python/Node regressions cover guards before secret/network access,
 no retries, stale/partial replies, runtime drift, mount changes, cache directives
-and exact-request cancellation correlation. The real-engine fixture separately
+and exact-request cancellation correlation. Browser-tool regressions also check
+origin/query/method refusal, request budgets, redirects, timeout refusal and
+countdown bounds. Existing application browser tests retain controlled-clock
+coverage for timer progress and page restoration; the operator suite does not
+duplicate those tests. The real-engine fixture separately
 checks that explicitly isolated local RCON still accepts upgrade and rollback.
 Full application CI remains required for this tooling/workflow change; it is not
 classified as documentation-only or addon-only.
