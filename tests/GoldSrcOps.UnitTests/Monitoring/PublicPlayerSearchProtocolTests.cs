@@ -12,9 +12,9 @@ public sealed class PublicPlayerSearchProtocolTests
     internal const string Nonce = "0123456789AbCdEf";
     internal static readonly DateTimeOffset Now = new(2026, 10, 14, 12, 0, 0, TimeSpan.Zero);
 
-    internal static string Frame(string rows = "", int count = 0, bool more = false, DateTimeOffset? at = null, string nonce = Nonce)
+    internal static string Frame(string rows = "", int count = 0, bool more = false, DateTimeOffset? at = null, string nonce = Nonce, int version = 1)
     {
-        var metadata = FormattableString.Invariant($"1 {nonce} {(at ?? Now).ToUnixTimeSeconds()} {count} {(more ? 1 : 0)}");
+        var metadata = FormattableString.Invariant($"{version} {nonce} {(at ?? Now).ToUnixTimeSeconds()} {count} {(more ? 1 : 0)}");
         return $"GSLOOKUP {metadata}\n{rows}GSPEND {metadata}";
     }
 
@@ -127,6 +127,88 @@ public sealed class PublicPlayerSearchProtocolTests
         ascii.Should().Be("A");
         PublicPlayerName.TryNormalize("\u00a0A\u00a0", out var unicode).Should().BeTrue();
         unicode.Should().Be("\u00a0A\u00a0");
+    }
+
+    [Theory]
+    [InlineData("[TAG]ALex", "alex", true)]
+    [InlineData("КИРИЛЛ", "рил", true)]
+    [InlineData("\u0401ЖИК", "\u0451жи", true)]
+    [InlineData("\u0401ЖИК", "ежи", false)]
+    [InlineData("CAFÉ", "café", false)]
+    [InlineData("café", "cafe", false)]
+    [InlineData("café", "afe\u0301", false)]
+    [InlineData("Straße", "STRASSE", false)]
+    [InlineData("ABC", "АВС", false)]
+    [InlineData("Игрок", "Igr", false)]
+    [InlineData("[TAG]A*B", "a*b", true)]
+    [InlineData("[TAG]ABC", "a*c", false)]
+    [InlineData("😀😀😀Tail", "😀😀😀", true)]
+    public void V2_names_use_the_addon_map_and_preserve_original_spelling(string name, string query, bool matches)
+    {
+        var row = $"GSPROW 1 0 1 0 {Convert.ToHexString(Encoding.UTF8.GetBytes(name))}\n";
+        var parse = () => PublicPlayerSearchProtocol.Parse(Frame(row, 1, version: 2), Nonce, query, Now, PublicPlayerSearchMode.Contains);
+        if (matches) { parse().Entries.Single().Name.Should().Be(name); }
+        else { parse.Should().Throw<InvalidDataException>(); }
+    }
+
+    [Fact]
+    public void V2_checks_every_Russian_pair_and_returns_distinct_actual_names_and_duplicates()
+    {
+        for (var upper = 0x0410; upper <= 0x042F; upper++)
+        {
+            PublicPlayerSearchMatching.Matches($"AA{(char)upper}", $"aa{(char)(upper + 32)}", PublicPlayerSearchMode.Contains).Should().BeTrue();
+        }
+        const string rows = "GSPROW 1 0 2 1 5B5441475D43415345\nGSPROW 2 0 2 2 436173655461696C\nGSPROW 3 0 1 2 43617365\nGSPROW 4 0 1 2 43617365\n";
+        var result = PublicPlayerSearchProtocol.Parse(Frame(rows, 4, version: 2), Nonce, "cAs", Now, PublicPlayerSearchMode.Contains);
+        result.Entries.Select(x => x.Name).Should().Equal("[TAG]CASE", "CaseTail", "Case", "Case");
+    }
+
+    [Theory]
+    [InlineData("ab", false)]
+    [InlineData("  ab  ", false)]
+    [InlineData("иг", false)]
+    [InlineData("😀😀", false)]
+    [InlineData("😀😀😀", true)]
+    [InlineData("игр", true)]
+    [InlineData("  abc  ", true)]
+    [InlineData("a*b", true)]
+    [InlineData("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", true)]
+    [InlineData("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", false)]
+    public void Contains_validates_trimmed_scalars_and_utf8_byte_bound(string query, bool expected) =>
+        PublicPlayerSearchMatching.TryNormalize(query, PublicPlayerSearchMode.Contains, out _).Should().Be(expected);
+
+    [Fact]
+    public void V2_framing_validation_remains_strict_and_versions_never_fallback()
+    {
+        var good = Frame("GSPROW 1 0 1 1 416263\n", 1, version: 2);
+        var faults = new[]
+        {
+            good.Replace("GSPEND 2", "GSPEND 1", StringComparison.Ordinal),
+            good.Replace(Nonce, "FFFFFFFFFFFFFFFF", StringComparison.Ordinal),
+            good.Split('\n')[0], good + "\nnoise", Frame(count: 1, version: 2), Frame(more: true, version: 2),
+            Frame(at: Now.AddSeconds(31), version: 2), Frame(at: Now.AddSeconds(-60), version: 2),
+            Frame("GSPROW 1 0 1 1 416263\nGSPROW 2 0 1 0 416263\n", 2, version: 2),
+            Frame("GSPROW 1 0 0 0 416263\n", 1, version: 2),
+            Frame("GSPROW 1 1 1 0 416263\n", 1, version: 2),
+            Frame("GSPROW 2 0 1 0 416263\n", 1, version: 2),
+            Frame("GSPROW 1 0 1 0 C0AF\n", 1, version: 2),
+            Frame("GSPROW 1 0 1 0 535445414D5F416263\n", 1, version: 2),
+            Frame("GSPROW 1 0 1 0 414243\n", 1),
+            "Unknown command: goldsrcops_player_lookup_v2", $"GSLOOKUP 1 {Nonce} unavailable",
+            $"GSLOOKUP 2 {Nonce} busy 0", $"GSLOOKUP 2 {Nonce} busy 11", "GSLOOKUP 2 FFFFFFFFFFFFFFFF busy 1",
+            new string('A', 2049), good + "Я"
+        };
+        foreach (var frame in faults)
+        {
+            var parse = () => PublicPlayerSearchProtocol.Parse(frame, Nonce, "abc", Now, PublicPlayerSearchMode.Contains);
+            parse.Should().Throw<InvalidDataException>();
+        }
+        var wrongVersion = () => PublicPlayerSearchProtocol.Parse(good, Nonce, "Abc", Now);
+        wrongVersion.Should().Throw<InvalidDataException>();
+        PublicPlayerSearchProtocol.Parse(Frame(version: 2), Nonce, "abc", Now, PublicPlayerSearchMode.Contains).State.Should().Be(PublicPlayerSearchState.Fresh);
+        PublicPlayerSearchProtocol.Parse($"GSLOOKUP 2 {Nonce} busy 7", Nonce, "abc", Now, PublicPlayerSearchMode.Contains).RetryAfterSeconds.Should().Be(7);
+        PublicPlayerSearchProtocol.Parse($"GSLOOKUP 2 {Nonce} unavailable", Nonce, "abc", Now, PublicPlayerSearchMode.Contains).State.Should().Be(PublicPlayerSearchState.Unavailable);
+        PublicPlayerSearchProtocol.Parse("GSLOOKUP 2 invalid", Nonce, "abc", Now, PublicPlayerSearchMode.Contains).State.Should().Be(PublicPlayerSearchState.Unavailable);
     }
 
     [Theory]

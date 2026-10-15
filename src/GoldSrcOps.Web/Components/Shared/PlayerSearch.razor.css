@@ -3,10 +3,11 @@
 .player-search p { line-height: 1.6; color: var(--ink-soft); }
 .player-search label { display: block; margin: 20px 0 8px; font-weight: 700; }
 .player-search-controls { display: flex; gap: 12px; }
+.player-search ::deep select { width: 100%; max-width: 100%; padding: 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--canvas); color: var(--ink); font: inherit; }
 .player-search-controls ::deep input { min-width: 0; flex: 1; padding: 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--canvas); color: var(--ink); font: inherit; }
 .player-search button { padding: 12px 24px; border: 0; border-radius: 6px; background: var(--signal-green); color: var(--surface); font: inherit; font-weight: 700; cursor: pointer; }
 .player-search button:disabled { background: var(--line-strong); color: var(--ink-soft); cursor: not-allowed; }
-.player-search button:focus-visible, .player-search-controls ::deep input:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.player-search ::deep select:focus-visible, .player-search button:focus-visible, .player-search-controls ::deep input:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .player-search .player-search-message { margin: 20px 0; color: var(--ink); }
 .player-search-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 0; list-style: none; }
 .player-search-result { min-width: 0; padding: 20px; background: var(--canvas); border-radius: 10px; overflow-wrap: anywhere; }

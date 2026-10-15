@@ -46,7 +46,7 @@ run_case() {
         cat "$log"
         return 1
     fi
-    grep -E 'SMOKE=|SEED=|RELOAD=|PLAYER_LOOKUP_LOAD=' "$log"
+    grep -E 'SMOKE=|SEED=|RELOAD=|PLAYER_LOOKUP_(LOAD|TIMING)[= ]' "$log"
     if [[ -n "$(find cstrike/addons/amxmodx/logs -name 'error_*.log' -print -quit)" ]]; then
         find cstrike/addons/amxmodx/logs -name 'error_*.log' -exec cat {} +
         return 1

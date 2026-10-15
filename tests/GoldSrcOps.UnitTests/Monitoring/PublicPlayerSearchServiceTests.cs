@@ -115,6 +115,68 @@ public sealed class PublicPlayerSearchServiceTests
         source.Calls.Should().Be(0);
     }
 
+    [Fact]
+    public async Task Modes_have_separate_ordinal_cache_keys_with_shared_admission_and_expiration()
+    {
+        var time = new SearchTime();
+        var source = new SearchSource((_, _) => Task.FromResult(Fresh(time)));
+        var service = new PublicPlayerSearchService(new(true, Guid.NewGuid()), time);
+        await service.SearchAsync("Abc", PublicPlayerSearchMode.Exact, source, default);
+        source.LastMode.Should().Be(PublicPlayerSearchMode.Exact);
+        (await service.SearchAsync("Abc", PublicPlayerSearchMode.Contains, source, default)).State.Should().Be(PublicPlayerSearchState.Busy);
+        time.Advance(10);
+        source.Action = (_, _) => Task.FromResult(Fresh(time) with { Entries = [new(1, "[TAG]ABC", 0, 1, 1)] });
+        await service.SearchAsync(" Abc ", PublicPlayerSearchMode.Contains, source, default);
+        source.LastMode.Should().Be(PublicPlayerSearchMode.Contains);
+        (await service.SearchAsync("Abc", source, default)).Entries.Should().BeEmpty();
+        (await service.SearchAsync("Abc", PublicPlayerSearchMode.Contains, source, default)).Entries.Single().Name.Should().Be("[TAG]ABC");
+        (await service.SearchAsync("abc", PublicPlayerSearchMode.Contains, source, default)).State.Should().Be(PublicPlayerSearchState.Busy);
+        source.Calls.Should().Be(2);
+        time.Advance(50);
+        source.Action = (_, _) => Task.FromResult(PublicPlayerSearchResult.Unavailable);
+        (await service.SearchAsync("Abc", source, default)).State.Should().Be(PublicPlayerSearchState.Unavailable);
+        (await service.SearchAsync("Abc", PublicPlayerSearchMode.Contains, source, default)).State.Should().Be(PublicPlayerSearchState.Fresh);
+        time.Advance(10);
+        (await service.SearchAsync("Abc", PublicPlayerSearchMode.Contains, source, default)).State.Should().Be(PublicPlayerSearchState.Unavailable);
+        source.Calls.Should().Be(4);
+    }
+
+    [Theory]
+    [InlineData(PublicPlayerSearchMode.Exact, PublicPlayerSearchMode.Contains)]
+    [InlineData(PublicPlayerSearchMode.Contains, PublicPlayerSearchMode.Exact)]
+    public async Task Modes_share_inflight_and_failed_attempt_admission(PublicPlayerSearchMode firstMode, PublicPlayerSearchMode otherMode)
+    {
+        var time = new SearchTime();
+        var pending = new TaskCompletionSource<PublicPlayerSearchResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var source = new SearchSource((_, _) => pending.Task);
+        var service = new PublicPlayerSearchService(new(true, Guid.NewGuid()), time);
+        var first = service.SearchAsync("Abc", firstMode, source, default);
+        time.Advance(10);
+        (await service.SearchAsync("Def", otherMode, source, default)).State.Should().Be(PublicPlayerSearchState.Busy);
+        pending.SetResult(PublicPlayerSearchResult.Busy(10));
+        await first;
+        (await service.SearchAsync("Abc", otherMode, source, default)).State.Should().Be(PublicPlayerSearchState.Busy);
+        source.Calls.Should().Be(1);
+        time.Advance(10);
+        source.Action = (_, _) => throw new IOException("private transport detail");
+        (await service.SearchAsync("Abc", otherMode, source, default)).State.Should().Be(PublicPlayerSearchState.Unavailable);
+        (await service.SearchAsync("Abc", firstMode, source, default)).State.Should().Be(PublicPlayerSearchState.Busy);
+        source.Calls.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Invalid_mode_or_short_contains_does_not_consume_admission()
+    {
+        var time = new SearchTime();
+        var source = new SearchSource((_, _) => Task.FromResult(Fresh(time)));
+        var service = new PublicPlayerSearchService(new(true, Guid.NewGuid()), time);
+        (await service.SearchAsync("abc", (PublicPlayerSearchMode)99, source, default)).State.Should().Be(PublicPlayerSearchState.Invalid);
+        (await service.SearchAsync("ab", PublicPlayerSearchMode.Contains, source, default)).State.Should().Be(PublicPlayerSearchState.Invalid);
+        source.Calls.Should().Be(0);
+        (await service.SearchAsync("ab", PublicPlayerSearchMode.Exact, source, default)).State.Should().Be(PublicPlayerSearchState.Fresh);
+        source.Calls.Should().Be(1);
+    }
+
     private static PublicPlayerSearchResult Fresh(SearchTime time) => new(PublicPlayerSearchState.Fresh, time.GetUtcNow(), false, []);
 }
 
@@ -130,10 +192,12 @@ internal sealed class SearchTime : TimeProvider
 internal sealed class SearchSource(Func<string, CancellationToken, Task<PublicPlayerSearchResult>> action) : IPublicPlayerSearchSource
 {
     public int Calls { get; private set; }
+    public PublicPlayerSearchMode LastMode { get; private set; }
     public Func<string, CancellationToken, Task<PublicPlayerSearchResult>> Action { get; set; } = action;
-    public Task<PublicPlayerSearchResult> LookupAsync(string name, CancellationToken cancellationToken)
+    public Task<PublicPlayerSearchResult> LookupAsync(string name, PublicPlayerSearchMode mode, CancellationToken cancellationToken)
     {
         Calls++;
+        LastMode = mode;
         return Action(name, cancellationToken);
     }
 }

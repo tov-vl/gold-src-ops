@@ -32,9 +32,24 @@ public sealed class PublicPlayerSearchClient(HttpClient httpClient, PublicApiMet
         return true;
     }
 
-    public async Task<PublicPlayerSearchResponse> SearchAsync(string? value, CancellationToken cancellationToken = default)
+    public static bool TryNormalize(string? value, string? match, out string name)
     {
-        if (!TryNormalize(value, out var name))
+        name = string.Empty;
+        if (match is not ("exact" or "contains") || !TryNormalize(value, out name))
+            return false;
+        if (string.Equals(match, "exact", StringComparison.Ordinal))
+            return true;
+        var scalars = 0;
+        foreach (var _ in name.EnumerateRunes()) { scalars++; }
+        return scalars >= 3;
+    }
+
+    public Task<PublicPlayerSearchResponse> SearchAsync(string? value, CancellationToken cancellationToken = default) =>
+        SearchAsync(value, "exact", cancellationToken);
+
+    public async Task<PublicPlayerSearchResponse> SearchAsync(string? value, string? match, CancellationToken cancellationToken = default)
+    {
+        if (!TryNormalize(value, match, out var name))
             return new("invalid", null, false, [], null);
         var started = Stopwatch.GetTimestamp();
         var outcome = "error";
@@ -44,7 +59,9 @@ public sealed class PublicPlayerSearchClient(HttpClient httpClient, PublicApiMet
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, "api/public/players/search")
             {
-                Content = JsonContent.Create(new PublicPlayerSearchRequest(name))
+                // Exact requests retain compatibility with APIs that predate the optional mode.
+                Content = string.Equals(match, "exact", StringComparison.Ordinal) ? JsonContent.Create(new { name })
+                    : JsonContent.Create(new PublicPlayerSearchRequest(name, match))
             };
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
             if (response.StatusCode == HttpStatusCode.NotFound)
@@ -69,7 +86,11 @@ public sealed class PublicPlayerSearchClient(HttpClient httpClient, PublicApiMet
             if (length > 4096)
                 return Unavailable;
             var result = JsonSerializer.Deserialize<PublicPlayerSearchResponse>(bytes.AsSpan(0, length), JsonOptions);
-            if (!IsValid(result, response.StatusCode, name))
+            if (!IsValid(result, response.StatusCode, name, match!))
+                return Unavailable;
+            // A locally valid contains request rejected by an older API is unavailable,
+            // not an empty result or a reason to retry with exact matching.
+            if (string.Equals(match, "contains", StringComparison.Ordinal) && string.Equals(result!.State, "invalid", StringComparison.Ordinal))
                 return Unavailable;
             deadline.Token.ThrowIfCancellationRequested();
             outcome = result!.State switch { "fresh" => "success", "busy" => "busy", _ => "error" };
@@ -95,7 +116,7 @@ public sealed class PublicPlayerSearchClient(HttpClient httpClient, PublicApiMet
         }
     }
 
-    private static bool IsValid(PublicPlayerSearchResponse? result, HttpStatusCode status, string name)
+    private static bool IsValid(PublicPlayerSearchResponse? result, HttpStatusCode status, string name, string match)
     {
         if (result?.Entries is null || result.Entries.Count > 10)
             return false;
@@ -118,7 +139,10 @@ public sealed class PublicPlayerSearchClient(HttpClient httpClient, PublicApiMet
         foreach (var entry in result.Entries)
         {
             if (entry is null || entry.Ordinal != (previous?.Ordinal ?? 0) + 1 ||
-                !string.Equals(entry.Name, name, StringComparison.Ordinal) ||
+                !TryNormalize(entry.Name, out var normalized) ||
+                !string.Equals(entry.Name, normalized, StringComparison.Ordinal) ||
+                !(string.Equals(match, "exact", StringComparison.Ordinal) ? string.Equals(entry.Name, name, StringComparison.Ordinal)
+                    : Fold(entry.Name).Contains(Fold(name), StringComparison.Ordinal)) ||
                 entry.Kills is < 0 or > 1_000_000_000 || entry.Deaths is < 0 or > 1_000_000_000 ||
                 (entry.Kills == 0 && entry.Deaths == 0) ||
                 entry.Rank != (entry.Kills switch { >= 500 => 4, >= 250 => 3, >= 100 => 2, >= 25 => 1, _ => 0 }) ||
@@ -129,4 +153,18 @@ public sealed class PublicPlayerSearchClient(HttpClient httpClient, PublicApiMet
         }
         return true;
     }
+
+    // This bounded map must agree with addon v2 and API validation; other scripts stay literal.
+    private static string Fold(string value) => string.Create(value.Length, value, static (output, input) =>
+    {
+        for (var index = 0; index < input.Length; index++)
+        {
+            output[index] = input[index] switch
+            {
+                >= 'A' and <= 'Z' or >= '\u0410' and <= '\u042F' => (char)(input[index] + 32),
+                '\u0401' => '\u0451',
+                _ => input[index]
+            };
+        }
+    });
 }

@@ -22,49 +22,57 @@ public sealed partial class BrowserTokenBoundaryTests
         Page.Request += ObserveRequest;
         try
         {
-            foreach (var language in new[] { "ru", "en" })
-            {
-                foreach (var width in new[] { 1440, 390, 320 })
+            foreach (var match in new[] { "exact", "contains" })
+                foreach (var language in new[] { "ru", "en" })
                 {
-                    var name = "SearchPlayer" + new string('W', 19);
-                    factory.SearchHandler.Result = new("fresh", DateTimeOffset.UtcNow, true,
-                        Enumerable.Range(1, 10).Select(i => new PublicPlayerSearchEntryResponse(i, name, 1, 99, 8)).ToArray(), null);
-                    await Page.SetViewportSizeAsync(width, 900);
-                    await Page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, "/leaderboard?lang=" + language).AbsoluteUri);
-                    var calls = factory.SearchHandler.RequestCount;
-                    await Page.Locator("#player-search-name").FillAsync(name);
-                    factory.SearchHandler.RequestCount.Should().Be(calls);
-                    await Page.Locator("#player-search-name").PressAsync("Enter");
-                    await Expect(Page.Locator(".player-search-result")).ToHaveCountAsync(10);
-                    await Expect(Page.Locator(".player-search-progress").First).ToContainTextAsync("1");
-                    await Expect(Page.Locator(".player-search-notice")).ToContainTextAsync("10");
-                    Page.Url.Should().NotContain(name);
-                    factory.SearchHandler.RequestCount.Should().Be(calls + 1);
-                    var layout = await Page.EvaluateAsync<string>("""
+                    foreach (var width in new[] { 1440, 390, 320 })
+                    {
+                        var name = "SearchPlayer" + new string('W', 19);
+                        var query = string.Equals(match, "contains", StringComparison.Ordinal) ? "searchplayer" : name;
+                        factory.SearchHandler.Result = new("fresh", DateTimeOffset.UtcNow, true,
+                            Enumerable.Range(1, 10).Select(i => new PublicPlayerSearchEntryResponse(i, name, 1, 99, 8)).ToArray(), null);
+                        await Page.SetViewportSizeAsync(width, 900);
+                        await Page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, "/leaderboard?lang=" + language).AbsoluteUri);
+                        var calls = factory.SearchHandler.RequestCount;
+                        await Page.Locator("#player-search-match").SelectOptionAsync(match);
+                        await Page.Locator("#player-search-name").FillAsync(query);
+                        factory.SearchHandler.RequestCount.Should().Be(calls);
+                        await Page.Locator("#player-search-name").PressAsync("Enter");
+                        await Expect(Page.Locator(".player-search-result")).ToHaveCountAsync(10);
+                        await Expect(Page.Locator(".player-search-progress").First).ToContainTextAsync("1");
+                        await Expect(Page.Locator(".player-search-notice")).ToContainTextAsync("10");
+                        Page.Url.Should().NotContain(name).And.NotContain(query);
+                        factory.SearchHandler.LastMatch.Should().Be(match);
+                        await Expect(Page.Locator("#player-search-match")).ToHaveValueAsync(match);
+                        if (width == 320 && string.Equals(match, "contains", StringComparison.Ordinal))
+                            await Page.AddStyleTagAsync(new() { Content = "html { font-size: 200%; }" });
+                        factory.SearchHandler.RequestCount.Should().Be(calls + 1);
+                        var layout = await Page.EvaluateAsync<string>("""
                         JSON.stringify({ width: document.documentElement.clientWidth,
                             scrollWidth: document.documentElement.scrollWidth, ready: document.readyState,
                             overflow: [...document.querySelectorAll('body *')]
                                 .filter(element => element.getBoundingClientRect().right > document.documentElement.clientWidth)
                                 .map(element => `${element.tagName}.${element.className}: ${element.getBoundingClientRect().right}`) })
                         """);
-                    using (var geometry = System.Text.Json.JsonDocument.Parse(layout))
-                    {
-                        geometry.RootElement.GetProperty("scrollWidth").GetInt32().Should()
-                            .BeLessThanOrEqualTo(geometry.RootElement.GetProperty("width").GetInt32(), $"{language} at {width}px: {layout}");
+                        using (var geometry = System.Text.Json.JsonDocument.Parse(layout))
+                        {
+                            geometry.RootElement.GetProperty("scrollWidth").GetInt32().Should()
+                                .BeLessThanOrEqualTo(geometry.RootElement.GetProperty("width").GetInt32(), $"{language} at {width}px: {layout}");
+                        }
+                        await Page.Locator("[data-leaderboard-refresh]").ClickAsync();
+                        await Expect(Page.Locator("#leaderboard-refresh-status")).ToHaveTextAsync(string.Equals(language, "en", StringComparison.Ordinal)
+                            ? "Check complete. Fresh snapshot received." : "Проверка завершена. Свежий снимок получен.");
+                        await Expect(Page.Locator(".player-search-result")).ToHaveCountAsync(10);
+                        await Expect(Page.Locator("#player-search-name")).ToHaveValueAsync(query);
+                        factory.SearchHandler.RequestCount.Should().Be(calls + 1);
+                        await Expect(Page.Locator("#player-search-match")).ToHaveValueAsync(match);
+                        await Page.Locator("#player-search-name").FocusAsync();
+                        await Page.Locator("#player-search").ScrollIntoViewIfNeededAsync();
+                        await CaptureScreenshotIfRequestedAsync("player-search-" + match + "-" + language, new ViewportSize { Width = width, Height = 900 });
+                        AssertTokenFree(await Page.ContentAsync());
+                        await AssertBrowserStorageIsEmptyAsync();
                     }
-                    await Page.Locator("[data-leaderboard-refresh]").ClickAsync();
-                    await Expect(Page.Locator("#leaderboard-refresh-status")).ToHaveTextAsync(string.Equals(language, "en", StringComparison.Ordinal)
-                        ? "Check complete. Fresh snapshot received." : "Проверка завершена. Свежий снимок получен.");
-                    await Expect(Page.Locator(".player-search-result")).ToHaveCountAsync(10);
-                    await Expect(Page.Locator("#player-search-name")).ToHaveValueAsync(name);
-                    factory.SearchHandler.RequestCount.Should().Be(calls + 1);
-                    await Page.Locator("#player-search-name").FocusAsync();
-                    await Page.Locator("#player-search").ScrollIntoViewIfNeededAsync();
-                    await CaptureScreenshotIfRequestedAsync("player-search-" + language, new ViewportSize { Width = width, Height = 900 });
-                    AssertTokenFree(await Page.ContentAsync());
-                    await AssertBrowserStorageIsEmptyAsync();
                 }
-            }
             browserApiRequests.Should().Be(0);
         }
         finally
@@ -118,6 +126,8 @@ public sealed partial class BrowserTokenBoundaryTests
                 ? "Search is busy. Try again manually in 10 seconds." : "Поиск занят. Повторите вручную через 10 сек.");
             await Expect(message).ToHaveAttributeAsync("aria-live", "off");
             await Expect(Page.Locator("[data-search-announcement]")).ToBeEmptyAsync();
+            await Page.Locator("#player-search-match").SelectOptionAsync("contains");
+            await Expect(button).ToBeDisabledAsync();
             await input.FillAsync("ChangedName");
             await input.PressAsync("Enter");
             // Also cover submit events that bypass the disabled button.
@@ -150,6 +160,8 @@ public sealed partial class BrowserTokenBoundaryTests
             await button.PressAsync("Enter");
             await Expect(Page.Locator(".player-search-result")).ToHaveCountAsync(2);
             factory.SearchHandler.LastName.Should().Be("ChangedName");
+            factory.SearchHandler.LastMatch.Should().Be("contains");
+            await Expect(Page.Locator("#player-search-match")).ToHaveValueAsync("contains");
             factory.SearchHandler.RequestCount.Should().Be(calls + 2);
             Page.Url.Should().NotContain("ChangedName");
             await AssertBrowserStorageIsEmptyAsync();
@@ -185,26 +197,32 @@ public sealed partial class BrowserTokenBoundaryTests
         factory.StartServer();
         await using var context = await Browser.NewContextAsync(new() { JavaScriptEnabled = false, ViewportSize = new() { Width = 320, Height = 740 } });
         var page = await context.NewPageAsync();
-        foreach (var language in new[] { "ru", "en" })
-        {
-            factory.SearchHandler.Status = HttpStatusCode.OK;
-            factory.SearchHandler.Result = null;
-            await page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, "/leaderboard?lang=" + language).AbsoluteUri);
-            await page.Locator("#player-search-name").FillAsync("Example");
-            await page.Locator(".player-search button").ClickAsync();
-            await Expect(page.Locator(".player-search-result")).ToHaveCountAsync(2);
-            foreach (var state in new[] { "fresh", "busy", "unavailable" })
+        foreach (var match in new[] { "exact", "contains" })
+            foreach (var language in new[] { "ru", "en" })
             {
-                factory.SearchHandler.Status = state switch { "busy" => HttpStatusCode.TooManyRequests, "unavailable" => HttpStatusCode.ServiceUnavailable, _ => HttpStatusCode.OK };
-                factory.SearchHandler.Result = new(state, string.Equals(state, "fresh", StringComparison.Ordinal) ? DateTimeOffset.UtcNow : null, false, [], string.Equals(state, "busy", StringComparison.Ordinal) ? 3 : null);
-                await page.Locator("#player-search-name").FillAsync("Nobody");
+                factory.SearchHandler.Status = HttpStatusCode.OK;
+                factory.SearchHandler.Result = null;
+                await page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, "/leaderboard?lang=" + language).AbsoluteUri);
+                await page.Locator("#player-search-match").SelectOptionAsync(match);
+                await page.Locator("#player-search-name").FillAsync("Example");
                 await page.Locator(".player-search button").ClickAsync();
-                await Expect(page.Locator("[data-search-state]")).ToHaveAttributeAsync("data-search-state", state);
-                await Expect(page.Locator(".player-search button")).ToBeEnabledAsync();
-                await Expect(page.Locator("#player-search-name")).ToHaveValueAsync("Nobody");
-                await Expect(page.Locator(".player-search-result")).ToHaveCountAsync(0);
-                page.Url.Should().NotContain("Nobody").And.NotContain("Example");
+                await Expect(page.Locator(".player-search-result")).ToHaveCountAsync(2);
+                await Expect(page.Locator("#player-search-match")).ToHaveValueAsync(match);
+                factory.SearchHandler.LastMatch.Should().Be(match);
+                foreach (var state in new[] { "fresh", "busy", "unavailable" })
+                {
+                    factory.SearchHandler.Status = state switch { "busy" => HttpStatusCode.TooManyRequests, "unavailable" => HttpStatusCode.ServiceUnavailable, _ => HttpStatusCode.OK };
+                    factory.SearchHandler.Result = new(state, string.Equals(state, "fresh", StringComparison.Ordinal) ? DateTimeOffset.UtcNow : null, false, [], string.Equals(state, "busy", StringComparison.Ordinal) ? 3 : null);
+                    await page.Locator("#player-search-name").FillAsync("Nobody");
+                    await page.Locator(".player-search button").ClickAsync();
+                    await Expect(page.Locator("[data-search-state]")).ToHaveAttributeAsync("data-search-state", state);
+                    await Expect(page.Locator(".player-search button")).ToBeEnabledAsync();
+                    await Expect(page.Locator("#player-search-name")).ToHaveValueAsync("Nobody");
+                    await Expect(page.Locator(".player-search-result")).ToHaveCountAsync(0);
+                    await Expect(page.Locator("#player-search-match")).ToHaveValueAsync(match);
+                    factory.SearchHandler.LastMatch.Should().Be(match);
+                    page.Url.Should().NotContain("Nobody").And.NotContain("Example");
+                }
             }
-        }
     }
 }

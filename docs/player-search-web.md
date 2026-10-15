@@ -1,8 +1,9 @@
 # Player search Web foundation
 
-This implements step 3 of [the search plan](player-search-feasibility.md), using
-[the API contract](player-search-api.md). It changes Web and tests only; the
-combined addon/API/Web feature still requires its R2 release and acceptance.
+This started as step 3 of [the exact search plan](player-search-feasibility.md).
+The local [Web mode extension](player-substring-web.md) now uses
+[the API modes contract](player-substring-api.md). The combined substring feature
+still requires its integration checks and separately approved R2 release.
 No database migration, production setting, game menu or MOTD changes are included.
 
 ## Page behavior
@@ -12,10 +13,13 @@ No database migration, production setting, game menu or MOTD changes are include
 independent flag; enabling Web does not enable API or addon lookup.
 
 The form submits a normal static SSR POST with antiforgery protection and works
-without JavaScript. Search requires the exact last saved nickname, including
-case; surrounding ASCII spaces are removed. It does not search by substring,
-SteamID or global ranking position. Validation retains the API's 1-31 UTF-8 byte
-limit and rejects controls, invalid Unicode and identifier-like input.
+without JavaScript. Exact mode remains the default and requires the full last
+saved nickname, including case. Contains mode accepts part of the nickname with
+at least three Unicode scalars and the fixed ASCII/Russian case map. Surrounding
+ASCII spaces are removed. Validation retains the API's 31-byte UTF-8 limit and
+rejects controls, invalid Unicode and identifier-like input. There is no SteamID
+or global-position search. Mode and input remain in the form after submission;
+refreshing only the leaderboard panel preserves them without another search.
 
 Results contain at most ten cards with escaped names, rank, kills, deaths and
 progress derived from the same row. Identical rows remain separate. Explicit
@@ -44,7 +48,7 @@ including after an automatic refresh.
 - The API client uses one five-second budget for headers, body and deserialization,
   links caller cancellation, disables redirects and never retries. It reads at
   most 4097 bytes to reject bodies over 4096 bytes.
-- Web checks status/state agreement, capture age, exact requested name, ordinal,
+- Web checks status/state agreement, capture age, mode-specific name matching, ordinal,
   row count, order, counters, rank, retry delay and truncation before display.
   Missing API routes, invalid/cross-query responses, transport failures and
   timeouts show unavailable without stale rows or raw exception text.

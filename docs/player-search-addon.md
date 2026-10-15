@@ -65,6 +65,9 @@ rows. Invalid input is not echoed. Future HTTP code must generate nonces itself,
 verify exact correlation, and avoid logging query/frame content. The nonce is a
 correlation field, not authentication; the existing private RCON boundary applies.
 
+For the additive substring command in addon 0.26.0, see
+[lookup v2](player-substring-addon.md). The v1 contract below remains supported.
+
 ## State and compatibility
 
 Each existing bounded index record gains a 32-cell validated name cache. Names
