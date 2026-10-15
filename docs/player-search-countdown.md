@@ -1,7 +1,7 @@
 # Player-search retry countdown
 
-Implemented locally on 2026-10-14. Production still has the previously accepted
-manual busy message; publication and deployed countdown acceptance are pending.
+Merged through PR #352 on 2026-10-14 and accepted in production with the Web-only
+v2.77 release on 2026-10-15. Stable promotion reuses the verified candidate.
 
 ## Boundary
 
@@ -49,20 +49,24 @@ stored in the browser or added to a URL, and no browser-to-API request is added.
 - Documentation validation passed: 203 Markdown files and 1084 local links.
   JavaScript syntax and changed-file whitespace checks passed.
 
-## Delivery and remaining gates
+## Delivery and acceptance
 
 Base: `8e6c3c4477da7824149664c48ce9f3816cd76745` (monitoring evidence closure).
-The reviewed product commit is recorded in the delivery handoff; no candidate
-revision, tag or new production digest is claimed by this local record.
+Reviewed product commit: `a1b78314d274c259f08776a1f0cad389d336f90b`.
 
-Product push/PR, full required CI, squash merge and post-merge CI are still
-pending. A subsequent Web-only release must freeze the exact merged revision,
-unused candidate/stable tags, verified image digest and fresh Web rollback digest
-before changing production. Preserve the other six containers and the accepted
-monitoring configuration. Use the [release process](release-process.md).
+[Product PR #352](https://github.com/tov-vl/gold-src-ops/pull/352) is merged at
+`cd1563d3b1e181ffe20875236bb1d7f8fa5eb1f7`. Full
+[PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38591655522) and
+[main CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38593161304) passed.
+The [Web-only v2.77 release](v2.77-readiness.md) passed candidate publication,
+independent production runtime/browser/telemetry acceptance and digest-preserving
+stable promotion. The other eight containers, including both databases, and
+accepted monitoring configuration were preserved.
 
-Production acceptance must exercise an ordinary search followed by a bounded
-busy response, observe the localized countdown and manual retry, and verify
-search telemetry without injecting a failure. Synthetic tests are the evidence
-for deterministic timing and lifecycle cases. Game visual checks, two-player
-play, weekly backup and personal notification delivery remain independent.
+RU/EN natural busy responses showed a ten-second countdown, blocked early Enter,
+preserved input through ranking refresh and enabled an explicitly manual retry.
+No automatic request was made. No-JavaScript search also passed. New-instance
+metrics matched all eight browser submissions: six successes and two busy.
+Synthetic tests retain the deterministic timing and lifecycle evidence.
+Game visual checks, two-player play, weekly backup and personal notification
+delivery remain independent. See the [release process](release-process.md).
