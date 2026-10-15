@@ -3588,6 +3588,14 @@ Refusal потеряны адаптером; сохраненные факты �
 Stable promotion и приемка частичного поиска остаются заблокированы.
 
 См. [readiness, evidence и порядок отката](v2.78-readiness.md) и
-[планируемые release notes](release-notes-v2.78.md). Следующий шаг - полный CI
-исправления и проверка нового плана с новыми hash/operation ID до повторной
-установки. Теги и immutable artifacts не заменяются; vault restore не требуется.
+[планируемые release notes](release-notes-v2.78.md). Исправление объединено через
+[PR #356](https://github.com/tov-vl/gold-src-ops/pull/356), полный PR CI прошел;
+[полный post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38789992597)
+также прошел с первой попытки. Новый план `v278-search-retry-20261015-a19959752c1a`
+подготовлен локально. Проверены оба пакета, восемь payload-файлов, синтаксис hook,
+отказ при изменении хешей и четыре сценария адаптера квитанций. Свежая read-only
+сверка подтвердила прежние runtime/baseline и отсутствие pending.
+
+Следующий этап - выполнить новый план с проверкой predecessor, claim и приемкой
+addon, затем API и Web. План пока не передан на сервер и не исполнялся. Теги и
+immutable artifacts не заменяются; vault restore не требуется.
