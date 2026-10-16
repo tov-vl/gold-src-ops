@@ -1,6 +1,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {hasNoStore, unexpectedFailures, refresh, retrySeconds, createRequestGuard, check} = require('../release/check-player-search-browser.cjs');
+const {hasNoStore, unexpectedFailures, refresh, retrySeconds, createRequestGuard, closeContext, check} = require('../release/check-player-search-browser.cjs');
 
 test('cache directives accept combined no-store without weakening missing-header refusal', () => {
     for (const value of ['no-store', 'no-cache, no-store', 'private, NO-STORE']) assert.ok(hasNoStore(value));
@@ -83,6 +83,7 @@ test('redirects and transport failures terminate without following or retrying',
         assert.deepEqual(route.calls, [['fetch', {maxRedirects: 0, maxRetries: 0, timeout: 15000}], ['abort'],
             ...(status === 'timeout' ? [] : [['dispose']])]);
         assert.throws(() => guard.verify(), /Request boundary failed/);
+        assert.equal(guard.firstFailure.phase, status === 'timeout' ? 'fetch' : 'redirect');
     }
 });
 
@@ -164,4 +165,87 @@ test('failed navigation retains scenario and actual request counts even if clean
     const serialized = JSON.stringify(report);
     for (const text of ['private-player', 'HTML', 'token', 'call log', 'cleanup secret', 'site.example'])
         assert.ok(!serialized.includes(text));
+});
+
+
+function deferred() {
+    let resolve;
+    const promise = new Promise(done => { resolve = done; });
+    return {promise, resolve};
+}
+
+test('RU response cleanup finishes before context closure and EN keeps the shared budget', async () => {
+    const guard = createRequestGuard('https://site.example');
+    const entered = deferred(), release = deferred();
+    let closed = false;
+    const route = routedRequest('https://site.example/leaderboard');
+    route.fetch = async () => ({status: () => 200, dispose: async () => {
+        entered.resolve();
+        await release.promise;
+        if (closed) throw new Error('Response context is already closed');
+    }});
+    const routed = guard.route(route);
+    await entered.promise;
+    guard.verify(); // A rendered response does not mean its handler finished.
+    const finishing = closeContext({close: async () => { closed = true; }}, guard);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(closed, false);
+    release.resolve();
+    await Promise.all([finishing, routed]);
+    assert.equal(closed, true);
+    const en = routedRequest('https://site.example/leaderboard?lang=en');
+    await guard.route(en);
+    guard.verify();
+    assert.equal(guard.requests, 2);
+    assert.equal(en.calls[0][0], 'fetch');
+});
+
+test('real cleanup failure remains fatal and its first phase survives subsequent refusals', async () => {
+    const guard = createRequestGuard('https://site.example');
+    const route = routedRequest('https://site.example/leaderboard');
+    route.fetch = async () => ({status: () => 200, dispose: async () => {
+        throw new Error('private URL, name and token');
+    }});
+    await guard.route(route);
+    let closed = false;
+    await assert.rejects(closeContext({close: async () => { closed = true; }}, guard));
+    assert.equal(closed, false);
+    const en = routedRequest('https://site.example/leaderboard?lang=en');
+    await guard.route(en);
+    assert.deepEqual(en.calls, [['abort']]);
+    assert.equal(guard.requests, 1);
+    assert.deepEqual(guard.firstFailure, {phase: 'dispose', category: 'check-failed'});
+    assert.ok(!JSON.stringify(guard.firstFailure).includes('private'));
+});
+
+test('route drain has a deadline and does not swallow a stalled handler', async () => {
+    const guard = createRequestGuard('https://site.example', {posts: 2, requests: 3, operationMs: 25});
+    const entered = deferred(), release = deferred();
+    const route = routedRequest('https://site.example/leaderboard');
+    route.fetch = async () => ({status: () => 200, dispose: async () => {
+        entered.resolve(); await release.promise;
+    }});
+    const pending = guard.route(route);
+    await entered.promise;
+    try {
+        await assert.rejects(guard.drain(), /Route drain timed out/);
+        assert.deepEqual(guard.firstFailure, {phase: 'drain', category: 'timeout'});
+        assert.throws(() => guard.verify());
+    } finally {
+        release.resolve(); await pending;
+    }
+});
+
+
+test('a handler failure during context closure cannot mark the scenario complete', async () => {
+    const guard = createRequestGuard('https://site.example');
+    let closed = false;
+    const route = routedRequest('https://site.example/leaderboard');
+    route.fulfill = async () => { throw new Error('Context interrupted fulfillment'); };
+    await assert.rejects(closeContext({close: async () => {
+        closed = true;
+        await guard.route(route);
+    }}, guard), /Request boundary failed/);
+    assert.equal(closed, true);
+    assert.deepEqual(guard.firstFailure, {phase: 'fulfill', category: 'check-failed'});
 });

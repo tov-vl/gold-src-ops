@@ -157,6 +157,13 @@ incomplete rendering, page/console errors and direct browser API calls still
 fail acceptance. Waiting for transport completion alone is insufficient after
 the bounded reader's cleanup cancellation.
 
+Before closing a scenario context, the checker waits for all guarded route
+handlers, including response disposal, with a fifteen-second bound. Interception
+stays installed while draining; neither budgets nor failure state are reset
+between languages. It checks again after context closure and only then records
+the scenario as passed. A late cleanup failure is reported in `context-close`
+for that scenario, rather than being attributed to the next language.
+
 Across all four contexts, the default tool permits at most 10 search POSTs and
 256 HTTP requests (`--partial`: fourteen POSTs). Each request must use the
 selected origin, GET or POST, and only the
@@ -175,7 +182,10 @@ limits and accounted cancellations, without names, page bodies or screenshots.
 Once browser execution starts, failure also returns bounded JSON and exit code 1.
 The report retains the last stage, language, JavaScript setting, mode, viewport,
 completed scenarios, attempted request/POST counts, response-state counts, elapsed
-time and browser-error counts. Unknown response states collapse to `unexpected`.
+time and browser-error counts. `firstRequestFailure` retains only the first fixed
+phase (`policy`, `fetch`, `redirect`, `fulfill`, `dispose`, `drain`) and category;
+later blocked requests cannot replace it. Unknown response states collapse to
+`unexpected`.
 Exception messages/stacks, URLs, selectors, player names, page content and console
 text are never serialized. Launch/navigation errors retain the same report shape;
 a cleanup error cannot replace an earlier failure. CLI validation/package-loading
@@ -193,6 +203,7 @@ After building Web and restoring the existing Playwright package, run the opt-in
 ```powershell
 python tools/smoke/player-search-browser-rehearsal.py --browser-channel msedge
 python tools/smoke/player-search-browser-rehearsal.py --browser-channel msedge --reject-contains
+python tools/smoke/player-search-browser-rehearsal.py --browser-channel msedge --delay-disposal
 ```
 
 Use `--node` only to select an existing Node executable when it is absent from PATH.
@@ -203,6 +214,12 @@ separate sixty-second mode caches and a shared ten-second cooldown. It is not
 another proof of the actual API, RCON, addon, TLS or production proxy boundary.
 HTTP is allowed only for this locally allocated fixture through the exported check
 function; the production CLI continues to require HTTPS.
+
+`--delay-disposal` delays native response disposal by one second after the fourth
+RU POST. Expect one delayed disposal and a passing complete matrix: the checker
+must keep the context alive until disposal finishes. This reproduces the old
+context-close race locally without adding any production request or changing
+the application. The retained report includes the injected-mode flags and count.
 
 `--reject-contains` deliberately returns unavailable: expect a failing exit code,
 `search-submit`, `ru`, `contains`, two POSTs and one fresh/one unavailable outcome.
