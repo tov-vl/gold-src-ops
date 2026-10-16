@@ -10,19 +10,24 @@ internal sealed class GoldSrcRconClient : IGoldSrcRconClient
 
     private readonly Encoding _textEncoding;
     private readonly GoldSrcRconOptions _options;
+    private readonly TimeProvider _deadlineTimeProvider;
 
-    public GoldSrcRconClient(Encoding textEncoding, GoldSrcRconOptions options)
+    public GoldSrcRconClient(
+        Encoding textEncoding,
+        GoldSrcRconOptions options,
+        TimeProvider? deadlineTimeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(textEncoding);
         ArgumentNullException.ThrowIfNull(options);
 
         _textEncoding = textEncoding;
         _options = options;
+        _deadlineTimeProvider = deadlineTimeProvider ?? TimeProvider.System;
     }
 
     public async Task<string> ExecuteAsync(GoldSrcRconRequest request, CancellationToken cancellationToken)
     {
-        using var deadlineCts = new CancellationTokenSource(request.Timeout);
+        using var deadlineCts = new CancellationTokenSource(request.Timeout, _deadlineTimeProvider);
         using var operationCts = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
             deadlineCts.Token);

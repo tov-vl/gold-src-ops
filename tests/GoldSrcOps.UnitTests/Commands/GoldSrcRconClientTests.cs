@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using AwesomeAssertions;
 using GoldSrcOps.Infrastructure.Commands;
+using Moq;
 
 namespace GoldSrcOps.UnitTests.Commands;
 
@@ -65,30 +66,51 @@ public sealed class GoldSrcRconClientTests
     public async Task ExecuteAsync_throws_timeout_when_first_command_response_does_not_arrive()
     {
         using var server = CreateServer();
-        var serverEndpoint = GetLocalEndpoint(server);
-        var serverTask = CompleteChallengeAsync(server, CancellationToken.None);
-        var sut = CreateSut();
+        using var watchdog = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var timeout = TimeSpan.FromMilliseconds(200);
+        var (timeProvider, expireDeadline) = CreateDeadlineTimeProvider(timeout);
+        var sut = CreateSut(deadlineTimeProvider: timeProvider);
+        var execution = sut.ExecuteAsync(Request(GetLocalEndpoint(server), timeout), watchdog.Token);
 
-        var act = () => sut.ExecuteAsync(
-            Request(serverEndpoint, timeout: TimeSpan.FromMilliseconds(200)),
-            CancellationToken.None);
+        await CompleteChallengeAsync(server, watchdog.Token);
+        execution.IsCompleted.Should().BeFalse();
+        expireDeadline();
 
-        await act.Should().ThrowAsync<TimeoutException>();
-        await serverTask.WaitAsync(TimeSpan.FromSeconds(2));
+        var completed = await Task.WhenAny(execution, Task.Delay(TimeSpan.FromSeconds(5)));
+        completed.Should().BeSameAs(execution, "the command deadline must finish the pending receive");
+        var act = () => execution;
+        await act.Should().ThrowAsync<TimeoutException>()
+            .WithMessage("GoldSrc RCON response timed out.");
     }
 
-    [Fact]
-    public async Task ExecuteAsync_preserves_caller_cancellation()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExecuteAsync_preserves_caller_cancellation(bool afterChallenge)
     {
         using var server = CreateServer();
-        var serverEndpoint = GetLocalEndpoint(server);
-        using var cancellationCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
-        var sut = CreateSut();
+        using var cancellationCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var timeout = TimeSpan.FromMilliseconds(200);
+        var (timeProvider, _) = CreateDeadlineTimeProvider(timeout);
+        var sut = CreateSut(deadlineTimeProvider: timeProvider);
+        var execution = sut.ExecuteAsync(Request(GetLocalEndpoint(server), timeout), cancellationCts.Token);
 
-        var act = () => sut.ExecuteAsync(
-            Request(serverEndpoint, timeout: TimeSpan.FromSeconds(2)),
-            cancellationCts.Token);
+        if (afterChallenge)
+        {
+            await CompleteChallengeAsync(server, cancellationCts.Token);
+        }
+        else
+        {
+            var challenge = await ReceiveAsync(server, cancellationCts.Token);
+            challenge.Buffer.Should().Equal(GoldSrcRconProtocol.BuildChallengeRequest(Encoding));
+        }
 
+        execution.IsCompleted.Should().BeFalse();
+        await cancellationCts.CancelAsync();
+
+        var completed = await Task.WhenAny(execution, Task.Delay(TimeSpan.FromSeconds(5)));
+        completed.Should().BeSameAs(execution, "caller cancellation must finish the pending receive");
+        var act = () => execution;
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
@@ -210,7 +232,8 @@ public sealed class GoldSrcRconClientTests
     private static GoldSrcRconClient CreateSut(
         int maxResponseDatagrams = 32,
         int maxResponseBytes = 64 * 1_024,
-        TimeSpan? responseDrainInterval = null) =>
+        TimeSpan? responseDrainInterval = null,
+        TimeProvider? deadlineTimeProvider = null) =>
         new(
             Encoding,
             new GoldSrcRconOptions
@@ -218,7 +241,26 @@ public sealed class GoldSrcRconClientTests
                 ResponseDrainInterval = responseDrainInterval ?? TestDrainInterval,
                 MaxResponseDatagrams = maxResponseDatagrams,
                 MaxResponseBytes = maxResponseBytes
-            });
+            },
+            deadlineTimeProvider);
+
+    private static (TimeProvider Provider, Action Expire) CreateDeadlineTimeProvider(TimeSpan timeout)
+    {
+        Action? expire = null;
+        var provider = new Mock<TimeProvider>(MockBehavior.Strict);
+        provider.Setup(value => value.CreateTimer(
+                It.IsAny<TimerCallback>(), It.IsAny<object?>(), timeout, Timeout.InfiniteTimeSpan))
+            .Callback<TimerCallback, object?, TimeSpan, TimeSpan>((callback, state, _, _) =>
+                expire = () => callback(state))
+            .Returns(Mock.Of<ITimer>());
+
+        return (provider.Object, () =>
+        {
+            expire.Should().NotBeNull("the request must have a deadline timer");
+            expire!();
+        }
+        );
+    }
 
     private static GoldSrcRconRequest Request(IPEndPoint endpoint, TimeSpan timeout) =>
         new(
