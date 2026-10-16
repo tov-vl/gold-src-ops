@@ -1,9 +1,9 @@
 # Player search Web foundation
 
 This started as step 3 of [the exact search plan](player-search-feasibility.md).
-The local [Web mode extension](player-substring-web.md) now uses
+The [Web mode extension](player-substring-web.md) uses
 [the API modes contract](player-substring-api.md). The combined substring feature
-still requires its integration checks and separately approved R2 release.
+passed integration and production acceptance in [v2.78](v2.78-readiness.md).
 No database migration, production setting, game menu or MOTD changes are included.
 
 ## Page behavior
@@ -47,8 +47,8 @@ preserves the nickname and contains mode for the existing manual retry and
 countdown; the shared API/addon cooldown and cache remain authoritative.
 The action works with a keyboard and without JavaScript. Empty contains results,
 nonempty results, invalid input, busy and unavailable states have no shortcut.
-This extension is merged with full PR/main CI. Production delivery follows the
-[Web v2.79 plan](v2.79-readiness.md).
+This extension is merged with full PR/main CI and passed independent production
+acceptance in the [Web v2.79 release](v2.79-readiness.md).
 
 ## Boundaries
 
