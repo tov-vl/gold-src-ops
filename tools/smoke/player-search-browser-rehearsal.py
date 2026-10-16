@@ -29,6 +29,7 @@ class Fixture(http.server.BaseHTTPRequestHandler):
     admitted = 0.0
     posts = 0
     reject_contains = False
+    post_limit = 14
 
     def log_message(self, *_):
         pass
@@ -52,7 +53,7 @@ class Fixture(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path != '/api/public/players/search':
             return self.respond({}, 404)
-        if Fixture.posts >= 14:
+        if Fixture.posts >= Fixture.post_limit:
             return self.respond({}, 400)
         raw = bytearray()
         if self.headers.get('Transfer-Encoding') == 'chunked':
@@ -96,12 +97,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--node', default=shutil.which('node'))
     parser.add_argument('--browser-channel', choices=['msedge', 'chrome'])
+    parser.add_argument('--empty-fallback', action='store_true', help='Exercise the empty exact-result action')
     faults = parser.add_mutually_exclusive_group()
     faults.add_argument('--reject-contains', action='store_true', help='Exercise a synthetic failure report')
     faults.add_argument('--delay-disposal', action='store_true',
                         help='Delay the final RU response cleanup to exercise context transition')
     args = parser.parse_args()
     Fixture.reject_contains = args.reject_contains
+    Fixture.post_limit = 10 if args.empty_fallback else 14
     assert args.node and Path(args.node).is_file(), 'Use an existing Node installation'
     output = ROOT / 'artifacts' / ('browser-rehearsal-' + uuid.uuid4().hex[:12])
     output.mkdir(parents=True, exist_ok=False)
@@ -141,9 +144,9 @@ def main():
             else:
                 raise RuntimeError('Local Web startup timed out')
             # HTTP is allowed only here, to this freshly bound loopback fixture.
-            script = """const [port, channel, delay] = process.argv.slice(1);
+            script = """const [port, channel, delay, fallback] = process.argv.slice(1);
 if (!/^[0-9]+$/.test(port) || Number(port) < 1 || Number(port) > 65535) process.exit(2);
-const {check} = require('./tools/release/check-player-search-browser.cjs');
+const {check, checkEmptyFallback} = require('./tools/release/check-player-search-browser.cjs');
 const playwright = require('./tests/GoldSrcOps.WebTests/bin/Debug/net10.0/.playwright/package');
 let delayedDisposals = 0;
 const driver = delay === 'yes' ? {chromium: {launch: async options => {
@@ -154,7 +157,7 @@ const driver = delay === 'yes' ? {chromium: {launch: async options => {
   if (++contexts !== 1) return context;
   let posts = 0;
   context.route = (pattern, handler) => register(pattern, route => {
-   if (route.request().method() === 'POST' && ++posts === 4) {
+   if (route.request().method() === 'POST' && ++posts === (fallback === 'yes' ? 3 : 4)) {
     const fetch = route.fetch.bind(route);
     route.fetch = async options => {
      const response = await fetch(options), dispose = response.dispose.bind(response);
@@ -170,12 +173,13 @@ const driver = delay === 'yes' ? {chromium: {launch: async options => {
  };
  return browser;
 }}} : playwright;
-check('http://127.0.0.1:' + port, driver, channel || undefined, true).then(report => {
+const run = fallback === 'yes' ? checkEmptyFallback : check;
+run('http://127.0.0.1:' + port, driver, channel || undefined, true).then(report => {
  report.delayedDisposals = delayedDisposals;
  console.log(JSON.stringify(report)); process.exitCode = report.result === 'browser-acceptance-passed' ? 0 : 1;
 }).catch(() => { process.exitCode = 2; });"""
             result = subprocess.run([args.node, '-e', script, str(port), args.browser_channel or '',
-                                     'yes' if args.delay_disposal else 'no'],
+                                     'yes' if args.delay_disposal else 'no', 'yes' if args.empty_fallback else 'no'],
                                     cwd=ROOT, capture_output=True, timeout=210)
             assert len(result.stdout) <= 65536 and result.stdout, 'Missing bounded checker report'
             report = json.loads(result.stdout)
@@ -186,6 +190,7 @@ check('http://127.0.0.1:' + port, driver, channel || undefined, true).then(repor
             report['checkerSha256'] = checker_hash
             report['webAssemblySha256'] = hashlib.sha256((folder / 'GoldSrcOps.Web.dll').read_bytes()).hexdigest()
             report['fixtureApiPosts'] = Fixture.posts
+            report['emptyFallback'] = args.empty_fallback
             report['injectedContainsRefusal'] = args.reject_contains
             report['injectedDisposalDelay'] = args.delay_disposal
             report['scope'] = 'local real Web with synthetic API; no production'

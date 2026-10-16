@@ -115,6 +115,7 @@ Existing installed tooling is not replaced by this repository-only change.
 node ./tools/release/check-player-search-browser.cjs
 node ./tools/release/check-player-search-browser.cjs --execute
 node ./tools/release/check-player-search-browser.cjs --partial --execute
+node ./tools/release/check-player-search-browser.cjs --empty-fallback --execute
 ```
 
 Default origin is the public site. `--base-url` accepts an HTTPS origin without
@@ -132,8 +133,9 @@ contains independently, and switches to exact during busy without resetting the
 shared countdown. Refresh must preserve the selected mode and input. Unsupported
 partial search is a failure, never a fallback to exact.
 
-A saved top-ten row is needed for exact-name acceptance. RU/EN with and without
-JavaScript, keyboard submission, mobile/desktop widths and 200% text are checked.
+The default and `--partial` scenarios need a saved top-ten row for exact-name
+acceptance. RU/EN with and without JavaScript, keyboard submission, mobile/desktop
+widths and 200% text are checked.
 The form uses the existing name in memory only. The matching-player result must be
 fresh and bounded; refresh must preserve it without another POST or a query in
 the URL. An empty live leaderboard cannot prove the matching-player scenario.
@@ -174,7 +176,8 @@ to the browser. This buffers responses and disables browser HTTP caching: the
 check proves rendered behavior, not native streaming or cache performance.
 
 Browser launch is limited to 15 seconds, the subsequent browser run to 120 seconds,
-or 180 seconds with `--partial`, and individual operations to 15 seconds
+or 180 seconds with `--partial` / `--empty-fallback`, and individual operations
+to 15 seconds
 (countdown completion to its advertised seconds plus two). The deadline closes the browser and stops further traffic.
 The final JSON includes per-language POST counts, retry duration, total requests,
 limits and accounted cancellations, without names, page bodies or screenshots.
@@ -195,6 +198,39 @@ For container comparisons, [canonical_mounts](../tools/release/acceptance_checks
 compares mounts as a sorted multiset of complete objects. Ordering is irrelevant;
 removed, duplicated or changed mounts, including write permissions, still differ.
 
+### Empty exact-result action
+
+`--empty-fallback` selects the v2.79 action acceptance instead of the saved-player
+matrix. It cannot be combined with `--partial`. Its fixed budget is ten search
+POSTs, 256 total HTTP requests and 180 seconds, with fifteen-second operations.
+It uses a new generated ASCII nickname per context, retained only in memory.
+A collision, busy initial exact lookup or unexpected state stops the run; the
+checker never regenerates the nickname to retry a failed scenario.
+
+For RU and EN with JavaScript, keyboard exact search must yield a fresh empty
+result and the localized action. Tab from the regular submit button must focus
+that action. Enter submits the same nickname with contains intent through the
+existing antiforgery form. The natural shared busy response must preserve input
+and selected contains mode, remove the shortcut and disable early submission.
+Countdown expiry sends no POST; only an explicit manual Enter retries. Without
+JavaScript, the checker waits eleven seconds before activating the shortcut and
+requires a fresh empty contains result. These contexts check widths 320/390/1440
+and 200% text after full page load, outside the short JavaScript busy window.
+Contexts are separated by eleven seconds and share one request budget.
+
+Only one expected form POST is admitted per deliberate keyboard activation.
+Changed name/mode/action, duplicate relevant fields, missing antiforgery or a
+body over 4096 bytes is refused before network access. The existing origin,
+redirect, retry and route-drain guards remain in force. No browser API request,
+query in URL, browser storage, page/console/request error or automatic retry is
+accepted. The first failed stage survives cleanup errors. A complete run requires
+four contexts, ten POSTs and exactly eight fresh/two busy outcomes. Reports contain
+only fixed phases, counts and outcomes, never generated names or form content.
+
+This scenario proves the empty-result action, not positive matching, short-name
+validation or production metrics. Use the separate existing checks for those
+claims; a local fixture run is not production acceptance.
+
 ## Local browser diagnostic rehearsal
 
 After building Web and restoring the existing Playwright package, run the opt-in
@@ -204,6 +240,8 @@ After building Web and restoring the existing Playwright package, run the opt-in
 python tools/smoke/player-search-browser-rehearsal.py --browser-channel msedge
 python tools/smoke/player-search-browser-rehearsal.py --browser-channel msedge --reject-contains
 python tools/smoke/player-search-browser-rehearsal.py --browser-channel msedge --delay-disposal
+python tools/smoke/player-search-browser-rehearsal.py --empty-fallback --delay-disposal
+python tools/smoke/player-search-browser-rehearsal.py --empty-fallback --reject-contains
 ```
 
 Use `--node` only to select an existing Node executable when it is absent from PATH.
@@ -216,13 +254,16 @@ HTTP is allowed only for this locally allocated fixture through the exported che
 function; the production CLI continues to require HTTPS.
 
 `--delay-disposal` delays native response disposal by one second after the fourth
-RU POST. Expect one delayed disposal and a passing complete matrix: the checker
-must keep the context alive until disposal finishes. This reproduces the old
+RU POST (third RU POST with `--empty-fallback`). Expect one delayed disposal
+and a passing complete matrix: the checker must keep the context alive until
+disposal finishes. This reproduces the old
 context-close race locally without adding any production request or changing
 the application. The retained report includes the injected-mode flags and count.
 
 `--reject-contains` deliberately returns unavailable: expect a failing exit code,
 `search-submit`, `ru`, `contains`, two POSTs and one fresh/one unavailable outcome.
+With `--empty-fallback`, expect `busy`, `ru`, `contains`, two POSTs, one fresh
+and one unavailable outcome, no completed contexts and no automatic retry.
 This tests diagnostic retention without weakening the check. The default run must
 pass all four language/JavaScript combinations and both modes. Each invocation
 retains synthetic logs and a bounded result under a unique ignored artifacts
