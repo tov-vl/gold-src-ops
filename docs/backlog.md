@@ -3785,5 +3785,25 @@ contains. Для ников короче трех Unicode-символов кн�
 ожидание полной загрузки перед ее проверкой. Итоговый прогон из 115 проверок
 прошел; причина первоначального сбоя не подтверждена.
 
-Push, PR, CI, container smoke и production для этого изменения пока не выполнялись.
-См. [поведение формы](player-search-web.md#empty-exact-result-fallback).
+Изменение объединено через [PR #363](https://github.com/tov-vl/gold-src-ops/pull/363)
+в `8b2d929`. Полные [PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38924828540)
+и [post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38927301500)
+прошли с первой попытки, включая browser/container smoke. Production этим шагом
+не менялся. См. [поведение формы](player-search-web.md#empty-exact-result-fallback).
+
+## v2.79 - Выпуск Web с переходом к частичному поиску
+
+Согласованный [план установки, приемки и отката](v2.79-readiness.md) выполнен: R1, только Web, source `8b2d929`, операция
+`v279-web-empty-fallback-20261016-9c7a7061ff66`. Candidate CI прошел все 11 jobs.
+Установлен проверенный Web digest; восемь остальных контейнеров, mounts,
+17 файлов и все остальные байты deployment сохранены.
+
+RU/EN с JavaScript и без него, клавиатура, общий cooldown, ручной повтор,
+ширины 320/390/1440 и текст 200% прошли приемку: 10 POST, 82 HTTP-запроса,
+8 fresh и 2 ожидаемых busy, без ошибок браузера. Метрики нового экземпляра
+совпали; правила здоровы, предупреждений нет. Откат не потребовался.
+[Stable CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38937253827)
+прошел все 11 jobs с первой попытки. Три stable digest совпали с candidate
+без пересборки; опубликован [v2.79.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.79.0).
+Итоговая документация закрывается одним evidence PR; игра, API, addon,
+мониторинг и backup policy не менялись.

@@ -6,15 +6,15 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.78.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.78.0)
-is the current public release. Players can search by exact nickname or part of
-it in Russian and English, with bounded results, separate mode caches and a
-shared cooldown. Manual retry and no-JavaScript forms remain supported.
+**Status:** [v2.79.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.79.0)
+is the current public release. An empty exact nickname search offers an explicit
+RU/EN action to search by part of the nickname, preserving input and the shared
+cooldown. Keyboard navigation, manual retry and no-JavaScript forms are supported.
 
-Production addon, API, RU/EN browser and telemetry acceptance passed. Player data,
-seven other containers and monitoring configuration were preserved; the backup
-baseline was reconciled. Stable references reuse candidate digests without rebuilding.
-See [release notes](docs/release-notes-v2.78.md) and [evidence](docs/v2.78-readiness.md).
+Web-only production acceptance and new-instance telemetry passed. The other
+eight containers, mounts, seventeen protected files and non-Web deployment bytes
+were preserved. Stable references reuse candidate digests without rebuilding.
+See [release notes](docs/release-notes-v2.79.md) and [evidence](docs/v2.79-readiness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
@@ -951,15 +951,16 @@ The spike follows Valve's documented A2S server query format:
 
 The public repository is configured with private vulnerability reporting,
 Dependabot security updates, and a protected `main` workflow. The current
-[GoldSrcOps v2.78.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.78.0)
-adds partial player nickname search with exact-mode compatibility. Its signed
-stable tag promotes the same three verified candidate digests; addon 0.26.0,
-API and Web were installed. Production RU/EN browser acceptance and new-instance
-telemetry matched. Current player data, the reconciled backup baseline, seven
-other containers and monitoring configuration were preserved. Evidence and limits
-are in [docs/v2.78-readiness.md](docs/v2.78-readiness.md).
-[v2.77.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.77.0)
-is the preceding application release.
+[GoldSrcOps v2.79.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.79.0)
+adds an explicit partial-search action after an empty exact nickname result.
+Only Web was installed. Production RU/EN browser acceptance passed with and
+without JavaScript; new-instance metrics matched eight success and two busy
+outcomes. The other eight containers, mounts, seventeen protected files and
+non-Web deployment bytes were preserved. All three stable references reuse
+candidate digests without rebuilding. Evidence and limits are in
+[docs/v2.79-readiness.md](docs/v2.79-readiness.md).
+[v2.78.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.78.0)
+is the preceding application release and retains the installed API/addon.
 
 ## License
 
