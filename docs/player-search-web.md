@@ -47,7 +47,8 @@ preserves the nickname and contains mode for the existing manual retry and
 countdown; the shared API/addon cooldown and cache remain authoritative.
 The action works with a keyboard and without JavaScript. Empty contains results,
 nonempty results, invalid input, busy and unavailable states have no shortcut.
-This extension is prepared locally; CI and production delivery remain separate.
+This extension is merged with full PR/main CI. Production delivery follows the
+[Web v2.79 plan](v2.79-readiness.md).
 
 ## Boundaries
 

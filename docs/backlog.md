@@ -3785,5 +3785,21 @@ contains. Для ников короче трех Unicode-символов кн�
 ожидание полной загрузки перед ее проверкой. Итоговый прогон из 115 проверок
 прошел; причина первоначального сбоя не подтверждена.
 
-Push, PR, CI, container smoke и production для этого изменения пока не выполнялись.
-См. [поведение формы](player-search-web.md#empty-exact-result-fallback).
+Изменение объединено через [PR #363](https://github.com/tov-vl/gold-src-ops/pull/363)
+в `8b2d929`. Полные [PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38924828540)
+и [post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38927301500)
+прошли с первой попытки, включая browser/container smoke. Production этим шагом
+не менялся. См. [поведение формы](player-search-web.md#empty-exact-result-fallback).
+
+## v2.79 - Выпуск Web с переходом к частичному поиску
+
+Подготовлен [план установки, приемки и отката](v2.79-readiness.md): R1, только Web,
+source `8b2d929`, candidate `v2.79.0-rc.1`, stable `v2.79.0`, новая операция
+`v279-web-empty-fallback-20261016-9c7a7061ff66`. Свежая read-only проверка
+подтвердила работающий Web v2.78 и доступность его rollback digest, девять
+контейнеров, 17 файлов, публичное здоровье и здоровые правила мониторинга.
+
+Кандидат еще не опубликован. Следующий gate - согласованный named release bundle,
+публикация и проверка immutable digest, Web-only установка, ограниченная RU/EN
+приемка новой кнопки с общим cooldown и сверкой метрик, затем stable promotion
+без пересборки и итоговый evidence PR. Игра, API, addon и backup policy сохраняются.
