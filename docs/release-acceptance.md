@@ -114,6 +114,7 @@ Existing installed tooling is not replaced by this repository-only change.
 ```powershell
 node ./tools/release/check-player-search-browser.cjs
 node ./tools/release/check-player-search-browser.cjs --execute
+node ./tools/release/check-player-search-browser.cjs --partial --execute
 ```
 
 Default origin is the public site. `--base-url` accepts an HTTPS origin without
@@ -122,6 +123,14 @@ Playwright package; `--playwright-package` may select another reviewed local
 package. Select an already installed browser with `--browser-channel msedge` or
 `--browser-channel chrome`; otherwise the existing bundled Chromium is used. It does not install a browser or dependency. Without `--execute`, no browser
 or network operation occurs, and the Playwright package is not loaded.
+
+The default preserves exact-only acceptance and its ten-POST/120-second budget.
+`--partial` explicitly selects both modes for an API/addon that supports v2;
+it permits fourteen POSTs and 180 seconds, retaining the 256-request limit.
+It requires a saved name with at least three Unicode scalars, checks exact and
+contains independently, and switches to exact during busy without resetting the
+shared countdown. Refresh must preserve the selected mode and input. Unsupported
+partial search is a failure, never a fallback to exact.
 
 A saved top-ten row is needed for exact-name acceptance. RU/EN with and without
 JavaScript, keyboard submission, mobile/desktop widths and 200% text are checked.
@@ -148,8 +157,9 @@ incomplete rendering, page/console errors and direct browser API calls still
 fail acceptance. Waiting for transport completion alone is insufficient after
 the bounded reader's cleanup cancellation.
 
-Across all four contexts, the tool permits at most 10 search POSTs and 256 HTTP
-requests. Each request must use the selected origin, GET or POST, and only the
+Across all four contexts, the default tool permits at most 10 search POSTs and
+256 HTTP requests (`--partial`: fourteen POSTs). Each request must use the
+selected origin, GET or POST, and only the
 `lang` query key. POST is restricted to `/leaderboard`; direct `/api` requests,
 credentials, other origins and redirects are refused. Each intercepted request
 is fetched once with zero redirect hops and zero transport retries, then fulfilled
@@ -157,14 +167,51 @@ to the browser. This buffers responses and disables browser HTTP caching: the
 check proves rendered behavior, not native streaming or cache performance.
 
 Browser launch is limited to 15 seconds, the subsequent browser run to 120 seconds,
-and individual operations to 15 seconds (countdown completion to its advertised
-seconds plus two). The deadline closes the browser and stops further traffic.
+or 180 seconds with `--partial`, and individual operations to 15 seconds
+(countdown completion to its advertised seconds plus two). The deadline closes the browser and stops further traffic.
 The final JSON includes per-language POST counts, retry duration, total requests,
 limits and accounted cancellations, without names, page bodies or screenshots.
+
+Once browser execution starts, failure also returns bounded JSON and exit code 1.
+The report retains the last stage, language, JavaScript setting, mode, viewport,
+completed scenarios, attempted request/POST counts, response-state counts, elapsed
+time and browser-error counts. Unknown response states collapse to `unexpected`.
+Exception messages/stacks, URLs, selectors, player names, page content and console
+text are never serialized. Launch/navigation errors retain the same report shape;
+a cleanup error cannot replace an earlier failure. CLI validation/package-loading
+errors remain a generic nonzero refusal before browser execution.
 
 For container comparisons, [canonical_mounts](../tools/release/acceptance_checks.py)
 compares mounts as a sorted multiset of complete objects. Ordering is irrelevant;
 removed, duplicated or changed mounts, including write permissions, still differ.
+
+## Local browser diagnostic rehearsal
+
+After building Web and restoring the existing Playwright package, run the opt-in
+[local rehearsal](../tools/smoke/player-search-browser-rehearsal.py):
+
+```powershell
+python tools/smoke/player-search-browser-rehearsal.py --browser-channel msedge
+python tools/smoke/player-search-browser-rehearsal.py --browser-channel msedge --reject-contains
+```
+
+Use `--node` only to select an existing Node executable when it is absent from PATH.
+No browser, package or dependency is downloaded. The runner publishes the existing
+Debug build without rebuilding, starts the actual Web on loopback, and supplies
+synthetic ranking/search responses from its own loopback API. The fixture models
+separate sixty-second mode caches and a shared ten-second cooldown. It is not
+another proof of the actual API, RCON, addon, TLS or production proxy boundary.
+HTTP is allowed only for this locally allocated fixture through the exported check
+function; the production CLI continues to require HTTPS.
+
+`--reject-contains` deliberately returns unavailable: expect a failing exit code,
+`search-submit`, `ru`, `contains`, two POSTs and one fresh/one unavailable outcome.
+This tests diagnostic retention without weakening the check. The default run must
+pass all four language/JavaScript combinations and both modes. Each invocation
+retains synthetic logs and a bounded result under a unique ignored artifacts
+folder; it stops its owned process/server and removes only its own publish folder.
+It accepts no production endpoint or credential. A live failure lacking stage
+evidence cannot be retroactively diagnosed from a successful synthetic run.
 
 ## Verification and release limits
 
