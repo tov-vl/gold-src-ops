@@ -33,6 +33,22 @@ Search never runs on typing, automatically retries or polls. The existing top-te
 refresh replaces only its own panel and does not repeat or overwrite search,
 including after an automatic refresh.
 
+## Empty exact-result fallback
+
+After an empty fresh exact result, a localized "Search by part of nickname"
+submit button is offered when the preserved nickname passes contains-mode
+validation, including the three-Unicode-scalar minimum. Short exact nicknames
+remain valid searches but do not receive an unusable shortcut.
+
+The button submits the existing antiforgery-protected form with a contains
+intent. Web revalidates the input and changes the selected mode before making
+one ordinary API call. No automatic second lookup is performed. A busy response
+preserves the nickname and contains mode for the existing manual retry and
+countdown; the shared API/addon cooldown and cache remain authoritative.
+The action works with a keyboard and without JavaScript. Empty contains results,
+nonempty results, invalid input, busy and unavailable states have no shortcut.
+This extension is prepared locally; CI and production delivery remain separate.
+
 ## Boundaries
 
 - Browser posts to Web; Web alone calls the fixed API POST route. No nickname

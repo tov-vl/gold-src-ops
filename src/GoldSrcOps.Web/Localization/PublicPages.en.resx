@@ -240,4 +240,5 @@
   <data name="SearchEmptyContains" xml:space="preserve"><value>No matches. Check part of the last saved nickname. Players with no kills or deaths are excluded.</value></data>
   <data name="SearchInvalidContains" xml:space="preserve"><value>Enter at least 3 characters and at most 31 UTF-8 bytes, without control characters or SteamID. For a short nickname, select exact search.</value></data>
   <data name="SearchMoreContains" xml:space="preserve"><value>Showing the first 10 records. There are more matches: narrow your search.</value></data>
+  <data name="SearchTryContains" xml:space="preserve"><value>Search by part of nickname</value></data>
 </root>
