@@ -3711,3 +3711,26 @@ reverse claim и проверкой пустого сервера.
 План подготовлен локально; staging, claims, установка и публикация не выполнялись.
 Следующий gate - согласование этой операции и свежий preflight перед исполнением.
 См. [план и доказательства](v2.78-readiness.md#context-close-correction-retry-plan---2026-10-16).
+
+## v2.78 - Выпуск частичного поиска завершен
+
+Операция `v278-search-retry-20261016-595a579bc253` выполнена однократно после
+согласования. Addon 0.26.0, API и Web установлены и независимо приняты. Vault
+сохранен, backup baseline согласован, pending отсутствует; агент, семь остальных
+контейнеров и 17 файлов Compose/мониторинга не менялись.
+
+API-приемка: 7 POST за 33,92 секунды. Исправленный browser checker прошел RU/EN,
+JavaScript/no-JavaScript, оба режима, countdown/manual retry, три ширины и текст
+200%: 13 POST / 129 HTTP за 103,847 секунды, без request/page/console errors.
+Метрики нового Web точно совпали: 11 success и 2 busy; правила здоровы,
+предупреждений нет. Откат этой попытке не потребовался.
+
+Подписанный `v2.78.0` указывает на исходную product revision. Все три stable
+digest совпадают с candidate без пересборки; AlertReceiver runtime не обновлялся.
+[Promotion CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38901722201)
+прошел все 11 jobs с первой попытки,
+[GitHub Release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.78.0)
+опубликован. История прошлых отказов и откатов сохранена.
+
+См. [итоговую приемку и границы](v2.78-readiness.md#context-close-correction-retry-outcome---2026-10-16).
+Визуальная проверка игрового интерфейса и игра вдвоем остаются отдельными задачами.

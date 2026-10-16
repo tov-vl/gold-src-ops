@@ -1,9 +1,8 @@
 # v2.78 - Partial player nickname search
 
-Candidate published; stable release remains blocked by browser acceptance.
-Both 2026-10-16 retries accepted addon 0.26.0 and both API search modes, then
-stopped at the browser gate. Production was restored to addon 0.25.0, API v2.76 and Web
-v2.77 with current player data preserved.
+Released on 2026-10-16. Production accepted addon 0.26.0, API and Web after
+the browser context-close correction. All stable images reuse the existing
+candidate digests without rebuilding; AlertReceiver runtime remains unchanged.
 
 - RU/EN search forms offer an exact nickname or a part of it; exact remains the
   default. Partial search needs at least three Unicode scalars and retains the
@@ -21,10 +20,25 @@ v2.77 with current player data preserved.
   order and keeps current player data.
 
 The product is merged in [PR #355](https://github.com/tov-vl/gold-src-ops/pull/355).
-Full PR/main CI and local real Web/API/RCON integration passed. Candidate image
-identity and production API acceptance passed. The first browser refusal lacked stage evidence. The diagnostic retry completed
-RU with JavaScript, then failed at EN page loading with one unexpected request
-failure (4 POSTs / 48 HTTP requests). The precise cause remains unproven; the
-full browser matrix and stable promotion are not claimed. Separate forward/reverse
-journals and both failure reports are preserved. See the
-[installation, acceptance and rollback record](v2.78-readiness.md).
+Full product PR/main CI and local real Web/API/RCON integration passed.
+[PR #360](https://github.com/tov-vl/gold-src-ops/pull/360) corrected the browser
+checker context-close race without changing candidate product code.
+
+Production API acceptance passed seven POSTs in 33.92 seconds. The final browser
+matrix passed all four RU/EN and JavaScript/no-JavaScript contexts, both modes,
+320/390/1440 widths and 200% text: thirteen POSTs, 129 HTTP requests and no request,
+page or console errors. New-instance metrics matched eleven success and two busy
+outcomes. Vaults, reconciled backup baseline, unaffected containers and monitoring
+configuration were preserved.
+
+[Stable publication CI](https://github.com/tov-vl/gold-src-ops/actions/runs/38901722201)
+passed all eleven jobs, including independent checks of all three published
+digests. The signed [v2.78.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.78.0)
+points at the same product revision as v2.78.0-rc.1.
+
+Earlier refused attempts and verified rollbacks remain in the
+[installation, acceptance and rollback record](v2.78-readiness.md). Local
+reproduction proved the cleanup race and the corrected production run passed;
+the old failure report still cannot uniquely identify its original cause.
+Game-client visual checks and two-player gameplay remain separate from this
+bounded Web/API search acceptance.
