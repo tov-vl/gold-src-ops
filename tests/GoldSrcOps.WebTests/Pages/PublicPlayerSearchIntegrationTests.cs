@@ -152,12 +152,81 @@ public sealed class PublicPlayerSearchIntegrationTests
         factory.SearchHandler.RequestCount.Should().Be(0);
     }
 
+    [Theory]
+    [InlineData("ru", "Искать по части ника")]
+    [InlineData("en", "Search by part of nickname")]
+    public async Task Empty_exact_result_offers_explicit_contains_action_and_preserves_busy_retry(string language, string label)
+    {
+        await using var factory = new PublicDashboardWebApplicationFactory(searchEnabled: true);
+        factory.SearchHandler.Result = new("fresh", DateTimeOffset.UtcNow, false, [], null);
+        using var client = factory.CreateClient();
+        var path = "/leaderboard?lang=" + language;
+        var initial = await client.GetStringAsync(path);
+        initial.Should().NotContain("id=\"player-search-contains\"");
+        using var empty = await SubmitAsync(client, path, initial, "  Пример  ", "exact");
+        var html = await empty.Content.ReadAsStringAsync();
+        WebUtility.HtmlDecode(html).Should().Contain(label).And.Contain("value=\"Пример\"");
+        html.Should().Contain("id=\"player-search-contains\"").And.Contain("form=\"player-search-form\"");
+        factory.SearchHandler.LastMatch.Should().Be("exact");
+        factory.SearchHandler.RequestCount.Should().Be(1);
+
+        factory.SearchHandler.Status = HttpStatusCode.TooManyRequests;
+        factory.SearchHandler.Result = new("busy", null, false, [], 7);
+        using var busy = await SubmitAsync(client, path, html, "Пример", "exact", "contains");
+        var busyHtml = await busy.Content.ReadAsStringAsync();
+        busyHtml.Should().Contain("data-search-state=\"busy\"").And.Contain("data-search-retry-seconds=\"7\"")
+            .And.NotContain("id=\"player-search-contains\"");
+        busyHtml.Should().MatchRegex("<option value=\"contains\"[^>]* selected>");
+        factory.SearchHandler.LastMatch.Should().Be("contains");
+        factory.SearchHandler.LastName.Should().Be("Пример");
+        factory.SearchHandler.RequestCount.Should().Be(2);
+
+        factory.SearchHandler.Status = HttpStatusCode.OK;
+        factory.SearchHandler.Result = null;
+        using var retry = await SubmitAsync(client, path, busyHtml, "Пример", "contains");
+        (await retry.Content.ReadAsStringAsync()).Should().Contain("class=\"player-search-result\"")
+            .And.NotContain("id=\"player-search-contains\"");
+        factory.SearchHandler.LastMatch.Should().Be("contains");
+        factory.SearchHandler.RequestCount.Should().Be(3);
+    }
+
+    [Theory]
+    [InlineData("exact", "ab")]
+    [InlineData("exact", "😀😀")]
+    [InlineData("contains", "Example")]
+    public async Task Empty_result_does_not_offer_unusable_or_repeated_contains_action(string match, string name)
+    {
+        await using var factory = new PublicDashboardWebApplicationFactory(searchEnabled: true);
+        factory.SearchHandler.Result = new("fresh", DateTimeOffset.UtcNow, false, [], null);
+        using var client = factory.CreateClient();
+        using var response = await SubmitAsync(client, "/leaderboard", await client.GetStringAsync("/leaderboard"), name, match);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("data-search-state=\"fresh\"")
+            .And.NotContain("id=\"player-search-contains\"");
+        factory.SearchHandler.RequestCount.Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData("exact", "ab")]
+    [InlineData("exact", "😀😀")]
+    [InlineData("exact", "STEAM_0:1:123")]
+    [InlineData("fuzzy", "Example")]
+    [InlineData("", "Example")]
+    public async Task Contains_action_cannot_bypass_query_or_mode_validation(string match, string name)
+    {
+        await using var factory = new PublicDashboardWebApplicationFactory(searchEnabled: true);
+        using var client = factory.CreateClient();
+        using var response = await SubmitAsync(client, "/leaderboard", await client.GetStringAsync("/leaderboard"), name, match, "contains");
+        (await response.Content.ReadAsStringAsync()).Should().Contain("data-search-state=\"invalid\"")
+            .And.NotContain("id=\"player-search-contains\"");
+        factory.SearchHandler.RequestCount.Should().Be(0);
+    }
+
     private sealed class NonSeekableStream(byte[] bytes) : MemoryStream(bytes)
     {
         public override bool CanSeek => false;
     }
 
-    private static async Task<HttpResponseMessage> SubmitAsync(HttpClient client, string path, string html, string name, string? match = null)
+    private static async Task<HttpResponseMessage> SubmitAsync(HttpClient client, string path, string html, string name, string? match = null, string? action = null)
     {
         var token = Regex.Match(html, "name=\"__RequestVerificationToken\" value=\"(?<token>[^\"]+)\"", RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture | RegexOptions.NonBacktracking).Groups["token"].Value;
         token.Should().NotBeEmpty();
@@ -168,6 +237,7 @@ public sealed class PublicPlayerSearchIntegrationTests
             ["Model.Name"] = name
         };
         if (match is not null) fields["Model.Match"] = match;
+        if (action is not null) fields["Model.Action"] = action;
         using var content = new FormUrlEncodedContent(fields);
         return await client.PostAsync(path, content);
     }

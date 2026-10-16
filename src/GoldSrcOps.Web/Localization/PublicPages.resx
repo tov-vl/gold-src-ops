@@ -240,4 +240,5 @@
   <data name="SearchEmptyContains" xml:space="preserve"><value>Совпадений нет. Проверьте часть последнего сохраненного ника. Игроки без убийств и смертей не включены.</value></data>
   <data name="SearchInvalidContains" xml:space="preserve"><value>Введите часть ника от 3 символов и не более 31 байта UTF-8 без управляющих символов и SteamID. Для короткого ника выберите точный поиск.</value></data>
   <data name="SearchMoreContains" xml:space="preserve"><value>Показаны первые 10 записей. Совпадений больше: уточните часть ника.</value></data>
+  <data name="SearchTryContains" xml:space="preserve"><value>Искать по части ника</value></data>
 </root>
