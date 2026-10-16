@@ -36,40 +36,78 @@ async function refresh(page) {
 // Fetch once without following redirects, then give the original response to the
 // browser. A redirect must not bypass the origin or POST budget in route.continue.
 function createRequestGuard(origin, budget = limits) {
-    let posts = 0, requests = 0, failed = false;
+    let posts = 0, requests = 0, failed = false, firstFailure = null;
+    const active = new Set();
+    function refuse(phase, category) {
+        failed = true;
+        firstFailure ??= Object.freeze({phase, category});
+    }
+    function verify() { if (failed) throw new Error('Request boundary failed'); }
+    async function handle(route) {
+        let response, phase = 'policy';
+        try {
+            const request = route.request(), url = new URL(request.url());
+            const post = request.method() === 'POST';
+            if (failed || requests >= budget.requests || url.origin !== origin || url.username || url.password ||
+                (url.pathname === '/api' || url.pathname.startsWith('/api/')) ||
+                [...url.searchParams.keys()].some(k => k !== 'lang') ||
+                !['GET', 'POST'].includes(request.method()) ||
+                (post && (url.pathname !== '/leaderboard' || posts >= budget.posts))) {
+                refuse(phase, 'refused');
+                await route.abort();
+                return;
+            }
+            requests++;
+            if (post) posts++;
+            phase = 'fetch';
+            response = await route.fetch({maxRedirects: 0, maxRetries: 0, timeout: limits.operationMs});
+            phase = 'redirect';
+            if (response.status() >= 300 && response.status() < 400) throw new Error('Redirect refused');
+            phase = 'fulfill';
+            await route.fulfill({response});
+        } catch (error) {
+            refuse(phase, failureCategory(error));
+            await route.abort().catch(() => {});
+        } finally {
+            await response?.dispose().catch(error => { refuse('dispose', failureCategory(error)); });
+        }
+    }
     return {
         get posts() { return posts; },
         get requests() { return requests; },
         get failed() { return failed; },
+        get firstFailure() { return firstFailure; },
         stop() { failed = true; },
-        verify() { if (failed) throw new Error('Request boundary failed'); },
-        async route(route) {
-            let response;
+        verify,
+        route(route) {
+            const task = handle(route);
+            active.add(task);
+            task.then(() => active.delete(task), () => active.delete(task));
+            return task;
+        },
+        async drain() {
+            let deadline;
             try {
-                const request = route.request(), url = new URL(request.url());
-                const post = request.method() === 'POST';
-                if (failed || requests >= budget.requests || url.origin !== origin || url.username || url.password ||
-                    (url.pathname === '/api' || url.pathname.startsWith('/api/')) ||
-                    [...url.searchParams.keys()].some(k => k !== 'lang') ||
-                    !['GET', 'POST'].includes(request.method()) ||
-                    (post && (url.pathname !== '/leaderboard' || posts >= budget.posts))) {
-                    failed = true;
-                    await route.abort();
-                    return;
-                }
-                requests++;
-                if (post) posts++;
-                response = await route.fetch({maxRedirects: 0, maxRetries: 0, timeout: limits.operationMs});
-                if (response.status() >= 300 && response.status() < 400) throw new Error('Redirect refused');
-                await route.fulfill({response});
-            } catch {
-                failed = true;
-                await route.abort().catch(() => {});
-            } finally {
-                await response?.dispose().catch(() => { failed = true; });
-            }
+                await Promise.race([
+                    (async () => { while (active.size) await Promise.all([...active]); })(),
+                    new Promise((_, reject) => { deadline = setTimeout(() => {
+                        refuse('drain', 'timeout');
+                        reject(new Error('Route drain timed out'));
+                    }, budget.operationMs ?? limits.operationMs); })
+                ]);
+                verify();
+            } finally { clearTimeout(deadline); }
         }
     };
+}
+
+async function closeContext(context, guard) {
+    // A loaded/rendered response can still have a route handler disposing it.
+    // Keep interception installed and the context alive until those handlers finish.
+    await guard.drain();
+    await context.close();
+    // A late failure belongs to this scenario, not the next language's navigation.
+    await guard.drain();
 }
 
 function retrySeconds(value) {
@@ -144,7 +182,7 @@ async function check(baseUrl, playwright, channel, partial = false) {
     const guard = createRequestGuard(baseUrl, budget);
     let pageErrors = 0, consoleErrors = 0, timedOut = false, browser, deadline, result;
     const report = () => ({...diagnostic, outcomes: {...diagnostic.outcomes}, checks: [...checks],
-        posts: guard.posts, requests: guard.requests, requestBoundaryFailed: guard.failed, pageErrors, consoleErrors,
+        posts: guard.posts, requests: guard.requests, requestBoundaryFailed: guard.failed, firstRequestFailure: guard.firstFailure, pageErrors, consoleErrors,
         unexpectedRequestFailures: unexpectedFailures(failures, completed).length,
         completedRefreshCancellations: failures.length - unexpectedFailures(failures, completed).length,
         timedOut, durationMs: Date.now() - started, limits: budget});
@@ -206,9 +244,11 @@ async function check(baseUrl, playwright, channel, partial = false) {
             diagnostic.stage = 'browser-errors';
             guard.verify();
             if (pageErrors || consoleErrors || unexpectedFailures(failures, completed).length) throw new Error('Browser failure');
+            diagnostic.stage = 'context-close';
+            await closeContext(context, guard);
+            if (pageErrors || consoleErrors || unexpectedFailures(failures, completed).length) throw new Error('Browser failure');
             checks.push({language, scripts, result: 'passed', widths: [320, 390, 1440], text200: true,
                 modes, posts: guard.posts - before, ...(retry ? {countdown: retry} : {})});
-            await context.close();
             // Separate scenarios without retrying a failed request or changing server policy.
             if (scripts || language === 'ru') await new Promise(resolve => setTimeout(resolve, 11000));
         }
@@ -230,7 +270,7 @@ async function check(baseUrl, playwright, channel, partial = false) {
     return result;
 }
 
-module.exports = {hasNoStore, unexpectedFailures, refresh, retrySeconds, createRequestGuard, failureCategory, check};
+module.exports = {hasNoStore, unexpectedFailures, refresh, retrySeconds, createRequestGuard, failureCategory, closeContext, check};
 if (require.main === module) (async () => {
     const {values} = parseArgs({options: {'base-url': {type: 'string', default: 'https://goldsrcops.com'},
         'playwright-package': {type: 'string'}, 'browser-channel': {type: 'string'}, partial: {type: 'boolean', default: false}, execute: {type: 'boolean', default: false}}});

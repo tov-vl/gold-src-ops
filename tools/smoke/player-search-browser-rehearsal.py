@@ -96,7 +96,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--node', default=shutil.which('node'))
     parser.add_argument('--browser-channel', choices=['msedge', 'chrome'])
-    parser.add_argument('--reject-contains', action='store_true', help='Exercise a synthetic failure report')
+    faults = parser.add_mutually_exclusive_group()
+    faults.add_argument('--reject-contains', action='store_true', help='Exercise a synthetic failure report')
+    faults.add_argument('--delay-disposal', action='store_true',
+                        help='Delay the final RU response cleanup to exercise context transition')
     args = parser.parse_args()
     Fixture.reject_contains = args.reject_contains
     assert args.node and Path(args.node).is_file(), 'Use an existing Node installation'
@@ -138,23 +141,53 @@ def main():
             else:
                 raise RuntimeError('Local Web startup timed out')
             # HTTP is allowed only here, to this freshly bound loopback fixture.
-            script = """const [port, channel] = process.argv.slice(1);
+            script = """const [port, channel, delay] = process.argv.slice(1);
 if (!/^[0-9]+$/.test(port) || Number(port) < 1 || Number(port) > 65535) process.exit(2);
 const {check} = require('./tools/release/check-player-search-browser.cjs');
 const playwright = require('./tests/GoldSrcOps.WebTests/bin/Debug/net10.0/.playwright/package');
-check('http://127.0.0.1:' + port, playwright, channel || undefined, true).then(report => {
+let delayedDisposals = 0;
+const driver = delay === 'yes' ? {chromium: {launch: async options => {
+ const browser = await playwright.chromium.launch(options), create = browser.newContext.bind(browser);
+ let contexts = 0;
+ browser.newContext = async options => {
+  const context = await create(options), register = context.route.bind(context);
+  if (++contexts !== 1) return context;
+  let posts = 0;
+  context.route = (pattern, handler) => register(pattern, route => {
+   if (route.request().method() === 'POST' && ++posts === 4) {
+    const fetch = route.fetch.bind(route);
+    route.fetch = async options => {
+     const response = await fetch(options), dispose = response.dispose.bind(response);
+     response.dispose = async () => {
+      delayedDisposals++; await new Promise(resolve => setTimeout(resolve, 1000)); await dispose();
+     };
+     return response;
+    };
+   }
+   return handler(route);
+  });
+  return context;
+ };
+ return browser;
+}}} : playwright;
+check('http://127.0.0.1:' + port, driver, channel || undefined, true).then(report => {
+ report.delayedDisposals = delayedDisposals;
  console.log(JSON.stringify(report)); process.exitCode = report.result === 'browser-acceptance-passed' ? 0 : 1;
 }).catch(() => { process.exitCode = 2; });"""
-            result = subprocess.run([args.node, '-e', script, str(port), args.browser_channel or ''],
+            result = subprocess.run([args.node, '-e', script, str(port), args.browser_channel or '',
+                                     'yes' if args.delay_disposal else 'no'],
                                     cwd=ROOT, capture_output=True, timeout=210)
             assert len(result.stdout) <= 65536 and result.stdout, 'Missing bounded checker report'
             report = json.loads(result.stdout)
+            if args.delay_disposal and result.returncode == 0:
+                assert report['delayedDisposals'] == 1, 'Disposal race was not exercised'
             report['revision'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT).decode().strip()
             assert hashlib.sha256(checker.read_bytes()).hexdigest() == checker_hash, 'Checker changed during rehearsal'
             report['checkerSha256'] = checker_hash
             report['webAssemblySha256'] = hashlib.sha256((folder / 'GoldSrcOps.Web.dll').read_bytes()).hexdigest()
             report['fixtureApiPosts'] = Fixture.posts
             report['injectedContainsRefusal'] = args.reject_contains
+            report['injectedDisposalDelay'] = args.delay_disposal
             report['scope'] = 'local real Web with synthetic API; no production'
             (output / 'result.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
             print(json.dumps(report), flush=True)
