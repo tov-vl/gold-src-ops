@@ -1,8 +1,9 @@
 # v2.78 - Partial player nickname search
 
-Candidate published; stable release blocked by addon acceptance. Production
-retains addon 0.25.0, API v2.76 and Web v2.77. Rollback reconciliation is complete;
-its pending marker is removed.
+Candidate published; stable release remains blocked by browser acceptance.
+The 2026-10-16 retry accepted addon 0.26.0 and both API search modes, then stopped
+at the browser gate. Production was restored to addon 0.25.0, API v2.76 and Web
+v2.77 with current player data preserved.
 
 - RU/EN search forms offer an exact nickname or a part of it; exact remains the
   default. Partial search needs at least three Unicode scalars and retains the
@@ -20,8 +21,9 @@ its pending marker is removed.
   order and keeps current player data.
 
 The product is merged in [PR #355](https://github.com/tov-vl/gold-src-ops/pull/355).
-Full PR/main CI and local real Web/API/RCON integration passed. Production partial
-search and stable promotion are not claimed. Candidate CI and independent image
-identity verification passed; the addon attempt returned to its predecessor,
-with its failed-operation evidence preserved and the journal closed as rolled-back.
-See the [installation, acceptance and rollback plan](v2.78-readiness.md).
+Full PR/main CI and local real Web/API/RCON integration passed. Candidate image
+identity and production API acceptance passed. The browser checker returned a
+generic failure without stage evidence, so production partial-search release and
+stable promotion are not claimed. Separate forward/reverse journal evidence and
+the original failure are preserved. See the
+[installation, acceptance and rollback record](v2.78-readiness.md).
