@@ -1,6 +1,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {hasNoStore, unexpectedFailures, refresh, retrySeconds, createRequestGuard, closeContext, check} = require('../release/check-player-search-browser.cjs');
+const {hasNoStore, unexpectedFailures, refresh, retrySeconds, createRequestGuard, closeContext, matchesSearchSubmission, checkEmptyFallback, check} = require('../release/check-player-search-browser.cjs');
 
 test('cache directives accept combined no-store without weakening missing-header refusal', () => {
     for (const value of ['no-store', 'no-cache, no-store', 'private, NO-STORE']) assert.ok(hasNoStore(value));
@@ -115,7 +115,11 @@ test('CLI validates plans without loading Playwright or accepting an unsafe orig
     assert.equal(partial.status, 0);
     assert.equal(JSON.parse(partial.stdout).limits.posts, 14);
     assert.equal(JSON.parse(partial.stdout).limits.runMs, 180000);
-    for (const args of [['--base-url', 'http://site.example'],
+    const fallback = run(['--empty-fallback']);
+    assert.equal(fallback.status, 0);
+    assert.deepEqual(JSON.parse(fallback.stdout), {result: 'validated-plan', network: false,
+        limits: {posts: 10, requests: 256, runMs: 180000, operationMs: 15000}});
+    for (const args of [['--partial', '--empty-fallback'], ['--base-url', 'http://site.example'],
         ['--base-url', 'https://user:secret@site.example'], ['--base-url', 'https://site.example/path'],
         ['--base-url', 'https://site.example?name=private'], ['--base-url', 'https://site.example#fragment'],
         ['--browser-channel', 'unsupported']]) {
@@ -127,9 +131,9 @@ test('CLI validates plans without loading Playwright or accepting an unsafe orig
     }
 });
 
-test('launch failures emit a bounded report without exception or call-log content', async () => {
+for (const run of [check, checkEmptyFallback]) test(run.name + ' launch failure is bounded and sanitized', async () => {
     const sentinel = 'private-player https://secret.example/path?token=hidden';
-    const report = await check('https://site.example', {chromium: {launch: async () => { throw new Error(sentinel); }}});
+    const report = await run('https://site.example', {chromium: {launch: async () => { throw new Error(sentinel); }}});
     assert.equal(report.result, 'browser-acceptance-failed');
     assert.equal(report.stage, 'browser-launch');
     assert.equal(report.category, 'check-failed');
@@ -248,4 +252,64 @@ test('a handler failure during context closure cannot mark the scenario complete
     }}, guard), /Request boundary failed/);
     assert.equal(closed, true);
     assert.deepEqual(guard.firstFailure, {phase: 'fulfill', category: 'check-failed'});
+});
+
+
+test('fallback form boundary rejects changed intent, duplicate fields and missing antiforgery', () => {
+    const expected = {name: 'FixtureName', mode: 'exact', action: 'contains'};
+    const body = new URLSearchParams({'Model.Name': expected.name, 'Model.Match': expected.mode,
+        'Model.Action': expected.action, '__RequestVerificationToken': 'fixture-token'}).toString();
+    const request = raw => ({postData: () => raw});
+    assert.ok(matchesSearchSubmission(request(body), expected));
+    for (const [mode, action] of [['exact', null], ['contains', null]]) {
+        const raw = new URLSearchParams({'Model.Name': expected.name, 'Model.Match': mode,
+            '__RequestVerificationToken': 'fixture-token'}).toString();
+        assert.ok(matchesSearchSubmission(request(raw), {...expected, mode, action}));
+    }
+    assert.ok(!matchesSearchSubmission(request(body), null));
+    for (const raw of [body.replace('FixtureName', 'OtherName'), body.replace('exact', 'contains'),
+        body.replace('contains', 'exact'), body.replace('fixture-token', ''),
+        body + '&Model.Name=FixtureName', body + '&Model.Match=exact', body + '&Model.Action=contains',
+        body + '&__RequestVerificationToken=duplicate', body + '&padding=' + 'x'.repeat(4096)])
+        assert.ok(!matchesSearchSubmission(request(raw), expected));
+});
+
+test('form refusal happens before transport and preserves the first policy failure', async () => {
+    let expected = null;
+    const guard = createRequestGuard('https://site.example', {posts: 10, requests: 256},
+        request => request.method() !== 'POST' || matchesSearchSubmission(request, expected));
+    const route = routedRequest('https://site.example/leaderboard', 'POST');
+    const body = new URLSearchParams({'Model.Name': 'FixtureName', 'Model.Match': 'exact',
+        'Model.Action': 'contains', '__RequestVerificationToken': 'fixture-token'}).toString();
+    route.request = () => ({url: () => 'https://site.example/leaderboard', method: () => 'POST', postData: () => body});
+    await guard.route(route);
+    assert.deepEqual(route.calls, [['abort']]);
+    expected = {name: 'FixtureName', mode: 'exact', action: 'contains'};
+    await guard.route(route);
+    assert.deepEqual(route.calls, [['abort'], ['abort']]);
+    assert.equal(guard.posts, 0);
+    assert.deepEqual(guard.firstFailure, {phase: 'policy', category: 'refused'});
+    await assert.rejects(guard.drain());
+});
+
+test('fallback navigation failure survives cleanup and does not enter another context', async () => {
+    let contexts = 0, routeHandler;
+    const error = new Error('private-player URL token browser call log');
+    error.name = 'TimeoutError';
+    const page = {setDefaultTimeout() {}, setDefaultNavigationTimeout() {}, on() {},
+        goto: async () => { await routeHandler(routedRequest('https://site.example/leaderboard')); throw error; }};
+    const browser = {newContext: async () => { contexts++; return {
+        route: async (_, handler) => { routeHandler = handler; }, newPage: async () => page}; },
+        close: async () => { throw new Error('cleanup secret'); }};
+    const report = await checkEmptyFallback('https://site.example', {chromium: {launch: async () => browser}});
+    assert.equal(report.result, 'browser-acceptance-failed');
+    assert.equal(report.stage, 'page-contract');
+    assert.equal(report.category, 'timeout');
+    assert.equal(report.language, 'ru');
+    assert.equal(report.mode, 'exact');
+    assert.equal(report.requests, 1);
+    assert.equal(report.posts, 0);
+    assert.equal(contexts, 1);
+    assert.deepEqual(report.checks, []);
+    assert.ok(!/private-player|token|call log|cleanup secret|site.example/.test(JSON.stringify(report)));
 });

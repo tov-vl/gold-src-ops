@@ -1,9 +1,11 @@
 const path = require('node:path');
+const assert = require('node:assert/strict');
 const {parseArgs} = require('node:util');
 const {randomUUID} = require('node:crypto');
 
 const limits = Object.freeze({posts: 10, requests: 256, runMs: 120000, operationMs: 15000});
 const partialLimits = Object.freeze({...limits, posts: 14, runMs: 180000});
+const emptyFallbackLimits = Object.freeze({...limits, runMs: 180000});
 
 function hasNoStore(value) {
     return typeof value === 'string' && value.split(',').some(x => x.trim().toLowerCase() === 'no-store');
@@ -35,7 +37,7 @@ async function refresh(page) {
 
 // Fetch once without following redirects, then give the original response to the
 // browser. A redirect must not bypass the origin or POST budget in route.continue.
-function createRequestGuard(origin, budget = limits) {
+function createRequestGuard(origin, budget = limits, validateRequest = () => true) {
     let posts = 0, requests = 0, failed = false, firstFailure = null;
     const active = new Set();
     function refuse(phase, category) {
@@ -52,7 +54,7 @@ function createRequestGuard(origin, budget = limits) {
                 (url.pathname === '/api' || url.pathname.startsWith('/api/')) ||
                 [...url.searchParams.keys()].some(k => k !== 'lang') ||
                 !['GET', 'POST'].includes(request.method()) ||
-                (post && (url.pathname !== '/leaderboard' || posts >= budget.posts))) {
+                (post && (url.pathname !== '/leaderboard' || posts >= budget.posts)) || !validateRequest(request)) {
                 refuse(phase, 'refused');
                 await route.abort();
                 return;
@@ -270,18 +272,172 @@ async function check(baseUrl, playwright, channel, partial = false) {
     return result;
 }
 
-module.exports = {hasNoStore, unexpectedFailures, refresh, retrySeconds, createRequestGuard, failureCategory, closeContext, check};
+
+function matchesSearchSubmission(request, expected) {
+    const raw = request.postData() || '';
+    if (!expected || Buffer.byteLength(raw, 'utf8') > 4096) return false;
+    const fields = new URLSearchParams(raw);
+    return ['Model.Name', 'Model.Match', '__RequestVerificationToken'].every(key => fields.getAll(key).length === 1) &&
+        fields.getAll('Model.Action').length <= 1 && !!fields.get('__RequestVerificationToken') &&
+        fields.get('Model.Name') === expected.name && fields.get('Model.Match') === expected.mode &&
+        (fields.get('Model.Action') || null) === expected.action;
+}
+
+async function checkEmptyFallback(baseUrl, playwright, channel) {
+    const started = Date.now(), checks = [];
+    const diagnostic = {stage: 'browser-launch', language: null, scripts: null, mode: null, width: null,
+        outcomes: {fresh: 0, busy: 0, invalid: 0, unavailable: 0, unexpected: 0}};
+    let expected = null, browser, deadline, result, browserErrors = 0, timedOut = false;
+    const guard = createRequestGuard(baseUrl, emptyFallbackLimits, request => {
+        if (request.method() !== 'POST') return true;
+        const valid = matchesSearchSubmission(request, expected);
+        // Each deliberate keyboard activation permits exactly one matching POST.
+        expected = null;
+        return valid;
+    });
+    const report = () => ({...diagnostic, outcomes: {...diagnostic.outcomes}, checks: [...checks],
+        posts: guard.posts, requests: guard.requests, requestBoundaryFailed: guard.failed,
+        firstRequestFailure: guard.firstFailure, browserErrors, timedOut,
+        durationMs: Date.now() - started, limits: emptyFallbackLimits});
+    try {
+        browser = await playwright.chromium.launch({headless: true, timeout: limits.operationMs, ...(channel ? {channel} : {})});
+        deadline = setTimeout(() => { timedOut = true; guard.stop(); void browser.close().catch(() => {}); }, emptyFallbackLimits.runMs);
+        for (const scripts of [true, false]) for (const language of ['ru', 'en']) {
+            Object.assign(diagnostic, {stage: 'context', language, scripts, mode: 'exact', width: 390});
+            const context = await browser.newContext({javaScriptEnabled: scripts, serviceWorkers: 'block', viewport: {width: 390, height: 844}});
+            await context.route('**/*', route => guard.route(route));
+            const page = await context.newPage();
+            page.setDefaultTimeout(limits.operationMs);
+            page.setDefaultNavigationTimeout(limits.operationMs);
+            page.on('pageerror', () => browserErrors++);
+            page.on('console', m => { if (m.type() === 'error') browserErrors++; });
+            page.on('requestfailed', () => browserErrors++);
+            const url = baseUrl + '/leaderboard' + (language === 'en' ? '?lang=en' : '');
+            // A collision refuses the run. Do not regenerate a name or retry a failed scenario.
+            const name = 'check-' + randomUUID().replaceAll('-', '').slice(0, 20);
+            const before = guard.posts;
+            diagnostic.stage = 'page-contract';
+            const initial = await page.goto(url, {waitUntil: 'load'});
+            assert.equal(initial.status(), 200);
+            assert.ok(hasNoStore((await initial.allHeaders())['cache-control']));
+            assert.equal(await page.locator('html').getAttribute('lang'), language);
+            const input = page.locator('#player-search-name'), mode = page.locator('#player-search-match');
+            const button = page.locator('#player-search-submit'), fallback = page.locator('#player-search-contains');
+            assert.equal(await fallback.count(), 0);
+            assert.equal(await mode.inputValue(), 'exact');
+            async function post(action, modeValue, invoke) {
+                expected = {name, mode: modeValue, action};
+                const [response] = await Promise.all([page.waitForNavigation({waitUntil: 'load'}), invoke()]);
+                expected = null;
+                guard.verify();
+                assert.equal(response.status(), 200);
+                assert.ok(hasNoStore((await response.allHeaders())['cache-control']));
+                assert.equal(page.url(), url + '#player-search');
+                const state = await page.locator('#player-search-message').getAttribute('data-search-state');
+                diagnostic.outcomes[Object.hasOwn(diagnostic.outcomes, state) ? state : 'unexpected']++;
+                assert.equal(await input.inputValue(), name);
+                return state;
+            }
+            diagnostic.stage = 'empty-exact';
+            await input.fill(name);
+            assert.equal(guard.posts, before);
+            assert.equal(await post(null, 'exact', () => input.press('Enter')), 'fresh');
+            assert.equal(await page.locator('.player-search-result').count(), 0);
+            assert.equal(await fallback.textContent(), language === 'en' ? 'Search by part of nickname' : 'Искать по части ника');
+            assert.equal(guard.posts, before + 1);
+            if (!scripts) {
+                // Keep geometry work outside the short natural busy window.
+                diagnostic.stage = 'layout';
+                for (const width of [320, 390, 1440]) {
+                    diagnostic.width = width;
+                    await page.setViewportSize({width, height: 900});
+                    await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+                    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+                }
+                await page.evaluate(() => document.documentElement.style.fontSize = '');
+                await page.waitForTimeout(11000);
+            }
+            diagnostic.stage = 'fallback-keyboard';
+            diagnostic.mode = 'contains';
+            await button.focus();
+            await button.press('Tab');
+            assert.ok(await fallback.evaluate(el => el === document.activeElement));
+            const state = await post('contains', 'exact', () => fallback.press('Enter'));
+            assert.equal(guard.posts, before + 2);
+            assert.equal(await mode.inputValue(), 'contains');
+            assert.equal(await fallback.count(), 0);
+            if (scripts) {
+                diagnostic.stage = 'busy';
+                assert.equal(state, 'busy');
+                const seconds = retrySeconds(await page.locator('#player-search').getAttribute('data-search-retry-seconds'));
+                assert.ok(await button.isDisabled());
+                const ready = await page.locator('#player-search').getAttribute('data-search-ready');
+                assert.ok(ready);
+                await input.press('Enter');
+                await page.waitForTimeout(250);
+                assert.equal(guard.posts, before + 2);
+                await page.waitForFunction(() => document.querySelector('#player-search-submit')?.disabled === false,
+                    {}, {timeout: (seconds + 2) * 1000, polling: 100});
+                assert.equal(await page.locator('#player-search-message').textContent(), ready);
+                assert.equal(await page.locator('[data-search-announcement]').textContent(), ready);
+                assert.equal(guard.posts, before + 2);
+                diagnostic.stage = 'manual-retry';
+                assert.equal(await post(null, 'contains', () => input.press('Enter')), 'fresh');
+                assert.equal(guard.posts, before + 3);
+            } else assert.equal(state, 'fresh');
+            assert.equal(await page.locator('.player-search-result').count(), 0);
+            assert.equal(await fallback.count(), 0);
+            assert.equal(await mode.inputValue(), 'contains');
+            diagnostic.stage = 'privacy';
+            assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
+            assert.ok(!page.url().includes(name));
+            assert.equal(browserErrors, 0);
+            guard.verify();
+            diagnostic.stage = 'context-close';
+            await closeContext(context, guard);
+            assert.equal(browserErrors, 0);
+            guard.verify();
+            checks.push({language, scripts, posts: guard.posts - before, result: 'passed', keyboard: true,
+                ...(!scripts ? {widths: [320, 390, 1440], text200: true} : {countdown: true, manualRetry: true})});
+            if (checks.length < 4) await new Promise(resolve => setTimeout(resolve, 11000));
+        }
+        assert.equal(guard.posts, 10);
+        assert.deepEqual(diagnostic.outcomes, {fresh: 8, busy: 2, invalid: 0, unavailable: 0, unexpected: 0});
+        assert.equal(browserErrors, 0);
+        guard.verify();
+        assert.ok(!timedOut);
+        diagnostic.stage = 'complete';
+        result = {result: 'browser-acceptance-passed', ...report()};
+    } catch (error) {
+        result = {result: 'browser-acceptance-failed', category: failureCategory(error), ...report()};
+    } finally {
+        clearTimeout(deadline);
+        guard.stop();
+        try { await browser?.close(); }
+        catch {
+            if (result?.result === 'browser-acceptance-passed')
+                result = {result: 'browser-acceptance-failed', category: 'cleanup-failed', ...report(), stage: 'cleanup'};
+        }
+    }
+    return result;
+}
+
+module.exports = {hasNoStore, unexpectedFailures, refresh, retrySeconds, createRequestGuard, failureCategory, closeContext, matchesSearchSubmission, checkEmptyFallback, check};
 if (require.main === module) (async () => {
     const {values} = parseArgs({options: {'base-url': {type: 'string', default: 'https://goldsrcops.com'},
-        'playwright-package': {type: 'string'}, 'browser-channel': {type: 'string'}, partial: {type: 'boolean', default: false}, execute: {type: 'boolean', default: false}}});
+        'playwright-package': {type: 'string'}, 'browser-channel': {type: 'string'}, partial: {type: 'boolean', default: false},
+        'empty-fallback': {type: 'boolean', default: false}, execute: {type: 'boolean', default: false}}});
+    if (values.partial && values['empty-fallback']) throw new Error('Choose one acceptance scenario');
+    const budget = values['empty-fallback'] ? emptyFallbackLimits : values.partial ? partialLimits : limits;
     const url = new URL(values['base-url']);
     if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash)
         throw new Error('HTTPS origin required');
     if (values['browser-channel'] && !['chrome', 'msedge'].includes(values['browser-channel'])) throw new Error('Unsupported browser channel');
-    if (!values.execute) return console.log(JSON.stringify({result: 'validated-plan', network: false, limits: values.partial ? partialLimits : limits}));
+    if (!values.execute) return console.log(JSON.stringify({result: 'validated-plan', network: false, limits: budget}));
     const packagePath = values['playwright-package'] || path.resolve(__dirname,
         '../../tests/GoldSrcOps.WebTests/bin/Debug/net10.0/.playwright/package');
-    const result = await check(url.origin, require(packagePath), values['browser-channel'], values.partial);
+    const run = values['empty-fallback'] ? checkEmptyFallback : check;
+    const result = await run(url.origin, require(packagePath), values['browser-channel'], values.partial);
     console.log(JSON.stringify(result));
     if (result.result !== 'browser-acceptance-passed') process.exitCode = 1;
 })().catch(() => { console.error('BROWSER_ACCEPTANCE=failed; inspect the fixed boundary before another check'); process.exitCode = 1; });
