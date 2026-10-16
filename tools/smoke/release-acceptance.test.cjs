@@ -1,6 +1,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {hasNoStore, unexpectedFailures, refresh, retrySeconds, createRequestGuard} = require('../release/check-player-search-browser.cjs');
+const {hasNoStore, unexpectedFailures, refresh, retrySeconds, createRequestGuard, check} = require('../release/check-player-search-browser.cjs');
 
 test('cache directives accept combined no-store without weakening missing-header refusal', () => {
     for (const value of ['no-store', 'no-cache, no-store', 'private, NO-STORE']) assert.ok(hasNoStore(value));
@@ -109,6 +109,11 @@ test('CLI validates plans without loading Playwright or accepting an unsafe orig
     const dry = run(['--browser-channel', 'msedge']);
     assert.equal(dry.status, 0);
     assert.equal(JSON.parse(dry.stdout).network, false);
+    assert.equal(JSON.parse(dry.stdout).limits.posts, 10);
+    const partial = run(['--partial']);
+    assert.equal(partial.status, 0);
+    assert.equal(JSON.parse(partial.stdout).limits.posts, 14);
+    assert.equal(JSON.parse(partial.stdout).limits.runMs, 180000);
     for (const args of [['--base-url', 'http://site.example'],
         ['--base-url', 'https://user:secret@site.example'], ['--base-url', 'https://site.example/path'],
         ['--base-url', 'https://site.example?name=private'], ['--base-url', 'https://site.example#fragment'],
@@ -119,4 +124,44 @@ test('CLI validates plans without loading Playwright or accepting an unsafe orig
         assert.match(invalid.stderr, /^BROWSER_ACCEPTANCE=failed;/);
         assert.ok(!invalid.stderr.includes('private') && !invalid.stderr.includes('secret'));
     }
+});
+
+test('launch failures emit a bounded report without exception or call-log content', async () => {
+    const sentinel = 'private-player https://secret.example/path?token=hidden';
+    const report = await check('https://site.example', {chromium: {launch: async () => { throw new Error(sentinel); }}});
+    assert.equal(report.result, 'browser-acceptance-failed');
+    assert.equal(report.stage, 'browser-launch');
+    assert.equal(report.category, 'check-failed');
+    assert.equal(report.posts, 0);
+    assert.equal(report.requests, 0);
+    assert.deepEqual(report.checks, []);
+    assert.ok(!JSON.stringify(report).includes(sentinel));
+    assert.ok(!JSON.stringify(report).includes('secret.example'));
+});
+
+test('failed navigation retains scenario and actual request counts even if cleanup fails', async () => {
+    let routeHandler, closed = 0;
+    const error = new Error('private-player URL, HTML, token and browser call log');
+    error.name = 'TimeoutError';
+    const page = {setDefaultTimeout() {}, setDefaultNavigationTimeout() {}, on() {},
+        goto: async () => {
+            await routeHandler(routedRequest('https://site.example/leaderboard'));
+            await routeHandler(routedRequest('https://site.example/leaderboard', 'POST'));
+            throw error;
+        }};
+    const browser = {newContext: async () => ({route: async (_, handler) => { routeHandler = handler; },
+        newPage: async () => page}), close: async () => { closed++; throw new Error('cleanup secret'); }};
+    const report = await check('https://site.example', {chromium: {launch: async () => browser}});
+    assert.equal(report.result, 'browser-acceptance-failed');
+    assert.equal(report.stage, 'page-contract');
+    assert.equal(report.category, 'timeout');
+    assert.equal(report.language, 'ru');
+    assert.equal(report.scripts, true);
+    assert.equal(report.posts, 1);
+    assert.equal(report.requests, 2);
+    assert.equal(report.requestBoundaryFailed, false);
+    assert.equal(closed, 1);
+    const serialized = JSON.stringify(report);
+    for (const text of ['private-player', 'HTML', 'token', 'call log', 'cleanup secret', 'site.example'])
+        assert.ok(!serialized.includes(text));
 });
