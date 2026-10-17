@@ -3838,3 +3838,19 @@ RU/EN с JavaScript и без него, клавиатура, общий cooldow
 .NET-исходники не менялись; полный локальный Quality Gate не повторялся.
 Следующий gate - review и полный PR CI. Deployment и новые теги не требуются.
 Команды и границы описаны в [release acceptance](release-acceptance.md#empty-exact-result-action).
+
+
+## v2.80 - Полная справка в пяти сообщениях чата
+
+Подготовлен addon 0.27.0: `/help` выводит четыре строки команд и один общий
+статус сохранения языка/оружия и HUD. Это устраняет шестое сообщение, которое
+вытесняло первую строку из пятистрочной истории чата. Независимость состояний
+сохранения и прежний cooldown сохранены; чтение справки не записывает nVault.
+
+Локально прошли компиляция продукта и пяти fixtures, RU/EN dictionary/package
+checks и 17 изолированных ReHLDS-сценариев, включая real-nVault, reconnect/map
+reload и поиск v1/v2. На прежнем addon ограничение воспроизведено двумя
+ожидаемыми отказами RU/EN. Loader/config совпадают с 0.26.0; меняются plugin
+и словарь. Full .NET/browser suite не повторялся, production не изменен.
+Следующий gate - review и required CI, затем свежий frozen plan и отдельная
+установка с клиентской приемкой. См. [план и evidence](v2.80-player-help-chat-budget.md).

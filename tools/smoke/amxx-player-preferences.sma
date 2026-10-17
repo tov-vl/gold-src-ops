@@ -58,6 +58,7 @@ FixtureColorPrint(id, sender, const message[], any:...)
     #pragma unused sender
     new colored[512], plain[192], written;
     vformat(colored, charsmax(colored), message, 4);
+    CheckPreferences(strlen(colored) <= 190 && contain(colored, "ML_NOTFOUND") < 0, "colored preference feedback fits the chat payload");
     for (new index = 0; colored[index] && written < charsmax(plain); index++)
     {
         if (colored[index] != 1 && colored[index] != 4) { plain[written++] = colored[index]; }
@@ -151,13 +152,7 @@ public RunPreferencesSmoke()
     OnSettingsSelected(id, g_settings_menu[1][1], 2);
     CheckPreferences(g_preference_writes == writes + 2 && StoredPreferences("1 2 1 2") && !g_hud_disabled[id], "HUD toggles save separately without rewriting language and weapons");
     CheckPreferences(StoredHudPreference("1 0") && PlayerHudPreferenceSaved(id), "explicit on is saved with readback");
-    g_help_next[id] = 0.0;
-    ShowPlayerHelp(id);
-    new help_expected[256];
-    formatex(help_expected, charsmax(help_expected), "[GoldSrcOps] %L", "en", "GS_HUD_SAVED");
-    CheckPreferences(bool:equal(g_last_print, help_expected), "help reports verified saved HUD");
-    formatex(help_expected, charsmax(help_expected), "[GoldSrcOps] %L", "en", "GS_SETTINGS_SAVED");
-    CheckPreferences(bool:equal(g_previous_print, help_expected), "help reports verified saved language and loadout");
+    RunHelpPersistenceChecks(id);
     g_choice[id] = 0;
     CheckPreferences(!PlayerPreferencesSaved(id), "different session choice is not described as saved");
     g_choice[id] = 1;
@@ -167,8 +162,7 @@ public RunPreferencesSmoke()
     ShowPlayerHelp(id);
     CheckPreferences(g_preference_writes == writes && g_preferences_dirty[id] == PREFERENCE_LANGUAGE
         && StoredPreferences("1 2 1 2"), "help cannot flush pending preferences");
-    formatex(help_expected, charsmax(help_expected), "[GoldSrcOps] %L", "en", "GS_SETTINGS_SESSION");
-    CheckPreferences(bool:equal(g_previous_print, help_expected), "help distinguishes pending loadout from saved HUD");
+    CheckHelpFeedback(id, "GS_HELP_HUD_SAVED");
     CheckPreferences(!PlayerPreferencesSaved(id), "pending choice is not described as saved");
     g_preferences_dirty[id] = 0;
     OnWeaponSelected(id, g_menu[0], 2);
@@ -239,6 +233,7 @@ public RunPreferencesSmoke()
     CheckPreferences(g_hud_disabled[id] && !PlayerHudPreferenceSaved(id) && g_preference_writes == unavailable_writes,
         "unavailable vault keeps a usable session HUD toggle without writes");
     CheckPreferences(!PlayerPreferencesSaved(id), "unavailable storage is not described as saved");
+    CheckHelpFeedback(id, "GS_HELP_SESSION");
     g_preferences_vault = nvault_open(PREFERENCES_VAULT_NAME);
     CheckPreferences(nvault_lookup(g_stats_vault, KEY, value, charsmax(value), timestamp) && equal(value, "1 7 3"),
         "stats vault sentinel unchanged by preferences");
@@ -254,6 +249,42 @@ bool:StoredHudPreference(const expected[])
     return bool:(nvault_lookup(g_preferences_vault, HUD_KEY, value, charsmax(value), timestamp) && equal(value, expected));
 }
 
+CheckHelpFeedback(id, const key[])
+{
+    new expected[256], writes = g_preference_writes, dirty = g_preferences_dirty[id];
+    new bool:hud_dirty = g_hud_preference_dirty[id];
+    formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[PlayerLanguage(id)], key);
+    g_help_next[id] = 0.0;
+    ShowPlayerHelp(id);
+    CheckPreferences(bool:equal(g_last_print, expected), "help summary reflects independent persistence states");
+    CheckPreferences(g_preference_writes == writes && g_preferences_dirty[id] == dirty
+        && g_hud_preference_dirty[id] == hud_dirty, "help summary does not write or consume pending preferences");
+}
+
+RunHelpPersistenceChecks(id)
+{
+    new const expected_keys[][] = { "GS_HELP_SESSION", "GS_HELP_HUD_SAVED", "GS_HELP_SETTINGS_SAVED", "GS_HELP_SAVED" };
+    for (new language = 0; language < 2; language++)
+    {
+        for (new scenario = 0; scenario < 4; scenario++)
+        {
+            new record[32];
+            formatex(record, charsmax(record), "1 %d 1 2", language + 1);
+            if (scenario >= 2) { nvault_set(g_preferences_vault, KEY, record); }
+            else { nvault_remove(g_preferences_vault, KEY); }
+            if (scenario % 2) { nvault_set(g_preferences_vault, HUD_KEY, "1 0"); }
+            else { nvault_remove(g_preferences_vault, HUD_KEY); }
+            client_putinserver(id);
+            g_language_override[id] = language + 1;
+            CheckPreferences(PlayerPreferencesSaved(id) == (scenario >= 2)
+                && PlayerHudPreferenceSaved(id) == bool:(scenario % 2), "help matrix uses independently verified nVault records");
+            CheckHelpFeedback(id, expected_keys[scenario]);
+        }
+    }
+    // The final case restores the original EN loadout and saved enabled HUD.
+    CheckPreferences(StoredPreferences("1 2 1 2") && StoredHudPreference("1 0"), "help matrix preserves the saved baseline");
+}
+
 CheckHudFeedback(id, bool:saved, bool:preferences_saved)
 {
     new expected[256], expected_preferences[256];
@@ -264,6 +295,9 @@ CheckHudFeedback(id, bool:saved, bool:preferences_saved)
     OpenPlayerSettings(id);
     CheckPreferences(equal(g_last_print, expected) && g_preference_writes == writes, "HUD persistence feedback matches actual state without writes");
     CheckPreferences(bool:equal(g_previous_print, expected_preferences), "language and weapon persistence feedback stays independent");
+    CheckHelpFeedback(id, preferences_saved
+        ? (saved ? "GS_HELP_SAVED" : "GS_HELP_SETTINGS_SAVED")
+        : (saved ? "GS_HELP_HUD_SAVED" : "GS_HELP_SESSION"));
 }
 
 RunHudPreferenceChecks(id, other)

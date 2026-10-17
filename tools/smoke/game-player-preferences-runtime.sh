@@ -58,7 +58,7 @@ grep -Eq '^PLAYER_HUD_PREFERENCE_SMOKE=passed failures=0 storage=real_nvault$' /
 run_case player_preferences_smoke goldsrcops_preferences_seed PLAYER_PREFERENCES_SEED de_dust2
 run_case player_preferences_smoke goldsrcops_preferences_verify PLAYER_PREFERENCES_RELOAD cs_office
 run_case player_menu_smoke goldsrcops_player_menu_smoke PLAYER_MENU_SMOKE de_dust2
-grep -Eq '^PLAYER_HELP_SMOKE=passed failures=0 languages=2 lines=6 storage_writes=none$' /tmp/goldsrcops_player_menu_smoke.log
+grep -Eq '^PLAYER_HELP_SMOKE=passed failures=0 languages=2 lines=5 storage_writes=none$' /tmp/goldsrcops_player_menu_smoke.log
 run_case spawn_loadout_smoke goldsrcops_loadout_smoke SPAWN_LOADOUT_SMOKE de_dust2
 run_case persistent_stats_smoke goldsrcops_persistent_stats_smoke PERSISTENT_STATS_SMOKE de_dust2
 run_case persistent_stats_smoke goldsrcops_public_leaderboard_smoke PUBLIC_LEADERBOARD_SMOKE de_dust2

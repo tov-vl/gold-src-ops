@@ -29,7 +29,7 @@ new g_previous_text[512];
 new g_prints;
 new g_color_text[192];
 new bool:g_collect_help;
-new g_help_lines[6][192];
+new g_help_lines[5][192];
 new g_help_line_count;
 new g_maps_calls;
 new g_timeleft_calls;
@@ -319,7 +319,7 @@ public FinishHudContinuity()
         g_periodic_samples[0], g_periodic_samples[1]);
     server_print("PLAYER_HUD_SMOKE=%s failures=%d languages=2 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
     server_print("PLAYER_MENU_SMOKE=%s failures=%d languages=2 map_hooks=delegated", g_failures ? "failed" : "passed", g_failures);
-    server_print("PLAYER_HELP_SMOKE=%s failures=%d languages=2 lines=6 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
+    server_print("PLAYER_HELP_SMOKE=%s failures=%d languages=2 lines=5 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
 }
 
 RunHelpChecks(id)
@@ -333,22 +333,22 @@ RunHelpChecks(id)
         g_collect_help = true;
         ShowPlayerHelp(id);
         g_collect_help = false;
-        CheckMenu(g_help_line_count == 6 && g_displays == displays, "help prints six lines without replacing a menu");
+        CheckMenu(g_help_line_count == 5 && g_displays == displays, "help fits the five-line chat viewport without replacing a menu");
+        CheckMenu(contain(g_help_lines[0], "/menu") >= 0 && contain(g_help_lines[0], "/profile") >= 0
+            && contain(g_help_lines[0], "/settings") >= 0, "first help line retains the entry commands");
         for (new line = 0; line < 4; line++)
         {
             formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], PLAYER_HELP_KEYS[line]);
             CheckMenu(SameUtf8Bytes(g_help_lines[line], expected), "RU/EN help command translation");
         }
-        formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_SETTINGS_SESSION");
-        CheckMenu(SameUtf8Bytes(g_help_lines[4], expected), "help reports unsaved language and loadout honestly");
-        formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_HUD_SESSION");
-        CheckMenu(SameUtf8Bytes(g_help_lines[5], expected), "help reports independent session HUD status");
+        formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_HELP_SESSION");
+        CheckMenu(SameUtf8Bytes(g_help_lines[4], expected), "help combines both unsaved states in the fifth line");
         new prints = g_prints;
         ShowPlayerHelp(id);
         CheckMenu(g_prints == prints && g_help_next[id] == get_gametime() + 5.0, "repeated help is rate limited");
         g_help_next[id] = get_gametime();
         ShowPlayerHelp(id);
-        CheckMenu(g_prints == prints + 6, "help becomes available at cooldown boundary");
+        CheckMenu(g_prints == prints + 5, "help becomes available at cooldown boundary");
     }
     new prints = g_prints;
     ShowPlayerHelp(0);
@@ -365,7 +365,7 @@ RunHelpChecks(id)
     rg_round_respawn(id);
     set_entvar(id, var_deadflag, DEAD_DEAD);
     ShowPlayerHelp(id);
-    CheckMenu(g_prints == prints + 6, "dead players can read help");
+    CheckMenu(g_prints == prints + 5, "dead players can read help");
     g_welcomed[id] = false;
     rg_round_respawn(id);
     g_help_next[id] = 0.0;
