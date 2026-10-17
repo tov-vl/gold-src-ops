@@ -3852,5 +3852,10 @@ checks и 17 изолированных ReHLDS-сценариев, включа�
 reload и поиск v1/v2. На прежнем addon ограничение воспроизведено двумя
 ожидаемыми отказами RU/EN. Loader/config совпадают с 0.26.0; меняются plugin
 и словарь. Full .NET/browser suite не повторялся, production не изменен.
-Следующий gate - review и required CI, затем свежий frozen plan и отдельная
-установка с клиентской приемкой. См. [план и evidence](v2.80-player-help-chat-budget.md).
+PR #367 принят в main (`b3e17e7`); required CI и post-merge CI прошли.
+Подготовлен frozen plan `v280-help-20261017-2e99cad9119a`: свежая read-only
+сверка addon 0.26.0, backup baseline, 23 workflow-файлов и runtime прошла.
+Локально приняты оба package, отказ при подмене plan/hook и 12 проверок
+внешней приемки/help status. Следующий gate - согласованная установка 0.27.0
+с технической приемкой, затем реальный клиент RU/EN. Staging, claim и остановка
+игры еще не выполнялись. См. [план и evidence](v2.80-player-help-chat-budget.md).
