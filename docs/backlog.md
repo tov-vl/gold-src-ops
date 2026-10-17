@@ -3851,11 +3851,15 @@ RU/EN с JavaScript и без него, клавиатура, общий cooldow
 checks и 17 изолированных ReHLDS-сценариев, включая real-nVault, reconnect/map
 reload и поиск v1/v2. На прежнем addon ограничение воспроизведено двумя
 ожидаемыми отказами RU/EN. Loader/config совпадают с 0.26.0; меняются plugin
-и словарь. Full .NET/browser suite не повторялся, production не изменен.
+и словарь. Full .NET/browser suite не повторялся.
 PR #367 принят в main (`b3e17e7`); required CI и post-merge CI прошли.
 Подготовлен frozen plan `v280-help-20261017-2e99cad9119a`: свежая read-only
 сверка addon 0.26.0, backup baseline, 23 workflow-файлов и runtime прошла.
 Локально приняты оба package, отказ при подмене plan/hook и 12 проверок
-внешней приемки/help status. Следующий gate - согласованная установка 0.27.0
-с технической приемкой, затем реальный клиент RU/EN. Staging, claim и остановка
-игры еще не выполнялись. См. [план и evidence](v2.80-player-help-chat-budget.md).
+внешней приемки/help status. После согласования addon 0.27.0 установлен одной
+операцией, результат `accepted`. Независимая техническая приемка подтвердила
+`lines=5`, live payload, baseline из 24 записей, сохранность закрытых данных,
+неизменность агента/control-plane, A2S, public online и поиск exact/contains.
+Backup monitor и семь его правил здоровы; pending и warnings нет. Откат
+не потребовался. Следующий gate - реальный клиент RU/EN для исправленного
+`/help`. См. [план и evidence](v2.80-player-help-chat-budget.md).
