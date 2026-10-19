@@ -208,6 +208,34 @@ bool:SameUtf8Bytes(const left[], const right[])
     return false;
 }
 
+RunChatTokenChecks(id)
+{
+    new expected[192];
+    PlayerChat(id, "[GoldSrcOps] (/help), /rank: 25 kills | 3.");
+    formatex(expected, charsmax(expected), "^4[GoldSrcOps]^1 (^4/help^1), ^4/rank^1: %c25%c kills | %c3%c.", 4, 1, 4, 1);
+    CheckMenu(equal(g_color_text, expected) != 0, "standalone commands and rank values retain accents beside punctuation");
+    PlayerChat(id, "[GoldSrcOps] /rank2 /rank_extra 25kills kills25 1.25");
+    CheckMenu(equal(g_color_text, "^4[GoldSrcOps]^1 /rank2 /rank_extra 25kills kills25 1.25") != 0,
+        "command and number fragments inside larger tokens remain plain");
+    for (new language = 0; language < 2; language++)
+    {
+        for (new persistence = 0; persistence < sizeof PLAYER_HELP_PERSISTENCE_KEYS; persistence++)
+        {
+            PlayerChat(id, "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], PLAYER_HELP_PERSISTENCE_KEYS[persistence]);
+            formatex(expected, charsmax(expected), "^4[GoldSrcOps]^1 %L", PLAYER_LANGUAGES[language], PLAYER_HELP_PERSISTENCE_KEYS[persistence]);
+            CheckMenu(SameUtf8Bytes(g_color_text, expected), "RU/EN persistence sentences never turn slash-separated prose into commands");
+        }
+        for (new weapon = 0; weapon < sizeof WEAPON_NAMES; weapon++)
+        {
+            PlayerChat(id, "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_PISTOL_SELECTED", WEAPON_NAMES[weapon], "Glock",
+                PLAYER_LANGUAGES[language], "GS_CHANGE_SAVED");
+            formatex(expected, charsmax(expected), "^4[GoldSrcOps]^1 %L", PLAYER_LANGUAGES[language], "GS_PISTOL_SELECTED", WEAPON_NAMES[weapon], "Glock",
+                PLAYER_LANGUAGES[language], "GS_CHANGE_SAVED");
+            CheckMenu(SameUtf8Bytes(g_color_text, expected), "MP5 AK-47 and M4A1 stay plain and intact in RU/EN weapon confirmations");
+        }
+    }
+}
+
 public RunPlayerMenuSmoke()
 {
     if (g_client || get_playersnum()) { return PLUGIN_HANDLED; }
@@ -225,6 +253,7 @@ public RunPlayerMenuSmoke()
     CheckMenu(contain(g_color_text, "^4/rank^1") >= 0 && number_offset > 0
         && g_color_text[number_offset - 1] == 4 && g_color_text[number_offset + 2] == 1,
         "commands and numeric values have explicit accents and reset colors");
+    RunChatTokenChecks(id);
     new boundary[191];
     for (new n = 0; n < charsmax(boundary); n++) { boundary[n] = n % 2 == 0 ? '1' : ' '; }
     boundary[charsmax(boundary)] = 0;
