@@ -4,6 +4,7 @@
 
 // The product is compiled separately; only this synthetic client is human.
 #define plugin_init ProductPluginInit
+#define menu_setprop FixtureMenuSetProp
 #define is_user_bot(%1) FixtureIsBot(%1)
 #define menu_display(%1,%2) FixtureMenuDisplay(%1,%2)
 #define client_print FixturePrint
@@ -12,6 +13,7 @@
 #define set_dhudmessage FixtureHudParameters
 #include <goldsrcops_weapon_selection.sma>
 #undef plugin_init
+#undef menu_setprop
 #undef is_user_bot
 #undef menu_display
 #undef client_print
@@ -22,6 +24,8 @@
 new g_client;
 new bool:g_human = true;
 new g_failures;
+new g_menu_text[MAX_PLAYERS + 1][768];
+new Trie:g_menu_titles;
 new g_displays;
 new g_last_menu;
 new g_last_text[512];
@@ -79,8 +83,50 @@ FixtureHud(id, const message[], any:...)
     return show_dhudmessage(id, "%s", part);
 }
 
+
+// Synthetic clients have no observable ShowMenu transport; capture the exact native title input.
+FixtureMenuSetProp(menu, property, any:...)
+{
+    if (property == MPROP_TITLE || property == MPROP_EXITNAME)
+    {
+        new text[384], index;
+        while (index < charsmax(text) && (text[index] = getarg(2, index))) { index++; }
+        text[index] = 0;
+        if (property == MPROP_TITLE)
+        {
+            new key[16];
+            num_to_str(menu, key, charsmax(key));
+            TrieSetString(g_menu_titles, key, text);
+        }
+        return menu_setprop(menu, property, text);
+    }
+    return menu_setprop(menu, property, getarg(2));
+}
+
+FindUtf8Bytes(const text[], const fragment[])
+{
+    // Native menu/Trie strings and formatted translations may extend UTF-8 bytes differently.
+    for (new start = 0; text[start]; start++)
+    {
+        new offset;
+        while (fragment[offset] && text[start + offset]
+            && (text[start + offset] & 255) == (fragment[offset] & 255)) { offset++; }
+        if (!fragment[offset]) { return start; }
+    }
+    return -1;
+}
+
+CaptureMenuTitle(id, menu)
+{
+    new key[16];
+    num_to_str(menu, key, charsmax(key));
+    g_menu_text[id][0] = 0;
+    TrieGetString(g_menu_titles, key, g_menu_text[id], charsmax(g_menu_text[]));
+}
+
 public plugin_init()
 {
+    g_menu_titles = TrieCreate();
     ProductPluginInit();
     register_srvcmd("goldsrcops_player_menu_smoke", "RunPlayerMenuSmoke");
     register_clcmd("say /maps", "FixtureMaps");
@@ -99,6 +145,7 @@ FixtureMenuDisplay(id, menu)
 {
     g_displays++;
     g_last_menu = menu;
+    CaptureMenuTitle(id, menu);
     return menu_display(id, menu);
 }
 FixtureColorPrint(id, sender, const message[], any:...)
@@ -229,28 +276,34 @@ public RunPlayerMenuSmoke()
         CheckMenu(g_prints == prints, "menu does not bypass stats cooldown");
         OnPlayerMenuSelected(id, g_player_menu[language], 4);
         OnPlayerMenuSelected(id, g_player_menu[language], 5);
+        prints = g_prints;
         OnPlayerMenuSelected(id, g_player_menu[language], 6);
-        CheckMenu(g_last_menu == g_settings_menu[language][0], "settings action opens translated settings");
+        OpenPlayerSettings(id);
+        CheckMenu(g_prints == prints, "opening and reopening settings is silent");
+        CheckMenu(g_last_menu == GetSettingsMenu(id, language, 0), "settings action opens translated settings");
         new saved[192];
-        formatex(saved, charsmax(saved), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_HUD_SESSION");
-        CheckMenu(SameUtf8Bytes(g_last_text, saved), "unknown identity displays session-only HUD preference");
-        formatex(saved, charsmax(saved), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_SETTINGS_SESSION");
-        CheckMenu(SameUtf8Bytes(g_previous_text, saved), "unknown identity displays session-only language and weapon preferences");
-        OnSettingsSelected(id, g_settings_menu[language][0], 0);
+        formatex(saved, charsmax(saved), "%L", PLAYER_LANGUAGES[language], "GS_HUD_SESSION");
+        CheckMenu(FindUtf8Bytes(g_menu_text[id], saved) >= 0, "settings menu shows session-only HUD preference");
+        formatex(saved, charsmax(saved), "%L", PLAYER_LANGUAGES[language], "GS_SETTINGS_SESSION");
+        CheckMenu(FindUtf8Bytes(g_menu_text[id], saved) >= 0, "settings menu shows session-only language and weapon preferences");
+        formatex(saved, charsmax(saved), "%L", PLAYER_LANGUAGES[language], "GS_SETTINGS_LOADOUT", "AK-47", "Desert Eagle", language == 0 ? "RU" : "EN");
+        CheckMenu(FindUtf8Bytes(g_menu_text[id], saved) >= 0 && strlen(g_menu_text[id]) < 384 && menu_items(g_last_menu) == 4 && menu_pages(g_last_menu) == 1
+            && FindUtf8Bytes(g_menu_text[id], "ML_NOTFOUND") < 0, "settings title includes current loadout and four items on one page");
+        OnSettingsSelected(id, GetSettingsMenu(id, language, 0), 0);
         CheckMenu(g_last_menu == g_menu[language], "settings dispatches weapons");
-        OnSettingsSelected(id, g_settings_menu[language][0], 3);
+        OnSettingsSelected(id, GetSettingsMenu(id, language, 0), 3);
         CheckMenu(g_last_menu == g_player_menu[language], "settings back returns to hub");
-        OnSettingsSelected(id, g_settings_menu[language][0], 1);
+        OnSettingsSelected(id, GetSettingsMenu(id, language, 0), 1);
         CheckMenu(g_last_menu == g_language_menu, "language action");
         new displays = g_displays;
         OnPlayerMenuSelected(id, g_player_menu[1 - language], 0);
         OnPlayerMenuSelected(id, g_player_menu[language], MENU_EXIT);
         OnPlayerMenuSelected(id, g_player_menu[language], sizeof PLAYER_MENU_KEYS);
         OnLanguageSelected(id, g_language_menu, MENU_EXIT);
-        OnSettingsSelected(id, g_settings_menu[1 - language][0], 0);
-        OnSettingsSelected(id, g_settings_menu[language][0], 4);
-        OnSettingsSelected(id, g_settings_menu[language][0], MENU_EXIT);
-        OnSettingsSelected(id, g_settings_menu[language][0], MENU_TIMEOUT);
+        OnSettingsSelected(id, GetSettingsMenu(id, 1 - language, 0), 0);
+        OnSettingsSelected(id, GetSettingsMenu(id, language, 0), 4);
+        OnSettingsSelected(id, GetSettingsMenu(id, language, 0), MENU_EXIT);
+        OnSettingsSelected(id, GetSettingsMenu(id, language, 0), MENU_TIMEOUT);
         CheckMenu(g_displays == displays, "stale invalid and cancelled callbacks do not reopen");
         g_saved_ready[id] = true;
         g_saved_kills[id] = STATS_COUNTER_LIMIT;
@@ -265,7 +318,7 @@ public RunPlayerMenuSmoke()
     set_pcvar_num(g_enabled, 0);
     OpenPlayerMenu(id);
     OpenPlayerSettings(id);
-    OnSettingsSelected(id, g_settings_menu[1][0], 1);
+    OnSettingsSelected(id, GetSettingsMenu(id, 1, 0), 1);
     OnPlayerMenuSelected(id, g_player_menu[1], 4);
     CheckMenu(g_displays == displays && g_maps_calls == 2, "disabled menu does not dispatch");
     set_pcvar_num(g_enabled, 1);
@@ -280,9 +333,9 @@ public RunPlayerMenuSmoke()
     OpenPlayerMenu(id);
     CheckMenu(g_displays == displays + 1, "spectator can use read-only hub");
     OpenPlayerSettings(id);
-    CheckMenu(g_last_menu == g_settings_menu[1][0], "spectator can inspect settings");
+    CheckMenu(g_last_menu == GetSettingsMenu(id, 1, 0), "spectator can inspect settings");
     displays = g_displays;
-    OnSettingsSelected(id, g_settings_menu[1][0], 0);
+    OnSettingsSelected(id, GetSettingsMenu(id, 1, 0), 0);
     CheckMenu(g_displays == displays, "settings does not grant spectator weapons");
     RunHelpChecks(id);
     RunHudChecks(id);
@@ -425,15 +478,15 @@ RunHudChecks(id)
         UpdatePlayerHuds();
         CheckMenu(g_hud_messages == messages + 1 && g_hud_visible[id], "open settings keeps HUD updating");
         messages = g_hud_messages;
-        OnSettingsSelected(id, g_settings_menu[language][0], 2);
-        CheckMenu(g_hud_disabled[id] && g_last_menu == g_settings_menu[language][1], "toggle opens private off-state menu");
-        OnSettingsSelected(id, g_settings_menu[language][0], 2);
+        OnSettingsSelected(id, GetSettingsMenu(id, language, 0), 2);
+        CheckMenu(g_hud_disabled[id] && g_last_menu == GetSettingsMenu(id, language, 1), "toggle opens private off-state menu");
+        OnSettingsSelected(id, GetSettingsMenu(id, language, 0), 2);
         CheckMenu(g_hud_disabled[id], "stale toggle cannot invert current setting");
         menu_cancel(id);
         show_menu(id, 0, "");
         UpdatePlayerHuds();
         CheckMenu(g_hud_messages == messages, "disabled HUD stays hidden without a menu");
-        OnSettingsSelected(id, g_settings_menu[language][1], 2);
+        OnSettingsSelected(id, GetSettingsMenu(id, language, 1), 2);
         CheckMenu(!g_hud_disabled[id], "toggle restores HUD");
         menu_cancel(id);
         show_menu(id, 0, "");
@@ -487,14 +540,14 @@ RunMenuCloseChecks(id)
         }
         OpenPlayerSettings(id);
         FixtureCloseMenu(id);
-        OnSettingsSelected(id, g_settings_menu[language][0], 2);
+        OnSettingsSelected(id, GetSettingsMenu(id, language, 0), 2);
         FixtureCloseMenu(id);
         new messages = g_hud_messages;
         UpdatePlayerHuds();
         CheckMenu(g_hud_disabled[id] && g_hud_messages == messages, "HUD stays off after settings exit with stale keys");
         OpenPlayerSettings(id);
         FixtureCloseMenu(id);
-        OnSettingsSelected(id, g_settings_menu[language][1], 2);
+        OnSettingsSelected(id, GetSettingsMenu(id, language, 1), 2);
         FixtureCloseMenu(id);
         UpdatePlayerHuds();
         CheckMenu(!g_hud_disabled[id] && g_hud_messages == messages + 1, "HUD returns after toggle and exit with stale keys");
@@ -515,7 +568,7 @@ RunMenuCloseChecks(id)
         CheckMenu(g_hud_messages == messages + 1, "HUD resumes after weapon selection with stale keys");
         OpenPlayerSettings(id);
         FixtureCloseMenu(id);
-        OnSettingsSelected(id, g_settings_menu[language][0], 3);
+        OnSettingsSelected(id, GetSettingsMenu(id, language, 0), 3);
         messages = g_hud_messages;
         UpdatePlayerHuds();
         CheckMenu(g_hud_messages == messages + 1 && g_hud_visible[id], "Back keeps HUD updating under the reopened hub");
