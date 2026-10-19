@@ -3920,8 +3920,13 @@ PR #369 принят в `a777acf`; required PR CI и post-merge CI прошли 
 Read-only сверка подтвердила текущий addon, пустой сервер, 24 записи baseline,
 23 workflow-файла, отсутствие pending и здоровый backup monitor. Локально
 проверены оба пакета, отказ при подмене plan/hook, 12 status cases и четыре
-сценария координатора. Откат сохраняет текущие vault; baseline допускает
-изменение только plugin и installation receipt. Установка еще не выполнялась.
-Следующий gate - согласование конкретного плана, затем техническая приемка
-и короткая визуальная проверка приветствия RU/EN.
+сценария координатора. Согласованный план из `adae316` выполнен 2026-10-19:
+host dry run прошел, один apply завершен как `accepted`, откат не потребовался.
+Независимая техническая приемка в 17:12 МСК подтвердила 0.29.0, сохранность
+четырех закрытых vault/journal entries, 24 записи baseline и отсутствие pending.
+Изменены только plugin и installation receipt; агент и девять контейнеров
+сохранили runtime identities. A2S, public online, exact/contains и backup monitor
+прошли; AMXX errors и backup warnings нет. От stopping до starting - 24,932
+секунды, до runtime-accepted - 38,997 секунды по журналу workflow.
+Следующий gate - короткая визуальная проверка приветствия RU/EN в клиенте.
 См. [план и evidence](v2.82-player-welcome-color.md).
