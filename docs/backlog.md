@@ -3946,6 +3946,14 @@ package smoke и три изолированных движковых сцена
 и прежний chat budget. В payload меняется только plugin; словарь, loader
 и config совпадают с 0.29.0. Полные .NET/browser suites не повторялись.
 
-Следующий gate - review и required PR CI. Публикация и установка пока
-не выполнялись; клиентская проверка приветствия v2.82 остается открытой.
-См. [изменение и evidence](v2.83-player-chat-token-boundaries.md).
+PR #373 принят в `c321d86`; required PR CI и post-merge CI прошли
+с первой попытки на addon-only scope. Пакет сверен с main без пересборки.
+Подготовлен план `v283-chat-20261020-b068d62c536d` для 0.29.0 -> 0.30.0.
+Read-only сверка 2026-10-20 подтвердила текущий addon, пустой сервер,
+24 записи baseline, 23 workflow-файла, отсутствие pending и здоровый backup
+monitor. Локально проверены оба пакета, отказ при подмене plan/hook,
+12 status cases и четыре сценария координатора.
+Следующий gate - согласование плана установки. Production staging,
+host dry run и установка не выполнялись; клиентская проверка приветствия
+v2.82 остается открытой и включена в короткую приемку RU/EN после установки.
+См. [план и evidence](v2.83-player-chat-token-boundaries.md).
