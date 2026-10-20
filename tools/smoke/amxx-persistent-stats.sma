@@ -509,6 +509,62 @@ WriteLeaderInsert(file, const key[], const value[])
     fwrite_blocks(file, value, strlen(value), BLOCK_CHAR);
 }
 
+RunLeaderboardRankChecks(player)
+{
+    new const kills[] = { 1000000000, 500, 499, 250, 249, 100, 99, 25, 24, 0 };
+    new const rank_keys[][] = { "GS_LEGEND", "GS_LEGEND", "GS_ELITE", "GS_ELITE", "GS_VETERAN",
+        "GS_VETERAN", "GS_FIGHTER", "GS_FIGHTER", "GS_RECRUIT", "GS_RECRUIT" };
+    new names[SAVED_LEADER_LIMIT][32], scores[SAVED_LEADER_LIMIT][2];
+    for (new row = 0; row < SAVED_LEADER_LIMIT; row++)
+    {
+        copy(names[row], charsmax(names[]), g_leader_names[row]);
+        scores[row][0] = g_leader_scores[row][0]; scores[row][1] = g_leader_scores[row][1];
+        formatex(g_leader_names[row], charsmax(g_leader_names[]), "Rank fixture %d", row + 1);
+        g_leader_scores[row][0] = kills[row]; g_leader_scores[row][1] = row + 1;
+    }
+    for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
+    {
+        g_language_override[player] = language + 1;
+        g_stats_next[player][3] = 0.0;
+        ShowSavedLeaders(player);
+        CheckSaved(FindProfileUtf8(g_leader_html, language == 0 ? "<th>Ранг<th>K<th>D" : "<th>Rank<th>K<th>D") >= 0,
+            "overall leaders localize the rank column without changing score columns");
+        for (new row = 0; row < sizeof kills; row++)
+        {
+            new expected[160];
+            formatex(expected, charsmax(expected), "<tr><td>%d<td>Rank fixture %d<td>%L<td>%d<td>%d",
+                row + 1, row + 1, PLAYER_LANGUAGES[language], rank_keys[row], kills[row], row + 1);
+            CheckSaved(FindProfileUtf8(g_leader_html, expected) >= 0,
+                "each displayed score maps to the expected rank at both sides of every threshold");
+        }
+    }
+    for (new row = 0; row < SAVED_LEADER_LIMIT; row++)
+    {
+        copy(g_leader_names[row], charsmax(g_leader_names[]), names[row]);
+        g_leader_scores[row][0] = scores[row][0]; g_leader_scores[row][1] = scores[row][1];
+    }
+    // Live progress may cross a tier while the displayed score snapshot is still cached.
+    new record[LeaderRecord], bool:dirty = g_leader_dirty, Float:refresh_after = g_leader_refresh_after;
+    ArrayGetArray(g_leader_records, g_leader_top[0], record);
+    UpdateLeaderScore(record[LeaderKey], 500, record[LeaderDeaths]);
+    g_leader_refresh_after = get_gametime() + LEADER_REFRESH_INTERVAL;
+    for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
+    {
+        g_language_override[player] = language + 1;
+        g_stats_next[player][3] = 0.0;
+        ShowSavedLeaders(player);
+        new expected[160];
+        formatex(expected, charsmax(expected), "<tr><td>1<td>%L<td>%L<td>120<td>2",
+            PLAYER_LANGUAGES[language], "GS_ALL_UNKNOWN", PLAYER_LANGUAGES[language], "GS_VETERAN");
+        CheckSaved(FindProfileUtf8(g_leader_html, expected) >= 0,
+            "rank and kills remain on the same cached snapshot after a live tier change");
+    }
+    ArraySetArray(g_leader_records, g_leader_top[0], record);
+    g_leader_dirty = dirty; g_leader_refresh_after = refresh_after;
+    server_print("PLAYER_LEADERBOARD_RANK_SMOKE=%s failures=%d languages=2 boundaries=10",
+        g_failures ? "failed" : "passed", g_failures);
+}
+
 public RunLeaderboardSmoke()
 {
     if (!CreateStatsClients()) { set_fail_state("Leaderboard fixture unavailable."); return PLUGIN_HANDLED; }
@@ -542,6 +598,7 @@ public RunLeaderboardSmoke()
         ShowSavedLeaders(player);
         CheckSaved(g_motds == motds, "repeated display is throttled");
     }
+    RunLeaderboardRankChecks(player);
     CheckSaved(g_vault_writes == writes && g_leader_reads == reads && g_leader_rebuilds == rebuilds,
         "inspection uses the shared cache without writes file reads or repeated sorting");
     nvault_lookup(g_stats_vault, "v1:STEAM_0:1:800011", after, charsmax(after), timestamp);
@@ -593,20 +650,51 @@ public RunLeaderboardSmoke()
     EscapeLeaderName("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&", escaped, charsmax(escaped));
     CheckSaved(strlen(escaped) <= 63 && contain(escaped, "...") >= 0 && contain(escaped, "&amp;") == 0,
         "worst-case escaping truncates only complete entities");
-    for (new rank = 0; rank < SAVED_LEADER_LIMIT; rank++)
+    new const worst_names[][] = {
+        "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcde", "ЖЖЖЖЖЖЖЖЖЖЖЖЖЖЖX"
+    };
+    new bool:saved_ready = g_saved_ready[player], saved_key[40];
+    new saved_kills = g_saved_kills[player], saved_deaths = g_saved_deaths[player];
+    copy(saved_key, charsmax(saved_key), g_saved_key[player]);
+    g_saved_ready[player] = true;
+    copy(g_saved_key[player], charsmax(g_saved_key[]), "v1:STEAM_0:1:800013");
+    g_saved_kills[player] = 0; g_saved_deaths[player] = 0;
+    for (new sample = 0; sample < sizeof worst_names; sample++)
     {
-        copy(g_leader_names[rank], charsmax(g_leader_names[]), "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&");
-        g_leader_scores[rank][0] = STATS_COUNTER_LIMIT;
-        g_leader_scores[rank][1] = STATS_COUNTER_LIMIT;
+        for (new rank = 0; rank < SAVED_LEADER_LIMIT; rank++)
+        {
+            copy(g_leader_names[rank], charsmax(g_leader_names[]), worst_names[sample]);
+            g_leader_scores[rank][0] = STATS_COUNTER_LIMIT;
+            g_leader_scores[rank][1] = STATS_COUNTER_LIMIT;
+        }
+        for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
+        {
+            g_language_override[player] = language + 1;
+            g_stats_next[player][3] = 0.0;
+            ShowSavedLeaders(player);
+            new expected_footer[160];
+            formatex(expected_footer, charsmax(expected_footer), "%L", PLAYER_LANGUAGES[language], "GS_STANDING_UNRANKED");
+            CheckSaved(strlen(g_leader_html) < 1535 && contain(g_leader_html, "</body></html>") >= 0
+                && contain(g_leader_html, "<tr><td>10<td>") >= 0
+                && FindProfileUtf8(g_leader_html, expected_footer) >= 0,
+                "ten maximum ranked rows and longest footer fit RU and EN with complete closing markup");
+            if (sample)
+            {
+                CheckSaved(FindProfileUtf8(g_leader_html, worst_names[sample]) >= 0,
+                    "maximum plain ASCII and UTF-8 names remain complete in the ranked table");
+            }
+            else
+            {
+                CheckSaved(contain(g_leader_html, "<td>&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;...<td>") >= 0,
+                    "expanded HTML names end on complete entities with an explicit ellipsis");
+                server_print("PLAYER_LEADERBOARD_BUDGET language=%s bytes=%d limit=1535 rows=10",
+                    PLAYER_LANGUAGES[language], strlen(g_leader_html));
+            }
+        }
     }
-    for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
-    {
-        g_language_override[player] = language + 1;
-        g_stats_next[player][3] = 0.0;
-        ShowSavedLeaders(player);
-        CheckSaved(strlen(g_leader_html) < 1535 && contain(g_leader_html, "</body></html>") >= 0,
-            "maximal names counters and personal footer fit RU and EN MOTD including closing markup");
-    }
+    g_saved_ready[player] = saved_ready;
+    copy(g_saved_key[player], charsmax(g_saved_key[]), saved_key);
+    g_saved_kills[player] = saved_kills; g_saved_deaths[player] = saved_deaths;
 
     CloseLeaderFixture();
     new path[256];
