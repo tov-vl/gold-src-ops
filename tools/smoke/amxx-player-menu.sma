@@ -158,6 +158,7 @@ FixtureMotd(id, const text[], const title[])
     CheckMenu(id == g_client, "MOTD remains private");
     CheckMenu(strlen(text) < charsmax(g_motd_text) && contain(text, "ML_NOTFOUND") < 0
         && contain(text, "</body></html>") == strlen(text) - 14, "complete translated MOTD fits the byte budget");
+    CheckMenu(strlen(title) > 0 && strlen(title) <= 31, "MOTD caption fits the client byte budget");
     g_motd_count++;
     copy(g_motd_text, charsmax(g_motd_text), text);
     copy(g_motd_title, charsmax(g_motd_title), title);
@@ -441,8 +442,10 @@ RunRankGuideChecks(id)
         g_stats_next[id][5] = 0.0;
         ShowRankGuide(id);
         CheckMenu(g_motd_count == ++motds, "rank guide has an independent cooldown");
-        formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], "GS_RANKS");
-        CheckMenu(SameUtf8Bytes(expected, g_motd_title), "rank guide title uses current language");
+        CheckMenu(SameUtf8Bytes(g_motd_title, language == 0 ? "Ранги" : "Ranks"),
+            "rank guide caption preserves every RU/EN UTF-8 byte");
+        formatex(expected, charsmax(expected), "<h2>%L</h2>", PLAYER_LANGUAGES[language], "GS_RANKS");
+        CheckMenu(FindUtf8Bytes(g_motd_text, expected) >= 0, "rank guide keeps its complete inner heading");
         new expected_kills[] = { 0, 25, 100, 250, 500 };
         new previous = -1;
         for (new rank = 0; rank < sizeof expected_kills; rank++)

@@ -1,5 +1,8 @@
 [en]
 GS_RANKS = Rank guide
+GS_RANKS_TITLE = Ranks
+GS_PROFILE_TITLE = My profile
+GS_TOPALL_TITLE = Overall leaders
 GS_RANKS_KILLS = Saved kills
 GS_RANKS_COUNT = Saved kills of human enemies count.
 GS_RANKS_EXCLUDED = Bots, team kills and suicides give no progress.
@@ -83,6 +86,9 @@ GS_LEGEND = Legend
 
 [ru]
 GS_RANKS = Справочник рангов
+GS_RANKS_TITLE = Ранги
+GS_PROFILE_TITLE = Мой профиль
+GS_TOPALL_TITLE = Общий рейтинг
 GS_RANKS_KILLS = Сохраненные убийства
 GS_RANKS_COUNT = Учитываются сохраненные убийства противников-людей.
 GS_RANKS_EXCLUDED = Боты, убийства союзников и самоубийства не дают прогресса.

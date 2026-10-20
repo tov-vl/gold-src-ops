@@ -432,6 +432,7 @@ public VerifyRestartStats()
 FixtureMotd(id, const html[], const title[])
 {
     CheckSaved(id == (g_expected_motd_target ? g_expected_motd_target : g_clients[0]), "player MOTD stays private");
+    CheckSaved(strlen(title) > 0 && strlen(title) <= 31, "MOTD caption fits the client byte budget");
     g_motd_target = id;
     copy(g_leader_html, charsmax(g_leader_html), html);
     copy(g_leader_title, charsmax(g_leader_title), title);
@@ -525,9 +526,14 @@ public RunLeaderboardSmoke()
         g_stats_next[player][3] = 0.0;
         OnPlayerMenuSelected(player, g_player_menu[language], 7);
         new expected[64];
-        formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], "GS_TOPALL");
+        formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], "GS_TOPALL_TITLE");
         CheckSaved(equal(g_leader_title, expected) && contain(g_leader_html, "ML_NOTFOUND") < 0,
             "RU and EN menu dispatch opens localized overall leaders");
+        CheckSaved(FindProfileUtf8(g_leader_title, language == 0 ? "Общий рейтинг" : "Overall leaders") == 0
+            && strlen(g_leader_title) == (language == 0 ? 25 : 15),
+            "overall caption preserves every RU/EN UTF-8 byte");
+        formatex(expected, charsmax(expected), "<h2>%L</h2>", PLAYER_LANGUAGES[language], "GS_TOPALL");
+        CheckSaved(FindProfileUtf8(g_leader_html, expected) >= 0, "overall leaders keep the full inner heading");
         CheckSaved(contain(g_leader_html, "<tr><td>10<td>") >= 0 && contain(g_leader_html, "<tr><td>11<td>") < 0
             && contain(g_leader_html, "STEAM_") < 0 && contain(g_leader_html, "<script>") < 0
             && contain(g_leader_html, "&lt;script&gt;&amp;&quot;%s") >= 0
@@ -1144,8 +1150,11 @@ public RunPlayerProfileSmoke()
         CheckSaved(g_motds == motds + 1 && g_prints == prints, "profile emits one private MOTD without chat spam");
         CheckSaved(contain(g_leader_html, "K 10 | D 1 | K/D 10.00") >= 0,
             "profile uses saved totals and existing ratio semantics");
-        CheckSaved(FindProfileUtf8(g_leader_html, language == 0 ? "Мой профиль" : "My profile") >= 0
-            && FindProfileUtf8(g_leader_title, language == 0 ? "Мой профиль" : "My profile") == 0, "profile title uses effective RU or EN");
+        CheckSaved(FindProfileUtf8(g_leader_title, language == 0 ? "Мой профиль" : "My profile") == 0
+            && strlen(g_leader_title) == (language == 0 ? 21 : 10),
+            "profile caption preserves every RU/EN UTF-8 byte");
+        formatex(expected, charsmax(expected), "<h2>%L</h2>", PLAYER_LANGUAGES[language], "GS_PROFILE");
+        CheckSaved(FindProfileUtf8(g_leader_html, expected) >= 0, "profile keeps the full inner heading");
         CheckSaved(FindProfileUtf8(g_leader_html, language == 0 ? "Ранг: Новичок | K 10 | До следующего 15" : "Saved rank: Recruit | K 10 | 15 kills") >= 0,
             "profile shows saved rank and remaining kills");
         formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], "GS_STANDING_POSITION", 12, 12);

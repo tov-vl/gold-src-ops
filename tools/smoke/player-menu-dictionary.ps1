@@ -13,6 +13,9 @@ if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xef -and $bytes[1] -eq 0xbb -and $by
 }
 $utf8 = [Text.UTF8Encoding]::new($false, $true)
 $text = $utf8.GetString($bytes)
+if ($text -match '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]') {
+    throw "Dictionary contains a control character."
+}
 $sections = @{}
 $language = $null
 foreach ($line in ($text -split "\r?\n")) {
@@ -37,6 +40,21 @@ if ($sections.Count -ne 2 -or (Compare-Object @($sections.en.Keys) @($sections.r
 $source = [IO.File]::ReadAllText($SourcePath)
 $used = @([regex]::Matches($source, '"(GS_[A-Z_]+)"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
 if (Compare-Object $used @($sections.en.Keys)) { throw "Dictionary keys do not match product references." }
+# Full HTML headings and client window captions have different byte budgets.
+foreach ($lang in @('en', 'ru')) {
+    foreach ($key in @('GS_RANKS_TITLE', 'GS_PROFILE_TITLE', 'GS_TOPALL_TITLE')) {
+        $caption = $sections[$lang][$key]
+        if ([string]::IsNullOrWhiteSpace($caption) -or $caption -match '[%\t]' -or
+            $utf8.GetByteCount($caption) -gt 31) {
+            throw "MOTD caption must be plain UTF-8 text of 1-31 bytes: $lang/$key"
+        }
+    }
+    foreach ($key in @('GS_RANKS', 'GS_PROFILE', 'GS_TOPALL')) {
+        if ($utf8.GetByteCount($sections[$lang][$key]) -gt 63) {
+            throw "MOTD heading exceeds its byte budget: $lang/$key"
+        }
+    }
+}
 foreach ($key in $sections.en.Keys) {
     $formats = @{}
     foreach ($lang in @('en', 'ru')) {
@@ -49,4 +67,4 @@ foreach ($key in $sections.en.Keys) {
     }
     if (($formats.en -join ',') -cne ($formats.ru -join ',')) { throw "Translation format mismatch: $key" }
 }
-Write-Output "PLAYER_MENU_DICTIONARY_SMOKE=passed keys=$($sections.en.Count) languages=2"
+Write-Output "PLAYER_MENU_DICTIONARY_SMOKE=passed keys=$($sections.en.Count) languages=2 motd_captions=3 caption_bytes=31 utf8=strict"
