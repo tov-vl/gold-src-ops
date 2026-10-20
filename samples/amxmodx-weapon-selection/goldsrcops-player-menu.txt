@@ -1,4 +1,11 @@
 [en]
+GS_RANKS = Rank guide
+GS_RANKS_KILLS = Saved kills
+GS_RANKS_COUNT = Saved kills of human enemies count.
+GS_RANKS_EXCLUDED = Bots, team kills and suicides give no progress.
+GS_RANKS_PROGRESS = Deaths do not lower rank. Legend is the highest rank.
+GS_RANKS_PLACE = Rank is cumulative progress; leaderboard place depends on other players.
+GS_RANKS_FAIR = Ranks give no combat advantages. /rank shows your progress.
 GS_MENU = GoldSrcOps
 GS_GUNS = Weapons (next spawn)
 GS_STATS = My stats
@@ -53,7 +60,7 @@ GS_CHANGE_SESSION = This connection only.
 GS_WELCOME = /menu: player menu | /guns: next-spawn weapons | /help: commands.
 GS_HELP_MENU = /menu: menu | /profile: my profile | /settings: language and HUD.
 GS_HELP_GUNS = /guns: choose weapons for next spawn; current inventory stays unchanged.
-GS_HELP_STATS = /stats: totals | /rank: progress | /top: map | /topall: overall leaders.
+GS_HELP_STATS = /stats: totals | /rank: progress | /ranks: rules | /top: map | /topall: overall.
 GS_HELP_MAPS = /maps: vote for a map | /timeleft: time until map change.
 GS_HELP_SESSION = This connection only: language/weapons and HUD.
 GS_HELP_HUD_SAVED = Language/weapons: this connection only; HUD: saved.
@@ -75,6 +82,13 @@ GS_ELITE = Elite
 GS_LEGEND = Legend
 
 [ru]
+GS_RANKS = Справочник рангов
+GS_RANKS_KILLS = Сохраненные убийства
+GS_RANKS_COUNT = Учитываются сохраненные убийства противников-людей.
+GS_RANKS_EXCLUDED = Боты, убийства союзников и самоубийства не дают прогресса.
+GS_RANKS_PROGRESS = Смерти не снижают ранг. Легенда - высший ранг.
+GS_RANKS_PLACE = Ранг - накопленный прогресс; место в рейтинге зависит от других игроков.
+GS_RANKS_FAIR = Ранги не дают боевых преимуществ. /rank показывает ваш прогресс.
 GS_MENU = GoldSrcOps
 GS_GUNS = Оружие (после возрождения)
 GS_STATS = Моя статистика
@@ -129,7 +143,7 @@ GS_CHANGE_SESSION = Только на это подключение.
 GS_WELCOME = /menu: меню игрока | /guns: выбор оружия | /help: справка.
 GS_HELP_MENU = /menu: меню | /profile: профиль | /settings: язык и HUD.
 GS_HELP_GUNS = /guns: оружие после возрождения; текущее оружие не меняется.
-GS_HELP_STATS = /stats: счет | /rank: ранг | /top: карта | /topall: общий рейтинг.
+GS_HELP_STATS = /stats: счет | /rank: ранг | /ranks: правила | /top: карта | /topall: рейтинг.
 GS_HELP_MAPS = /maps: выбор карты | /timeleft: время до смены карты.
 GS_HELP_SESSION = Язык/оружие и HUD действуют только в этом подключении.
 GS_HELP_HUD_SAVED = Язык/оружие - только в этом подключении; HUD сохранен.

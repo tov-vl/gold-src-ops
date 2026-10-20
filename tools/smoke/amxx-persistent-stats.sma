@@ -41,6 +41,8 @@ new bool:g_fail_readback;
 new g_leader_html[1536];
 new g_leader_title[64];
 new g_motds;
+new g_motd_target;
+new g_expected_motd_target;
 new g_vault_writes;
 new g_vault_reads;
 new bool:g_lookup_quiet;
@@ -429,7 +431,8 @@ public VerifyRestartStats()
 
 FixtureMotd(id, const html[], const title[])
 {
-    CheckSaved(id == g_clients[0], "player MOTD stays private");
+    CheckSaved(id == (g_expected_motd_target ? g_expected_motd_target : g_clients[0]), "player MOTD stays private");
+    g_motd_target = id;
     copy(g_leader_html, charsmax(g_leader_html), html);
     copy(g_leader_title, charsmax(g_leader_title), title);
     CheckSaved(contain(html, "background:#18212b") >= 0 && contain(html, "font:18px Arial") >= 0
@@ -1101,6 +1104,37 @@ public RunPlayerProfileSmoke()
     g_kill_streak[player] = 2;
     g_best_streak[player] = 5;
     new writes = g_vault_writes, reads = g_leader_reads;
+    new guide_reads = g_vault_reads, guide_motds = g_motds;
+    g_preferences_dirty[player] = PREFERENCE_PRIMARY;
+    g_hud_preference_dirty[player] = true;
+    g_stats_next[player][5] = 0.0;
+    amxclient_cmd(player, "say", "/ranks");
+    amxclient_cmd(player, "say_team", "/ranks");
+    amxclient_cmd(player, "ranks");
+    CheckSaved(g_motds == guide_motds + 1, "rank guide aliases share one cooldown");
+    g_stats_next[player][5] = 0.0;
+    amxclient_cmd(player, "say_team", "/ranks");
+    g_stats_next[player][5] = 0.0;
+    amxclient_cmd(player, "ranks");
+    CheckSaved(g_motds == guide_motds + 3 && g_motd_target == player, "all rank guide aliases dispatch privately");
+    CheckSaved(g_vault_reads == guide_reads && g_vault_writes == writes
+        && g_preferences_dirty[player] == PREFERENCE_PRIMARY && g_hud_preference_dirty[player],
+        "rank guide never loads storage or flushes pending preference writes");
+    CheckSaved(contain(g_leader_html, "STEAM_") < 0 && contain(g_leader_html, "<script>") < 0
+        && contain(g_leader_html, "800001") < 0, "static guide exposes no player data");
+    g_preferences_dirty[player] = 0;
+    g_hud_preference_dirty[player] = false;
+    g_stats_next[player][5] = 0.0;
+    g_hltv[player] = true;
+    ShowRankGuide(player);
+    g_hltv[player] = false;
+    CheckSaved(g_motds == guide_motds + 3 && g_stats_next[player][5] == 0.0, "HLTV cannot consume guide output or cooldown");
+    ShowRankGuide(player);
+    g_expected_motd_target = g_clients[1];
+    ShowRankGuide(g_clients[1]);
+    g_expected_motd_target = 0;
+    CheckSaved(g_motds == guide_motds + 5 && g_motd_target == g_clients[1], "another player's guide admission is independent");
+    server_print("PLAYER_RANK_GUIDE_STORAGE_SMOKE=%s failures=%d real_nvault=1 aliases=3", g_failures ? "failed" : "passed", g_failures);
     for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
     {
         g_language_override[player] = language + 1;

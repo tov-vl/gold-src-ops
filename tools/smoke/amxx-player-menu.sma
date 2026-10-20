@@ -9,6 +9,7 @@
 #define menu_display(%1,%2) FixtureMenuDisplay(%1,%2)
 #define client_print FixturePrint
 #define client_print_color FixtureColorPrint
+#define show_motd FixtureMotd
 #define show_dhudmessage FixtureHud
 #define set_dhudmessage FixtureHudParameters
 #include <goldsrcops_weapon_selection.sma>
@@ -18,6 +19,7 @@
 #undef menu_display
 #undef client_print
 #undef client_print_color
+#undef show_motd
 #undef show_dhudmessage
 #undef set_dhudmessage
 
@@ -31,6 +33,9 @@ new g_last_menu;
 new g_last_text[512];
 new g_previous_text[512];
 new g_prints;
+new g_motd_count;
+new g_motd_text[1536];
+new g_motd_title[64];
 new g_color_text[192];
 new bool:g_collect_help;
 new g_help_lines[5][192];
@@ -148,6 +153,17 @@ FixtureMenuDisplay(id, menu)
     CaptureMenuTitle(id, menu);
     return menu_display(id, menu);
 }
+FixtureMotd(id, const text[], const title[])
+{
+    CheckMenu(id == g_client, "MOTD remains private");
+    CheckMenu(strlen(text) < charsmax(g_motd_text) && contain(text, "ML_NOTFOUND") < 0
+        && contain(text, "</body></html>") == strlen(text) - 14, "complete translated MOTD fits the byte budget");
+    g_motd_count++;
+    copy(g_motd_text, charsmax(g_motd_text), text);
+    copy(g_motd_title, charsmax(g_motd_title), title);
+    return show_motd(id, text, title);
+}
+
 FixtureColorPrint(id, sender, const message[], any:...)
 {
     #pragma unused sender
@@ -367,11 +383,13 @@ public RunPlayerMenuSmoke()
     OnSettingsSelected(id, GetSettingsMenu(id, 1, 0), 0);
     CheckMenu(g_displays == displays, "settings does not grant spectator weapons");
     RunHelpChecks(id);
+    RunRankGuideChecks(id);
     RunHudChecks(id);
     g_hud_disabled[id] = true;
     client_disconnected(id, false, rejected, charsmax(rejected));
     client_putinserver(id);
     CheckMenu(g_help_next[id] == 0.0, "reconnect resets help cooldown");
+    CheckMenu(g_stats_next[id][5] == 0.0, "reconnect resets rank guide cooldown");
     CheckMenu(g_language_override[id] == 0 && PlayerLanguage(id) == 1, "reconnect clears override without changing client preference");
     CheckMenu(!g_hud_disabled[id] && !g_hud_visible[id], "reconnect resets HUD without a persistent identity");
     rg_round_respawn(id);
@@ -401,7 +419,84 @@ public FinishHudContinuity()
         g_periodic_samples[0], g_periodic_samples[1]);
     server_print("PLAYER_HUD_SMOKE=%s failures=%d languages=2 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
     server_print("PLAYER_MENU_SMOKE=%s failures=%d languages=2 map_hooks=delegated", g_failures ? "failed" : "passed", g_failures);
+    server_print("PLAYER_RANK_GUIDE_SMOKE=%s failures=%d languages=2 tiers=5 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
     server_print("PLAYER_HELP_SMOKE=%s failures=%d languages=2 lines=5 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
+}
+
+RunRankGuideChecks(id)
+{
+    new expected[192], motds = g_motd_count, displays = g_displays;
+    new reads = g_leader_reads, rebuilds = g_leader_rebuilds;
+    new saved_kills = g_saved_kills[id], map_kills = g_map_kills[id];
+    new bool:welcomed = g_welcomed[id];
+    new dirty = g_preferences_dirty[id], bool:hud_dirty = g_hud_preference_dirty[id];
+    g_preferences_dirty[id] = PREFERENCE_LANGUAGE | PREFERENCE_PRIMARY | PREFERENCE_PISTOL;
+    g_hud_preference_dirty[id] = true;
+    g_stats_next[id][2] = get_gametime() + 20.0;
+    g_stats_next[id][4] = get_gametime() + 20.0;
+    g_help_next[id] = get_gametime() + 20.0;
+    for (new language = 0; language < 2; language++)
+    {
+        g_language_override[id] = language + 1;
+        g_stats_next[id][5] = 0.0;
+        ShowRankGuide(id);
+        CheckMenu(g_motd_count == ++motds, "rank guide has an independent cooldown");
+        formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], "GS_RANKS");
+        CheckMenu(SameUtf8Bytes(expected, g_motd_title), "rank guide title uses current language");
+        new expected_kills[] = { 0, 25, 100, 250, 500 };
+        new previous = -1;
+        for (new rank = 0; rank < sizeof expected_kills; rank++)
+        {
+            formatex(expected, charsmax(expected), "<tr><td>%L<td>%d",
+                PLAYER_LANGUAGES[language], RANK_KEYS[rank], expected_kills[rank]);
+            new position = FindUtf8Bytes(g_motd_text, expected);
+            CheckMenu(position > previous && position >= 0, "all five rank names and exact thresholds are in ascending order");
+            previous = position;
+        }
+        new const rule_keys[][] = { "GS_RANKS_COUNT", "GS_RANKS_EXCLUDED", "GS_RANKS_PROGRESS", "GS_RANKS_PLACE", "GS_RANKS_FAIR" };
+        for (new rule = 0; rule < sizeof rule_keys; rule++)
+        {
+            formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], rule_keys[rule]);
+            CheckMenu(FindUtf8Bytes(g_motd_text, expected) >= 0, "every complete translated rank rule is present");
+        }
+        ShowRankGuide(id);
+        CheckMenu(g_motd_count == motds && g_stats_next[id][5] == get_gametime() + 5.0, "rank guide suppresses immediate repeats");
+        g_stats_next[id][5] = get_gametime();
+        ShowRankGuide(id);
+        CheckMenu(g_motd_count == ++motds, "rank guide admits the cooldown boundary");
+    }
+    CheckMenu(g_preferences_dirty[id] == (PREFERENCE_LANGUAGE | PREFERENCE_PRIMARY | PREFERENCE_PISTOL)
+        && g_hud_preference_dirty[id] && g_saved_kills[id] == saved_kills && g_map_kills[id] == map_kills
+        && g_welcomed[id] == welcomed && g_displays == displays && g_leader_reads == reads && g_leader_rebuilds == rebuilds,
+        "reading ranks preserves pending choices, scores, welcome, menu and leaderboard work");
+    g_preferences_dirty[id] = dirty;
+    g_hud_preference_dirty[id] = hud_dirty;
+    g_stats_next[id][5] = 0.0;
+    ShowRankGuide(0);
+    ShowRankGuide(MAX_PLAYERS + 1);
+    ShowRankGuide(id == MaxClients ? 1 : MaxClients);
+    set_pcvar_num(g_enabled, 0);
+    ShowRankGuide(id);
+    set_pcvar_num(g_enabled, 1);
+    g_human = false;
+    ShowRankGuide(id);
+    g_human = true;
+    CheckMenu(g_motd_count == motds && g_stats_next[id][5] == 0.0, "invalid disconnected disabled and bot rank queries do nothing");
+    new vault = g_stats_vault, preference_vault = g_preferences_vault;
+    g_stats_vault = INVALID_HANDLE;
+    g_preferences_vault = INVALID_HANDLE;
+    rg_set_user_team(id, TEAM_SPECTATOR);
+    ShowRankGuide(id);
+    CheckMenu(g_motd_count == ++motds, "spectator reads static rules without identity or storage");
+    g_stats_vault = vault;
+    g_preferences_vault = preference_vault;
+    rg_set_user_team(id, TEAM_CT);
+    rg_round_respawn(id);
+    set_entvar(id, var_deadflag, DEAD_DEAD);
+    g_stats_next[id][5] = 0.0;
+    ShowRankGuide(id);
+    CheckMenu(g_motd_count == ++motds, "dead players can read rank rules");
+    rg_round_respawn(id);
 }
 
 RunHelpChecks(id)
@@ -423,6 +518,8 @@ RunHelpChecks(id)
             formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], PLAYER_HELP_KEYS[line]);
             CheckMenu(SameUtf8Bytes(g_help_lines[line], expected), "RU/EN help command translation");
         }
+        CheckMenu(contain(g_help_lines[2], "/ranks") >= 0 && contain(g_help_lines[2], "/rank:") >= 0,
+            "five-line help distinguishes personal rank from the rank guide");
         formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_HELP_SESSION");
         CheckMenu(SameUtf8Bytes(g_help_lines[4], expected), "help combines both unsaved states in the fifth line");
         new prints = g_prints;
