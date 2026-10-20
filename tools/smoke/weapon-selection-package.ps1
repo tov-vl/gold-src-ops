@@ -98,5 +98,54 @@ if (-not $invalidRefused -or (Test-Path -LiteralPath $invalidOutput)) {
     throw "Sandbox activation was not refused before creating output."
 }
 
+# Exercise the actual dictionary gate against byte boundaries and malformed input.
+# Only this newly created sibling of content is temporary; the package is immutable.
+$dictionaryProbe = Join-Path $OutputDirectory 'dictionary-probe.txt'
+$dictionaryGate = Join-Path $PSScriptRoot 'player-menu-dictionary.ps1'
+$dictionaryText = [IO.File]::ReadAllText((Join-Path $package.Content 'cstrike/addons/amxmodx/data/lang/goldsrcops-player-menu.txt'))
+$utf8 = [Text.UTF8Encoding]::new($false, $true)
+$cases = @(
+    @{ Text = ('a' * 31); Accepted = $true },
+    @{ Text = (('я' * 15) + 'a'); Accepted = $true },
+    @{ Text = ('a' * 32); Accepted = $false },
+    @{ Text = ('я' * 16); Accepted = $false },
+    @{ Text = ' '; Accepted = $false },
+    @{ Text = "a`t"; Accepted = $false },
+    @{ Text = "a$([char]0)b"; Accepted = $false },
+    @{ Text = '%s'; Accepted = $false }
+)
+$checks = 0
+try {
+    foreach ($lang in @('en', 'ru')) {
+        foreach ($key in @('GS_RANKS_TITLE', 'GS_PROFILE_TITLE', 'GS_TOPALL_TITLE')) {
+            foreach ($case in $cases) {
+                $pattern = "(?ms)(\[$lang\]\r?\n(?:(?!\[ru\]|\[en\]).)*?^$key = )[^\r\n]*"
+                $probe = [regex]::Replace($dictionaryText, $pattern, { param($match) $match.Groups[1].Value + $case.Text })
+                if ($probe -ceq $dictionaryText) { throw "Dictionary probe did not replace its target." }
+                [IO.File]::WriteAllText($dictionaryProbe, $probe, $utf8)
+                $accepted = $true
+                try { & $dictionaryGate -DictionaryPath $dictionaryProbe | Out-Null }
+                catch { $accepted = $false }
+                if ($accepted -ne $case.Accepted) { throw "Unexpected dictionary boundary result: $lang/$key" }
+                $checks++
+            }
+        }
+    }
+    foreach ($invalid in @([byte[]](0xd0), [byte[]](0xc0, 0xaf), [byte[]](0xed, 0xa0, 0x80))) {
+        [IO.File]::WriteAllBytes($dictionaryProbe, ($utf8.GetBytes($dictionaryText) + $invalid))
+        $rejected = $false
+        try { & $dictionaryGate -DictionaryPath $dictionaryProbe | Out-Null }
+        catch {
+            if ($_.Exception.ToString() -notmatch 'DecoderFallbackException') { throw }
+            $rejected = $true
+        }
+        if (-not $rejected) { throw "Malformed UTF-8 was accepted." }
+        $checks++
+    }
+}
+finally {
+    if (Test-Path -LiteralPath $dictionaryProbe) { Remove-Item -LiteralPath $dictionaryProbe }
+}
+Write-Output "MOTD_TITLE_DICTIONARY_SMOKE=passed cases=$checks captions=3 languages=2"
 Write-Output "WEAPON_SELECTION_PACKAGE_SMOKE=passed"
 $package
