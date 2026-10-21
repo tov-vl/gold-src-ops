@@ -93,12 +93,17 @@ FIXTURES = {
     'player_menu_smoke.amxx': 'tools/smoke/amxx-player-menu.sma',
     'spawn_loadout_smoke.amxx': 'tools/smoke/amxx-spawn-loadout.sma',
     'persistent_stats_smoke.amxx': 'tools/smoke/amxx-persistent-stats.sma',
+    'goldsrcops_map_menu.amxx': 'samples/amxmodx-map-menu/goldsrcops_map_menu.sma',
+    'map_menu_smoke.amxx': 'tools/smoke/amxx-map-menu.sma',
+    'map_language_provider_smoke.amxx': 'tools/smoke/amxx-map-language-provider.sma',
     'engine_failure_smoke.amxx': 'tools/smoke/amxx-engine-failure.sma',
 }
 
 
 def source_identity():
     paths = list(FIXTURES.values()) + ['samples/amxmodx-weapon-selection/goldsrcops-player-menu.txt',
+                                     'samples/amxmodx-map-menu/goldsrcops-map-menu.txt',
+                                     'tools/smoke/amxx-map-menu.ps1',
                                      'tools/smoke/amxx-weapon-selection.ps1',
                                      'tools/smoke/amxx-game-event-producer.ps1']
     return {path: digest(ROOT / path) for path in paths}
@@ -113,7 +118,7 @@ def package_fixtures(compiled, output):
     manifest = {'schema': 1, 'toolchain': {'amxx': '1.10.0.5481', 'reapi': '5.24.0.300'},
                 'sources': source_identity(), 'payload': {name: digest(output / name) for name in FIXTURES}}
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
-    print('ENGINE_FIXTURES=packaged files=6')
+    print(f'ENGINE_FIXTURES=packaged files={len(FIXTURES)}')
 
 
 def verify_fixtures(compiled):
@@ -127,7 +132,25 @@ def verify_fixtures(compiled):
     return digest(compiled / 'manifest.json')
 
 
-def execute(cache, output, compiled, negative=False):
+def cases_tsv(cases):
+    lines = []
+    commands = set()
+    for case in cases:
+        plugins = [case['plugin'], *case.get('companionPlugins', [])]
+        if (len(set(plugins)) != len(plugins)
+                or any(name + '.amxx' not in FIXTURES for name in plugins)
+                or not re.fullmatch(r'[a-z0-9_]+', case['command'])
+                or case['command'] in commands
+                or not re.fullmatch(r'[a-z0-9_]+', case['map'])
+                or not case['markers']
+                or any(not re.fullmatch(r'[A-Z0-9_]+', marker) for marker in case['markers'])):
+            raise ValueError('Invalid or duplicate engine case')
+        commands.add(case['command'])
+        lines.append('\t'.join([','.join(plugins), case['command'], case['markers'][0], case['map']]) + '\n')
+    return ''.join(lines)
+
+
+def execute(cache, output, compiled, negative=False, missing_map_provider=False):
     started = time.monotonic()
     output.mkdir(parents=True, exist_ok=False)
     evidence = output / 'evidence'
@@ -136,7 +159,8 @@ def execute(cache, output, compiled, negative=False):
     inputs.mkdir()
     cache.mkdir(parents=True, exist_ok=True)
     lock = json.loads(LOCK.read_bytes())
-    result = {'result': 'failed', 'mode': 'negative-assertion' if negative else 'gameplay',
+    result = {'result': 'failed', 'mode': ('negative-assertion' if negative else
+                                       'missing-map-provider' if missing_map_provider else 'gameplay'),
               'lockSha256': digest(LOCK), 'network': 'none', 'publishedPorts': 0}
     owned = []
     try:
@@ -162,9 +186,9 @@ def execute(cache, output, compiled, negative=False):
         steam = inputs / 'steamclient.so'
         docker('cp', steam_name + ':' + lock['images']['steam']['path'], str(steam))
         verify(steam, lock['images']['steam']['sha256'])
-        cases = lock['cases'] if not negative else [lock['negativeCase']]
-        (inputs / 'cases.tsv').write_text(''.join('\t'.join([c['plugin'], c['command'], c['markers'][0], c['map']]) + '\n'
-                                                for c in cases), encoding='utf-8', newline='\n')
+        cases = ([lock['negativeCase']] if negative else
+                 [lock['missingMapProviderCase']] if missing_map_provider else lock['cases'])
+        (inputs / 'cases.tsv').write_text(cases_tsv(cases), encoding='utf-8', newline='\n')
         name = 'gameplay-engine-' + uuid.uuid4().hex
         owned.append(name)
         docker('create', '--name', name, '--network', 'none', '--cpus', '2', '--memory', '1g',
@@ -217,7 +241,9 @@ def main():
     parser.add_argument('--compiled', required=True, type=Path)
     parser.add_argument('--package-fixtures', action='store_true')
     parser.add_argument('--output', required=True, type=Path)
-    parser.add_argument('--negative-check', action='store_true', help='Run a deliberately failing engine fixture; must exit nonzero.')
+    negative = parser.add_mutually_exclusive_group()
+    negative.add_argument('--missing-map-provider-check', action='store_true', help='Require a missing map language provider; must fail.')
+    negative.add_argument('--negative-check', action='store_true', help='Run a deliberately failing engine fixture; must exit nonzero.')
     args = parser.parse_args()
     try:
         if args.package_fixtures:
@@ -225,7 +251,8 @@ def main():
         else:
             if args.cache is None:
                 parser.error('--cache is required for execution')
-            execute(args.cache.resolve(), args.output.resolve(), args.compiled.resolve(), args.negative_check)
+            execute(args.cache.resolve(), args.output.resolve(), args.compiled.resolve(),
+                    args.negative_check, args.missing_map_provider_check)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         return 1
     return 0

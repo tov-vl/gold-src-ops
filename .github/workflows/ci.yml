@@ -381,6 +381,7 @@ jobs:
           name: gameplay-engine-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/gameplay-engine/negative/evidence/
+            ${{ runner.temp }}/gameplay-engine/negative-map-provider/evidence/
             ${{ runner.temp }}/gameplay-engine/positive/evidence/
           if-no-files-found: warn
           retention-days: 7

@@ -69,6 +69,28 @@ class ResultTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 engine.verify_fixtures(package)
 
+    def test_map_modes_require_separate_evidence(self):
+        cases = json.loads(engine.LOCK.read_bytes())['cases'][-2:]
+        self.assertNotEqual(cases[0]['command'], cases[1]['command'])
+        with tempfile.TemporaryDirectory(prefix='map-mode-test-') as folder:
+            evidence = Path(folder)
+            for case in cases:
+                (evidence / (case['command'] + '.log')).write_text(
+                    ''.join(marker + '=passed failures=0\n' for marker in case['markers']))
+            engine.validate_evidence(evidence, cases)
+            (evidence / (cases[1]['command'] + '.log')).write_text(
+                (evidence / (cases[0]['command'] + '.log')).read_text())
+            with self.assertRaises(ValueError):
+                engine.validate_evidence(evidence, cases)
+
+    def test_case_plan_rejects_log_collision_or_unknown_plugin(self):
+        case = json.loads(engine.LOCK.read_bytes())['cases'][-2]
+        with self.assertRaises(ValueError):
+            engine.cases_tsv([case, case])
+        for plugins in (['missing'], [case['plugin']]):
+            with self.subTest(plugins=plugins), self.assertRaises(ValueError):
+                engine.cases_tsv([{**case, 'companionPlugins': plugins}])
+
     def test_missing_fixture_log_is_fatal(self):
         with tempfile.TemporaryDirectory(prefix='gameplay-missing-test-') as folder, self.assertRaises(FileNotFoundError):
             engine.validate_evidence(Path(folder),[{'command':'case','markers':['SMOKE']}])
@@ -96,6 +118,16 @@ def main():
                 or 'ENGINE_ASSERTION_FAILED intentional negative fixture' not in log):
             raise RuntimeError('Real engine assertion did not fail the runner')
         print('ENGINE_FAILURE_GATE=passed intentional_assertion=rejected')
+        missing = args.output.with_name(args.output.name + '-map-provider')
+        attempt = subprocess.run([sys.executable,'-B',str(SCRIPT),'--cache',str(args.cache),
+                                  '--output',str(missing),'--compiled',str(args.compiled),
+                                  '--missing-map-provider-check'], timeout=720)
+        outcome = json.loads((missing/'evidence/result.json').read_bytes())
+        log = (missing/'evidence/goldsrcops_map_menu_provider_smoke.log').read_text(errors='replace')
+        if (attempt.returncode == 0 or outcome['result'] != 'failed' or outcome['cleanup'] != 'passed'
+                or 'MAP_MENU_ASSERTION_FAILED expected language provider presence' not in log):
+            raise RuntimeError('Missing map provider did not fail the runner')
+        print('MAP_PROVIDER_FAILURE_GATE=passed missing_provider=rejected')
     return 0
 
 
