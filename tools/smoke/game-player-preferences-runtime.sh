@@ -65,6 +65,7 @@ run_case persistent_stats_smoke goldsrcops_persistent_stats_smoke PERSISTENT_STA
 run_case persistent_stats_smoke goldsrcops_public_leaderboard_smoke PUBLIC_LEADERBOARD_SMOKE de_dust2
 run_case persistent_stats_smoke goldsrcops_leaderboard_smoke PLAYER_LEADERBOARD_SMOKE de_dust2
 run_case persistent_stats_smoke goldsrcops_standing_smoke PLAYER_STANDING_SMOKE de_dust2
+run_case persistent_stats_smoke goldsrcops_kd_ratio_smoke PLAYER_KD_RATIO_SMOKE de_dust2
 run_case persistent_stats_smoke goldsrcops_profile_smoke PLAYER_PROFILE_SMOKE de_dust2
 grep -Eq '^PLAYER_MENU_STATUS version=[^ ]+ .* entries=9 map_commands=delegated language_native=1$' /tmp/goldsrcops_profile_smoke.log
 grep -Eq '^PLAYER_PROFILE_STATUS version=[^ ]+ display=private_motd languages=ru_en cooldown=5 source=loaded_player_state standing=leaderboard_cache storage_writes=none$' /tmp/goldsrcops_profile_smoke.log

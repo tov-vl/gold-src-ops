@@ -63,8 +63,15 @@ foreach ($key in $sections.en.Keys) {
         $value = $sections[$lang][$key]
         $formats[$lang] = @([regex]::Matches($value, '%(?:\.2f|d|s)') | ForEach-Object Value)
         if ([regex]::Replace($value, '%(?:\.2f|d|s)', '').Contains('%')) { throw "Unsupported format: $key" }
-        # Worst-case chat values: bounded nickname/rank, counter and finite K/D.
-        $worst = $value.Replace('%s', ('x' * 31)).Replace('%d', '1000000000').Replace('%.2f', '1000000000.00')
+        # Ratio text has its own 13-byte bound; names/ranks retain 31 bytes.
+        $worst = $value
+        if ($key -in @('GS_SAVED_STATS', 'GS_MAP_STATS', 'GS_PROFILE_SCORE', 'GS_TOP_ROW')) {
+            $expected = if ($key -eq 'GS_TOP_ROW') { '%d,%s,%d,%d,%s' } else { '%d,%d,%s' }
+            if (($formats[$lang] -join ',') -cne $expected) { throw "K/D format mismatch: $lang/$key" }
+            $position = $worst.LastIndexOf('%s', [StringComparison]::Ordinal)
+            $worst = $worst.Remove($position, 2).Insert($position, '1000000000.00')
+        }
+        $worst = $worst.Replace('%s', ('x' * 31)).Replace('%d', '1000000000').Replace('%.2f', '1000000000.00')
         if ($utf8.GetByteCount('[GoldSrcOps] ' + $worst) -gt 190) { throw "Dictionary message exceeds chat limit: $lang/$key" }
     }
     if (($formats.en -join ',') -cne ($formats.ru -join ',')) { throw "Translation format mismatch: $key" }

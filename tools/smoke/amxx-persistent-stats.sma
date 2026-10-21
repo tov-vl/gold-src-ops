@@ -64,6 +64,7 @@ public plugin_init()
     register_srvcmd("goldsrcops_public_leaderboard_smoke", "RunPublicLeaderboardSmoke");
     register_srvcmd("goldsrcops_standing_smoke", "RunPlayerStandingSmoke");
     register_srvcmd("goldsrcops_profile_smoke", "RunPlayerProfileSmoke");
+    register_srvcmd("goldsrcops_kd_ratio_smoke", "RunKillDeathRatioSmoke");
     register_srvcmd("goldsrcops_saved_streak_smoke", "RunSavedStreakSmoke");
     register_srvcmd("goldsrcops_saved_streak_seed", "SeedSavedStreak");
     register_srvcmd("goldsrcops_saved_streak_verify", "VerifySavedStreak");
@@ -121,7 +122,11 @@ FixturePrint(id, type, const message[], any:...)
     g_prints++;
     g_print_target = id;
     copy(g_previous_print, charsmax(g_previous_print), g_last_print);
-    vformat(g_last_print, charsmax(g_last_print), message, 4);
+    new complete[512];
+    vformat(complete, charsmax(complete), message, 4);
+    CheckSaved(strlen(complete) <= 190 && contain(complete, "ML_NOTFOUND") < 0,
+        "complete localized chat fits the transport before truncation");
+    copy(g_last_print, charsmax(g_last_print), complete);
     return strlen(g_last_print);
 }
 
@@ -1140,7 +1145,7 @@ public SeedSavedStreak()
     g_map_kills[g_clients[0]] = 7;
     g_map_deaths[g_clients[0]] = 2;
     ShowPlayerProfile(g_clients[0]);
-    CheckSaved(contain(g_leader_html, "Score: K 7 | D 2 | K/D 3.49") >= 0,
+    CheckSaved(contain(g_leader_html, "Score: K 7 | D 2 | K/D 3.50") >= 0,
         "seed a nonzero connection score before process and map replacement");
     server_print("PLAYER_SAVED_STREAK_SEED=%s failures=%d", g_failures ? "failed" : "passed", g_failures);
     return PLUGIN_HANDLED;
@@ -1225,7 +1230,6 @@ public RunPlayerProfileSmoke()
     nvault_touch(g_stats_vault, keys[0], 123456789);
     g_kill_streak[player] = 2;
     g_best_streak[player] = 5;
-    // Pinned AMXX float formatting renders the existing 7/2 ratio as 3.49.
     g_map_kills[player] = 7;
     g_map_deaths[player] = 2;
     new writes = g_vault_writes, reads = g_leader_reads;
@@ -1269,7 +1273,7 @@ public RunPlayerProfileSmoke()
         CheckSaved(g_motds == motds + 1 && g_prints == prints, "profile emits one private MOTD without chat spam");
         CheckSaved(contain(g_leader_html, "K 10 | D 1 | K/D 10.00") >= 0,
             "profile uses saved totals and existing ratio semantics");
-        CheckProfileScore(language, "K 7 | D 2 | K/D 3.49");
+        CheckProfileScore(language, "K 7 | D 2 | K/D 3.50");
         CheckSaved(FindProfileUtf8(g_leader_title, language == 0 ? "Мой профиль" : "My profile") == 0
             && strlen(g_leader_title) == (language == 0 ? 21 : 10),
             "profile caption preserves every RU/EN UTF-8 byte");
@@ -1386,7 +1390,7 @@ public RunPlayerProfileSmoke()
             g_language_override[player] = language + 1;
             g_stats_next[player][4] = 0.0;
             ShowPlayerProfile(player);
-            CheckProfileScore(language, "K 7 | D 2 | K/D 3.49");
+            CheckProfileScore(language, "K 7 | D 2 | K/D 3.50");
         }
         g_stats_vault = stats_vault;
         g_preferences_vault = preference_vault;
@@ -1997,5 +2001,75 @@ public RunPlayerLookupLoad()
     }
     server_print("PLAYER_LOOKUP_LOAD=%s failures=%d records=4096 samples=30 mean_ms=%.3f max_ms=%.3f startup_ms=%.3f busy_1000_ms=%.3f name_payload_bytes=%d",
         g_failures ? "failed" : "passed", g_failures, total_ms[1] / 30.0, maximum_ms[1], startup_ms, busy_ms, 32 * 4 * LEADER_INDEX_LIMIT);
+    return PLUGIN_HANDLED;
+}
+
+public RunKillDeathRatioSmoke()
+{
+    if (!CreateStatsClients()) { set_fail_state("K/D fixture unavailable."); return PLUGIN_HANDLED; }
+    SeedLeaderboardRecords();
+    new player = g_clients[0];
+    JoinStandingPlayer(player, 1);
+    g_human[g_clients[1]] = false;
+    g_human[g_clients[2]] = false;
+    new const scores[][2] = { { 0, 0 }, { 0, 1 }, { 7, 0 }, { 7, 1 }, { 7, 2 }, { 1, 3 }, { 2, 3 }, { 1, 8 }, { 3, 8 }, { 1, 200 }, { 1, 201 }, { 1, 199 }, { 199, 200 }, { 198, 200 }, { 399, 200 }, { 999999999, 1000000000 }, { 1000000000, 999999999 }, { 1000000000, 0 }, { 1000000000, 1 }, { 1000000000, 3 }, { 1000000000, 1000000000 }, { 994999999, 1000000000 }, { 995000000, 1000000000 }, { 995000001, 1000000000 } };
+    new const expected[][] = { "0.00", "0.00", "7.00", "7.00", "3.50", "0.33", "0.67", "0.13", "0.38", "0.01", "0.00", "0.01", "1.00", "0.99", "2.00", "1.00", "1.00", "1000000000.00", "1000000000.00", "333333333.33", "1.00", "0.99", "1.00", "1.00" };
+    new writes = g_vault_writes, ratio[14], needle[96], full[192];
+    for (new index = 0; index < sizeof scores; index++)
+    {
+        FormatKillDeathRatio(scores[index][0], scores[index][1], ratio, charsmax(ratio));
+        CheckSaved(equal(ratio, expected[index]) != 0, "exact half-up K/D including carry and maximum counters");
+        g_saved_kills[player] = g_map_kills[player] = scores[index][0];
+        g_saved_deaths[player] = g_map_deaths[player] = scores[index][1];
+        formatex(needle, charsmax(needle), "K %d | D %d | K/D %s", scores[index][0], scores[index][1], expected[index]);
+        for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
+        {
+            g_language_override[player] = language + 1;
+            g_stats_next[player][0] = 0.0;
+            ShowMapStats(player);
+            formatex(full, charsmax(full), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_SAVED_STATS",
+                scores[index][0], scores[index][1], expected[index]);
+            CheckSaved(equal(g_last_print, full) && g_print_target == player, "saved stats keep full localized ratio text privately");
+            g_stats_next[player][4] = 0.0;
+            ShowPlayerProfile(player);
+            CheckSaved(contain(g_leader_html, needle) >= 0, "saved profile uses exact rounded ratio");
+            CheckProfileScore(language, needle);
+            CheckSaved(contain(g_leader_html, "</body></html>") == strlen(g_leader_html) - 14,
+                "ratio boundary leaves complete profile markup");
+            new vault = g_stats_vault;
+            g_stats_vault = INVALID_HANDLE;
+            g_saved_ready[player] = false;
+            g_stats_next[player][0] = 0.0;
+            ShowMapStats(player);
+            formatex(full, charsmax(full), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_MAP_STATS",
+                scores[index][0], scores[index][1], expected[index]);
+            CheckSaved(equal(g_last_print, full) && g_print_target == player, "unavailable saved stats use complete localized map ratio");
+            g_stats_vault = vault;
+            g_saved_ready[player] = true;
+            g_stats_next[player][1] = 0.0;
+            ShowMapLeaders(player);
+            new name[32];
+            get_user_name(player, name, charsmax(name));
+            CleanStatsName(name);
+            formatex(full, charsmax(full), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_TOP_ROW",
+                1, name, scores[index][0], scores[index][1], expected[index]);
+            if (!scores[index][0] && !scores[index][1])
+            {
+                formatex(full, charsmax(full), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_TOP_EMPTY");
+            }
+            CheckSaved(equal(g_last_print, full) && g_print_target == player, "map leader ratio or zero-score exclusion matches localization");
+        }
+    }
+    g_saved_kills[player] = 7;
+    g_saved_deaths[player] = 2;
+    g_map_kills[player] = 2;
+    g_map_deaths[player] = 3;
+    g_stats_next[player][4] = 0.0;
+    ShowPlayerProfile(player);
+    CheckSaved(contain(g_leader_html, "K 7 | D 2 | K/D 3.50") >= 0, "saved section uses saved fraction");
+    CheckProfileScore(1, "K 2 | D 3 | K/D 0.67");
+    CheckSaved(g_vault_writes == writes, "ratio projections never write storage");
+    server_print("PLAYER_KD_RATIO_SMOKE=%s failures=%d cases=%d languages=2 storage_writes=none",
+        g_failures ? "failed" : "passed", g_failures, sizeof scores);
     return PLUGIN_HANDLED;
 }
