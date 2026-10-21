@@ -26,10 +26,10 @@ cp /inputs/steamclient.so /home/steam/.steam/sdk32/steamclient.so
 chown -R steam:steam /home/steam
 chmod 0755 /server/hlds_run /server/hlds_linux
 ulimit -f 16384
-mkfifo /tmp/preferences-console
-chown -R steam:steam /server /tmp/preferences-console
+mkfifo /server/preferences-console
+chown -R steam:steam /server /server/preferences-console
 cd /server
-exec 3<> /tmp/preferences-console
+exec 3<> /server/preferences-console
 pid=
 finish() {
     local status=$?
