@@ -1,0 +1,214 @@
+{
+  "schema": 1,
+  "images": {
+    "engine": {
+      "reference": "archont94/counter-strike1.6@sha256:2294ee98981ef1fe4443d9c6a802c74fc9639164ed7a22e294256afb46c32bdb"
+    },
+    "steam": {
+      "reference": "cm2network/steamcmd@sha256:e6b6b3503bf0e41feafe12dc709c90151afba193e1292cac55d28a7d470b1493",
+      "path": "/home/steam/steamcmd/linux32/steamclient.so",
+      "sha256": "47163830cbb9888e1a8162b7b5054c7118159ec05001059a9cf1d0fec466a43c"
+    }
+  },
+  "assets": [
+    {
+      "name": "rehlds-bin-3.15.0.896.zip",
+      "directory": "rehlds",
+      "url": "https://github.com/rehlds/ReHLDS/releases/download/3.15.0.896/rehlds-bin-3.15.0.896.zip",
+      "sha256": "997baeb7ef3842dab3e034d82dc651ebfe560c23b158adce660a6b97976b4e2b"
+    },
+    {
+      "name": "regamedll-bin-5.30.0.814.zip",
+      "directory": "regamedll",
+      "url": "https://github.com/rehlds/ReGameDLL_CS/releases/download/5.30.0.814/regamedll-bin-5.30.0.814.zip",
+      "sha256": "457f5c96a4d10280fcad47f106cbd5be86363a47df1ccab91c514e9d1bc6fd18"
+    },
+    {
+      "name": "amxmodx-1.10.0-git5481-base-linux.tar.gz",
+      "directory": "amxx",
+      "url": "https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5481/amxmodx-1.10.0-git5481-base-linux.tar.gz",
+      "sha256": "ee33b31ae92afd94802c43eae14ecdfa1ffa2ba0b11658e8bec98f48a5881272"
+    },
+    {
+      "name": "amxmodx-1.10.0-git5481-cstrike-linux.tar.gz",
+      "directory": "cstrike",
+      "url": "https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5481/amxmodx-1.10.0-git5481-cstrike-linux.tar.gz",
+      "sha256": "76ff2bdd39f6dc14a2088ff4af724599c69a8ae7e3526679927aaef4ca898bf2"
+    },
+    {
+      "name": "metamod-bin-1.3.0.149.zip",
+      "directory": "metamod",
+      "url": "https://github.com/rehlds/Metamod-R/releases/download/1.3.0.149/metamod-bin-1.3.0.149.zip",
+      "sha256": "ede7f59c4e0220afe8c02aa348a130cce527f87d36ffdb674e37a501ce57be94"
+    },
+    {
+      "name": "reapi-bin-5.24.0.300.zip",
+      "directory": "reapi",
+      "url": "https://github.com/rehlds/ReAPI/releases/download/5.24.0.300/reapi-bin-5.24.0.300.zip",
+      "sha256": "16114cf5a782e9d3d0c9443c23cd937c17cc09dc9b16ff998ce48bda5faf0a81"
+    }
+  ],
+  "cases": [
+    {
+      "plugin": "player_preferences_smoke",
+      "command": "goldsrcops_preferences_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "PLAYER_PREFERENCES_SMOKE",
+        "WEAPON_MARKER_SMOKE",
+        "PLAYER_HUD_PREFERENCE_SMOKE",
+        "PLAYER_SETTINGS_SMOKE"
+      ]
+    },
+    {
+      "plugin": "player_preferences_smoke",
+      "command": "goldsrcops_preferences_seed",
+      "map": "de_dust2",
+      "markers": [
+        "PLAYER_PREFERENCES_SEED"
+      ]
+    },
+    {
+      "plugin": "player_preferences_smoke",
+      "command": "goldsrcops_preferences_verify",
+      "map": "cs_office",
+      "markers": [
+        "PLAYER_PREFERENCES_RELOAD"
+      ]
+    },
+    {
+      "plugin": "player_menu_smoke",
+      "command": "goldsrcops_player_menu_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "PLAYER_MENU_SMOKE",
+        "PLAYER_RANK_GUIDE_SMOKE",
+        "PLAYER_HELP_SMOKE",
+        "PLAYER_HUD_SMOKE"
+      ]
+    },
+    {
+      "plugin": "spawn_loadout_smoke",
+      "command": "goldsrcops_loadout_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "SPAWN_LOADOUT_SMOKE"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_persistent_stats_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "PERSISTENT_STATS_SMOKE",
+        "PLAYER_RANK_SMOKE"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_public_leaderboard_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "PUBLIC_LEADERBOARD_SMOKE"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_leaderboard_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "PLAYER_LEADERBOARD_SMOKE",
+        "PLAYER_LEADERBOARD_RANK_SMOKE"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_standing_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "PLAYER_STANDING_SMOKE"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_kd_ratio_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "PLAYER_KD_RATIO_SMOKE"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_profile_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "PLAYER_PROFILE_SMOKE"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_saved_streak_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "PLAYER_SAVED_STREAK_SMOKE"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_saved_streak_seed",
+      "map": "de_dust2",
+      "markers": [
+        "PLAYER_SAVED_STREAK_SEED"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_saved_streak_verify",
+      "map": "cs_office",
+      "markers": [
+        "PLAYER_SAVED_STREAK_RELOAD",
+        "PLAYER_PROFILE_RELOAD"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_leaderboard_seed",
+      "map": "de_dust2",
+      "markers": [
+        "PLAYER_LEADERBOARD_SEED"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_leaderboard_verify",
+      "map": "cs_office",
+      "markers": [
+        "PLAYER_LEADERBOARD_RELOAD"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_player_lookup_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "PLAYER_LOOKUP_SMOKE"
+      ]
+    },
+    {
+      "plugin": "persistent_stats_smoke",
+      "command": "goldsrcops_player_lookup_load",
+      "map": "de_dust2",
+      "markers": [
+        "PLAYER_LOOKUP_LOAD"
+      ]
+    }
+  ],
+  "negativeCase": {
+    "plugin": "engine_failure_smoke",
+    "command": "goldsrcops_engine_failure",
+    "markers": [
+      "ENGINE_FAILURE_SMOKE"
+    ],
+    "map": "de_dust2"
+  }
+}

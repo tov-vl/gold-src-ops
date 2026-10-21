@@ -135,6 +135,8 @@ foreach ($path in @(
         ".github/workflows/ci.yml", "tools/ci/resolve-change-scope.ps1",
         "tools/ci/test-changed-documentation.ps1", "tools/smoke/ci-release-fast-path.ps1",
         "tools/smoke/amxx-game-event-producer.ps1", "tools/smoke/unknown-runtime.sh",
+        "tools/smoke/engine-ci.py", "tools/smoke/test-engine-ci.py",
+        "tools/smoke/engine-ci-lock.json", "tools/smoke/amxx-engine-failure.sma",
         "samples/amxmodx-game-event-producer/goldsrcops_game_events.sma",
         "samples/amxmodx-weapon-selection/unknown.sma", "samples/amxmodx-map-menu/extra.cfg",
         "ops/gameserver/game-event-persistent.sh", "ops/production/compose.yml",
@@ -259,7 +261,7 @@ function Test-WorkflowCondition {
     foreach ($key in $Context.Keys) {
         $expression = $expression.Replace($key, "'$($Context[$key])'")
     }
-    $expression = $expression.Replace('!cancelled()', '$true')
+    $expression = $expression.Replace('!cancelled()', '$true').Replace('always()', '$true')
     $expression = $expression.Replace('!=', '-cne').Replace('==', '-ceq').Replace('&&', '-and').Replace('||', '-or')
     # Evaluate only the small comparison grammar used by these workflow gates.
     $unrecognized = [regex]::Replace($expression, "'[^']*'|\`$true|-cne|-ceq|-and|-or|[\s()]", '')
@@ -279,9 +281,9 @@ function Get-WorkflowSteps {
 $jobs = @{ quality = $qualityJob; container = $containerJob; browser = $browserJob; compile = $compileJob }
 $addonSteps = @{
     quality = @('Checkout', 'Validate CI release fast path', 'Confirm addon-only fast path', 'Validate changed documentation')
-    container = @('Confirm addon-only fast path', 'Checkout', 'Validate weapon-selection addon installation, upgrade and toggle', 'Validate gameplay runtime script syntax', 'Validate map-menu addon installation, removal and rollback')
+    container = @('Confirm addon-only fast path', 'Checkout', 'Validate weapon-selection addon installation, upgrade and toggle', 'Validate gameplay runtime script syntax', 'Download gameplay fixtures', 'Cache verified gameplay archives', 'Verify real engine failure rejection', 'Run isolated gameplay engine smoke', 'Retain gameplay engine diagnostics', 'Validate map-menu addon installation, removal and rollback')
     browser = @('Confirm addon-only fast path')
-    compile = @('Checkout', 'Compile map menu and isolated fixture with pinned toolchain', 'Compile weapon addon and gameplay fixtures, verify package')
+    compile = @('Checkout', 'Compile map menu and isolated fixture with pinned toolchain', 'Compile weapon addon and gameplay fixtures, verify package', 'Package gameplay fixtures', 'Upload gameplay fixtures')
 }
 foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
     $context = @{
@@ -334,6 +336,17 @@ foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
     }
 }
 Assert-Condition -Condition ($containerJob -match '(?m)^      - map-menu-compile$') -Message "Container Smoke must wait for addon compilation."
+foreach ($name in @('Verify real engine failure rejection', 'Run isolated gameplay engine smoke')) {
+    $step = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq $name)[0]
+    Assert-Condition -Condition ($step.Body -notmatch 'continue-on-error:|\|\| true') -Message "Engine failure must fail Container Smoke."
+    Assert-Condition -Condition ($step.Body -match 'timeout-minutes:') -Message "Engine execution needs a bounded timeout."
+}
+Assert-Condition -Condition ($compileJob.Contains('fixture_artifact: ${{ steps.fixture-bundle.outputs.name }}')) -Message "The producer must expose its exact fixture artifact name."
+$download = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq 'Download gameplay fixtures')[0]
+Assert-Condition -Condition ($download.Body.Contains('name: ${{ needs.map-menu-compile.outputs.fixture_artifact }}')) -Message "Consumers must use the producer artifact identity, including on job reruns."
+$diagnostics = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq 'Retain gameplay engine diagnostics')[0]
+Assert-Condition -Condition ($diagnostics.Condition.StartsWith('always() &&')) -Message "Engine evidence must survive failed checks."
+Assert-Condition -Condition ($diagnostics.Body -match 'retention-days: 7') -Message "Diagnostic retention must remain bounded."
 Assert-Condition -Condition ($containerJob -notmatch 'needs\.quality|(?m)^      - quality$') -Message "Container Smoke must run independently of Quality Gate."
 # Parallel execution must not turn successful container checks into permission
 # to publish after a failed, cancelled or skipped Quality Gate.

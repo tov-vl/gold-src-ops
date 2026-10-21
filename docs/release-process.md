@@ -198,8 +198,11 @@ The addon path preserves the existing check names:
 - `Map Menu Compile` compiles both addons and their fixtures with the pinned
   toolchain, validates dictionaries and builds/verifies their packages.
 - `Container Smoke` requires successful scope and compilation checks,
-  runs both isolated addon installer/rollback fixtures, and checks the syntax
-  of the three local gameplay runtime scripts.
+  runs both isolated addon installer/rollback fixtures and the 18 gameplay
+  engine scenarios. It verifies the compiled-fixture manifest against its own
+  checkout and runs a deliberately failing fixture to prove failure propagation.
+  Both runtime and AMXX errors fail the required check. Bounded synthetic
+  diagnostics are retained for seven days even after failure.
 - `Browser Smoke` records that browser execution is unnecessary for this scope.
 
 The addon path omits .NET restore/format/build/test/audit, control-plane container
@@ -217,9 +220,13 @@ For enabled schema-2 updates, use the [claimed addon workflow](v2.64-addon-upgra
 with its compatible source tree and frozen read-only acceptance probe. Its
 pending journal blocks repeat execution and scheduled capture after an uncertain outcome.
 
-Compilation and shell syntax do not prove gameplay behavior. Run the focused
-isolated engine scenario required by the changed mechanic separately. None of
-these CI checks connects to the live game server. Validate changes to this
+The required engine gate covers weapons, preferences, real nVault reload,
+menus, ranks, profile, K/D, saved streaks and leaderboard/lookup regressions.
+It uses hash-verified archives and digest-pinned images, without engine network
+access or published ports. The setup and local command are documented in
+[engine CI](v2.90-engine-ci.md). Add a focused scenario when a changed mechanic
+is outside this coverage; client rendering remains a separate acceptance gate.
+None of these CI checks connects to the live game server. Validate changes to this
 routing with `tools/smoke/ci-release-fast-path.ps1`; routing changes themselves
 use full CI. Remote run results and measured time savings remain separate
 evidence from local checks.

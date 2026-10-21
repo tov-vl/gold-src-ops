@@ -68,7 +68,7 @@ function Test-AddonPath {
     )
 
     # Keep this list limited to inputs exercised by the addon compile/package
-    # job, the isolated installer fixtures, and gameplay-script syntax checks.
+    # job, the isolated installer fixtures, and gameplay engine checks.
     # Shared tooling needs full CI.
     return $Path -cin @(
         "samples/amxmodx-map-menu/goldsrcops_map_menu.sma",
