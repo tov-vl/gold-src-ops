@@ -59,6 +59,7 @@ foreach ($lang in @('en', 'ru')) {
 }
 # Selected weapon text is inserted inside brackets and menu color codes.
 foreach ($lang in @('en', 'ru')) {
+    if ('GS_WEAPON_SELECTED' -notin $used) { continue }
     $selected = $sections[$lang]['GS_WEAPON_SELECTED']
     if ([string]::IsNullOrWhiteSpace($selected) -or $selected -match '[%\t\[\]]' -or
         $utf8.GetByteCount($selected) -gt 24) {
