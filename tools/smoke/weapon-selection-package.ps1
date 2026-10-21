@@ -131,6 +131,30 @@ try {
             }
         }
     }
+    $markerCases = @(
+        @{ Text = ('a' * 24); Accepted = $true },
+        @{ Text = ('я' * 12); Accepted = $true },
+        @{ Text = ('a' * 25); Accepted = $false },
+        @{ Text = (('я' * 12) + 'a'); Accepted = $false },
+        @{ Text = ' '; Accepted = $false },
+        @{ Text = '%s'; Accepted = $false },
+        @{ Text = '[selected]'; Accepted = $false },
+        @{ Text = "a`t"; Accepted = $false },
+        @{ Text = '\yselected'; Accepted = $false }
+    )
+    foreach ($lang in @('en', 'ru')) {
+        foreach ($case in $markerCases) {
+            $pattern = "(?ms)(\[$lang\]\r?\n(?:(?!\[ru\]|\[en\]).)*?^GS_WEAPON_SELECTED = )[^\r\n]*"
+            $probe = [regex]::Replace($dictionaryText, $pattern, { param($match) $match.Groups[1].Value + $case.Text })
+            if ($probe -ceq $dictionaryText) { throw 'Weapon marker probe did not replace its target.' }
+            [IO.File]::WriteAllText($dictionaryProbe, $probe, $utf8)
+            $accepted = $true
+            try { & $dictionaryGate -DictionaryPath $dictionaryProbe | Out-Null }
+            catch { $accepted = $false }
+            if ($accepted -ne $case.Accepted) { throw "Unexpected weapon marker boundary result: $lang" }
+            $checks++
+        }
+    }
     foreach ($invalid in @([byte[]](0xd0), [byte[]](0xc0, 0xaf), [byte[]](0xed, 0xa0, 0x80))) {
         [IO.File]::WriteAllBytes($dictionaryProbe, ($utf8.GetBytes($dictionaryText) + $invalid))
         $rejected = $false
@@ -146,6 +170,6 @@ try {
 finally {
     if (Test-Path -LiteralPath $dictionaryProbe) { Remove-Item -LiteralPath $dictionaryProbe }
 }
-Write-Output "MOTD_TITLE_DICTIONARY_SMOKE=passed cases=$checks captions=3 languages=2"
+Write-Output "PLAYER_MENU_BOUNDARY_SMOKE=passed cases=$checks captions=3 marker=1 languages=2"
 Write-Output "WEAPON_SELECTION_PACKAGE_SMOKE=passed"
 $package
