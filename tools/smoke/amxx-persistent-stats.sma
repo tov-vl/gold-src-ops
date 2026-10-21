@@ -1137,6 +1137,11 @@ public SeedSavedStreak()
     rg_round_respawn(g_clients[0]);
     for (new count = 0; count < 7; count++) { RecordKillStreak(g_clients[0]); }
     CheckSaved(g_saved_streak[g_clients[0]] == 7 && g_streak_writes == 7, "seed saved record through real vault writes");
+    g_map_kills[g_clients[0]] = 7;
+    g_map_deaths[g_clients[0]] = 2;
+    ShowPlayerProfile(g_clients[0]);
+    CheckSaved(contain(g_leader_html, "Score: K 7 | D 2 | K/D 3.49") >= 0,
+        "seed a nonzero connection score before process and map replacement");
     server_print("PLAYER_SAVED_STREAK_SEED=%s failures=%d", g_failures ? "failed" : "passed", g_failures);
     return PLUGIN_HANDLED;
 }
@@ -1158,6 +1163,14 @@ public VerifySavedStreak()
     CheckSaved(contain(g_leader_html, "Saved best streak: 7") >= 0 && contain(g_leader_html, "Your place: 12 of 13.") >= 0
         && contain(g_leader_html, "Streak: 0 | Best: 0") >= 0 && g_vault_writes == writes,
         "fresh process profile restores saved record and standing with new connection counters and no writes");
+    for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
+    {
+        g_language_override[player] = language + 1;
+        g_stats_next[player][4] = 0.0;
+        ShowPlayerProfile(player);
+        CheckProfileScore(language, "K 0 | D 0 | K/D 0.00");
+    }
+    CheckSaved(g_vault_writes == writes, "map replacement profile projection remains read only");
     server_print("PLAYER_PROFILE_RELOAD=%s failures=%d", g_failures ? "failed" : "passed", g_failures);
     server_print("PLAYER_SAVED_STREAK_RELOAD=%s failures=%d", g_failures ? "failed" : "passed", g_failures);
     return PLUGIN_HANDLED;
@@ -1175,6 +1188,21 @@ FindProfileUtf8(const text[], const expected[])
         if (!expected[offset]) { return start; }
     }
     return -1;
+}
+
+CheckProfileScore(language, const score[])
+{
+    new heading[128], expected[192];
+    formatex(heading, charsmax(heading), "<h2>%L</h2>", PLAYER_LANGUAGES[language], "GS_PROFILE_SESSION");
+    new start = FindProfileUtf8(g_leader_html, heading);
+    formatex(expected, charsmax(expected), "%s%s", language == 0 ? "Счет: " : "Score: ", score);
+    new position = FindProfileUtf8(g_leader_html, expected);
+    CheckSaved(start >= 0 && position >= start + strlen(heading),
+        "connection score is distinct from saved totals and belongs below its heading");
+    CheckSaved(FindProfileUtf8(g_leader_html, language == 0
+        ? "Сброс при переподключении или смене карты."
+        : "Resets on reconnect or map change.") > position,
+        "complete localized connection reset rule follows the score");
 }
 
 public RunPlayerProfileSmoke()
@@ -1197,6 +1225,9 @@ public RunPlayerProfileSmoke()
     nvault_touch(g_stats_vault, keys[0], 123456789);
     g_kill_streak[player] = 2;
     g_best_streak[player] = 5;
+    // Pinned AMXX float formatting renders the existing 7/2 ratio as 3.49.
+    g_map_kills[player] = 7;
+    g_map_deaths[player] = 2;
     new writes = g_vault_writes, reads = g_leader_reads;
     new guide_reads = g_vault_reads, guide_motds = g_motds;
     g_preferences_dirty[player] = PREFERENCE_PRIMARY;
@@ -1238,6 +1269,7 @@ public RunPlayerProfileSmoke()
         CheckSaved(g_motds == motds + 1 && g_prints == prints, "profile emits one private MOTD without chat spam");
         CheckSaved(contain(g_leader_html, "K 10 | D 1 | K/D 10.00") >= 0,
             "profile uses saved totals and existing ratio semantics");
+        CheckProfileScore(language, "K 7 | D 2 | K/D 3.49");
         CheckSaved(FindProfileUtf8(g_leader_title, language == 0 ? "Мой профиль" : "My profile") == 0
             && strlen(g_leader_title) == (language == 0 ? 21 : 10),
             "profile caption preserves every RU/EN UTF-8 byte");
@@ -1274,7 +1306,8 @@ public RunPlayerProfileSmoke()
         && equal(value, "1 10 1") && stamp == 123456789 && writes == g_vault_writes && reads == g_leader_reads,
         "profile preserves statistics and never writes or scans vault files");
     CheckSaved(g_choice[player] == 1 && g_pistol_choice[player] == 2 && g_hud_disabled[player]
-        && g_kill_streak[player] == 2 && g_best_streak[player] == 5,
+        && g_kill_streak[player] == 2 && g_best_streak[player] == 5
+        && g_map_kills[player] == 7 && g_map_deaths[player] == 2,
         "profile leaves preferences HUD and active counters intact");
 
     new motds = g_motds;
@@ -1318,6 +1351,7 @@ public RunPlayerProfileSmoke()
     g_stats_next[player][4] = 0.0;
     ShowPlayerProfile(player);
     CheckSaved(contain(g_leader_html, "when the leaderboard refreshes") >= 0, "first score stays pending until shared refresh");
+    CheckProfileScore(1, "K 0 | D 1 | K/D 0.00");
     g_leader_refresh_after = 0.0;
     g_stats_next[player][4] = 0.0;
     ShowPlayerProfile(player);
@@ -1327,6 +1361,9 @@ public RunPlayerProfileSmoke()
     ShowPlayerProfile(player);
     CheckSaved(contain(g_leader_html, "Saved best streak: 7") >= 0 && contain(g_leader_html, "Streak: 0 | Best: 0") >= 0,
         "reconnect restores saved record and resets connection series");
+    CheckProfileScore(1, "K 0 | D 0 | K/D 0.00");
+    g_map_kills[player] = 7;
+    g_map_deaths[player] = 2;
     writes = g_vault_writes;
     for (new unavailable = 0; unavailable < 3; unavailable++)
     {
@@ -1344,6 +1381,13 @@ public RunPlayerProfileSmoke()
         CheckSaved(contain(g_leader_html, unavailable == 2 ? "Saved best streak is unavailable" : "Saved best streak: 7") >= 0,
             "statistics or leaderboard failure does not hide healthy record");
         if (unavailable < 2) { CheckSaved(contain(g_leader_html, "Your overall place is temporarily unavailable") >= 0, "failed source never fabricates a position"); }
+        for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
+        {
+            g_language_override[player] = language + 1;
+            g_stats_next[player][4] = 0.0;
+            ShowPlayerProfile(player);
+            CheckProfileScore(language, "K 7 | D 2 | K/D 3.49");
+        }
         g_stats_vault = stats_vault;
         g_preferences_vault = preference_vault;
     }
@@ -1368,6 +1412,8 @@ public RunPlayerProfileSmoke()
     g_choice[player] = 2;
     g_kill_streak[player] = 3;
     g_best_streak[player] = 4;
+    g_map_kills[player] = 7;
+    g_map_deaths[player] = 0;
     // Identity is now known but the callback has not loaded it: a view must not perform that transition.
     copy(g_auth[player], charsmax(g_auth[]), "STEAM_0:1:800001");
     writes = g_vault_writes;
@@ -1381,6 +1427,7 @@ public RunPlayerProfileSmoke()
         && g_preferences_dirty[player] == (PREFERENCE_LANGUAGE | PREFERENCE_PRIMARY) && g_hud_preference_dirty[player]
         && g_choice[player] == 2 && g_vault_writes == writes,
         "profile and menu projection do not load late identity or flush pending preferences");
+    CheckProfileScore(1, "K 7 | D 0 | K/D 7.00");
     client_authorized(player, g_auth[player]);
     g_stats_next[player][4] = 0.0;
     ShowPlayerProfile(player);
@@ -1388,19 +1435,32 @@ public RunPlayerProfileSmoke()
         "authorization callback makes stored fields visible on the next view");
 
     g_saved_kills[player] = STATS_COUNTER_LIMIT;
-    g_saved_deaths[player] = 0;
     g_saved_streak[player] = STATS_COUNTER_LIMIT;
     g_kill_streak[player] = STATS_COUNTER_LIMIT;
     g_best_streak[player] = STATS_COUNTER_LIMIT;
+    g_map_kills[player] = STATS_COUNTER_LIMIT;
     for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
     {
         g_language_override[player] = language + 1;
-        g_stats_next[player][4] = 0.0;
-        ShowPlayerProfile(player);
-        CheckSaved(strlen(g_leader_html) < charsmax(g_leader_html)
-            && contain(g_leader_html, "</body></html>") == strlen(g_leader_html) - 14
-            && contain(g_leader_html, "1000000000.00") >= 0 && contain(g_leader_html, "ML_NOTFOUND") < 0,
-            "maximal counters and zero deaths fit complete RU and EN profiles");
+        for (new maximum_deaths = 0; maximum_deaths < 2; maximum_deaths++)
+        {
+            g_saved_deaths[player] = maximum_deaths ? STATS_COUNTER_LIMIT : 0;
+            g_map_deaths[player] = g_saved_deaths[player];
+            g_stats_next[player][4] = 0.0;
+            ShowPlayerProfile(player);
+            CheckProfileScore(language, maximum_deaths
+                ? "K 1000000000 | D 1000000000 | K/D 1.00"
+                : "K 1000000000 | D 0 | K/D 1000000000.00");
+            new expected_streak[192];
+            formatex(expected_streak, charsmax(expected_streak), "%L", PLAYER_LANGUAGES[language],
+                "GS_STREAK_STATS", STATS_COUNTER_LIMIT, STATS_COUNTER_LIMIT);
+            CheckSaved(strlen(g_leader_html) < charsmax(g_leader_html)
+                && contain(g_leader_html, "</body></html>") == strlen(g_leader_html) - 14
+                && FindProfileUtf8(g_leader_html, expected_streak) >= 0 && contain(g_leader_html, "ML_NOTFOUND") < 0,
+                "maximal saved and connection counters retain the last line and closing markup");
+            server_print("PLAYER_PROFILE_SCORE_BUDGET language=%s deaths=%d bytes=%d limit=1535",
+                PLAYER_LANGUAGES[language], g_map_deaths[player], strlen(g_leader_html));
+        }
     }
     new alive = is_user_alive(player);
     rg_set_user_team(player, TEAM_SPECTATOR);
