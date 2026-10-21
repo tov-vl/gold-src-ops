@@ -4139,8 +4139,15 @@ Addon 0.36.0 добавляет отметки "выбрано" / "selected" в 
 
 Локально прошли сборки продукта и четырех fixtures, семь движковых
 сценариев с настоящим nVault, 18 сочетаний выбора, 69 проверок словаря
-и immutable package smoke. Класс R2; product CI, rollout и техническая
-приемка ожидаются. Полная поставка явно разрешена владельцем. Клиентская
-RU/EN приемка остается отдельным gate.
+и immutable package smoke. Класс R2. PR #391 принят в
+`1d74129`; required PR CI и post-merge CI прошли.
+После первой ошибки CI ограничена область общего checker; пакет не пересобирался.
+Addon 0.36.0 установлен одним apply с terminal `accepted`.
+Независимая техническая приемка подтвердила точный payload, отсутствие
+pending, сохранность четырех закрытых vault/journal entries и 23 workflow-файлов.
+В 24 записях baseline изменены только plugin, dictionary и installation receipt.
+Агент и девять контейнеров сохранили состояние; A2S/public online,
+exact/contains и backup monitor прошли. AMXX errors отсутствуют; откат не потребовался.
+Клиентская RU/EN приемка остается отдельным gate.
 Граница и доказательства - в [readiness](v2.89-weapon-selection-markers.md).
 Игра вдвоем и 24-часовое окно активности остаются отложенными.
