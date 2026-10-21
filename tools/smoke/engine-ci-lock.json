@@ -201,6 +201,27 @@
       "markers": [
         "PLAYER_LOOKUP_LOAD"
       ]
+    },
+    {
+      "plugin": "map_menu_smoke",
+      "companionPlugins": [
+        "map_language_provider_smoke"
+      ],
+      "command": "goldsrcops_map_menu_provider_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "MAP_MENU_PROVIDER_SMOKE",
+        "MAP_MENU_SMOKE"
+      ]
+    },
+    {
+      "plugin": "map_menu_smoke",
+      "command": "goldsrcops_map_menu_fallback_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "MAP_MENU_FALLBACK_SMOKE",
+        "MAP_MENU_SMOKE"
+      ]
     }
   ],
   "negativeCase": {
@@ -210,5 +231,14 @@
       "ENGINE_FAILURE_SMOKE"
     ],
     "map": "de_dust2"
+  },
+  "missingMapProviderCase": {
+    "plugin": "map_menu_smoke",
+    "command": "goldsrcops_map_menu_provider_smoke",
+    "map": "de_dust2",
+    "markers": [
+      "MAP_MENU_PROVIDER_SMOKE",
+      "MAP_MENU_SMOKE"
+    ]
   }
 }

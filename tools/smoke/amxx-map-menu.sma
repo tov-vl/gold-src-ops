@@ -17,6 +17,8 @@ new g_fixture_map_id;
 new g_map_failures;
 new g_dispatch_count;
 new g_last_vote;
+new g_last_command[32];
+new bool:g_expect_provider = true;
 new g_map_text[256];
 
 FixtureMapPrint(id, type, const message[], any:...)
@@ -43,6 +45,8 @@ public plugin_init()
 {
     ProductMapPluginInit();
     register_srvcmd("goldsrcops_map_menu_smoke", "RunMapMenuSmoke");
+    register_srvcmd("goldsrcops_map_menu_provider_smoke", "RunMapMenuSmoke");
+    register_srvcmd("goldsrcops_map_menu_fallback_smoke", "RunMapMenuFallbackSmoke");
 }
 
 bool:FixtureMapIsBot(id)
@@ -54,6 +58,7 @@ FixtureMapCommand(id, const command[], const argument[] = "")
 {
     g_dispatch_count++;
     g_last_vote = str_to_num(argument);
+    copy(g_last_command, charsmax(g_last_command), command);
     engclient_cmd(id, command, argument);
 }
 
@@ -77,8 +82,20 @@ WriteFixtureCycle(bool:reverse = false, count = -1)
     fclose(file);
 }
 
+public RunMapMenuFallbackSmoke()
+{
+    g_expect_provider = false;
+    return RunMapMenuSmoke();
+}
+
 public RunMapMenuSmoke()
 {
+    if (bool:LibraryExists("goldsrcops_player_menu", LibType_Library) != g_expect_provider)
+    {
+        MapCheck(false, "expected language provider presence");
+        PrintMapMenuResult();
+        return PLUGIN_HANDLED;
+    }
     if (g_fixture_map_id || get_playersnum())
     {
         server_print("MAP_MENU_SMOKE=refused; requires a fresh empty fixture");
@@ -128,18 +145,20 @@ public RunMapMenuSmoke()
     }
     set_cvar_string("mapcyclefile", MAP_CYCLE);
     set_cvar_string("mp_vote_flags", "km");
+    MapCheck(MapCycleReady(), "managed profile renders exact five-map cycle");
     WriteFixtureCycle();
     MapCheck(MapCycleReady(), "exact five-map cycle");
     MapCheck(MapVotingEnabled(), "native map policy");
     // Isolate the native player-count gate from the normal elapsed-time gate.
     set_cvar_num("mp_votemap_min_time", 0);
     OnMapSelected(g_fixture_map_id, g_maps_menu[0], 1);
-    MapCheck(g_dispatch_count == 1 && g_last_vote == 2, "one-based native map ID");
+    MapCheck(g_dispatch_count == 1 && g_last_vote == 2 && equal(g_last_command, "votemap"), "one-based native map ID");
     MapCheck(get_member(g_fixture_map_id, m_iMapVote) == 0, "native single-player vote refusal retained");
 
     OnMapSelected(g_fixture_map_id, g_maps_menu[0], MENU_EXIT);
     OnMapSelected(g_fixture_map_id, g_maps_menu[0], sizeof MAP_NAMES);
     OnMapSelected(g_fixture_map_id, g_maps_menu[1], 1);
+    MapCheck(g_dispatch_count == 1, "stale language menu refused");
     OnMapSelected(g_fixture_map_id, g_maps_menu[0], 0);
     MapCheck(g_dispatch_count == 1, "cancel invalid menu and current map do not vote");
     MapCheck(MapAvailable(g_fixture_map_id, g_maps_menu[0], 0) == ITEM_DISABLED, "current map disabled");
@@ -172,8 +191,13 @@ public RunMapMenuSmoke()
     rg_set_user_team(g_fixture_map_id, TEAM_SPECTATOR);
     OnMapSelected(g_fixture_map_id, g_maps_menu[0], 1);
     MapCheck(g_dispatch_count == 1, "spectator cannot vote through menu");
-    ShowTimeLeft(g_fixture_map_id);
-    MapCheck(g_dispatch_count == 2 && g_last_vote == 0, "spectator timeleft forwarded");
+    for (new language = 0; language < 2; language++)
+    {
+        if (g_expect_provider) { ChooseFixtureLanguage(language); }
+        else { set_user_info(g_fixture_map_id, "lang", MAP_LANGUAGES[language]); }
+        ShowTimeLeft(g_fixture_map_id);
+        MapCheck(g_dispatch_count == 2 + language && g_last_vote == 0 && equal(g_last_command, "timeleft"), "RU/EN spectator timeleft forwarded");
+    }
     MapCheck(!IsMapPlayer(0), "disconnected slot refused");
     set_task(1.0, "FinishMapMenuSmoke");
     return PLUGIN_HANDLED;
@@ -207,6 +231,14 @@ public FinishMapMenuSmoke()
         MapCheck(bool:equal(map, "de_dust2"), "one of two votes does not force changelevel");
         MapCheck(!IsMapPlayer(second), "ordinary bot excluded");
     }
-    server_print("MAP_MENU_SMOKE=%s failures=%d synthetic_clients=2",
+    PrintMapMenuResult();
+}
+
+PrintMapMenuResult()
+{
+    server_print("%s=%s failures=%d",
+        g_expect_provider ? "MAP_MENU_PROVIDER_SMOKE" : "MAP_MENU_FALLBACK_SMOKE",
         g_map_failures ? "failed" : "passed", g_map_failures);
+    server_print("MAP_MENU_SMOKE=%s failures=%d synthetic_clients=%d",
+        g_map_failures ? "failed" : "passed", g_map_failures, get_playersnum());
 }

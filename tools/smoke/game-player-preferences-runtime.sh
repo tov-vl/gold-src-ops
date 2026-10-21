@@ -19,6 +19,7 @@ mkdir -p /server/cstrike/addons/amxmodx/configs/plugins
 printf 'goldsrcops_weapons_enabled "1"\n' > /server/cstrike/addons/amxmodx/configs/plugins/goldsrcops-weapon-selection.cfg
 sed -i 's|^gamedll_linux .*|gamedll_linux "addons/metamod/metamod_i386.so"|' /server/cstrike/liblist.gam
 printf 'sv_lan 1\nsv_password ""\nrcon_password ""\nmp_freezetime 0\nmp_startmoney 0\nmp_autokick 0\nmp_round_infinite 1\n' > /server/cstrike/server.cfg
+bash /repo/tools/smoke/game-map-menu-runtime.sh
 useradd --create-home --shell /bin/bash steam
 mkdir -p /home/steam/.steam/sdk32
 cp /inputs/steamclient.so /server/steamclient.so
@@ -41,10 +42,15 @@ finish() {
 trap finish EXIT
 
 run_case() {
-    local plugin="$1" command="$2" marker="$3" map="$4" log="/evidence/$2.log"
-    cp "/compiled/$plugin.amxx" cstrike/addons/amxmodx/plugins/
-    chown steam:steam "cstrike/addons/amxmodx/plugins/$plugin.amxx"
-    printf '%s.amxx\n' "$plugin" > cstrike/addons/amxmodx/configs/plugins.ini
+    local command="$2" marker="$3" map="$4" log="/evidence/$2.log" plugin
+    local -a plugins
+    IFS=',' read -r -a plugins <<< "$1"
+    : > cstrike/addons/amxmodx/configs/plugins.ini
+    for plugin in "${plugins[@]}"; do
+        cp "/compiled/$plugin.amxx" cstrike/addons/amxmodx/plugins/
+        chown steam:steam "cstrike/addons/amxmodx/plugins/$plugin.amxx"
+        printf '%s.amxx\n' "$plugin" >> cstrike/addons/amxmodx/configs/plugins.ini
+    done
     runuser -u steam -- timeout --signal=TERM --kill-after=3 45 ./hlds_run -norestart -insecure -game cstrike -strictportbind +ip 127.0.0.1 -port 27025 +map "$map" +servercfgfile server.cfg -maxplayers 8 <&3 > "$log" 2>&1 &
     pid=$!
     sleep 5
