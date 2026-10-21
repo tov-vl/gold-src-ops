@@ -101,7 +101,7 @@ jobs:
       - name: Confirm addon-only fast path
         if: needs.change-scope.outputs.addon_only == 'true'
         shell: pwsh
-        run: Write-Host "Addon compilation and packaging are checked by Map Menu Compile; Container Smoke requires that result and verifies both installers."
+        run: Write-Host "Addon compilation and packaging are checked by Map Menu Compile; Container Smoke requires that result and verifies gameplay and both installers."
 
       - name: Validate changed documentation
         if: needs.change-scope.outputs.docs_only == 'true' || needs.change-scope.outputs.addon_only == 'true'
@@ -158,6 +158,8 @@ jobs:
     needs: change-scope
     runs-on: ${{ (needs.change-scope.outputs.docs_only == 'true' || needs.change-scope.outputs.stable_promotion == 'true') && 'ubuntu-24.04' || 'windows-latest' }}
     timeout-minutes: 10
+    outputs:
+      fixture_artifact: ${{ steps.fixture-bundle.outputs.name }}
     steps:
       - name: Confirm addon checks unnecessary
         if: needs.change-scope.outputs.docs_only == 'true' || needs.change-scope.outputs.stable_promotion == 'true'
@@ -189,8 +191,27 @@ jobs:
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -PersistentStatsFixture
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -PlayerMenuFixture
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -PlayerPreferencesFixture
+          ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -EngineFailureFixture
           ./tools/smoke/weapon-selection-package.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'weapon-addon') -Target game-host-addon
           ./tools/smoke/weapon-selection-package.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'weapon-lookup-addon') -Target game-host-addon -EnablePlayerLookup
+
+      - name: Package gameplay fixtures
+        id: fixture-bundle
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        shell: pwsh
+        run: |
+          python -B tools/smoke/engine-ci.py --package-fixtures --compiled "$env:RUNNER_TEMP/map-menu-toolchain/output" --output "$env:RUNNER_TEMP/gameplay-fixtures"
+          if ($LASTEXITCODE -ne 0) { throw "Gameplay fixture packaging failed." }
+          "name=gameplay-fixtures-${{ github.run_id }}-${{ github.run_attempt }}" >> $env:GITHUB_OUTPUT
+
+      - name: Upload gameplay fixtures
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.fixture-bundle.outputs.name }}
+          path: ${{ runner.temp }}/gameplay-fixtures/
+          if-no-files-found: error
+          retention-days: 1
 
   container-smoke:
     name: Container Smoke
@@ -217,7 +238,7 @@ jobs:
       - name: Confirm addon-only fast path
         if: needs.change-scope.outputs.addon_only == 'true'
         shell: pwsh
-        run: Write-Host "Addon compilation and packaging passed; both isolated installer fixtures must also pass."
+        run: Write-Host "Addon compilation and packaging passed; isolated engine and installer fixtures must also pass."
 
       - name: Checkout
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
@@ -320,6 +341,49 @@ jobs:
           bash -n ./tools/smoke/game-kill-rewards-runtime.sh
           bash -n ./tools/smoke/game-map-menu-runtime.sh
           bash -n ./tools/smoke/game-player-preferences-runtime.sh
+
+      - name: Download gameplay fixtures
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.map-menu-compile.outputs.fixture_artifact }}
+          path: ${{ runner.temp }}/gameplay-fixtures
+
+      - name: Cache verified gameplay archives
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/gameplay-assets
+          key: gameplay-assets-v1-${{ runner.os }}-${{ hashFiles('tools/smoke/engine-ci-lock.json') }}
+
+      - name: Verify real engine failure rejection
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        timeout-minutes: 10
+        run: >-
+          python3 -B tools/smoke/test-engine-ci.py --integration
+          --cache "$RUNNER_TEMP/gameplay-assets"
+          --compiled "$RUNNER_TEMP/gameplay-fixtures"
+          --output "$RUNNER_TEMP/gameplay-engine/negative"
+
+      - name: Run isolated gameplay engine smoke
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        timeout-minutes: 12
+        run: >-
+          python3 -B tools/smoke/engine-ci.py
+          --cache "$RUNNER_TEMP/gameplay-assets"
+          --compiled "$RUNNER_TEMP/gameplay-fixtures"
+          --output "$RUNNER_TEMP/gameplay-engine/positive"
+
+      - name: Retain gameplay engine diagnostics
+        if: always() && needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gameplay-engine-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/gameplay-engine/negative/evidence/
+            ${{ runner.temp }}/gameplay-engine/positive/evidence/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Validate map-menu addon installation, removal and rollback
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
