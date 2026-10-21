@@ -222,6 +222,17 @@
         "MAP_MENU_FALLBACK_SMOKE",
         "MAP_MENU_SMOKE"
       ]
+    },
+    {
+      "plugin": "map_stats_smoke",
+      "command": "goldsrcops_map_stats_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "MAP_STATS_SMOKE",
+        "KILL_HEAL_SMOKE",
+        "KILL_AMMO_SMOKE",
+        "KILL_STREAK_SMOKE"
+      ]
     }
   ],
   "negativeCase": {
