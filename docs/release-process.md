@@ -198,7 +198,7 @@ The addon path preserves the existing check names:
 - `Map Menu Compile` compiles both addons and their fixtures with the pinned
   toolchain, validates dictionaries and builds/verifies their packages.
 - `Container Smoke` requires successful scope and compilation checks,
-  runs both isolated addon installer/rollback fixtures and the 20 gameplay
+  runs both isolated addon installer/rollback fixtures and the 21 gameplay
   engine scenarios. It verifies the compiled-fixture manifest against its own
   checkout and rejects both an intentional assertion and a missing map language
   provider to prove failure propagation.
@@ -225,7 +225,8 @@ The required engine gate covers weapons, preferences, real nVault reload,
 menus, ranks, profile, K/D, saved streaks and leaderboard/lookup regressions.
 Map-menu cases cover RU/EN with and without the language provider, stale menus,
 mapcycle consistency, voting guards and native timeleft forwarding. See the
-[map engine extension](v2.91-map-engine-ci.md) for coverage and claim limits.
+[map engine extension](v2.91-map-engine-ci.md) and
+[combat engine extension](v2.92-combat-engine-ci.md) for coverage and claim limits.
 It uses hash-verified archives and digest-pinned images, without engine network
 access or published ports. The setup and local command are documented in
 [engine CI](v2.90-engine-ci.md). Add a focused scenario when a changed mechanic

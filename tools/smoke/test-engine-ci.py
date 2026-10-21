@@ -70,7 +70,9 @@ class ResultTests(unittest.TestCase):
                 engine.verify_fixtures(package)
 
     def test_map_modes_require_separate_evidence(self):
-        cases = json.loads(engine.LOCK.read_bytes())['cases'][-2:]
+        cases = [case for case in json.loads(engine.LOCK.read_bytes())['cases']
+                 if case['plugin'] == 'map_menu_smoke']
+        self.assertEqual(len(cases), 2)
         self.assertNotEqual(cases[0]['command'], cases[1]['command'])
         with tempfile.TemporaryDirectory(prefix='map-mode-test-') as folder:
             evidence = Path(folder)
@@ -84,12 +86,32 @@ class ResultTests(unittest.TestCase):
                 engine.validate_evidence(evidence, cases)
 
     def test_case_plan_rejects_log_collision_or_unknown_plugin(self):
-        case = json.loads(engine.LOCK.read_bytes())['cases'][-2]
+        case = next(case for case in json.loads(engine.LOCK.read_bytes())['cases']
+                    if case['command'] == 'goldsrcops_map_menu_provider_smoke')
         with self.assertRaises(ValueError):
             engine.cases_tsv([case, case])
         for plugins in (['missing'], [case['plugin']]):
             with self.subTest(plugins=plugins), self.assertRaises(ValueError):
                 engine.cases_tsv([{**case, 'companionPlugins': plugins}])
+
+    def test_combat_requires_each_result(self):
+        case = next(case for case in json.loads(engine.LOCK.read_bytes())['cases']
+                    if case['command'] == 'goldsrcops_map_stats_smoke')
+        markers = ['MAP_STATS_SMOKE', 'KILL_HEAL_SMOKE', 'KILL_AMMO_SMOKE', 'KILL_STREAK_SMOKE']
+        self.assertEqual(case['markers'], markers)
+        with tempfile.TemporaryDirectory(prefix='combat-result-test-') as folder:
+            evidence = Path(folder)
+            log = evidence / (case['command'] + '.log')
+            results = {marker: marker + '=passed failures=0\n' for marker in markers}
+            log.write_text(''.join(results.values()))
+            engine.validate_evidence(evidence, [case])
+            for marker in markers:
+                for invalid in ('', marker + '=failed failures=1\n', results[marker] * 2):
+                    with self.subTest(marker=marker, invalid=invalid):
+                        log.write_text(''.join(invalid if name == marker else line
+                                               for name, line in results.items()))
+                        with self.assertRaises(ValueError):
+                            engine.validate_evidence(evidence, [case])
 
     def test_missing_fixture_log_is_fatal(self):
         with tempfile.TemporaryDirectory(prefix='gameplay-missing-test-') as folder, self.assertRaises(FileNotFoundError):

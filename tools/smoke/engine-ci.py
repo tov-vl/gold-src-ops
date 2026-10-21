@@ -92,6 +92,7 @@ FIXTURES = {
     'player_preferences_smoke.amxx': 'tools/smoke/amxx-player-preferences.sma',
     'player_menu_smoke.amxx': 'tools/smoke/amxx-player-menu.sma',
     'spawn_loadout_smoke.amxx': 'tools/smoke/amxx-spawn-loadout.sma',
+    'map_stats_smoke.amxx': 'tools/smoke/amxx-map-stats.sma',
     'persistent_stats_smoke.amxx': 'tools/smoke/amxx-persistent-stats.sma',
     'goldsrcops_map_menu.amxx': 'samples/amxmodx-map-menu/goldsrcops_map_menu.sma',
     'map_menu_smoke.amxx': 'tools/smoke/amxx-map-menu.sma',
