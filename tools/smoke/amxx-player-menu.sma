@@ -305,10 +305,10 @@ public RunPlayerMenuSmoke()
         }
         rg_round_respawn(id);
         OnPlayerMenuSelected(id, g_player_menu[language], 0);
-        CheckMenu(g_last_menu == g_menu[language] && !task_exists(WELCOME_TASK_BASE + id), "hub weapons and welcome suppression");
-        OnWeaponSelected(id, g_menu[language], 1);
-        CheckMenu(g_last_menu == g_pistol_menu[language] && g_choice[id] == 1, "localized primary callback");
-        OnPistolSelected(id, g_pistol_menu[language], 2);
+        CheckMenu(g_last_menu == g_menu[language][g_choice[id]] && !task_exists(WELCOME_TASK_BASE + id), "hub weapons and welcome suppression");
+        OnWeaponSelected(id, g_menu[language][g_choice[id]], 1);
+        CheckMenu(g_last_menu == g_pistol_menu[language][g_pistol_choice[id]] && g_choice[id] == 1, "localized primary callback");
+        OnPistolSelected(id, g_pistol_menu[language][g_pistol_choice[id]], 2);
         CheckMenu(g_pistol_choice[id] == 2, "localized pistol callback");
         ResetMapStats(id);
         g_saved_ready[id] = false;
@@ -336,7 +336,7 @@ public RunPlayerMenuSmoke()
         CheckMenu(FindUtf8Bytes(g_menu_text[id], saved) >= 0 && strlen(g_menu_text[id]) < 384 && menu_items(g_last_menu) == 4 && menu_pages(g_last_menu) == 1
             && FindUtf8Bytes(g_menu_text[id], "ML_NOTFOUND") < 0, "settings title includes current loadout and four items on one page");
         OnSettingsSelected(id, GetSettingsMenu(id, language, 0), 0);
-        CheckMenu(g_last_menu == g_menu[language], "settings dispatches weapons");
+        CheckMenu(g_last_menu == g_menu[language][g_choice[id]], "settings dispatches weapons");
         OnSettingsSelected(id, GetSettingsMenu(id, language, 0), 3);
         CheckMenu(g_last_menu == g_player_menu[language], "settings back returns to hub");
         OnSettingsSelected(id, GetSettingsMenu(id, language, 0), 1);
@@ -682,17 +682,17 @@ RunMenuCloseChecks(id)
         CheckMenu(!g_hud_disabled[id] && g_hud_messages == messages + 1, "HUD returns after toggle and exit with stale keys");
         OpenWeapons(id);
         FixtureCloseMenu(id);
-        OnWeaponSelected(id, g_menu[language], 0);
+        OnWeaponSelected(id, g_menu[language][g_choice[id]], 0);
         messages = g_hud_messages;
         UpdatePlayerHuds();
         CheckMenu(g_hud_messages == messages + 1 && g_hud_visible[id], "weapon submenu keeps HUD updating");
         OpenWeapons(id);
         CheckMenu(g_hud_visible[id], "opening weapons preserves the current HUD frame");
         FixtureCloseMenu(id);
-        OnWeaponSelected(id, g_menu[language], 0);
+        OnWeaponSelected(id, g_menu[language][g_choice[id]], 0);
         messages = g_hud_messages;
         FixtureCloseMenu(id);
-        OnPistolSelected(id, g_pistol_menu[language], 0);
+        OnPistolSelected(id, g_pistol_menu[language][g_pistol_choice[id]], 0);
         UpdatePlayerHuds();
         CheckMenu(g_hud_messages == messages + 1, "HUD resumes after weapon selection with stale keys");
         OpenPlayerSettings(id);

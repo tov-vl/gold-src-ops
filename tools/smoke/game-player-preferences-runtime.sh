@@ -54,6 +54,7 @@ run_case() {
 }
 
 run_case player_preferences_smoke goldsrcops_preferences_smoke PLAYER_PREFERENCES_SMOKE de_dust2
+grep -Eq '^WEAPON_MARKER_SMOKE=passed failures=0 languages=2 combinations=18 variants=12 storage=real_nvault$' /tmp/goldsrcops_preferences_smoke.log
 grep -Eq '^PLAYER_HUD_PREFERENCE_SMOKE=passed failures=0 storage=real_nvault$' /tmp/goldsrcops_preferences_smoke.log
 grep -Eq '^PLAYER_SETTINGS_SMOKE=passed failures=0 languages=2 storage=real_nvault$' /tmp/goldsrcops_preferences_smoke.log
 run_case player_preferences_smoke goldsrcops_preferences_seed PLAYER_PREFERENCES_SEED de_dust2

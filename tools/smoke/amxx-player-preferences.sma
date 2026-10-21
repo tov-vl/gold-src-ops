@@ -40,6 +40,7 @@ new g_previous_print[256];
 new g_prints;
 new g_color_prints;
 new g_print_client;
+new g_displayed_menu[MAX_PLAYERS + 1];
 
 
 // Synthetic clients have no observable ShowMenu transport; capture the exact native title input.
@@ -128,6 +129,7 @@ FixturePrint(id, type, const message[], any:...)
 }
 FixtureDisplay(id, menu)
 {
+    g_displayed_menu[id] = menu;
     CaptureMenuTitle(id, menu);
     return menu_display(id, menu);
 }
@@ -189,8 +191,8 @@ public RunPreferencesSmoke()
     ShowPlayerHelp(id);
     CheckPreferences(g_preference_writes == writes && !nvault_lookup(g_preferences_vault, KEY, value, charsmax(value), timestamp), "help does not create default preferences");
     OnLanguageSelected(id, g_language_menu, 1);
-    OnWeaponSelected(id, g_menu[1], 1);
-    OnPistolSelected(id, g_pistol_menu[1], 2);
+    OnWeaponSelected(id, g_menu[1][g_choice[id]], 1);
+    OnPistolSelected(id, g_pistol_menu[1][g_pistol_choice[id]], 2);
     CheckPreferences(StoredPreferences("1 2 1 2"), "menu choices saved with readback");
     CheckPreferences(PlayerPreferencesSaved(id), "matching validated record is described as saved");
     nvault_lookup(g_preferences_vault, KEY, value, charsmax(value), timestamp);
@@ -226,9 +228,9 @@ public RunPreferencesSmoke()
     CheckHelpFeedback(id, "GS_HELP_HUD_SAVED");
     CheckPreferences(!PlayerPreferencesSaved(id), "pending choice is not described as saved");
     g_preferences_dirty[id] = 0;
-    OnWeaponSelected(id, g_menu[0], 2);
-    OnWeaponSelected(id, g_menu[1], MENU_EXIT);
-    OnPistolSelected(id, g_pistol_menu[1], 3);
+    OnWeaponSelected(id, g_menu[0][g_choice[id]], 2);
+    OnWeaponSelected(id, g_menu[1][g_choice[id]], MENU_EXIT);
+    OnPistolSelected(id, g_pistol_menu[1][g_pistol_choice[id]], 3);
     OnLanguageSelected(id, g_language_menu, MENU_EXIT);
     CheckPreferences(StoredPreferences("1 2 1 2"), "stale invalid and cancelled callbacks do not change record");
     CheckPreferences(!user_has_weapon(id, CSW_AK47), "selection does not change live inventory");
@@ -240,6 +242,10 @@ public RunPreferencesSmoke()
     client_putinserver(id);
     CheckPreferences(PlayerLanguage(id) == 1 && g_choice[id] == 1 && g_pistol_choice[id] == 2,
         "reconnect restores canonical Steam preferences despite client ru");
+    OpenWeapons(id);
+    CheckWeaponMenu(g_displayed_menu[id], 1, 1, false);
+    OnWeaponSelected(id, g_displayed_menu[id], 1);
+    CheckWeaponMenu(g_displayed_menu[id], 1, 2, true);
 
     copy(g_auth[other], charsmax(g_auth[]), "STEAM_0:1:434343");
     client_putinserver(other);
@@ -258,7 +264,7 @@ public RunPreferencesSmoke()
     copy(g_auth[id], charsmax(g_auth[]), "STEAM_ID_PENDING");
     client_putinserver(id);
     OnLanguageSelected(id, g_language_menu, 0);
-    OnWeaponSelected(id, g_menu[0], 2);
+    OnWeaponSelected(id, g_menu[0][g_choice[id]], 2);
     copy(g_auth[id], charsmax(g_auth[]), "STEAM_0:1:434343");
     client_authorized(id, g_auth[id]);
     CheckPreferences(g_language_override[id] == 1 && g_choice[id] == 2 && g_pistol_choice[id] == 2
@@ -266,7 +272,7 @@ public RunPreferencesSmoke()
 
     set_pcvar_num(g_enabled, 0);
     OnLanguageSelected(id, g_language_menu, 1);
-    OnWeaponSelected(id, g_menu[0], 0);
+    OnWeaponSelected(id, g_menu[0][g_choice[id]], 0);
     CheckPreferences(StoredPreferences("1 1 2 2"), "disabled callbacks cannot write");
     set_pcvar_num(g_enabled, 1);
     g_fail_lookup = true;
@@ -275,9 +281,10 @@ public RunPreferencesSmoke()
     g_fail_lookup = false;
     CheckPreferences(g_preferences_blocked[id] && !g_preferences_ready[id], "failed readback blocks further writes");
     CheckPreferences(!PlayerPreferencesSaved(id), "blocked connection is not described as saved");
-    OnWeaponSelected(id, g_menu[1], 0);
+    OnWeaponSelected(id, g_menu[1][g_choice[id]], 0);
     CheckPreferences(StoredPreferences("1 2 2 2") && !g_choice[id], "failed storage keeps usable session choice without retry");
 
+    RunWeaponMarkerChecks(id, other);
     RunSettingsFeedbackChecks(id, other);
     RunHudPreferenceChecks(id, other);
     nvault_set(g_preferences_vault, KEY, "2 99 99 99");
@@ -367,6 +374,103 @@ CheckHudFeedback(id, bool:saved, bool:preferences_saved)
         : (saved ? "GS_HELP_HUD_SAVED" : "GS_HELP_SESSION"));
 }
 
+// Read actual native menu entries, including their access/callback flags.
+CheckWeaponMenu(menu, language, choice, bool:pistol)
+{
+    new count = pistol ? sizeof PISTOL_NAMES : sizeof WEAPON_NAMES;
+    CheckPreferences(menu_items(menu) == count && menu_pages(menu) == 1, "weapon menu stays on one page with every choice enabled");
+    new marker[64];
+    formatex(marker, charsmax(marker), "\y[%L]\w", PLAYER_LANGUAGES[language], "GS_WEAPON_SELECTED");
+    for (new index = 0; index < count; index++)
+    {
+        new access, callback, info[8], label[128], expected[64];
+        CheckPreferences(bool:menu_item_getinfo(menu, index, access, info, charsmax(info), label, charsmax(label), callback),
+            "native weapon item exists");
+        if (index == choice)
+        {
+            formatex(expected, charsmax(expected), "%s %s", pistol ? PISTOL_NAMES[index] : WEAPON_NAMES[index], marker);
+        }
+        else { copy(expected, charsmax(expected), pistol ? PISTOL_NAMES[index] : WEAPON_NAMES[index]); }
+        CheckPreferences(FindUtf8Bytes(label, expected) == 0 && strlen(label) == strlen(expected),
+            "only the selected weapon has the complete localized marker");
+        CheckPreferences(access == 0 && callback == -1 && strlen(label) <= 63 && contain(label, "ML_NOTFOUND") < 0,
+            "marked item is enabled and fits its UTF-8 byte budget");
+    }
+}
+
+RunWeaponMarkerChecks(id, other)
+{
+    new before = g_failures;
+    copy(g_auth[id], charsmax(g_auth[]), "STEAM_0:1:434343");
+    copy(g_auth[other], charsmax(g_auth[]), "STEAM_ID_LAN");
+    client_putinserver(id);
+    client_putinserver(other);
+    for (new language = 0; language < 2; language++)
+    {
+        OnLanguageSelected(id, g_language_menu, language);
+        OnLanguageSelected(other, g_language_menu, language);
+        for (new primary = 0; primary < sizeof WEAPON_NAMES; primary++)
+        {
+            for (new pistol = 0; pistol < sizeof PISTOL_NAMES; pistol++)
+            {
+                OnWeaponSelected(id, g_menu[language][g_choice[id]], primary);
+                OnPistolSelected(id, g_pistol_menu[language][g_pistol_choice[id]], pistol);
+                new writes = g_preference_writes, prints = g_prints;
+                OpenWeapons(id);
+                new menu = g_displayed_menu[id];
+                CheckWeaponMenu(menu, language, primary, false);
+                CheckPreferences(menu == g_menu[language][primary], "direct weapons uses the loaded selection");
+                OnPlayerMenuSelected(id, g_player_menu[language], 0);
+                CheckPreferences(g_displayed_menu[id] == menu, "hub uses the same selected weapon menu");
+                OnSettingsSelected(id, GetSettingsMenu(id, language, g_hud_disabled[id]), 0);
+                CheckPreferences(g_displayed_menu[id] == menu, "settings uses the same selected weapon menu");
+                OnWeaponSelected(id, menu, primary);
+                CheckWeaponMenu(g_displayed_menu[id], language, pistol, true);
+                CheckPreferences(g_displayed_menu[id] == g_pistol_menu[language][pistol], "selected primary still opens pistol selection");
+                OnPistolSelected(id, g_displayed_menu[id], pistol);
+                CheckPreferences(g_preference_writes == writes && g_prints == prints, "inspection and repeated selection are silent and read-only");
+
+                g_choice[other] = (primary + 1) % sizeof WEAPON_NAMES;
+                g_pistol_choice[other] = (pistol + 1) % sizeof PISTOL_NAMES;
+                OpenWeapons(other);
+                CheckWeaponMenu(g_displayed_menu[other], language, g_choice[other], false);
+                CheckWeaponMenu(menu, language, primary, false);
+                OnWeaponSelected(other, g_displayed_menu[other], g_choice[other]);
+                CheckWeaponMenu(g_displayed_menu[other], language, g_pistol_choice[other], true);
+                CheckWeaponMenu(g_pistol_menu[language][pistol], language, pistol, true);
+                CheckPreferences(g_choice[id] == primary && g_pistol_choice[id] == pistol,
+                    "another client cannot replace either selection or menu text");
+
+                OnWeaponSelected(id, g_menu[language][(primary + 1) % sizeof WEAPON_NAMES], (primary + 1) % sizeof WEAPON_NAMES);
+                OnPistolSelected(id, g_pistol_menu[language][(pistol + 1) % sizeof PISTOL_NAMES], (pistol + 1) % sizeof PISTOL_NAMES);
+                OnWeaponSelected(id, g_menu[1 - language][primary], (primary + 1) % sizeof WEAPON_NAMES);
+                OnPistolSelected(id, g_pistol_menu[1 - language][pistol], (pistol + 1) % sizeof PISTOL_NAMES);
+                OnWeaponSelected(id, menu, MENU_EXIT);
+                OnPistolSelected(id, g_pistol_menu[language][pistol], MENU_EXIT);
+                CheckPreferences(g_choice[id] == primary && g_pistol_choice[id] == pistol
+                    && g_preference_writes == writes && g_prints == prints,
+                    "stale choice, stale language and exit callbacks cannot change choices or persistence");
+            }
+        }
+    }
+    g_preferences_ready[id] = false;
+    g_preferences_dirty[id] = PREFERENCE_PRIMARY;
+    g_choice[id] = 0;
+    new writes = g_preference_writes, prints = g_prints;
+    OpenWeapons(id);
+    OnPlayerMenuSelected(id, g_player_menu[1], 0);
+    OnSettingsSelected(id, GetSettingsMenu(id, 1, g_hud_disabled[id]), 0);
+    CheckWeaponMenu(g_displayed_menu[id], 1, 0, false);
+    OnWeaponSelected(id, g_displayed_menu[id], 0);
+    CheckPreferences(!g_preferences_ready[id] && g_preferences_dirty[id] == PREFERENCE_PRIMARY
+        && g_choice[id] == 0 && g_preference_writes == writes && g_prints == prints,
+        "pending selection is displayed without loading or flushing a record");
+    client_putinserver(id);
+    client_putinserver(other);
+    server_print("WEAPON_MARKER_SMOKE=%s failures=%d languages=2 combinations=18 variants=12 storage=real_nvault",
+        g_failures == before ? "passed" : "failed", g_failures - before);
+}
+
 RunSettingsFeedbackChecks(id, other)
 {
     nvault_remove(g_preferences_vault, KEY);
@@ -390,15 +494,15 @@ RunSettingsFeedbackChecks(id, other)
         new writes = g_preference_writes;
         OnLanguageSelected(id, g_language_menu, language);
         CheckPreferences(g_prints == prints && g_preference_writes == writes, "same language is silent and does not rewrite nVault");
-        OnWeaponSelected(id, g_menu[language], language + 1);
+        OnWeaponSelected(id, g_menu[language][g_choice[id]], language + 1);
         CheckPreferences(g_prints == prints + 1 && contain(g_last_print, status) >= 0, "weapon change has one verified confirmation");
         prints = g_prints; writes = g_preference_writes;
-        OnWeaponSelected(id, g_menu[language], language + 1);
+        OnWeaponSelected(id, g_menu[language][g_choice[id]], language + 1);
         CheckPreferences(g_prints == prints && g_preference_writes == writes, "same primary choice is silent without rewriting nVault");
-        OnPistolSelected(id, g_pistol_menu[language], language + 1);
+        OnPistolSelected(id, g_pistol_menu[language][g_pistol_choice[id]], language + 1);
         CheckPreferences(g_prints == prints + 1 && contain(g_last_print, status) >= 0, "pistol change has one verified confirmation");
         prints = g_prints; writes = g_preference_writes;
-        OnPistolSelected(id, g_pistol_menu[language], language + 1);
+        OnPistolSelected(id, g_pistol_menu[language][g_pistol_choice[id]], language + 1);
         CheckPreferences(g_prints == prints && g_preference_writes == writes, "same pistol choice is silent without rewriting nVault");
         OpenPlayerSettings(id);
         new snapshot[768];
@@ -562,8 +666,8 @@ public SeedPreferences()
     copy(g_auth[id], charsmax(g_auth[]), "STEAM_0:1:434343");
     client_authorized(id, g_auth[id]);
     OnLanguageSelected(id, g_language_menu, 1);
-    OnWeaponSelected(id, g_menu[1], 1);
-    OnPistolSelected(id, g_pistol_menu[1], 2);
+    OnWeaponSelected(id, g_menu[1][g_choice[id]], 1);
+    OnPistolSelected(id, g_pistol_menu[1][g_pistol_choice[id]], 2);
     OnSettingsSelected(id, GetSettingsMenu(id, 1, 0), 2);
     CheckPreferences(StoredPreferences("1 2 1 2"), "reload seed stored");
     CheckPreferences(StoredHudPreference("1 1") && g_hud_disabled[id], "reload HUD off seed stored");
@@ -578,6 +682,10 @@ public VerifyPreferences()
     client_authorized(id, g_auth[id]);
     CheckPreferences(PlayerLanguage(id) == 1 && g_choice[id] == 1 && g_pistol_choice[id] == 2,
         "fresh plugin restored persisted choices");
+    OpenWeapons(id);
+    CheckWeaponMenu(g_displayed_menu[id], 1, 1, false);
+    OnWeaponSelected(id, g_displayed_menu[id], 1);
+    CheckWeaponMenu(g_displayed_menu[id], 1, 2, true);
     CheckPreferences(g_hud_disabled[id] && PlayerHudPreferenceSaved(id), "fresh process on another map restores HUD off");
     OnSettingsSelected(id, GetSettingsMenu(id, 1, 1), 2);
     CheckPreferences(!g_hud_disabled[id] && StoredHudPreference("1 0"), "restored HUD can be enabled and saved");

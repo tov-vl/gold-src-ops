@@ -57,6 +57,19 @@ foreach ($lang in @('en', 'ru')) {
         }
     }
 }
+# Selected weapon text is inserted inside brackets and menu color codes.
+foreach ($lang in @('en', 'ru')) {
+    $selected = $sections[$lang]['GS_WEAPON_SELECTED']
+    if ([string]::IsNullOrWhiteSpace($selected) -or $selected -match '[%\t\[\]]' -or
+        $utf8.GetByteCount($selected) -gt 24) {
+        throw "Weapon marker must be plain UTF-8 text of 1-24 bytes: $lang"
+    }
+    foreach ($title in @('GS_PRIMARY', 'GS_PISTOL')) {
+        if ($utf8.GetByteCount($sections[$lang][$title]) -gt 127) { throw "Weapon menu title exceeds its byte budget: $lang/$title" }
+    }
+    $longest = 'Desert Eagle \y[' + $selected + ']\w'
+    if ($utf8.GetByteCount($longest) -gt 63) { throw "Weapon item exceeds its byte budget: $lang" }
+}
 foreach ($key in $sections.en.Keys) {
     $formats = @{}
     foreach ($lang in @('en', 'ru')) {
