@@ -1264,6 +1264,37 @@ public RunPlayerProfileSmoke()
     g_expected_motd_target = 0;
     CheckSaved(g_motds == guide_motds + 5 && g_motd_target == g_clients[1], "another player's guide admission is independent");
     server_print("PLAYER_RANK_GUIDE_STORAGE_SMOKE=%s failures=%d real_nvault=1 aliases=3", g_failures ? "failed" : "passed", g_failures);
+    guide_reads = g_vault_reads;
+    guide_motds = g_motds;
+    g_preferences_dirty[player] = PREFERENCE_PRIMARY;
+    g_hud_preference_dirty[player] = true;
+    g_stats_next[player][6] = 0.0;
+    amxclient_cmd(player, "say", "/rules");
+    amxclient_cmd(player, "say_team", "/rules");
+    amxclient_cmd(player, "rules");
+    CheckSaved(g_motds == guide_motds + 1, "rules aliases share one cooldown");
+    g_stats_next[player][6] = 0.0;
+    amxclient_cmd(player, "say_team", "/rules");
+    g_stats_next[player][6] = 0.0;
+    amxclient_cmd(player, "rules");
+    CheckSaved(g_motds == guide_motds + 3 && g_motd_target == player, "all rules aliases dispatch privately");
+    CheckSaved(g_vault_reads == guide_reads && g_vault_writes == writes
+        && g_preferences_dirty[player] == PREFERENCE_PRIMARY && g_hud_preference_dirty[player],
+        "rules never load storage or flush pending preference writes");
+    CheckSaved(contain(g_leader_html, "STEAM_") < 0 && contain(g_leader_html, "<script>") < 0, "rules expose no player identity or stored name");
+    g_preferences_dirty[player] = 0;
+    g_hud_preference_dirty[player] = false;
+    g_stats_next[player][6] = 0.0;
+    g_hltv[player] = true;
+    ShowGameplayRules(player);
+    g_hltv[player] = false;
+    CheckSaved(g_motds == guide_motds + 3 && g_stats_next[player][6] == 0.0, "HLTV cannot consume rules output or cooldown");
+    ShowGameplayRules(player);
+    g_expected_motd_target = g_clients[1];
+    ShowGameplayRules(g_clients[1]);
+    g_expected_motd_target = 0;
+    CheckSaved(g_motds == guide_motds + 5 && g_motd_target == g_clients[1], "rules admission is private and independent per player");
+    server_print("PLAYER_RULES_STORAGE_SMOKE=%s failures=%d real_nvault=1 aliases=3", g_failures ? "failed" : "passed", g_failures);
     for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
     {
         g_language_override[player] = language + 1;

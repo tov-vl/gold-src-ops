@@ -117,7 +117,7 @@ $cases = @(
 $checks = 0
 try {
     foreach ($lang in @('en', 'ru')) {
-        foreach ($key in @('GS_RANKS_TITLE', 'GS_PROFILE_TITLE', 'GS_TOPALL_TITLE')) {
+        foreach ($key in @('GS_RANKS_TITLE', 'GS_PROFILE_TITLE', 'GS_TOPALL_TITLE', 'GS_RULES_TITLE')) {
             foreach ($case in $cases) {
                 $pattern = "(?ms)(\[$lang\]\r?\n(?:(?!\[ru\]|\[en\]).)*?^$key = )[^\r\n]*"
                 $probe = [regex]::Replace($dictionaryText, $pattern, { param($match) $match.Groups[1].Value + $case.Text })
@@ -170,6 +170,6 @@ try {
 finally {
     if (Test-Path -LiteralPath $dictionaryProbe) { Remove-Item -LiteralPath $dictionaryProbe }
 }
-Write-Output "PLAYER_MENU_BOUNDARY_SMOKE=passed cases=$checks captions=3 marker=1 languages=2"
+Write-Output "PLAYER_MENU_BOUNDARY_SMOKE=passed cases=$checks captions=4 marker=1 languages=2"
 Write-Output "WEAPON_SELECTION_PACKAGE_SMOKE=passed"
 $package

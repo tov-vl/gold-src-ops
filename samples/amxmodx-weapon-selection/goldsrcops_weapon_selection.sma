@@ -57,7 +57,7 @@ new g_saved_streak[MAX_PLAYERS + 1];
 new bool:g_streak_ready[MAX_PLAYERS + 1];
 new bool:g_streak_blocked[MAX_PLAYERS + 1];
 new g_streak_errors;
-new Float:g_stats_next[MAX_PLAYERS + 1][6];
+new Float:g_stats_next[MAX_PLAYERS + 1][7];
 const SAVED_LEADER_LIMIT = 10;
 // Ten ranked rows and the longest footer fit the MOTD; plain 31-byte names stay whole.
 const LEADER_MOTD_NAME_LIMIT = 43;
@@ -120,7 +120,7 @@ public NativePlayerLanguage(plugin, params)
 
 public plugin_init()
 {
-    register_plugin("GoldSrcOps Weapon Selection", "0.36.0", "GoldSrcOps");
+    register_plugin("GoldSrcOps Weapon Selection", "0.37.0", "GoldSrcOps");
     if (!register_dictionary("goldsrcops-player-menu.txt"))
     {
         set_fail_state("Player menu dictionary unavailable.");
@@ -171,6 +171,9 @@ public plugin_init()
     register_clcmd("say /ranks", "ShowRankGuide");
     register_clcmd("say_team /ranks", "ShowRankGuide");
     register_clcmd("ranks", "ShowRankGuide");
+    register_clcmd("say /rules", "ShowGameplayRules");
+    register_clcmd("say_team /rules", "ShowGameplayRules");
+    register_clcmd("rules", "ShowGameplayRules");
     register_clcmd("say /profile", "ShowPlayerProfile");
     register_clcmd("say_team /profile", "ShowPlayerProfile");
     register_clcmd("profile", "ShowPlayerProfile");
@@ -244,25 +247,26 @@ public plugin_end()
 
 public OnStatusCommand()
 {
-    server_print("WEAPON_SELECTION_STATUS version=0.36.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
+    server_print("WEAPON_SELECTION_STATUS version=0.37.0 enabled=%d choices=%d pistol_choices=%d armor=100 helmet=1 first_spawn_menu=1 map_stats=1 persistent_stats=1 ranks=1",
         get_pcvar_num(g_enabled) != 0, sizeof WEAPON_NAMES, sizeof PISTOL_NAMES);
-    server_print("PLAYER_MENU_STATUS version=0.36.0 languages=ru,en unset=ru unsupported=en override=steam_or_connection entries=%d map_commands=delegated language_native=1",
+    server_print("PLAYER_MENU_STATUS version=0.37.0 languages=ru,en unset=ru unsupported=en override=steam_or_connection entries=%d map_commands=delegated language_native=1",
         sizeof PLAYER_MENU_KEYS);
-    server_print("PLAYER_SETTINGS_STATUS version=0.36.0 languages=ru,en summary=private_menu opening_chat=0 change_chat=1 saved=verified_record hud_saved=separate_verified_record reset=none");
-    server_print("PLAYER_HELP_STATUS version=0.36.0 languages=ru,en lines=5 cooldown=5 scope=private storage_writes=none welcome=once_per_connection");
-    server_print("PLAYER_HUD_STATUS version=0.36.0 languages=ru,en interval=1 renderer=director expiry=1.5 messages=2 menus=visible scope=connection_map rank=saved_kills toggle=steam_or_connection storage_writes=explicit_toggle");
-    server_print("KILL_STREAK_STATUS version=0.36.0 enabled=%d scope=connection_map reset=any_death alive_only=1 milestones=3,5,10 feedback=private languages=ru,en storage=none",
+    server_print("PLAYER_SETTINGS_STATUS version=0.37.0 languages=ru,en summary=private_menu opening_chat=0 change_chat=1 saved=verified_record hud_saved=separate_verified_record reset=none");
+    server_print("PLAYER_RULES_STATUS version=0.37.0 languages=ru,en display=private_motd cooldown=5 source=live_cvars storage_writes=none");
+    server_print("PLAYER_HELP_STATUS version=0.37.0 languages=ru,en lines=5 cooldown=5 scope=private storage_writes=none welcome=once_per_connection");
+    server_print("PLAYER_HUD_STATUS version=0.37.0 languages=ru,en interval=1 renderer=director expiry=1.5 messages=2 menus=visible scope=connection_map rank=saved_kills toggle=steam_or_connection storage_writes=explicit_toggle");
+    server_print("KILL_STREAK_STATUS version=0.37.0 enabled=%d scope=connection_map reset=any_death alive_only=1 milestones=3,5,10 feedback=private languages=ru,en storage=none",
         get_pcvar_num(g_enabled) != 0);
-    server_print("KILL_HEAL_STATUS version=0.36.0 enabled=%d amount=%d max_health=100 scope=enemy_human_kill alive_only=1",
+    server_print("KILL_HEAL_STATUS version=0.37.0 enabled=%d amount=%d max_health=100 scope=enemy_human_kill alive_only=1",
         get_pcvar_num(g_enabled) != 0 && KillHealAmount() > 0, KillHealAmount());
-    server_print("KILL_AMMO_STATUS version=0.36.0 enabled=%d scope=enemy_human_kill alive_only=1 weapons=loadout_owned reserve=spawn_limit clip=unchanged",
+    server_print("KILL_AMMO_STATUS version=0.37.0 enabled=%d scope=enemy_human_kill alive_only=1 weapons=loadout_owned reserve=spawn_limit clip=unchanged",
         get_pcvar_num(g_enabled) != 0 && get_pcvar_num(g_kill_ammo) > 0);
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
     {
         if (IsStatsClient(id) && g_preferences_ready[id]) { loaded++; }
     }
-    server_print("PLAYER_PREFERENCES_STATUS version=0.36.0 storage=%s schema=1 hud_schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_PREFERENCES_STATUS version=0.37.0 storage=%s schema=1 hud_schema=1 identity=steam loaded=%d errors=%d",
         g_preferences_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_preferences_errors);
     return PLUGIN_HANDLED;
 }
@@ -1065,7 +1069,7 @@ public ShowMapLeaders(id)
 public OnMapStatsStatus()
 {
     new leaders[MAP_LEADER_LIMIT];
-    server_print("MAP_STATS_STATUS version=0.36.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
+    server_print("MAP_STATS_STATUS version=0.37.0 enabled=%d scope=connection_map leaders=%d limit=5 cooldown=2 bot_encounters=excluded",
         get_pcvar_num(g_enabled) != 0, BuildMapLeaders(leaders));
     new loaded;
     for (new id = 1; id <= MaxClients; id++)
@@ -1075,21 +1079,21 @@ public OnMapStatsStatus()
             loaded++;
         }
     }
-    server_print("PLAYER_STATS_STATUS version=0.36.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
+    server_print("PLAYER_STATS_STATUS version=0.37.0 storage=%s schema=1 identity=steam loaded=%d errors=%d",
         g_stats_vault == INVALID_HANDLE ? "unavailable" : "nvault", loaded, g_storage_errors);
-    server_print("PLAYER_RANK_STATUS version=0.36.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
+    server_print("PLAYER_RANK_STATUS version=0.37.0 enabled=%d source=saved_kills tiers=5 thresholds=0,25,100,250,500 cooldown=2 rewards=none welcome=1 promotion=private_after_readback",
         get_pcvar_num(g_enabled) != 0);
-    server_print("PLAYER_LEADERBOARD_STATUS version=0.36.0 ready=%d entries=%d limit=10 capacity=4096 cache_seconds=5 errors=%d source=saved_stats names=preferences display_ids=none",
+    server_print("PLAYER_LEADERBOARD_STATUS version=0.37.0 ready=%d entries=%d limit=10 capacity=4096 cache_seconds=5 errors=%d source=saved_stats names=preferences display_ids=none",
         g_leader_ready, ArraySize(g_leader_records), g_leader_errors);
-    server_print("PLAYER_STANDING_STATUS version=0.36.0 source=leaderboard_cache order=kills_deaths_key rank=private_line topall=outside_top10 storage_writes=none");
-    server_print("PLAYER_RANK_GUIDE_STATUS version=0.36.0 display=private_motd languages=ru_en tiers=%d cooldown=5 source=rank_constants storage_writes=none", sizeof RANK_KILLS);
-    server_print("PLAYER_PROFILE_STATUS version=0.36.0 display=private_motd languages=ru_en cooldown=5 source=loaded_player_state standing=leaderboard_cache storage_writes=none");
+    server_print("PLAYER_STANDING_STATUS version=0.37.0 source=leaderboard_cache order=kills_deaths_key rank=private_line topall=outside_top10 storage_writes=none");
+    server_print("PLAYER_RANK_GUIDE_STATUS version=0.37.0 display=private_motd languages=ru_en tiers=%d cooldown=5 source=rank_constants storage_writes=none", sizeof RANK_KILLS);
+    server_print("PLAYER_PROFILE_STATUS version=0.37.0 display=private_motd languages=ru_en cooldown=5 source=loaded_player_state standing=leaderboard_cache storage_writes=none");
     new streak_loaded;
     for (new id = 1; id <= MaxClients; id++)
     {
         if (IsStatsClient(id) && g_streak_ready[id] && g_preferences_ready[id] && !g_preferences_blocked[id]) { streak_loaded++; }
     }
-    server_print("PLAYER_STREAK_RECORD_STATUS version=0.36.0 storage=%s schema=1 identity=steam loaded=%d errors=%d writes=new_record feedback=private_after_readback history=since_feature",
+    server_print("PLAYER_STREAK_RECORD_STATUS version=0.37.0 storage=%s schema=1 identity=steam loaded=%d errors=%d writes=new_record feedback=private_after_readback history=since_feature",
         g_preferences_vault == INVALID_HANDLE ? "unavailable" : "nvault", streak_loaded, g_streak_errors);
     return PLUGIN_HANDLED;
 }
@@ -2076,6 +2080,32 @@ public ShowSavedLeaders(id)
     return PLUGIN_HANDLED;
 }
 
+
+public ShowGameplayRules(id)
+{
+    if (!AllowStatsCommand(id, 6)) { return PLUGIN_HANDLED; }
+    // Read current settings without loading identity or flushing pending preferences.
+    new language = EffectivePlayerLanguage(id), html[1536], title[64];
+    formatex(title, charsmax(title), "%L", PLAYER_LANGUAGES[language], "GS_RULES");
+    new length = MotdBegin(html, charsmax(html), title);
+    length += formatex(html[length], charsmax(html) - length, "<p>%L</p>", PLAYER_LANGUAGES[language], "GS_RULES_GUNS");
+    new heal = KillHealAmount();
+    if (heal)
+    {
+        length += formatex(html[length], charsmax(html) - length, "<p>%L</p>", PLAYER_LANGUAGES[language], "GS_RULES_HEAL", heal);
+    }
+    else
+    {
+        length += formatex(html[length], charsmax(html) - length, "<p>%L</p>", PLAYER_LANGUAGES[language], "GS_RULES_HEAL_OFF");
+    }
+    length += formatex(html[length], charsmax(html) - length, "<p>%L %L</p><p>%L %L</p><p>%L</p>",
+        PLAYER_LANGUAGES[language], get_pcvar_num(g_kill_ammo) > 0 ? "GS_RULES_AMMO" : "GS_RULES_AMMO_OFF",
+        PLAYER_LANGUAGES[language], "GS_RULES_CLIP", PLAYER_LANGUAGES[language], "GS_RULES_REWARDS",
+        PLAYER_LANGUAGES[language], "GS_RULES_EXCLUDED", PLAYER_LANGUAGES[language], "GS_RULES_RANKS");
+    MotdEnd(html, charsmax(html));
+    ShowPlayerMotd(id, html, language, "GS_RULES_TITLE");
+    return PLUGIN_HANDLED;
+}
 
 public ShowRankGuide(id)
 {

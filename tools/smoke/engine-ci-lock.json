@@ -83,6 +83,7 @@
       "markers": [
         "PLAYER_MENU_SMOKE",
         "PLAYER_RANK_GUIDE_SMOKE",
+        "PLAYER_RULES_SMOKE",
         "PLAYER_HELP_SMOKE",
         "PLAYER_HUD_SMOKE"
       ]
@@ -142,7 +143,8 @@
       "command": "goldsrcops_profile_smoke",
       "map": "de_dust2",
       "markers": [
-        "PLAYER_PROFILE_SMOKE"
+        "PLAYER_PROFILE_SMOKE",
+        "PLAYER_RULES_STORAGE_SMOKE"
       ]
     },
     {

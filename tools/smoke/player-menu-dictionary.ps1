@@ -42,7 +42,7 @@ $used = @([regex]::Matches($source, '"(GS_[A-Z_]+)"') | ForEach-Object { $_.Grou
 if (Compare-Object $used @($sections.en.Keys)) { throw "Dictionary keys do not match product references." }
 # Full HTML headings and client window captions have different byte budgets.
 foreach ($lang in @('en', 'ru')) {
-    foreach ($key in @('GS_RANKS_TITLE', 'GS_PROFILE_TITLE', 'GS_TOPALL_TITLE')) {
+    foreach ($key in @('GS_RANKS_TITLE', 'GS_PROFILE_TITLE', 'GS_TOPALL_TITLE', 'GS_RULES_TITLE')) {
         if ($key -notin $used) { continue }
         $caption = $sections[$lang][$key]
         if ([string]::IsNullOrWhiteSpace($caption) -or $caption -match '[%\t]' -or
@@ -50,7 +50,7 @@ foreach ($lang in @('en', 'ru')) {
             throw "MOTD caption must be plain UTF-8 text of 1-31 bytes: $lang/$key"
         }
     }
-    foreach ($key in @('GS_RANKS', 'GS_PROFILE', 'GS_TOPALL')) {
+    foreach ($key in @('GS_RANKS', 'GS_PROFILE', 'GS_TOPALL', 'GS_RULES')) {
         if ($key -notin $used) { continue }
         if ($utf8.GetByteCount($sections[$lang][$key]) -gt 63) {
             throw "MOTD heading exceeds its byte budget: $lang/$key"
@@ -77,6 +77,12 @@ foreach ($key in $sections.en.Keys) {
         $value = $sections[$lang][$key]
         $formats[$lang] = @([regex]::Matches($value, '%(?:\.2f|d|s)') | ForEach-Object Value)
         if ([regex]::Replace($value, '%(?:\.2f|d|s)', '').Contains('%')) { throw "Unsupported format: $key" }
+        if ($key -eq 'GS_RULES_HEAL' -and ($formats[$lang] -join ',') -cne '%d') {
+            throw "Gameplay healing requires exactly one integer: $lang/$key"
+        }
+        if ($key -like 'GS_RULES*' -and $key -ne 'GS_RULES_HEAL' -and $formats[$lang].Count -ne 0) {
+            throw "Gameplay rules must otherwise be static text: $lang/$key"
+        }
         # Ratio text has its own 13-byte bound; names/ranks retain 31 bytes.
         $worst = $value
         if ($key -in @('GS_SAVED_STATS', 'GS_MAP_STATS', 'GS_PROFILE_SCORE', 'GS_TOP_ROW')) {

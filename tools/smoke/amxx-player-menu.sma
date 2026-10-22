@@ -385,12 +385,13 @@ public RunPlayerMenuSmoke()
     CheckMenu(g_displays == displays, "settings does not grant spectator weapons");
     RunHelpChecks(id);
     RunRankGuideChecks(id);
+    RunGameplayRulesChecks(id);
     RunHudChecks(id);
     g_hud_disabled[id] = true;
     client_disconnected(id, false, rejected, charsmax(rejected));
     client_putinserver(id);
     CheckMenu(g_help_next[id] == 0.0, "reconnect resets help cooldown");
-    CheckMenu(g_stats_next[id][5] == 0.0, "reconnect resets rank guide cooldown");
+    CheckMenu(g_stats_next[id][5] == 0.0 && g_stats_next[id][6] == 0.0, "reconnect resets both guide cooldowns");
     CheckMenu(g_language_override[id] == 0 && PlayerLanguage(id) == 1, "reconnect clears override without changing client preference");
     CheckMenu(!g_hud_disabled[id] && !g_hud_visible[id], "reconnect resets HUD without a persistent identity");
     rg_round_respawn(id);
@@ -420,8 +421,99 @@ public FinishHudContinuity()
         g_periodic_samples[0], g_periodic_samples[1]);
     server_print("PLAYER_HUD_SMOKE=%s failures=%d languages=2 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
     server_print("PLAYER_MENU_SMOKE=%s failures=%d languages=2 map_hooks=delegated", g_failures ? "failed" : "passed", g_failures);
+    server_print("PLAYER_RULES_SMOKE=%s failures=%d languages=2 cvar_combinations=56 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
     server_print("PLAYER_RANK_GUIDE_SMOKE=%s failures=%d languages=2 tiers=5 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
     server_print("PLAYER_HELP_SMOKE=%s failures=%d languages=2 lines=5 storage_writes=none", g_failures ? "failed" : "passed", g_failures);
+}
+
+RunGameplayRulesChecks(id)
+{
+    new expected[192], motds = g_motd_count, displays = g_displays;
+    new Float:heal = get_pcvar_float(g_kill_heal), ammo = get_pcvar_num(g_kill_ammo);
+    new Float:health = get_entvar(id, var_health), weapon = get_member(id, m_pActiveItem);
+    new reserve = rg_get_user_bpammo(id, WEAPON_AK47);
+    new reads = g_leader_reads, rebuilds = g_leader_rebuilds;
+    new saved_kills = g_saved_kills[id], map_kills = g_map_kills[id];
+    new bool:welcomed = g_welcomed[id];
+    new dirty = g_preferences_dirty[id], bool:hud_dirty = g_hud_preference_dirty[id];
+    g_preferences_dirty[id] = PREFERENCE_LANGUAGE | PREFERENCE_PRIMARY | PREFERENCE_PISTOL;
+    g_hud_preference_dirty[id] = true;
+    for (new command = 0; command < 6; command++) { g_stats_next[id][command] = get_gametime() + 20.0; }
+    g_help_next[id] = get_gametime() + 20.0;
+    new const Float:heal_values[] = { -1.0, 0.0, 0.5, 15.0, 15.9, 100.0, 2147483647.0 };
+    new const expected_heal[] = { 0, 0, 0, 15, 15, 100, 100 };
+    new const ammo_values[] = { -1, 0, 1, 2 };
+    new const static_keys[][] = { "GS_RULES_GUNS", "GS_RULES_CLIP", "GS_RULES_REWARDS", "GS_RULES_EXCLUDED", "GS_RULES_RANKS" };
+    for (new language = 0; language < 2; language++)
+    {
+        g_language_override[id] = language + 1;
+        for (new h = 0; h < sizeof heal_values; h++)
+        {
+            set_pcvar_float(g_kill_heal, heal_values[h]);
+            for (new a = 0; a < sizeof ammo_values; a++)
+            {
+                set_pcvar_num(g_kill_ammo, ammo_values[a]);
+                g_stats_next[id][6] = 0.0;
+                ShowGameplayRules(id);
+                CheckMenu(g_motd_count == ++motds, "rules use their own cooldown and read each current CVAR value");
+                CheckMenu(SameUtf8Bytes(g_motd_title, language == 0 ? "Правила" : "Rules"), "rules caption preserves complete RU/EN UTF-8");
+                formatex(expected, charsmax(expected), "<h2>%L</h2>", PLAYER_LANGUAGES[language], "GS_RULES");
+                CheckMenu(FindUtf8Bytes(g_motd_text, expected) >= 0, "rules retain their full inner heading");
+                for (new key = 0; key < sizeof static_keys; key++)
+                {
+                    formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], static_keys[key]);
+                    CheckMenu(FindUtf8Bytes(g_motd_text, expected) >= 0, "all static rule paragraphs remain complete");
+                }
+                formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language],
+                    expected_heal[h] ? "GS_RULES_HEAL" : "GS_RULES_HEAL_OFF", expected_heal[h]);
+                CheckMenu(FindUtf8Bytes(g_motd_text, expected) >= 0, "healing guide floors clamps or disables exactly like the reward");
+                formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], ammo_values[a] > 0 ? "GS_RULES_AMMO" : "GS_RULES_AMMO_OFF");
+                CheckMenu(FindUtf8Bytes(g_motd_text, expected) >= 0, "ammo guide follows positive enabled and nonpositive disabled values");
+                formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], ammo_values[a] > 0 ? "GS_RULES_AMMO_OFF" : "GS_RULES_AMMO");
+                CheckMenu(FindUtf8Bytes(g_motd_text, expected) < 0, "opposite ammo state is absent");
+                CheckMenu(get_pcvar_float(g_kill_heal) == heal_values[h] && get_pcvar_num(g_kill_ammo) == ammo_values[a], "reading rules never changes reward settings");
+            }
+        }
+        ShowGameplayRules(id);
+        CheckMenu(g_motd_count == motds && g_stats_next[id][6] == get_gametime() + 5.0, "rules suppress immediate repeats for five seconds");
+        g_stats_next[id][6] = get_gametime();
+        ShowGameplayRules(id);
+        CheckMenu(g_motd_count == ++motds, "rules admit the exact cooldown boundary");
+    }
+    set_pcvar_float(g_kill_heal, heal);
+    set_pcvar_num(g_kill_ammo, ammo);
+    CheckMenu(g_preferences_dirty[id] == (PREFERENCE_LANGUAGE | PREFERENCE_PRIMARY | PREFERENCE_PISTOL)
+        && g_hud_preference_dirty[id] && g_saved_kills[id] == saved_kills && g_map_kills[id] == map_kills
+        && g_welcomed[id] == welcomed && g_displays == displays && g_leader_reads == reads && g_leader_rebuilds == rebuilds
+        && Float:get_entvar(id, var_health) == health && get_member(id, m_pActiveItem) == weapon && rg_get_user_bpammo(id, WEAPON_AK47) == reserve,
+        "rules preserve pending choices, scores, welcome, menu, health, inventory and leaderboard work");
+    g_preferences_dirty[id] = dirty;
+    g_hud_preference_dirty[id] = hud_dirty;
+    g_stats_next[id][6] = 0.0;
+    ShowGameplayRules(0);
+    ShowGameplayRules(MAX_PLAYERS + 1);
+    ShowGameplayRules(id == MaxClients ? 1 : MaxClients);
+    set_pcvar_num(g_enabled, 0);
+    ShowGameplayRules(id);
+    set_pcvar_num(g_enabled, 1);
+    g_human = false;
+    ShowGameplayRules(id);
+    g_human = true;
+    CheckMenu(g_motd_count == motds && g_stats_next[id][6] == 0.0, "invalid disconnected disabled and bot rule requests do nothing");
+    new vault = g_stats_vault, preference_vault = g_preferences_vault;
+    g_stats_vault = INVALID_HANDLE;
+    g_preferences_vault = INVALID_HANDLE;
+    rg_set_user_team(id, TEAM_SPECTATOR);
+    ShowGameplayRules(id);
+    CheckMenu(g_motd_count == ++motds, "spectators can read rules without identity or storage");
+    g_stats_vault = vault;
+    g_preferences_vault = preference_vault;
+    rg_set_user_team(id, TEAM_CT);
+    set_entvar(id, var_deadflag, DEAD_DEAD);
+    g_stats_next[id][6] = 0.0;
+    ShowGameplayRules(id);
+    CheckMenu(g_motd_count == ++motds, "dead players can read rules");
+    rg_round_respawn(id);
 }
 
 RunRankGuideChecks(id)
@@ -521,6 +613,7 @@ RunHelpChecks(id)
             formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], PLAYER_HELP_KEYS[line]);
             CheckMenu(SameUtf8Bytes(g_help_lines[line], expected), "RU/EN help command translation");
         }
+        CheckMenu(contain(g_help_lines[3], "/rules:") >= 0, "five-line help includes gameplay rules");
         CheckMenu(contain(g_help_lines[2], "/ranks") >= 0 && contain(g_help_lines[2], "/rank:") >= 0,
             "five-line help distinguishes personal rank from the rank guide");
         formatex(expected, charsmax(expected), "[GoldSrcOps] %L", PLAYER_LANGUAGES[language], "GS_HELP_SESSION");
