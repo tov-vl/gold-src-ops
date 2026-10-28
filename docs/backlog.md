@@ -4257,3 +4257,12 @@ passed. API-only production acceptance passed three read-only samples over
 stable image references reuse candidate digests without rebuilding. No schema
 or gameplay change; no interactive identity or long-term SLO claim. See
 [evidence](v2.94-status-freshness.md) and [release notes](release-notes-v2.94.md).
+
+## v2.95 - Local game-event agent diagnostics
+
+In progress: passive status, observed time, oldest waiting age and independent
+import/delivery cycle evidence. Status preserves schema-1 aggregate fields and
+does not initialize or migrate the queue. Diagnostics do not control delivery,
+retries or queue recovery. Local/CI verification and the separate hash-bound
+agent-upgrade gate are recorded in [scope and evidence](v2.95-agent-health.md).
+No player or 24-hour activity window is required; production remains unchanged.

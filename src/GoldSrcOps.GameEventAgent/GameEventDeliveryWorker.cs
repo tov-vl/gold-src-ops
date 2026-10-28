@@ -1,6 +1,3 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-
 namespace GoldSrcOps.GameEventAgent;
 
 internal sealed partial class GameEventDeliveryWorker : BackgroundService
@@ -9,62 +6,66 @@ internal sealed partial class GameEventDeliveryWorker : BackgroundService
     private readonly GameEventDispatcher _dispatcher;
     private readonly GameEventDeliveryOptions _options;
     private readonly ILogger<GameEventDeliveryWorker> _logger;
+    private readonly GameEventAgentHealth _health;
 
     public GameEventDeliveryWorker(
         IGameEventOutbox outbox,
         GameEventDispatcher dispatcher,
         GameEventDeliveryOptions options,
-        ILogger<GameEventDeliveryWorker> logger)
+        ILogger<GameEventDeliveryWorker> logger,
+        GameEventAgentHealth health)
     {
         _outbox = outbox;
         _dispatcher = dispatcher;
         _options = options;
         _logger = logger;
+        _health = health;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _outbox.Initialize();
-        LogStarted(
-            _logger,
-            _options.DispatchInterval,
-            _options.BatchSize,
-            _options.MaximumAttempts,
-            _options.MaximumEventAge);
-
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            try
+            _health.RecordStart(import: false);
+            _outbox.Initialize();
+            LogStarted(_logger, _options.DispatchInterval, _options.BatchSize,
+                _options.MaximumAttempts, _options.MaximumEventAge);
+            while (!stoppingToken.IsCancellationRequested)
             {
-                var summary = await _dispatcher
-                    .DispatchAvailableAsync(stoppingToken)
-                    .ConfigureAwait(false);
-                if (summary.Processed > 0)
+                _health.RecordStart(import: false);
+                try
                 {
-                    LogDispatchCompleted(
-                        _logger,
-                        summary.Acknowledged,
-                        summary.Retried,
-                        summary.DeadLettered);
+                    var summary = await _dispatcher.DispatchAvailableAsync(stoppingToken).ConfigureAwait(false);
+                    _health.RecordCompletion(import: false, summary.Retried > 0 ? "retrying"
+                        : summary.DeadLettered > 0 ? "blocked" : summary.Processed == 0 ? "idle" : "progress");
+                    if (summary.Processed > 0)
+                    {
+                        LogDispatchCompleted(_logger, summary.Acknowledged, summary.Retried, summary.DeadLettered);
+                    }
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception exception)
+                {
+                    _health.RecordCompletion(import: false, "failed");
+                    LogDispatchFailed(_logger, exception);
+                }
+
+                try
+                {
+                    await Task.Delay(_options.DispatchInterval, stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
                 }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception exception)
-            {
-                LogDispatchFailed(_logger, exception);
-            }
-
-            try
-            {
-                await Task.Delay(_options.DispatchInterval, stoppingToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
+        }
+        finally
+        {
+            _health.RecordStop(import: false);
         }
     }
 
