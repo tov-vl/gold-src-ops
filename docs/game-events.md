@@ -200,6 +200,33 @@ automation may parse this snapshot, but it must still distinguish transient
 `rejected` or dead-letter evidence instead of reducing every non-zero count to
 one health bit.
 
+The additive [v2.95 diagnostics](v2.95-agent-health.md) preserve schema version 1
+and the existing counts. Status opens an existing schema-2 queue read-only;
+it never initializes or migrates a queue or creates spool directories. A missing,
+unreadable or unsupported queue fails the command instead of returning healthy
+zero counts. SQLite may use its ordinary WAL coordination files; read-only
+status does not enqueue, claim, acknowledge, recover leases or write rows.
+
+Additional fields include `observedAtUtc`, `oldestWaitingAtUtc`,
+`oldestWaitingAgeSeconds`, `spoolAvailable` and separate `health.import` and
+`health.delivery` records. The oldest waiting age includes pending and in-flight
+entries, including retry backoff, and excludes dead letters. Empty waiting work
+has null age. Counts and timestamps are sampled independently; this is a
+bounded observation, not a transaction spanning the filesystem and workers.
+
+Running workers atomically replace a small local diagnostic sidecar beside the
+queue. It contains process-start and cycle timestamps and fixed outcomes, without
+identity or payload. A completed idle pass proves that its loop ran; it does not
+prove API connectivity when no request was needed. Missing or incompatible
+evidence is unavailable, expired evidence is stale, and a stopped cycle remains
+stopped. Failed/retrying/blocked outcomes remain distinct from loop liveness.
+The reported stale budget includes configured batch and I/O allowances.
+The sidecar is observational and never controls delivery, retries or recovery.
+An interrupted temporary sidecar is preserved and blocks further publication
+without accumulating temporary files; queue processing continues. Review that
+file separately before removing it. Production installation is a separate
+hash-bound agent-upgrade gate; repository implementation does not prove rollout.
+
 To run a sandbox delivery loop, provide these environment-backed configuration
 values before invoking `run`:
 

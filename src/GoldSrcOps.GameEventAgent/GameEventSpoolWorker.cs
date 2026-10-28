@@ -1,32 +1,49 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-
 namespace GoldSrcOps.GameEventAgent;
 
 internal sealed class GameEventSpoolWorker(
     GameEventSpoolImporter importer,
     GameEventSpoolOptions options,
     TimeProvider timeProvider,
+    GameEventAgentHealth health,
     ILogger<GameEventSpoolWorker> logger)
     : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            var result = await importer.ImportBatchAsync(stoppingToken).ConfigureAwait(false);
-            if (result.Processed > 0)
+            while (!stoppingToken.IsCancellationRequested)
             {
-                GameEventSpoolWorkerLog.BatchProcessed(
-                    logger,
-                    result.Imported,
-                    result.Reconciled,
-                    result.Finalized,
-                    result.Rejected,
-                    result.Deferred);
-            }
+                health.RecordStart(import: true);
+                GameEventSpoolImportBatchResult result;
+                try
+                {
+                    result = await importer.ImportBatchAsync(stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch
+                {
+                    health.RecordCompletion(import: true, "failed");
+                    throw;
+                }
 
-            await Task.Delay(options.ImportInterval, timeProvider, stoppingToken).ConfigureAwait(false);
+                health.RecordCompletion(import: true, result.Deferred > 0 || result.Rejected > 0
+                    ? "blocked" : result.Processed == 0 ? "idle" : "progress");
+                if (result.Processed > 0)
+                {
+                    GameEventSpoolWorkerLog.BatchProcessed(logger, result.Imported, result.Reconciled,
+                        result.Finalized, result.Rejected, result.Deferred);
+                }
+
+                await Task.Delay(options.ImportInterval, timeProvider, stoppingToken).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            health.RecordStop(import: true);
         }
     }
 }

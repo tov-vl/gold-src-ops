@@ -1,8 +1,6 @@
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
 namespace GoldSrcOps.GameEventAgent;
 
@@ -101,7 +99,9 @@ internal static class GameEventAgentConsole
         }
 
         builder.Services.AddSingleton(options.Queue);
-        builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+        builder.Services.AddSingleton(options);
+        builder.Services.AddSingleton(TimeProvider.System);
+        builder.Services.AddSingleton<GameEventAgentHealth>();
         builder.Services.AddSingleton<IGameEventOutbox, SqliteGameEventOutbox>();
 
         if (options.Spool.Enabled)
@@ -111,7 +111,7 @@ internal static class GameEventAgentConsole
             builder.Services.AddHostedService<GameEventSpoolWorker>();
         }
 
-        if (options.Delivery is GameEventDeliveryOptions delivery)
+        if (options.Delivery is { } delivery)
         {
             AddAccessTokenProvider(builder.Services, delivery);
             builder.Services.AddSingleton<IGameEventDeliveryClient, GameEventDeliveryClient>();
@@ -143,7 +143,7 @@ internal static class GameEventAgentConsole
         var delivery = options.Delivery ?? throw new InvalidOperationException(
             "OAuth access-token preflight requires complete delivery configuration.");
 
-        builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+        builder.Services.AddSingleton(TimeProvider.System);
         AddAccessTokenProvider(builder.Services, delivery);
 
         using var host = builder.Build();
@@ -245,12 +245,14 @@ internal static class GameEventAgentConsole
 
         var statistics = snapshot.Queue;
         var spool = snapshot.Spool;
-        Console.WriteLine(FormattableString.Invariant(
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"Queue status: pending={statistics.Pending}, in-flight={statistics.InFlight}, dead-letter={statistics.DeadLetter}, spool-receipts={statistics.SpoolReceipts}, next-sequence={statistics.NextSequenceNumber}."));
-        Console.WriteLine(FormattableString.Invariant(
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"Spool status: ready={spool.Ready}, processing={spool.Processing}, accepted={spool.Accepted}, rejected={spool.Rejected}, temporary={spool.Temporary}."));
-        Console.WriteLine(FormattableString.Invariant(
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"Runtime gates: spool-import={snapshot.SpoolImportEnabled}, delivery={snapshot.DeliveryEnabled}, queue-capacity={snapshot.QueueCapacity}."));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"Observed: {snapshot.ObservedAtUtc:O}; spool-available={snapshot.SpoolAvailable}; oldest-waiting-seconds={snapshot.OldestWaitingAgeSeconds}; import={snapshot.Health.Import.State}; delivery={snapshot.Health.Delivery.State}."));
         return 0;
     }
 
