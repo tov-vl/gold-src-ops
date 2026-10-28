@@ -50,6 +50,53 @@ function Assert-Condition {
     }
 }
 
+function Test-AddressInCidr {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Address,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Cidr
+    )
+
+    $parts = $Cidr.Split('/', [StringSplitOptions]::RemoveEmptyEntries)
+    if ($parts.Count -ne 2) {
+        return $false
+    }
+
+    $networkAddress = $null
+    $addressValue = $null
+    $prefixLength = 0
+    if (-not [System.Net.IPAddress]::TryParse($parts[0], [ref]$networkAddress) -or
+        $networkAddress.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork -or
+        -not [int]::TryParse($parts[1], [ref]$prefixLength) -or
+        $prefixLength -lt 1 -or
+        $prefixLength -gt 30 -or
+        -not [System.Net.IPAddress]::TryParse($Address, [ref]$addressValue) -or
+        $addressValue.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) {
+        return $false
+    }
+
+    $networkBytes = $networkAddress.GetAddressBytes()
+    $addressBytes = $addressValue.GetAddressBytes()
+    $wholeBytes = [Math]::Floor($prefixLength / 8)
+    $remainingBits = $prefixLength % 8
+
+    for ($index = 0; $index -lt $wholeBytes; $index++) {
+        if ($networkBytes[$index] -ne $addressBytes[$index]) {
+            return $false
+        }
+    }
+
+    if ($remainingBits -eq 0) {
+        return $true
+    }
+
+    $mask = 256 - [Math]::Pow(2, 8 - $remainingBits)
+    return (($networkBytes[$wholeBytes] -band $mask) -eq
+        ($addressBytes[$wholeBytes] -band $mask))
+}
+
 function Invoke-ComposeConfig {
     param(
         [Parameter(Mandatory = $true)][string]$EnvironmentPath,
@@ -66,7 +113,7 @@ function Invoke-ComposeConfig {
         "config", "--format", "json"
     )
 
-    $output = @(& docker compose @arguments 2>&1)
+    $output = @(& docker --log-level error compose @arguments 2>&1)
     if ($LASTEXITCODE -ne 0) {
         throw "Compose rendering failed: $($output -join [Environment]::NewLine)"
     }
@@ -112,6 +159,19 @@ Assert-Condition `
 Assert-Condition `
     -Condition ([string]$productionCaddy.environment.GOLDSRCOPS_ALERT_RECEIVER_HOSTNAME -eq $receiverHost) `
     -Message "AlertReceiver and production Caddy must use the same receiver hostname."
+
+$receiverAddress = [string]$receiver.networks.edge.ipv4_address
+$productionEdgeSubnet = [string]$productionConfiguration.networks.edge.ipam.config[0].subnet
+Assert-Condition `
+    -Condition (Test-AddressInCidr -Address $receiverAddress -Cidr $productionEdgeSubnet) `
+    -Message "The co-located receiver must have a static address in the production edge subnet."
+$edgeAddresses = @($receiverAddress)
+foreach ($serviceName in @("api", "web", "caddy")) {
+    $edgeAddresses += [string]$productionConfiguration.services.$serviceName.networks.edge.ipv4_address
+}
+Assert-Condition `
+    -Condition (@($edgeAddresses | Sort-Object -Unique).Count -eq 4) `
+    -Message "The co-located receiver must not collide with production edge services."
 
 $caddyText = [IO.File]::ReadAllText($productionCaddyfile)
 foreach ($requiredFragment in @(

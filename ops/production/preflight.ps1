@@ -524,7 +524,7 @@ Assert-Condition `
     -Condition ($backupHost -match '\A[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?\z') `
     -Message "GOLDSRCOPS_BACKUP_HOST must be a stable, bounded host identifier."
 
-$composeOutput = @(& docker compose `
+$composeOutput = @(& docker --log-level error compose `
     --env-file $environmentPath `
     --file $composeFile `
     --profile runtime `
@@ -702,6 +702,7 @@ $audiencePropertyNames = @($api.environment.PSObject.Properties.Name | Where-Obj
 $apiAddress = [string]$api.networks.edge.ipv4_address
 $webAddress = [string]$web.networks.edge.ipv4_address
 $apiTelemetryAddress = [string]$api.networks.telemetry.ipv4_address
+$webTelemetryAddress = [string]$web.networks.telemetry.ipv4_address
 $caddyAddress = [string]$caddy.networks.edge.ipv4_address
 $collectorAddress = [string]$collector.networks.telemetry.ipv4_address
 $prometheusAddress = [string]$prometheus.networks.telemetry.ipv4_address
@@ -731,6 +732,7 @@ Assert-Condition `
 Assert-IPv4Address -Address $apiAddress -Name "API edge address"
 Assert-IPv4Address -Address $webAddress -Name "Web edge address"
 Assert-IPv4Address -Address $apiTelemetryAddress -Name "API telemetry address"
+Assert-IPv4Address -Address $webTelemetryAddress -Name "Web telemetry address"
 Assert-IPv4Address -Address $caddyAddress -Name "Caddy edge address"
 Assert-IPv4Address -Address $collectorAddress -Name "Collector telemetry address"
 Assert-IPv4Address -Address $prometheusAddress -Name "Prometheus telemetry address"
@@ -832,6 +834,7 @@ Assert-Condition `
 
 $telemetryAddresses = @(
     $apiTelemetryAddress,
+    $webTelemetryAddress,
     $collectorAddress,
     $prometheusAddress,
     $grafanaAddress

@@ -4,6 +4,7 @@ services:
       edge: !override
         aliases:
           - goldsrcops-alert-receiver
+        ipv4_address: ${GOLDSRCOPS_ALERT_RECEIVER_CONTROL_PLANE_IP:?Set GOLDSRCOPS_ALERT_RECEIVER_CONTROL_PLANE_IP}
 
 networks:
   edge: !override

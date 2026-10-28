@@ -148,7 +148,8 @@ services:
       edge:
         ipv4_address: ${GOLDSRCOPS_WEB_IP:?Set GOLDSRCOPS_WEB_IP}
         gw_priority: 1
-      telemetry: {}
+      telemetry:
+        ipv4_address: ${GOLDSRCOPS_WEB_TELEMETRY_IP:?Set GOLDSRCOPS_WEB_TELEMETRY_IP}
     stop_grace_period: 30s
     logging: *bounded-logging
 

@@ -186,7 +186,7 @@ $composeArguments += @(
     "config", "--format", "json"
 )
 
-$composeOutput = @(& docker compose @composeArguments 2>&1)
+$composeOutput = @(& docker --log-level error compose @composeArguments 2>&1)
 if ($LASTEXITCODE -ne 0) {
     throw "AlertReceiver Compose rendering failed: $($composeOutput -join [Environment]::NewLine)"
 }
