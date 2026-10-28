@@ -17,3 +17,6 @@ post-merge CI and production installation remain separate evidence. No stable
 runtime release or production upgrade is claimed. The active hash-bound pilot
 bundle needs a separately reviewed agent-only upgrade/rollback workflow. See
 [scope, verification and delivery limits](v2.95-agent-health.md).
+Consumers that used status to initialize a missing queue must move that write
+into an explicit guarded installation step; fresh activation is part of the
+pending installation gate.
