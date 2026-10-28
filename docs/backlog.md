@@ -4238,3 +4238,12 @@ OpenGL, 1920 x 1200, Widescreen, Windowed Mode. Два снимка подтве
 чеклиста. Приемка v2.89 также закрыта. Игра вдвоем, боты и 24-часовая
 активность остаются отложенными.
 См. [границу и доказательства](v2.93-gameplay-rules.md).
+
+## Shared network recovery - 2026-10-28
+
+PR #404 fixes dynamic address collisions between co-located services and the
+statically addressed API. Required PR CI and focused address checks passed.
+The R3 target recovery restored the previous API/Prometheus, preserved images
+and durable mounts, and passed four read-only samples over 244 seconds plus
+controlled receiver/Web restarts. No gameplay or new application rollout was
+performed. See [recovery evidence](shared-network-recovery-2026-10.md).

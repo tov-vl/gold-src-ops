@@ -42,4 +42,29 @@ Private commands, topology, backups and evidence remain outside Git.
 
 ## Evidence
 
-Local and target checks are in progress. No recovery acceptance is claimed yet.
+The correction was merged through [PR #404](https://github.com/tov-vl/gold-src-ops/pull/404)
+at `a9af2b4bdd07e9b52f2e2de1825b8c42bf8533be`. All required PR checks passed,
+including the new address cases in Container Smoke. Local validation passed
+seven positive/negative address cases, standalone receiver compatibility,
+PowerShell parser checks and a live read-only rendered-model comparison proving
+that only the two approved addresses change.
+
+Target recovery completed on 2026-10-28. Exact configuration backups were saved
+before the four approved file changes. Only Web and receiver were recreated,
+then the previous API and Prometheus containers were started. All application
+image identities and mounts were preserved. Database, proxy, Collector and
+Grafana container identities and restart counts were unchanged.
+
+Four successful read-only samples spanned 244 seconds, including a controlled
+restart of receiver and Web. Static addresses survived that restart. API
+liveness/readiness, public status and Web health/home returned 200, anonymous
+protected API returned 401, and the receiver's unsupported GET returned 404.
+Both Prometheus scrape targets were up. A2S observations remained fresh and
+reachable; pending/running command counts stayed zero. Existing backup evidence
+was fresh and its timer remained active. Source/provider delivery stayed
+disabled and receiver mode remained CatchUp. No rollback was required.
+
+This exercise restores the previous application versions. It neither installs
+v2.94 nor proves host-reboot independence. Interactive authenticated Reader
+acceptance was not performed; the anonymous authorization boundary was checked.
+The v2.94 rollout can now obtain a healthy rollback baseline.
