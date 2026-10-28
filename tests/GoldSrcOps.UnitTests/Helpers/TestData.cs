@@ -8,9 +8,10 @@ internal static class TestData
     public static DashboardServerStatusDto DashboardServerStatus(
         ServerStatus status,
         bool isEnabled = true,
-        DateTimeOffset? lastCheckedAtUtc = null)
+        DateTimeOffset? lastCheckedAtUtc = null,
+        int pollIntervalSeconds = 30)
     {
-        return new DashboardServerStatusDto(Guid.NewGuid(), isEnabled, status, lastCheckedAtUtc);
+        return new DashboardServerStatusDto(Guid.NewGuid(), isEnabled, status, lastCheckedAtUtc, pollIntervalSeconds);
     }
 
     public static PollSnapshotDto PollSnapshot(

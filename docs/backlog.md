@@ -4247,3 +4247,7 @@ The R3 target recovery restored the previous API/Prometheus, preserved images
 and durable mounts, and passed four read-only samples over 244 seconds plus
 controlled receiver/Web restarts. No gameplay or new application rollout was
 performed. See [recovery evidence](shared-network-recovery-2026-10.md).
+
+## v2.94 - Public status freshness
+
+In progress: per-server freshness in the public fleet summary. A fresh server must not mask another server's expired Online observation. R1, API-only read correction; no schema or gameplay change. See [scope and gates](v2.94-status-freshness.md).
