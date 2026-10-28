@@ -275,6 +275,10 @@ jobs:
           -ProductionEnvironmentFile ./ops/production/deployment.env.example
           -ContractOnly
 
+      - name: Validate shared network address constraints
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        run: pwsh -NoProfile -File ./tools/smoke/shared-network-addresses.ps1
+
       - name: Validate image publication contract
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/image-publication.ps1
