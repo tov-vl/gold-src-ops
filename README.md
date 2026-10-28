@@ -6,15 +6,16 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.79.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.79.0)
-is the current public release. An empty exact nickname search offers an explicit
-RU/EN action to search by part of the nickname, preserving input and the shared
-cooldown. Keyboard navigation, manual retry and no-JavaScript forms are supported.
+**Status:** [v2.94.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.94.0)
+is the current public release. Public fleet status now checks each enabled
+server against its own polling interval, so one fresh observation cannot hide
+another server's expired Online state.
 
-Web-only production acceptance and new-instance telemetry passed. The other
-eight containers, mounts, seventeen protected files and non-Web deployment bytes
-were preserved. Stable references reuse candidate digests without rebuilding.
-See [release notes](docs/release-notes-v2.79.md) and [evidence](docs/v2.79-readiness.md).
+API-only production acceptance passed three read-only samples over 196 seconds,
+including public status RU/EN, A2S and telemetry. The other eight containers and
+durable mounts were preserved. Stable references reuse candidate digests without
+rebuilding. See [release notes](docs/release-notes-v2.94.md) and
+[evidence](docs/v2.94-status-freshness.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.
@@ -951,16 +952,15 @@ The spike follows Valve's documented A2S server query format:
 
 The public repository is configured with private vulnerability reporting,
 Dependabot security updates, and a protected `main` workflow. The current
-[GoldSrcOps v2.79.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.79.0)
-adds an explicit partial-search action after an empty exact nickname result.
-Only Web was installed. Production RU/EN browser acceptance passed with and
-without JavaScript; new-instance metrics matched eight success and two busy
-outcomes. The other eight containers, mounts, seventeen protected files and
-non-Web deployment bytes were preserved. All three stable references reuse
-candidate digests without rebuilding. Evidence and limits are in
-[docs/v2.79-readiness.md](docs/v2.79-readiness.md).
-[v2.78.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.78.0)
-is the preceding application release and retains the installed API/addon.
+[GoldSrcOps v2.94.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.94.0)
+corrects public fleet freshness per server. Only API was installed. Production
+read-only acceptance passed health, public status RU/EN, A2S, command-queue and
+telemetry checks while preserving the other eight containers and durable mounts.
+All three stable references reuse candidate digests without rebuilding.
+Evidence and limits are in [docs/v2.94-status-freshness.md](docs/v2.94-status-freshness.md).
+The installed Web remains the accepted
+[v2.79.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.79.0) image;
+AlertReceiver and gameplay runtimes were not upgraded by v2.94.
 
 ## License
 

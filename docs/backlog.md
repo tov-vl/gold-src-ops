@@ -4250,4 +4250,10 @@ performed. See [recovery evidence](shared-network-recovery-2026-10.md).
 
 ## v2.94 - Public status freshness
 
-In progress: per-server freshness in the public fleet summary. A fresh server must not mask another server's expired Online observation. R1, API-only read correction; no schema or gameplay change. See [scope and gates](v2.94-status-freshness.md).
+Completed: per-server freshness in the public fleet summary. Product PR #403,
+required and post-merge CI, signed candidate publication and stable promotion
+passed. API-only production acceptance passed three read-only samples over
+196 seconds with RU/EN public status and preserved dependencies. All three
+stable image references reuse candidate digests without rebuilding. No schema
+or gameplay change; no interactive identity or long-term SLO claim. See
+[evidence](v2.94-status-freshness.md) and [release notes](release-notes-v2.94.md).
