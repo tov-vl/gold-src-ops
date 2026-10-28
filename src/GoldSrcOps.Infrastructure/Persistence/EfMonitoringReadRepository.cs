@@ -71,7 +71,8 @@ internal sealed class EfMonitoringReadRepository : IMonitoringReadRepository
                 x.Id,
                 x.IsEnabled,
                 x.CurrentState == null ? ServerStatus.Unknown : x.CurrentState.Status,
-                x.CurrentState == null ? null : x.CurrentState.LastCheckedAtUtc))
+                x.CurrentState == null ? null : x.CurrentState.LastCheckedAtUtc,
+                x.PollIntervalSeconds))
             .ToListAsync(cancellationToken);
     }
 

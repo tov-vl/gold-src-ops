@@ -220,10 +220,12 @@ public sealed class MonitoringReadService
     {
         var servers = await _repository.ListDashboardServerStatusesAsync(cancellationToken);
         var openIncidents = await _repository.CountOpenIncidentsForEnabledServersAsync(cancellationToken);
+        var nowUtc = _clock.UtcNow;
 
         var monitoredServers = 0;
         var onlineServers = 0;
         var serversRequiringAttention = 0;
+        var freshObservations = 0;
         DateTimeOffset? lastObservedAtUtc = null;
 
         foreach (var server in servers)
@@ -235,7 +237,13 @@ public sealed class MonitoringReadService
 
             monitoredServers++;
 
-            if (server.Status == ServerStatus.Online)
+            var isStale = IsStale(server.LastCheckedAtUtc, server.PollIntervalSeconds, nowUtc);
+            if (!isStale)
+            {
+                freshObservations++;
+            }
+
+            if (server.Status == ServerStatus.Online && !isStale)
             {
                 onlineServers++;
             }
@@ -255,7 +263,7 @@ public sealed class MonitoringReadService
             monitoredServers,
             serversRequiringAttention,
             openIncidents,
-            lastObservedAtUtc);
+            freshObservations);
 
         return new PublicStatusDto(
             state,
@@ -443,9 +451,9 @@ public sealed class MonitoringReadService
         int monitoredServers,
         int serversRequiringAttention,
         int openIncidents,
-        DateTimeOffset? lastObservedAtUtc)
+        int freshObservations)
     {
-        if (monitoredServers == 0 || lastObservedAtUtc is null)
+        if (monitoredServers == 0 || freshObservations == 0)
         {
             return PublicStatusState.Unknown;
         }
@@ -455,16 +463,19 @@ public sealed class MonitoringReadService
             : PublicStatusState.Operational;
     }
 
-    private static bool IsStale(FleetServerStateDto state, DateTimeOffset nowUtc)
+    private static bool IsStale(FleetServerStateDto state, DateTimeOffset nowUtc) =>
+        IsStale(state.LastCheckedAtUtc, state.PollIntervalSeconds, nowUtc);
+
+    private static bool IsStale(DateTimeOffset? lastCheckedAtUtc, int pollIntervalSeconds, DateTimeOffset nowUtc)
     {
-        if (state.LastCheckedAtUtc is null)
+        if (lastCheckedAtUtc is null)
         {
             return true;
         }
 
         var freshnessWindow = TimeSpan.FromSeconds(
-            checked((long)state.PollIntervalSeconds * 2 + 10));
-        return nowUtc - state.LastCheckedAtUtc > freshnessWindow;
+            checked((long)pollIntervalSeconds * 2 + 10));
+        return nowUtc - lastCheckedAtUtc > freshnessWindow;
     }
 
     private static DateTimeOffset TruncateToMicrosecondPrecision(DateTimeOffset value)

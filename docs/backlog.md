@@ -4238,3 +4238,7 @@ OpenGL, 1920 x 1200, Widescreen, Windowed Mode. Два снимка подтве
 чеклиста. Приемка v2.89 также закрыта. Игра вдвоем, боты и 24-часовая
 активность остаются отложенными.
 См. [границу и доказательства](v2.93-gameplay-rules.md).
+
+## v2.94 - Public status freshness
+
+In progress: per-server freshness in the public fleet summary. A fresh server must not mask another server's expired Online observation. R1, API-only read correction; no schema or gameplay change. See [scope and gates](v2.94-status-freshness.md).

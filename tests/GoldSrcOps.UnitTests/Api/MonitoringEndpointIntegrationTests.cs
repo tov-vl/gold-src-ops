@@ -751,10 +751,12 @@ public sealed class MonitoringEndpointIntegrationTests
     [Fact]
     public async Task GetPublicStatus_returns_sanitized_enabled_fleet_summary_for_anonymous_client()
     {
-        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Anonymous);
+        var now = new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero);
+        await using var factory = new GoldSrcOpsApiFactory(
+            services => services.Replace(ServiceDescriptor.Singleton<IClock>(new TestClock(now))),
+            principal: TestApiPrincipal.Anonymous);
         using var client = factory.CreateClient();
-        var now = new DateTimeOffset(2026, 9, 5, 12, 0, 0, TimeSpan.Zero);
-        var lastObservedAtUtc = now.AddMinutes(-1);
+        var lastObservedAtUtc = now.AddSeconds(-5);
         await factory.ExecuteDbContextAsync(async dbContext =>
         {
             var onlineServer = CreateServer("Dust2 Public", "127.0.0.1", createdAtUtc: now.AddHours(-1));
@@ -809,6 +811,29 @@ public sealed class MonitoringEndpointIntegrationTests
             ServersRequiringAttention: 1,
             OpenIncidents: 1,
             LastObservedAtUtc: lastObservedAtUtc));
+    }
+
+    [Fact]
+    public async Task GetPublicStatus_does_not_hide_stale_server_behind_fresh_observation()
+    {
+        var now = new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero);
+        await using var factory = new GoldSrcOpsApiFactory(
+            services => services.Replace(ServiceDescriptor.Singleton<IClock>(new TestClock(now))),
+            principal: TestApiPrincipal.Anonymous);
+        using var client = factory.CreateClient();
+        await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var fresh = CreateServer("Fresh", "127.0.0.1", createdAtUtc: now.AddHours(-1));
+            fresh.GetCurrentState(now).MarkOnline(now, 20, "de_dust2", 0, 32);
+            var stale = CreateServer("Stale", "127.0.0.2", createdAtUtc: now.AddHours(-1));
+            stale.GetCurrentState(now).MarkOnline(now.AddHours(-1), 20, "de_dust2", 0, 32);
+            dbContext.Servers.AddRange(fresh, stale);
+            await dbContext.SaveChangesAsync();
+        });
+
+        var result = await client.GetFromJsonAsync<PublicStatusResponse>("/api/public/status");
+
+        result.Should().BeEquivalentTo(new PublicStatusResponse("degraded", 2, 1, 1, 0, now));
     }
 
     [Fact]

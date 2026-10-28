@@ -6,4 +6,5 @@ public sealed record DashboardServerStatusDto(
     Guid ServerId,
     bool IsEnabled,
     ServerStatus Status,
-    DateTimeOffset? LastCheckedAtUtc);
+    DateTimeOffset? LastCheckedAtUtc,
+    int PollIntervalSeconds);

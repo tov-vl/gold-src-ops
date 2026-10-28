@@ -618,9 +618,11 @@ public sealed class MonitoringReadServiceTests
     [AutoMoqData]
     public async Task GetPublicStatusAsync_excludes_disabled_servers(
         [Frozen] Mock<IMonitoringReadRepository> repository,
+        [Frozen] Mock<IClock> clock,
         MonitoringReadService sut)
     {
         var now = new DateTimeOffset(2026, 9, 5, 12, 0, 0, TimeSpan.Zero);
+        clock.SetupGet(static x => x.UtcNow).Returns(now);
         IReadOnlyList<DashboardServerStatusDto> serverStatuses =
         [
             TestData.DashboardServerStatus(ServerStatus.Online, lastCheckedAtUtc: now),

@@ -7,6 +7,24 @@ namespace GoldSrcOps.WebTests.Pages;
 public sealed class PublicStatusRefreshIntegrationTests
 {
     [Theory]
+    [InlineData("ru", "degraded", 1)]
+    [InlineData("en", "degraded", 1)]
+    [InlineData("ru", "unknown", 0)]
+    [InlineData("en", "unknown", 0)]
+    public async Task Fresh_aggregate_timestamp_does_not_upgrade_api_state(string language, string state, int online)
+    {
+        await using var factory = new PublicDashboardWebApplicationFactory(
+            status: new PublicStatusResponse(state, 2, online, 2 - online, 0, DateTimeOffset.UtcNow));
+        using var client = factory.CreateClient();
+
+        var body = WebUtility.HtmlDecode(await client.GetStringAsync("/?lang=" + language));
+
+        body.Should().Contain($"data-state=\"{state}\"")
+            .And.NotContain("data-state=\"operational\"")
+            .And.NotContain(PublicDashboardWebApplicationFactory.PrivateDataSentinel);
+    }
+
+    [Theory]
     [InlineData("ru", 0, "online", "operational", "online")]
     [InlineData("en", 0, "offline", "operational", "offline")]
     [InlineData("ru", 200, "online", "unknown", "unknown")]
