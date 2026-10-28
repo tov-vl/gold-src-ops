@@ -4260,9 +4260,13 @@ or gameplay change; no interactive identity or long-term SLO claim. See
 
 ## v2.95 - Local game-event agent diagnostics
 
-In progress: passive status, observed time, oldest waiting age and independent
+Repository implementation accepted through PR #407, merge `eb48ffa`: passive
+status, observed time, oldest waiting age and independent
 import/delivery cycle evidence. Status preserves schema-1 aggregate fields and
 does not initialize or migrate the queue. Diagnostics do not control delivery,
 retries or queue recovery. Local/CI verification and the separate hash-bound
 agent-upgrade gate are recorded in [scope and evidence](v2.95-agent-health.md).
-No player or 24-hour activity window is required; production remains unchanged.
+Required PR CI passed all full-path checks; 73 focused local agent tests and the
+isolated CLI rehearsal passed. Post-merge CI is tracked independently. No stable
+runtime release or target upgrade is claimed. No player or 24-hour activity
+window is required; production remains unchanged.
