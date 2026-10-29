@@ -4278,3 +4278,16 @@ Stable publication reused the accepted candidate ZIP without rebuilding.
 See [the upgrade workflow](game-event-agent-upgrade.md) and
 [evidence](v2.95-agent-health.md). No real event traffic, client rendering or
 24-hour activity claim is made; no such wait is needed for this diagnostic slice.
+
+## v2.96 - Passive agent monitoring
+
+In progress: connect the installed v2.95 agent diagnostics to private telemetry
+through one fixed `agent-status` SSH command and a once-per-minute host observer.
+The new Grafana dashboard shows queue/spool aggregates, waiting age, process and
+loop states, with explicit freshness gating. No queue mutation, event generation,
+worker/game restart, new key or public endpoint is part of this R3 slice.
+Local contract, authorization, dashboard recovery and full telemetry-stack checks
+precede required CI and immutable package publication. The command expands the
+existing backup key's read capability; explicit owner permission is required before
+production installation. See [scope and evidence](v2.96-agent-monitoring.md) and
+[release notes](release-notes-v2.96.md). No second player or 24-hour wait is needed.

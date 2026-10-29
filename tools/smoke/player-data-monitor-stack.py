@@ -15,6 +15,7 @@ import uuid
 from unittest import mock
 import public_leaderboard_monitor as leaderboard
 import web_public_api_alerts as web_alerts
+import agent_monitor_stack as agent_monitor
 
 ROOT = Path(__file__).resolve().parents[2]
 OBS = ROOT / "ops/production/observability"
@@ -251,6 +252,7 @@ def run_stack(images, safe, prometheus_config, fixture_rules):
         leaderboard.check_stack(collector_url, graf_url, query, request, wait)
         web_alerts.check_stack(prom_url, graf_url, query, request, wait, docker, prometheus, prometheus_config,
                                fixture_rules / "web-public-api.yml")
+        agent_monitor.check_stack(collector_url, graf_url, query, request, wait)
         metrics.update(observation_success=0, observed_timestamp_seconds=time.time())
         publish()
         wait(lambda: query('ALERTS{alertname="PlayerBackupObservationInvalid",alertstate="pending"}'))

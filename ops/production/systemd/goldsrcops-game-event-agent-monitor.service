@@ -1,0 +1,32 @@
+[Unit]
+Description=Passive game-event agent observation into private telemetry
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/usr/bin/python3 -I -B /opt/goldsrcops-agent-monitor/ops/production/agent-monitor.py publish
+TimeoutStartSec=40s
+Restart=no
+MemoryMax=128M
+TasksMax=16
+Nice=10
+NoNewPrivileges=true
+CapabilityBoundingSet=
+PrivateDevices=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadOnlyPaths=/etc/goldsrcops/agent-monitor.json /etc/goldsrcops/player-data-backup /opt/goldsrcops-agent-monitor
+InaccessiblePaths=-/etc/goldsrcops/deployment.env -/etc/goldsrcops/secrets -/run/docker.sock -/var/lib/goldsrcops/player-data-backup
+RemoveIPC=true
+RestrictAddressFamilies=AF_UNIX AF_INET
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
