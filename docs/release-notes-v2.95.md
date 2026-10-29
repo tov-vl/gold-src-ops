@@ -20,3 +20,9 @@ bundle needs a separately reviewed agent-only upgrade/rollback workflow. See
 Consumers that used status to initialize a missing queue must move that write
 into an explicit guarded installation step; fresh activation is part of the
 pending installation gate.
+
+The R3 follow-up supplies a hash-bound agent-only package/upgrade, exact-reference
+rollback, explicit fresh queue initialization and a durable pending gate for
+scheduled capture. The persistent guard, game payloads, credentials and queue
+schema are preserved. Runtime publication and target acceptance are recorded
+separately in [the installation runbook](game-event-agent-upgrade.md).

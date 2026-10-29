@@ -60,6 +60,7 @@ internal static class GameEventAgentConsole
                     options,
                     cancellationToken).ConfigureAwait(false),
                 ShowQueueStatusCommand status => ShowStatus(options, status.Json),
+                InitializeQueueCommand => InitializeQueue(options.Queue),
                 _ => throw new InvalidOperationException("The game-event agent command is unsupported.")
             };
         }
@@ -68,6 +69,13 @@ internal static class GameEventAgentConsole
             Console.Error.WriteLine($"Operation failed: {exception.Message}");
             return 1;
         }
+    }
+
+    private static int InitializeQueue(GameEventQueueOptions options)
+    {
+        GameEventQueueInitialization.CreateFresh(options);
+        Console.WriteLine("Fresh game-event queue initialized.");
+        return 0;
     }
 
     private static HostApplicationBuilder CreateApplicationBuilder() =>
@@ -279,6 +287,7 @@ internal static class GameEventAgentConsole
         Console.WriteLine("  import-spool");
         Console.WriteLine("  verify-access-token");
         Console.WriteLine("  status [--json]");
+        Console.WriteLine("  initialize-queue --fresh");
         Console.WriteLine();
         Console.WriteLine("Delivery is disabled by default. Configure it through GameEventAgent__* environment variables.");
         Console.WriteLine("Supply only a path in GameEventAgent__Delivery__OAuth__ClientSecretFile; never put the secret itself in configuration.");
@@ -314,6 +323,15 @@ internal static class GameEventAgentCommandLine
             string.Equals(args[1], "--json", StringComparison.Ordinal))
         {
             command = new ShowQueueStatusCommand(Json: true);
+            error = null;
+            return true;
+        }
+
+        if (args.Length == 2 &&
+            string.Equals(args[0], "initialize-queue", StringComparison.Ordinal) &&
+            string.Equals(args[1], "--fresh", StringComparison.Ordinal))
+        {
+            command = new InitializeQueueCommand();
             error = null;
             return true;
         }
@@ -364,3 +382,5 @@ internal sealed record ImportSpoolCommand : GameEventAgentCommand;
 internal sealed record VerifyAccessTokenAgentCommand : GameEventAgentCommand;
 
 internal sealed record ShowQueueStatusCommand(bool Json) : GameEventAgentCommand;
+
+internal sealed record InitializeQueueCommand : GameEventAgentCommand;

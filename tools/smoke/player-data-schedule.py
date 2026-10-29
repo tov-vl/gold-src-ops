@@ -177,6 +177,22 @@ class ScheduleTests(unittest.TestCase):
                 self.assertEqual(host.calls, [])
                 pending.unlink()
 
+    def test_pending_agent_blocks_capture_without_claim_or_stop(self):
+        pending = self.root / 'agent-upgrade-pending.json'
+        host = FakeHost()
+        for symlink in (False, True):
+            with self.subTest(symlink=symlink):
+                if symlink:
+                    pending.symlink_to(self.root / 'missing')
+                else:
+                    pending.write_text('{}')
+                with self.assertRaises(ValueError):
+                    game.capture(SLOT, self.ledger, host, self.clock)
+                self.assertFalse(self.ledger.pending.exists())
+                self.assertFalse((self.root / SLOT).exists())
+                self.assertEqual(host.calls, [])
+                pending.unlink()
+
     def test_busy_and_last_moment_join_never_stop(self):
         for occupancy in ((False,), (True, False)):
             with self.subTest(occupancy=occupancy), tempfile.TemporaryDirectory() as directory:

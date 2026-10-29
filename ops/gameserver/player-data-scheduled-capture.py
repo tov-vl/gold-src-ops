@@ -82,6 +82,9 @@ class Host:
 
 def capture(slot, ledger, host, clock=policy.now):
     policy.require(policy.weekly_slot(clock()) == slot, "Outside the Sunday maintenance window.")
+    pending_agent = ledger.root / 'agent-upgrade-pending.json'
+    policy.require(not pending_agent.exists() and not pending_agent.is_symlink(),
+                   'Agent upgrade requires reconciliation before scheduled capture.')
     pending_addon = ledger.root / 'addon-upgrade-pending.json'
     policy.require(not pending_addon.exists() and not pending_addon.is_symlink(),
                    'An addon transition requires reconciliation.')

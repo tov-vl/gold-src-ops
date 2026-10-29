@@ -327,6 +327,10 @@ jobs:
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
         run: bash ./tools/smoke/gameserver-game-event-persistent.sh
 
+      - name: Rehearse agent-only upgrade and rollback
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        run: sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-upgrade.py
+
       - name: Validate fixed fast-reentry profile and guard
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
         run: bash ./tools/smoke/gameserver-fast-reentry.sh

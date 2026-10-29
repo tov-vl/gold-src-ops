@@ -4270,3 +4270,9 @@ Required PR CI passed all full-path checks; 73 focused local agent tests and the
 isolated CLI rehearsal passed. Post-merge CI is tracked independently. No stable
 runtime release or target upgrade is claimed. No player or 24-hour activity
 window is required; production remains unchanged.
+
+The authorized R3 follow-up adds a versioned agent-only package, explicit fresh
+queue initialization and a hash-bound upgrade/rollback with preserved game,
+queue, identity, credentials and old release. See
+[the upgrade workflow](game-event-agent-upgrade.md). Target installation and
+runtime acceptance remain pending until recorded independently.
