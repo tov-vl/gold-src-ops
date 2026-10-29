@@ -1,0 +1,59 @@
+name: goldsrcops-owner-notifications
+
+services:
+  alertmanager:
+    image: prom/alertmanager:v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a
+    pull_policy: always
+    restart: unless-stopped
+    user: "65534:65534"
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --data.retention=120h
+      - --data.maintenance-interval=1m
+      - --cluster.listen-address=
+      - --log.level=warn
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    volumes:
+      - type: bind
+        source: ./alertmanager.yml
+        target: /etc/alertmanager/alertmanager.yml
+        read_only: true
+      - notification-state:/alertmanager
+    secrets:
+      - irm-webhook-url
+    networks:
+      telemetry:
+        aliases: [owner-alertmanager]
+        ipv4_address: ${GOLDSRCOPS_OWNER_ALERTMANAGER_IP:?Set the reviewed unused telemetry address}
+      outbound:
+        gw_priority: 1
+    healthcheck:
+      test: [CMD, /bin/wget, -q, -O, /dev/null, http://127.0.0.1:9093/-/ready]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    stop_grace_period: 30s
+    logging:
+      driver: local
+      options:
+        max-file: "3"
+        max-size: 5m
+
+networks:
+  telemetry:
+    external: true
+    name: ${GOLDSRCOPS_TELEMETRY_NETWORK:?Set the existing telemetry network}
+  outbound: {}
+
+secrets:
+  irm-webhook-url:
+    file: ${GOLDSRCOPS_IRM_WEBHOOK_FILE:?Set the protected URL file outside Git}
+
+volumes:
+  notification-state: {}
