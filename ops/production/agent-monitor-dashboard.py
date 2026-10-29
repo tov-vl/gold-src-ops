@@ -70,6 +70,9 @@ def context():
     require(any(ipaddress.IPv4Address(address) in ipaddress.IPv4Network(network)
                 for network in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16')))
     password = trusted(PASSWORD, owner=472, mode=0o400, maximum=256)
+    # Match the existing container's password-file convention: one final line
+    # terminator is formatting, not part of the password. Reject embedded lines.
+    password = password.removesuffix(b'\r\n').removesuffix(b'\n')
     require(16 <= len(password) <= 256 and b'\n' not in password and b'\r' not in password)
     return address, {'Authorization': 'Basic ' + base64.b64encode(b'admin:' + password).decode(),
                      'Content-Type': 'application/json'}

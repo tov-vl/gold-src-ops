@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Root-only disposable dashboard claim, rollback and drift failure rehearsal."""
 import copy
+import base64
 import importlib.util
 import json
 import os
@@ -96,6 +97,23 @@ class Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             rollout.execute('rollback', self.hash)
         self.assertFalse(any(method == 'DELETE' for method, _, _ in self.calls))
+
+
+class ContextTests(unittest.TestCase):
+    def test_existing_password_file_line_ending_is_not_sent_as_password(self):
+        container = {'image': rollout.IMAGE, 'running': True,
+                     'networks': {'goldsrcops_telemetry': {'IPAddress': '10.0.0.10'}}}
+        result = type('Result', (), {'returncode': 0, 'stdout': json.dumps(container).encode()})()
+        password = b'fixture-monitor-only-password'
+        for ending in (b'', b'\n', b'\r\n'):
+            with patch.object(rollout, 'trusted', return_value=password + ending), \
+                 patch.object(rollout.subprocess, 'run', return_value=result):
+                address, headers = rollout.context()
+                self.assertEqual(address, '10.0.0.10')
+                self.assertEqual(base64.b64decode(headers['Authorization'].split(' ', 1)[1]), b'admin:' + password)
+        with patch.object(rollout, 'trusted', return_value=password + b'\n\n'), \
+             patch.object(rollout.subprocess, 'run', return_value=result), self.assertRaises(ValueError):
+            rollout.context()
 
 
 if __name__ == '__main__':
