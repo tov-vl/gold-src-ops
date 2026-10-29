@@ -1,0 +1,53 @@
+global:
+  resolve_timeout: 5m
+  http_config:
+    follow_redirects: false
+
+route:
+  receiver: discard
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 6h
+  routes:
+    - receiver: owner-email
+      matchers:
+        - component="game-event-agent"
+        - severity="warning"
+        - alertname=~"GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)"
+
+receivers:
+  - name: discard
+  - name: owner-email
+    webhook_configs:
+      - url_file: /run/secrets/irm-webhook-url
+        send_resolved: true
+        max_alerts: 10
+        timeout: 10s
+        # Preserve Alertmanager's firing/resolved contract, but exclude raw
+        # annotations, arbitrary labels, queries and private generator URLs.
+        # One group per allowlisted alert name; IRM keeps payload.groupKey.
+        payload:
+          groupKey: 'goldsrcops.production.{{ .GroupLabels.alertname }}'
+          status: '{{ .Status }}'
+          receiver: owner-email
+          groupLabels:
+            alertname: '{{ .GroupLabels.alertname }}'
+            project: goldsrcops
+            environment: production
+          commonLabels:
+            alertname: '{{ .GroupLabels.alertname }}'
+            component: game-event-agent
+            severity: warning
+          commonAnnotations:
+            summary: 'GoldSrcOps: {{ .GroupLabels.alertname }}'
+            runbook_url: https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md
+          externalURL: https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.98-owner-notifications.md
+          alerts: >-
+            {{ $safe := list }}{{ range .Alerts }}
+            {{ $safe = append $safe (dict "status" .Status
+            "labels" (dict "alertname" .Labels.alertname "component" "game-event-agent" "severity" "warning")
+            "annotations" (dict "summary" (printf "GoldSrcOps: %s" .Labels.alertname)
+            "runbook_url" "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md")
+            "startsAt" .StartsAt "endsAt" .EndsAt "fingerprint" .Fingerprint) }}
+            {{ end }}{{ $safe | toJson }}

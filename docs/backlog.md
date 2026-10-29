@@ -4309,3 +4309,13 @@ identities preserved. Stable reused candidate bytes without rebuilding; exact
 rollback inputs are retained and rollback was not needed.
 No personal notification delivery is added. See
 [scope and evidence](v2.97-agent-alerts.md) and [release notes](release-notes-v2.97.md).
+
+## v2.98 - Owner notification delivery
+
+In progress: the owner selected existing Grafana Cloud IRM/email. A private
+Alertmanager and allowlisted route for the five agent warnings are implemented
+locally, including sanitized payloads, grouping, retry/deduplication and resolved
+updates. The old availability pipeline remains disabled and its history is
+preserved. Provider configuration, protected webhook transport, canary/email
+acceptance, CI and release are pending. Source resolution does not establish a
+separate recovery email. See [scope and gates](v2.98-owner-notifications.md).

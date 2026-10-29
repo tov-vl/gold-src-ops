@@ -440,6 +440,7 @@ jobs:
           systemd-analyze verify ./ops/production/systemd/goldsrcops-player-data-monitor.service ./ops/production/systemd/goldsrcops-player-data-monitor.timer
           systemd-analyze verify ./ops/production/systemd/goldsrcops-game-event-agent-monitor.service ./ops/production/systemd/goldsrcops-game-event-agent-monitor.timer
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor-stack.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/owner-notifications.py
           sudo bash ./tools/smoke/player-data-schedule.sh
           pwsh -NoProfile -File ./tools/smoke/player-data-backup.ps1
           bash -n ./tools/smoke/game-player-data-recovery-runtime.sh
