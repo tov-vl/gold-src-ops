@@ -482,6 +482,8 @@ RunGameplayRulesChecks(id)
     }
     set_pcvar_float(g_kill_heal, heal);
     set_pcvar_num(g_kill_ammo, ammo);
+    RunRespawnRulesChecks(id);
+    motds = g_motd_count;
     CheckMenu(g_preferences_dirty[id] == (PREFERENCE_LANGUAGE | PREFERENCE_PRIMARY | PREFERENCE_PISTOL)
         && g_hud_preference_dirty[id] && g_saved_kills[id] == saved_kills && g_map_kills[id] == map_kills
         && g_welcomed[id] == welcomed && g_displays == displays && g_leader_reads == reads && g_leader_rebuilds == rebuilds
@@ -514,6 +516,65 @@ RunGameplayRulesChecks(id)
     ShowGameplayRules(id);
     CheckMenu(g_motd_count == ++motds, "dead players can read rules");
     rg_round_respawn(id);
+}
+
+RunRespawnRulesChecks(id)
+{
+    new respawn = get_cvar_pointer("mp_forcerespawn"), protection = get_cvar_pointer("mp_respawn_immunitytime");
+    new unset = get_cvar_pointer("mp_respawn_immunity_force_unset");
+    new Float:old_respawn = get_pcvar_float(respawn), Float:old_protection = get_pcvar_float(protection), Float:old_unset = get_pcvar_float(unset);
+    new expected[192], time[16], motds = g_motd_count;
+    new const Float:durations[] = { -1.0, 0.0, 0.001, 1.0, 2.5, 3600.0, 3601.0, 2147483647.0 };
+    new const states[] = { -1, -1, 1, 1, 1, 1, 0, 0 };
+    new const times[][] = { "", "", "&lt;0.01", "1.00", "2.50", "3600.00", "", "" };
+    new const Float:modes[] = { 0.0, 1.0, 2.0, -1.0, 3.0, 1.5 };
+    new const end_keys[][] = { "GS_RULES_PROTECTION_TIMER", "GS_RULES_PROTECTION_ACTION", "GS_RULES_PROTECTION_ATTACK", "GS_RULES_PROTECTION_END_UNKNOWN" };
+    new Float:seconds;
+    CheckMenu(RulesTimeState(0, seconds) == 0 && RulesProtectionEndKey(0) == 3, "missing CVAR pointers produce unavailable facts");
+    for (new language = 0; language < 2; language++)
+    {
+        g_language_override[id] = language + 1;
+        for (new duration = 0; duration < sizeof durations; duration++)
+        {
+            new protection_index = (duration + 3) % sizeof durations;
+            set_pcvar_float(respawn, durations[duration]);
+            set_pcvar_float(protection, durations[protection_index]);
+            for (new mode = 0; mode < sizeof modes; mode++)
+            {
+                set_pcvar_float(unset, modes[mode]);
+                g_stats_next[id][6] = 0.0;
+                ShowGameplayRules(id);
+                CheckMenu(g_motd_count == ++motds, "respawn guide reads live settings without a reconnect");
+                formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language],
+                    states[duration] == 1 ? "GS_RULES_RESPAWN" : states[duration] == -1 ? "GS_RULES_RESPAWN_OFF" : "GS_RULES_RESPAWN_UNKNOWN", times[duration]);
+                CheckMenu(FindUtf8Bytes(g_motd_text, expected) >= 0, "respawn duration disabled and unavailable states are complete");
+                formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language],
+                    states[protection_index] == 1 ? "GS_RULES_PROTECTION" : states[protection_index] == -1 ? "GS_RULES_PROTECTION_OFF" : "GS_RULES_PROTECTION_UNKNOWN", times[protection_index]);
+                CheckMenu(FindUtf8Bytes(g_motd_text, expected) >= 0, "protection follows bounded live duration including sub-centisecond values");
+                for (new key = 0; key < sizeof end_keys; key++)
+                {
+                    formatex(expected, charsmax(expected), "%L", PLAYER_LANGUAGES[language], end_keys[key]);
+                    CheckMenu((FindUtf8Bytes(g_motd_text, expected) >= 0) == (states[protection_index] == 1 && key == (mode < 3 ? mode : 3)),
+                        "only the applicable early-removal rule appears while protection is enabled");
+                }
+                CheckMenu(get_pcvar_float(respawn) == durations[duration] && get_pcvar_float(protection) == durations[protection_index]
+                    && get_pcvar_float(unset) == modes[mode], "rule reads never modify engine settings");
+            }
+        }
+    }
+    // IEEE-754 non-finite values must fail closed without formatting huge numbers.
+    new const nonfinite[] = { 0x7fc00000, 0x7f800000, 0xff800000 };
+    for (new index = 0; index < sizeof nonfinite; index++)
+    {
+        set_pcvar_float(respawn, Float:nonfinite[index]);
+        CheckMenu(RulesTimeState(respawn, seconds) == 0, "non-finite duration is unavailable");
+    }
+    FormatRulesSeconds(1.234, time, charsmax(time));
+    CheckMenu(equal(time, "1.23") != 0, "durations have a bounded two-decimal display");
+    set_pcvar_float(respawn, old_respawn);
+    set_pcvar_float(protection, old_protection);
+    set_pcvar_float(unset, old_unset);
+    server_print("PLAYER_RESPAWN_RULES_SMOKE=%s failures=%d languages=2 combinations=96 settings_writes=fixture_only", g_failures ? "failed" : "passed", g_failures);
 }
 
 RunRankGuideChecks(id)

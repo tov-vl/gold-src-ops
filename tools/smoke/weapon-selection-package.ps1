@@ -155,6 +155,21 @@ try {
             $checks++
         }
     }
+    foreach ($lang in @('en', 'ru')) {
+        foreach ($key in @('GS_RULES_RESPAWN', 'GS_RULES_PROTECTION')) {
+            foreach ($value in @('Delay %d', 'Delay %s %s', 'Delay %.2f', 'Delay', ('я' * 96))) {
+                $pattern = "(?ms)(\[$lang\]\r?\n(?:(?!\[ru\]|\[en\]).)*?^$key = )[^\r\n]*"
+                $probe = [regex]::Replace($dictionaryText, $pattern, { param($match) $match.Groups[1].Value + $value })
+                if ($probe -ceq $dictionaryText) { throw 'Duration probe did not replace its target.' }
+                [IO.File]::WriteAllText($dictionaryProbe, $probe, $utf8)
+                $accepted = $true
+                try { & $dictionaryGate -DictionaryPath $dictionaryProbe | Out-Null }
+                catch { $accepted = $false }
+                if ($accepted) { throw "Invalid duration format was accepted: $lang/$key" }
+                $checks++
+            }
+        }
+    }
     foreach ($invalid in @([byte[]](0xd0), [byte[]](0xc0, 0xaf), [byte[]](0xed, 0xa0, 0x80))) {
         [IO.File]::WriteAllBytes($dictionaryProbe, ($utf8.GetBytes($dictionaryText) + $invalid))
         $rejected = $false

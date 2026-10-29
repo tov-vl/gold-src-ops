@@ -113,6 +113,22 @@ class ResultTests(unittest.TestCase):
                         with self.assertRaises(ValueError):
                             engine.validate_evidence(evidence, [case])
 
+    def test_respawn_rules_result_is_required(self):
+        case = next(case for case in json.loads(engine.LOCK.read_bytes())['cases']
+                    if case['command'] == 'goldsrcops_player_menu_smoke')
+        self.assertIn('PLAYER_RESPAWN_RULES_SMOKE', case['markers'])
+        with tempfile.TemporaryDirectory(prefix='respawn-result-test-') as folder:
+            evidence = Path(folder)
+            log = evidence / (case['command'] + '.log')
+            valid = ''.join(marker + '=passed failures=0\n' for marker in case['markers'])
+            log.write_text(valid)
+            engine.validate_evidence(evidence, [case])
+            for replacement in ('', 'PLAYER_RESPAWN_RULES_SMOKE=failed failures=1\n',
+                                'PLAYER_RESPAWN_RULES_SMOKE=passed failures=0\n' * 2):
+                log.write_text(valid.replace('PLAYER_RESPAWN_RULES_SMOKE=passed failures=0\n', replacement))
+                with self.assertRaises(ValueError):
+                    engine.validate_evidence(evidence, [case])
+
     def test_missing_fixture_log_is_fatal(self):
         with tempfile.TemporaryDirectory(prefix='gameplay-missing-test-') as folder, self.assertRaises(FileNotFoundError):
             engine.validate_evidence(Path(folder),[{'command':'case','markers':['SMOKE']}])
