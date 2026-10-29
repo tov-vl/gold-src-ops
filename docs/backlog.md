@@ -4325,11 +4325,14 @@ and [release notes](release-notes-v2.98.md).
 
 ## v2.99 - Respawn and protection guide
 
-In progress: addon 0.38.0 extends private RU/EN `/rules` with the current automatic
+Technically delivered on 2026-10-29: addon 0.38.0 extends private RU/EN `/rules` with the current automatic
 respawn delay, protection duration and early-removal conditions. The view reads
 live engine settings, handles disabled/unavailable values and preserves gameplay,
 storage and existing rules. Dictionary and mandatory engine coverage are extended.
-The approved delivery uses the guarded 0.37.0 -> 0.38.0 transition with preserved
-vaults and backup baseline. Client readability, PvP and activity remain separate.
+Product PR #419 and full required/post-merge CI passed. One guarded 0.37.0 ->
+0.38.0 apply reached `accepted`; independent acceptance confirmed preserved
+vaults, queue, agent, workflow, backup baseline invariants and control-plane.
+Client readability, PvP and activity remain separate; two RU/EN `/rules`
+screenshots and the owner's checklist result are the next client gate.
 See [scope and gates](v2.99-respawn-rules.md) and
 [release notes](release-notes-v2.99.md).
