@@ -260,5 +260,7 @@ The v2.97 policy adds five held Prometheus warnings and separate dashboard
 `goldsrcops-game-event-agent-alerts`, covering monitor/snapshot loss, worker state,
 waiting age and dead-letter/spool problems. Idle and disabled states are explicit;
 data warnings require fresh valid observations. There is no direct delivery or
-automatic repair. See [thresholds and recovery](v2.97-agent-alerts.md) for the
-isolated policy tests and separately tracked installation evidence.
+automatic repair. The policy was installed and independently accepted on
+2026-10-29 through a validated SIGHUP reload, preserving previous rules and runtime
+identities. See [thresholds and recovery](v2.97-agent-alerts.md) for isolated
+warning/recovery proof and the separate healthy-target acceptance.
