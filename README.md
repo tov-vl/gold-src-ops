@@ -7,7 +7,7 @@ auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
 **Status:** [v2.94.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.94.0)
-is the current public release. Public fleet status now checks each enabled
+is the current control-plane release. Public fleet status now checks each enabled
 server against its own polling interval, so one fresh observation cannot hide
 another server's expired Online state.
 
@@ -16,6 +16,11 @@ including public status RU/EN, A2S and telemetry. The other eight containers and
 durable mounts were preserved. Stable references reuse candidate digests without
 rebuilding. See [release notes](docs/release-notes-v2.94.md) and
 [evidence](docs/v2.94-status-freshness.md).
+
+The separately published [game-event agent v2.95.0](https://github.com/tov-vl/gold-src-ops/releases/tag/game-event-agent-v2.95.0)
+adds passive queue and worker diagnostics. Its agent-only production upgrade
+preserved the game process, queue identity, credentials and control-plane
+runtimes. See [verification and claim limits](docs/v2.95-agent-health.md).
 
 The v2.18 Pending Delivery Triage slice is integrated through
 [PR #180](https://github.com/tov-vl/gold-src-ops/pull/180) and is published.

@@ -4266,13 +4266,15 @@ import/delivery cycle evidence. Status preserves schema-1 aggregate fields and
 does not initialize or migrate the queue. Diagnostics do not control delivery,
 retries or queue recovery. Local/CI verification and the separate hash-bound
 agent-upgrade gate are recorded in [scope and evidence](v2.95-agent-health.md).
-Required PR CI passed all full-path checks; 73 focused local agent tests and the
-isolated CLI rehearsal passed. Post-merge CI is tracked independently. No stable
-runtime release or target upgrade is claimed. No player or 24-hour activity
-window is required; production remains unchanged.
-
-The authorized R3 follow-up adds a versioned agent-only package, explicit fresh
-queue initialization and a hash-bound upgrade/rollback with preserved game,
-queue, identity, credentials and old release. See
-[the upgrade workflow](game-event-agent-upgrade.md). Target installation and
-runtime acceptance remain pending until recorded independently.
+The R3 follow-up was accepted through PR #409/#410. Full local Quality Gate,
+77 focused agent tests, isolated upgrade/rollback and backup/activation checks,
+required CI and scoped InspectCode passed. The separately published
+[agent v2.95.0](https://github.com/tov-vl/gold-src-ops/releases/tag/game-event-agent-v2.95.0)
+was installed and independently accepted on 2026-10-29: idle import/delivery
+cycles advanced, queue/source continuity and passive-read bytes were preserved,
+and A2S plus persistent/backup guards passed. Only the agent was restarted;
+the game process, credentials, addons and control-plane runtimes were preserved.
+Stable publication reused the accepted candidate ZIP without rebuilding.
+See [the upgrade workflow](game-event-agent-upgrade.md) and
+[evidence](v2.95-agent-health.md). No real event traffic, client rendering or
+24-hour activity claim is made; no such wait is needed for this diagnostic slice.
