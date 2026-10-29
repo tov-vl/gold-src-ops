@@ -252,5 +252,6 @@ contract. One fixed restricted SSH command returns bounded queue/spool counts an
 worker-cycle evidence to the private OTLP pipeline. Dashboard
 `goldsrcops-game-event-agent` suppresses invalid, future-dated or expired current
 facts. Idle loop success is distinct from an accepted event. No direct notification,
-worker restart or queue recovery is added. Installation permission and target
-acceptance are tracked separately in [the v2.96 record](v2.96-agent-monitoring.md).
+worker restart or queue recovery is added. Installation was explicitly approved
+and independently accepted on 2026-10-29; see
+[the v2.96 record](v2.96-agent-monitoring.md) for runtime proof and rollback limits.
