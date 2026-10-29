@@ -4297,10 +4297,15 @@ See [scope and evidence](v2.96-agent-monitoring.md) and
 
 ## v2.97 - Agent warning policy
 
-In progress: five Prometheus warnings for lost/invalid observations, worker state,
+Completed: five Prometheus warnings for lost/invalid observations, worker state,
 delayed pending/in-flight and dead-letter/spool problems, with a five-minute hold
 and natural recovery. An independent Grafana alerts dashboard preserves v2.96
 diagnostics. R3 scope is config/rule reload and a new API-managed dashboard;
 existing game/agent/observer, SSH permissions, data and container images remain.
+PR #414, full required/main CI, signed immutable publication and independent R3
+acceptance passed. Production holds remain 300 seconds; policy evaluation and
+current panels passed, with old rules/dashboards, mounted-config inode and runtime
+identities preserved. Stable reused candidate bytes without rebuilding; exact
+rollback inputs are retained and rollback was not needed.
 No personal notification delivery is added. See
 [scope and evidence](v2.97-agent-alerts.md) and [release notes](release-notes-v2.97.md).
