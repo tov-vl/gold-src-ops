@@ -7,6 +7,17 @@ rules and the five-second private command cooldown remain.
 
 Gameplay settings, balance, storage and application services are unchanged.
 Focused engine and dictionary checks cover timing, removal modes, UTF-8 and
-complete MOTD contents. Product CI and guarded empty-server rollout are pending;
-real-client readability will be accepted separately. See
+complete MOTD contents. Product PR #419 and complete required/post-merge CI
+passed. The immutable package uses the verified CI binary without rebuilding.
+
+One guarded empty-server apply installed 0.38.0 on 2026-10-29 and reached
+`accepted`; independent technical acceptance passed. Vaults, queue, agent,
+workflow, backup baseline invariants and all ten control-plane containers were
+preserved. No rollback was needed. A read-only predecessor check first rejected
+a subsecond cross-host clock difference; the coordinator was corrected before
+any apply, retaining server-side freshness checks.
+
+Real-client RU/EN readability remains pending and will be accepted separately.
+No application images/tags, new provider configuration or gameplay settings were
+changed. See
 [scope and gates](v2.99-respawn-rules.md).
