@@ -1,4 +1,5 @@
 # Validate with visudo -cf before installation. The root-owned dispatcher
-# accepts exactly two validated arguments and resets its execution environment.
+# accepts two validated backup arguments or the single fixed read-only
+# agent-status command, and resets its execution environment.
 Defaults:gso-player-backup env_reset
 gso-player-backup ALL=(root) NOPASSWD: /usr/local/libexec/goldsrcops-player-data-backup *

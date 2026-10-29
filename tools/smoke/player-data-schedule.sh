@@ -61,7 +61,11 @@ reject unsupported
 cp "$root/ops/gameserver/player-data-backup-ssh.sh" "$temporary/dispatcher"
 cat > "$temporary/bin/sudo" <<'EOF'
 #!/usr/bin/env bash
-[[ $# == 4 && "$1" == -n && "$2" == -- && "$3" == /usr/local/libexec/goldsrcops-player-data-backup ]] && exit 1
+if [[ $# == 4 && "$1" == -n && "$2" == -- && "$3" == /usr/local/libexec/goldsrcops-player-data-backup ]]; then
+    [[ "$4" == agent-status ]] || exit 1
+    printf 'DISPATCH=agent-status\n'
+    exit 0
+fi
 [[ $# == 5 && "$1" == -n && "$2" == -- && "$3" == /usr/local/libexec/goldsrcops-player-data-backup ]]
 printf 'DISPATCH=%s,%s\n' "$4" "$5"
 EOF
@@ -70,9 +74,17 @@ for operation in capture status bundle; do
     result="$(runuser -u nobody -- env PATH="$temporary/bin:/usr/bin:/bin" SSH_ORIGINAL_COMMAND="$operation 2026-10-11" bash "$temporary/dispatcher")"
     [[ "$result" == "DISPATCH=$operation,2026-10-11" ]]
 done
-for command in 'sh' 'capture' 'capture ../vault' 'capture 2026-10-11;id' 'bundle 2026-10-11 extra' 'status 2026-10-11/../../secret' $'capture 2026-10-11\n'; do
+result="$(runuser -u nobody -- env PATH="$temporary/bin:/usr/bin:/bin" SSH_ORIGINAL_COMMAND=agent-status bash "$temporary/dispatcher")"
+[[ "$result" == DISPATCH=agent-status ]]
+for command in 'sh' 'capture' 'capture ../vault' 'capture 2026-10-11;id' 'bundle 2026-10-11 extra' 'status 2026-10-11/../../secret' $'capture 2026-10-11\n' 'agent-status extra' 'agent-status;id' 'agent-status --json' $'agent-status\n'; do
     if runuser -u nobody -- env PATH="$temporary/bin:/usr/bin:/bin" SSH_ORIGINAL_COMMAND="$command" bash "$temporary/dispatcher" >/dev/null 2>&1; then
         echo 'Dispatcher accepted an unsupported command' >&2
+        exit 1
+    fi
+done
+for command in extra --json '2026-10-11'; do
+    if bash "$temporary/dispatcher" agent-status "$command" >/dev/null 2>&1; then
+        echo 'Root dispatcher accepted an agent-status argument' >&2
         exit 1
     fi
 done

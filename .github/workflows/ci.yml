@@ -434,7 +434,10 @@ jobs:
           bash -n ./tools/smoke/game-addon-upgrade-runtime.sh
           bash -n ./ops/gameserver/addon-upgrade-guard.sh
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor.py
+          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py
           systemd-analyze verify ./ops/production/systemd/goldsrcops-player-data-monitor.service ./ops/production/systemd/goldsrcops-player-data-monitor.timer
+          systemd-analyze verify ./ops/production/systemd/goldsrcops-game-event-agent-monitor.service ./ops/production/systemd/goldsrcops-game-event-agent-monitor.timer
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor-stack.py
           sudo bash ./tools/smoke/player-data-schedule.sh
           pwsh -NoProfile -File ./tools/smoke/player-data-backup.ps1

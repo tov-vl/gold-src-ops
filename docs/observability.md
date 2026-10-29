@@ -244,3 +244,13 @@ The v2.73 configuration adds the `PublicWebApiReadFailures` warning and estimate
 failures and ratio with a five-minute hold. It does not alert on missing passive
 observations or deliver personal notifications. See the
 [thresholds, diagnosis and recovery guide](web-public-api-alerts.md).
+
+## Game-event agent diagnostics
+
+The v2.96 operations package adds a passive observer of the existing agent status
+contract. One fixed restricted SSH command returns bounded queue/spool counts and
+worker-cycle evidence to the private OTLP pipeline. Dashboard
+`goldsrcops-game-event-agent` suppresses invalid, future-dated or expired current
+facts. Idle loop success is distinct from an accepted event. No direct notification,
+worker restart or queue recovery is added. Installation permission and target
+acceptance are tracked separately in [the v2.96 record](v2.96-agent-monitoring.md).
