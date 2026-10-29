@@ -142,10 +142,11 @@ class Fixture(unittest.TestCase):
         path.touch(mode=0o640)
         with upgrade.locked(path):
             self.assertEqual(path.stat().st_mode & 0o777, 0o640)
-        path.chmod(0o660)
-        with self.assertRaises(ValueError):
-            with upgrade.locked(path):
-                self.fail('Group-writable lock was accepted')
+        for mode in (0o660, 0o650, 0o604):
+            path.chmod(mode)
+            with self.assertRaises(ValueError):
+                with upgrade.locked(path):
+                    self.fail('Unsupported lock access was accepted')
 
     def test_apply_and_explicit_rollback_preserve_source_queue_and_game(self):
         plan = self.prepare()
