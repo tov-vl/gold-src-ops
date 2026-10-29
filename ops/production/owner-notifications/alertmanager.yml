@@ -40,14 +40,14 @@ receivers:
             component: game-event-agent
             severity: warning
           commonAnnotations:
-            summary: 'GoldSrcOps: {{ .GroupLabels.alertname }}'
+            summary: 'GoldSrcOps - {{ .GroupLabels.alertname }}'
             runbook_url: https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md
           externalURL: https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.98-owner-notifications.md
           alerts: >-
             {{ $safe := list }}{{ range .Alerts }}
             {{ $safe = append $safe (dict "status" .Status
             "labels" (dict "alertname" .Labels.alertname "component" "game-event-agent" "severity" "warning")
-            "annotations" (dict "summary" (printf "GoldSrcOps: %s" .Labels.alertname)
+            "annotations" (dict "summary" (printf "GoldSrcOps - %s" .Labels.alertname)
             "runbook_url" "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md")
             "startsAt" .StartsAt "endsAt" .EndsAt "fingerprint" .Fingerprint) }}
             {{ end }}{{ $safe | toJson }}

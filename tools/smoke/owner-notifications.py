@@ -154,6 +154,9 @@ def main():
                 assert payload['groupKey'] == 'goldsrcops.production.' + payload['groupLabels']['alertname']
                 assert isinstance(payload['alerts'], list) and len(payload['alerts']) == 1
                 assert payload['alerts'][0]['status'] == 'firing'
+                expected_summary = 'GoldSrcOps - ' + payload['groupLabels']['alertname']
+                assert payload['commonAnnotations']['summary'] == expected_summary
+                assert payload['alerts'][0]['annotations']['summary'] == expected_summary
                 assert 'fixture-secret' not in json.dumps(payload)
                 assert 'generatorURL' not in json.dumps(payload)
             firing_keys = {x['payload']['groupKey'] for x in sent}

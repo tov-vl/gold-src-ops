@@ -4316,6 +4316,8 @@ In progress: the owner selected existing Grafana Cloud IRM/email. A private
 Alertmanager and allowlisted route for the five agent warnings are implemented
 locally, including sanitized payloads, grouping, retry/deduplication and resolved
 updates. The old availability pipeline remains disabled and its history is
-preserved. Provider configuration, protected webhook transport, canary/email
-acceptance, CI and release are pending. Source resolution does not establish a
-separate recovery email. See [scope and gates](v2.98-owner-notifications.md).
+preserved. Product PR #416 and CI passed; the first immutable candidate was published. Approved
+provider/secret setup and one owner-confirmed email/source-resolution canary are
+complete. A scalar-rendering correction requires a new candidate before production
+activation and final acceptance. Source resolution does not establish a separate
+recovery email. See [scope and gates](v2.98-owner-notifications.md).
