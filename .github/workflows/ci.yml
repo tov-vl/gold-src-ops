@@ -436,6 +436,7 @@ jobs:
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor.py
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor.py
           sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py
+          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py --alerts
           systemd-analyze verify ./ops/production/systemd/goldsrcops-player-data-monitor.service ./ops/production/systemd/goldsrcops-player-data-monitor.timer
           systemd-analyze verify ./ops/production/systemd/goldsrcops-game-event-agent-monitor.service ./ops/production/systemd/goldsrcops-game-event-agent-monitor.timer
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor-stack.py

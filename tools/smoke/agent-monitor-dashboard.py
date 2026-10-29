@@ -5,15 +5,22 @@ import base64
 import importlib.util
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location('dashboard_rollout', ROOT / 'ops/production/agent-monitor-dashboard.py')
+ALERTS = '--alerts' in sys.argv
+if ALERTS:
+    sys.argv.remove('--alerts')
+source_name = 'agent-alerts-dashboard' if ALERTS else 'agent-monitor-dashboard'
+spec = importlib.util.spec_from_file_location('dashboard_rollout', ROOT / ('ops/production/' + source_name + '.py'))
 rollout = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rollout)
+if ALERTS:
+    rollout = rollout.protocol
 
 
 class Tests(unittest.TestCase):
@@ -22,7 +29,7 @@ class Tests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         root = Path(self.temporary.name)
         path = root / 'dashboard.json'
-        path.write_bytes((ROOT / 'ops/production/agent-monitor-dashboard.json').read_bytes())
+        path.write_bytes((ROOT / ('ops/production/' + source_name + '.json')).read_bytes())
         path.chmod(0o644)
         self.hash = rollout.digest(path.read_bytes())
         self.current = None
