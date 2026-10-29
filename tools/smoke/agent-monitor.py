@@ -132,6 +132,16 @@ class ContractTests(unittest.TestCase):
         value['loops']['delivery']['lastSuccessfulAtUtc'] = (NOW + dt.timedelta(seconds=1)).isoformat()
         self.assertEqual(samples(value)['observation_success', None], 0)
 
+    def test_unreadable_spool_keeps_queue_but_does_not_publish_zero_directory_counts(self):
+        raw = snapshot()
+        raw['spoolAvailable'] = False
+        value = samples(contract.project(raw, True, NOW))
+        self.assertEqual(value['observation_success', None], 1)
+        self.assertEqual(value['queue_pending', None], 0)
+        self.assertEqual(value['spool_available', None], 0)
+        for name in ('spool_ready', 'spool_processing', 'spool_rejected'):
+            self.assertNotIn((name, None), value)
+
     def test_endpoint_executes_only_passive_status_and_never_reads_the_secret(self):
         raw = snapshot()
         calls = []

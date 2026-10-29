@@ -76,7 +76,8 @@ def observe(value, now):
         samples.extend([('source_observed_timestamp_seconds', observed.timestamp(), None),
                         ('service_active', int(value['serviceActive']), None),
                         ('oldest_waiting_age_seconds', value['oldestWaitingAgeSeconds'] or 0, None)])
-        samples.extend((metric, int(value[key]), None) for key, metric in SCALARS.items())
+        samples.extend((metric, int(value[key]), None) for key, metric in SCALARS.items()
+                       if value['spoolAvailable'] or key not in ('spoolReady', 'spoolProcessing', 'spoolRejected'))
         for name, loop in value['loops'].items():
             state = contract.loop_state(loop, value['serviceActive'], now)
             samples.extend([('loop_state', contract.STATES[state], name),

@@ -83,6 +83,13 @@ def check_stack(collector_url, graf_url, query, request, wait):
                 for target in panel['targets']:
                     assert value(target['expr']) == expected[target['legendFormat']]
         assert value(PREFIX + 'loop_state' + LABELS[:-1] + ',loop="delivery"}') == 6
+        spool_expr = next(p for p in dashboard['panels'] if p['id'] == 12)['targets'][0]['expr']
+        def missing_spool(raw):
+            backlog(raw)
+            raw['spoolAvailable'] = False
+        publish(observation(missing_spool))
+        wait(lambda: value(pending_expr) == 3 and not query(spool_expr))
+        assert value(PREFIX + 'spool_ready' + LABELS) == 5
         def stuck(raw):
             cycle = raw['health']['import']['cycle']
             cycle['lastStartedAtUtc'] = (fixtures.NOW - dt.timedelta(seconds=40)).isoformat()
