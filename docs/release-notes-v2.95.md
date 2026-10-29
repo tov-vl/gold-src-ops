@@ -12,17 +12,24 @@ delivery and error semantics; diagnostic write failures do not control them.
 Implemented through [PR #407](https://github.com/tov-vl/gold-src-ops/pull/407),
 merge `eb48ffaf8a1f67cf88c069c9aaf30c490e53f820`.
 [Required PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/40770981239)
-passed, including Linux tests, container and browser smoke. Implementation,
-post-merge CI and production installation remain separate evidence. No stable
-runtime release or production upgrade is claimed. The active hash-bound pilot
-bundle needs a separately reviewed agent-only upgrade/rollback workflow. See
-[scope, verification and delivery limits](v2.95-agent-health.md).
-Consumers that used status to initialize a missing queue must move that write
-into an explicit guarded installation step; fresh activation is part of the
-pending installation gate.
+passed, including Linux tests, container and browser smoke. The R3 installation
+follow-up was accepted through [PR #409](https://github.com/tov-vl/gold-src-ops/pull/409)
+and [PR #410](https://github.com/tov-vl/gold-src-ops/pull/410).
 
 The R3 follow-up supplies a hash-bound agent-only package/upgrade, exact-reference
 rollback, explicit fresh queue initialization and a durable pending gate for
 scheduled capture. The persistent guard, game payloads, credentials and queue
-schema are preserved. Runtime publication and target acceptance are recorded
-separately in [the installation runbook](game-event-agent-upgrade.md).
+schema are preserved. Fresh activation uses an explicit initializer; status
+continues to refuse a missing queue.
+
+[Agent v2.95.0](https://github.com/tov-vl/gold-src-ops/releases/tag/game-event-agent-v2.95.0)
+was published and independently accepted in production on 2026-10-29. Both idle
+loops advanced, queue/source continuity and passive-read database bytes were
+preserved, and A2S plus persistent/backup guards passed. Only the agent was
+stopped/started; game invocation, credentials, addons and container runtimes
+were preserved. The old release remains available and rollback was not needed.
+Stable assets reuse the exact accepted candidate bytes without rebuilding.
+
+This is a separate agent release; the control-plane release remains v2.94.0.
+No real traffic, client rendering or 24-hour observation claim is made. See
+[installation](game-event-agent-upgrade.md) and [evidence](v2.95-agent-health.md).
