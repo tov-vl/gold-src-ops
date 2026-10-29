@@ -112,7 +112,7 @@ def locked(path):
     try:
         info = os.fstat(descriptor)
         require(info.st_uid == 0 and info.st_nlink == 1 and stat.S_ISREG(info.st_mode)
-                and info.st_mode & 0o077 == 0)
+                and info.st_mode & 0o027 == 0)
         fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         yield
     finally:
