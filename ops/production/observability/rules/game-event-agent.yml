@@ -1,0 +1,70 @@
+groups:
+  - name: goldsrcops-game-event-agent
+    rules:
+      - record: goldsrcops_agent:policy_evaluated_timestamp_seconds
+        expr: |
+          time()
+      - record: goldsrcops_agent:monitor_live
+        expr: |
+          (max(goldsrcops_game_event_agent_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) >= time() - 180) and (max(goldsrcops_game_event_agent_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) <= time())
+      - record: goldsrcops_agent:observation_valid
+        expr: |
+          (max(goldsrcops_game_event_agent_observation_success{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) == 1) and goldsrcops_agent:monitor_live and (max(goldsrcops_game_event_agent_source_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) >= time() - 180) and (max(goldsrcops_game_event_agent_source_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) <= time())
+      - record: goldsrcops_agent:waiting_age_seconds
+        expr: |
+          (max(goldsrcops_game_event_agent_oldest_waiting_age_seconds{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) + clamp_min(time() - max(goldsrcops_game_event_agent_source_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}), 0)) and (max(goldsrcops_game_event_agent_queue_pending{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) + max(goldsrcops_game_event_agent_queue_in_flight{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) > 0) and goldsrcops_agent:observation_valid
+      - alert: GameEventAgentMonitorUnavailable
+        expr: |
+          absent(goldsrcops_agent:monitor_live)
+        for: 5m
+        labels:
+          severity: warning
+          component: game-event-agent
+        annotations:
+          summary: "Нет свежих наблюдений агента"
+          description: "Нет корректного heartbeat за 180 секунд; условие держится 5 минут. Проверьте observer timer, SSH и Collector. Состояние агента неизвестно."
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md"
+      - alert: GameEventAgentObservationInvalid
+        expr: |
+          absent(goldsrcops_agent:observation_valid) and goldsrcops_agent:monitor_live
+        for: 5m
+        labels:
+          severity: warning
+          component: game-event-agent
+        annotations:
+          summary: "Снимок агента недоступен или невалиден"
+          description: "Observer работает, но нет свежего валидного снимка. Проверьте журнал observer и пассивный status; не создавайте очередь и не восстанавливайте leases вручную."
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md"
+      - alert: GameEventAgentWorkerProblem
+        expr: |
+          ((max(goldsrcops_game_event_agent_service_active{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) == 0) or max(goldsrcops_game_event_agent_loop_state{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor",loop=~"import|delivery"} > 0 and goldsrcops_game_event_agent_loop_state{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor",loop=~"import|delivery"} != 3) or max(absent(goldsrcops_game_event_agent_loop_state{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor",loop="import"})) or max(absent(goldsrcops_game_event_agent_loop_state{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor",loop="delivery"})) or max(absent(goldsrcops_game_event_agent_service_active{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}))) and goldsrcops_agent:observation_valid
+        for: 5m
+        labels:
+          severity: warning
+          component: game-event-agent
+        annotations:
+          summary: "Рабочий цикл агента требует внимания"
+          description: "Агент остановлен либо включенный цикл недоступен, запускается, устарел, завершился ошибкой, повторяет доставку или заблокирован более 5 минут. Disabled не считается ошибкой; idle running является нормой."
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md"
+      - alert: GameEventAgentQueueDelayed
+        expr: |
+          (goldsrcops_agent:waiting_age_seconds >= 300) and (max(goldsrcops_game_event_agent_loop_state{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor",loop="delivery"}) > 0)
+        for: 5m
+        labels:
+          severity: warning
+          component: game-event-agent
+        annotations:
+          summary: "События долго ожидают в очереди"
+          description: "Pending/in-flight существует, возраст старейшего enqueue не менее 300 секунд и условие держится 5 минут. При отключенной доставке это предупреждение подавлено. Не очищайте очередь и не повторяйте неопределенную доставку."
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md"
+      - alert: GameEventAgentSpoolProblem
+        expr: |
+          ((max(goldsrcops_game_event_agent_queue_dead_letter{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) > 0) or ((max(goldsrcops_game_event_agent_spool_rejected{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) > 0) and (max(goldsrcops_game_event_agent_spool_available{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) == 1)) or (max(goldsrcops_game_event_agent_spool_available{job="goldsrcops",service_name="goldsrcops-game-event-agent-monitor"}) == 0)) and goldsrcops_agent:observation_valid
+        for: 5m
+        labels:
+          severity: warning
+          component: game-event-agent
+        annotations:
+          summary: "Dead-letter или spool требуют внимания"
+          description: "Dead-letter/rejected не пуст либо spool недоступен более 5 минут. Старые rejected-счетчики при недоступном spool не используются. Не удаляйте файлы или записи для снятия предупреждения."
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md"

@@ -4294,3 +4294,13 @@ preservation and A2S/guards passed. Stable publication reused the accepted candi
 bytes without rebuilding; the prior dispatcher and rollback boundary are retained.
 See [scope and evidence](v2.96-agent-monitoring.md) and
 [release notes](release-notes-v2.96.md). No second player or 24-hour wait is needed.
+
+## v2.97 - Agent warning policy
+
+In progress: five Prometheus warnings for lost/invalid observations, worker state,
+delayed pending/in-flight and dead-letter/spool problems, with a five-minute hold
+and natural recovery. An independent Grafana alerts dashboard preserves v2.96
+diagnostics. R3 scope is config/rule reload and a new API-managed dashboard;
+existing game/agent/observer, SSH permissions, data and container images remain.
+No personal notification delivery is added. See
+[scope and evidence](v2.97-agent-alerts.md) and [release notes](release-notes-v2.97.md).

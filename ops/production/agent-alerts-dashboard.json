@@ -1,0 +1,330 @@
+{
+  "uid": "goldsrcops-game-event-agent-alerts",
+  "title": "GoldSrcOps - предупреждения агента",
+  "editable": false,
+  "schemaVersion": 41,
+  "version": 1,
+  "timezone": "Europe/Moscow",
+  "refresh": "30s",
+  "tags": [
+    "goldsrcops",
+    "agent",
+    "alerts"
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Предупреждения агента",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Предупреждения Prometheus с выдержкой 5 минут. Нет свежей оценки правил - состояние неизвестно. Пустой сервер и idle running являются нормой. [Диагностика агента](/d/goldsrcops-game-event-agent) | [Инструкция](https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md). Личные уведомления не отправляются."
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Наблюдения недоступны",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((2 * max(ALERTS{alertname=\"GameEventAgentMonitorUnavailable\",component=\"game-event-agent\",alertstate=\"firing\"})) or max(ALERTS{alertname=\"GameEventAgentMonitorUnavailable\",component=\"game-event-agent\",alertstate=\"pending\"}) or (0 * max(goldsrcops_agent:policy_evaluated_timestamp_seconds))) and on() ((max(goldsrcops_agent:policy_evaluated_timestamp_seconds) >= time() - 60) and (max(goldsrcops_agent:policy_evaluated_timestamp_seconds) <= time()))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежей оценки",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Не сработало",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "Выдержка 5 минут",
+                  "color": "yellow"
+                },
+                "2": {
+                  "text": "Требует внимания",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Снимок невалиден",
+      "gridPos": {
+        "x": 8,
+        "y": 3,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((2 * max(ALERTS{alertname=\"GameEventAgentObservationInvalid\",component=\"game-event-agent\",alertstate=\"firing\"})) or max(ALERTS{alertname=\"GameEventAgentObservationInvalid\",component=\"game-event-agent\",alertstate=\"pending\"}) or (0 * max(goldsrcops_agent:policy_evaluated_timestamp_seconds))) and on() ((max(goldsrcops_agent:policy_evaluated_timestamp_seconds) >= time() - 60) and (max(goldsrcops_agent:policy_evaluated_timestamp_seconds) <= time()))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежей оценки",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Не сработало",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "Выдержка 5 минут",
+                  "color": "yellow"
+                },
+                "2": {
+                  "text": "Требует внимания",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Рабочий цикл",
+      "gridPos": {
+        "x": 16,
+        "y": 3,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((2 * max(ALERTS{alertname=\"GameEventAgentWorkerProblem\",component=\"game-event-agent\",alertstate=\"firing\"})) or max(ALERTS{alertname=\"GameEventAgentWorkerProblem\",component=\"game-event-agent\",alertstate=\"pending\"}) or (0 * max(goldsrcops_agent:policy_evaluated_timestamp_seconds))) and on() ((max(goldsrcops_agent:policy_evaluated_timestamp_seconds) >= time() - 60) and (max(goldsrcops_agent:policy_evaluated_timestamp_seconds) <= time()))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежей оценки",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Не сработало",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "Выдержка 5 минут",
+                  "color": "yellow"
+                },
+                "2": {
+                  "text": "Требует внимания",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Очередь ожидает",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((2 * max(ALERTS{alertname=\"GameEventAgentQueueDelayed\",component=\"game-event-agent\",alertstate=\"firing\"})) or max(ALERTS{alertname=\"GameEventAgentQueueDelayed\",component=\"game-event-agent\",alertstate=\"pending\"}) or (0 * max(goldsrcops_agent:policy_evaluated_timestamp_seconds))) and on() ((max(goldsrcops_agent:policy_evaluated_timestamp_seconds) >= time() - 60) and (max(goldsrcops_agent:policy_evaluated_timestamp_seconds) <= time()))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежей оценки",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Не сработало",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "Выдержка 5 минут",
+                  "color": "yellow"
+                },
+                "2": {
+                  "text": "Требует внимания",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Dead-letter / spool",
+      "gridPos": {
+        "x": 8,
+        "y": 8,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((2 * max(ALERTS{alertname=\"GameEventAgentSpoolProblem\",component=\"game-event-agent\",alertstate=\"firing\"})) or max(ALERTS{alertname=\"GameEventAgentSpoolProblem\",component=\"game-event-agent\",alertstate=\"pending\"}) or (0 * max(goldsrcops_agent:policy_evaluated_timestamp_seconds))) and on() ((max(goldsrcops_agent:policy_evaluated_timestamp_seconds) >= time() - 60) and (max(goldsrcops_agent:policy_evaluated_timestamp_seconds) <= time()))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежей оценки",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Не сработало",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "Выдержка 5 минут",
+                  "color": "yellow"
+                },
+                "2": {
+                  "text": "Требует внимания",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    }
+  ]
+}
