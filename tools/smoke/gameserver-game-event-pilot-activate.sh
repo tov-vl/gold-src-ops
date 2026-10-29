@@ -582,4 +582,47 @@ grep -Fq -- "--data-urlencode \"client_secret@\$secret_path\"" "$activator" ||
 ! grep -Eq -- '--data[^\n]*client_secret=' "$activator" ||
     fail "Pilot activation can place the OAuth secret itself in a process argument."
 
+for initializer in dedicated legacy; do
+    (
+        source "$activator"
+        state_root="$smoke_directory/fresh-$initializer/state"
+        spool_root="$smoke_directory/fresh-$initializer/spool"
+        release_path="$smoke_directory/fresh-$initializer/release"
+        service_user=root
+        service_home="$smoke_directory/fresh-$initializer"
+        mkdir -p "$state_root/queue" "$spool_root" "$release_path/agent"
+        export FIXTURE_INITIALIZER="$initializer"
+        export FIXTURE_QUEUE="$state_root/queue/game-event-agent.db"
+        cat > "$release_path/agent/GoldSrcOps.GameEventAgent" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+case "$*" in
+    --help)
+        if [[ "$FIXTURE_INITIALIZER" == dedicated ]]; then
+            printf '  initialize-queue --fresh\n'
+        else
+            printf '  import-spool\n'
+        fi
+        ;;
+    'initialize-queue --fresh') [[ "$FIXTURE_INITIALIZER" == dedicated ]]; : > "$FIXTURE_QUEUE" ;;
+    import-spool) [[ "$FIXTURE_INITIALIZER" == legacy ]]; : > "$FIXTURE_QUEUE" ;;
+    *) exit 99 ;;
+esac
+EOF
+        chmod 0750 "$release_path/agent/GoldSrcOps.GameEventAgent"
+        # Execute only the fixture binary while retaining test-only selectors.
+        # shellcheck disable=SC2329
+        runuser() {
+            shift 3
+            while [[ "$1" != "$release_path/agent/GoldSrcOps.GameEventAgent" ]]; do shift; done
+            "$@"
+        }
+        initialize_fresh_agent_queue
+        [[ -f "$FIXTURE_QUEUE" ]]
+        if (initialize_fresh_agent_queue) >/dev/null 2>&1; then
+            fail 'Fresh initializer accepted existing queue evidence.'
+        fi
+    ) || fail "Fresh activation initializer failed for $initializer."
+done
+
 printf 'Game-server game-event pilot activation smoke test passed.\n'

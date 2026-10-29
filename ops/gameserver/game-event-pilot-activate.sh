@@ -678,6 +678,31 @@ wait_for_agent_service() {
     fail "The game-event agent did not reach its reviewed active state."
 }
 
+initialize_fresh_agent_queue() {
+    local command_output
+    local -a arguments=(env -i HOME="$service_home" PATH=/usr/bin:/bin
+        "DOTNET_BUNDLE_EXTRACT_BASE_DIR=$state_root/dotnet-bundle"
+        "GameEventAgent__QueuePath=$state_root/queue/game-event-agent.db"
+        "GameEventAgent__Spool__RootPath=$spool_root")
+    [[ ! -e "$state_root/queue/game-event-agent.db" &&
+        ! -e "$state_root/queue/game-event-agent.db-wal" &&
+        ! -e "$state_root/queue/game-event-agent.db-shm" ]] ||
+        { fail "Fresh activation refuses existing queue or recovery evidence."; return 1; }
+    [[ -z "$(find "$spool_root" -type f -print -quit)" ]] ||
+        { fail "Fresh activation refuses non-empty spool state."; return 1; }
+    command_output="$(runuser -u "$service_user" -- "${arguments[@]}" \
+        "$release_path/agent/GoldSrcOps.GameEventAgent" --help)"
+    if grep -Fxq '  initialize-queue --fresh' <<< "$command_output"; then
+        runuser -u "$service_user" -- "${arguments[@]}" \
+            "$release_path/agent/GoldSrcOps.GameEventAgent" initialize-queue --fresh
+    else
+        # Legacy bundles have no dedicated initializer. Import the verified empty spool
+        # explicitly under the activation lock, never use a read command to create state.
+        runuser -u "$service_user" -- "${arguments[@]}" \
+            "$release_path/agent/GoldSrcOps.GameEventAgent" import-spool
+    fi
+}
+
 read_agent_status() {
     local output queue_line spool_line
     output="$(runuser -u "$service_user" -- env -i \
@@ -1538,6 +1563,7 @@ run_activate() {
     verify_sha256 "$environment_file" "$state_environment_current_sha256"
     verify_sha256 "$producer_configuration" "$state_producer_configuration_sha256"
 
+    initialize_fresh_agent_queue
     systemctl start "$GAME_SERVICE_NAME"
     wait_for_game_service true
     systemctl start "$AGENT_SERVICE_NAME"

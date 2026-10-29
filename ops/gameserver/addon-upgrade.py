@@ -337,6 +337,8 @@ def main():
     with policy.lock(STATE / 'schedule.lock'):
         with policy.lock(CONFIG / 'player-data-backup.lock', shared=True):
             policy.require(not (STATE / 'pending.json').exists() and not (STATE / 'pending.json').is_symlink())
+            policy.require(not (STATE / 'agent-upgrade-pending.json').exists()
+                           and not (STATE / 'agent-upgrade-pending.json').is_symlink())
             with policy.lock(CONFIG / 'game-event-pilot-install.lock', shared=True) as lock_fd:
                 # Keep the same open-file-description lock through the shell installer.
                 # Descriptors 6-9 belong to existing shell workflows.
