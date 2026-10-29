@@ -4312,12 +4312,13 @@ No personal notification delivery is added. See
 
 ## v2.98 - Owner notification delivery
 
-In progress: the owner selected existing Grafana Cloud IRM/email. A private
-Alertmanager and allowlisted route for the five agent warnings are implemented
-locally, including sanitized payloads, grouping, retry/deduplication and resolved
-updates. The old availability pipeline remains disabled and its history is
-preserved. Product PR #416 and CI passed; the first immutable candidate was published. Approved
-provider/secret setup and one owner-confirmed email/source-resolution canary are
-complete. A scalar-rendering correction requires a new candidate before production
-activation and final acceptance. Source resolution does not establish a separate
-recovery email. See [scope and gates](v2.98-owner-notifications.md).
+Completed on 2026-10-29: a private Alertmanager routes the five existing agent
+warnings to the owner's existing Grafana Cloud IRM/email, with sanitized payloads,
+grouping, retry/deduplication and source resolution. One canary produced an
+owner-confirmed email and one resolved IRM group. Product PR #416 and correction
+PR #417 passed full required/post-merge CI. Corrected rc.2 was independently
+accepted and promoted to signed stable without rebuilding; global latest stays
+v2.94.0. The old nine containers, rules, dashboards, observer, disabled workers
+and game/agent/queue state were preserved. No separate recovery email or external
+host-outage coverage is claimed. See [scope and acceptance](v2.98-owner-notifications.md)
+and [release notes](release-notes-v2.98.md).
