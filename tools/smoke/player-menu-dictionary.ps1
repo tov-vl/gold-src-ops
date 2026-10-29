@@ -80,7 +80,10 @@ foreach ($key in $sections.en.Keys) {
         if ($key -eq 'GS_RULES_HEAL' -and ($formats[$lang] -join ',') -cne '%d') {
             throw "Gameplay healing requires exactly one integer: $lang/$key"
         }
-        if ($key -like 'GS_RULES*' -and $key -ne 'GS_RULES_HEAL' -and $formats[$lang].Count -ne 0) {
+        if ($key -in @('GS_RULES_RESPAWN', 'GS_RULES_PROTECTION') -and ($formats[$lang] -join ',') -cne '%s') {
+            throw "Gameplay duration requires exactly one bounded string: $lang/$key"
+        }
+        if ($key -like 'GS_RULES*' -and $key -notin @('GS_RULES_HEAL', 'GS_RULES_RESPAWN', 'GS_RULES_PROTECTION') -and $formats[$lang].Count -ne 0) {
             throw "Gameplay rules must otherwise be static text: $lang/$key"
         }
         # Ratio text has its own 13-byte bound; names/ranks retain 31 bytes.

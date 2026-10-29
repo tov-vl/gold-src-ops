@@ -1,4 +1,14 @@
 [en]
+GS_RULES_RESPAWN = Automatic respawn delay: %s s.
+GS_RULES_RESPAWN_OFF = Automatic respawn is disabled.
+GS_RULES_RESPAWN_UNKNOWN = Automatic respawn settings are unavailable.
+GS_RULES_PROTECTION = Spawn protection: up to %s s.
+GS_RULES_PROTECTION_OFF = Spawn protection is disabled.
+GS_RULES_PROTECTION_UNKNOWN = Spawn protection settings are unavailable.
+GS_RULES_PROTECTION_TIMER = Actions do not end protection early.
+GS_RULES_PROTECTION_ACTION = Protection ends on an active action, including movement or attack.
+GS_RULES_PROTECTION_ATTACK = Primary or secondary attack ends protection early.
+GS_RULES_PROTECTION_END_UNKNOWN = Early protection removal settings are unavailable.
 GS_RULES = Gameplay rules
 GS_RULES_TITLE = Rules
 GS_RULES_GUNS = /guns: choose weapons for your next spawn.
@@ -100,6 +110,16 @@ GS_ELITE = Elite
 GS_LEGEND = Legend
 
 [ru]
+GS_RULES_RESPAWN = Задержка автовозрождения: %s с.
+GS_RULES_RESPAWN_OFF = Автовозрождение отключено.
+GS_RULES_RESPAWN_UNKNOWN = Настройки автовозрождения недоступны.
+GS_RULES_PROTECTION = Защита после возрождения: до %s с.
+GS_RULES_PROTECTION_OFF = Защита после возрождения отключена.
+GS_RULES_PROTECTION_UNKNOWN = Настройки защиты после возрождения недоступны.
+GS_RULES_PROTECTION_TIMER = Действия не снимают защиту досрочно.
+GS_RULES_PROTECTION_ACTION = Защита снимается при активном действии: движении, атаке и т.п.
+GS_RULES_PROTECTION_ATTACK = Основная или дополнительная атака снимает защиту досрочно.
+GS_RULES_PROTECTION_END_UNKNOWN = Условия досрочного снятия защиты недоступны.
 GS_RULES = Правила режима
 GS_RULES_TITLE = Правила
 GS_RULES_GUNS = /guns: выбор оружия для следующего возрождения.

@@ -84,6 +84,7 @@
         "PLAYER_MENU_SMOKE",
         "PLAYER_RANK_GUIDE_SMOKE",
         "PLAYER_RULES_SMOKE",
+        "PLAYER_RESPAWN_RULES_SMOKE",
         "PLAYER_HELP_SMOKE",
         "PLAYER_HUD_SMOKE"
       ]

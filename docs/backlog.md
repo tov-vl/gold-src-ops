@@ -4322,3 +4322,14 @@ v2.94.0. The old nine containers, rules, dashboards, observer, disabled workers
 and game/agent/queue state were preserved. No separate recovery email or external
 host-outage coverage is claimed. See [scope and acceptance](v2.98-owner-notifications.md)
 and [release notes](release-notes-v2.98.md).
+
+## v2.99 - Respawn and protection guide
+
+In progress: addon 0.38.0 extends private RU/EN `/rules` with the current automatic
+respawn delay, protection duration and early-removal conditions. The view reads
+live engine settings, handles disabled/unavailable values and preserves gameplay,
+storage and existing rules. Dictionary and mandatory engine coverage are extended.
+The approved delivery uses the guarded 0.37.0 -> 0.38.0 transition with preserved
+vaults and backup baseline. Client readability, PvP and activity remain separate.
+See [scope and gates](v2.99-respawn-rules.md) and
+[release notes](release-notes-v2.99.md).
