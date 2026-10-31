@@ -101,5 +101,7 @@ The raw worker/collector results intentionally remain unreviewed with
 `acceptancePassed=false`; separate operator review records hold acceptance.
 Profiles, native frames, logs, signed payloads and rollback records remain outside
 Git. No renderer, PvP or 24-hour human-activity acceptance is claimed. Other
-panels still have capture-only support; the autonomous interaction acceptance is
-limited to the reviewed `/rules` profile.
+panels had capture-only support at this adoption revision; its autonomous
+interaction acceptance is limited to the reviewed `/rules` profile. The later
+[additional-panel installation and pending acceptance](client-panel-acceptance.md)
+is recorded separately.

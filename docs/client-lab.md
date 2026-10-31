@@ -47,6 +47,9 @@ rows (Lab Alpha, Lab Bravo and Lab Charlie), including distinct ranks, kills and
 deaths; the connected client's saved place is unavailable. No identity is forged
 and no real player data is imported. These profiles do not cover arbitrary live
 statistics. See [panel scope and verification](client-panel-acceptance.md).
+The additional panels' code is installed, but their fresh autonomous interaction
+acceptance is deferred while the owner uses the Steam account for another game.
+Reviewed capture-only baselines do not establish successful interaction.
 
 ## Provisioning contract
 

@@ -4361,10 +4361,15 @@ See [the client lab runbook](client-lab.md) and
 
 ## Autonomous client lab - additional MOTD panels
 
-Implement fixed RU/EN five-frame interaction for `/ranks`, `/profile` and
+Implemented and installed on 2026-10-31: fixed RU/EN five-frame interaction for `/ranks`, `/profile` and
 `/topall`, preserving the existing rules scenario, owned-window guards and
 signed update boundary. Disposable synthetic leaderboard data supports stable
 visual profiles without real player data or identity impersonation. The LAN
 profile scenario covers unavailable saved data and zero connection/map counters.
-Local verification and fresh target acceptance are separate gates; no new addon,
-production or cloud rollout is included. See [scope and verification](client-panel-acceptance.md).
+Product PR #424 passed required CI. Local suites, scoped InspectCode (zero
+errors/warnings), six reviewed native baselines and nine installed hash checks
+passed. The first autonomous request was cancelled with verified cleanup after
+the owner reported Steam in use elsewhere; no interaction pass or automatic
+retry is claimed. All six fresh autonomous acceptances are deferred until the
+account is free. No new addon, production, cloud or access-rule change was made.
+See [scope, verification and pending gate](client-panel-acceptance.md).
