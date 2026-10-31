@@ -12,6 +12,15 @@ function Check([bool]$Condition) { if (-not $Condition) { throw "Campaign assert
 function Reject([scriptblock]$Action) { $failed = $false; try { $null = & $Action } catch { $failed = $true }; Check $failed }
 function Json([string]$Path, $Value) { [IO.File]::WriteAllText($Path, ($Value | ConvertTo-Json -Depth 30)) }
 function ReadJson([string]$Path) { return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -AsHashtable }
+$tokens = $null; $parseErrors = $null
+$protocolAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $ToolRoot 'templates/code/Interaction.ps1.in'),[ref]$tokens,[ref]$parseErrors)
+if ($parseErrors.Count) { throw 'Runner protocol source does not parse.' }
+$protocolFunctions = @($protocolAst.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+    $node.Name -cin @('Get-LabInteractionPanel','Get-LabRunnerCaptureLabels')},$false))
+if ($protocolFunctions.Count -ne 2) { throw 'Fixed runner label functions unavailable.' }
+$protocolPath = Join-Path $sandbox 'RunnerLabels.ps1'
+[IO.File]::WriteAllText($protocolPath, (($protocolFunctions | ForEach-Object { $_.Extent.Text }) -join "`n"))
+. $protocolPath
 function NewCase {
     $root = Join-Path $sandbox ([guid]::NewGuid().ToString('N'))
     $null = New-Item -ItemType Directory -Path (Join-Path $root 'engine')
@@ -60,7 +69,7 @@ function MakeResult($Context) {
         id = $Context.case.jobId; panel = $Context.case.panel; language = $Context.case.language; action = 'verify-panel'
         status = 'autonomous_captured_unreviewed'; failureCode = $null; cleanupVerified = $true; configCleanupVerified = $true
         acceptancePassed = $false; rendererVerified = $false; completedUtc = [DateTime]::UtcNow.AddSeconds(-5).ToString('o')
-        images = $frames; labels = @('panel-first','after-first-ok','after-controls','panel-alias','after-last-ok')
+        images = $frames; labels = @(Get-LabRunnerCaptureLabels ([pscustomobject]@{action='verify-panel';panel=$Context.case.panel;language=$Context.case.language}))
         interaction = @{ profile = ('motd-v299-' + $Context.case.panel + '-1920x1200-v1'); assessments = $assessments
             actions = @(@{phase='ok-first';inputQueued=$true},@{phase='controls';inputQueued=$true},@{phase='reopen';inputQueued=$true},@{phase='ok-last';inputQueued=$true}) }
     }
@@ -69,6 +78,9 @@ function MakeResult($Context) {
     if ($script:mode -ceq 'duplicate-image') { $result.images[4].number = 1 }
     if ($script:mode -ceq 'wrong-baseline') { $result.interaction.assessments[0].observation.bodySha256 = ('F' * 64) }
     if ($script:mode -ceq 'missing-action') { $result.interaction.actions = @($result.interaction.actions | Select-Object -First 3) }
+    if ($script:mode -ceq 'generic-labels') { $result.labels[0] = 'panel-first'; $result.labels[3] = 'panel-alias' }
+    if ($script:mode -ceq 'foreign-panel-labels') { $result.labels[0] = 'rules-first'; $result.labels[3] = 'rules-alias' }
+    if ($script:mode -ceq 'swapped-labels') { $result.labels[0] = $result.labels[3]; $result.labels[3] = 'after-last-ok' }
     Json (Join-Path $directory 'result.json') $result
     return $result
 }
@@ -156,7 +168,7 @@ Check ($restored.phase -ceq 'accepted' -and $restored.acceptancePassed -and $scr
 Check (@((Get-LabCampaignReport $root).cases | Where-Object acceptancePassed).Count -eq 0)
 Reject { Invoke-LabCampaignCase $root ranks en resume $port }
 
-foreach ($scenario in @('start','dispatch','read-loss','pending','stop','absence','stale-heartbeat','bad-cleanup','duplicate-image','wrong-baseline','missing-action','missing-marker','hold-during-start')) {
+foreach ($scenario in @('start','dispatch','read-loss','pending','stop','absence','stale-heartbeat','bad-cleanup','duplicate-image','wrong-baseline','missing-action','missing-marker','hold-during-start','generic-labels','foreign-panel-labels','swapped-labels')) {
     $root = NewCase
     Set-LabCampaignSteam $root $true
     $script:mode = $scenario
@@ -224,6 +236,37 @@ Set-LabCampaignSteam $root $true
 $lock = [IO.File]::Open((Join-Path $root 'profile-en/campaign.lock'),[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
 try { Reject { Invoke-LabCampaignCase $root profile en run $port } } finally { $lock.Dispose() }
 Check ($script:effects.Count -eq 0)
+
+# Use actual runner label generation for every panel/language pair.
+$root = NewCase
+Set-LabCampaignSteam $root $true
+foreach ($panelName in @('ranks','profile','topall')) {
+    foreach ($languageName in @('ru','en')) {
+        $state = Invoke-LabCampaignCase $root $panelName $languageName run $port
+        Check ($state.phase -ceq 'captured_unreviewed' -and -not $state.acceptancePassed)
+    }
+}
+
+# A corrected verifier may inspect old evidence, but cannot migrate or accept it.
+$campaignPath = Join-Path $root 'campaign.json'
+$campaign = ReadJson $campaignPath
+($campaign.pins | Where-Object { $_.scope -ceq 'source' -and $_.name -ceq 'Lab.Campaign.psm1' }).sha256 = ('F' * 64)
+Json $campaignPath $campaign
+$before = @{}
+foreach ($file in Get-ChildItem -LiteralPath $root -Recurse -File) { $before[$file.FullName] = (Get-FileHash -LiteralPath $file.FullName).Hash }
+$script:effects.Clear()
+$inspection = Get-LabCampaignEvidence $root ranks en
+Check ($inspection.readOnly -and $inspection.inputPinsVerified -and -not $inspection.sourcePinsMatchCurrent -and -not $inspection.acceptancePassed)
+Check ($script:effects.Count -eq 0)
+Check (@(Get-ChildItem -LiteralPath $root -Recurse -File).Count -eq $before.Count)
+foreach ($file in Get-ChildItem -LiteralPath $root -Recurse -File) { if ((Get-FileHash -LiteralPath $file.FullName).Hash -cne $before[$file.FullName]) { throw 'Read-only inspection changed evidence.' } }
+Check $true
+Reject { Invoke-LabCampaignCase $root ranks en resume $port }
+Reject { Approve-LabCampaignCase $root ranks en $inspection.evidence.sha256 $true }
+$cliInspection = & (Join-Path $ToolRoot 'Invoke-LabCampaign.ps1') -Operation verify-evidence -CampaignDirectory $root -Panel ranks -Language en | ConvertFrom-Json
+Check ($cliInspection.evidence.sha256 -ceq $inspection.evidence.sha256 -and -not $cliInspection.runtimeChanged)
+[IO.File]::WriteAllText((Join-Path $root 'ranks-en/input.txt'), 'changed after capture')
+Reject { Get-LabCampaignEvidence $root ranks en }
 
 # Public CLI planning is inert and does not create missing campaign state.
 $missing = Join-Path $sandbox 'missing'

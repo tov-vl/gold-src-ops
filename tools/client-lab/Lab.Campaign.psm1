@@ -61,10 +61,11 @@ function Get-CampaignCase([string]$Root, [string]$Panel, [string]$Language) {
     return @{ root = $Root; campaign = $campaign; case = $case[0]; run = $run; statePath = $statePath; state = $state }
 }
 
-function Assert-CampaignPins($Context) {
+function Assert-CampaignPins($Context, [switch]$InputsOnly) {
     foreach ($pin in $Context.campaign.pins) {
         if ($pin.scope -ceq 'source') {
             if ($pin.name -cnotin @('Invoke-LabCampaign.ps1','Lab.Campaign.psm1','Lab.CampaignRuntime.psm1','lab_fixture.py','Lab.Tooling.psm1')) { throw 'Invalid source pin.' }
+            if ($InputsOnly) { continue }
             $path = Join-Path $PSScriptRoot $pin.name
         } elseif ($pin.scope -ceq 'run') {
             if ($pin.name -cmatch '\A(?:(?:ranks|profile|topall)-(?:ru|en)|engine)/[A-Za-z0-9_. /-]+\z' -and
@@ -174,7 +175,10 @@ function Get-CampaignEvidence($Context) {
         ($interaction.actions.phase -join ',') -cne 'ok-first,controls,reopen,ok-last' -or
         @($interaction.actions | Where-Object { -not (Test-CampaignTrue $_.inputQueued) }).Count -or @($interaction.assessments).Count -ne 5) { throw 'Interaction evidence differs.' }
     $paths = @($resultPath)
-    if (($result.labels -join ',') -cne 'panel-first,after-first-ok,after-controls,panel-alias,after-last-ok') { throw 'Frame labels differ.' }
+    $expectedLabels = @(
+        ($Context.case.panel + '-first'),'after-first-ok','after-controls',($Context.case.panel + '-alias'),'after-last-ok'
+    )
+    if (($result.labels -join ',') -cne ($expectedLabels -join ',')) { throw 'Frame labels differ.' }
     for ($i = 1; $i -le 5; $i++) {
         $frame = $result.images[$i - 1]
         $assessment = $interaction.assessments[$i - 1]
@@ -386,4 +390,23 @@ function Get-LabCampaignReport([string]$Root) {
     return @{ id = $campaign.id; steamHeld = -not (Test-CampaignTrue (Read-CampaignJson (Join-Path $Root 'availability.json')).steamFree); cases = $states }
 }
 
-Export-ModuleMember -Function Initialize-LabCampaign, Set-LabCampaignSteam, Invoke-LabCampaignCase, Request-LabCampaignCancel, Approve-LabCampaignCase, Get-LabCampaignReport
+function Get-LabCampaignEvidence([string]$Root, [string]$Panel, [string]$Language) {
+    $context = Get-CampaignCase $Root $Panel $Language
+    # Inspection has no runtime port, state write, pin migration or acceptance effect.
+    # Old source pins remain authoritative for every mutating campaign operation.
+    Assert-CampaignPins $context -InputsOnly
+    $sourceMatches = $true
+    foreach ($pin in @($context.campaign.pins | Where-Object { $_.scope -ceq 'source' })) {
+        if ((Get-CampaignHash (Join-Path $PSScriptRoot $pin.name)) -cne $pin.sha256) { $sourceMatches = $false }
+    }
+    $evidence = Get-CampaignEvidence $context
+    return @{
+        jobId = $context.case.jobId; panel = $Panel; language = $Language
+        inputPinsVerified = $true; sourcePinsMatchCurrent = $sourceMatches
+        verifierSha256 = Get-CampaignHash $PSCommandPath
+        evidence = $evidence; acceptancePassed = $false; rendererVerified = $false
+        readOnly = $true; runtimeChanged = $false
+    }
+}
+
+Export-ModuleMember -Function Initialize-LabCampaign, Set-LabCampaignSteam, Invoke-LabCampaignCase, Request-LabCampaignCancel, Approve-LabCampaignCase, Get-LabCampaignReport, Get-LabCampaignEvidence

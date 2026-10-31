@@ -47,14 +47,44 @@ also passed all six verification jobs at the accepted revision. Source delivery
 is complete; no runtime rollout or game-client pass is claimed.
 No C# source is changed by this slice; a new InspectCode run is not applicable.
 
+## First live trial and verifier correction
+
+After the owner confirmed Steam availability, one EN `ranks` request completed
+on 2026-10-31 UTC. The real controller performed readiness checks, one dispatch,
+five-frame collection and fixture cleanup. The runner reported completed native
+interaction, restored configuration and game cleanup. A fresh post-completion
+heartbeat showed no game process. Independent fixture/network/relay absence,
+both alias/cooldown and movement epochs, and zero AMXX errors were confirmed.
+
+Final local verification failed closed: it incorrectly expected generic
+`panel-first`/`panel-alias` labels, while the existing runner correctly emitted
+`ranks-first`/`ranks-alias`. Synthetic controller results had repeated this
+incorrect assumption. The correction requires the selected panel's labels;
+tests now use the real runner label functions for all six panel/language pairs
+and reject generic, foreign-panel and reordered labels.
+
+The corrected read-only verifier validated the retained package. All five real
+frames were separately reviewed, confirming readability, both OK closes,
+alternate-alias reopening and returned movement. This independently accepts
+the EN native client scenario. The original campaign remains
+`needs_reconciliation`: its source pins, claims and raw results were preserved,
+and no game request was repeated. Read-only inspection reports source drift and
+cannot mark the campaign accepted or enable runtime operations with new source.
+
+The correction passed 112 controller and 10 adapter assertions locally, the
+complete client policy/native/Python suite and the .NET Quality Gate (1,294
+passed, 62 opt-in browser skips, no build warnings/errors or vulnerable
+packages). CI and source-delivery closure for this follow-up remain pending.
+C# and the target's
+nine installed runner files are unchanged; no new InspectCode run or target
+update is applicable. No production, addon, cloud or access change was made.
+
 ## Pending live gate
 
-Steam remains on hold because the account is in use elsewhere. No CS request,
-SSH session, target update, game fixture, lab Docker lifecycle or access-rule
-change was performed while implementing this controller. Ordinary local .NET
-tests retain their existing disposable database-container boundary. All six
-fresh autonomous panel acceptances remain pending. When the owner confirms the
-account is free, prepare a fresh campaign, run one case, review its five frames
-and independent cleanup,
-then proceed through the other five cases. The earlier cancelled request is
-retained and is not a retry input for the new campaign.
+Five native client scenarios remain: RU `ranks`, RU/EN `profile` and RU/EN
+`topall`. A fresh campaign is required for future runtime work after the source
+correction. End-to-end acceptance of the corrected controller remains separate
+from the successful read-only verification of this retained EN result. The
+earlier Steam-conflict cancellation and both attempts' permanent claims remain
+preserved. The operator hold is restored while resolving the controller issue;
+it is not a claim that Steam is busy again.

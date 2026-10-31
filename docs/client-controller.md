@@ -115,6 +115,25 @@ reports `integrity_unconfirmed` if it changed. The sanitized matrix contains
 case IDs, phases, safe reason codes and evidence digests, without private paths
 or topology.
 
+Completed evidence can also be inspected without runtime access or state writes:
+
+```powershell
+& $controller -Operation verify-evidence -CampaignDirectory $campaign -Panel ranks -Language en
+```
+
+This read-only operation verifies all prepared input pins and the full evidence
+package with the current verifier. It reports the verifier hash and whether the
+recorded controller source pins still match. It never changes those pins,
+claims, results, campaign phase or acceptance. `run`, `resume` and `review`
+continue to require the original source pins. After a verifier correction, keep
+an independent review record for old evidence and prepare a fresh campaign for
+future runtime work rather than silently migrating an earlier attempt.
+
+Frame labels are panel-specific: `<panel>-first`, `after-first-ok`,
+`after-controls`, `<panel>-alias`, `after-last-ok`. Generic or cross-panel labels
+are rejected. The controller tests consume the actual runner label functions so
+their synthetic results cannot silently invent a different protocol.
+
 This controller does not prove renderer identity, production gameplay, PvP,
 saved personal statistics or a 24-hour activity window. Its offline tests use
 synthetic frames and effect ports; live controller acceptance remains a separate

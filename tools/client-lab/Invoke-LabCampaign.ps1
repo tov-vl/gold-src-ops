@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('prepare','status','hold','steam-free','run','resume','cancel','review')][string]$Operation,
+    [Parameter(Mandatory)][ValidateSet('prepare','status','hold','steam-free','run','resume','cancel','review','verify-evidence')][string]$Operation,
     [Parameter(Mandatory)][string]$CampaignDirectory,
     [ValidateSet('ranks','profile','topall')][string]$Panel,
     [ValidateSet('ru','en')][string]$Language,
@@ -15,7 +15,7 @@ Import-Module (Join-Path $PSScriptRoot 'Lab.Tooling.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'Lab.Campaign.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'Lab.CampaignRuntime.psm1') -Force
 $root = Assert-LabOutputPath $CampaignDirectory
-$needsCase = $Operation -cin @('run','resume','cancel','review')
+$needsCase = $Operation -cin @('run','resume','cancel','review','verify-evidence')
 if ($needsCase -and (-not $Panel -or -not $Language)) { throw 'Select one fixed panel and language.' }
 if (-not $needsCase -and ($Panel -or $Language)) { throw 'This operation does not select a case.' }
 if ($Operation -cne 'prepare' -and ($BundleDirectory -or $ActivationPath -or $AddonDirectory -or $HelperBinaryPath -or $BaselinePath -or $PythonPath)) { throw 'Preparation arguments require prepare.' }
@@ -61,5 +61,6 @@ switch -CaseSensitive ($Operation) {
     resume { $null = Invoke-LabCampaignCase $root $Panel $Language resume $port }
     cancel { Request-LabCampaignCancel $root $Panel $Language $port }
     review { $null = Approve-LabCampaignCase $root $Panel $Language $EvidenceSha256 ([bool]$ImagesReviewed) }
+    verify-evidence { Get-LabCampaignEvidence $root $Panel $Language | ConvertTo-Json -Depth 8; return }
 }
 Get-LabCampaignReport $root | ConvertTo-Json -Depth 8
