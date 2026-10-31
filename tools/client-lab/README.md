@@ -19,7 +19,7 @@ Entry points:
 | `lab_fixture.py` | Explicit plan/start/relay/stop lifecycle, with no client dispatch |
 | `New-ArchivePlan.ps1` | Select exact completed requests for signed queue maintenance without deleting evidence |
 | `Test-ClientLab.ps1` | Offline policy, parser, native compilation and synthetic-frame tests on Windows |
-| `fixture_vgui_guard.sma` | Fixture-only join-menu suppression and independent rules/movement markers |
+| `fixture_vgui_guard.sma` | Fixture-only join-menu suppression, synthetic leaderboard data and independent panel/movement markers |
 
 Run policy checks from a fresh PowerShell 7 process on Windows:
 

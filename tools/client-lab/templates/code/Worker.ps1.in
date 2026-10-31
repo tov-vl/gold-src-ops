@@ -21,12 +21,12 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
     $paths = Get-LabPaths $Root $job.id
     if (Test-Path -LiteralPath $paths.result) { continue }
     # Completed claims can be older than the request freshness window.
-    Assert-LabJob $job
+    Assert-LabRunnerJob $job
     New-Item -ItemType Directory -Path $paths.result -ErrorAction Stop | Out-Null
     $result = [ordered]@{ id = $job.id; action = $job.action; status = 'claimed'; stage = 'preflight'; launchRequested = $false; gamePid = $null; gameStartedUtc = $null; images = @(); rendererVerified = $false; acceptancePassed = $false; panelVerified = $false; languageVerified = $false; fixture = $null; cleanupVerified = $false; failureStage = $null; labels = @('scene','scene') }
-    $result.labels = @(Get-LabCaptureLabels $job)
-    $result.expectedWidth = $(if ($job.action -cin @('capture-panel','verify-rules')) { 1920 } else { 1280 })
-    $result.expectedHeight = $(if ($job.action -cin @('capture-panel','verify-rules')) { 1200 } else { 800 })
+    $result.labels = @(Get-LabRunnerCaptureLabels $job)
+    $result.expectedWidth = $(if ($job.action -cin @('capture-panel','verify-rules','verify-panel')) { 1920 } else { 1280 })
+    $result.expectedHeight = $(if ($job.action -cin @('capture-panel','verify-rules','verify-panel')) { 1200 } else { 800 })
     $result.configCleanupVerified = $false
     $result.failureCode=$null
     $result.launchCommandDispatched=$false
@@ -45,11 +45,12 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
     try {
         if ((Test-Path -LiteralPath $paths.cancel) -or [DateTime]::UtcNow -gt (ConvertTo-LabUtc $job.createdUtc).AddMinutes(3)) { throw 'Cancelled or stale request.' }
         $autonomous=Get-LabAutonomousMode $Root $job
+        if($job.action -ceq 'verify-panel' -and -not $autonomous){throw 'Panel interaction requires its fixed autonomous profile.'}
         $result.stage = 'client_preflight'
         $client=Get-LabClientReadiness (Get-LabClientObservation $policy)
         $result.diagnostics.client=$client
         if (-not $client.ready) { $result.failureCode=$client.code;throw 'Client prerequisites are not ready.' }
-        if ($job.action -cin @('capture-panel','verify-rules')) {
+        if ($job.action -cin @('capture-panel','verify-rules','verify-panel')) {
             $result.stage = 'fixture_readiness'
             $result.fixture = Get-LabFixtureReady $policy
         }
@@ -60,7 +61,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
         foreach ($file in @((Join-Path $policy.steamRoot 'steam.exe'), (Join-Path $policy.gameRoot 'hl.exe'), (Join-Path $policy.gameRoot 'cstrike\liblist.gam'))) {
             if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw 'Game prerequisite missing.' }
         }
-        if($job.action -ceq 'verify-rules'){Assert-LabInteractionBindings $policy.gameRoot}
+        if($job.action -cin @('verify-rules','verify-panel')){Assert-LabInteractionBindings $policy.gameRoot}
         $result.stage = 'capture_preparation'
         $baseline = @{}
         foreach ($file in @(Get-LabSnapshots $policy.gameRoot)) { $baseline[$file.FullName] = $true }
@@ -69,7 +70,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
         # Finite native game program; no console input, desktop control or remote text.
         $program = ((@('wait') * 300) + @('snapshot') + (@('wait') * 120) + @('snapshot')) -join "`r`n"
         if ($job.action -ceq 'capture-panel') { $program = New-LabPanelProgram $job }
-        if ($job.action -ceq 'verify-rules') { $program = New-LabInteractionProgram $job }
+        if ($job.action -cin @('verify-rules','verify-panel')) { $program = New-LabRunnerInteractionProgram $job }
         if ([Text.Encoding]::ASCII.GetByteCount($program) -gt 32KB) { throw 'Generated config exceeds limit.' }
         $stream = [IO.File]::Open($configPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
         $ownsConfig = $true
@@ -80,7 +81,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
         $result.stage = 'launch'
         $result.launchRequested = $true
         $result.cleanup.game='unverified_no_owned_process'
-        $launchArguments = Get-LabLaunchArguments $job $configName
+        $launchArguments = Get-LabRunnerLaunchArguments $job $configName
         if($autonomous) {
             $result.status='launch_claimed'
             $result.launcher.kind='desktop-shell-helper'
@@ -97,7 +98,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
         $result.status = 'launch_requested'
         Write-LabJson $resultPath $result
         $result.stage = 'capture'
-        if($job.action -ceq 'verify-rules') {
+        if($job.action -cin @('verify-rules','verify-panel')) {
             $result.stage='interaction'
             if($autonomous){Invoke-LabAutonomousRulesInteraction $Root $policy $job $result $baseline $launchUtc $resultPath}
             else{Invoke-LabRulesInteraction $Root $policy $job $result $baseline $launchUtc $resultPath}

@@ -85,6 +85,18 @@ namespace GsoLab.Checks
                 Require(scene.SceneCandidate && !scene.PanelMatches, "Scene variation is a candidate, never an input authorization.");
             }
             Refused(delegate { RulesFrameGate.Analyze(original, "de"); });
+            foreach (var panel in new[] { "ranks", "profile", "topall" })
+            {
+                foreach (var language in new[] { "en", "ru" })
+                {
+                    var observation = RulesFrameGate.AnalyzePanel(original, panel, language);
+                    Require(!observation.PanelMatches && !observation.SceneCandidate, "A colored panel alone cannot authorize fixed MOTD input.");
+                }
+                var requestedPanel = panel;
+                Refused(delegate { RulesFrameGate.AnalyzePanel(original, requestedPanel, "de"); });
+            }
+            Refused(delegate { RulesFrameGate.AnalyzePanel(original, "guns", "en"); });
+            Refused(delegate { RulesFrameGate.AnalyzePanel(original, "ranks;quit", "en"); });
             Refused(delegate { RulesFrameGate.Analyze(new byte[20], "en"); });
             var wrongSize = (byte[])original.Clone();
             Buffer.BlockCopy(BitConverter.GetBytes(1280), 0, wrongSize, 18, 4);

@@ -146,6 +146,28 @@ Write-LabJson (Join-Path $sandbox ('results\'+$autoId+'\result.json')) $result
 Broker ('step '+$autoId+' ok-first '+$hash) $false|Out-Null
 Check (-not (Test-Path -LiteralPath (Join-Path $sandbox ('queue\steps\'+$autoId+'.ok-first.json')))) 'Manual step reached an autonomous job.'
 New-Item -ItemType Directory -Path (Join-Path $sandbox 'before-revision-06\requests')|Out-Null
+foreach($panel in @('ranks','profile','topall')){
+    $panelId=[guid]::NewGuid().ToString('D')
+    Broker ('auto-panel '+$panelId+' '+$panel+' ru') $true|Out-Null
+    $panelJob=Read-LabJson (Join-Path $sandbox ('queue\'+$panelId+'.json'))
+    Assert-LabRunnerJob $panelJob
+    Check ($panelJob.action -ceq 'verify-panel' -and $panelJob.panel -ceq $panel -and (Get-LabAutonomousMode $sandbox $panelJob)) 'Fixed panel opt-in differs.'
+    Check ((Get-LabRunnerImageLimit $panelJob) -eq 5 -and (Get-LabRunnerCaptureLabels $panelJob)[0] -ceq ($panel+'-first')) 'Panel evidence boundary differs.'
+    $program=New-LabRunnerInteractionProgram $panelJob
+    Check (@($program -split "`r`n"|Where-Object {$_ -ceq $panel}).Count -eq 1 -and @($program -split "`r`n"|Where-Object {$_ -ceq 'snapshot'}).Count -eq 1) 'Wrong initial panel program.'
+    Broker ('auto-panel '+$panelId+' '+$panel+' ru') $false|Out-Null
+    $modePath=Join-Path $sandbox ('queue\steps\'+$panelId+'.autonomous.json')
+    $mode=Read-LabJson $modePath
+    $mode.panel='rules';Write-LabJson $modePath $mode
+    Refused {Get-LabAutonomousMode $sandbox $panelJob} 'Mismatched panel marker.'
+    $bad=$panelJob|ConvertTo-Json|ConvertFrom-Json;$bad.panel='rules'
+    Refused {Assert-LabRunnerJob $bad} 'Rules accepted through new panel schema.'
+    $bad.panel=$panel;$bad|Add-Member NoteProperty command 'quit'
+    Refused {Assert-LabRunnerJob $bad} 'Extra panel job field.'
+}
+foreach($suffix in @('rules ru','primary ru','ranks RU','profile en extra',"topall en`n",'ranks;quit en')){
+    Broker ('auto-panel '+[guid]::NewGuid().ToString('D')+' '+$suffix) $false|Out-Null
+}
 [IO.File]::WriteAllText((Join-Path $sandbox ('before-revision-06\requests\'+$id+'.json')),'{}')
 Refused {Get-LabPaths $sandbox $id} 'Ambiguous old/new archive accepted.'
 Write-LabJson (Join-Path $sandbox 'maintenance-revision-06.json') @{revision=7}

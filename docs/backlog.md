@@ -4358,3 +4358,13 @@ No manual window selection or new permissions were needed. Production and cloud
 resources were unchanged; renderer, PvP and activity gates remain separate.
 See [the client lab runbook](client-lab.md) and
 [verification and adoption evidence](client-lab-readiness.md).
+
+## Autonomous client lab - additional MOTD panels
+
+Implement fixed RU/EN five-frame interaction for `/ranks`, `/profile` and
+`/topall`, preserving the existing rules scenario, owned-window guards and
+signed update boundary. Disposable synthetic leaderboard data supports stable
+visual profiles without real player data or identity impersonation. The LAN
+profile scenario covers unavailable saved data and zero connection/map counters.
+Local verification and fresh target acceptance are separate gates; no new addon,
+production or cloud rollout is included. See [scope and verification](client-panel-acceptance.md).

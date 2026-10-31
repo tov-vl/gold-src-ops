@@ -228,9 +228,59 @@ function Invoke-LabRulesInteraction([string]$Root,$Policy,$Job,$Result,[hashtabl
 
 #requires -Version 5.1
 function ConvertFrom-LabRunnerCommand([string]$Command) {
+    $panel=[regex]::Match($Command,'\Aauto-panel ([0-9a-f-]{36}) (ranks|profile|topall) (ru|en)\z')
+    if($panel.Success){Assert-LabId $panel.Groups[1].Value;return @{operation='auto-panel';id=$panel.Groups[1].Value;panel=$panel.Groups[2].Value;language=$panel.Groups[3].Value}}
     $match=[regex]::Match($Command,'\Aauto-rules ([0-9a-f-]{36}) (ru|en)\z')
     if($match.Success){Assert-LabId $match.Groups[1].Value;return @{operation='auto-rules';id=$match.Groups[1].Value;language=$match.Groups[2].Value}}
     return ConvertFrom-LabCommand $Command
+}
+
+function Assert-LabRunnerJob($Job) {
+    if($Job.action -cne 'verify-panel'){Assert-LabJob $Job;return}
+    if((@($Job.PSObject.Properties.Name|Sort-Object)-join ',') -cne 'action,createdUtc,id,language,panel' -or
+        $Job.panel -isnot [string] -or $Job.panel -cnotin @('ranks','profile','topall')){throw 'Invalid fixed panel interaction record.'}
+    Assert-LabJob ([pscustomobject]@{id=$Job.id;action='verify-rules';createdUtc=$Job.createdUtc;language=$Job.language})
+}
+
+function Get-LabInteractionPanel($Job) {
+    if($Job.action -ceq 'verify-rules'){return 'rules'}
+    if($Job.action -ceq 'verify-panel' -and $Job.panel -is [string] -and $Job.panel -cin @('ranks','profile','topall')){return $Job.panel}
+    throw 'Fixed interaction panel required.'
+}
+
+function Get-LabAutonomousProfile($Job) {
+    $panel=Get-LabInteractionPanel $Job
+    if($panel -ceq 'rules'){return 'rules-v299-1920x1200-v1'}
+    return ('motd-v299-'+$panel+'-1920x1200-v1')
+}
+
+function New-LabRunnerInteractionProgram($Job) {
+    Assert-LabRunnerJob $Job
+    if($Job.action -ceq 'verify-rules'){return New-LabInteractionProgram $Job}
+    $capture=[pscustomobject]@{id=$Job.id;createdUtc=$Job.createdUtc;action='capture-panel';panel=(Get-LabInteractionPanel $Job);language=$Job.language}
+    $lines=@((New-LabPanelProgram $capture) -split "`r`n")
+    $first=[Array]::IndexOf($lines,'snapshot')
+    if($first -lt 0){throw 'Initial panel program differs.'}
+    $lines[$first]='wait'
+    return ($lines -join "`r`n")
+}
+
+function Get-LabRunnerLaunchArguments($Job,[string]$ConfigName) {
+    if($Job.action -ceq 'verify-panel'){
+        Assert-LabRunnerJob $Job
+        return Get-LabLaunchArguments ([pscustomobject]@{action='capture-panel'}) $ConfigName
+    }
+    return Get-LabLaunchArguments $Job $ConfigName
+}
+
+function Get-LabRunnerImageLimit($Job) {
+    if($Job.action -ceq 'verify-panel'){return 5}
+    return Get-LabImageLimit $Job
+}
+
+function Get-LabRunnerCaptureLabels($Job) {
+    if($Job.action -ceq 'verify-panel'){$panel=Get-LabInteractionPanel $Job;return @(($panel+'-first'),'after-first-ok','after-controls',($panel+'-alias'),'after-last-ok')}
+    return Get-LabCaptureLabels $Job
 }
 
 function Get-LabAutonomousMode([string]$Root,$Job) {
@@ -239,9 +289,11 @@ function Get-LabAutonomousMode([string]$Root,$Job) {
     $path=Join-Path $directory ($Job.id+'.autonomous.json')
     if(-not (Test-Path -LiteralPath $path)){return $false}
     $mode=Read-LabJson $path 2048
-    if((@($mode.PSObject.Properties.Name|Sort-Object)-join ',') -cne 'id,language,profile' -or
-        $Job.action -cne 'verify-rules' -or $mode.id -cne $Job.id -or $mode.language -cne $Job.language -or
-        $mode.profile -cne 'rules-v299-1920x1200-v1'){throw 'Autonomous profile differs.'}
+    $names=if($Job.action -ceq 'verify-panel'){'id,language,panel,profile'}else{'id,language,profile'}
+    if((@($mode.PSObject.Properties.Name|Sort-Object)-join ',') -cne $names -or
+        $Job.action -cnotin @('verify-rules','verify-panel') -or $mode.id -cne $Job.id -or $mode.language -cne $Job.language -or
+        $mode.profile -cne (Get-LabAutonomousProfile $Job)){throw 'Autonomous profile differs.'}
+    if($Job.action -ceq 'verify-panel' -and $mode.panel -cne (Get-LabInteractionPanel $Job)){throw 'Autonomous panel differs.'}
     return $true
 }
 
@@ -251,7 +303,8 @@ function New-LabAutonomousMode([string]$Root,$Job) {
     $path=Join-Path $directory ($Job.id+'.autonomous.json')
     $stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
     try{
-        $mode=@{id=$Job.id;language=$Job.language;profile='rules-v299-1920x1200-v1'}
+        $mode=@{id=$Job.id;language=$Job.language;profile=(Get-LabAutonomousProfile $Job)}
+        if($Job.action -ceq 'verify-panel'){$mode.panel=Get-LabInteractionPanel $Job}
         $bytes=[Text.Encoding]::UTF8.GetBytes(($mode|ConvertTo-Json -Compress))
         $stream.Write($bytes,0,$bytes.Length)
         $stream.Flush($true)
@@ -294,7 +347,7 @@ function Assert-LabAutoContext([string]$Root,$Policy,$Job,$Clock,[switch]$Before
     if((Get-LabAutoElapsed $Clock) -ge $limit){throw 'Autonomous monotonic deadline elapsed.'}
 }
 
-function Get-LabAutoFrameAssessment($Result,[string]$Destination,[string]$Language) {
+function Get-LabAutoFrameAssessment($Result,[string]$Destination,[string]$Language,[string]$Panel='rules') {
     $frame=$Result.images[-1]
     $path=Join-Path $Destination ('image-'+$frame.number+'.bin')
     foreach($item in @($Destination,$path)){
@@ -306,13 +359,13 @@ function Get-LabAutoFrameAssessment($Result,[string]$Destination,[string]$Langua
     $sha=[Security.Cryptography.SHA256]::Create()
     try{$hash=[BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-','')}finally{$sha.Dispose()}
     if($hash -cne $frame.sha256){throw 'Autonomous evidence digest differs.'}
-    $observation=[GsoLab.Interaction.RulesFrameGate]::Analyze($bytes,$Language)
+    $observation=[GsoLab.Interaction.RulesFrameGate]::AnalyzePanel($bytes,$Panel,$Language)
     return @{panelMatches=$observation.PanelMatches;sceneCandidate=$observation.SceneCandidate;bodySha256=$observation.BodySha256;frameSha256=$hash}
 }
 
 function Assert-LabAutoVisual($Assessment,[int]$FrameNumber) {
     if($FrameNumber -in @(1,4)){
-        if(-not $Assessment.panelMatches){throw 'Rules panel does not match the pinned language and layout.'}
+        if(-not $Assessment.panelMatches){throw 'Panel does not match the pinned language and layout.'}
     }elseif(-not $Assessment.sceneCandidate -or $Assessment.panelMatches){throw 'Expected a scene after closing the panel.'}
 }
 
@@ -330,10 +383,13 @@ function New-LabAutoPhaseClaim([string]$Destination,$Job,[string]$Phase,[string]
 
 function Invoke-LabAutonomousRulesInteraction([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseline,[DateTime]$LaunchUtc,[string]$ResultPath) {
     $limits=Get-LabInteractionLimits
-    $Result['interaction']=[ordered]@{schema=2;mode='autonomous-fixed';profile='rules-v299-1920x1200-v1';actions=@();assessments=@();snapshotDelivery='not-proven';controlReturn='not-proven';okActivation='not-proven';automaticRetryAllowed=$false;deadlineSeconds=$limits.jobSeconds;frameFreshnessSeconds=$limits.frameSeconds;reopenNotBeforeUtc=$null;windowGuard=$null;windowPreparation=$null}
+    $panel=Get-LabInteractionPanel $Job
+    $Result['panel']=$panel
+    $Result['language']=$Job.language
+    $Result['interaction']=[ordered]@{schema=2;mode='autonomous-fixed';profile=(Get-LabAutonomousProfile $Job);actions=@();assessments=@();snapshotDelivery='not-proven';controlReturn='not-proven';okActivation='not-proven';automaticRetryAllowed=$false;deadlineSeconds=$limits.jobSeconds;frameFreshnessSeconds=$limits.frameSeconds;reopenNotBeforeUtc=$null;windowGuard=$null;windowPreparation=$null}
     $Result['nextAction']=$null
     $Result['frameCapturedUtc']=$null
-    $Result.labels=@('rules-first','after-first-ok','after-controls','rules-alias','after-last-ok')
+    $Result.labels=@(Get-LabRunnerCaptureLabels $Job)
     $clock=[Diagnostics.Stopwatch]::StartNew()
     $window=$null
     $firstOkAt=$null
@@ -367,7 +423,7 @@ function Invoke-LabAutonomousRulesInteraction([string]$Root,$Policy,$Job,$Result
         $frameAt=Get-LabAutoElapsed $clock
         for($number=1;$number -le 5;$number++){
             Assert-LabAutoContext $Root $Policy $Job $clock
-            $assessment=Get-LabAutoFrameAssessment $Result $destination $Job.language
+            $assessment=if($panel -ceq 'rules'){Get-LabAutoFrameAssessment $Result $destination $Job.language}else{Get-LabAutoFrameAssessment $Result $destination $Job.language $panel}
             $Result.interaction.assessments+=@{number=$number;observation=$assessment}
             Write-LabJson $ResultPath $Result
             Assert-LabAutoVisual $assessment $number
@@ -393,7 +449,7 @@ function Invoke-LabAutonomousRulesInteraction([string]$Root,$Policy,$Job,$Result
             switch($phase){
                 'ok-first' {$window.ClickOk();$firstOkAt=Get-LabAutoElapsed $clock;$Result.interaction.reopenNotBeforeUtc=[DateTime]::UtcNow.AddSeconds(5).ToString('o')}
                 'controls' {$window.MoveControls()}
-                'reopen' {$window.ReopenRules()}
+                'reopen' {if($panel -ceq 'rules'){$window.ReopenRules()}else{$window.ReopenPanel($panel)}}
                 'ok-last' {
                     $window.ClickOk()
                     Wait-LabAutoTick 180

@@ -11,6 +11,7 @@ try {
         $state = @{ protocol = 2; revision = 16; leaseMode = $(if(Test-LabManualLease $policy){'manual'}else{'timed'}); captureDimensions = '1920x1200'; target = $policy.targetName; expiresUtc = $policy.expiresUtc; operation = 'launch-local-smoke'; pending = @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') -Filter '*.json' -File).Count; panelAccess = $false }
         if ($policy.PSObject.Properties['panelsEnabled'] -and $policy.panelsEnabled) { Assert-LabPanelPolicy $policy; $state.panelAccess = $true }
         $state.interactionLimits=Get-LabInteractionLimits
+        $state.autonomousPanels=@('rules','ranks','profile','topall')
         $state.terminalArchiveCandidates=@(Get-LabTerminalArchiveCandidates $Root)
         $heartbeat = Join-Path $Root 'results\worker.json'
         if (Test-Path -LiteralPath $heartbeat) { $state.worker = Read-LabJson $heartbeat }
@@ -18,7 +19,7 @@ try {
         exit 0
     }
     $paths = Get-LabPaths $Root $request.id
-    if ($request.operation -in @('run','capture','verify-rules','auto-rules')) {
+    if ($request.operation -in @('run','capture','verify-rules','auto-rules','auto-panel')) {
         if ((Test-Path -LiteralPath (Join-Path $Root 'maintenance-revision-06.json')) -or (Test-Path -LiteralPath (Join-Path $Root 'maintenance-revision-07.json'))) { throw 'Maintenance in progress.' }
         if (@(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') -Filter '*.json' -File).Count -ge 8) { throw 'Session job limit reached.' }
         if ((Test-Path -LiteralPath $paths.request) -or (Test-Path -LiteralPath $paths.result) -or (Test-Path -LiteralPath $paths.archivedRequest)) { throw 'Existing job id; do not retry.' }
@@ -31,11 +32,16 @@ try {
             Assert-LabPanelPolicy $policy
             $job.action='verify-rules';$job.language=$request.language
         }
+        if($request.operation -ceq 'auto-panel') {
+            Assert-LabPanelPolicy $policy
+            $job.action='verify-panel';$job.panel=$request.panel;$job.language=$request.language
+            Assert-LabRunnerJob ([pscustomobject]$job)
+        }
         # Keep a permanent one-attempt claim; publish complete JSON atomically for the worker.
         $stream = [IO.File]::Open(($paths.request+'.claim'), [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
         $stream.Dispose()
         if(Test-Path -LiteralPath $paths.request){throw 'Existing request; do not retry.'}
-        if($request.operation -ceq 'auto-rules'){New-LabAutonomousMode $Root $job}
+        if($request.operation -cin @('auto-rules','auto-panel')){New-LabAutonomousMode $Root $job}
         Write-LabJson $paths.request $job
         @{ id = $request.id; status = 'queued' } | ConvertTo-Json -Compress
         exit 0
@@ -76,7 +82,7 @@ try {
         exit 0
     }
     if ($request.operation -eq 'result') { $result | ConvertTo-Json -Depth 8 -Compress; exit 0 }
-    if([int]$request.image -gt (Get-LabImageLimit $jobRecord) -or @($result.images|Where-Object{$_.number -eq [int]$request.image}).Count -ne 1){throw 'Image selection is unavailable.'}
+    if([int]$request.image -gt (Get-LabRunnerImageLimit $jobRecord) -or @($result.images|Where-Object{$_.number -eq [int]$request.image}).Count -ne 1){throw 'Image selection is unavailable.'}
     $imageName = 'image-' + $request.image + '.bin'
     $image = Join-Path $paths.result $imageName
     $item = Get-Item -LiteralPath $image

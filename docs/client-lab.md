@@ -22,16 +22,16 @@ flowchart LR
 ## Supported scope
 
 - Protocol 2, runner revision 16, manual lease, Windows PowerShell 5.1 worker.
-- Fixed client area 1920x1200; the current `/rules` pixel profile is tied to addon
-  0.38.0 and the reviewed RU/EN rules content. Different text, fonts, layout or
+- Fixed client area 1920x1200; the current MOTD pixel profiles are tied to addon
+  0.38.0 and reviewed RU/EN content. Different text, fonts, layout or
   dimensions require a new reviewed profile and real-client evidence.
-- Autonomous `/rules` interaction: capture, guarded OK, returned movement,
+- Autonomous `/rules`, `/ranks`, `/profile` and `/topall` interaction: capture, guarded OK, returned movement,
   reopening with the alternate alias, guarded final OK and returned movement.
   Five native frames are retained. A successful result remains
   `autonomous_captured_unreviewed` until evidence is assessed.
 - Single-panel capture also supports `ranks`, `profile`, `topall`, `rules`,
   `primary` and `pistol`. This does not provide autonomous interaction coverage
-  for all those panels.
+  for the weapon-selection menus.
 - Only the test process and owned game window receive actions. Focus denial,
   a locked desktop, a competing game, changed process identity, unexpected
   pixels or expired/revoked authorization stop the attempt. There is no global
@@ -40,6 +40,13 @@ flowchart LR
 This is project test infrastructure. It does not belong in the public monitoring
 API or the production game addon. PvP behavior, real player activity, 24-hour
 aggregation and verification of the renderer remain separate acceptance gates.
+
+The fixed `/profile` fixture uses a LAN identity with unavailable saved results
+and zero connection/map counters. `/topall` uses exactly three synthetic stored
+rows (Lab Alpha, Lab Bravo and Lab Charlie), including distinct ranks, kills and
+deaths; the connected client's saved place is unavailable. No identity is forged
+and no real player data is imported. These profiles do not cover arbitrary live
+statistics. See [panel scope and verification](client-panel-acceptance.md).
 
 ## Provisioning contract
 
@@ -133,6 +140,12 @@ $job = [guid]::NewGuid().ToString('D')
 # Stop the fixture in a finally block, including after any failure.
 python -B "$tool/lab_fixture.py" stop --run-directory $run --execute
 ```
+
+For one of the other fixed MOTD panels, use `-Operation auto-panel -Panel ranks`
+(or `profile`/`topall`) with the same language/job parameters. The controller
+checks the installed capability before dispatch. The fixed protocol rejects all
+other panels, extra text and manual step acknowledgements for autonomous jobs.
+Each panel/language pair needs its own fresh fixture, request and reviewed result.
 
 Use a fresh run directory and job ID for the other language. Start/relay/dispatch
 claims are retained permanently. A timeout is an uncertain attempt: query its

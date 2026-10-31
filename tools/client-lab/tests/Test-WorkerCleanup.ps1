@@ -45,8 +45,9 @@ function Invoke-LabAutonomousRulesInteraction([string]$Root,$Policy,$Job,$Result
 }
 '@
 $cases=0
-foreach($name in @('success','scenario-fail','cleanup-fail','busy')){
-    $root=Join-Path $sandbox $name
+foreach($scenario in @('rules-success','rules-scenario-fail','rules-cleanup-fail','rules-busy','ranks-success','profile-success','topall-success','profile-scenario-fail','topall-cleanup-fail','ranks-busy')){
+    $panel,$name=$scenario -split '-',2
+    $root=Join-Path $sandbox $scenario
     foreach($directory in @('code','queue\steps','results','game\cstrike','steam')){New-Item -ItemType Directory -Path (Join-Path $root $directory) -Force|Out-Null}
     $common=[IO.File]::ReadAllText((Join-Path $Workspace 'kit\code\Lab.Common.ps1'))
     [IO.File]::WriteAllText((Join-Path $root 'code\Lab.Common.ps1'),$common+"`r`n"+$commonStub)
@@ -57,8 +58,11 @@ foreach($name in @('success','scenario-fail','cleanup-fail','busy')){
     $policy=@{gameUserSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;gameSessionId=(Get-Process -Id $PID).SessionId;gameRoot=(Join-Path $root 'game');steamRoot=(Join-Path $root 'steam');testCase=$name}
     Write-LabJson (Join-Path $root 'policy.json') $policy
     $id=[guid]::NewGuid().ToString('D')
-    Write-LabJson (Join-Path $root ('queue\'+$id+'.json')) @{id=$id;action='verify-rules';language='en';createdUtc=[DateTime]::UtcNow.ToString('o')}
-    Write-LabJson (Join-Path $root ('queue\steps\'+$id+'.autonomous.json')) @{id=$id;language='en';profile='rules-v299-1920x1200-v1'}
+    $job=@{id=$id;action='verify-rules';language='en';createdUtc=[DateTime]::UtcNow.ToString('o')}
+    $mode=@{id=$id;language='en';profile='rules-v299-1920x1200-v1'}
+    if($panel -cne 'rules'){$job.action='verify-panel';$job.panel=$panel;$mode.panel=$panel;$mode.profile='motd-v299-'+$panel+'-1920x1200-v1'}
+    Write-LabJson (Join-Path $root ('queue\'+$id+'.json')) $job
+    Write-LabJson (Join-Path $root ('queue\steps\'+$id+'.autonomous.json')) $mode
     & (Join-Path $Workspace 'kit\code\Worker.ps1') -Root $root
     $result=Read-LabJson (Join-Path $root ('results\'+$id+'\result.json'))
     if($name -ceq 'busy'){
