@@ -97,7 +97,8 @@ by this repository. Use `Build-FixtureHelper.ps1` with the retained AMXX/ReAPI
 cache and a fresh output file. It pins the Windows compiler/DLL and uses `-d0 -E`,
 then requires the exact helper hash in `New-LabRun.ps1`. It never downloads a
 toolchain. This source-built helper differs from the historical debug binary;
-its real-game validation belongs to the next adoption gate.
+fresh EN/RU real-game validation passed during the 2026-10-31 adoption recorded
+in [the readiness record](client-lab-readiness.md).
 
 The following variables refer to private, operator-selected local paths:
 
@@ -172,7 +173,10 @@ signed package; `Lab.Common.ps1`, `Expire.ps1`, `Uninstall.ps1` and
 `Worker-Quiet.js` are pinned. A local-profile change that changes pinned files,
 or a change to privileged updater code, requires a separately reviewed local
 administrator bootstrap. The updater cannot replace its own trust engine.
-This repository stage does not deploy that bootstrap or alter the working lab.
+The existing lab completed this local engine adoption and a signed runner update
+on 2026-10-31. Future trust-engine or pinned-file changes still require their own
+reviewed local administrator migration; ordinary permitted runner updates use
+the existing signed channel without a local installer.
 
 For routine updates use generated `Invoke-FramedUpdate.ps1 -Operation status`,
 save the predecessor state privately, then use `New-UpdatePackage.ps1` with
@@ -189,8 +193,9 @@ most eight jobs. Pass it as `-ArchivePlan` when signing maintenance. The engine
 rechecks identity, cleanup, terminal status, worker idleness and request hashes.
 It moves requests only; results/images remain and acceptance status is unchanged.
 The repository engine adds both interaction/autonomous unreviewed terminal
-states and strict cleanup booleans. Existing installations require local engine
-adoption before relying on this expanded maintenance support.
+states and strict cleanup booleans. The adopted lab has exercised this support
+with one completed autonomous request while preserving its result and image.
+Other existing installations require local engine adoption before relying on it.
 
 Partial update failures restore recorded code, hash manifest, sequence, requests
 and worker budget. Uncertain rollback leaves the worker disabled and the claim
