@@ -15,6 +15,7 @@ Entry points:
 | --- | --- |
 | `New-LabBundle.ps1` | Validate a private profile and render a fresh nine-file runner and controller bundle |
 | `New-LabRun.ps1` | Prepare a fresh RU or EN fixture from hash-pinned local assets and matching activation |
+| `Invoke-LabCampaign.ps1` | Prepare and manage a six-case matrix with Steam hold, one-attempt dispatch, same-ID reconciliation and separate review |
 | `Build-FixtureHelper.ps1` | Rebuild and hash-check the fixture-only helper with the pinned offline AMXX toolchain |
 | `lab_fixture.py` | Explicit plan/start/relay/stop lifecycle, with no client dispatch |
 | `New-ArchivePlan.ps1` | Select exact completed requests for signed queue maintenance without deleting evidence |
@@ -35,3 +36,7 @@ Windows Desktop runtime enables an additional PowerShell 7 compilation check;
 its absence does not skip the mandatory target-runtime compilation.
 Normal .NET dependency restore may use NuGet; no lab endpoint, Steam or Docker
 runtime is contacted by the policy suite.
+
+For the unified controller workflow and its explicit live gate, see
+[campaign operations](../../docs/client-controller.md) and
+[readiness](../../docs/client-controller-readiness.md).

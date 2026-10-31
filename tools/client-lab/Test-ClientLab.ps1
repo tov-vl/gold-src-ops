@@ -12,6 +12,8 @@ foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $output 'kit') -Recurs
     if ($errors.Count) { throw ('Generated PowerShell parser failure: ' + $file.Name) }
 }
 & (Join-Path $PSScriptRoot 'tests/Test-ProfileAndArchive.ps1') -Workspace $output -ToolRoot $PSScriptRoot
+& (Join-Path $PSScriptRoot 'tests/Test-Campaign.ps1') -Workspace $output -ToolRoot $PSScriptRoot
+& (Join-Path $PSScriptRoot 'tests/Test-CampaignRuntime.ps1') -Workspace $output -ToolRoot $PSScriptRoot
 $tests = @('Test-Protocol.ps1','Test-Autonomous.ps1','Test-Workflow.ps1','Test-WorkerCleanup.ps1','Test-ShellLaunch.ps1','Test-FocusProjection.ps1','Test-QueueInventory.ps1','Test-Updater.ps1')
 foreach ($name in $tests) { & (Join-Path $PSScriptRoot ('tests/' + $name)) -Workspace $output }
 if (-not $IsWindows) { throw 'Windows PowerShell and native policy checks require a Windows verification host.' }
@@ -28,6 +30,6 @@ else { Write-Host 'Optional PowerShell 7 native compilation skipped: matching Wi
 if ($LASTEXITCODE -ne 0) { throw 'Native policy harness failed.' }
 & dotnet format whitespace (Join-Path $PSScriptRoot 'Native.Checks.csproj') --verify-no-changes --no-restore --verbosity minimal
 if ($LASTEXITCODE -ne 0) { throw 'Native source formatting differs.' }
-$summary = @{passed=$true;runtimeChanges=$false;targetNetworkUsed=$false;nativeInputSent=$false;targetNativeCompilation=$true;modernNativeCompilation=$modernCompilation;tests=$tests;utc=[DateTime]::UtcNow.ToString('o')}
+$summary = @{passed=$true;runtimeChanges=$false;targetNetworkUsed=$false;nativeInputSent=$false;targetNativeCompilation=$true;modernNativeCompilation=$modernCompilation;tests=$tests;controllerTests=@('Test-Campaign.ps1','Test-CampaignRuntime.ps1');utc=[DateTime]::UtcNow.ToString('o')}
 [IO.File]::WriteAllText((Join-Path $output 'checks/summary.json'), ($summary | ConvertTo-Json -Depth 4))
 $summary | ConvertTo-Json

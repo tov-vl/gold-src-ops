@@ -4373,3 +4373,14 @@ the owner reported Steam in use elsewhere; no interaction pass or automatic
 retry is claimed. All six fresh autonomous acceptances are deferred until the
 account is free. No new addon, production, cloud or access-rule change was made.
 See [scope, verification and pending gate](client-panel-acceptance.md).
+
+## Autonomous client lab - campaign controller
+
+Repository implementation: one PowerShell 7 entry point for the six RU/EN panel
+cases, persisted state, an explicit Steam hold, one-attempt dispatch, same-ID
+reconciliation, cancellation, bounded cleanup and hash-bound visual review.
+Offline effect-port checks cover failure and recovery paths without contacting
+the target. Delivery verification is in progress. No runner installation,
+permission, addon, production or cloud change is included. Steam remains held;
+all six fresh autonomous panel acceptances remain pending.
+See [operations](client-controller.md) and [readiness](client-controller-readiness.md).
