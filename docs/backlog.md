@@ -4380,7 +4380,9 @@ Repository implementation: one PowerShell 7 entry point for the six RU/EN panel
 cases, persisted state, an explicit Steam hold, one-attempt dispatch, same-ID
 reconciliation, cancellation, bounded cleanup and hash-bound visual review.
 Offline effect-port checks cover failure and recovery paths without contacting
-the target. Delivery verification is in progress. No runner installation,
+the target. Product PR #426 and full required/post-merge CI passed. Local checks
+passed, including 96 new assertions and the complete Quality Gate. No runner
+installation,
 permission, addon, production or cloud change is included. Steam remains held;
 all six fresh autonomous panel acceptances remain pending.
 See [operations](client-controller.md) and [readiness](client-controller-readiness.md).

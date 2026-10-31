@@ -37,7 +37,14 @@ Local verification passed on 2026-10-31:
 - One local-only preparation using the retained accepted bundle and pinned
   inputs: six new IDs remained `prepared`, all unaccepted, with Steam held.
 
-Required PR and post-merge CI results will be recorded at delivery closure.
+The [product PR #426](https://github.com/tov-vl/gold-src-ops/pull/426) was accepted
+as `0456c8856db2fdcd0358dd77c3aa0ddcd684e714` after
+[full PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/41234868537)
+passed all six verification jobs. Publication jobs were correctly skipped for
+this source-only PR. The
+[post-merge run](https://github.com/tov-vl/gold-src-ops/actions/runs/41236111915)
+also passed all six verification jobs at the accepted revision. Source delivery
+is complete; no runtime rollout or game-client pass is claimed.
 No C# source is changed by this slice; a new InspectCode run is not applicable.
 
 ## Pending live gate
@@ -45,8 +52,9 @@ No C# source is changed by this slice; a new InspectCode run is not applicable.
 Steam remains on hold because the account is in use elsewhere. No CS request,
 SSH session, target update, game fixture, lab Docker lifecycle or access-rule
 change was performed while implementing this controller. Ordinary local .NET
-tests retain their existing disposable database-container boundary. All six fresh autonomous panel
-acceptances remain pending. When the owner confirms the account is free, prepare
-a fresh campaign, run one case, review its five frames and independent cleanup,
+tests retain their existing disposable database-container boundary. All six
+fresh autonomous panel acceptances remain pending. When the owner confirms the
+account is free, prepare a fresh campaign, run one case, review its five frames
+and independent cleanup,
 then proceed through the other five cases. The earlier cancelled request is
 retained and is not a retry input for the new campaign.

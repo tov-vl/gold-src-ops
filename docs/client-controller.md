@@ -51,6 +51,9 @@ Docker Desktop Linux endpoint, an unoccupied fixture/listener, current worker
 readiness, queue capacity, target identity/capabilities and all nine installed
 runner hashes. It does not change firewall, access, updates or queue contents.
 Readiness does not prove Steam entitlement or exclusive account use.
+If queue capacity is exhausted, use the existing separately reviewed signed
+archive workflow for exact completed requests; never remove claims or drain
+pending work to fit the campaign. The controller does not archive automatically.
 
 The controller claims fixture start, dispatch, cancellation and fixture stop
 before their effects. Each dispatch has one fixed ID. A lost acknowledgement
