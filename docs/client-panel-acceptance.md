@@ -82,6 +82,36 @@ zero AMXX errors and confirmed client/config/fixture/network/relay cleanup.
 Raw worker/collector acceptance flags stay false; operator review is separate.
 Generated profiles, payloads, frames, claims and rollback inputs remain private.
 
-At implementation time the new runner has not yet been installed or accepted.
-The prior `/rules` adoption in [the readiness record](client-lab-readiness.md)
-remains valid for its recorded revision only.
+## Installation and deferred interaction gate - 2026-10-31
+
+Product PR [#424](https://github.com/tov-vl/gold-src-ops/pull/424) passed
+[required CI](https://github.com/tov-vl/gold-src-ops/actions/runs/41228944932)
+and was accepted as `31f57be709edebfd35628783d950bffba259db19`.
+The matching [post-merge workflow](https://github.com/tov-vl/gold-src-ops/actions/runs/41230240399)
+targets that exact merge revision.
+The signed runner update installed at sequence 14/revision 16. Fresh readback
+matched all nine payload hashes and confirmed the new fixed capability. The
+four pinned dependencies, trust engine, policy, tasks and access rules were
+preserved. One common script retained its hash-verified predecessor byte format
+after normalized-text equality was checked, as in the earlier adoption.
+
+Before installation, six fresh capture-only fixtures produced the reviewed
+panel/language baselines. Their client/configuration/fixture/network/relay
+cleanup and zero AMXX errors were verified. Bounded signed queue maintenance
+archived only explicitly selected completed requests, preserving their results
+and images. No production, addon or cloud resource was changed.
+
+The first autonomous EN request was cancelled after the owner reported the
+Steam account in use by another game. It produced zero frames. The terminal
+result retained its failure state; target cleanup, temporary configuration
+removal, a fresh zero-game heartbeat and local fixture/network/relay removal
+were independently verified. No further game request was dispatched and no
+automatic retry occurred. A local operator hold prevents new fixture/game
+dispatch until Steam availability is explicitly restored.
+
+All six autonomous panel/language interaction acceptances remain pending. After
+the account becomes free, use fresh run directories and request IDs, preserving
+the cancelled attempt and its claims. The six baseline frames are not a
+substitute for the required 30 interaction frames. The prior `/rules` adoption
+in [the readiness record](client-lab-readiness.md) remains evidence for its
+recorded revision only.
