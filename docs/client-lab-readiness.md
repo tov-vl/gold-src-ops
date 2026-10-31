@@ -9,11 +9,10 @@ and runbook. No target installation, game launch, new access, cloud resource or
 production/addon rollout is part of this stage. No application release tag or
 stable promotion is required for this source-only delivery.
 
-Future installation affects a privileged updater, worker and queue and must use
-R2-level trust, predecessor, cleanup and rollback evidence. The current laptop
-installation remains the accepted predecessor until that separate adoption is
-reviewed and verified. Earlier real-client RU/EN results do not prove this new
-generated bundle was installed or accepted.
+The separate adoption below affects the existing privileged updater, worker and
+queue and uses R2-level trust, predecessor, cleanup and rollback evidence.
+Earlier real-client RU/EN results were not reused as proof of this bundle's
+installation or acceptance.
 
 ## Local verification
 
@@ -62,10 +61,45 @@ The complete local solution quality gate passed: audited restore, formatting,
 build, tests and vulnerable-package listing. Build reported zero warnings/errors;
 1294 tests passed and 62 opt-in browser tests were skipped. No vulnerable package
 was reported. The separate native harness also passed with warnings as errors.
-Product CI is assessed on the PR revision independently of these local results.
+Product PR [#422](https://github.com/tov-vl/gold-src-ops/pull/422) was accepted.
+Its [required CI](https://github.com/tov-vl/gold-src-ops/actions/runs/41210422529)
+and [post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/41211598289)
+passed all six verification jobs at the reviewed source revision.
 
-Real-client acceptance is deliberately pending: adoption needs exact
-generated hashes, the local trust-engine migration if applicable, source-built
-helper validation, fresh RU/EN
-frames, independent fixture markers and verified cleanup. No renderer, PvP or
-24-hour human-activity claim follows from these policy checks.
+## Existing laptop adoption - 2026-10-31
+
+Accepted source: `de0920cf9b7c2426124535efd13025373a073bb3` from PR #422.
+Only the existing client lab was changed; production, Selectel, identities,
+keys, access rules and task definitions were preserved. No application release
+tag, addon rollout or stable promotion was required.
+
+- One local administrator migration installed the reviewed updater engine and
+  its trusted hash. The predecessor runner, sequence, policy and task definitions
+  were preserved, and a fresh successful SYSTEM task tick was verified. The
+  installer passed 22 inert success/refusal/rollback checks in each of PowerShell
+  7 and Windows PowerShell 5.1 before use. Protected rollback inputs are retained
+  privately; rollback was not needed.
+- A signed runner update advanced sequence 9 to 10. All nine installed hashes
+  matched the reviewed payload. The four pinned dependencies retained their
+  predecessor bytes. One pinned common script differed from a new render only
+  in byte formatting; normalized text equality and its predecessor hash were
+  checked before preserving those exact bytes in the payload manifest.
+- Signed maintenance advanced sequence 10 to 11 and archived exactly one
+  completed autonomous request. The result remained unchanged and its image
+  remained readable. The updater ended enabled and unblocked at revision 16.
+- Fresh EN and RU fixtures used the exact accepted addon 0.38.0/dictionary and
+  source-built helper. Each language had one client dispatch and five native
+  1920x1200 frames. EN completed at 17:14 UTC and RU at 17:19 UTC. All ten frames
+  were reviewed: readable rules, both OK closes, alternate-alias reopening and
+  returned movement passed without manual window selection or global input.
+- Independent server markers confirmed both aliases, cooldown and movement
+  after both closes. Each fixture reported zero AMXX error files. Temporary
+  configuration restoration, final game-process absence, fixture/network removal
+  and relay termination were independently checked. Final worker state was ready.
+
+The raw worker/collector results intentionally remain unreviewed with
+`acceptancePassed=false`; separate operator review records hold acceptance.
+Profiles, native frames, logs, signed payloads and rollback records remain outside
+Git. No renderer, PvP or 24-hour human-activity acceptance is claimed. Other
+panels still have capture-only support; the autonomous interaction acceptance is
+limited to the reviewed `/rules` profile.

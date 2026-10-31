@@ -4349,7 +4349,12 @@ protocol and disposable LAN fixture tooling from operator-only prototypes into
 evidence outside Git. Add offline protocol, queue, cleanup, synthetic-frame and
 native compilation checks plus a Windows CI job. The working laptop, access
 rules, production services and addon 0.38.0 remain outside this implementation
-stage. Real-client acceptance of a newly generated/installed bundle is a
-separate gate. See [the client lab runbook](client-lab.md).
-Local policy checks and the solution quality gate passed; see
-[verification and adoption limits](client-lab-readiness.md).
+stage. Product PR #422 passed required and post-merge CI. The separate R2
+adoption completed on 2026-10-31: one local trust-engine migration, a signed
+runner update, verified nine-file hashes and one bounded signed archive operation
+with result/image preservation. Fresh EN/RU one-attempt trials passed with ten
+reviewed native frames, independent alias/cooldown/movement markers and cleanup.
+No manual window selection or new permissions were needed. Production and cloud
+resources were unchanged; renderer, PvP and activity gates remain separate.
+See [the client lab runbook](client-lab.md) and
+[verification and adoption evidence](client-lab-readiness.md).
