@@ -6,7 +6,7 @@ Set-StrictMode -Version Latest
 . (Join-Path $Workspace 'kit\code\Interaction.ps1')
 $root=Join-Path $Workspace ('checks\inventory-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path (Join-Path $root 'queue'),(Join-Path $root 'results')|Out-Null
-function Add-Case([string]$Status,[bool]$Clean,[bool]$Complete){
+function Add-Case([string]$Status,$Clean,[bool]$Complete){
     $id=[guid]::NewGuid().ToString('D')
     Write-LabJson (Join-Path $root ('queue\'+$id+'.json')) @{id=$id;action='verify-rules';language='ru';createdUtc=[DateTime]::UtcNow.ToString('o')}
     $directory=Join-Path $root ('results\'+$id)
@@ -17,11 +17,17 @@ function Add-Case([string]$Status,[bool]$Clean,[bool]$Complete){
     return $id
 }
 $eligible=Add-Case 'uncertain_error' $true $true
-Add-Case 'autonomous_captured_unreviewed' $true $true|Out-Null
+$autonomous=Add-Case 'autonomous_captured_unreviewed' $true $true
+$interaction=Add-Case 'interaction_captured_unreviewed' $true $true
 Add-Case 'uncertain_error' $false $true|Out-Null
 Add-Case 'launch_requested' $false $false|Out-Null
+Add-Case 'uncertain_error' 'true' $true|Out-Null
+$configOnly=Add-Case 'uncertain_error' $true $true
+$configPath=Join-Path $root ('results\'+$configOnly+'\result.json')
+$configRecord=Read-LabJson $configPath;$configRecord.configCleanupVerified='true';Write-LabJson $configPath $configRecord
 $inventory=@(Get-LabTerminalArchiveCandidates $root)
-if($inventory.Count -ne 1 -or $inventory[0].id -cne $eligible -or $inventory[0].sha256 -cne (Get-FileHash -LiteralPath (Join-Path $root ('queue\'+$eligible+'.json')) -Algorithm SHA256).Hash){throw 'Inventory selected an active or unclean request.'}
+if($inventory.Count -ne 3 -or (@($inventory.id|Sort-Object)-join ',') -cne (@($eligible,$autonomous,$interaction|Sort-Object)-join ',')){throw 'Inventory excluded completed interaction or selected active/unclean requests.'}
+foreach($entry in $inventory){if($entry.sha256 -cne (Get-FileHash -LiteralPath (Join-Path $root ('queue\'+$entry.id+'.json')) -Algorithm SHA256).Hash){throw 'Inventory request hash differs.'}}
 if((@($inventory[0].Keys|Sort-Object)-join ',') -cne 'id,sha256'){throw 'Inventory exposed raw request content.'}
 $resultPath=Join-Path $root ('results\'+$eligible+'\result.json')
 $saved=Read-LabJson $resultPath

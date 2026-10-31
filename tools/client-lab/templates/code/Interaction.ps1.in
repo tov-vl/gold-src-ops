@@ -445,8 +445,8 @@ function Get-LabTerminalArchiveCandidates([string]$Root) {
         $result=Read-LabJson $path
         if($result.id -cne $job.id){throw 'Result identity differs.'}
         if(-not $result.PSObject.Properties['completedUtc'] -or -not $result.completedUtc){continue}
-        if(-not $result.cleanupVerified -or -not $result.configCleanupVerified){continue}
-        if($result.status -cnotin @('captured_unreviewed','uncertain_timeout','uncertain_launch','uncertain_capture','uncertain_error','rejected_preflight')){continue}
+        if($result.cleanupVerified -isnot [bool] -or -not $result.cleanupVerified -or $result.configCleanupVerified -isnot [bool] -or -not $result.configCleanupVerified){continue}
+        if($result.status -cnotin @('captured_unreviewed','interaction_captured_unreviewed','autonomous_captured_unreviewed','uncertain_timeout','uncertain_launch','uncertain_capture','uncertain_error','rejected_preflight')){continue}
         if((ConvertTo-LabUtc $result.completedUtc) -gt [DateTime]::UtcNow.AddSeconds(10)){throw 'Future terminal result.'}
         # Metadata for the existing signed archive operation only. Nothing is moved or deleted here.
         @{id=$job.id;sha256=(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash}
