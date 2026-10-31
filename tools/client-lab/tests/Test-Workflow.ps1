@@ -10,7 +10,7 @@ New-Item -ItemType Directory -Path (Join-Path $root 'queue\steps')|Out-Null
 $script:calls=New-Object 'Collections.Generic.List[string]'
 $script:failure=$null
 $script:cancelled=$false
-function Add-Type([string]$Path,[string[]]$ReferencedAssemblies){if(-not $Path.EndsWith('Rules.Input.cs') -or $ReferencedAssemblies.Count -lt 5){throw 'Unexpected type request.'}}
+function Initialize-LabInteractionTypes([string]$Source){if(-not $Source.EndsWith('Rules.Input.cs')){throw 'Unexpected type source.'}}
 function New-Object([string]$TypeName,[object[]]$ArgumentList){
     if($TypeName -cne 'GsoLab.Interaction.GameWindow' -or $ArgumentList.Count -ne 4 -or $ArgumentList[0] -ne 1234 -or $ArgumentList[3] -ne 7){throw 'Unexpected window construction.'}
     $window=[pscustomobject]@{GuardCode='ready';GuardObservationComplete=$true;GuardFlags=251;ClientWidth=1920;ClientHeight=1200;VisibleWindowCount=1;NativeErrorCode=$null;ActivationAttempted=$false;ActivationAccepted=$null}
