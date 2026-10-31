@@ -4382,7 +4382,12 @@ reconciliation, cancellation, bounded cleanup and hash-bound visual review.
 Offline effect-port checks cover failure and recovery paths without contacting
 the target. Product PR #426 and full required/post-merge CI passed. Local checks
 passed, including 96 new assertions and the complete Quality Gate. No runner
-installation,
-permission, addon, production or cloud change is included. Steam remains held;
-all six fresh autonomous panel acceptances remain pending.
+installation, permission, addon, production or cloud change is included.
+The first real EN `ranks` scenario completed with five reviewed frames and
+verified cleanup, but exposed a local generic-label validation bug. The
+correction and 122 focused assertions passed locally; follow-up CI is pending.
+Read-only inspection accepts its retained native evidence without changing
+the old campaign's source pins or `needs_reconciliation` phase. Five native
+scenarios and corrected-controller end-to-end acceptance remain open. Future
+runtime work requires a fresh campaign; no game request was repeated.
 See [operations](client-controller.md) and [readiness](client-controller-readiness.md).

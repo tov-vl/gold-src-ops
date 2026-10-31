@@ -115,3 +115,20 @@ the cancelled attempt and its claims. The six baseline frames are not a
 substitute for the required 30 interaction frames. The prior `/rules` adoption
 in [the readiness record](client-lab-readiness.md) remains evidence for its
 recorded revision only.
+
+## First completed autonomous panel trial
+
+After Steam became available, one fresh EN `ranks` interaction completed on
+2026-10-31 UTC. Five native frames were independently reviewed. Readability,
+both OK closes, alternate-alias reopening, cooldown and returned movement were
+confirmed together with zero AMXX errors and client/configuration/fixture/
+network/relay cleanup. No manual window selection was requested.
+
+The first unified-controller run stopped at local evidence validation because
+it expected generic frame labels instead of the runner's existing panel-specific
+labels. Its fail-closed state and source pins were retained. A corrected
+read-only verifier validated the same package; no second dispatch was made and
+raw results were not edited. See [controller readiness](client-controller-readiness.md)
+for the correction and its separate end-to-end gate. RU `ranks`, both `profile`
+and both `topall` native interaction acceptances remain pending. Renderer,
+production personal-data behavior, PvP and activity claims remain separate.
