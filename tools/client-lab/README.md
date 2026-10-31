@@ -15,6 +15,7 @@ Entry points:
 | --- | --- |
 | `New-LabBundle.ps1` | Validate a private profile and render a fresh nine-file runner and controller bundle |
 | `New-LabRun.ps1` | Prepare a fresh RU or EN fixture from hash-pinned local assets and matching activation |
+| `Build-FixtureHelper.ps1` | Rebuild and hash-check the fixture-only helper with the pinned offline AMXX toolchain |
 | `lab_fixture.py` | Explicit plan/start/relay/stop lifecycle, with no client dispatch |
 | `New-ArchivePlan.ps1` | Select exact completed requests for signed queue maintenance without deleting evidence |
 | `Test-ClientLab.ps1` | Offline policy, parser, native compilation and synthetic-frame tests on Windows |

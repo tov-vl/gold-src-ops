@@ -93,13 +93,17 @@ The cache contains the hash-pinned AMXX 1.10 build 5481 base/cstrike archives.
 The runtime directory contains the reviewed ReHLDS, ReGameDLL, Metamod and ReAPI
 trees. The local Docker image contains `/opt/cs16/serverfiles-base`, Python and
 the `steam` user. Retain these prerequisites privately; they are not redistributed
-by this repository. Compile `fixture_vgui_guard.sma` with the matching pinned
-AMXX toolchain; its binary must match the helper hash in `New-LabRun.ps1`.
+by this repository. Use `Build-FixtureHelper.ps1` with the retained AMXX/ReAPI
+cache and a fresh output file. It pins the Windows compiler/DLL and uses `-d0 -E`,
+then requires the exact helper hash in `New-LabRun.ps1`. It never downloads a
+toolchain. This source-built helper differs from the historical debug binary;
+its real-game validation belongs to the next adoption gate.
 
 The following variables refer to private, operator-selected local paths:
 
 ```powershell
 $tool = Join-Path (Get-Location) 'tools/client-lab'
+& "$tool/Build-FixtureHelper.ps1" -CacheDirectory $toolchainCache -OutputPath $fixtureHelper
 & "$tool/New-LabBundle.ps1" -ProfilePath $privateProfile -OutputDirectory $bundle
 & "$tool/New-LabRun.ps1" -BundleDirectory $bundle -ActivationPath $activation `
     -AddonDirectory $acceptedInputs -HelperBinaryPath $fixtureHelper `

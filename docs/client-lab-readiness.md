@@ -31,8 +31,10 @@ generated bundle was installed or accepted.
 - Seven Python tests cover fixture/target/image/path refusal, permanent claims,
   foreign-container protection, cleanup after evidence failure and bounded tunnel
   framing. The CI path-selection smoke and changed-documentation checks passed.
-- A fresh EN fixture plan was rendered from the locally retained hash-pinned
-  addon/dictionary/helper with synthetic machine configuration. No container,
+- The fixture helper rebuilds reproducibly with the pinned Windows AMXX compiler
+  and `-d0 -E`; its exact SHA-256 is checked locally and by the compiler CI job.
+  A fresh EN fixture plan was rendered from the locally retained hash-pinned
+  addon/dictionary and source-built helper with synthetic machine configuration. No container,
   relay or remote client was started by preparation.
 
 ### Static analysis
@@ -63,6 +65,7 @@ was reported. The separate native harness also passed with warnings as errors.
 Product CI is assessed on the PR revision independently of these local results.
 
 Real-client acceptance is deliberately pending: adoption needs exact
-generated hashes, the local trust-engine migration if applicable, fresh RU/EN
+generated hashes, the local trust-engine migration if applicable, source-built
+helper validation, fresh RU/EN
 frames, independent fixture markers and verified cleanup. No renderer, PvP or
 24-hour human-activity claim follows from these policy checks.

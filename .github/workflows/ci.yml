@@ -236,6 +236,14 @@ jobs:
           ./tools/smoke/weapon-selection-package.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'weapon-addon') -Target game-host-addon
           ./tools/smoke/weapon-selection-package.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'weapon-lookup-addon') -Target game-host-addon -EnablePlayerLookup
 
+      - name: Compile reproducible client lab helper
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        shell: pwsh
+        run: >-
+          ./tools/client-lab/Build-FixtureHelper.ps1
+          -CacheDirectory (Join-Path $env:RUNNER_TEMP 'map-menu-toolchain')
+          -OutputPath (Join-Path $env:RUNNER_TEMP 'client-lab-guard.amxx')
+
       - name: Package gameplay fixtures
         id: fixture-bundle
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
