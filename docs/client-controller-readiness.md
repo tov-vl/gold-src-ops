@@ -43,8 +43,8 @@ as `0456c8856db2fdcd0358dd77c3aa0ddcd684e714` after
 passed all six verification jobs. Publication jobs were correctly skipped for
 this source-only PR. The
 [post-merge run](https://github.com/tov-vl/gold-src-ops/actions/runs/41236111915)
-also passed all six verification jobs at the accepted revision. Source delivery
-is complete; no runtime rollout or game-client pass is claimed.
+also passed all six verification jobs at the accepted revision. That source-only
+delivery did not include a runtime rollout or a game-client pass.
 No C# source is changed by this slice; a new InspectCode run is not applicable.
 
 ## First live trial and verifier correction
@@ -74,10 +74,16 @@ cannot mark the campaign accepted or enable runtime operations with new source.
 The correction passed 112 controller and 10 adapter assertions locally, the
 complete client policy/native/Python suite and the .NET Quality Gate (1,294
 passed, 62 opt-in browser skips, no build warnings/errors or vulnerable
-packages). CI and source-delivery closure for this follow-up remain pending.
-C# and the target's
-nine installed runner files are unchanged; no new InspectCode run or target
-update is applicable. No production, addon, cloud or access change was made.
+packages). The correction was accepted in
+[PR #428](https://github.com/tov-vl/gold-src-ops/pull/428) as
+`486369c3a4ce4cdc88a32019a3d557f46d148170`, after
+[full PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/41242227504)
+passed. Its [post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/41243413600)
+also passed all six verification jobs at the accepted revision. C# and the
+target's nine installed runner files are unchanged; no new InspectCode run or
+target update is applicable. No production, addon, cloud or access change was
+made. This closes delivery of the verifier correction, not its separate live
+controller gate.
 
 ## Pending live gate
 
@@ -88,3 +94,8 @@ from the successful read-only verification of this retained EN result. The
 earlier Steam-conflict cancellation and both attempts' permanent claims remain
 preserved. The operator hold is restored while resolving the controller issue;
 it is not a claim that Steam is busy again.
+
+A new private campaign is prepared against the accepted correction, with six
+unclaimed IDs and an active operator hold. Its continuation plan lists only the
+five pending native scenarios and links the independent EN review separately;
+the EN result was not imported into a different request or dispatched again.
