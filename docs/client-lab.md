@@ -166,6 +166,11 @@ confirm target cleanup independently through result/status before a new run.
 
 ## Evidence and acceptance
 
+Use [the campaign controller](client-controller.md) for a persisted six-case
+matrix, Steam hold and same-ID reconciliation over these existing primitives.
+Its [offline readiness and pending live gate](client-controller-readiness.md)
+are tracked separately from installation and real-client acceptance.
+
 Review all five frames, their byte lengths/hashes, job identity/language and
 ordered interaction result. Require `fixtureEvidenceComplete=true` in cleanup,
 actual boolean `cleanupVerified` and

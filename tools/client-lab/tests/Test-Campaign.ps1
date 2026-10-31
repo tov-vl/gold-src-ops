@@ -1,0 +1,234 @@
+#Requires -Version 7.0
+param([Parameter(Mandatory)][string]$Workspace, [string]$ToolRoot = (Join-Path $PSScriptRoot '..'))
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+Import-Module (Join-Path $ToolRoot 'Lab.Campaign.psm1') -Force
+$sandbox = Join-Path $Workspace ('campaign-checks-' + [guid]::NewGuid().ToString('N'))
+$null = New-Item -ItemType Directory -Path $sandbox
+$script:checks = 0
+$script:effects = [Collections.Generic.List[string]]::new()
+$script:mode = ''
+function Check([bool]$Condition) { if (-not $Condition) { throw "Campaign assertion $script:checks failed." }; $script:checks++ }
+function Reject([scriptblock]$Action) { $failed = $false; try { $null = & $Action } catch { $failed = $true }; Check $failed }
+function Json([string]$Path, $Value) { [IO.File]::WriteAllText($Path, ($Value | ConvertTo-Json -Depth 30)) }
+function ReadJson([string]$Path) { return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -AsHashtable }
+function NewCase {
+    $root = Join-Path $sandbox ([guid]::NewGuid().ToString('N'))
+    $null = New-Item -ItemType Directory -Path (Join-Path $root 'engine')
+    [IO.File]::WriteAllText((Join-Path $root 'engine/pin.txt'), 'inert input')
+    $cases = @()
+    foreach ($panel in @('ranks','profile','topall')) {
+        foreach ($language in @('ru','en')) {
+            $key = "$panel-$language"
+            $null = New-Item -ItemType Directory -Path (Join-Path $root "$key/evidence")
+            [IO.File]::WriteAllText((Join-Path $root "$key/input.txt"), 'inert fixture')
+            $cases += @{ key = $key; panel = $panel; language = $language; baselineSha256 = ('A' * 64) }
+        }
+    }
+    Initialize-LabCampaign $root $cases @{ python = 'unused'; pythonSha256 = ('B' * 64); pwsh = 'unused' }
+    $script:effects.Clear()
+    $script:mode = ''
+    return $root
+}
+
+# Sparse synthetic bitmap with real dimensions and a complete pixel buffer.
+$bitmap = Join-Path $sandbox 'synthetic.bmp'
+$header = [byte[]]::new(54)
+$header[0] = 66; $header[1] = 77
+[BitConverter]::GetBytes([uint32]6912054).CopyTo($header,2)
+[BitConverter]::GetBytes([uint32]54).CopyTo($header,10)
+[BitConverter]::GetBytes([uint32]40).CopyTo($header,14)
+[BitConverter]::GetBytes([int]1920).CopyTo($header,18)
+[BitConverter]::GetBytes([int]1200).CopyTo($header,22)
+[BitConverter]::GetBytes([uint16]1).CopyTo($header,26)
+[BitConverter]::GetBytes([uint16]24).CopyTo($header,28)
+$stream = [IO.File]::Create($bitmap)
+try { $stream.SetLength(6912054); $stream.Write($header) } finally { $stream.Dispose() }
+$bitmapHash = (Get-FileHash -LiteralPath $bitmap).Hash
+
+function MakeResult($Context) {
+    $directory = Join-Path $Context.run ('controller-results/' + $Context.case.jobId)
+    $null = New-Item -ItemType Directory -Path $directory -Force
+    $frames = @(); $assessments = @()
+    for ($i = 1; $i -le 5; $i++) {
+        if (-not (Test-Path -LiteralPath (Join-Path $directory "image-$i.bmp"))) { Copy-Item -LiteralPath $bitmap -Destination (Join-Path $directory "image-$i.bmp") }
+        $frames += @{ number = $i; format = 'bmp'; width = 1920; height = 1200; bytes = 6912054; sha256 = $bitmapHash }
+        $panel = $i -in @(1,4)
+        $assessments += @{ number = $i; observation = @{ panelMatches = $panel; sceneCandidate = -not $panel; bodySha256 = ('A' * 64) } }
+    }
+    $result = @{
+        id = $Context.case.jobId; panel = $Context.case.panel; language = $Context.case.language; action = 'verify-panel'
+        status = 'autonomous_captured_unreviewed'; failureCode = $null; cleanupVerified = $true; configCleanupVerified = $true
+        acceptancePassed = $false; rendererVerified = $false; completedUtc = [DateTime]::UtcNow.AddSeconds(-5).ToString('o')
+        images = $frames; labels = @('panel-first','after-first-ok','after-controls','panel-alias','after-last-ok')
+        interaction = @{ profile = ('motd-v299-' + $Context.case.panel + '-1920x1200-v1'); assessments = $assessments
+            actions = @(@{phase='ok-first';inputQueued=$true},@{phase='controls';inputQueued=$true},@{phase='reopen';inputQueued=$true},@{phase='ok-last';inputQueued=$true}) }
+    }
+    if ($script:mode -ceq 'terminal') { $result.status = 'cancelled' }
+    if ($script:mode -ceq 'bad-cleanup') { $result.cleanupVerified = 'true' }
+    if ($script:mode -ceq 'duplicate-image') { $result.images[4].number = 1 }
+    if ($script:mode -ceq 'wrong-baseline') { $result.interaction.assessments[0].observation.bodySha256 = ('F' * 64) }
+    if ($script:mode -ceq 'missing-action') { $result.interaction.actions = @($result.interaction.actions | Select-Object -First 3) }
+    Json (Join-Path $directory 'result.json') $result
+    return $result
+}
+
+$port = {
+    param($action,$context)
+    $script:effects.Add($action)
+    switch -CaseSensitive ($action) {
+        preflight { return @{ ready = ($script:mode -cne 'preflight') } }
+        start {
+            if ($script:mode -ceq 'start') { throw 'mock start interrupted' }
+            if ($script:mode -ceq 'hold-during-start') { Set-LabCampaignSteam $context.root $false }
+            return
+        }
+        relay { return }
+        dispatch { if ($script:mode -ceq 'dispatch') { throw 'mock uncertain dispatch' }; return }
+        result {
+            if ($script:mode -ceq 'read-loss') { throw 'mock connection lost' }
+            if ($script:mode -ceq 'pending') { return @{ id = $context.case.jobId; status = 'running' } }
+            if ($script:mode -ceq 'hold-during-poll') {
+                Set-LabCampaignSteam $context.root $false
+                $script:mode = 'terminal'
+                return @{ id = $context.case.jobId; status = 'running' }
+            }
+            return MakeResult $context
+        }
+        images { return }
+        stop {
+            if ($script:mode -ceq 'stop') { throw 'mock uncertain stop' }
+            Json (Join-Path $context.run 'cleanup.json') @{ fixtureRemoved = $true; fixtureEvidenceComplete = $true }
+            Json (Join-Path $context.run 'evidence/amxx-errors.json') @{ errorFiles = 0 }
+            $log = @()
+            foreach ($epoch in @(1,2)) {
+                $alias = $epoch - 1
+                $log += "FIXTURE_PANEL_COMMAND panel=$($context.case.panel) epoch=$epoch team_alias=$alias cooldown_verified=$alias"
+                $log += "FIXTURE_PANEL_CONTROL panel=$($context.case.panel) epoch=$epoch back_observed=1 left_observed=1 horizontal_distance_over_8=1"
+            }
+            if ($script:mode -ceq 'missing-marker') { $log = @($log | Select-Object -First 3) }
+            [IO.File]::WriteAllText((Join-Path $context.run 'evidence/server-final.log'), ($log -join "`n"))
+            return
+        }
+        absence { return @{ verified = ($script:mode -cne 'absence'); utc = [DateTime]::UtcNow.ToString('o') } }
+        idle {
+            $utc = if ($script:mode -ceq 'stale-heartbeat') { [DateTime]::UtcNow.AddMinutes(-5) } else { [DateTime]::UtcNow }
+            return @{ worker = @{ state = 'ready'; client = @{ ready = $true; gameProcessCount = 0; utc = $utc.ToString('o') } } }
+        }
+        cancel { return }
+        wait { return }
+        default { throw 'Unexpected effect' }
+    }
+}
+
+$root = NewCase
+$before = @(Get-ChildItem -LiteralPath $root -Recurse -File).Count
+$report = Get-LabCampaignReport $root
+Check ($report.steamHeld -and $report.cases.Count -eq 6 -and @($report.cases | Where-Object acceptancePassed).Count -eq 0)
+Check (@(Get-ChildItem -LiteralPath $root -Recurse -File).Count -eq $before)
+Reject { Invoke-LabCampaignCase $root ranks en run $port }
+Check ($script:effects.Count -eq 0)
+Set-LabCampaignSteam $root $true
+$script:mode = 'preflight'
+Reject { Invoke-LabCampaignCase $root ranks en run $port }
+Check (-not (Test-Path -LiteralPath (Join-Path $root 'ranks-en/run-claim.json')))
+$script:mode = ''
+$state = Invoke-LabCampaignCase $root ranks en run $port
+Check ($state.phase -ceq 'captured_unreviewed' -and -not $state.acceptancePassed)
+Check (@($script:effects | Where-Object { $_ -ceq 'dispatch' }).Count -eq 1)
+Reject { Approve-LabCampaignCase $root ranks en $state.evidenceSha256 $false }
+Reject { Approve-LabCampaignCase $root ranks en ('B' * 64) $true }
+$accepted = Approve-LabCampaignCase $root ranks en $state.evidenceSha256 $true
+Check ($accepted.acceptancePassed -and $accepted.phase -ceq 'accepted')
+$effectCount = $script:effects.Count
+$null = Invoke-LabCampaignCase $root ranks en resume $port
+Check ($script:effects.Count -eq $effectCount)
+$raw = ReadJson (Join-Path $root ('ranks-en/controller-results/' + $state.jobId + '/result.json'))
+Check (-not $raw.acceptancePassed -and -not $raw.rendererVerified)
+Check (@((Get-LabCampaignReport $root).cases | Where-Object acceptancePassed).Count -eq 1)
+$savedState = ReadJson (Join-Path $root 'ranks-en/campaign-state.json')
+$savedState.phase = 'collected'; $savedState.acceptancePassed = $false
+Json (Join-Path $root 'ranks-en/campaign-state.json') $savedState
+$effectCount = $script:effects.Count
+$restored = Invoke-LabCampaignCase $root ranks en resume $port
+Check ($restored.phase -ceq 'accepted' -and $restored.acceptancePassed -and $script:effects.Count -eq $effectCount)
+[IO.File]::AppendAllText((Join-Path $root 'ranks-en/evidence/server-final.log'), "`nchanged")
+Check (@((Get-LabCampaignReport $root).cases | Where-Object acceptancePassed).Count -eq 0)
+Reject { Invoke-LabCampaignCase $root ranks en resume $port }
+
+foreach ($scenario in @('start','dispatch','read-loss','pending','stop','absence','stale-heartbeat','bad-cleanup','duplicate-image','wrong-baseline','missing-action','missing-marker','hold-during-start')) {
+    $root = NewCase
+    Set-LabCampaignSteam $root $true
+    $script:mode = $scenario
+    $state = Invoke-LabCampaignCase $root ranks ru run $port -PollLimit 2
+    Check ($state.phase -ceq 'needs_reconciliation' -and -not $state.acceptancePassed)
+    Check (@($script:effects | Where-Object { $_ -ceq 'stop' }).Count -eq 1)
+    if ($scenario -cin @('read-loss','pending')) { Check (-not $script:effects.Contains('cancel')) }
+    $effectCount = $script:effects.Count
+    Reject { Invoke-LabCampaignCase $root ranks ru run $port }
+    Check ($script:effects.Count -eq $effectCount)
+}
+
+# Same-ID reconciliation after uncertain delivery: reads and image recovery only.
+$root = NewCase
+Set-LabCampaignSteam $root $true
+$script:mode = 'dispatch'
+$state = Invoke-LabCampaignCase $root profile en run $port
+$jobId = $state.jobId
+$script:effects.Clear(); $script:mode = ''
+$state = Invoke-LabCampaignCase $root profile en resume $port
+Check ($state.jobId -ceq $jobId -and $state.phase -ceq 'captured_unreviewed')
+Check (-not $script:effects.Contains('start') -and -not $script:effects.Contains('relay') -and -not $script:effects.Contains('dispatch') -and -not $script:effects.Contains('stop'))
+
+# A stop claim is never retried even if the first call failed.
+$root = NewCase
+Set-LabCampaignSteam $root $true
+$script:mode = 'stop'
+$null = Invoke-LabCampaignCase $root profile ru run $port
+$script:effects.Clear(); $script:mode = ''
+$state = Invoke-LabCampaignCase $root profile ru resume $port
+Check ($state.phase -ceq 'needs_reconciliation' -and -not $script:effects.Contains('stop'))
+
+$root = NewCase
+Request-LabCampaignCancel $root ranks en $port
+Reject { Invoke-LabCampaignCase $root ranks en run $port }
+Check ($script:effects.Count -eq 0)
+
+$root = NewCase
+Set-LabCampaignSteam $root $true
+$script:mode = 'hold-during-poll'
+$state = Invoke-LabCampaignCase $root topall en run $port -PollLimit 3
+Check ($state.phase -ceq 'terminal_unaccepted' -and @($script:effects | Where-Object { $_ -ceq 'cancel' }).Count -eq 1)
+Request-LabCampaignCancel $root topall en $port
+Check (@($script:effects | Where-Object { $_ -ceq 'cancel' }).Count -eq 1)
+Check ((Get-LabCampaignReport $root).steamHeld)
+
+# Frame tampering after complete collection invalidates a visual approval.
+$root = NewCase
+Set-LabCampaignSteam $root $true
+$state = Invoke-LabCampaignCase $root topall ru run $port
+$path = Join-Path $root ('topall-ru/controller-results/' + $state.jobId + '/image-1.bmp')
+$stream = [IO.File]::OpenWrite($path)
+try { $stream.Position = 60; $stream.WriteByte(1) } finally { $stream.Dispose() }
+Reject { Approve-LabCampaignCase $root topall ru $state.evidenceSha256 $true }
+Check (-not (ReadJson (Join-Path $root 'topall-ru/campaign-state.json')).acceptancePassed)
+
+$root = NewCase
+Set-LabCampaignSteam $root $true
+[IO.File]::WriteAllText((Join-Path $root 'ranks-ru/input.txt'), 'changed')
+Reject { Invoke-LabCampaignCase $root ranks ru run $port }
+Check ($script:effects.Count -eq 0)
+
+$root = NewCase
+Set-LabCampaignSteam $root $true
+$lock = [IO.File]::Open((Join-Path $root 'profile-en/campaign.lock'),[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+try { Reject { Invoke-LabCampaignCase $root profile en run $port } } finally { $lock.Dispose() }
+Check ($script:effects.Count -eq 0)
+
+# Public CLI planning is inert and does not create missing campaign state.
+$missing = Join-Path $sandbox 'missing'
+$plan = & (Join-Path $ToolRoot 'Invoke-LabCampaign.ps1') -Operation run -CampaignDirectory $missing -Panel ranks -Language en | ConvertFrom-Json
+Check (-not $plan.execute -and -not (Test-Path -LiteralPath $missing))
+$summary = @{ checks = $script:checks; targetNetworkUsed = $false; runtimeChanged = $false; nativeInputSent = $false; passed = $true }
+Json (Join-Path $Workspace 'campaign-summary.json') $summary
+$summary | ConvertTo-Json
