@@ -1,0 +1,55 @@
+#requires -Version 7
+param(
+    [Parameter(Mandatory=$true)][string]$SigningKeyDirectory,
+    [Parameter(Mandatory=$true)][string]$CodeDirectory,
+    [Parameter(Mandatory=$true)][string]$PredecessorState,
+    [Parameter(Mandatory=$true)][int]$Revision,
+    [ValidateSet(175,540)][int]$WatchdogSeconds=540,
+    [string]$ArchivePlan,
+    [Parameter(Mandatory=$true)][string]$OutputPath
+)
+$ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'updater\Update.Common.ps1')
+if(Test-Path -LiteralPath $OutputPath){throw 'Never overwrite a signed update.'}
+$state=Read-UpdateJson ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($PredecessorState))) $PredecessorState
+$pairing=Read-UpdateJson (Join-Path $env:USERPROFILE '.ssh\gso-client-lab') (Join-Path $env:USERPROFILE '.ssh\gso-client-lab\pairing.json')
+Assert-UpdateId $pairing.sessionId
+if($pairing.targetName -cne '{{TARGET_NAME}}'){throw 'Pairing target differs.'}
+Assert-UpdatePath $SigningKeyDirectory (Join-Path $SigningKeyDirectory 'public-key.xml')
+Assert-UpdatePath $SigningKeyDirectory (Join-Path $SigningKeyDirectory 'signing-key.dpapi')
+$public=[IO.File]::ReadAllText((Join-Path $SigningKeyDirectory 'public-key.xml'))
+$baseline=@()
+$files=@()
+$payload=@()
+$pins=[ordered]@{}
+foreach($name in (Get-UpdateNames)){
+    $bytes=Read-UpdateBytes $CodeDirectory (Join-Path $CodeDirectory $name) 131072
+    $hash=Get-UpdateHash $bytes
+    $baseline+=@{name=$name;sha256=$state.codeHashes.$name}
+    $files+=@{name=$name;sha256=$hash;bytes=$bytes.Length}
+    $payload+=@{name=$name;contentBase64=[Convert]::ToBase64String($bytes)}
+    if($name -cin (Get-UpdatePinnedNames)){$pins[$name]=$state.codeHashes.$name}
+}
+$archive=@()
+if($ArchivePlan){$archive=@(Read-UpdateJson ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($ArchivePlan))) $ArchivePlan)}
+$now=[DateTime]::UtcNow
+$manifest=@{schema=1;id=[guid]::NewGuid().ToString();target=$pairing.targetName;sessionId=$pairing.sessionId;sequence=([int]$state.sequence+1);revision=$Revision;createdUtc=$now.ToString('o');expiresUtc=$now.AddHours(24).ToString('o');baseline=$baseline;files=$files;archive=$archive;watchdogSeconds=$WatchdogSeconds}
+$manifestBytes=(New-Object Text.UTF8Encoding($false)).GetBytes(($manifest|ConvertTo-Json -Depth 8 -Compress))
+Add-Type -AssemblyName System.Security
+$blob=$null
+$rsa=New-Object Security.Cryptography.RSACryptoServiceProvider
+$rsa.PersistKeyInCsp=$false
+try{
+    $encrypted=[IO.File]::ReadAllBytes((Join-Path $SigningKeyDirectory 'signing-key.dpapi'))
+    $blob=[Security.Cryptography.ProtectedData]::Unprotect($encrypted,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser)
+    $rsa.ImportCspBlob($blob)
+    if($rsa.ToXmlString($false) -cne $public){throw 'Signing key pin differs.'}
+    $signature=$rsa.SignData($manifestBytes,'SHA256')
+}finally{if($blob){[Array]::Clear($blob,0,$blob.Length)};$rsa.Dispose()}
+$envelope=@{schema=1;manifestBase64=[Convert]::ToBase64String($manifestBytes);signatureBase64=[Convert]::ToBase64String($signature);files=$payload}
+$bytes=(New-Object Text.UTF8Encoding($false)).GetBytes(($envelope|ConvertTo-Json -Depth 8 -Compress))
+$config=[pscustomobject]@{target=$pairing.targetName;sessionId=$manifest.sessionId;publicKeyXml=$public;pinnedHashes=[pscustomobject]$pins}
+$verified=Test-UpdateEnvelope $bytes $config $state
+$stream=[IO.File]::Open($OutputPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+@{id=$manifest.id;sequence=$manifest.sequence;revision=$Revision;sha256=$verified.sha256;bytes=$bytes.Length;status='signed-not-dispatched';expiresUtc=$manifest.expiresUtc;archiveCount=$archive.Count}|ConvertTo-Json

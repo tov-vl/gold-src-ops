@@ -1,0 +1,183 @@
+﻿#requires -Version 5.1
+param([string]$Root = 'C:\ProgramData\GsoClientLab',[string]$ShellJobId)
+. (Join-Path $Root 'code\Lab.Common.ps1')
+Assert-LabCode $Root
+if((Test-Path -LiteralPath (Join-Path $Root 'maintenance-revision-06.json')) -or (Test-Path -LiteralPath (Join-Path $Root 'maintenance-revision-07.json'))){return}
+. (Join-Path $Root 'code\Diagnostics.ps1')
+. (Join-Path $Root 'code\Interaction.ps1')
+$policy = Read-LabJson (Join-Path $Root 'policy.json')
+Assert-LabLease $policy
+if($ShellJobId){Invoke-LabDesktopChild $Root $policy $ShellJobId;return}
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$workerValid=$identity -ceq $policy.gameUserSid -and (Get-Process -Id $PID).SessionId -eq $policy.gameSessionId
+$client=Get-LabClientReadiness (Get-LabClientObservation $policy)
+Write-LabJson (Join-Path $Root 'results\worker.json') @{ utc = [DateTime]::UtcNow.ToString('o'); state = $(if($workerValid){'ready'}else{'blocked'}); session = (Get-Process -Id $PID).SessionId; client=$client }
+if (-not $workerValid) { return }
+foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') -Filter '*.json' -File | Sort-Object Name | Select-Object -First 8)) {
+    Assert-LabLease $policy
+    $job = Read-LabJson $requestFile.FullName
+    Assert-LabId $job.id
+    if ($requestFile.Name -cne ($job.id + '.json')) { continue }
+    $paths = Get-LabPaths $Root $job.id
+    if (Test-Path -LiteralPath $paths.result) { continue }
+    # Completed claims can be older than the request freshness window.
+    Assert-LabJob $job
+    New-Item -ItemType Directory -Path $paths.result -ErrorAction Stop | Out-Null
+    $result = [ordered]@{ id = $job.id; action = $job.action; status = 'claimed'; stage = 'preflight'; launchRequested = $false; gamePid = $null; gameStartedUtc = $null; images = @(); rendererVerified = $false; acceptancePassed = $false; panelVerified = $false; languageVerified = $false; fixture = $null; cleanupVerified = $false; failureStage = $null; labels = @('scene','scene') }
+    $result.labels = @(Get-LabCaptureLabels $job)
+    $result.expectedWidth = $(if ($job.action -cin @('capture-panel','verify-rules')) { 1920 } else { 1280 })
+    $result.expectedHeight = $(if ($job.action -cin @('capture-panel','verify-rules')) { 1200 } else { 800 })
+    $result.configCleanupVerified = $false
+    $result.failureCode=$null
+    $result.launchCommandDispatched=$false
+    $result.automaticRetryAllowed=$false
+    $result.launcher=[ordered]@{processCreated=$false;exited=$null;exitCode=$null}
+    $result.diagnostics=[ordered]@{schema=1;client=$null;steamLogs=$null}
+    $result.cleanup=[ordered]@{game='not_required';config='not_created'}
+    $resultPath = Join-Path $paths.result 'result.json'
+    Write-LabJson $resultPath $result
+    $ownsConfig = $false
+    $configPath = $null
+    $launcher=$null
+    $logCheckpoint=$null
+    $launchUtc=$null
+    $autonomous=$false
+    try {
+        if ((Test-Path -LiteralPath $paths.cancel) -or [DateTime]::UtcNow -gt (ConvertTo-LabUtc $job.createdUtc).AddMinutes(3)) { throw 'Cancelled or stale request.' }
+        $autonomous=Get-LabAutonomousMode $Root $job
+        $result.stage = 'client_preflight'
+        $client=Get-LabClientReadiness (Get-LabClientObservation $policy)
+        $result.diagnostics.client=$client
+        if (-not $client.ready) { $result.failureCode=$client.code;throw 'Client prerequisites are not ready.' }
+        if ($job.action -cin @('capture-panel','verify-rules')) {
+            $result.stage = 'fixture_readiness'
+            $result.fixture = Get-LabFixtureReady $policy
+        }
+        $result.stage='prerequisites'
+        foreach ($folder in @($policy.gameRoot, (Join-Path $policy.gameRoot 'cstrike'))) {
+            if ((Get-Item -LiteralPath $folder).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Linked game directory.' }
+        }
+        foreach ($file in @((Join-Path $policy.steamRoot 'steam.exe'), (Join-Path $policy.gameRoot 'hl.exe'), (Join-Path $policy.gameRoot 'cstrike\liblist.gam'))) {
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw 'Game prerequisite missing.' }
+        }
+        if($job.action -ceq 'verify-rules'){Assert-LabInteractionBindings $policy.gameRoot}
+        $result.stage = 'capture_preparation'
+        $baseline = @{}
+        foreach ($file in @(Get-LabSnapshots $policy.gameRoot)) { $baseline[$file.FullName] = $true }
+        $configName = 'gso_lan_' + ([guid]$job.id).ToString('N') + '.cfg'
+        $configPath = Join-Path $policy.gameRoot ('cstrike\' + $configName)
+        # Finite native game program; no console input, desktop control or remote text.
+        $program = ((@('wait') * 300) + @('snapshot') + (@('wait') * 120) + @('snapshot')) -join "`r`n"
+        if ($job.action -ceq 'capture-panel') { $program = New-LabPanelProgram $job }
+        if ($job.action -ceq 'verify-rules') { $program = New-LabInteractionProgram $job }
+        if ([Text.Encoding]::ASCII.GetByteCount($program) -gt 32KB) { throw 'Generated config exceeds limit.' }
+        $stream = [IO.File]::Open($configPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
+        $ownsConfig = $true
+        try { $bytes = [Text.Encoding]::ASCII.GetBytes($program); $stream.Write($bytes, 0, $bytes.Length) } finally { $stream.Dispose() }
+        $launchUtc = [DateTime]::UtcNow
+        $logCheckpoint=Get-LabLogCheckpoint $policy.steamRoot
+        Assert-LabLease $policy
+        $result.stage = 'launch'
+        $result.launchRequested = $true
+        $result.cleanup.game='unverified_no_owned_process'
+        $launchArguments = Get-LabLaunchArguments $job $configName
+        if($autonomous) {
+            $result.status='launch_claimed'
+            $result.launcher.kind='desktop-shell-helper'
+            Write-LabJson $resultPath $result
+            $launcher=Start-LabDesktopHelper $Root $job.id
+            $result.launcher.processCreated=$true
+            Confirm-LabDesktopHelper $launcher $paths.result $job.id
+            $result.launcher.shellDispatchAccepted=$true
+        } else {
+            $launcher=Start-Process -FilePath (Join-Path $policy.steamRoot 'steam.exe') -ArgumentList $launchArguments -PassThru
+            $result.launcher.processCreated=$true
+        }
+        $result.launchCommandDispatched=$true
+        $result.status = 'launch_requested'
+        Write-LabJson $resultPath $result
+        $result.stage = 'capture'
+        if($job.action -ceq 'verify-rules') {
+            $result.stage='interaction'
+            if($autonomous){Invoke-LabAutonomousRulesInteraction $Root $policy $job $result $baseline $launchUtc $resultPath}
+            else{Invoke-LabRulesInteraction $Root $policy $job $result $baseline $launchUtc $resultPath}
+        } else {
+        $clock = [Diagnostics.Stopwatch]::StartNew()
+        while ($clock.Elapsed.TotalSeconds -lt 90 -and $result.images.Count -lt 2) {
+            Assert-LabLease $policy
+            if (Test-Path -LiteralPath $paths.cancel) { throw 'Cancellation requested.' }
+            Start-Sleep -Milliseconds 500
+            if (-not $result.gamePid) {
+                $candidates = @(Get-LabProcess $policy | Where-Object { $_.StartTime.ToUniversalTime() -ge $launchUtc -and $_.SessionId -eq (Get-Process -Id $PID).SessionId })
+                if ($candidates.Count -gt 1) { throw 'Ambiguous game process.' }
+                if ($candidates.Count -eq 1) {
+                    $result.gamePid = $candidates[0].Id
+                    $result.gameStartedUtc = $candidates[0].StartTime.ToUniversalTime().ToString('o')
+                    Write-LabJson $resultPath $result
+                }
+            }
+            $newFiles = @(Get-LabSnapshots $policy.gameRoot | Where-Object { -not $baseline.ContainsKey($_.FullName) } | Sort-Object LastWriteTimeUtc, Name)
+            if ($newFiles.Count -gt 4) { throw 'Unexpected screenshot count.' }
+            foreach ($file in $newFiles) {
+                if ($result.images.Count -ge 2) { break }
+                try { $inputStream = [IO.File]::Open($file.FullName, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read) } catch [IO.IOException] { continue }
+                try {
+                    if ($file.Extension -ine '.bmp') { throw 'Expected native Windows BMP capture.' }
+                    $bitmap = Read-LabBitmapInfo $inputStream $result.expectedWidth $result.expectedHeight
+                    $number = $result.images.Count + 1
+                    $destination = Join-Path $paths.result ('image-' + $number + '.bin')
+                    $outputStream = [IO.File]::Open($destination, [IO.FileMode]::CreateNew)
+                    try { $inputStream.CopyTo($outputStream) } finally { $outputStream.Dispose() }
+                } finally { $inputStream.Dispose() }
+                $baseline[$file.FullName] = $true
+                $result.images += @{ number = $number; format = 'bmp'; width = $bitmap.width; height = $bitmap.height; bytes = (Get-Item -LiteralPath $destination).Length; sha256 = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash }
+                Write-LabJson $resultPath $result
+            }
+        }
+        Set-LabLaunchOutcome $result
+        if ($result.failureCode) { $result.failureStage='capture' }
+        }
+    } catch {
+        $result.failureStage = $result.stage
+        if (-not $result.failureCode) {
+            $result.failureCode=switch($result.stage){
+                'fixture_readiness' {'fixture_not_ready'}
+                'prerequisites' {'game_prerequisite_unavailable'}
+                'capture_preparation' {'capture_preparation_failed'}
+                'launch' {'launch_command_failed'}
+                'capture' {'capture_failed'}
+                'interaction' {'interaction_failed'}
+                default {'request_preflight_failed'}
+            }
+        }
+        $result.status = $(if ($result.launchRequested) { 'uncertain_error' } else { 'rejected_preflight' })
+    }
+    finally {
+        try {
+            if($autonomous -and $result.launchRequested -and -not $result.gamePid){Find-LabDispatchedGame $policy $result $launchUtc $job.id}
+            Stop-LabOwnedGame $policy $result
+            if ($result.gamePid -and $result.gameStartedUtc) {
+                $left = @(Get-LabProcess $policy ([int]$result.gamePid) | Where-Object { $_.StartTime.ToUniversalTime().ToString('o') -ceq $result.gameStartedUtc })
+                $result.cleanupVerified = $left.Count -eq 0
+                $result.cleanup.game=$(if($result.cleanupVerified){'verified'}else{'unverified_owned_process'})
+                if (-not $result.cleanupVerified) { $result.status = 'uncertain_cleanup' }
+            }
+        } catch { $result.status = 'uncertain_cleanup';$result.cleanup.game='unverified_cleanup_error' }
+        try {
+            if ($ownsConfig) { $result.configCleanupVerified = Remove-LabOwnedConfig $policy.gameRoot $job.id $program }
+            if ($ownsConfig) { $result.cleanup.config=$(if($result.configCleanupVerified){'verified'}else{'unverified'}) }
+            if ($ownsConfig -and -not $result.configCleanupVerified) { $result.status = 'uncertain_cleanup' }
+        } catch { $result.status = 'uncertain_cleanup';$result.cleanup.config='unverified' }
+        if ($launcher) {
+            try { $result.launcher.exited=$launcher.HasExited;if($launcher.HasExited){$result.launcher.exitCode=$launcher.ExitCode} } catch { }
+            finally { $launcher.Dispose() }
+        }
+        if ($result.launchRequested -and $logCheckpoint) {
+            try { $result.diagnostics.steamLogs=Get-LabLogEvidence $policy.steamRoot $logCheckpoint $launchUtc } catch { }
+        }
+        $result.completedUtc = [DateTime]::UtcNow.ToString('o')
+        Write-LabJson $resultPath $result
+    }
+    # At most one newly claimed job per scheduled invocation (bounded interaction or capture within the unchanged quiet task limit).
+    break
+}

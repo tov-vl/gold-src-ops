@@ -1,0 +1,96 @@
+﻿#requires -Version 5.1
+param([string]$Root = 'C:\ProgramData\GsoClientLab')
+. (Join-Path $Root 'code\Lab.Common.ps1')
+try {
+    Assert-LabCode $Root
+    . (Join-Path $Root 'code\Interaction.ps1')
+    $policy = Read-LabJson (Join-Path $Root 'policy.json')
+    Assert-LabLease $policy
+    $request = ConvertFrom-LabRunnerCommand $env:SSH_ORIGINAL_COMMAND
+    if ($request.operation -eq 'status') {
+        $state = @{ protocol = 2; revision = 16; leaseMode = $(if(Test-LabManualLease $policy){'manual'}else{'timed'}); captureDimensions = '1920x1200'; target = $policy.targetName; expiresUtc = $policy.expiresUtc; operation = 'launch-local-smoke'; pending = @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') -Filter '*.json' -File).Count; panelAccess = $false }
+        if ($policy.PSObject.Properties['panelsEnabled'] -and $policy.panelsEnabled) { Assert-LabPanelPolicy $policy; $state.panelAccess = $true }
+        $state.interactionLimits=Get-LabInteractionLimits
+        $state.terminalArchiveCandidates=@(Get-LabTerminalArchiveCandidates $Root)
+        $heartbeat = Join-Path $Root 'results\worker.json'
+        if (Test-Path -LiteralPath $heartbeat) { $state.worker = Read-LabJson $heartbeat }
+        $state | ConvertTo-Json -Depth 5 -Compress
+        exit 0
+    }
+    $paths = Get-LabPaths $Root $request.id
+    if ($request.operation -in @('run','capture','verify-rules','auto-rules')) {
+        if ((Test-Path -LiteralPath (Join-Path $Root 'maintenance-revision-06.json')) -or (Test-Path -LiteralPath (Join-Path $Root 'maintenance-revision-07.json'))) { throw 'Maintenance in progress.' }
+        if (@(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') -Filter '*.json' -File).Count -ge 8) { throw 'Session job limit reached.' }
+        if ((Test-Path -LiteralPath $paths.request) -or (Test-Path -LiteralPath $paths.result) -or (Test-Path -LiteralPath $paths.archivedRequest)) { throw 'Existing job id; do not retry.' }
+        $job = @{ id = $request.id; action = 'launch-local-smoke'; createdUtc = [DateTime]::UtcNow.ToString('o') }
+        if ($request.operation -eq 'capture') {
+            Assert-LabPanelPolicy $policy
+            $job.action = 'capture-panel'; $job.panel = $request.panel; $job.language = $request.language
+        }
+        if($request.operation -cin @('verify-rules','auto-rules')) {
+            Assert-LabPanelPolicy $policy
+            $job.action='verify-rules';$job.language=$request.language
+        }
+        # Keep a permanent one-attempt claim; publish complete JSON atomically for the worker.
+        $stream = [IO.File]::Open(($paths.request+'.claim'), [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        $stream.Dispose()
+        if(Test-Path -LiteralPath $paths.request){throw 'Existing request; do not retry.'}
+        if($request.operation -ceq 'auto-rules'){New-LabAutonomousMode $Root $job}
+        Write-LabJson $paths.request $job
+        @{ id = $request.id; status = 'queued' } | ConvertTo-Json -Compress
+        exit 0
+    }
+    $jobRecord=$null
+    if(Test-Path -LiteralPath $paths.request){$jobRecord=Read-LabJson $paths.request}
+    if (-not (Test-Path -LiteralPath $paths.request)) {
+        $archive = Read-LabJson $paths.archivedRequest
+        $jobRecord=$archive
+        if ($archive.id -cne $request.id) { throw 'Archived request identity differs.' }
+    }
+    if($jobRecord.id -cne $request.id){throw 'Job identity differs.'}
+    if ($request.operation -eq 'cancel') {
+        $stream = [IO.File]::Open($paths.cancel, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::Write)
+        $stream.Dispose()
+        @{ id = $request.id; status = 'cancel_requested' } | ConvertTo-Json -Compress
+        exit 0
+    }
+    $resultPath = Join-Path $paths.result 'result.json'
+    if (-not (Test-Path -LiteralPath $resultPath)) {
+        if ($request.operation -eq 'result') { @{ id = $request.id; status = 'queued' } | ConvertTo-Json -Compress; exit 0 }
+        throw 'No image available.'
+    }
+    $result = Read-LabJson $resultPath
+    if($request.operation -ceq 'step') {
+        if(Get-LabAutonomousMode $Root $jobRecord){throw 'Manual steps are disabled for an autonomous job.'}
+        Assert-LabStepReady $jobRecord $result $request
+        $steps=Join-Path $Root 'queue\steps'
+        if((Get-Item -LiteralPath $steps).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked steps directory.'}
+        $stepPath=Join-Path $steps ($request.id+'.'+$request.phase+'.json')
+        $step=@{id=$request.id;phase=$request.phase;frameSha256=$request.frameSha256;createdUtc=[DateTime]::UtcNow.ToString('o')}
+        # Claim first; publish the complete step atomically so the worker cannot read a partial write.
+        $stream=[IO.File]::Open(($stepPath+'.claim'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        $stream.Dispose()
+        if(Test-Path -LiteralPath $stepPath){throw 'Existing step; do not retry.'}
+        Write-LabJson $stepPath $step
+        @{id=$request.id;status='step_queued';phase=$request.phase}|ConvertTo-Json -Compress
+        exit 0
+    }
+    if ($request.operation -eq 'result') { $result | ConvertTo-Json -Depth 8 -Compress; exit 0 }
+    if([int]$request.image -gt (Get-LabImageLimit $jobRecord) -or @($result.images|Where-Object{$_.number -eq [int]$request.image}).Count -ne 1){throw 'Image selection is unavailable.'}
+    $imageName = 'image-' + $request.image + '.bin'
+    $image = Join-Path $paths.result $imageName
+    $item = Get-Item -LiteralPath $image
+    if ($item.Length -lt 18 -or $item.Length -gt 16MB -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Invalid image.' }
+    $stream = [IO.File]::Open($image, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    try {
+        if ($stream.Length -gt 16MB) { throw 'Image too large.' }
+        $memory = New-Object IO.MemoryStream
+        try { $stream.CopyTo($memory); [Convert]::ToBase64String($memory.ToArray()) } finally { $memory.Dispose() }
+    } finally { $stream.Dispose() }
+} catch {
+    # Do not echo raw errors, paths, requests or credentials to the remote caller.
+    @{ status = 'rejected'; detail = 'Request rejected; inspect the bounded local state.' } | ConvertTo-Json -Compress
+    exit 1
+}
+# Successful image export must also set LASTEXITCODE for the fixed outer gateway.
+exit 0

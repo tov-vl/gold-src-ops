@@ -1,0 +1,185 @@
+#requires -Version 5.1
+function Assert-UpdateWorkerIdle {
+    if(@(Get-Process -Name hl -ErrorAction SilentlyContinue).Count){throw 'Close CS before updating; no game process will be stopped.'}
+    $scheduler=New-Object -ComObject Schedule.Service
+    $scheduler.Connect()
+    if($scheduler.GetFolder('\').GetTask('GsoClientLab-Worker').GetInstances(0).Count){throw 'Worker is still executing.'}
+}
+function Publish-UpdateState([string]$Root,$Config,$State,[bool]$Blocked=$false) {
+    Write-UpdateJson (Join-Path $Root 'public\state.json') @{schema=1;enabled=[bool]$Config.enabled;blocked=$Blocked;sequence=[int]$State.sequence;revision=[int]$State.revision;codeHashes=$State.codeHashes;utc=[DateTime]::UtcNow.ToString('o')}
+}
+function Assert-UpdateTrust([string]$Root,[string]$Lab,$Config) {
+    foreach($path in @($Root,(Join-Path $Root 'bin'),(Join-Path $Root 'private'),(Join-Path $Root 'public'),$Lab,(Join-Path $Lab 'code'),(Join-Path $Lab 'policy.json'),(Join-Path $Lab 'code-hashes.json'),(Join-Path $Lab 'before-revision-10'),(Join-Path $Lab 'before-revision-10\requests'))){
+        Assert-UpdatePath $(if($path.StartsWith($Root,[StringComparison]::OrdinalIgnoreCase)){$Root}else{$Lab}) $path
+        Assert-UpdateWritableOnlyByAdmin $path
+    }
+    foreach($name in (Get-UpdateNames)){Assert-UpdateWritableOnlyByAdmin (Join-Path $Lab ('code\'+$name))}
+    foreach($entry in $Config.trustedFiles){
+        $path=Join-Path $Root ('bin\'+$entry.name)
+        Assert-UpdateWritableOnlyByAdmin $path
+        if((Get-UpdateHash (Read-UpdateBytes $Root $path)) -cne $entry.sha256){throw 'Updater trusted code drift.'}
+    }
+    Assert-UpdateWritableOnlyByAdmin (Join-Path $Root 'bin\config.json')
+    if((Get-UpdateHash (Read-UpdateBytes $Lab (Join-Path $Lab 'policy.json'))) -cne $Config.policySha256){throw 'Lab policy drift; local review required.'}
+}
+function Invoke-UpdateTick([string]$Root,[string]$Lab) {
+    $config=Read-UpdateJson $Root (Join-Path $Root 'bin\config.json')
+    $state=Read-UpdateJson $Root (Join-Path $Root 'private\state.json')
+    if(-not $config.enabled){Publish-UpdateState $Root $config $state;return}
+    if($env:COMPUTERNAME -cne $config.target){throw 'Updater target differs.'}
+    Assert-UpdateTrust $Root $Lab $config
+    $active=Join-Path $Root 'private\active.json'
+    if(Test-Path -LiteralPath $active){Publish-UpdateState $Root $config $state $true;return}
+    $inbox=Join-Path $Root 'inbox'
+    Assert-UpdatePath $Root $inbox
+    $pending=@(Get-ChildItem -LiteralPath $inbox -Filter '*.json' -File | Sort-Object Name)
+    if($pending.Count -gt 16){throw 'Inbox exceeds its limit.'}
+    foreach($item in $pending){
+        if($item.BaseName -cnotmatch '\A[0-9a-f-]{36}\z'){continue}
+        $id=$item.BaseName
+        Assert-UpdateId $id
+        $reportPath=Join-Path $Root ('public\'+$id+'.json')
+        if(Test-Path -LiteralPath $reportPath){continue}
+        try{
+            $package=Test-UpdateEnvelope (Read-UpdateBytes $Root $item.FullName) $config $state
+            if($package.manifest.id -cne $id){throw 'Staged identity differs.'}
+        }catch{
+            Write-UpdateJson $reportPath @{id=$id;status='rejected_preflight';utc=[DateTime]::UtcNow.ToString('o');automaticRetryAllowed=$false}
+            return
+        }
+        $transaction=Join-Path $Root ('private\'+$id)
+        if(Test-Path -LiteralPath $transaction){Publish-UpdateState $Root $config $state $true;return}
+        New-Item -ItemType Directory -Path $transaction|Out-Null
+        Write-UpdateJson $active @{id=$id;status='claimed';sha256=$package.sha256}
+        $marker=Join-Path $Lab 'maintenance-revision-06.json'
+        $markerHash=$null
+        $disabled=$false
+        $changed=$false
+        $committed=$false
+        $worker=$null
+        $oldCode=@{}
+        $requests=@{}
+        $archived=New-Object Collections.Generic.List[string]
+        $originalManifest=$null
+        $originalState=Read-UpdateBytes $Root (Join-Path $Root 'private\state.json')
+        try{
+            if(Test-Path -LiteralPath $marker){throw 'Existing maintenance marker.'}
+            $worker=Get-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'
+            if($worker.State -cne 'Ready' -or (Get-LabWorkerInvariant $worker) -cne $config.workerInvariant){throw 'Worker is busy or configuration differs.'}
+            if($worker.Actions[0].Arguments -cne $state.workerArguments -or ([Xml.XmlConvert]::ToTimeSpan($worker.Settings.ExecutionTimeLimit)).TotalSeconds -ne [int]$state.taskSeconds){throw 'Worker budget drift.'}
+            if((Get-ScheduledTask -TaskName GsoClientLab-Expire).State -cne 'Disabled'){throw 'Legacy expiry must remain disabled.'}
+            Assert-UpdateWorkerIdle
+            foreach($entry in $package.manifest.baseline){
+                $data=Read-UpdateBytes $Lab (Join-Path $Lab ('code\'+$entry.name)) 131072
+                if((Get-UpdateHash $data) -cne $entry.sha256){throw 'Installed predecessor differs.'}
+                $oldCode[$entry.name]=$data
+            }
+            $originalManifest=Read-UpdateBytes $Lab (Join-Path $Lab 'code-hashes.json')
+            $codeManifest=ConvertFrom-UpdateBytes $originalManifest
+            if(@($codeManifest.files).Count -ne 9 -or @($codeManifest.files.name|Select-Object -Unique).Count -ne 9){throw 'Installed manifest differs.'}
+            foreach($entry in $codeManifest.files){if($entry.name -cnotin (Get-UpdateNames) -or $entry.sha256 -cne $state.codeHashes.($entry.name)){throw 'Installed manifest hash differs.'}}
+            $queue=Join-Path $Lab 'queue'
+            Assert-UpdatePath $Lab $queue
+            $queueFiles=@(Get-ChildItem -LiteralPath $queue -Filter '*.json' -File)
+            if($queueFiles.Count -gt 8){throw 'Unexpected request count.'}
+            $archiveRoot=Join-Path $Lab 'before-revision-10\requests'
+            if(@(Get-ChildItem -LiteralPath $archiveRoot -File).Count+@($package.manifest.archive).Count -gt 128){throw 'Archive capacity reached; local maintenance required.'}
+            foreach($entry in @($package.manifest.archive)){
+                $requestPath=Join-Path $queue ($entry.id+'.json')
+                $data=Read-UpdateBytes $Lab $requestPath 65536
+                if((Get-UpdateHash $data) -cne $entry.sha256){throw 'Request archive identity differs.'}
+                $request=ConvertFrom-UpdateBytes $data
+                $result=Read-UpdateJson $Lab (Join-Path $Lab ('results\'+$entry.id+'\result.json'))
+                if($request.id -cne $entry.id -or $result.id -cne $entry.id -or $result.cleanupVerified -isnot [bool] -or -not $result.cleanupVerified -or $result.configCleanupVerified -isnot [bool] -or -not $result.configCleanupVerified -or
+                   $result.status -cnotin @('captured_unreviewed','interaction_captured_unreviewed','autonomous_captured_unreviewed','uncertain_timeout','uncertain_launch','uncertain_capture','uncertain_error','rejected_preflight') -or
+                   (Get-UpdateUtc $result.completedUtc) -gt [DateTime]::UtcNow.AddSeconds(10)){throw 'Request is active, ambiguous or not reconciled.'}
+                if(Test-Path -LiteralPath (Join-Path $archiveRoot ($entry.id+'.json'))){throw 'Archive destination already exists.'}
+                $requests[$entry.id]=$data
+            }
+            # Unsigned queue records never select files, tasks or privileged commands.
+            foreach($file in $queueFiles){
+                Assert-UpdateId $file.BaseName
+                $result=Read-UpdateJson $Lab (Join-Path $Lab ('results\'+$file.BaseName+'\result.json'))
+                if($result.id -cne $file.BaseName -or -not $result.PSObject.Properties['completedUtc']){throw 'A queued job has not completed.'}
+            }
+            foreach($name in (Get-UpdateNames)){[IO.File]::WriteAllBytes((Join-Path $transaction $name),$oldCode[$name])}
+            [IO.File]::WriteAllBytes((Join-Path $transaction 'code-hashes.json'),$originalManifest)
+            [IO.File]::WriteAllBytes((Join-Path $transaction 'state.json'),$originalState)
+            Write-UpdateJson (Join-Path $transaction 'package-summary.json') @{id=$id;sha256=$package.sha256;manifest=$package.manifest}
+            Write-UpdateJson $marker @{revision='signed-update';id=$id;utc=[DateTime]::UtcNow.ToString('o')}
+            $markerHash=Get-UpdateHash (Read-UpdateBytes $Lab $marker)
+            Disable-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'|Out-Null
+            $disabled=$true
+            if((Get-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\').State -cne 'Disabled'){throw 'Worker did not become inactive.'}
+            Assert-UpdateWorkerIdle
+            Assert-UpdateTrust $Root $Lab $config
+            foreach($entry in $package.manifest.baseline){if((Get-UpdateHash (Read-UpdateBytes $Lab (Join-Path $Lab ('code\'+$entry.name)))) -cne $entry.sha256){throw 'Predecessor changed during maintenance.'}}
+            $changed=$true
+            foreach($name in (Get-UpdateNames)){
+                if($name -cnotin (Get-UpdatePinnedNames)){[IO.File]::WriteAllBytes((Join-Path $Lab ('code\'+$name)),$package.payload[$name])}
+            }
+            Write-UpdateJson (Join-Path $Lab 'code-hashes.json') @{files=@($package.manifest.files|ForEach-Object{@{name=$_.name;sha256=$_.sha256}})}
+            foreach($entry in $package.manifest.files){if((Get-UpdateHash (Read-UpdateBytes $Lab (Join-Path $Lab ('code\'+$entry.name)))) -cne $entry.sha256){throw 'Written code hash differs.'}}
+            Set-LabWorkerBudget $worker ([int]$package.manifest.watchdogSeconds)
+            foreach($entry in @($package.manifest.archive)){
+                $source=Join-Path $queue ($entry.id+'.json')
+                if((Get-UpdateHash (Read-UpdateBytes $Lab $source)) -cne $entry.sha256){throw 'Archive request changed during maintenance.'}
+                [IO.File]::Move($source,(Join-Path $archiveRoot ($entry.id+'.json')))
+                $archived.Add($entry.id)
+            }
+            Assert-UpdateTrust $Root $Lab $config
+            if((Get-UpdateHash (Read-UpdateBytes $Lab $marker)) -cne $markerHash){throw 'Maintenance marker drift.'}
+            $newHashes=[ordered]@{}
+            foreach($entry in $package.manifest.files){$newHashes[$entry.name]=$entry.sha256}
+            $watchdog=[int]$package.manifest.watchdogSeconds
+            $newState=@{schema=1;sequence=[int]$package.manifest.sequence;revision=[int]$package.manifest.revision;codeHashes=$newHashes;workerArguments=('//B //Nologo //T:'+$watchdog+' C:\ProgramData\GsoClientLab\code\Worker-Quiet.js');taskSeconds=$(if($watchdog -eq 540){600}else{180})}
+            Write-UpdateJson (Join-Path $Root 'private\state.json') $newState
+            Enable-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'|Out-Null
+            if((Get-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\').State -cne 'Ready'){throw 'Worker did not return to ready.'}
+            Remove-Item -LiteralPath $marker
+            $committed=$true
+            Write-UpdateJson $reportPath @{id=$id;status='installed';sequence=$newState.sequence;revision=$newState.revision;sha256=$package.sha256;archived=@($archived.ToArray());gameLaunched=$false;automaticRetryAllowed=$false;utc=[DateTime]::UtcNow.ToString('o')}
+            Publish-UpdateState $Root $config $newState
+            Remove-Item -LiteralPath $active
+        }catch{
+            if($committed){
+                # Files are committed. A reporting failure must not trigger a second transaction.
+                Disable-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\' -ErrorAction SilentlyContinue|Out-Null
+                Publish-UpdateState $Root $config $newState $true
+                return
+            }
+            $failure='rejected_preflight'
+            $restored=$false
+            try{
+                if($disabled){Disable-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'|Out-Null}
+                if($changed){
+                    foreach($entry in $package.manifest.baseline){
+                        $bytes=Read-UpdateBytes $Root (Join-Path $transaction $entry.name) 131072
+                        if((Get-UpdateHash $bytes) -cne $entry.sha256){throw 'Rollback source drift.'}
+                        if($entry.name -cnotin (Get-UpdatePinnedNames)){[IO.File]::WriteAllBytes((Join-Path $Lab ('code\'+$entry.name)),$bytes)}
+                    }
+                    [IO.File]::WriteAllBytes((Join-Path $Lab 'code-hashes.json'),$originalManifest)
+                    foreach($archivedId in $archived){
+                        $source=Join-Path $archiveRoot ($archivedId+'.json')
+                        if((Get-UpdateHash (Read-UpdateBytes $Lab $source)) -cne (Get-UpdateHash $requests[$archivedId])){throw 'Rollback request drift.'}
+                        [IO.File]::Move($source,(Join-Path $queue ($archivedId+'.json')))
+                    }
+                    Set-LabWorkerBudget $worker $(if($state.taskSeconds -eq 600){540}else{175})
+                    foreach($entry in $package.manifest.baseline){if((Get-UpdateHash (Read-UpdateBytes $Lab (Join-Path $Lab ('code\'+$entry.name)))) -cne $entry.sha256){throw 'Rollback verification differs.'}}
+                    [IO.File]::WriteAllBytes((Join-Path $Root 'private\state.json'),$originalState)
+                    $failure='rolled_back'
+                }
+                Assert-UpdateTrust $Root $Lab $config
+                if($markerHash){if((Get-UpdateHash (Read-UpdateBytes $Lab $marker)) -cne $markerHash){throw 'Unknown maintenance marker retained.'};Remove-Item -LiteralPath $marker}
+                if($disabled){Enable-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'|Out-Null}
+                $restored=$true
+            }catch{
+                if($disabled){Disable-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\' -ErrorAction SilentlyContinue|Out-Null}
+            }
+            Write-UpdateJson $reportPath @{id=$id;status=$(if($restored){$failure}else{'blocked_reconciliation'});automaticRetryAllowed=$false;gameLaunched=$false;utc=[DateTime]::UtcNow.ToString('o')}
+            if($restored){Remove-Item -LiteralPath $active}
+            Publish-UpdateState $Root $config $state (-not $restored)
+        }
+        return
+    }
+}

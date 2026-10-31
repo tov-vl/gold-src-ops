@@ -153,6 +153,47 @@ jobs:
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
         run: dotnet list GoldSrcOps.sln package --vulnerable --include-transitive
 
+  client-lab:
+    name: Client Lab Policy
+    needs: change-scope
+    if: ${{ !cancelled() }}
+    runs-on: ${{ (needs.change-scope.outputs.docs_only == 'true' || needs.change-scope.outputs.stable_promotion == 'true' || needs.change-scope.outputs.addon_only == 'true') && 'ubuntu-24.04' || 'windows-latest' }}
+    timeout-minutes: 15
+    steps:
+      - name: Require resolved change scope
+        if: needs.change-scope.result != 'success'
+        shell: pwsh
+        run: throw "Change-scope resolution failed; client lab policy checks cannot be skipped."
+
+      - name: Confirm unchanged client lab fast path
+        if: needs.change-scope.outputs.docs_only == 'true' || needs.change-scope.outputs.stable_promotion == 'true' || needs.change-scope.outputs.addon_only == 'true'
+        shell: pwsh
+        run: Write-Host "Client lab source is unchanged on this reduced CI path. Real-client acceptance remains separate."
+
+      - name: Checkout
+        if: needs.change-scope.outputs.mode == 'full'
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        if: needs.change-scope.outputs.mode == 'full'
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Setup Python
+        if: needs.change-scope.outputs.mode == 'full'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Verify client lab without Steam or native input
+        if: needs.change-scope.outputs.mode == 'full'
+        shell: pwsh
+        run: |
+          ./tools/client-lab/Test-ClientLab.ps1 -OutputDirectory (Join-Path $env:RUNNER_TEMP 'client-lab-policy')
+          python -B -m unittest discover -s tools/client-lab/tests -p test_*.py
+          if ($LASTEXITCODE -ne 0) { throw 'Fixture policy checks failed.' }
+
   map-menu-compile:
     name: Map Menu Compile
     needs: change-scope

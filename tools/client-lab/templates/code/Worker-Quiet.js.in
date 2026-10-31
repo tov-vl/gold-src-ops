@@ -1,0 +1,12 @@
+// Fixed GUI-subsystem launcher. No caller-supplied command, path or arguments.
+try {
+    if (WScript.Arguments.length !== 0) { WScript.Quit(64); }
+    if (WScript.ScriptFullName.toLowerCase() !== "c:\\programdata\\gsoclientlab\\code\\worker-quiet.js") { WScript.Quit(65); }
+    var shell = new ActiveXObject("WScript.Shell");
+    if (shell.Environment("PROCESS")("COMPUTERNAME").toUpperCase() !== "{{TARGET_NAME}}") { WScript.Quit(66); }
+    var command = '"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -File "C:\\ProgramData\\GsoClientLab\\code\\Worker.ps1"';
+    WScript.Quit(shell.Run(command, 0, true));
+} catch (error) {
+    // No popup, interactive fallback, policy override or command echo.
+    WScript.Quit(1);
+}

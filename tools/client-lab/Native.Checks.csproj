@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>GsoLab</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+    <LangVersion>5</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <Compile Include="native/Rules.Input.cs" Link="Interaction/Rules.Input.cs" />
+    <Compile Include="tests/native/Bridge.Tests.cs" Link="Checks/Bridge.Tests.cs" />
+    <Compile Include="tests/native/Autonomous.Tests.cs" Link="Checks/Autonomous.Tests.cs" />
+    <Compile Include="tests/native/FocusDiagnosticsChecks.cs" Link="Checks/FocusDiagnosticsChecks.cs" />
+    <Compile Include="tests/native/WindowPatternChecks.cs" Link="Checks/WindowPatternChecks.cs" />
+  </ItemGroup>
+</Project>

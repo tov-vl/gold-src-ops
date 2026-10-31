@@ -1,0 +1,127 @@
+"""Relay only local probes and one fixed LAN client to the isolated game server."""
+import argparse
+import datetime as dt
+import json
+from pathlib import Path
+import queue
+import selectors
+import shutil
+import socket
+import subprocess
+import threading
+import time
+
+from udp_tunnel import decode, encode
+
+ROOT = Path(__file__).resolve().parent
+CONTAINER = '{{CONTAINER_NAME}}'
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--lan', action='store_true')
+    args = parser.parse_args()
+    lease = json.loads((ROOT / 'relay-lease.json').read_text(encoding='utf-8-sig'))
+    expires = dt.datetime.fromisoformat(lease['expiresUtc'].replace('Z', '+00:00')).timestamp()
+    if not 0 < expires - time.time() <= 2400:
+        raise RuntimeError('expired or unbounded relay lease')
+    deadline = time.monotonic() + expires - time.time()
+    selector = selectors.DefaultSelector()
+    listeners = []
+    child = None
+    result = {'status': 'starting', 'lan': args.lan, 'received': 0, 'sent': 0, 'dropped': 0, 'expiresUtc': lease['expiresUtc']}
+    output = ROOT / ('relay-lan.json' if args.lan else 'relay-local.json')
+    stop_marker = ROOT / ('stop-lan' if args.lan else 'stop-local')
+    def report():
+        temporary = output.with_suffix('.tmp')
+        temporary.write_text(json.dumps(result, indent=2), encoding='utf-8')
+        temporary.replace(output)
+    try:
+        for address in (['127.0.0.1', '{{SOURCE_IPV4}}'] if args.lan else ['127.0.0.1']):
+            listener = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # Never request SO_REUSEADDR; an existing listener must cause a stop.
+            listener.bind((address, 27025))
+            selector.register(listener, selectors.EVENT_READ, address)
+            listeners.append(listener)
+        child = subprocess.Popen([shutil.which('docker'), 'exec', '-i', '--user', '1000', CONTAINER, 'python3', '/runner/udp_tunnel.py'],
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                 creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        replies = queue.Queue(maxsize=256)
+        def receive():
+            try:
+                while True:
+                    line = child.stdout.readline(6001)
+                    if not line:
+                        break
+                    item = decode(line)
+                    try:
+                        replies.put(item, timeout=1)
+                    except queue.Full:
+                        pass
+            except (ValueError, OSError):
+                pass
+        thread = threading.Thread(target=receive, daemon=True)
+        thread.start()
+        flows = {}
+        reverse = {}
+        result['status'] = 'ready'
+        report()
+        window = time.monotonic()
+        packets = byte_count = 0
+        last_report = window
+        while time.monotonic() < deadline and time.time() < expires and child.poll() is None and not stop_marker.exists():
+            now = time.monotonic()
+            if now - window >= 1:
+                window = now
+                packets = byte_count = 0
+            for key, _ in selector.select(0.05):
+                data, peer = key.fileobj.recvfrom(4097)
+                allowed = '127.0.0.1' if key.data == '127.0.0.1' else '{{TARGET_IPV4}}'
+                packets += 1
+                byte_count += len(data)
+                if peer[0] != allowed or not 0 < len(data) <= 4096 or packets > 1000 or byte_count > 512 * 1024:
+                    result['dropped'] += 1
+                    continue
+                endpoint = (key.fileobj, peer)
+                if endpoint not in flows:
+                    if len(flows) == 8:
+                        result['dropped'] += 1
+                        continue
+                    flow = len(flows)
+                    flows[endpoint] = flow
+                    reverse[flow] = endpoint
+                child.stdin.write(encode(flows[endpoint], data))
+                child.stdin.flush()
+                result['received'] += 1
+            for _ in range(256):
+                try:
+                    flow, data = replies.get_nowait()
+                except queue.Empty:
+                    break
+                if flow in reverse:
+                    listener, peer = reverse[flow]
+                    listener.sendto(data, peer)
+                    result['sent'] += 1
+            if now - last_report > 2:
+                report()
+                last_report = now
+        result['status'] = 'stopped' if stop_marker.exists() else ('expired' if time.time() >= expires or time.monotonic() >= deadline else 'tunnel_exited')
+    except BaseException as error:
+        result.update(status='failed', errorType=type(error).__name__)
+        raise
+    finally:
+        selector.close()
+        for listener in listeners:
+            listener.close()
+        if child:
+            child.stdin.close()
+            try:
+                child.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                child.wait(timeout=3)
+        report()
+
+
+if __name__ == '__main__':
+    main()

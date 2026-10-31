@@ -1,0 +1,71 @@
+"""Bounded datagram tunnel over an existing local container command channel."""
+import base64
+import json
+import os
+import selectors
+import socket
+import sys
+import time
+
+
+def decode(line):
+    if len(line) > 6000:
+        raise ValueError('oversized frame')
+    value = json.loads(line)
+    if not isinstance(value, dict) or set(value) != {'id', 'data'} or type(value['id']) is not int or not 0 <= value['id'] < 8:
+        raise ValueError('invalid frame')
+    if not isinstance(value['data'], str):
+        raise ValueError('invalid data')
+    data = base64.b64decode(value['data'], validate=True)
+    if not 0 < len(data) <= 4096:
+        raise ValueError('invalid datagram')
+    return value['id'], data
+
+
+def encode(flow, data):
+    if type(flow) is not int or not 0 <= flow < 8 or not 0 < len(data) <= 4096:
+        raise ValueError('invalid datagram')
+    return json.dumps({'id': flow, 'data': base64.b64encode(data).decode('ascii')}, separators=(',', ':')).encode('ascii') + b'\n'
+
+
+def main():
+    selector = selectors.DefaultSelector()
+    selector.register(sys.stdin.buffer, selectors.EVENT_READ, None)
+    sockets = {}
+    pending = b''
+    deadline = time.monotonic() + 2400
+    try:
+        while time.monotonic() < deadline:
+            for key, _ in selector.select(1):
+                if key.data is None:
+                    chunk = os.read(sys.stdin.fileno(), 8192)
+                    if not chunk:
+                        return
+                    pending += chunk
+                    while b'\n' in pending:
+                        line, pending = pending.split(b'\n', 1)
+                        flow, data = decode(line)
+                        if flow not in sockets:
+                            client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                            client.connect(('127.0.0.1', 27025))
+                            sockets[flow] = client
+                            selector.register(client, selectors.EVENT_READ, flow)
+                        sockets[flow].send(data)
+                    if len(pending) > 6000:
+                        raise ValueError('oversized partial frame')
+                else:
+                    try:
+                        data = key.fileobj.recv(4097)
+                    except OSError:
+                        continue
+                    if 0 < len(data) <= 4096:
+                        sys.stdout.buffer.write(encode(key.data, data))
+                        sys.stdout.buffer.flush()
+    finally:
+        selector.close()
+        for client in sockets.values():
+            client.close()
+
+
+if __name__ == '__main__':
+    main()

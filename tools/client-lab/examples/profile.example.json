@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "sourceAddress": "192.168.240.10",
+  "targetAddress": "192.168.240.11",
+  "targetName": "GSO-CLIENT-LAB",
+  "fixtureName": "GsoClientLab",
+  "sessionId": "10000000-0000-4000-8000-000000000001",
+  "gameRoot": "C:\\Games\\Half-Life",
+  "steamRoot": "C:\\Program Files (x86)\\Steam",
+  "gameUserSid": "S-1-5-21-100000000-200000000-300000000-1001",
+  "gameSessionId": 1,
+  "assets": {
+    "cacheDirectory": "C:\\ClientLabAssets\\cache",
+    "runtimeDirectory": "C:\\ClientLabAssets\\runtime",
+    "steamSdkPath": "C:\\ClientLabAssets\\steamclient.so"
+  }
+}

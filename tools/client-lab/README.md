@@ -1,0 +1,36 @@
+# Client lab tooling
+
+Repository-owned source for a bounded Windows Counter-Strike 1.6 acceptance
+runner. The controller prepares an isolated local HLDS fixture and requests work
+from a second laptop through a fixed SSH command handler. No cloud VM is needed.
+
+See [the runbook](../../docs/client-lab.md) before preparing a local profile.
+The example profile is synthetic and cannot be used as an installed activation.
+Generated bundles, keys, machine configuration, game assets and evidence stay
+outside tracked source. This directory does not provision Windows access.
+
+Entry points:
+
+| File | Purpose |
+| --- | --- |
+| `New-LabBundle.ps1` | Validate a private profile and render a fresh nine-file runner and controller bundle |
+| `New-LabRun.ps1` | Prepare a fresh RU or EN fixture from hash-pinned local assets and matching activation |
+| `lab_fixture.py` | Explicit plan/start/relay/stop lifecycle, with no client dispatch |
+| `New-ArchivePlan.ps1` | Select exact completed requests for signed queue maintenance without deleting evidence |
+| `Test-ClientLab.ps1` | Offline policy, parser, native compilation and synthetic-frame tests on Windows |
+| `fixture_vgui_guard.sma` | Fixture-only join-menu suppression and independent rules/movement markers |
+
+Run policy checks from a fresh PowerShell 7 process on Windows:
+
+```powershell
+./tools/client-lab/Test-ClientLab.ps1 -OutputDirectory (Join-Path $env:TEMP ('client-lab-check-' + [guid]::NewGuid()))
+python -B -m unittest discover -s tools/client-lab/tests -p test_*.py
+```
+
+The native harness targets .NET Framework 4.8 and C# 5 to preserve compatibility
+with Windows PowerShell 5.1. Tests use mocked process/task/SSH operations and
+synthetic pixels. They never activate a desktop window or send input. A matching
+Windows Desktop runtime enables an additional PowerShell 7 compilation check;
+its absence does not skip the mandatory target-runtime compilation.
+Normal .NET dependency restore may use NuGet; no lab endpoint, Steam or Docker
+runtime is contacted by the policy suite.

@@ -1,0 +1,235 @@
+Set-StrictMode -Version Latest
+
+function Get-LabClientObservation($Policy) {
+    $observation=[ordered]@{schema=1;utc=[DateTime]::UtcNow.ToString('o');query='unavailable';truncated=$false;workerUserMatches=$false;workerSessionMatches=$false;steam=@();game=@()}
+    try {
+        $observation.workerUserMatches=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ceq $Policy.gameUserSid
+        $observation.workerSessionMatches=(Get-Process -Id $PID).SessionId -eq $Policy.gameSessionId
+        $items=@(Get-CimInstance -ClassName Win32_Process -Filter "Name='steam.exe' OR Name='hl.exe'" -Property Name,ProcessId,SessionId,ExecutablePath -OperationTimeoutSec 3 | Select-Object -First 9)
+        if ($items.Count -gt 8) { $observation.truncated=$true; return [pscustomobject]$observation }
+        $steamCount=@($items|Where-Object {$_.Name -ieq 'steam.exe'}).Count
+        foreach ($item in $items) {
+            $path=$(if($item.Name -ieq 'steam.exe'){Join-Path $Policy.steamRoot 'steam.exe'}else{Join-Path $Policy.gameRoot 'hl.exe'})
+            $ownerMatches=$null
+            try {
+                if ($item.Name -ine 'steam.exe' -or $steamCount -ne 1) { throw 'Owner query is not needed for a blocked preflight.' }
+                $owner=Invoke-CimMethod -InputObject $item -MethodName GetOwnerSid -OperationTimeoutSec 5
+                if ($owner.ReturnValue -eq 0 -and $owner.Sid) { $ownerMatches=$owner.Sid -ceq $Policy.gameUserSid }
+            } catch { }
+            $entry=[pscustomobject]@{pathMatches=([string]$item.ExecutablePath -ieq $path);ownerMatches=$ownerMatches;sessionMatches=($item.SessionId -eq $Policy.gameSessionId)}
+            if ($item.Name -ieq 'steam.exe') { $observation.steam+=@($entry) } else { $observation.game+=@($entry) }
+        }
+        $observation.query='ok'
+    } catch { $observation.query='unavailable' }
+    # No names, SIDs, command lines, arbitrary process data or account identifiers leave this function.
+    return [pscustomobject]$observation
+}
+
+function Get-LabClientReadiness($Observation) {
+    $code='local_prerequisites_ready'
+    if (-not $Observation.workerUserMatches) { $code='worker_user_mismatch' }
+    elseif (-not $Observation.workerSessionMatches) { $code='worker_session_mismatch' }
+    elseif ($Observation.truncated) { $code='process_snapshot_truncated' }
+    elseif ($Observation.query -cne 'ok') { $code='process_query_unavailable' }
+    elseif (@($Observation.game).Count) { $code='game_already_running' }
+    elseif (-not @($Observation.steam).Count) { $code='steam_not_running' }
+    elseif (@($Observation.steam).Count -ne 1) { $code='steam_process_ambiguous' }
+    elseif (-not $Observation.steam[0].pathMatches) { $code='steam_path_mismatch' }
+    elseif ($null -eq $Observation.steam[0].ownerMatches) { $code='steam_owner_unverified' }
+    elseif (-not $Observation.steam[0].ownerMatches) { $code='steam_user_mismatch' }
+    elseif (-not $Observation.steam[0].sessionMatches) { $code='steam_session_mismatch' }
+    return [pscustomobject]@{schema=1;utc=$Observation.utc;code=$code;ready=($code -ceq 'local_prerequisites_ready');steamProcessCount=@($Observation.steam).Count;gameProcessCount=@($Observation.game).Count;accountLogin='not_proven';otherComputerUsage='unknown'}
+}
+
+function Get-LabLogCheckpoint([string]$SteamRoot) {
+    $items=@()
+    foreach ($name in @('gameprocess_log.txt','console_log.txt')) {
+        $entry=[ordered]@{name=$name;state='absent';offset=0;createdUtc=$null}
+        try {
+            $directory=Join-Path $SteamRoot 'logs'
+            $path=Join-Path $directory $name
+            foreach ($part in @($SteamRoot,$directory)) {
+                if ((Get-Item -LiteralPath $part).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Linked log directory.' }
+            }
+            if (Test-Path -LiteralPath $path) {
+                $file=Get-Item -LiteralPath $path
+                if ($file.Attributes -band [IO.FileAttributes]::ReparsePoint -or $file.Length -gt 64MB) { throw 'Unsupported log file.' }
+                $entry.state='present';$entry.offset=$file.Length;$entry.createdUtc=$file.CreationTimeUtc.ToString('o')
+            }
+        } catch { $entry.state='unavailable' }
+        $items+=@([pscustomobject]$entry)
+    }
+    return ,$items
+}
+
+function Get-LabSteamHints([string]$Text) {
+    $hints=@()
+    foreach ($line in @($Text -split '\r?\n' | Select-Object -First 256)) {
+        if ($line.Length -gt 2048 -or $line -notmatch '(?i)\bApp(?:ID|\s+ID)?\s*[:=#]?\s*10\b') { continue }
+        if ($line -match '(?i)\bapp already running\b|\bapplication already running\b') { $hints+='app10_already_running_hint' }
+        if ($line -match '(?i)\bmissing executable\b') { $hints+='app10_missing_executable_hint' }
+        if ($line -match '(?i)\bfailed to (?:start|launch)\b|\blaunch failed\b') { $hints+='app10_launch_failure_hint' }
+    }
+    return @($hints|Select-Object -Unique)
+}
+
+function Get-LabLogEvidence([string]$SteamRoot,$Checkpoint,[DateTime]$LaunchUtc) {
+    if (@($Checkpoint).Count -ne 2 -or (@($Checkpoint.name|Sort-Object) -join '|') -cne 'console_log.txt|gameprocess_log.txt') { throw 'Invalid log checkpoint.' }
+    $evidence=@()
+    foreach ($baseline in $Checkpoint) {
+        $entry=[ordered]@{source=$baseline.name;state='unavailable';bytesRead=0;truncated=$false;hints=@()}
+        $stream=$null
+        try {
+            if ($baseline.state -notin @('absent','present')) { throw 'Log checkpoint unavailable.' }
+            $directory=Join-Path $SteamRoot 'logs';$path=Join-Path $directory $baseline.name
+            foreach ($part in @($SteamRoot,$directory,$path)) {
+                if ((Get-Item -LiteralPath $part).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Linked log path.' }
+            }
+            $file=Get-Item -LiteralPath $path
+            if ($file.Length -gt 64MB) { throw 'Unsupported log length.' }
+            $offset=[long]$baseline.offset
+            if (($baseline.state -ceq 'present' -and $file.CreationTimeUtc.ToString('o') -cne $baseline.createdUtc) -or
+                $file.Length -lt $offset -or ($baseline.state -ceq 'absent' -and $file.CreationTimeUtc -lt $LaunchUtc.AddSeconds(-5))) {
+                $entry.state='rotated_or_truncated';throw 'Log continuity unavailable.'
+            }
+            $stream=New-Object IO.FileStream($path,[IO.FileMode]::Open,[IO.FileAccess]::Read,([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+            $end=$stream.Length
+            if ($end -lt $offset) { $entry.state='rotated_or_truncated';throw 'Log shortened while opening.' }
+            $count=[int][Math]::Min(16384,$end-$offset)
+            $start=$end-$count
+            $stream.Seek($start,[IO.SeekOrigin]::Begin)|Out-Null
+            $bytes=New-Object byte[] $count
+            $read=0
+            while ($read -lt $count) {
+                $n=$stream.Read($bytes,$read,$count-$read)
+                if ($n -eq 0) { break };$read+=$n
+            }
+            $text=[Text.Encoding]::UTF8.GetString($bytes,0,$read)
+            # Discard the first partial line when the byte window starts after the checkpoint.
+            if ($start -gt $offset) {
+                $newline=$text.IndexOf("`n");$text=$(if($newline -ge 0){$text.Substring($newline+1)}else{''})
+            }
+            $entry.state=$(if($read){'appended_window'}else{'no_new_bytes'})
+            $entry.bytesRead=$read;$entry.truncated=$start -gt $offset
+            $entry.hints=@(Get-LabSteamHints $text)
+        } catch { }
+        finally { if ($stream) { $stream.Dispose() } }
+        $evidence+=@([pscustomobject]$entry)
+    }
+    # These are filtered local hints, never a diagnosis of account usage on another computer.
+    return [pscustomobject]@{schema=1;hintsOnly=$true;rawTextRetained=$false;maxTotalBytes=32768;sources=$evidence}
+}
+
+function Set-LabLaunchOutcome($Result) {
+    if ($Result.gamePid -and @($Result.images).Count -eq 2) {
+        $Result.status='captured_unreviewed';$Result.failureCode=$null
+    } elseif (-not $Result.gamePid) {
+        $Result.status='uncertain_launch';$Result.failureCode='game_process_not_observed'
+    } else {
+        $Result.status='uncertain_capture'
+        $Result.failureCode=$(if(@($Result.images).Count){'partial_capture'}else{'game_observed_no_frames'})
+    }
+}
+
+function Invoke-LabDesktopDispatch([string]$Executable,[string]$Arguments,[string]$Directory) {
+    $shell=$null;$windows=$null;$desktop=$null;$document=$null;$application=$null
+    try {
+        $shell=New-Object -ComObject Shell.Application
+        $windows=$shell.Windows()
+        $location=0;$rootLocation=0;$desktopHwnd=0
+        $desktop=$windows.FindWindowSW([ref]$location,[ref]$rootLocation,8,[ref]$desktopHwnd,1)
+        if(-not $desktop){throw 'Desktop shell is unavailable.'}
+        $document=$desktop.Document
+        $application=$document.Application
+        if(-not $application){throw 'Desktop application is unavailable.'}
+        $application.ShellExecute($Executable,$Arguments,$Directory,'open',1)
+    } finally {
+        foreach($item in @($application,$document,$desktop,$windows,$shell)) {
+            if($null -ne $item -and [Runtime.InteropServices.Marshal]::IsComObject($item)) {
+                try{[void][Runtime.InteropServices.Marshal]::ReleaseComObject($item)}catch{}
+            }
+        }
+    }
+}
+
+function Assert-LabDesktopRequest([string]$Root,$Policy,[string]$Id) {
+    if($Root -cne 'C:\ProgramData\GsoClientLab'){throw 'Unexpected desktop launch root.'}
+    Assert-LabId $Id
+    Assert-LabLease $Policy
+    if([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -cne $Policy.gameUserSid -or
+        (Get-Process -Id $PID).SessionId -ne $Policy.gameSessionId){throw 'Desktop launch identity differs.'}
+    $paths=Get-LabPaths $Root $Id
+    $job=Read-LabJson $paths.request
+    Assert-LabJob $job
+    if($job.id -cne $Id -or $job.action -cne 'verify-rules' -or -not (Get-LabAutonomousMode $Root $job)){throw 'Desktop launch requires an autonomous rules job.'}
+    $result=Read-LabJson (Join-Path $paths.result 'result.json')
+    if($result.id -cne $Id -or $result.status -cne 'launch_claimed' -or -not $result.launchRequested){throw 'Desktop launch claim differs.'}
+    $configName='gso_lan_'+([guid]$Id).ToString('N')+'.cfg'
+    $configPath=Join-Path $Policy.gameRoot ('cstrike\'+$configName)
+    foreach($path in @($Policy.gameRoot,(Join-Path $Policy.gameRoot 'cstrike'),$configPath)) {
+        if((Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked desktop launch input.'}
+    }
+    if((Get-Item -LiteralPath $configPath).Length -gt 32KB -or [IO.File]::ReadAllText($configPath) -cne (New-LabInteractionProgram $job)){throw 'Desktop launch program differs.'}
+    Assert-LabInteractionBindings $Policy.gameRoot
+    if(-not (Get-LabClientReadiness (Get-LabClientObservation $Policy)).ready){throw 'Desktop launch prerequisites differ.'}
+    return @{job=$job;directory=$paths.result;arguments=(Get-LabLaunchArguments $job $configName)}
+}
+
+function Invoke-LabDesktopChild([string]$Root,$Policy,[string]$Id) {
+    $request=Assert-LabDesktopRequest $Root $Policy $Id
+    $claim=Join-Path $request.directory 'shell-launch.claim'
+    $stream=[IO.File]::Open($claim,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    $stream.Dispose()
+    $receipt=@{id=$Id;accepted=$false;stage='desktop_dispatch';automaticRetryAllowed=$false;utc=[DateTime]::UtcNow.ToString('o')}
+    try {
+        Invoke-LabDesktopDispatch (Join-Path $Policy.steamRoot 'steam.exe') $request.arguments $Policy.steamRoot
+        $receipt.accepted=$true
+        $receipt.stage='desktop_returned'
+    } catch {$receipt.stage='desktop_failed'}
+    Write-LabJson (Join-Path $request.directory 'shell-launch.json') $receipt
+    if(-not $receipt.accepted){throw 'Desktop launch was not confirmed.'}
+}
+
+function Start-LabDesktopHelper([string]$Root,[string]$Id) {
+    Assert-LabId $Id
+    if($Root -cne 'C:\ProgramData\GsoClientLab'){throw 'Unexpected helper root.'}
+    $executable=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $arguments='-NoLogo -NoProfile -NonInteractive -STA -WindowStyle Hidden -File "'+$Root+'\code\Worker.ps1" -Root "'+$Root+'" -ShellJobId '+$Id
+    return Start-Process -FilePath $executable -ArgumentList $arguments -WindowStyle Hidden -PassThru
+}
+
+function Confirm-LabDesktopHelper($Process,[string]$Directory,[string]$Id) {
+    if(-not $Process.WaitForExit(20000)) {
+        # Only the child process object created by this invocation is terminated.
+        $Process.Kill()
+        if(-not $Process.WaitForExit(5000)){throw 'Desktop helper cleanup was not confirmed.'}
+        throw 'Desktop helper timed out; delivery is uncertain and will not be retried.'
+    }
+    if($Process.ExitCode -ne 0){throw 'Desktop helper failed; launch will not be retried.'}
+    $receipt=Read-LabJson (Join-Path $Directory 'shell-launch.json') 2048
+    if($receipt.id -cne $Id -or -not $receipt.accepted -or $receipt.stage -cne 'desktop_returned'){throw 'Desktop receipt differs.'}
+}
+
+function Find-LabDispatchedGame($Policy,$Result,[DateTime]$LaunchUtc,[string]$Id) {
+    $clock=[Diagnostics.Stopwatch]::StartNew()
+    do {
+        $candidates=@(Get-LabProcess $Policy | Where-Object {$_.SessionId -eq $Policy.gameSessionId -and $_.StartTime.ToUniversalTime() -ge $LaunchUtc})
+        if($candidates.Count -gt 1){throw 'Ambiguous dispatched game identity.'}
+        if($candidates.Count -eq 1) {
+            $candidate=$candidates[0]
+            $items=@(Get-CimInstance -ClassName Win32_Process -Filter ('ProcessId='+$candidate.Id) -Property ProcessId,SessionId,ExecutablePath,CommandLine -OperationTimeoutSec 3)
+            $token='gso_lan_'+([guid]$Id).ToString('N')+'.cfg'
+            if($items.Count -ne 1 -or $items[0].ExecutablePath -ine (Join-Path $Policy.gameRoot 'hl.exe') -or
+                $items[0].SessionId -ne $Policy.gameSessionId -or $items[0].CommandLine.Length -gt 32KB -or
+                $items[0].CommandLine -cnotmatch ('(?:^|\s)\+exec\s+"?'+[regex]::Escape($token)+'"?(?:\s|$)')){throw 'Dispatched game command identity differs.'}
+            $Result.gamePid=$candidate.Id
+            $Result.gameStartedUtc=$candidate.StartTime.ToUniversalTime().ToString('o')
+            Assert-LabInteractionOwner $Policy $Result
+            return
+        }
+        Start-Sleep -Milliseconds 250
+    } while($clock.Elapsed.TotalSeconds -lt 20)
+    if(@(Get-LabProcess $Policy).Count){throw 'Unattributed game remains after desktop dispatch.'}
+    $Result.cleanupVerified=$true
+    $Result.cleanup.game='verified_no_game_after_reconciliation'
+}

@@ -1,0 +1,107 @@
+﻿#requires -Version 7.0
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$true)][ValidateSet('status', 'capture', 'verify-rules', 'auto-rules', 'step', 'result', 'image', 'cancel')][string]$Operation,
+    [string]$JobId,
+    [ValidateSet(1, 2, 3, 4, 5)][int]$ImageNumber = 1,
+    [ValidateSet('ranks','profile','topall','rules','primary','pistol')][string]$Panel,
+    [ValidateSet('ru','en')][string]$Language,
+    [ValidateSet('ok-first','controls','reopen','ok-last')][string]$Phase,
+    [ValidatePattern('\A[0-9A-F]{64}\z')][string]$FrameSha256
+)
+$ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'code\Lab.Common.ps1')
+if (-not (Get-NetIPAddress -IPAddress '{{SOURCE_IPV4}}' -AddressFamily IPv4 -ErrorAction SilentlyContinue)) { throw 'Controller IPv4 mismatch.' }
+$privateRoot = Join-Path $env:USERPROFILE '.ssh\gso-client-lab'
+$pairing = Read-LabJson (Join-Path $privateRoot 'pairing.json')
+if (-not (Test-LabManualLease $pairing) -and [DateTime]::UtcNow -ge (ConvertTo-LabUtc $pairing.expiresUtc)) { throw 'Pairing lease expired.' }
+$command = $Operation
+if($Operation -cin @('capture','verify-rules','auto-rules','step')) {
+    if($Operation -ceq 'capture' -and (-not $Panel -or -not $Language)){throw 'Panel and language required.'}
+    if($Operation -cin @('verify-rules','auto-rules') -and (-not $Language -or $Panel)){throw 'Only language is accepted for verify-rules.'}
+    if($Operation -ceq 'step' -and (-not $Phase -or -not $FrameSha256 -or $Panel -or $Language)){throw 'Only a fixed phase and reviewed frame hash are accepted for step.'}
+    $activation = Read-LabJson (Join-Path $PSScriptRoot 'activation.json')
+    if ($activation.protocol -ne 2 -or $activation.revision -ne 16 -or $activation.targetName -cne '{{TARGET_NAME}}' -or
+        $activation.leaseMode -cne 'manual' -or $null -ne $activation.expiresUtc -or $activation.sessionId -cne $pairing.sessionId -or
+        -not (Test-LabManualLease $pairing)) { throw 'Matching target activation is required.' }
+} elseif ($Panel -or $Language) { throw 'Panel and language are only valid for capture.' }
+if ($Operation -ne 'status') {
+    if (-not $JobId -and $Operation -cin @('capture','verify-rules','auto-rules')) { $JobId = [guid]::NewGuid().ToString('D') }
+    Assert-LabId $JobId
+    $command += ' ' + $JobId
+    if ($Operation -eq 'capture') { $command += ' ' + $Panel + ' ' + $Language }
+    if($Operation -cin @('verify-rules','auto-rules')){$command+=' '+$Language}
+    if($Operation -ceq 'step'){$command+=' '+$Phase+' '+$FrameSha256}
+    if ($Operation -eq 'image') { $command += ' ' + $ImageNumber }
+}
+$resultRoot = Join-Path $PSScriptRoot 'controller-results'
+if($Operation -cin @('capture','verify-rules','auto-rules')) {
+    New-Item -ItemType Directory -Path $resultRoot -Force | Out-Null
+    $claim = Join-Path $resultRoot $JobId
+    New-Item -ItemType Directory -Path $claim -ErrorAction Stop | Out-Null
+    Write-LabJson (Join-Path $claim 'dispatch.json') @{ id = $JobId; status = 'dispatch_claimed'; utc = [DateTime]::UtcNow.ToString('o') }
+    Write-Host ('One dispatch attempt. Job ID: ' + $JobId)
+}
+if($Operation -cne 'step' -and ($Phase -or $FrameSha256)){throw 'Step parameters require step operation.'}
+if($Operation -ceq 'step') {
+    $jobDirectory=Join-Path $resultRoot $JobId
+    $current=Read-LabJson (Join-Path $jobDirectory 'result.json')
+    . (Join-Path $PSScriptRoot 'code\Interaction.ps1')
+    # Target-side freshness is authoritative; local review still requires the matching saved frame.
+    $imagePath=Join-Path $jobDirectory ('image-'+@($current.images).Count+'.bmp')
+    if($current.id -cne $JobId -or $current.action -cne 'verify-rules' -or $current.status -cne 'awaiting_action' -or
+       $current.nextAction -cne $Phase -or $current.images[-1].sha256 -cne $FrameSha256 -or
+       (Get-FileHash -LiteralPath $imagePath -Algorithm SHA256).Hash -cne $FrameSha256){throw 'A matching downloaded and reviewed native frame is required.'}
+    $claimPath=Join-Path $jobDirectory ('step-'+$Phase+'.json')
+    $claimStream=[IO.File]::Open($claimPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{$bytes=[Text.Encoding]::UTF8.GetBytes((@{id=$JobId;phase=$Phase;frameSha256=$FrameSha256;status='dispatch_claimed';utc=[DateTime]::UtcNow.ToString('o')}|ConvertTo-Json -Compress));$claimStream.Write($bytes,0,$bytes.Length)}finally{$claimStream.Dispose()}
+}
+$start = New-Object Diagnostics.ProcessStartInfo
+$start.FileName = 'C:\Windows\System32\OpenSSH\ssh.exe'
+$start.UseShellExecute = $false
+$start.CreateNoWindow = $true
+$start.RedirectStandardOutput = $true
+$start.RedirectStandardError = $true
+$arguments = @('-F', (Join-Path $privateRoot 'ssh_config'), '-T', '-b', '{{SOURCE_IPV4}}', '-p', '2222', '-i', (Join-Path $privateRoot 'id_ed25519'),
+    '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'IdentityAgent=none', '-o', 'StrictHostKeyChecking=yes',
+    '-o', ('UserKnownHostsFile=' + (Join-Path $privateRoot 'known_hosts')), '-o', ('GlobalKnownHostsFile=' + (Join-Path $privateRoot 'ssh_config')),
+    '-o', 'ClearAllForwardings=yes', '-o', 'ConnectTimeout=5', '-o', 'ConnectionAttempts=1', '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=2',
+    'gso-lab-link@{{TARGET_IPV4}}', $command)
+foreach ($argument in $arguments) { $start.ArgumentList.Add($argument) }
+$process = [Diagnostics.Process]::Start($start)
+$stdout = $process.StandardOutput.ReadToEndAsync()
+$stderr = $process.StandardError.ReadToEndAsync()
+if (-not $process.WaitForExit(20000)) { $process.Kill($true); throw 'SSH attempt timed out. Delivery may be uncertain; do not retry a run.' }
+$output = $stdout.GetAwaiter().GetResult()
+$errorOutput = $stderr.GetAwaiter().GetResult()
+if ($process.ExitCode -ne 0) { throw ('SSH failed. A dispatched run must be reconciled by ID. ' + $errorOutput.Trim()) }
+if ($Operation -eq 'image') {
+    if ($output.Length -gt 24MB) { throw 'Image response exceeds limit.' }
+    $bytes = [Convert]::FromBase64String($output.Trim())
+    if ($bytes.Length -lt 18 -or $bytes.Length -gt 16MB) { throw 'Image size invalid.' }
+    $jobDirectory = Join-Path $resultRoot $JobId
+    $result = Read-LabJson (Join-Path $jobDirectory 'result.json')
+    if($ImageNumber -gt (Get-LabImageLimit $result)){throw 'Image number exceeds this action limit.'}
+    if ($result.id -cne $JobId) { throw 'Mismatched result id.' }
+    $entry = @($result.images | Where-Object { $_.number -eq $ImageNumber })
+    if ($entry.Count -ne 1 -or $entry[0].format -cnotin @('bmp', 'tga') -or $entry[0].bytes -ne $bytes.Length) { throw 'Mismatched image metadata.' }
+    if ($entry[0].format -cne 'bmp' -or $entry[0].width -ne 1920 -or $entry[0].height -ne 1200) { throw 'Expected panel dimensions differ.' }
+    $bitmapStream = New-Object IO.MemoryStream(,$bytes)
+    try { Read-LabBitmapInfo $bitmapStream 1920 1200 | Out-Null } finally { $bitmapStream.Dispose() }
+    $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes))
+    if ($hash -cne $entry[0].sha256) { throw 'Image hash mismatch.' }
+    $path = Join-Path $jobDirectory ('image-' + $ImageNumber + '.' + $entry[0].format)
+    $stream = [IO.File]::Open($path, [IO.FileMode]::CreateNew)
+    try { $stream.Write($bytes, 0, $bytes.Length) } finally { $stream.Dispose() }
+    Write-Host ('Verified image saved: ' + $path)
+} else {
+    if ($output.Length -gt 65536) { throw 'Metadata response too large.' }
+    $value = $output | ConvertFrom-Json
+    if ($Operation -eq 'result') {
+        if ($value.id -cne $JobId) { throw 'Mismatched job result.' }
+        $jobDirectory = Join-Path $resultRoot $JobId
+        New-Item -ItemType Directory -Path $jobDirectory -Force | Out-Null
+        Write-LabJson (Join-Path $jobDirectory 'result.json') $value
+    }
+    $value | ConvertTo-Json -Depth 8
+}

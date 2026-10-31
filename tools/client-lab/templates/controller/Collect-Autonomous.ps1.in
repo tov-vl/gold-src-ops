@@ -1,0 +1,61 @@
+#requires -Version 7.0
+[CmdletBinding()]
+param([Parameter(Mandatory=$true)][ValidatePattern('\A[0-9a-f-]{36}\z')][string]$JobId)
+$ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'code\Lab.Common.ps1')
+Assert-LabId $JobId
+$controller=Join-Path $PSScriptRoot 'Invoke-Panel.ps1'
+$directory=Join-Path $PSScriptRoot ('controller-results\'+$JobId)
+$clock=[Diagnostics.Stopwatch]::StartNew()
+$last=$null
+$failures=0
+$finished=$false
+$failureCode=$null
+while($clock.Elapsed.TotalSeconds -lt 600){
+    try{
+        $last=(& $controller -Operation result -JobId $JobId)|ConvertFrom-Json
+        if($last.id -cne $JobId){throw 'Read result identity differs.'}
+        $failures=0
+    }catch{
+        $failures++
+        if($failures -ge 3){$failureCode='read_channel_unavailable';break}
+        Start-Sleep -Seconds 2
+        continue
+    }
+    if($last.PSObject.Properties['completedUtc'] -and $last.completedUtc){$finished=$true;break}
+    Start-Sleep -Seconds 2
+}
+if(-not $finished -and -not $failureCode){$failureCode='collector_deadline'}
+New-Item -ItemType Directory -Path $directory -Force|Out-Null
+foreach($entry in @((Join-Path $PSScriptRoot 'controller-results'),$directory)){
+    if((Get-Item -LiteralPath $entry).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked collection directory.'}
+}
+$receipt=[ordered]@{schema=1;id=$JobId;utc=[DateTime]::UtcNow.ToString('o');terminalRead=$finished;evidenceComplete=$false;acceptancePassed=$false;automaticRetryAllowed=$false;failureCode=$failureCode;images=@()}
+if($finished){
+    $receipt['targetStatus']=$last.status
+    $receipt['cleanupVerified']=$last.cleanupVerified
+    $receipt['configCleanupVerified']=$last.configCleanupVerified
+    try{foreach($frame in @($last.images)){
+        if($frame.number -lt 1 -or $frame.number -gt 5){throw 'Invalid evidence number.'}
+        $path=Join-Path $directory ('image-'+$frame.number+'.bmp')
+        if(-not (Test-Path -LiteralPath $path)){
+            & $controller -Operation image -JobId $JobId -ImageNumber $frame.number|Out-Host
+        }
+        $item=Get-Item -LiteralPath $path
+        if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $item.Length -ne $frame.bytes -or
+            (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $frame.sha256){throw 'Collected image differs from target metadata.'}
+        $receipt.images+=@{number=$frame.number;sha256=$frame.sha256;bytes=$frame.bytes}
+    }}catch{$receipt.failureCode='image_collection_failed'}
+    $receipt.evidenceComplete=$last.status -ceq 'autonomous_captured_unreviewed' -and @($receipt.images).Count -eq 5 -and
+        $last.cleanupVerified -and $last.configCleanupVerified -and -not $receipt.failureCode
+}
+$path=Join-Path $directory 'collection.json'
+$stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+try{
+    $bytes=[Text.Encoding]::UTF8.GetBytes(($receipt|ConvertTo-Json -Depth 6))
+    $stream.Write($bytes,0,$bytes.Length)
+    $stream.Flush($true)
+}finally{$stream.Dispose()}
+$receipt|ConvertTo-Json -Depth 6
+# Loss of the read channel never triggers input, cancellation, launch, or a retry.
+if(-not $receipt.evidenceComplete){throw 'Evidence collection incomplete; reconcile the existing job without another launch.'}

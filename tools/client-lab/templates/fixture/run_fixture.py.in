@@ -1,0 +1,133 @@
+"""One disposable HLDS instance from existing local inputs; no downloader or credentials."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import tarfile
+import time
+
+import fixture_base as base
+
+PLUGIN = '224d38a33fd6ee19c96d6917c748051e5b4fab3642d0256f703f416d6f8c513f'
+DICTIONARY = 'c37970e8c3af420cda33a6d948a9fe6de3c12f63a9470a9c14da3b7045c7fefb'
+SDK = '47163830cbb9888e1a8162b7b5054c7118159ec05001059a9cf1d0fec466a43c'
+
+
+def check(path, expected):
+    if base.digest(path) != expected:
+        raise RuntimeError('Pinned local input differs: ' + Path(path).name)
+
+
+def main():
+    evidence = Path('/evidence')
+    if (evidence / 'runtime.json').exists():
+        raise RuntimeError('A retained runtime result exists; do not reuse it')
+    started = time.time()
+    status = {'schema': 1, 'status': 'preparing', 'pluginSha256': PLUGIN.upper(),
+              'dictionarySha256': DICTIONARY.upper(), 'runtimeVerified': False,
+              'endpoint': '127.0.0.1:27025', 'name': '{{FIXTURE_NAME}}'}
+    def report():
+        temporary = evidence / 'runtime.tmp'
+        temporary.write_text(json.dumps(status, indent=2), encoding='utf-8')
+        temporary.replace(evidence / 'runtime.json')
+    report()
+    server = None
+    try:
+        check('/sdk/steamclient.so', SDK)
+        for name, expected in (
+            ('amxmodx-1.10.0-git5481-base-linux.tar.gz', 'ee33b31ae92afd94802c43eae14ecdfa1ffa2ba0b11658e8bec98f48a5881272'),
+            ('amxmodx-1.10.0-git5481-cstrike-linux.tar.gz', '76ff2bdd39f6dc14a2088ff4af724599c69a8ae7e3526679927aaef4ca898bf2'),
+        ):
+            check('/assets/' + name, expected)
+        source = Path('/tmp/server-base')
+        shutil.copytree('/opt/cs16/serverfiles-base', source, symlinks=False, ignore_dangling_symlinks=True)
+        for origin, destination in (
+            ('/runtime/rehlds/bin/linux32', source),
+            ('/runtime/regamedll/bin/linux32/cstrike', source / 'cstrike'),
+            ('/runtime/metamod/addons', source / 'cstrike/addons'),
+            ('/runtime/reapi/addons', source / 'cstrike/addons'),
+        ):
+            shutil.copytree(origin, destination, dirs_exist_ok=True, symlinks=False)
+        for name in ('amxmodx-1.10.0-git5481-base-linux.tar.gz', 'amxmodx-1.10.0-git5481-cstrike-linux.tar.gz'):
+            with tarfile.open('/assets/' + name, 'r:gz') as archive:
+                # Hash-pinned archives only; reject links and traversal on older Python versions.
+                members = archive.getmembers()
+                if any(m.issym() or m.islnk() or m.isdev() or Path(m.name).is_absolute() or '..' in Path(m.name).parts for m in members):
+                    raise RuntimeError('Unsafe archive entry')
+                archive.extractall(source / 'cstrike')
+        shutil.copyfile('/sdk/steamclient.so', source / 'steamclient.so')
+        checks = {
+            'hlds_linux': '0209a150386194ae86e414623037088314ff5eb28fa62b423751ff2265a58608',
+            'engine_i486.so': '5bb5d862b7e65ced8c9cc5a2159d52d5522e3eb784ba0eb88e6624a410566e99',
+            'cstrike/dlls/cs.so': '9bb240044d842d996b73bdfb1cd1722247795f7e6f40f52b854e897c7e6426d4',
+            'cstrike/addons/metamod/metamod_i386.so': '8bed09c362f6d9019ce7d88b9a19d1ad08eca26bf46c0ed32604fbea2d7ba7a9',
+            'cstrike/addons/amxmodx/modules/reapi_amxx_i386.so': '2dad32476879dc64e734d81e386d4e3c14f039fc32c393ae2a2418d3a55650ec',
+        }
+        for path, expected in checks.items():
+            check(source / path, expected)
+        # Only the isolated container interface is wildcard-bound; no host port is published.
+        base.HOST = '0.0.0.0'
+        base.CONFIGS['cstrike/server.cfg'] = base.CONFIGS['cstrike/server.cfg'].replace('Isolated client acceptance', status['name'])
+        base.CONFIGS['cstrike/server.cfg'] += 'mp_forcerespawn 1\nmp_respawn_immunitytime 2\nmp_respawn_immunity_force_unset 2\n'
+        check('/inputs/fixture_vgui_guard.amxx', '583151ee35b12f005b2d45f82aef7a1ac38265e5b2f47b2103c89d1d561b56f6')
+        helper = 'cstrike/addons/amxmodx/plugins/fixture_vgui_guard.amxx'
+        shutil.copyfile('/inputs/fixture_vgui_guard.amxx', source / helper)
+        base.REQUIRED += (helper,)
+        base.CONFIGS['cstrike/addons/amxmodx/configs/plugins.ini'] = 'fixture_vgui_guard.amxx\n' + base.CONFIGS['cstrike/addons/amxmodx/configs/plugins.ini']
+        fixture = Path('/tmp/fixture')
+        manifest = base.prepare(source, fixture, '/inputs/goldsrcops.amxx', PLUGIN, '/inputs/goldsrcops.txt', DICTIONARY)
+        private = Path('/tmp/private')
+        private.mkdir(mode=0o700)
+        def arguments(root):
+            return ['timeout', '--signal=TERM', '--kill-after=5', '2400', str(Path(root) / 'hlds_linux'),
+                    '-norestart', '-nobreakpad', '-insecure', '-game', 'cstrike', '-console', '-strictportbind',
+                    '+ip', '0.0.0.0', '-port', '27025', '+map', 'de_dust2', '+servercfgfile', 'server.cfg', '-maxplayers', '2']
+        base.launch_args = arguments
+        # Drop only this container's process to the image's existing non-root steam identity.
+        subprocess.run(['chown', '-R', 'steam:steam', '/tmp/fixture', '/tmp/private', '/evidence'], check=True)
+        import pwd
+        account = pwd.getpwnam('steam')
+        os.setgroups([])
+        os.setgid(account.pw_gid)
+        os.setuid(account.pw_uid)
+        server = base.LocalServer(fixture, private, PLUGIN, DICTIONARY)
+        server.__enter__()
+        server.process.stdin.write(b'goldsrcops_player_menu_status\ngoldsrcops_weapons_status\ngoldsrcops_stats_status\nmp_forcerespawn\nmp_respawn_immunitytime\nmp_respawn_immunity_force_unset\nstatus\n')
+        server.process.stdin.flush()
+        time.sleep(1)
+        log = server.read_private_log()
+        if b'WEAPON_SELECTION_STATUS version=0.38.0 enabled=1 choices=3 pistol_choices=3 ' not in log:
+            raise RuntimeError('Pinned addon did not report ready')
+        if any(p.name.startswith('error_') for p in (fixture / 'cstrike/addons/amxmodx/logs').glob('*')):
+            raise RuntimeError('AMXX error file exists')
+        status.update(status='ready', runtimeVerified=True, uid=os.getuid(), files=len(manifest['files']),
+                      maxRuntimeSeconds=2400, readyUnix=time.time(), fixtureManifestSha256=base.digest(fixture / 'fixture.json'))
+        # Retain a bounded operator-only startup log, never a game account or production payload.
+        (evidence / 'startup.log').write_bytes(log)
+        report()
+        print('Isolated fixture ready; no host port is published', flush=True)
+        def request_stop(_signum, _frame):
+            raise SystemExit(0)
+        signal.signal(signal.SIGTERM, request_stop)
+        while time.time() - started < 2400:
+            server.read_private_log()
+            time.sleep(2)
+        status['status'] = 'expired'
+    except SystemExit:
+        status['status'] = 'stopped'
+    except BaseException as error:
+        status.update(status='failed', errorType=type(error).__name__, detail=str(error)[:180])
+        raise
+    finally:
+        if server is not None:
+            server.close()
+        report()
+
+
+if __name__ == '__main__':
+    main()

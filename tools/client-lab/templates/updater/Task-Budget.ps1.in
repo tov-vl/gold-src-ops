@@ -1,0 +1,45 @@
+#requires -Version 5.1
+# Installer-only. Only the existing fixed limited-user worker can be changed.
+function ConvertTo-LabTaskValue($Value) {
+    if($null -eq $Value){return $null}
+    if($Value -is [Microsoft.Management.Infrastructure.CimInstance]){
+        $result=[ordered]@{}
+        foreach($property in @($Value.CimInstanceProperties|Sort-Object Name)){$result[$property.Name]=ConvertTo-LabTaskValue $property.Value}
+        return $result
+    }
+    if($Value -is [System.Management.Automation.PSCustomObject]){
+        $result=[ordered]@{}
+        foreach($property in @($Value.PSObject.Properties|Sort-Object Name)){$result[$property.Name]=ConvertTo-LabTaskValue $property.Value}
+        return $result
+    }
+    if($Value -is [array]){return ,@($Value|ForEach-Object{ConvertTo-LabTaskValue $_})}
+    return $Value
+}
+
+function Get-LabWorkerInvariant($Task) {
+    if($Task.TaskName -cne 'GsoClientLab-Worker' -or $Task.TaskPath -cne '\' -or @($Task.Actions).Count -ne 1){throw 'Unexpected worker task.'}
+    $action=ConvertTo-LabTaskValue $Task.Actions[0]
+    $settings=ConvertTo-LabTaskValue $Task.Settings
+    $action.Remove('Arguments')
+    $settings.Remove('Enabled')
+    $settings.Remove('ExecutionTimeLimit')
+    return ([ordered]@{actions=$action;settings=$settings;principal=(ConvertTo-LabTaskValue $Task.Principal);triggers=@($Task.Triggers|ForEach-Object{ConvertTo-LabTaskValue $_})}|ConvertTo-Json -Depth 12 -Compress)
+}
+
+function Set-LabWorkerBudget($Original,[ValidateSet(175,540)][int]$Watchdog) {
+    $current=Get-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'
+    if($current.State -cne 'Disabled' -or (Get-LabWorkerInvariant $current) -cne (Get-LabWorkerInvariant $Original)){throw 'Worker configuration drift; keep disabled.'}
+    $old='//B //Nologo //T:175 C:\ProgramData\GsoClientLab\code\Worker-Quiet.js'
+    $updated='//B //Nologo //T:540 C:\ProgramData\GsoClientLab\code\Worker-Quiet.js'
+    if($current.Actions[0].Execute -ine 'C:\Windows\System32\wscript.exe' -or $current.Actions[0].Arguments -cnotin @($old,$updated)){throw 'Worker action drift; do not overwrite.'}
+    $arguments=$(if($Watchdog -eq 540){$updated}else{$old})
+    $limit=$(if($Watchdog -eq 540){'PT10M'}else{'PT3M'})
+    $current.Actions[0].Arguments=$arguments
+    $current.Settings.ExecutionTimeLimit=$limit
+    $current.Settings.Enabled=$false
+    Set-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\' -Action $current.Actions -Settings $current.Settings|Out-Null
+    $verified=Get-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'
+    if($verified.State -cne 'Disabled' -or $verified.Actions[0].Arguments -cne $arguments -or
+       ([Xml.XmlConvert]::ToTimeSpan($verified.Settings.ExecutionTimeLimit)).TotalSeconds -ne $(if($Watchdog -eq 540){600}else{180}) -or
+       (Get-LabWorkerInvariant $verified) -cne (Get-LabWorkerInvariant $Original)){throw 'Worker task update is uncertain; keep disabled.'}
+}

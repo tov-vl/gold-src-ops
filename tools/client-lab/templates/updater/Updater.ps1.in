@@ -1,0 +1,7 @@
+#requires -Version 5.1
+# Fixed SYSTEM entry point. No uploaded code, installer, path or command is executed.
+. (Join-Path $PSScriptRoot 'Update.Common.ps1')
+. (Join-Path $PSScriptRoot 'Task-Budget.ps1')
+. (Join-Path $PSScriptRoot 'Update.Engine.ps1')
+if([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -cne 'S-1-5-18'){throw 'SYSTEM task required.'}
+Invoke-UpdateTick 'C:\ProgramData\GsoClientLabUpdater' 'C:\ProgramData\GsoClientLab'
