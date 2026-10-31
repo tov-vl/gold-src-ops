@@ -46,6 +46,7 @@ function New-Object([string]$TypeName,[object[]]$ArgumentList){
     }
     $window|Add-Member ScriptMethod MoveControls {$script:calls.Add('move')}
     $window|Add-Member ScriptMethod ReopenRules {$script:calls.Add('alias');if($script:now-$script:clickedAt -lt 5){throw 'Cooldown violated.'}}
+    $window|Add-Member ScriptMethod ReopenPanel {param($Panel);if($Panel -cnotin @('ranks','profile','topall')){throw 'Wrong fixed panel.'};$script:calls.Add('alias');if($script:now-$script:clickedAt -lt 5){throw 'Cooldown violated.'}}
     return $window
 }
 function Add-TestFrame($Result,[string]$Destination){
@@ -65,7 +66,7 @@ function Save-LabOwnedWindowFrame($Window,$Result,[string]$Destination){
     if($script:case -ceq 'capture' -and @($Result.images).Count -eq 1){throw 'Frame capture failed.'}
     Add-TestFrame $Result $Destination
 }
-function Get-LabAutoFrameAssessment($Result,[string]$Destination,[string]$Language){
+function Get-LabAutoFrameAssessment($Result,[string]$Destination,[string]$Language,[string]$Panel='rules'){
     $script:assessed++
     $number=@($Result.images).Count
     if($script:case -ceq 'stale' -and $number -eq 1){$script:now+=121}
@@ -79,9 +80,11 @@ function Get-LabAutoFrameAssessment($Result,[string]$Destination,[string]$Langua
     if($script:case -ceq 'panel-still-open' -and $number -eq 2){$scene=$false;$matches=$true}
     return @{panelMatches=$matches;sceneCandidate=$scene;bodySha256=('A'*64);frameSha256=$Result.images[-1].sha256}
 }
-function Run-Case([string]$Name){
+function Run-Case([string]$Name,[string]$Panel='rules',[string]$Language='en'){
     $script:case=$Name;$script:now=0.0;$script:assessed=0;$script:nativeReads=0;$script:calls.Clear()
-    $job=[pscustomobject]@{id=[guid]::NewGuid().ToString('D');action='verify-rules';language='en';createdUtc=[DateTime]::UtcNow.ToString('o')}
+    $job=[pscustomobject]@{id=[guid]::NewGuid().ToString('D');action='verify-rules';language=$Language;createdUtc=[DateTime]::UtcNow.ToString('o')}
+    if($Panel -cne 'rules'){$job.action='verify-panel';$job|Add-Member NoteProperty panel $Panel}
+    Assert-LabRunnerJob $job
     $script:jobId=$job.id
     $directory=Join-Path $sandbox $job.id
     New-Item -ItemType Directory -Path $directory|Out-Null
@@ -93,6 +96,19 @@ function Run-Case([string]$Name){
     return @{result=$result;failed=$failed;calls=@($script:calls.ToArray());seconds=$script:now;directory=$directory}
 }
 $count=0
+foreach($panel in @('ranks','profile','topall')){
+    foreach($language in @('ru','en')){
+        $case=Run-Case 'success' $panel $language
+        if($case.failed -or $case.result.panel -cne $panel -or $case.result.language -cne $language -or $case.result.status -cne 'autonomous_captured_unreviewed' -or
+            $case.result.interaction.profile -cne ('motd-v299-'+$panel+'-1920x1200-v1') -or
+            (@($case.calls|Where-Object {$_ -cin @('click','move','alias')}) -join ',') -cne 'click,move,alias,click,move' -or
+            $case.result.acceptancePassed){throw 'Fixed panel workflow escaped its boundary.'}
+        $count++
+    }
+    $case=Run-Case 'wrong-alias-panel' $panel
+    if(-not $case.failed -or @($case.result.interaction.actions).Count -ne 3 -or @($case.calls|Where-Object {$_ -ceq 'click'}).Count -ne 1){throw 'Unrecognized reopened panel received another click.'}
+    $count++
+}
 foreach($name in @('success','activated','slow-chat')){
     $case=Run-Case $name
     if($case.failed -or $case.result.status -cne 'autonomous_captured_unreviewed' -or @($case.result.images).Count -ne 5 -or @($case.result.interaction.actions).Count -ne 4 -or @($case.result.interaction.assessments).Count -ne 5){throw 'Autonomous success evidence differs.'}

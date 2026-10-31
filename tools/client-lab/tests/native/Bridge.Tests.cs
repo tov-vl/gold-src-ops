@@ -159,6 +159,20 @@ namespace GsoLab.Checks
             Require(port.Messages.Count == 10 && port.Messages[0].Word == 0x55 && port.Messages[8].Word == 13, "Fixed team-chat alias route.");
             var text = new string(port.Messages.Where(message => message.Id == 0x102).Select(message => (char)message.Word).ToArray());
             Require(string.Equals(text, "/rules", StringComparison.Ordinal), "No arbitrary text.");
+            foreach (var panel in new[] { "ranks", "profile", "topall" })
+            {
+                port = new FakeWindowPort(); window = new GameWindow(port); window.ReopenPanel(panel);
+                text = new string(port.Messages.Where(message => message.Id == 0x102).Select(message => (char)message.Word).ToArray());
+                Require(string.Equals(text, "/" + panel, StringComparison.Ordinal), "Only the selected fixed alias.");
+            }
+            foreach (var panel in new[] { "", "RANKS", "guns", "rules;quit", "profile\nquit", null })
+            {
+                port = new FakeWindowPort(); window = new GameWindow(port);
+                var refused = false;
+                try { window.ReopenPanel(panel); }
+                catch (ArgumentException) { refused = true; }
+                Require(refused && port.Messages.Count == 0, "Unknown aliases must fail before any input.");
+            }
 
             port = new FakeWindowPort(); window = new GameWindow(port); window.Snapshot();
             Require(port.Messages.Count == 2 && port.Messages[0].Word == 0x74 && port.Messages[1].Id == 0x101, "Only native F5 capture.");

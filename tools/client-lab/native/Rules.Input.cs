@@ -302,9 +302,19 @@ namespace GsoLab.Interaction
 
         public void ReopenRules()
         {
+            ReopenPanel("rules");
+        }
+
+        public void ReopenPanel(string panel)
+        {
+            if (!string.Equals(panel, "rules", StringComparison.Ordinal) &&
+                !string.Equals(panel, "ranks", StringComparison.Ordinal) &&
+                !string.Equals(panel, "profile", StringComparison.Ordinal) &&
+                !string.Equals(panel, "topall", StringComparison.Ordinal))
+            { throw new ArgumentException("Fixed panel required.", "panel"); }
             Key(0x55, 0x16, 40); // U / messagemode2.
             _port.Delay(180);
-            foreach (var value in "/rules")
+            foreach (var value in "/" + panel)
             {
                 Post(0x0102, new IntPtr(value), new IntPtr(1));
                 _port.Delay(25);
@@ -532,6 +542,11 @@ namespace GsoLab.Interaction
     {
         public static FrameObservation Analyze(byte[] bytes, string language)
         {
+            return AnalyzePanel(bytes, "rules", language);
+        }
+
+        public static FrameObservation AnalyzePanel(byte[] bytes, string panel, string language)
+        {
             if (bytes == null || bytes.Length < 54 || bytes.Length > 16 * 1024 * 1024)
             { throw new ArgumentException("Bounded frame required.", "bytes"); }
             if (!string.Equals(language, "ru", StringComparison.Ordinal) && !string.Equals(language, "en", StringComparison.Ordinal))
@@ -557,9 +572,7 @@ namespace GsoLab.Interaction
                 string hash;
                 using (var algorithm = SHA256.Create())
                 { hash = ToHex(algorithm.ComputeHash(body)); }
-                var expected = string.Equals(language, "en", StringComparison.Ordinal) ?
-                    "98ABF91AC6295CF2ECFAA9E4313D740D025C4F9B733732502E8476BDA431AC27" :
-                    "7FBB711203E96B30136755219814B369E2BC7E521BCED8E67E8006F67DA5F505";
+                var expected = ExpectedBody(panel, language);
                 var buttonInk = 0;
                 for (var y = 925; y < 947; y++)
                 {
@@ -585,6 +598,31 @@ namespace GsoLab.Interaction
                     // Absence and scene variation are prerequisites, not proof of control or acceptance.
                     SceneCandidate = background < 7200 && colors.Count > 32
                 };
+            }
+        }
+
+        private static string ExpectedBody(string panel, string language)
+        {
+            switch (panel)
+            {
+                case "rules":
+                    return string.Equals(language, "en", StringComparison.Ordinal) ?
+                        "98ABF91AC6295CF2ECFAA9E4313D740D025C4F9B733732502E8476BDA431AC27" :
+                        "7FBB711203E96B30136755219814B369E2BC7E521BCED8E67E8006F67DA5F505";
+                case "ranks":
+                    return string.Equals(language, "en", StringComparison.Ordinal) ?
+                        "FD12421105BBE5FE38E4C5A3B1E218129FDE453DE5F037DAACEBF4A11C7D7DD0" :
+                        "671EEE8068DB22686A7CB78219EC7ED62EA8C3BEF797BEF7948D636BB1DDAA98";
+                case "profile":
+                    return string.Equals(language, "en", StringComparison.Ordinal) ?
+                        "787DE4A1C1C3EC8A337B76193917F253FB2FDE26CEDAE8C3612C255C6FF6FC07" :
+                        "DAC7E72E928BA219A04F69221D02FCE5445F4211CFA4C63889C815246828925B";
+                case "topall":
+                    return string.Equals(language, "en", StringComparison.Ordinal) ?
+                        "6095B3D59FB2C79C7F38A4D1BBC03FCCD57939E95852B3C0B03E9FFC2002E885" :
+                        "C830ECFB036297BE9D5D4F9CFED6EF8F6DDB475C057C9D0B271247715E3BF5A1";
+                default:
+                    throw new ArgumentException("Fixed panel required.", "panel");
             }
         }
 

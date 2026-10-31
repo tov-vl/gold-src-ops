@@ -160,8 +160,8 @@ function Assert-LabDesktopRequest([string]$Root,$Policy,[string]$Id) {
         (Get-Process -Id $PID).SessionId -ne $Policy.gameSessionId){throw 'Desktop launch identity differs.'}
     $paths=Get-LabPaths $Root $Id
     $job=Read-LabJson $paths.request
-    Assert-LabJob $job
-    if($job.id -cne $Id -or $job.action -cne 'verify-rules' -or -not (Get-LabAutonomousMode $Root $job)){throw 'Desktop launch requires an autonomous rules job.'}
+    Assert-LabRunnerJob $job
+    if($job.id -cne $Id -or $job.action -cnotin @('verify-rules','verify-panel') -or -not (Get-LabAutonomousMode $Root $job)){throw 'Desktop launch requires a fixed autonomous panel job.'}
     $result=Read-LabJson (Join-Path $paths.result 'result.json')
     if($result.id -cne $Id -or $result.status -cne 'launch_claimed' -or -not $result.launchRequested){throw 'Desktop launch claim differs.'}
     $configName='gso_lan_'+([guid]$Id).ToString('N')+'.cfg'
@@ -169,10 +169,10 @@ function Assert-LabDesktopRequest([string]$Root,$Policy,[string]$Id) {
     foreach($path in @($Policy.gameRoot,(Join-Path $Policy.gameRoot 'cstrike'),$configPath)) {
         if((Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked desktop launch input.'}
     }
-    if((Get-Item -LiteralPath $configPath).Length -gt 32KB -or [IO.File]::ReadAllText($configPath) -cne (New-LabInteractionProgram $job)){throw 'Desktop launch program differs.'}
+    if((Get-Item -LiteralPath $configPath).Length -gt 32KB -or [IO.File]::ReadAllText($configPath) -cne (New-LabRunnerInteractionProgram $job)){throw 'Desktop launch program differs.'}
     Assert-LabInteractionBindings $Policy.gameRoot
     if(-not (Get-LabClientReadiness (Get-LabClientObservation $Policy)).ready){throw 'Desktop launch prerequisites differ.'}
-    return @{job=$job;directory=$paths.result;arguments=(Get-LabLaunchArguments $job $configName)}
+    return @{job=$job;directory=$paths.result;arguments=(Get-LabRunnerLaunchArguments $job $configName)}
 }
 
 function Invoke-LabDesktopChild([string]$Root,$Policy,[string]$Id) {
