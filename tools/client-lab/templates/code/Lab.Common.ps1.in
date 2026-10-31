@@ -1,0 +1,288 @@
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Read-LabJson([string]$Path, [long]$Limit = 65536) {
+    $item = Get-Item -LiteralPath $Path
+    if ($item.Length -gt $Limit -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Invalid metadata file.' }
+    return ([IO.File]::ReadAllText($item.FullName) | ConvertFrom-Json)
+}
+
+function Write-LabJson([string]$Path, $Value) {
+    $temporary = $Path + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
+    [IO.File]::WriteAllText($temporary, ($Value | ConvertTo-Json -Depth 8), (New-Object Text.UTF8Encoding($false)))
+    if (Test-Path -LiteralPath $Path) { [IO.File]::Replace($temporary, $Path, [System.Management.Automation.Language.NullString]::Value) }
+    else { [IO.File]::Move($temporary, $Path) }
+}
+
+function Assert-LabId([string]$Id) {
+    if ($Id -cnotmatch '\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z' -or [guid]$Id -eq [guid]::Empty) { throw 'Invalid job id.' }
+}
+
+function ConvertTo-LabUtc($Value) {
+    if ($Value -is [DateTime]) { return $Value.ToUniversalTime() }
+    if ($Value -isnot [string]) { throw 'Invalid UTC timestamp.' }
+    return [DateTime]::Parse($Value, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime()
+}
+
+function Test-LabManualLease($Policy) {
+    if (-not $Policy.PSObject.Properties['leaseMode'] -or $Policy.leaseMode -cne 'manual') { return $false }
+    if ($null -ne $Policy.expiresUtc -or $Policy.targetName -cne '{{TARGET_NAME}}' -or $Policy.targetAddress -cne '{{TARGET_IPV4}}' -or
+        $Policy.sourceAddress -cne '{{SOURCE_IPV4}}' -or $Policy.port -ne 2222) { throw 'Manual access scope differs.' }
+    Assert-LabId $Policy.sessionId
+    return $true
+}
+
+function Assert-LabLease($Policy, [string]$ControlPath = 'C:\ProgramData\GsoClientLab\policy.json') {
+    if ($env:COMPUTERNAME -ine $Policy.targetName) { throw 'Target mismatch.' }
+    if (Test-LabManualLease $Policy) {
+        # A running worker must observe explicit revocation, even with a cached no-expiry policy.
+        $current=Read-LabJson $ControlPath
+        if (-not (Test-LabManualLease $current) -or $current.sessionId -cne $Policy.sessionId) { throw 'Manual access was revoked or replaced.' }
+        return
+    }
+    if ([DateTime]::UtcNow -ge (ConvertTo-LabUtc $Policy.expiresUtc)) {
+        throw 'Target mismatch or expired lease.'
+    }
+}
+
+function ConvertFrom-LabCommand([string]$Command) {
+    if ($Command -ceq 'status') { return @{ operation = 'status' } }
+    $panel = [regex]::Match($Command, '\Acapture ([0-9a-f-]{36}) (ranks|profile|topall|rules|primary|pistol) (ru|en)\z')
+    if ($panel.Success) {
+        Assert-LabId $panel.Groups[1].Value
+        return @{ operation = 'capture'; id = $panel.Groups[1].Value; panel = $panel.Groups[2].Value; language = $panel.Groups[3].Value }
+    }
+    $verify=[regex]::Match($Command,'\Averify-rules ([0-9a-f-]{36}) (ru|en)\z')
+    if($verify.Success){Assert-LabId $verify.Groups[1].Value;return @{operation='verify-rules';id=$verify.Groups[1].Value;language=$verify.Groups[2].Value}}
+    $step=[regex]::Match($Command,'\Astep ([0-9a-f-]{36}) (ok-first|controls|reopen|ok-last) ([0-9A-F]{64})\z')
+    if($step.Success){Assert-LabId $step.Groups[1].Value;return @{operation='step';id=$step.Groups[1].Value;phase=$step.Groups[2].Value;frameSha256=$step.Groups[3].Value}}
+    $match = [regex]::Match($Command, '\A(run|result|image|cancel) ([0-9a-f-]{36})(?: ([1-5]))?\z')
+    if (-not $match.Success) { throw 'Unsupported request.' }
+    $operation = $match.Groups[1].Value
+    $id = $match.Groups[2].Value
+    Assert-LabId $id
+    $imageNumber = $match.Groups[3].Value
+    if (($operation -eq 'image') -ne ($imageNumber -in @('1', '2', '3', '4', '5'))) { throw 'Invalid image selection.' }
+    return @{ operation = $operation; id = $id; image = $imageNumber }
+}
+
+function Assert-LabPanelPolicy($Policy) {
+    # A deliberate installation decision is required; the old smoke lease alone is insufficient.
+    if (-not $Policy.PSObject.Properties['panelsEnabled'] -or $Policy.panelsEnabled -isnot [bool] -or -not $Policy.panelsEnabled) {
+        throw 'Panel access is not installed.'
+    }
+    if ($Policy.serverAddress -cne '{{SOURCE_IPV4}}' -or $Policy.serverPort -ne 27025 -or
+        $Policy.serverName -cne '{{FIXTURE_NAME}}' -or $Policy.serverMap -cne 'de_dust2') { throw 'Unrecognized test fixture.' }
+}
+
+function Assert-LabJob($Job) {
+    Assert-LabId $Job.id
+    $names = @($Job.PSObject.Properties.Name | Sort-Object)
+    if ($Job.action -ceq 'launch-local-smoke') {
+        if (($names -join ',') -cne 'action,createdUtc,id') { throw 'Invalid smoke record.' }
+    } elseif ($Job.action -ceq 'capture-panel') {
+        if (($names -join ',') -cne 'action,createdUtc,id,language,panel' -or $Job.panel -isnot [string] -or
+            $Job.panel -cnotin @('ranks','profile','topall','rules','primary','pistol') -or
+            $Job.language -isnot [string] -or $Job.language -cnotin @('ru','en')) { throw 'Invalid panel record.' }
+    } elseif($Job.action -ceq 'verify-rules') {
+        if(($names -join ',') -cne 'action,createdUtc,id,language' -or $Job.language -isnot [string] -or $Job.language -cnotin @('ru','en')){throw 'Invalid interaction record.'}
+    } else { throw 'Unsupported job.' }
+    $created = ConvertTo-LabUtc $Job.createdUtc
+    if ($created -gt [DateTime]::UtcNow.AddSeconds(10) -or $created -lt [DateTime]::UtcNow.AddMinutes(-3)) { throw 'Stale or future request.' }
+}
+
+function New-LabPanelProgram($Job) {
+    Assert-LabJob $Job
+    if ($Job.action -cne 'capture-panel') { throw 'Panel job required.' }
+    # Timing is only a capture opportunity. Both frames still need semantic review.
+    # No persisted client cvar is changed. Frame timing is not an engine acknowledgement.
+    $lines = (@('wait') * 600) + @('jointeam 1') + (@('wait') * 120) + @('joinclass 1') + (@('wait') * 600)
+    # Initial team/class VGUI is suppressed only by the isolated fixture helper.
+    # Select AMXX menu items explicitly; slot commands did not change the language in the real client.
+    $lines += @('menuselect 10') + (@('wait') * 120) + @('settings') + (@('wait') * 120) + @('menuselect 2') + (@('wait') * 120)
+    $lines += $(if ($Job.language -ceq 'ru') { 'menuselect 1' } else { 'menuselect 2' })
+    $lines += (@('wait') * 120) + @('menuselect 10') + (@('wait') * 120) + @('settings')
+    $lines += (@('wait') * 120) + @('snapshot','menuselect 5') + (@('wait') * 120)
+    switch ($Job.panel) {
+        'primary' { $lines += 'guns' }
+        'pistol' { $lines += @('guns') + (@('wait') * 120) + @('menuselect 1') }
+        default { $lines += $Job.panel }
+    }
+    $lines += (@('wait') * 180) + @('snapshot')
+    return ($lines -join "`r`n") + "`r`n"
+}
+
+function New-LabInteractionProgram($Job) {
+    Assert-LabJob $Job
+    if($Job.action -cne 'verify-rules'){throw 'Interaction job required.'}
+    $capture=[pscustomobject]@{id=$Job.id;createdUtc=$Job.createdUtc;action='capture-panel';panel='rules';language=$Job.language}
+    $lines=@((New-LabPanelProgram $capture) -split "`r`n")
+    $first=[Array]::IndexOf($lines,'snapshot')
+    if($first -lt 0){throw 'Initial panel program differs.'}
+    $lines[$first]='wait'
+    return ($lines -join "`r`n")
+}
+
+function Get-LabImageLimit($Job) {
+    if($Job.action -ceq 'verify-rules'){return 5}
+    return 2
+}
+
+function Get-LabCaptureLabels($Job) {
+    if($Job.action -ceq 'verify-rules'){return @('rules-first','after-first-ok','after-controls','rules-alias','after-last-ok')}
+    if ($Job.action -ceq 'capture-panel') { return @(('settings-' + $Job.language), ($Job.panel + '-' + $Job.language)) }
+    return @('scene','scene')
+}
+
+function Get-LabLaunchArguments($Job, [string]$ConfigName) {
+    if ($ConfigName -cnotmatch '\Agso_lan_[0-9a-f]{32}\.cfg\z') { throw 'Invalid generated config name.' }
+    if ($Job.action -cin @('capture-panel','verify-rules')) { return ('-applaunch 10 -gl -windowed -w 1920 -h 1200 +connect {{SOURCE_IPV4}}:27025 +exec ' + $ConfigName) }
+    if ($Job.action -cne 'launch-local-smoke') { throw 'Unsupported launch action.' }
+    return ('-applaunch 10 -gl -windowed -w 1280 -h 800 +map cs_backalley +exec ' + $ConfigName)
+}
+
+function Remove-LabOwnedConfig([string]$GameRoot, [string]$Id, [string]$Program) {
+    Assert-LabId $Id
+    $length = [Text.Encoding]::ASCII.GetByteCount($Program)
+    if ($length -eq 0 -or $length -gt 32KB) { return $false }
+    $path = Join-Path $GameRoot ('cstrike\gso_lan_' + ([guid]$Id).ToString('N') + '.cfg')
+    if (-not (Test-Path -LiteralPath $path)) { return $true }
+    foreach ($entry in @($GameRoot,(Join-Path $GameRoot 'cstrike'),$path)) {
+        if ((Get-Item -LiteralPath $entry).Attributes -band [IO.FileAttributes]::ReparsePoint) { return $false }
+    }
+    $item=Get-Item -LiteralPath $path
+    if ($item.Length -ne $length -or [IO.File]::ReadAllText($path) -cne $Program) { return $false }
+    Remove-Item -LiteralPath $path
+    return -not (Test-Path -LiteralPath $path)
+}
+
+function Read-LabBitmapInfo([IO.Stream]$Stream, [int]$ExpectedWidth, [int]$ExpectedHeight) {
+    if ($Stream.Length -lt 54 -or $Stream.Length -gt 16MB) { throw 'Invalid bitmap length.' }
+    $Stream.Position = 0
+    $header = New-Object byte[] 54
+    if ($Stream.Read($header,0,54) -ne 54 -or $header[0] -ne 66 -or $header[1] -ne 77) { throw 'Invalid BMP header.' }
+    $length = [BitConverter]::ToUInt32($header,2)
+    $offset = [BitConverter]::ToUInt32($header,10)
+    $width = [BitConverter]::ToInt32($header,18)
+    $signedHeight = [BitConverter]::ToInt32($header,22)
+    $bits = [BitConverter]::ToUInt16($header,28)
+    if ($length -ne $Stream.Length -or [BitConverter]::ToUInt32($header,14) -ne 40 -or $offset -lt 54 -or $offset -gt 4096 -or
+        $width -ne $ExpectedWidth -or $signedHeight -notin @($ExpectedHeight,(-$ExpectedHeight)) -or $bits -notin @(24,32) -or
+        [BitConverter]::ToUInt16($header,26) -ne 1 -or [BitConverter]::ToUInt32($header,30) -ne 0) { throw 'Bitmap dimensions or encoding differ.' }
+    $rowBytes = [long]([Math]::Floor(($width * $bits + 31) / 32)) * 4
+    if ($offset + $rowBytes * $ExpectedHeight -ne $Stream.Length) { throw 'Incomplete BMP pixels.' }
+    $Stream.Position = 0
+    return @{width=$width;height=$ExpectedHeight;bits=$bits;bytes=$length}
+}
+
+function Read-LabInfoString([byte[]]$Bytes, [ref]$Position) {
+    $start = [int]$Position.Value
+    while ($Position.Value -lt $Bytes.Length -and $Bytes[$Position.Value] -ne 0) { $Position.Value++ }
+    if ($Position.Value -ge $Bytes.Length -or $Position.Value - $start -gt 256) { throw 'Invalid A2S string.' }
+    $text = (New-Object Text.UTF8Encoding($false, $true)).GetString($Bytes, $start, ($Position.Value - $start))
+    $Position.Value++
+    return $text
+}
+
+function ConvertFrom-LabInfo([byte[]]$Bytes) {
+    if ($Bytes.Length -lt 20 -or $Bytes.Length -gt 1400 -or [BitConverter]::ToInt32($Bytes,0) -ne -1 -or $Bytes[4] -ne 0x49) {
+        throw 'Unsupported or split A2S response.'
+    }
+    $position = 6
+    $name = Read-LabInfoString $Bytes ([ref]$position)
+    $map = Read-LabInfoString $Bytes ([ref]$position)
+    $folder = Read-LabInfoString $Bytes ([ref]$position)
+    $description = Read-LabInfoString $Bytes ([ref]$position)
+    if ($position + 9 -gt $Bytes.Length) { throw 'Truncated A2S fields.' }
+    $app = [BitConverter]::ToUInt16($Bytes,$position)
+    $position += 2
+    $players = $Bytes[$position]; $maximum = $Bytes[$position+1]; $bots = $Bytes[$position+2]
+    $position += 7
+    $version = Read-LabInfoString $Bytes ([ref]$position)
+    return @{ name=$name; map=$map; folder=$folder; app=$app; players=$players; maximum=$maximum; bots=$bots; version=$version }
+}
+
+function Get-LabFixtureReady($Policy) {
+    Assert-LabPanelPolicy $Policy
+    $local = New-Object Net.IPEndPoint([Net.IPAddress]::Parse('{{TARGET_IPV4}}'),0)
+    $udp = New-Object Net.Sockets.UdpClient($local)
+    try {
+        $udp.Client.ReceiveTimeout = 2000
+        $udp.Client.SendTimeout = 2000
+        $udp.Connect([Net.IPAddress]::Parse('{{SOURCE_IPV4}}'),27025)
+        [byte[]]$query = @(255,255,255,255,84) + [Text.Encoding]::ASCII.GetBytes("Source Engine Query`0")
+        $remote = New-Object Net.IPEndPoint([Net.IPAddress]::Any,0)
+        $udp.Send($query,$query.Length) | Out-Null
+        [byte[]]$reply = $udp.Receive([ref]$remote)
+        if ($reply.Length -eq 9 -and [BitConverter]::ToInt32($reply,0) -eq -1 -and $reply[4] -eq 0x41) {
+            [byte[]]$challenged = $query + $reply[5..8]
+            $udp.Send($challenged,$challenged.Length) | Out-Null
+            $reply = $udp.Receive([ref]$remote)
+        }
+        $info = ConvertFrom-LabInfo $reply
+        if ($info.name -cne $Policy.serverName -or $info.map -cne $Policy.serverMap -or $info.folder -cne 'cstrike' -or
+            $info.app -ne 10 -or $info.bots -ne 0 -or $info.players -ne 0) { throw 'Test fixture identity or occupancy differs.' }
+        # This is server identity/readiness only, not proof of addon hash, client entry or panel language.
+        return @{ queriedUtc=[DateTime]::UtcNow.ToString('o'); name=$info.name; map=$info.map; players=$info.players; app=$info.app }
+    } finally { $udp.Close() }
+}
+
+function Get-LabPaths([string]$Root, [string]$Id) {
+    Assert-LabId $Id
+    $oldArchive=Join-Path $Root ('before-revision-06\requests\'+$Id+'.json')
+    $newArchive=Join-Path $Root ('before-revision-10\requests\'+$Id+'.json')
+    if((Test-Path -LiteralPath $oldArchive) -and (Test-Path -LiteralPath $newArchive)){throw 'Ambiguous archived request identity.'}
+    $archive=$(if(Test-Path -LiteralPath $newArchive){$newArchive}else{$oldArchive})
+    return @{
+        request = Join-Path $Root ('queue\' + $Id + '.json')
+        archivedRequest = $archive
+        cancel = Join-Path $Root ('queue\' + $Id + '.cancel')
+        result = Join-Path $Root ('results\' + $Id)
+    }
+}
+
+function Assert-LabCode([string]$Root) {
+    $manifest = Read-LabJson (Join-Path $Root 'code-hashes.json')
+    $required = @('Lab.Common.ps1', 'Broker.ps1', 'Worker.ps1', 'Expire.ps1', 'Uninstall.ps1', 'Worker-Quiet.js', 'Diagnostics.ps1', 'Interaction.ps1', 'Rules.Input.cs')
+    if (@($manifest.files).Count -ne $required.Count -or @($manifest.files.name | Select-Object -Unique).Count -ne $required.Count) { throw 'Incomplete code manifest.' }
+    foreach ($entry in $manifest.files) {
+        if ($entry.name -cnotin $required) { throw 'Unexpected code manifest entry.' }
+        $file = Join-Path $Root ('code\' + $entry.name)
+        if ((Get-Item -LiteralPath $file).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Linked code file.' }
+        if ((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -cne $entry.sha256) { throw 'Installed code changed.' }
+    }
+}
+
+function Get-LabSnapshots([string]$GameRoot) {
+    foreach ($directory in @($GameRoot, (Join-Path $GameRoot 'cstrike'))) {
+        $count = 0
+        foreach ($file in [IO.Directory]::EnumerateFiles($directory)) {
+            if (++$count -gt 4096) { throw 'Too many game files.' }
+            if ([IO.Path]::GetExtension($file) -notin @('.bmp', '.tga')) { continue }
+            $item = Get-Item -LiteralPath $file
+            if (-not ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { $item }
+        }
+    }
+}
+
+function Get-LabProcess($Policy, [int]$ProcessId = 0) {
+    $processes = @(Get-Process -Name hl -ErrorAction SilentlyContinue)
+    foreach ($process in $processes) {
+        if ($ProcessId -ne 0 -and $process.Id -ne $ProcessId) { continue }
+        if ($process.Path -ieq (Join-Path $Policy.gameRoot 'hl.exe')) { $process }
+    }
+}
+
+function Stop-LabOwnedGame($Policy, $Result) {
+    if (-not $Result.gamePid -or -not $Result.gameStartedUtc) { return }
+    foreach ($process in @(Get-LabProcess $Policy ([int]$Result.gamePid))) {
+        if ($process.SessionId -eq $Policy.gameSessionId -and $process.StartTime.ToUniversalTime().ToString('o') -ceq $Result.gameStartedUtc) {
+            if ($process.CloseMainWindow() -and $process.WaitForExit(5000)) { continue }
+            # Recheck identity after the graceful-close wait; a PID can be reused.
+            $current = @(Get-LabProcess $Policy ([int]$Result.gamePid))
+            if ($current.Count -ne 1 -or $current[0].SessionId -ne $Policy.gameSessionId -or
+                $current[0].StartTime.ToUniversalTime().ToString('o') -cne $Result.gameStartedUtc) { continue }
+            Stop-Process -Id $process.Id -ErrorAction Stop
+        }
+    }
+}

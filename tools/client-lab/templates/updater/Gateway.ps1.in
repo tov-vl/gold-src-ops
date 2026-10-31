@@ -1,0 +1,58 @@
+#requires -Version 5.1
+. (Join-Path $PSScriptRoot 'Update.Common.ps1')
+. (Join-Path $PSScriptRoot 'Gateway.Input.ps1')
+$root='C:\ProgramData\GsoClientLabUpdater'
+$lab='C:\ProgramData\GsoClientLab'
+$phase='identity'
+try{
+    $config=Read-UpdateJson $root (Join-Path $PSScriptRoot 'config.json')
+    if($env:COMPUTERNAME -cne $config.target -or [Security.Principal.WindowsIdentity]::GetCurrent().User.Value -cne $config.transportSid){throw 'Gateway identity differs.'}
+    $command=$env:SSH_ORIGINAL_COMMAND
+    $match=[regex]::Match($command,'\Aupdate-(status|stage) ([0-9a-f-]{36})(?: ([1-9][0-9]{0,6}))?\z')
+    if($command -ceq 'update-status'){
+        $state=Read-UpdateJson $root (Join-Path $root 'public\state.json')
+        $ready=$false
+        $verifier=$null
+        try{$verifier=New-UpdateVerifier;$verifier.FromXmlString($config.publicKeyXml);$ready=($verifier.PublicOnly -and $verifier.KeySize -eq 3072)}catch{ }finally{if($verifier){$verifier.Dispose()}}
+        $state|Add-Member -NotePropertyName uploadProtocol -NotePropertyValue 'length-ascii-v1'
+        $state|Add-Member -NotePropertyName cryptoVerifierReady -NotePropertyValue $ready
+        $state|ConvertTo-Json -Depth 6 -Compress
+        exit 0
+    }
+    if($match.Success){
+        $id=$match.Groups[2].Value
+        Assert-UpdateId $id
+        $result=Join-Path $root ('public\'+$id+'.json')
+        if($match.Groups[1].Value -ceq 'status'){
+            if($match.Groups[3].Success){throw 'Result reads do not accept a length.'}
+            if(Test-Path -LiteralPath $result){Read-UpdateJson $root $result|ConvertTo-Json -Depth 6 -Compress}else{@{id=$id;status='not_reported'}|ConvertTo-Json -Compress}
+            exit 0
+        }
+        if(-not $match.Groups[3].Success){throw 'Explicit upload length required.'}
+        $phase='preflight'
+        $state=Read-UpdateJson $root (Join-Path $root 'public\state.json')
+        if(-not $state.enabled -or $state.blocked -or (Test-Path -LiteralPath $result)){throw 'Updater disabled, blocked or identity used.'}
+        $inbox=Join-Path $root 'inbox'
+        if(@(Get-ChildItem -LiteralPath $inbox -Force).Count -ge 16){throw 'Update inbox limit reached.'}
+        $phase='input'
+        $bytes=Read-GatewayPackage ([Console]::In) ([int]$match.Groups[3].Value)
+        $phase='signature-and-manifest'
+        $package=Test-UpdateEnvelope $bytes $config $state
+        if($package.manifest.id -cne $id){throw 'Upload identity differs.'}
+        $phase='store'
+        $path=Join-Path $inbox ($id+'.json')
+        Assert-UpdatePath $root $inbox
+        # A claim is permanent. A partial upload is never overwritten or retried.
+        $stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+        @{id=$id;status='staged';sha256=$package.sha256}|ConvertTo-Json -Compress
+        exit 0
+    }
+    if($command.StartsWith('update-',[StringComparison]::Ordinal)){throw 'Unsupported updater operation.'}
+    if((Test-Path -LiteralPath (Join-Path $lab 'maintenance-revision-06.json')) -and $command -cnotmatch '\A(?:status|(?:result|image) [0-9a-f-]{36}(?: [1-5])?)\z'){throw 'Maintenance in progress.'}
+    & (Join-Path $lab 'code\Broker.ps1')
+    exit $LASTEXITCODE
+}catch{
+    @{status='rejected';phase=$phase;errorType=$_.Exception.GetType().FullName;hresult=$_.Exception.HResult;detail='Gateway rejected the request; reconcile using update-status.'}|ConvertTo-Json -Compress
+    exit 1
+}

@@ -1,0 +1,355 @@
+"""Prepare and run a fresh loopback-only HLDS fixture; never download game files."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import signal
+import socket
+import stat
+import subprocess
+import time
+
+
+HOST = '127.0.0.1'
+PORT = 27025
+MAX_FILES = 10000
+MAX_BYTES = 2 * 1024 ** 3
+MAX_LOG_BYTES = 16 * 1024 ** 2
+PLUGIN = 'cstrike/addons/amxmodx/plugins/goldsrcops_weapon_selection.amxx'
+DICTIONARY = 'cstrike/addons/amxmodx/data/lang/goldsrcops-player-menu.txt'
+REQUIRED = (
+    'hlds_linux', 'engine_i486.so', 'filesystem_stdio.so', 'steamclient.so',
+    'cstrike/dlls/cs.so',
+    'cstrike/addons/metamod/metamod_i386.so',
+    'cstrike/addons/amxmodx/dlls/amxmodx_mm_i386.so',
+    'cstrike/addons/amxmodx/modules/reapi_amxx_i386.so',
+    'cstrike/addons/amxmodx/modules/nvault_amxx_i386.so',
+    'cstrike/maps/de_dust2.bsp',
+    'cstrike/addons/amxmodx/data/gamedata/common.games/master.games.txt',
+    'cstrike/addons/amxmodx/data/gamedata/modules.games/master.games.txt',
+)
+ASSET_DIRS = ('maps', 'models', 'sound', 'sprites', 'gfx', 'resource', 'events', 'overviews')
+ASSET_SUFFIXES = {'.bsp', '.wad', '.mdl', '.spr', '.wav', '.mp3', '.tga', '.bmp', '.pcx', '.pak', '.sc', '.lst'}
+CONFIGS = {
+    # ReHLDS loads valve.rc at startup; stuffcmds executes the fixed +map arguments.
+    'cstrike/valve.rc': 'stuffcmds\n',
+    'cstrike/game_init.cfg': '',
+    'cstrike/liblist.gam': 'game "Counter-Strike"\nurl_info ""\nversion "1.6"\nsize "184000000"\nsvonly "0"\nsecure "0"\ntype "multiplayer_only"\ncldll "1"\nhlversion "1111"\nnomodels "1"\nmpentity "info_player_start"\ngamedll_linux "addons/metamod/metamod_i386.so"\ntrainmap "tr_1"\n',
+    'valve/liblist.gam': 'game "Half-Life"\nversion "1.1.1.1"\ncldll "1"\ntype "multiplayer_only"\ngamedll_linux "dlls/hl.so"\n',
+    'cstrike/addons/metamod/plugins.ini': 'linux addons/amxmodx/dlls/amxmodx_mm_i386.so\n',
+    'cstrike/addons/amxmodx/configs/modules.ini': 'reapi\nnvault\n',
+    'cstrike/addons/amxmodx/configs/core.ini': ('amxx_logs addons/amxmodx/logs\namxx_configsdir addons/amxmodx/configs\n'
+        'amxx_datadir addons/amxmodx/data\namxx_modules addons/amxmodx/configs/modules.ini\n'
+        'amxx_plugins addons/amxmodx/configs/plugins.ini\namxx_pluginsdir addons/amxmodx/plugins\n'
+        'amxx_modulesdir addons/amxmodx/modules\namxx_vault addons/amxmodx/data/vault.ini\n'
+        'amxx_logging 1\nbin_logging 0\noptimizer 7\n'),
+    'cstrike/addons/amxmodx/configs/amxx.cfg': '',
+    'cstrike/addons/amxmodx/configs/plugins.ini': 'goldsrcops_weapon_selection.amxx\n',
+    'cstrike/addons/amxmodx/configs/plugins/goldsrcops-weapon-selection.cfg': 'goldsrcops_weapons_enabled "1"\n',
+    'cstrike/server.cfg': 'hostname "Isolated client acceptance"\nsv_lan 1\nsv_password ""\nrcon_password ""\nsv_allowdownload 0\nsv_allowupload 0\nsv_downloadurl ""\nmp_freezetime 0\nmp_startmoney 0\nmp_autokick 0\nmp_autoteambalance 0\nmp_limitteams 0\nmp_round_infinite 1\nmp_roundtime 9\nmp_timelimit 0\nsv_logecho 1\nlog on\n',
+    'cstrike/motd.txt': '',
+    'cstrike/mapcycle.txt': 'de_dust2\n',
+}
+
+
+class Refusal(RuntimeError):
+    """A bounded local precondition failed."""
+
+
+def require(condition, message):
+    if not condition:
+        raise Refusal(message)
+
+
+def regular(path):
+    path = Path(path).absolute()
+    require(not any(p.is_symlink() for p in (path, *path.parents)), 'Symlink input refused')
+    require(path.is_file() and stat.S_ISREG(path.stat().st_mode), 'Required regular file missing')
+    return path
+
+
+def digest(path):
+    value = hashlib.sha256()
+    with regular(path).open('rb') as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b''):
+            value.update(chunk)
+    return value.hexdigest()
+
+
+def verified_input(path, expected, limit):
+    require(re.fullmatch('[0-9a-f]{64}', expected or '') is not None, 'Explicit lowercase SHA-256 required')
+    path = regular(path)
+    require(0 < path.stat().st_size <= limit, 'Input size outside limit')
+    require(digest(path) == expected, 'Input SHA-256 mismatch')
+    return path
+
+
+def fresh_directory(path):
+    path = Path(path).absolute()
+    require(not any(p.is_symlink() for p in (path, *path.parents)), 'Symlink output refused')
+    require(path.parent.is_dir() and not path.exists(), 'Fresh output directory required')
+    path.mkdir(mode=0o700)
+    return path
+
+
+def write_json(path, value):
+    with Path(path).open('x', encoding='utf-8', newline='\n') as target:
+        json.dump(value, target, indent=2, sort_keys=True)
+        target.write('\n')
+
+
+def asset_files(base):
+    files = set(REQUIRED)
+    # Executable runtime libraries and game assets only; never source configs/data/logs.
+    for parent in (base, base / 'linux32', base / 'valve/dlls'):
+        if parent.exists():
+            for item in parent.iterdir():
+                require(not item.is_symlink(), 'Symlink runtime input refused')
+                if item.is_file() and item.suffix == '.so':
+                    files.add(item.relative_to(base).as_posix())
+    gamedata = base / 'cstrike/addons/amxmodx/data/gamedata'
+    require(gamedata.is_dir() and not gamedata.is_symlink(), 'Static AMXX gamedata required')
+    for parent, dirs, names in os.walk(gamedata, followlinks=False):
+        require(not any((Path(parent) / x).is_symlink() for x in dirs + names), 'Symlink gamedata refused')
+        for name in names:
+            item = Path(parent) / name
+            if item.suffix == '.txt':
+                require('custom' not in item.relative_to(gamedata).parts, 'Custom gamedata refused')
+                files.add(item.relative_to(base).as_posix())
+                require(len(files) <= MAX_FILES, 'Fixture file count exceeds limit')
+    for game in ('valve', 'cstrike'):
+        root = base / game
+        if not root.is_dir():
+            raise Refusal('Required game asset directory missing')
+        for item in root.iterdir():
+            if item.is_file() and (item.suffix.lower() in ASSET_SUFFIXES or item.name == 'steam.inf'):
+                files.add(item.relative_to(base).as_posix())
+        for folder in ASSET_DIRS:
+            root = base / game / folder
+            if not root.exists():
+                continue
+            require(not root.is_symlink(), 'Symlink asset directory refused')
+            for parent, dirs, names in os.walk(root, followlinks=False):
+                require(not any((Path(parent) / x).is_symlink() for x in dirs + names), 'Symlink asset input refused')
+                for name in names:
+                    item = Path(parent) / name
+                    if item.suffix.lower() in ASSET_SUFFIXES:
+                        files.add(item.relative_to(base).as_posix())
+                        require(len(files) <= MAX_FILES, 'Fixture file count exceeds limit')
+    return sorted(files)
+
+
+def prepare(base, output, plugin, plugin_sha256, dictionary, dictionary_sha256):
+    base = Path(base).absolute()
+    require(base.is_dir() and not any(p.is_symlink() for p in (base, *base.parents)), 'Regular server base required')
+    output = Path(output).absolute()
+    require(output != base and base not in output.parents and output not in base.parents, 'Fixture must be separate from server base')
+    plugin = verified_input(plugin, plugin_sha256, 8 * 1024 ** 2)
+    dictionary = verified_input(dictionary, dictionary_sha256, 1024 ** 2)
+    dictionary.read_text(encoding='utf-8', errors='strict')
+    sources = [(name, regular(base / name)) for name in asset_files(base)]
+    require(sum(path.stat().st_size for _, path in sources) <= MAX_BYTES, 'Fixture size exceeds limit')
+    output = fresh_directory(output)
+    for name, source in sources:
+        destination = output / name
+        destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+        require(digest(source) == digest(destination), 'Runtime input changed while copying')
+    for name, source, expected in ((PLUGIN, plugin, plugin_sha256), (DICTIONARY, dictionary, dictionary_sha256)):
+        destination = output / name
+        destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+        require(digest(destination) == expected, 'Addon input changed while copying')
+    for name, content in CONFIGS.items():
+        target = output / name
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        with target.open('w', encoding='utf-8', newline='\n') as handle:
+            handle.write(content)
+    for name in ('cstrike/addons/amxmodx/data/vault', 'cstrike/addons/amxmodx/logs'):
+        (output / name).mkdir(mode=0o700, parents=True, exist_ok=True)
+    (output / 'hlds_linux').chmod(0o700)
+    entries = [{'path': str(path.relative_to(output).as_posix()), 'size': path.stat().st_size, 'sha256': digest(path)}
+               for path in sorted(output.rglob('*')) if path.is_file()]
+    manifest = {'schema': 1, 'purpose': 'isolated-client-fixture', 'host': HOST, 'port': PORT,
+                'source': 'operator-preinstalled-runtime', 'runtime_versions': 'not-inferred-from-filenames',
+                'plugin_sha256': plugin_sha256, 'dictionary_sha256': dictionary_sha256, 'files': entries}
+    write_json(output / 'fixture.json', manifest)
+    return manifest
+
+
+def validate_fixture(root, plugin_sha256, dictionary_sha256):
+    root = Path(root).absolute()
+    path = regular(root / 'fixture.json')
+    require(path.stat().st_size <= 4 * 1024 ** 2, 'Fixture manifest too large')
+    manifest = json.loads(path.read_text(encoding='utf-8'))
+    require(manifest.get('schema') == 1 and manifest.get('purpose') == 'isolated-client-fixture'
+            and manifest.get('host') == HOST and manifest.get('port') == PORT, 'Fixture boundary differs')
+    require(manifest.get('plugin_sha256') == plugin_sha256 and manifest.get('dictionary_sha256') == dictionary_sha256,
+            'Fixture addon identity differs')
+    entries = manifest.get('files', [])
+    require(isinstance(entries, list) and 0 < len(entries) <= MAX_FILES, 'Invalid fixture manifest')
+    seen = set()
+    total = 0
+    for item in entries:
+        name = item['path']
+        require(isinstance(name, str) and '\\' not in name and not Path(name).is_absolute()
+                and '..' not in Path(name).parts and name not in seen, 'Unsafe fixture manifest path')
+        seen.add(name)
+        file = regular(root / name)
+        size = file.stat().st_size
+        total += size
+        require(total <= MAX_BYTES and size == item['size'] and digest(file) == item['sha256'], 'Fixture file differs')
+    require(set(REQUIRED).union(CONFIGS, (PLUGIN, DICTIONARY)).issubset(seen), 'Incomplete fixture manifest')
+    require(digest(root / PLUGIN) == plugin_sha256 and digest(root / DICTIONARY) == dictionary_sha256, 'Addon differs')
+    # A self-edited manifest must not allow another endpoint, extra plugin or old player state.
+    for name, content in CONFIGS.items():
+        require((root / name).read_text(encoding='utf-8') == content, 'Fixed fixture configuration differs')
+    actual = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
+    require(actual == seen | {'fixture.json'}, 'Fixture is not fresh or contains additional files')
+    require(not any(p.is_symlink() for p in root.rglob('*')), 'Symlink fixture refused')
+    return manifest
+
+
+def launch_args(root):
+    return ['timeout', '--signal=TERM', '--kill-after=5', '240', str(Path(root) / 'hlds_linux'), '-norestart', '-nobreakpad', '-insecure', '-game', 'cstrike', '-console',
+            '-strictportbind', '+ip', HOST, '-port', str(PORT), '+map', 'de_dust2',
+            '+servercfgfile', 'server.cfg', '-maxplayers', '2']
+
+
+def server_environment(root, private, steamclient_sha256):
+    root, private = Path(root).absolute(), Path(private).absolute()
+    require(root != private and root not in private.parents and private not in root.parents,
+            'Private server home must be separate from the fixture')
+    source = verified_input(root / 'steamclient.so', steamclient_sha256, 128 * 1024 ** 2)
+    home = fresh_directory(private / 'server-home')
+    steam = fresh_directory(home / '.steam')
+    sdk = fresh_directory(steam / 'sdk32')
+    target = sdk / 'steamclient.so'
+    with source.open('rb') as incoming, target.open('xb') as outgoing:
+        shutil.copyfileobj(incoming, outgoing)
+    target.chmod(0o600)
+    require(digest(target) == steamclient_sha256, 'Private Steam SDK copy differs')
+    # HLDS has no GUI account state, display or Steam client environment.
+    env = {key: value for key, value in os.environ.items() if key in ('PATH', 'LANG', 'LC_ALL', 'TZ')}
+    env['HOME'] = str(home)
+    env['LD_LIBRARY_PATH'] = str(root) + ':' + str(root / 'linux32')
+    return env
+
+
+class LocalServer:
+    def __init__(self, root, private, plugin_sha256, dictionary_sha256):
+        self.root = Path(root)
+        self.private = Path(private)
+        self.manifest = validate_fixture(root, plugin_sha256, dictionary_sha256)
+        self.process = None
+        self.log = None
+
+    def __enter__(self):
+        for kind in (socket.SOCK_DGRAM, socket.SOCK_STREAM):
+            with socket.socket(socket.AF_INET, kind) as sock:
+                sock.bind((HOST, PORT))
+        with (self.root / '.used').open('x', encoding='ascii') as mark:
+            mark.write('single-use fixture\n')
+        steamclient = next(item for item in self.manifest['files'] if item['path'] == 'steamclient.so')
+        env = server_environment(self.root, self.private, steamclient['sha256'])
+        self.log = (self.private / 'server-private.log').open('xb')
+        try:
+            self.process = subprocess.Popen(launch_args(self.root), cwd=self.root, env=env,
+                                            stdin=subprocess.PIPE, stdout=self.log, stderr=self.log,
+                                            start_new_session=True)
+            deadline = time.monotonic() + 40
+            while time.monotonic() < deadline:
+                require(self.process.poll() is None, 'Local HLDS exited before readiness')
+                self.process.stdin.write(b'goldsrcops_weapons_status\n')
+                self.process.stdin.flush()
+                time.sleep(0.5)
+                raw = self.read_private_log()
+                if re.search(rb'WEAPON_SELECTION_STATUS version=[0-9.]+ enabled=1 choices=3 pistol_choices=3 ', raw):
+                    return self
+            raise Refusal('Local addon readiness timed out')
+        except BaseException:
+            self.close()
+            raise
+
+    def read_private_log(self):
+        require(self.process is not None and self.process.poll() is None, 'Local HLDS is not running')
+        path = regular(self.private / 'server-private.log')
+        require(path.stat().st_size <= MAX_LOG_BYTES, 'Private server log exceeds limit')
+        with path.open('rb') as log:
+            raw = log.read(MAX_LOG_BYTES + 1)
+        require(len(raw) <= MAX_LOG_BYTES, 'Private server log exceeds limit')
+        require(not any(x in raw for x in (b'Run time error', b'Load fails', b'bad load',
+                                           b'FATAL ERROR', b'Host_Error')), 'Local server reported a runtime failure')
+        return raw
+
+    def log_checkpoint(self):
+        return len(self.read_private_log())
+
+    def wait_player_event(self, event, *, userid=None, after=0, timeout=30):
+        require(event in ('entered', 'team') and isinstance(after, int) and 0 <= after <= MAX_LOG_BYTES
+                and 0 < timeout <= 30, 'Invalid local readiness request')
+        require((event == 'entered' and userid is None) or
+                (event == 'team' and isinstance(userid, int) and 0 < userid <= 2147483647),
+                'Readiness player identity required')
+        # Standard HLDS log grammar is a runtime prerequisite, not a visual assertion.
+        prefix = rb'^(?:L [0-9]{2}/[0-9]{2}/[0-9]{4} - [0-9]{2}:[0-9]{2}:[0-9]{2}: )?'
+        player = rb'"ClientAcceptance<([1-9][0-9]{0,9})><[^<>\r\n]{1,64}><[^<>\r\n]{0,32}>" '
+        suffix = rb'entered the game\r?$' if event == 'entered' else rb'joined team "TERRORIST"\r?$'
+        pattern = re.compile(prefix + player + suffix, re.MULTILINE)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            raw = self.read_private_log()
+            require(len(raw) >= after, 'Private server log was truncated')
+            matches = [int(match.group(1)) for match in pattern.finditer(raw, after)]
+            if event == 'entered' and matches:
+                require(len(matches) == 1 and matches[0] <= 2147483647, 'Ambiguous local player readiness')
+                return matches[0]
+            if event == 'team' and userid in matches:
+                return userid
+            time.sleep(0.2)
+        raise Refusal('Local player readiness timed out; expected private log event was not observed')
+
+    def close(self):
+        if self.process is not None and self.process.poll() is None:
+            try:
+                os.killpg(self.process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(self.process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                self.process.wait(timeout=5)
+        if self.process is not None and self.process.stdin is not None:
+            self.process.stdin.close()
+        if self.log is not None:
+            self.log.close()
+
+    def __exit__(self, *_):
+        self.close()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--server-base', type=Path, required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--plugin', type=Path, required=True)
+    parser.add_argument('--plugin-sha256', required=True)
+    parser.add_argument('--dictionary', type=Path, required=True)
+    parser.add_argument('--dictionary-sha256', required=True)
+    args = parser.parse_args()
+    prepare(args.server_base, args.output, args.plugin, args.plugin_sha256, args.dictionary, args.dictionary_sha256)
+    print('LOCAL_SERVER_FIXTURE=prepared')
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (Refusal, OSError, ValueError, KeyError, TypeError):
+        raise SystemExit('LOCAL_SERVER_FIXTURE=refused; check local prerequisites and explicit input hashes')

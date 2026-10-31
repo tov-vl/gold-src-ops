@@ -1,0 +1,48 @@
+#requires -Version 7
+param([ValidateSet('status','result','stage')][string]$Operation='status',[string]$Id,[string]$PackagePath)
+$ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'updater\Update.Common.ps1')
+$private=Join-Path $env:USERPROFILE '.ssh\gso-client-lab'
+$command='update-status'
+if($Operation -cin @('stage','result')){Assert-UpdateId $Id;$command='update-'+$(if($Operation -ceq 'result'){'status'}else{'stage'})+' '+$Id}
+$bytes=$null
+if($Operation -ceq 'stage'){
+    $bytes=Read-UpdateBytes ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($PackagePath))) $PackagePath
+    $envelope=ConvertFrom-UpdateBytes $bytes
+    $manifest=ConvertFrom-UpdateBytes ([Convert]::FromBase64String($envelope.manifestBase64))
+    if($manifest.id -cne $Id){throw 'Dispatch identity differs.'}
+    $stateText=& $PSCommandPath -Operation status
+    $state=$stateText|ConvertFrom-Json
+    if($state.uploadProtocol -cne 'length-ascii-v1' -or -not $state.cryptoVerifierReady -or -not $state.enabled -or $state.blocked -or $manifest.sequence -ne ([int]$state.sequence+1)){throw 'Framed upload is not ready or predecessor differs.'}
+    $command='update-stage '+$Id+' '+$bytes.Length
+    $claims=Join-Path $PSScriptRoot 'dispatches'
+    New-Item -ItemType Directory -Path $claims -Force|Out-Null
+    $claim=Join-Path $claims ($Id+'.json')
+    $stream=[IO.File]::Open($claim,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{$data=[Text.Encoding]::UTF8.GetBytes((@{id=$Id;status='dispatch_claimed';sha256=(Get-UpdateHash $bytes);utc=[DateTime]::UtcNow.ToString('o')}|ConvertTo-Json -Compress));$stream.Write($data,0,$data.Length)}finally{$stream.Dispose()}
+}
+$start=New-Object Diagnostics.ProcessStartInfo
+$start.FileName='C:\Windows\System32\OpenSSH\ssh.exe'
+$start.UseShellExecute=$false
+$start.CreateNoWindow=$true
+$start.RedirectStandardOutput=$true
+$start.RedirectStandardError=$true
+$start.RedirectStandardInput=$true
+foreach($argument in @('-F',(Join-Path $private 'ssh_config'),'-T','-b','{{SOURCE_IPV4}}','-p','2222','-i',(Join-Path $private 'id_ed25519'),'-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','IdentityAgent=none','-o','StrictHostKeyChecking=yes','-o',('UserKnownHostsFile='+(Join-Path $private 'known_hosts')),'-o',('GlobalKnownHostsFile='+(Join-Path $private 'ssh_config')),'-o','ClearAllForwardings=yes','-o','ConnectTimeout=5','-o','ConnectionAttempts=1','-o','ServerAliveInterval=5','-o','ServerAliveCountMax=2','gso-lab-link@{{TARGET_IPV4}}',$command)){$start.ArgumentList.Add($argument)}
+$process=[Diagnostics.Process]::Start($start)
+$output=$process.StandardOutput.ReadToEndAsync()
+$errorText=$process.StandardError.ReadToEndAsync()
+try{
+    if($bytes){$write=$process.StandardInput.WriteAsync([Text.Encoding]::UTF8.GetString($bytes));if(-not $write.Wait(15000)){throw 'Upload timed out; reconcile by ID, never retry.'}}
+    $process.StandardInput.Close()
+    if(-not $process.WaitForExit(20000)){throw 'SSH timed out; reconcile by ID, never retry.'}
+    $response=$output.GetAwaiter().GetResult()
+    if($response.Length -gt 65536){throw 'Response exceeds bound.'}
+    $value=$response|ConvertFrom-Json
+    if($Operation -ceq 'stage'){
+        Write-UpdateJson (Join-Path $claims ($Id+'.response.json')) @{exitCode=$process.ExitCode;response=$value;utc=[DateTime]::UtcNow.ToString('o')}
+    }
+    if($process.ExitCode -ne 0){throw 'SSH request failed; inspect the saved bounded response and reconcile by ID, never retry.'}
+    if($Operation -ceq 'stage' -and ($value.id -cne $Id -or $value.status -cne 'staged' -or $value.sha256 -cne (Get-UpdateHash $bytes))){throw 'Stage receipt differs; reconcile by ID.'}
+    $value|ConvertTo-Json -Depth 8
+}finally{if(-not $process.HasExited){$process.Kill($true)};$process.Dispose()}

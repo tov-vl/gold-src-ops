@@ -1,0 +1,17 @@
+#requires -Version 5.1
+[CmdletBinding()]
+param()
+$Root = 'C:\ProgramData\GsoClientLab'
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$principal = New-Object Security.Principal.WindowsPrincipal($identity)
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run from an elevated PowerShell prompt.' }
+. (Join-Path $Root 'code\Lab.Common.ps1')
+Assert-LabCode $Root
+& (Join-Path $Root 'code\Expire.ps1') -Root $Root
+foreach ($taskName in @('GsoClientLab-Worker', 'GsoClientLab-Expire')) {
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+}
+# Access is disabled; preserve account identity, host keys, code and results for audit.
+# Do not remove the Windows feature or unrelated SSH files automatically.
+Write-Host 'Lab access disabled; scheduled tasks removed. Retained evidence: C:\ProgramData\GsoClientLab'
+Write-Host 'The disabled local account and OpenSSH feature remain installed. No network rule remains for this lab.'

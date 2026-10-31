@@ -1,0 +1,14 @@
+#requires -Version 5.1
+function Read-GatewayPackage([IO.TextReader]$Reader,[int]$Length) {
+    if($Length -lt 2 -or $Length -gt 1048576){throw 'Upload length exceeds its boundary.'}
+    $builder=New-Object Text.StringBuilder
+    $buffer=New-Object char[] 4096
+    while($builder.Length -lt $Length){
+        $count=$Reader.Read($buffer,0,[Math]::Min($buffer.Length,$Length-$builder.Length))
+        if($count -le 0){throw 'Incomplete upload.'}
+        for($index=0;$index -lt $count;$index++){if([int]$buffer[$index] -gt 127){throw 'ASCII package envelope required.'}}
+        [void]$builder.Append($buffer,0,$count)
+    }
+    # Exact framing avoids waiting for SSH/console EOF after the package is complete.
+    return ,([Text.Encoding]::ASCII.GetBytes($builder.ToString()))
+}

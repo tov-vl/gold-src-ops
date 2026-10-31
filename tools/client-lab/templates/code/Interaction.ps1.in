@@ -1,0 +1,454 @@
+﻿#requires -Version 5.1
+function Assert-LabInteractionBindings([string]$GameRoot) {
+    $path=Join-Path $GameRoot 'cstrike\config.cfg'
+    foreach($item in @($GameRoot,(Join-Path $GameRoot 'cstrike'),$path)) {
+        if((Get-Item -LiteralPath $item).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked binding input.'}
+    }
+    $item=Get-Item -LiteralPath $path
+    if($item.Length -gt 256KB){throw 'Binding input too large.'}
+    $bindings=@{}
+    foreach($line in [IO.File]::ReadAllLines($path)) {
+        $target=[regex]::Match($line,'(?i)^\s*bind\s+(?:"(F5|u|s|a)"|(F5|u|s|a))(?=\s|$)')
+        $match=[regex]::Match($line,'(?i)^\s*bind\s+"(F5|u|s|a)"\s+"([^"\r\n]{1,128})"\s*$')
+        if($target.Success -and -not $match.Success){throw 'A fixed binding contains unsupported syntax; no input will be sent.'}
+        if($match.Success){$bindings[$match.Groups[1].Value.ToLowerInvariant()]=$match.Groups[2].Value}
+    }
+    foreach($pair in @(@('f5','snapshot'),@('u','messagemode2'),@('s','+back'),@('a','+moveleft'))) {
+        if(-not $bindings.ContainsKey($pair[0]) -or $bindings[$pair[0]] -cne $pair[1]){throw 'Required fixed game binding is unavailable; no binding will be changed.'}
+    }
+}
+
+function Assert-LabInteractionOwner($Policy,$Result) {
+    $matches=@(Get-LabProcess $Policy ([int]$Result.gamePid)|Where-Object {$_.SessionId -eq $Policy.gameSessionId -and $_.StartTime.ToUniversalTime().ToString('o') -ceq $Result.gameStartedUtc})
+    if($matches.Count -ne 1){throw 'Owned game process changed.'}
+    $items=@(Get-CimInstance -ClassName Win32_Process -Filter ('ProcessId='+[int]$Result.gamePid) -Property ProcessId,SessionId,ExecutablePath -OperationTimeoutSec 3)
+    if($items.Count -ne 1 -or $items[0].SessionId -ne $Policy.gameSessionId -or $items[0].ExecutablePath -ine (Join-Path $Policy.gameRoot 'hl.exe')){throw 'Game process ownership is unavailable.'}
+    $owner=Invoke-CimMethod -InputObject $items[0] -MethodName GetOwnerSid -OperationTimeoutSec 5
+    if($owner.ReturnValue -ne 0 -or $owner.Sid -cne $Policy.gameUserSid){throw 'Game process owner differs.'}
+}
+
+function Get-LabInteractionPhase([int]$ImageCount) {
+    if($ImageCount -lt 1 -or $ImageCount -gt 4){throw 'Invalid interaction phase.'}
+    return @('ok-first','controls','reopen','ok-last')[$ImageCount-1]
+}
+
+function Assert-LabInteractionStep($Step,$Job,$Result) {
+    if((@($Step.PSObject.Properties.Name|Sort-Object)-join ',') -cne 'createdUtc,frameSha256,id,phase' -or
+        $Step.id -cne $Job.id -or $Step.phase -cne $Result.nextAction -or $Step.frameSha256 -cnotmatch '\A[0-9A-F]{64}\z' -or
+        $Step.frameSha256 -cne $Result.images[-1].sha256){throw 'Interaction acknowledgement differs from the current frame.'}
+    $utc=ConvertTo-LabUtc $Step.createdUtc
+    if($utc -gt [DateTime]::UtcNow.AddSeconds(10) -or $utc -lt [DateTime]::UtcNow.AddSeconds(-30)){throw 'Interaction acknowledgement is stale or future.'}
+}
+
+function Get-LabInteractionLimits { return @{frameSeconds=120;jobSeconds=480;actionStartSeconds=440} }
+
+function Assert-LabStepReady($Job,$Result,$Request) {
+    if($Job.action -cne 'verify-rules' -or $Result.id -cne $Job.id -or $Result.action -cne 'verify-rules' -or
+        $Result.status -cne 'awaiting_action' -or $Result.nextAction -cne $Request.phase -or
+        $Result.nextAction -cne (Get-LabInteractionPhase (@($Result.images).Count)) -or
+        $Request.frameSha256 -cnotmatch '\A[0-9A-F]{64}\z' -or $Request.frameSha256 -cne $Result.images[-1].sha256){throw 'Step is not the expected acknowledged action.'}
+    $frameUtc=ConvertTo-LabUtc $Result.frameCapturedUtc
+    if($frameUtc -gt [DateTime]::UtcNow.AddSeconds(2) -or $frameUtc -lt [DateTime]::UtcNow.AddSeconds(-(Get-LabInteractionLimits).frameSeconds)){throw 'Frame is no longer fresh.'}
+    if($Request.phase -ceq 'reopen' -and ($null -eq $Result.interaction.reopenNotBeforeUtc -or [DateTime]::UtcNow -lt (ConvertTo-LabUtc $Result.interaction.reopenNotBeforeUtc))){throw 'Alias cooldown is still active.'}
+}
+
+function Receive-LabInteractionFrame($Policy,$Result,[hashtable]$Baseline,[string]$Destination) {
+    $files=@(Get-LabSnapshots $Policy.gameRoot|Where-Object {-not $Baseline.ContainsKey($_.FullName)}|Sort-Object LastWriteTimeUtc,Name)
+    if($files.Count -gt 1){throw 'Ambiguous native interaction frames.'}
+    if(-not $files.Count){return $false}
+    $file=$files[0]
+    try {$inputStream=[IO.File]::Open($file.FullName,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)} catch [IO.IOException] {return $false}
+    try {
+        if($file.Extension -ine '.bmp'){throw 'Expected native Windows BMP.'}
+        $bitmap=Read-LabBitmapInfo $inputStream 1920 1200
+        $number=@($Result.images).Count+1
+        if($number -gt 5){throw 'Interaction frame limit exceeded.'}
+        $path=Join-Path $Destination ('image-'+$number+'.bin')
+        $outputStream=[IO.File]::Open($path,[IO.FileMode]::CreateNew)
+        try {$inputStream.CopyTo($outputStream)} finally {$outputStream.Dispose()}
+    } finally {$inputStream.Dispose()}
+    $Baseline[$file.FullName]=$true
+    $Result.images+=@{number=$number;format='bmp';width=$bitmap.width;height=$bitmap.height;bytes=(Get-Item -LiteralPath $path).Length;sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash}
+    $Result.frameCapturedUtc=[DateTime]::UtcNow.ToString('o')
+    return $true
+}
+
+function Get-LabWindowGuardObservation($Window) {
+    if(-not $Window -or -not $Window.PSObject.Properties['GuardCode']){return $null}
+    $flags=[int]$Window.GuardFlags
+    return @{code=[string]$Window.GuardCode;complete=[bool]$Window.GuardObservationComplete;
+        width=[int]$Window.ClientWidth;height=[int]$Window.ClientHeight;visibleWindowCount=[int]$Window.VisibleWindowCount;
+        identityMatches=[bool]($flags -band 1);visible=[bool]($flags -band 2);minimized=[bool]($flags -band 4);
+        foreground=[bool]($flags -band 8);desktopDefault=[bool]($flags -band 16);sessionActive=[bool]($flags -band 32);
+        validHandle=[bool]($flags -band 64);physicalGeometry=[bool]($flags -band 128);nativeError=$Window.NativeErrorCode;focus=(Get-LabFocusProjection $Window);
+        activationAttempted=[bool]$Window.ActivationAttempted;activationAccepted=$Window.ActivationAccepted}
+}
+
+function Save-LabOwnedWindowFrame($Window,$Result,[string]$Destination) {
+    $bytes=$Window.CaptureFrame()
+    $stream=New-Object IO.MemoryStream(,$bytes)
+    try{$bitmap=Read-LabBitmapInfo $stream 1920 1200}finally{$stream.Dispose()}
+    $number=@($Result.images).Count+1
+    if($number -gt 5){throw 'Interaction frame limit exceeded.'}
+    if((Get-Item -LiteralPath $Destination).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked frame destination.'}
+    $path=Join-Path $Destination ('image-'+$number+'.bin')
+    $output=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{$output.Write($bytes,0,$bytes.Length)}finally{$output.Dispose()}
+    $Result.images+=@{number=$number;format='bmp';width=$bitmap.width;height=$bitmap.height;bytes=$bytes.Length;sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash;source='owned-client-dc'}
+    $Result.frameCapturedUtc=[DateTime]::UtcNow.ToString('o')
+}
+
+function Save-LabBeforeActivationFrame($Result,[string]$Destination) {
+    if(@($Result.images).Count -ne 1){throw 'Expected one frame before activation.'}
+    $source=Join-Path $Destination 'image-1.bin'
+    $target=Join-Path $Destination 'before-activation.bin'
+    foreach($path in @($Destination,$source)){
+        if((Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked preparation evidence.'}
+    }
+    if((Test-Path -LiteralPath $target) -or (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -cne $Result.images[0].sha256){throw 'Preparation evidence differs.'}
+    [IO.File]::Move($source,$target)
+    $Result.interaction.windowPreparation['beforeActivationFrame']=$Result.images[0]
+    $Result.images=@()
+}
+
+function Invoke-LabRulesInteraction([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseline,[DateTime]$LaunchUtc,[string]$ResultPath) {
+    $limits=Get-LabInteractionLimits
+    $Result['interaction']=[ordered]@{schema=1;actions=@();snapshotDelivery='not-proven';controlReturn='not-proven';okActivation='not-proven';automaticRetryAllowed=$false;deadlineSeconds=$limits.jobSeconds;frameFreshnessSeconds=$limits.frameSeconds;reopenNotBeforeUtc=$null;windowGuard=$null;windowPreparation=$null}
+    $Result['nextAction']=$null
+    $Result['frameCapturedUtc']=$null
+    $Result.labels=@('rules-first','after-first-ok','after-controls','rules-alias','after-last-ok')
+    $clock=[Diagnostics.Stopwatch]::StartNew()
+    $window=$null
+    $frameAt=0.0
+    $firstOkAt=$null
+    $awaitingFrame=$true
+    $prepared=$false
+    $source=Join-Path $Root 'code\Rules.Input.cs'
+    Initialize-LabInteractionTypes $source
+    $destination=Split-Path -Parent $ResultPath
+    $steps=Join-Path $Root 'queue\steps'
+    if((Get-Item -LiteralPath $steps).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked interaction steps.'}
+    try {
+    while($clock.Elapsed.TotalSeconds -lt $limits.jobSeconds -and @($Result.images).Count -lt 5) {
+        Assert-LabLease $Policy
+        if(Test-Path -LiteralPath (Get-LabPaths $Root $Job.id).cancel){throw 'Interaction cancelled.'}
+        if(-not $Result.gamePid) {
+            $candidates=@(Get-LabProcess $Policy|Where-Object {$_.StartTime.ToUniversalTime() -ge $LaunchUtc -and $_.SessionId -eq $Policy.gameSessionId})
+            if($candidates.Count -gt 1){throw 'Ambiguous game process.'}
+            if($candidates.Count -eq 1) {
+                $Result.gamePid=$candidates[0].Id
+                $Result.gameStartedUtc=$candidates[0].StartTime.ToUniversalTime().ToString('o')
+                Assert-LabInteractionOwner $Policy $Result
+                $window=New-Object -TypeName GsoLab.Interaction.GameWindow -ArgumentList @([int]$Result.gamePid,(ConvertTo-LabUtc $Result.gameStartedUtc).Ticks,(Join-Path $Policy.gameRoot 'hl.exe'),[int]$Policy.gameSessionId)
+            }
+        }
+        if($window -and $awaitingFrame) {
+            if(Receive-LabInteractionFrame $Policy $Result $Baseline $destination) {
+                # Pin and validate the same owned window before offering this frame for review.
+                if(-not $prepared){
+                    try{$window.PrepareOwnWindow()}finally{$Result.interaction.windowPreparation=Get-LabWindowGuardObservation $window}
+                    $prepared=$true
+                    if($window.ActivationAttempted){
+                        # Activation may change the rendered state. Keep the old frame and require a new native one.
+                        Save-LabBeforeActivationFrame $Result $destination
+                        $Result.status='window_prepared_awaiting_frame'
+                        $Result.interaction.windowPreparation['snapshotAttempted']=$true
+                        $Result.interaction.windowPreparation['snapshotQueued']=$false
+                        Write-LabJson $ResultPath $Result
+                        Assert-LabInteractionOwner $Policy $Result
+                        $window.Snapshot()
+                        $Result.interaction.windowPreparation.snapshotQueued=$true
+                        Write-LabJson $ResultPath $Result
+                        continue
+                    }
+                }else{$window.CheckReady()}
+                $frameAt=$clock.Elapsed.TotalSeconds
+                $awaitingFrame=$false
+                if(@($Result.images).Count -lt 5) {
+                    $Result.status='awaiting_action'
+                    $Result.nextAction=Get-LabInteractionPhase (@($Result.images).Count)
+                }
+                Write-LabJson $ResultPath $Result
+            }
+        }
+        if($window -and -not $awaitingFrame -and @($Result.images).Count -lt 5) {
+            $phase=$Result.nextAction
+            $stepPath=Join-Path $steps ($Job.id+'.'+$phase+'.json')
+            if(Test-Path -LiteralPath $stepPath) {
+                if($clock.Elapsed.TotalSeconds-$frameAt -gt $limits.frameSeconds){throw 'Approved frame is no longer fresh.'}
+                $step=Read-LabJson $stepPath
+                Assert-LabInteractionStep $step $Job $Result
+                if($clock.Elapsed.TotalSeconds -ge $limits.actionStartSeconds){throw 'Insufficient time for the action and capture; input was not sent.'}
+                Assert-LabInteractionOwner $Policy $Result
+                if($clock.Elapsed.TotalSeconds -ge $limits.actionStartSeconds){throw 'Interaction action budget elapsed during the ownership check.'}
+                $window.CheckReady()
+                if($phase -ceq 'reopen' -and ($null -eq $firstOkAt -or $clock.Elapsed.TotalSeconds-$firstOkAt -lt 5)){throw 'Alias reopen arrived before the monotonic five-second boundary.'}
+                $Result.status='interaction_running'
+                $Result.nextAction=$null
+                $Result.interaction.actions+=@{phase=$phase;frameSha256=$step.frameSha256;startedUtc=[DateTime]::UtcNow.ToString('o');inputQueued=$false}
+                Write-LabJson $ResultPath $Result
+                switch($phase) {
+                    'ok-first' {$window.ClickOk();$firstOkAt=$clock.Elapsed.TotalSeconds;$Result.interaction.reopenNotBeforeUtc=[DateTime]::UtcNow.AddSeconds(5).ToString('o')}
+                    'controls' {$window.MoveControls()}
+                    'reopen' {$window.ReopenRules()}
+                    'ok-last' {$window.ClickOk();Start-Sleep -Milliseconds 180;Assert-LabInteractionOwner $Policy $Result;$window.MoveControls()}
+                }
+                $Result.interaction.actions[-1].inputQueued=$true
+                # Message queue acceptance does not prove a click, movement or a rendered panel.
+                Start-Sleep -Milliseconds 250
+                Assert-LabInteractionOwner $Policy $Result
+                if($phase -ceq 'reopen'){
+                    # F5 is consumed by the opened MOTD. Copy only the guarded own client area.
+                    Start-Sleep -Milliseconds 750
+                    Assert-LabInteractionOwner $Policy $Result
+                    Save-LabOwnedWindowFrame $window $Result $destination
+                    $frameAt=$clock.Elapsed.TotalSeconds
+                    $awaitingFrame=$false
+                    $Result.status='awaiting_action'
+                    $Result.nextAction=Get-LabInteractionPhase (@($Result.images).Count)
+                }else{
+                    $window.Snapshot()
+                    $awaitingFrame=$true
+                }
+                Write-LabJson $ResultPath $Result
+            }
+        }
+        Start-Sleep -Milliseconds 200
+    }
+    if(@($Result.images).Count -ne 5){$Result.failureCode='interaction_deadline_or_snapshot_missing';throw 'Interaction did not produce five evidence frames before its deadline.'}
+    $Result.status='interaction_captured_unreviewed'
+    $Result.nextAction=$null
+    $Result.interaction.snapshotDelivery='five-client-frames-with-owned-window-capture'
+    Write-LabJson $ResultPath $Result
+    } catch {
+        $Result.interaction.windowGuard=Get-LabWindowGuardObservation $window
+        throw
+    }
+}
+
+#requires -Version 5.1
+function ConvertFrom-LabRunnerCommand([string]$Command) {
+    $match=[regex]::Match($Command,'\Aauto-rules ([0-9a-f-]{36}) (ru|en)\z')
+    if($match.Success){Assert-LabId $match.Groups[1].Value;return @{operation='auto-rules';id=$match.Groups[1].Value;language=$match.Groups[2].Value}}
+    return ConvertFrom-LabCommand $Command
+}
+
+function Get-LabAutonomousMode([string]$Root,$Job) {
+    $directory=Join-Path $Root 'queue\steps'
+    if((Get-Item -LiteralPath $directory).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked mode directory.'}
+    $path=Join-Path $directory ($Job.id+'.autonomous.json')
+    if(-not (Test-Path -LiteralPath $path)){return $false}
+    $mode=Read-LabJson $path 2048
+    if((@($mode.PSObject.Properties.Name|Sort-Object)-join ',') -cne 'id,language,profile' -or
+        $Job.action -cne 'verify-rules' -or $mode.id -cne $Job.id -or $mode.language -cne $Job.language -or
+        $mode.profile -cne 'rules-v299-1920x1200-v1'){throw 'Autonomous profile differs.'}
+    return $true
+}
+
+function New-LabAutonomousMode([string]$Root,$Job) {
+    $directory=Join-Path $Root 'queue\steps'
+    if((Get-Item -LiteralPath $directory).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked mode directory.'}
+    $path=Join-Path $directory ($Job.id+'.autonomous.json')
+    $stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{
+        $mode=@{id=$Job.id;language=$Job.language;profile='rules-v299-1920x1200-v1'}
+        $bytes=[Text.Encoding]::UTF8.GetBytes(($mode|ConvertTo-Json -Compress))
+        $stream.Write($bytes,0,$bytes.Length)
+        $stream.Flush($true)
+    }finally{$stream.Dispose()}
+}
+
+function Initialize-LabInteractionTypes([string]$Source) {
+    if($PSVersionTable.PSVersion.Major -ge 7){
+        $desktop=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) ('dotnet\shared\Microsoft.WindowsDesktop.App\'+[Environment]::Version.ToString())
+        $references=@(Get-ChildItem -LiteralPath (Join-Path $PSHOME 'ref') -Filter '*.dll' -File|Select-Object -ExpandProperty FullName)
+        foreach($name in @('System.Drawing.Common.dll','System.Private.Windows.Core.dll','System.Private.Windows.GdiPlus.dll')){
+            $path=Join-Path $PSHOME $name
+            if(Test-Path -LiteralPath $path -PathType Leaf){$references+=$path}
+        }
+        foreach($name in @('WindowsBase.dll','UIAutomationTypes.dll','UIAutomationClient.dll')){
+            $path=Join-Path $desktop $name
+            if(-not (Test-Path -LiteralPath $path -PathType Leaf)){throw 'Matching installed Windows Desktop runtime is unavailable; no download or fallback.'}
+            $references+=$path
+        }
+        Add-Type -Path $Source -ReferencedAssemblies $references
+        return
+    }
+    $wpf=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\WPF'
+    $references=@('System.dll','System.Drawing.dll')
+    foreach($name in @('WindowsBase.dll','UIAutomationTypes.dll','UIAutomationClient.dll')){
+        $path=Join-Path $wpf $name
+        if(-not (Test-Path -LiteralPath $path -PathType Leaf)){throw 'Inbox focus provider assembly is unavailable.'}
+        $references+=$path
+    }
+    Add-Type -Path $Source -ReferencedAssemblies $references
+}
+
+function Get-LabAutoElapsed($Clock){return $Clock.Elapsed.TotalSeconds}
+function Wait-LabAutoTick([int]$Milliseconds){Start-Sleep -Milliseconds $Milliseconds}
+
+function Assert-LabAutoContext([string]$Root,$Policy,$Job,$Clock,[switch]$BeforeInput) {
+    Assert-LabLease $Policy
+    if(Test-Path -LiteralPath (Get-LabPaths $Root $Job.id).cancel){throw 'Autonomous interaction cancelled.'}
+    $limit=if($BeforeInput){(Get-LabInteractionLimits).actionStartSeconds}else{(Get-LabInteractionLimits).jobSeconds}
+    if((Get-LabAutoElapsed $Clock) -ge $limit){throw 'Autonomous monotonic deadline elapsed.'}
+}
+
+function Get-LabAutoFrameAssessment($Result,[string]$Destination,[string]$Language) {
+    $frame=$Result.images[-1]
+    $path=Join-Path $Destination ('image-'+$frame.number+'.bin')
+    foreach($item in @($Destination,$path)){
+        if((Get-Item -LiteralPath $item).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked autonomous evidence.'}
+    }
+    $item=Get-Item -LiteralPath $path
+    if($item.Length -lt 54 -or $item.Length -gt 16MB -or $item.Length -ne $frame.bytes){throw 'Frame bounds differ.'}
+    $bytes=[IO.File]::ReadAllBytes($path)
+    $sha=[Security.Cryptography.SHA256]::Create()
+    try{$hash=[BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-','')}finally{$sha.Dispose()}
+    if($hash -cne $frame.sha256){throw 'Autonomous evidence digest differs.'}
+    $observation=[GsoLab.Interaction.RulesFrameGate]::Analyze($bytes,$Language)
+    return @{panelMatches=$observation.PanelMatches;sceneCandidate=$observation.SceneCandidate;bodySha256=$observation.BodySha256;frameSha256=$hash}
+}
+
+function Assert-LabAutoVisual($Assessment,[int]$FrameNumber) {
+    if($FrameNumber -in @(1,4)){
+        if(-not $Assessment.panelMatches){throw 'Rules panel does not match the pinned language and layout.'}
+    }elseif(-not $Assessment.sceneCandidate -or $Assessment.panelMatches){throw 'Expected a scene after closing the panel.'}
+}
+
+function New-LabAutoPhaseClaim([string]$Destination,$Job,[string]$Phase,[string]$Hash) {
+    if($Phase -cnotin @('ok-first','controls','reopen','ok-last') -or $Hash -cnotmatch '\A[0-9A-F]{64}\z'){throw 'Invalid fixed phase claim.'}
+    if((Get-Item -LiteralPath $Destination).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked phase destination.'}
+    $path=Join-Path $Destination ('auto-phase-'+$Phase+'.json')
+    $stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{
+        $bytes=[Text.Encoding]::UTF8.GetBytes((@{id=$Job.id;phase=$Phase;frameSha256=$Hash;utc=[DateTime]::UtcNow.ToString('o');automaticRetryAllowed=$false}|ConvertTo-Json -Compress))
+        $stream.Write($bytes,0,$bytes.Length)
+        $stream.Flush($true)
+    }finally{$stream.Dispose()}
+}
+
+function Invoke-LabAutonomousRulesInteraction([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseline,[DateTime]$LaunchUtc,[string]$ResultPath) {
+    $limits=Get-LabInteractionLimits
+    $Result['interaction']=[ordered]@{schema=2;mode='autonomous-fixed';profile='rules-v299-1920x1200-v1';actions=@();assessments=@();snapshotDelivery='not-proven';controlReturn='not-proven';okActivation='not-proven';automaticRetryAllowed=$false;deadlineSeconds=$limits.jobSeconds;frameFreshnessSeconds=$limits.frameSeconds;reopenNotBeforeUtc=$null;windowGuard=$null;windowPreparation=$null}
+    $Result['nextAction']=$null
+    $Result['frameCapturedUtc']=$null
+    $Result.labels=@('rules-first','after-first-ok','after-controls','rules-alias','after-last-ok')
+    $clock=[Diagnostics.Stopwatch]::StartNew()
+    $window=$null
+    $firstOkAt=$null
+    $destination=Split-Path -Parent $ResultPath
+    Initialize-LabInteractionTypes (Join-Path $Root 'code\Rules.Input.cs')
+    try{
+        while(@($Result.images).Count -eq 0){
+            Assert-LabAutoContext $Root $Policy $Job $clock
+            if(-not $window){
+                $candidates=@(Get-LabProcess $Policy|Where-Object {$_.StartTime.ToUniversalTime() -ge $LaunchUtc -and $_.SessionId -eq $Policy.gameSessionId})
+                if($candidates.Count -gt 1){throw 'Ambiguous autonomous game process.'}
+                if($candidates.Count -eq 1){
+                    $Result.gamePid=$candidates[0].Id
+                    $Result.gameStartedUtc=$candidates[0].StartTime.ToUniversalTime().ToString('o')
+                    Assert-LabInteractionOwner $Policy $Result
+                    $window=New-Object -TypeName GsoLab.Interaction.GameWindow -ArgumentList @([int]$Result.gamePid,(ConvertTo-LabUtc $Result.gameStartedUtc).Ticks,(Join-Path $Policy.gameRoot 'hl.exe'),[int]$Policy.gameSessionId)
+                }
+            }
+            if($window -and (Receive-LabInteractionFrame $Policy $Result $Baseline $destination)){
+                try{$window.PrepareOwnWindow()}finally{$Result.interaction.windowPreparation=Get-LabWindowGuardObservation $window}
+                if($window.ActivationAttempted){
+                    Save-LabBeforeActivationFrame $Result $destination
+                    Assert-LabAutoContext $Root $Policy $Job $clock
+                    Assert-LabInteractionOwner $Policy $Result
+                    Save-LabOwnedWindowFrame $window $Result $destination
+                }
+                break
+            }
+            Wait-LabAutoTick 200
+        }
+        $frameAt=Get-LabAutoElapsed $clock
+        for($number=1;$number -le 5;$number++){
+            Assert-LabAutoContext $Root $Policy $Job $clock
+            $assessment=Get-LabAutoFrameAssessment $Result $destination $Job.language
+            $Result.interaction.assessments+=@{number=$number;observation=$assessment}
+            Write-LabJson $ResultPath $Result
+            Assert-LabAutoVisual $assessment $number
+            if($number -eq 5){break}
+            $phase=Get-LabInteractionPhase $number
+            if($phase -ceq 'reopen'){
+                while($null -ne $firstOkAt -and (Get-LabAutoElapsed $clock)-$firstOkAt -lt 5){
+                    Assert-LabAutoContext $Root $Policy $Job $clock -BeforeInput
+                    $window.CheckReady()
+                    Wait-LabAutoTick 100
+                }
+            }
+            Assert-LabAutoContext $Root $Policy $Job $clock -BeforeInput
+            Assert-LabInteractionOwner $Policy $Result
+            $window.CheckReady()
+            Assert-LabAutoContext $Root $Policy $Job $clock -BeforeInput
+            if((Get-LabAutoElapsed $clock)-$frameAt -ge $limits.frameSeconds){throw 'Autonomous frame became stale before input.'}
+            if($phase -ceq 'reopen' -and ($null -eq $firstOkAt -or (Get-LabAutoElapsed $clock)-$firstOkAt -lt 5)){throw 'Monotonic alias cooldown is not satisfied.'}
+            New-LabAutoPhaseClaim $destination $Job $phase $assessment.frameSha256
+            $Result.status='autonomous_interaction_running'
+            $Result.interaction.actions+=@{phase=$phase;frameSha256=$assessment.frameSha256;startedUtc=[DateTime]::UtcNow.ToString('o');inputQueued=$false}
+            Write-LabJson $ResultPath $Result
+            switch($phase){
+                'ok-first' {$window.ClickOk();$firstOkAt=Get-LabAutoElapsed $clock;$Result.interaction.reopenNotBeforeUtc=[DateTime]::UtcNow.AddSeconds(5).ToString('o')}
+                'controls' {$window.MoveControls()}
+                'reopen' {$window.ReopenRules()}
+                'ok-last' {
+                    $window.ClickOk()
+                    Wait-LabAutoTick 180
+                    Assert-LabAutoContext $Root $Policy $Job $clock -BeforeInput
+                    Assert-LabInteractionOwner $Policy $Result
+                    $window.MoveControls()
+                }
+            }
+            $Result.interaction.actions[-1].inputQueued=$true
+            Write-LabJson $ResultPath $Result
+            Wait-LabAutoTick $(if($phase -ceq 'reopen'){1000}else{500})
+            Assert-LabAutoContext $Root $Policy $Job $clock
+            Assert-LabInteractionOwner $Policy $Result
+            Save-LabOwnedWindowFrame $window $Result $destination
+            $frameAt=Get-LabAutoElapsed $clock
+            Write-LabJson $ResultPath $Result
+        }
+        $Result.status='autonomous_captured_unreviewed'
+        $Result.interaction.snapshotDelivery='five-profile-gated-client-frames'
+        Write-LabJson $ResultPath $Result
+    }catch{
+        $Result.interaction.windowGuard=Get-LabWindowGuardObservation $window
+        $Result.failureCode='autonomous_interaction_failed'
+        throw
+    }
+}
+
+
+function Get-LabFocusProjection($Window) {
+    if(-not $Window -or -not $Window.PSObject.Properties['FocusAttempt'] -or -not $Window.FocusAttempt){return $null}
+    $raw=$Window.FocusAttempt
+    return @{outcome=[string]$raw.Outcome;stage=[string]$raw.Stage;foregroundAttempted=[bool]$raw.ForegroundAttempted;
+        foregroundAccepted=$raw.ForegroundAccepted;providerAttempted=[bool]$raw.ProviderAttempted;
+        failureCategory=[string]$raw.FailureCategory;hresult=$raw.FailureHResult;nativeCode=$raw.NativeFailureCode;
+        elapsedMilliseconds=[int]$raw.ElapsedMilliseconds;enabled=$raw.Enabled;keyboardFocusable=$raw.KeyboardFocusable;offscreen=$raw.Offscreen;windowPatternAvailable=$raw.WindowPatternAvailable;windowVisualState=$raw.WindowVisualState;windowReady=$raw.WindowReady;method=[string]$raw.Method}
+}
+
+function Get-LabTerminalArchiveCandidates([string]$Root) {
+    $queue=Join-Path $Root 'queue'
+    if((Get-Item -LiteralPath $queue).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked queue.'}
+    $files=@(Get-ChildItem -LiteralPath $queue -Filter '*.json' -File)
+    if($files.Count -gt 8){throw 'Queue inventory limit exceeded.'}
+    foreach($file in $files){
+        Assert-LabId $file.BaseName
+        $job=Read-LabJson $file.FullName
+        if($job.id -cne $file.BaseName){throw 'Queue identity differs.'}
+        $path=Join-Path (Join-Path $Root 'results') ($job.id+'\result.json')
+        if(-not (Test-Path -LiteralPath $path)){continue}
+        $result=Read-LabJson $path
+        if($result.id -cne $job.id){throw 'Result identity differs.'}
+        if(-not $result.PSObject.Properties['completedUtc'] -or -not $result.completedUtc){continue}
+        if($result.cleanupVerified -isnot [bool] -or -not $result.cleanupVerified -or $result.configCleanupVerified -isnot [bool] -or -not $result.configCleanupVerified){continue}
+        if($result.status -cnotin @('captured_unreviewed','interaction_captured_unreviewed','autonomous_captured_unreviewed','uncertain_timeout','uncertain_launch','uncertain_capture','uncertain_error','rejected_preflight')){continue}
+        if((ConvertTo-LabUtc $result.completedUtc) -gt [DateTime]::UtcNow.AddSeconds(10)){throw 'Future terminal result.'}
+        # Metadata for the existing signed archive operation only. Nothing is moved or deleted here.
+        @{id=$job.id;sha256=(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash}
+    }
+}

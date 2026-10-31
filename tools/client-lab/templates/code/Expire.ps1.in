@@ -1,0 +1,34 @@
+#requires -Version 5.1
+param([string]$Root = 'C:\ProgramData\GsoClientLab')
+. (Join-Path $Root 'code\Lab.Common.ps1')
+$policy = Read-LabJson (Join-Path $Root 'policy.json')
+if ($env:COMPUTERNAME -ine '{{TARGET_NAME}}') { throw 'Wrong target.' }
+Get-NetFirewallRule -Name 'GsoClientLab-SSH' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+if ($policy.serviceOwned) {
+    Stop-Service sshd -ErrorAction SilentlyContinue
+    Set-Service sshd -StartupType Disabled -ErrorAction SilentlyContinue
+}
+if ($policy.accountSid) {
+    $account = Get-LocalUser -Name 'gso-lab-link' -ErrorAction SilentlyContinue
+    if ($account -and $account.SID.Value -ceq $policy.accountSid) { $account | Disable-LocalUser }
+}
+Get-ScheduledTask -TaskName 'GsoClientLab-Worker' -ErrorAction SilentlyContinue | Disable-ScheduledTask | Out-Null
+$policy.expiresUtc = [DateTime]::UtcNow.ToString('o')
+if ($policy.PSObject.Properties['leaseMode']) { $policy.leaseMode = 'closed' }
+Write-LabJson (Join-Path $Root 'policy.json') $policy
+foreach ($request in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') -Filter '*.json' -File | Select-Object -First 8)) {
+    if ($request.BaseName -cmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') {
+        $marker = [IO.File]::Open((Join-Path $Root ('queue\' + $request.BaseName + '.cancel')), [IO.FileMode]::OpenOrCreate)
+        $marker.Dispose()
+    }
+}
+# Let the limited worker observe cancellation and run its finally block.
+# Never terminate interactive processes as SYSTEM based on user-writable results.
+# The limited interactive worker owns normal game teardown.
+if ((Get-Service sshd).Status -ne 'Stopped' -or (Get-Service sshd).StartType -ne 'Disabled' -or
+    (Get-LocalUser -Name 'gso-lab-link').Enabled -or
+    (Get-ScheduledTask -TaskName 'GsoClientLab-Worker').State -ne 'Disabled' -or
+    @(Get-NetFirewallRule -Name 'GsoClientLab-SSH' -ErrorAction SilentlyContinue).Count) {
+    throw 'Access closure is incomplete; inspect the target state.'
+}
+Write-LabJson (Join-Path $Root 'expired.json') @{ utc = [DateTime]::UtcNow.ToString('o'); access = 'disabled'; evidence = 'retained' }

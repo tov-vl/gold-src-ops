@@ -2025,3 +2025,18 @@ and [Web modes](player-substring-web.md). Missing v2 support must not
 trigger an automatic fallback or reinterpretation as an empty result. See
 [the addon contract and verification](player-substring-addon.md) and [the complete proposed integration
 contract](player-substring-search-feasibility.md).
+
+## Decision 50: Keep Real-Client Acceptance Tooling In The Repository
+
+Own the reusable client runner, fixed command protocol, signed-update logic,
+isolated fixture helper and policy tests with the product source. Keep their
+contracts and changes reviewable alongside the addon UI they exercise. Do not
+ship licensed game data, machine profiles, keys, installed state or raw evidence
+through Git or the public control plane.
+
+Separate offline policy verification from target provisioning and real-client
+acceptance. A bundle generator does not create authority to install accounts,
+tasks, firewall access or a new trust engine. Preserve exact target/session and
+predecessor pins, one-attempt dispatch, bounded runtime, owned-window input and
+independent cleanup evidence. CI cannot establish that a rendered client passed;
+retain the operator review gate described in [the client lab runbook](client-lab.md).

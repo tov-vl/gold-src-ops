@@ -1,0 +1,122 @@
+#requires -Version 5.1
+Set-StrictMode -Version Latest
+$ErrorActionPreference='Stop'
+
+function Get-UpdateNames { return @('Lab.Common.ps1','Broker.ps1','Worker.ps1','Expire.ps1','Uninstall.ps1','Worker-Quiet.js','Diagnostics.ps1','Interaction.ps1','Rules.Input.cs') }
+function Get-UpdatePinnedNames { return @('Lab.Common.ps1','Expire.ps1','Uninstall.ps1','Worker-Quiet.js') }
+function New-UpdateVerifier {
+    # Verify/import a public key without a persistent key container or a loaded user profile.
+    $parameters=New-Object Security.Cryptography.CspParameters(24)
+    $parameters.Flags=[Security.Cryptography.CspProviderFlags]::CreateEphemeralKey -bor [Security.Cryptography.CspProviderFlags]::NoPrompt
+    $rsa=New-Object Security.Cryptography.RSACryptoServiceProvider($parameters)
+    $rsa.PersistKeyInCsp=$false
+    return $rsa
+}
+function Test-UpdateInteger($Value) { return ($Value -is [int] -or $Value -is [long]) }
+function Assert-UpdateId([string]$Id) {
+    if($Id -cnotmatch '\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z' -or [guid]$Id -eq [guid]::Empty){throw 'Invalid update identity.'}
+}
+function Get-UpdateHash([byte[]]$Bytes) {
+    $hash=[Security.Cryptography.SHA256]::Create()
+    try{return [BitConverter]::ToString($hash.ComputeHash($Bytes)).Replace('-','')}finally{$hash.Dispose()}
+}
+function Assert-UpdatePath([string]$Root,[string]$Path) {
+    $base=[IO.Path]::GetFullPath($Root).TrimEnd('\')
+    $current=[IO.Path]::GetFullPath($Path)
+    if($current -ine $base -and -not $current.StartsWith($base+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Update path escaped its root.'}
+    while($current){
+        if((Get-Item -LiteralPath $current -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked update path.'}
+        $current=[IO.Path]::GetDirectoryName($current)
+    }
+}
+function Read-UpdateBytes([string]$Root,[string]$Path,[long]$Limit=1048576) {
+    Assert-UpdatePath $Root $Path
+    $stream=[IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+    try{
+        if($stream.Length -lt 1 -or $stream.Length -gt $Limit){throw 'Update file size differs.'}
+        $bytes=New-Object byte[] ([int]$stream.Length)
+        $offset=0
+        while($offset -lt $bytes.Length){$read=$stream.Read($bytes,$offset,$bytes.Length-$offset);if($read -le 0){throw 'Incomplete update file.'};$offset+=$read}
+        return ,$bytes
+    }finally{$stream.Dispose()}
+}
+function ConvertFrom-UpdateBytes([byte[]]$Bytes) {
+    $utf8=New-Object Text.UTF8Encoding($false,$true)
+    return ($utf8.GetString($Bytes)|ConvertFrom-Json)
+}
+function Read-UpdateJson([string]$Root,[string]$Path,[long]$Limit=65536) { return ConvertFrom-UpdateBytes (Read-UpdateBytes $Root $Path $Limit) }
+function Write-UpdateJson([string]$Path,$Value) {
+    $parent=[IO.Path]::GetDirectoryName($Path)
+    Assert-UpdatePath $parent $parent
+    $temporary=$Path+'.'+[guid]::NewGuid().ToString('N')+'.tmp'
+    $bytes=(New-Object Text.UTF8Encoding($false)).GetBytes(($Value|ConvertTo-Json -Depth 12 -Compress))
+    $stream=[IO.File]::Open($temporary,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+    if(Test-Path -LiteralPath $Path){Assert-UpdatePath $parent $Path;[IO.File]::Replace($temporary,$Path,[System.Management.Automation.Language.NullString]::Value)}else{[IO.File]::Move($temporary,$Path)}
+}
+function Assert-UpdateShape($Value,[string[]]$Names) {
+    if($null -eq $Value -or (($Value.PSObject.Properties.Name|Sort-Object) -join ',') -cne (($Names|Sort-Object) -join ',')){throw 'Unexpected update metadata shape.'}
+}
+function Get-UpdateUtc($Value) {
+    if($Value -is [DateTime]){return $Value.ToUniversalTime()}
+    if($Value -isnot [string] -or $Value -cnotmatch 'Z$'){throw 'UTC timestamp required.'}
+    return [DateTime]::Parse($Value,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime()
+}
+function Test-UpdateEnvelope([byte[]]$Bytes,$Config,$State,[DateTime]$Now=[DateTime]::UtcNow) {
+    if($Bytes.Length -gt 1048576){throw 'Package exceeds byte limit.'}
+    $envelope=ConvertFrom-UpdateBytes $Bytes
+    Assert-UpdateShape $envelope @('schema','manifestBase64','signatureBase64','files')
+    if(-not (Test-UpdateInteger $envelope.schema) -or $envelope.schema -ne 1 -or $envelope.manifestBase64 -isnot [string] -or $envelope.manifestBase64.Length -gt 65536 -or $envelope.signatureBase64 -isnot [string] -or $envelope.signatureBase64.Length -gt 1024){throw 'Invalid package envelope.'}
+    $manifestBytes=[Convert]::FromBase64String($envelope.manifestBase64)
+    $signature=[Convert]::FromBase64String($envelope.signatureBase64)
+    $rsa=New-UpdateVerifier
+    try{
+        $rsa.FromXmlString($Config.publicKeyXml)
+        if($rsa.KeySize -ne 3072 -or $signature.Length -ne 384 -or -not $rsa.VerifyData($manifestBytes,'SHA256',$signature)){throw 'Package signature rejected.'}
+    }finally{$rsa.Dispose()}
+    $manifest=ConvertFrom-UpdateBytes $manifestBytes
+    Assert-UpdateShape $manifest @('schema','id','target','sessionId','sequence','revision','createdUtc','expiresUtc','baseline','files','archive','watchdogSeconds')
+    Assert-UpdateId $manifest.id
+    if(-not (Test-UpdateInteger $manifest.schema) -or $manifest.schema -ne 1 -or $manifest.target -cne $Config.target -or $manifest.sessionId -cne $Config.sessionId -or
+       -not (Test-UpdateInteger $manifest.sequence) -or $manifest.sequence -ne ([int]$State.sequence+1) -or $manifest.sequence -gt 10000 -or
+       -not (Test-UpdateInteger $manifest.revision) -or $manifest.revision -lt [int]$State.revision -or $manifest.revision -gt 10000 -or
+       -not (Test-UpdateInteger $manifest.watchdogSeconds) -or $manifest.watchdogSeconds -notin @(175,540)){throw 'Package target, predecessor or budget rejected.'}
+    $created=Get-UpdateUtc $manifest.createdUtc
+    $expires=Get-UpdateUtc $manifest.expiresUtc
+    if($created -gt $Now.AddMinutes(2) -or $created -lt $Now.AddHours(-24) -or $expires -le $Now -or $expires -gt $created.AddHours(24) -or $expires -le $created){throw 'Package expired or future.'}
+    $names=Get-UpdateNames
+    foreach($set in @('baseline','files')){
+        if(@($manifest.$set).Count -ne $names.Count -or (@($manifest.$set.name|Sort-Object) -join ',') -cne (@($names|Sort-Object) -join ',')){throw 'Exact fixed file set required.'}
+    }
+    if(@($envelope.files).Count -ne $names.Count -or (@($envelope.files.name|Sort-Object) -join ',') -cne (@($names|Sort-Object) -join ',')){throw 'Unexpected payload names.'}
+    $payload=@{}
+    $total=0L
+    foreach($name in $names){
+        $before=@($manifest.baseline|Where-Object{$_.name -ceq $name})[0]
+        $after=@($manifest.files|Where-Object{$_.name -ceq $name})[0]
+        $file=@($envelope.files|Where-Object{$_.name -ceq $name})[0]
+        Assert-UpdateShape $before @('name','sha256')
+        Assert-UpdateShape $after @('name','sha256','bytes')
+        Assert-UpdateShape $file @('name','contentBase64')
+        if($before.sha256 -cnotmatch '\A[0-9A-F]{64}\z' -or $before.sha256 -cne $State.codeHashes.$name -or
+           $after.sha256 -cnotmatch '\A[0-9A-F]{64}\z' -or -not (Test-UpdateInteger $after.bytes) -or $after.bytes -lt 1 -or $after.bytes -gt 131072 -or
+           $file.contentBase64 -isnot [string] -or $file.contentBase64.Length -gt 174764){throw 'File predecessor or bound differs.'}
+        $data=[Convert]::FromBase64String($file.contentBase64)
+        $total+=$data.Length
+        if($data.Length -ne $after.bytes -or $total -gt 524288 -or (Get-UpdateHash $data) -cne $after.sha256){throw 'Payload digest differs.'}
+        if($name -cin (Get-UpdatePinnedNames) -and $after.sha256 -cne $Config.pinnedHashes.$name){throw 'Privileged-path dependency cannot be updated remotely.'}
+        $payload[$name]=$data
+    }
+    if(@($manifest.archive).Count -gt 8 -or @($manifest.archive|ForEach-Object{$_.id}|Select-Object -Unique).Count -ne @($manifest.archive).Count){throw 'Invalid archive selection.'}
+    foreach($entry in @($manifest.archive)){Assert-UpdateShape $entry @('id','sha256');Assert-UpdateId $entry.id;if($entry.sha256 -cnotmatch '\A[0-9A-F]{64}\z'){throw 'Invalid archive digest.'}}
+    return @{manifest=$manifest;payload=$payload;sha256=(Get-UpdateHash $Bytes)}
+}
+function Assert-UpdateWritableOnlyByAdmin([string]$Path) {
+    $acl=Get-Acl -LiteralPath $Path
+    $owner=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
+    if($owner -notin @('S-1-5-18','S-1-5-32-544')){throw 'Untrusted update path owner.'}
+    $write=[Security.AccessControl.FileSystemRights]'Write,Delete,ChangePermissions,TakeOwnership,DeleteSubdirectoriesAndFiles'
+    foreach($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){
+        if($rule.AccessControlType -eq 'Allow' -and ($rule.FileSystemRights -band $write) -and $rule.IdentityReference.Value -notin @('S-1-5-18','S-1-5-32-544')){throw 'Update trust boundary is writable by another identity.'}
+    }
+}

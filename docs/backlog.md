@@ -4340,3 +4340,16 @@ passed. PvP behavior and human activity remain separate; no new production
 runtime or renderer-verification claim is made by the client trials.
 See [scope and gates](v2.99-respawn-rules.md) and
 [release notes](release-notes-v2.99.md).
+
+## Autonomous client lab - repository tooling
+
+Repository tooling implemented on 2026-10-31: move reusable Windows client runner/controller, signed-update
+protocol and disposable LAN fixture tooling from operator-only prototypes into
+`tools/client-lab`. Keep private profiles, credentials, licensed assets and raw
+evidence outside Git. Add offline protocol, queue, cleanup, synthetic-frame and
+native compilation checks plus a Windows CI job. The working laptop, access
+rules, production services and addon 0.38.0 remain outside this implementation
+stage. Real-client acceptance of a newly generated/installed bundle is a
+separate gate. See [the client lab runbook](client-lab.md).
+Local policy checks and the solution quality gate passed; see
+[verification and adoption limits](client-lab-readiness.md).
