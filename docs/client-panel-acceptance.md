@@ -132,3 +132,19 @@ raw results were not edited. See [controller readiness](client-controller-readin
 for the correction and its separate end-to-end gate. RU `ranks`, both `profile`
 and both `topall` native interaction acceptances remain pending. Renderer,
 production personal-data behavior, PvP and activity claims remain separate.
+
+## RU ranks and live controller acceptance - 2026-11-01 (MSK)
+
+One fresh RU `ranks` request completed through the corrected controller with
+matching source/input pins and five reviewed native frames. Readable RU content,
+both OK closes, alternate-alias reopening, cooldown and returned movement were
+confirmed together with zero AMXX errors and client/configuration/fixture/
+network/relay cleanup. A fresh post-completion heartbeat confirmed no game.
+The ordinary hash-bound review operation reported `accepted`; raw results were
+not edited. There was one dispatch and no manual window-selection request.
+
+This also closes the corrected controller's first live end-to-end gate. Both
+`ranks` languages are now independently accepted, with their original request
+identities preserved. RU/EN `profile` and RU/EN `topall` remain pending. No
+installed runner, addon, production, cloud or access change was performed.
+The completed campaign is held before further work.

@@ -4388,7 +4388,11 @@ verified cleanup, but exposed a local generic-label validation bug. The
 correction was accepted in PR #428 after 122 focused assertions, the full local
 gates and full required/post-merge CI passed. The retained EN evidence passed
 read-only inspection and independent review, without changing the old
-campaign's source pins or `needs_reconciliation` phase. Five native
-scenarios and corrected-controller end-to-end acceptance remain open. Future
-runtime work requires a fresh campaign; no game request was repeated.
+campaign's source pins or `needs_reconciliation` phase. On 2026-11-01 (MSK), one
+fresh RU `ranks` trial passed the corrected controller's complete live workflow,
+five-frame review and cleanup checks. The normal hash-bound review reached
+`accepted`, closing its first live end-to-end gate. Both ranks languages are
+accepted; RU/EN `profile` and RU/EN `topall` remain open. The campaign is held
+before further work. No game request was repeated and no source, installed
+runner, access, addon, production or cloud change was needed for the RU trial.
 See [operations](client-controller.md) and [readiness](client-controller-readiness.md).

@@ -85,17 +85,37 @@ target update is applicable. No production, addon, cloud or access change was
 made. This closes delivery of the verifier correction, not its separate live
 controller gate.
 
-## Pending live gate
+## Successful live controller gate - 2026-11-01 (MSK)
 
-Five native client scenarios remain: RU `ranks`, RU/EN `profile` and RU/EN
-`topall`. A fresh campaign is required for future runtime work after the source
-correction. End-to-end acceptance of the corrected controller remains separate
-from the successful read-only verification of this retained EN result. The
-earlier Steam-conflict cancellation and both attempts' permanent claims remain
-preserved. The operator hold is restored while resolving the controller issue;
-it is not a claim that Steam is busy again.
+A fresh campaign using the accepted correction completed one RU `ranks`
+request through the public CLI. Its source and prepared input pins matched.
+The controller reached `captured_unreviewed` after readiness checks, one
+dispatch, collection and cleanup. Five real frames were independently reviewed:
+the RU title and body were readable, both OK closes and alternate-alias reopening
+were observed, and movement returned after both closes. The matching baseline,
+ordered interaction, both alias/cooldown and movement epochs, zero AMXX errors,
+restored configuration and fixture/network/relay absence were verified. A fresh
+post-completion worker heartbeat confirmed no game process.
 
-A new private campaign is prepared against the accepted correction, with six
-unclaimed IDs and an active operator hold. Its continuation plan lists only the
-five pending native scenarios and links the independent EN review separately;
-the EN result was not imported into a different request or dispatched again.
+The normal `review` operation rehashed the retained evidence and created its
+immutable five-frame review receipt. The campaign then reported `accepted` with
+`acceptancePassed=true`; raw worker acceptance/renderer flags remained false.
+No direct state edit, source-pin migration, repeated dispatch or manual window
+selection was requested. This closes the corrected controller's first live
+end-to-end gate as well as RU `ranks` native acceptance. Both ranks languages are
+accepted; EN retains its separate earlier independent review.
+
+No code, installed runner, trust engine, access rule, addon, production service
+or cloud resource changed. This follow-up is evidence only. The already accepted
+source's build/unit/native/InspectCode checks were not repeated; the bounded
+live trial, five-frame review and matching cleanup evidence are the new checks.
+
+## Remaining native scenarios
+
+RU/EN `profile` and RU/EN `topall` remain pending. The current campaign is held
+after acceptance and its pending-case plan excludes the already reviewed EN
+`ranks` request. It is an operator hold, not a claim that Steam is busy. Recheck
+readiness and queue capacity before each next case. No completed request was
+archived during this trial. The old EN campaign's `needs_reconciliation` state,
+all earlier claims, raw evidence and the Steam-conflict cancellation remain
+preserved; none was imported into a different request.
