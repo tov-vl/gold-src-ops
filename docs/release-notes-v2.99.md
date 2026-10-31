@@ -17,7 +17,12 @@ preserved. No rollback was needed. A read-only predecessor check first rejected
 a subsecond cross-host clock difference; the coordinator was corrected before
 any apply, retaining server-side freshness checks.
 
-Real-client RU/EN readability remains pending and will be accepted separately.
+Real-client RU/EN readability and rules-window interaction passed on 2026-10-31
+using fresh isolated LAN fixtures with the exact accepted plugin/dictionary.
+Ten frames confirmed complete localized text, both OK closes and alternate-alias
+reopening; fixture markers confirmed cooldown and returned movement. No manual
+window selection was needed, and client/fixture cleanup passed. OpenGL was
+requested but not independently verified. PvP and human activity remain separate.
 No application images/tags, new provider configuration or gameplay settings were
 changed. See
 [scope and gates](v2.99-respawn-rules.md).

@@ -4332,7 +4332,11 @@ storage and existing rules. Dictionary and mandatory engine coverage are extende
 Product PR #419 and full required/post-merge CI passed. One guarded 0.37.0 ->
 0.38.0 apply reached `accepted`; independent acceptance confirmed preserved
 vaults, queue, agent, workflow, backup baseline invariants and control-plane.
-Client readability, PvP and activity remain separate; two RU/EN `/rules`
-screenshots and the owner's checklist result are the next client gate.
+Real-client RU/EN readability and rules-window interaction passed on 2026-10-31
+against fresh isolated LAN fixtures using the exact accepted plugin/dictionary.
+Ten frames were reviewed; both OK closes, alternate-alias reopening, cooldown
+and returned movement were confirmed without manual window selection. Cleanup
+passed. PvP behavior and human activity remain separate; no new production
+runtime or renderer-verification claim is made by the client trials.
 See [scope and gates](v2.99-respawn-rules.md) and
 [release notes](release-notes-v2.99.md).
