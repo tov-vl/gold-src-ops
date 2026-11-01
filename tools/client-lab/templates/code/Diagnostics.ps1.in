@@ -161,7 +161,7 @@ function Assert-LabDesktopRequest([string]$Root,$Policy,[string]$Id) {
     $paths=Get-LabPaths $Root $Id
     $job=Read-LabJson $paths.request
     Assert-LabRunnerJob $job
-    if($job.id -cne $Id -or $job.action -cnotin @('verify-rules','verify-panel') -or -not (Get-LabAutonomousMode $Root $job)){throw 'Desktop launch requires a fixed autonomous panel job.'}
+    if($job.id -cne $Id -or $job.action -cnotin @('verify-rules','verify-panel','capture-guns') -or -not (Get-LabAutonomousMode $Root $job)){throw 'Desktop launch requires a fixed autonomous panel job.'}
     $result=Read-LabJson (Join-Path $paths.result 'result.json')
     if($result.id -cne $Id -or $result.status -cne 'launch_claimed' -or -not $result.launchRequested){throw 'Desktop launch claim differs.'}
     $configName='gso_lan_'+([guid]$Id).ToString('N')+'.cfg'
@@ -170,6 +170,11 @@ function Assert-LabDesktopRequest([string]$Root,$Policy,[string]$Id) {
         if((Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked desktop launch input.'}
     }
     if((Get-Item -LiteralPath $configPath).Length -gt 32KB -or [IO.File]::ReadAllText($configPath) -cne (New-LabRunnerInteractionProgram $job)){throw 'Desktop launch program differs.'}
+    if((Get-LabInteractionPanel $job) -ceq 'guns'){
+        $stage=Join-Path $Policy.gameRoot ('cstrike/'+(Get-LabGunsStageName $job))
+        if((Get-Item -LiteralPath $stage).Attributes -band [IO.FileAttributes]::ReparsePoint -or (Get-Item -LiteralPath $stage).Length -gt 32KB -or [IO.File]::ReadAllText($stage) -cne (New-LabGunsStageProgram $job)){throw 'Weapons stage differs.'}
+        Assert-LabGunsBindings $Policy.gameRoot
+    }
     Assert-LabInteractionBindings $Policy.gameRoot
     if(-not (Get-LabClientReadiness (Get-LabClientObservation $Policy)).ready){throw 'Desktop launch prerequisites differ.'}
     return @{job=$job;directory=$paths.result;arguments=(Get-LabRunnerLaunchArguments $job $configName)}

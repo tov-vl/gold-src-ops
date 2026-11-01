@@ -6,6 +6,7 @@ param(
     [Parameter(Mandatory = $true)][string]$AddonDirectory,
     [Parameter(Mandatory = $true)][string]$HelperBinaryPath,
     [Parameter(Mandatory = $true)][ValidateSet('ru','en')][string]$Language,
+    [ValidateSet('motd','guns')][string]$Scenario='motd',
     [Parameter(Mandatory = $true)][string]$OutputDirectory
 )
 $ErrorActionPreference = 'Stop'
@@ -28,7 +29,7 @@ foreach ($entry in $manifest.files) {
 $inputs = @(
     @{name='goldsrcops.amxx';path=(Join-Path $AddonDirectory 'goldsrcops.amxx');hash='224D38A33FD6EE19C96D6917C748051E5B4FAB3642D0256F703F416D6F8C513F'},
     @{name='goldsrcops.txt';path=(Join-Path $AddonDirectory 'goldsrcops.txt');hash='C37970E8C3AF420CDA33A6D948A9FE6DE3C12F63A9470A9C14DA3B7045C7FEFB'},
-    @{name='fixture_vgui_guard.amxx';path=$HelperBinaryPath;hash='719A62370E26DB410F112AB74F6BB2F51B236531416CF2ECFC2E147640C35030'}
+    @{name='fixture_vgui_guard.amxx';path=$HelperBinaryPath;hash='2D9CA9339D07489DC0A1FE301F283DCFF32E48DD3DCDE44FE23D411098576F8D'}
 )
 foreach ($inputFile in $inputs) {
     $item = Get-Item -LiteralPath $inputFile.path
@@ -37,7 +38,7 @@ foreach ($inputFile in $inputs) {
 }
 $id = [guid]::NewGuid().ToString('D')
 $container = 'gso-client-lab-' + ([guid]$id).ToString('N')
-$tokens = @{SOURCE_IPV4=$profile.sourceAddress;TARGET_IPV4=$profile.targetAddress;TARGET_NAME=$profile.targetName;FIXTURE_NAME=$profile.fixtureName;CONTAINER_NAME=$container}
+$tokens = @{SOURCE_IPV4=$profile.sourceAddress;TARGET_IPV4=$profile.targetAddress;TARGET_NAME=$profile.targetName;FIXTURE_NAME=$profile.fixtureName;CONTAINER_NAME=$container;GUNS_READINESS=$(if($Scenario -ceq 'guns'){'1'}else{'0'})}
 foreach ($directory in @($output,(Join-Path $output 'inputs'),(Join-Path $output 'evidence'))) { New-Item -ItemType Directory -Path $directory | Out-Null }
 Copy-Item -LiteralPath (Join-Path $BundleDirectory 'kit/code') -Destination $output -Recurse
 foreach ($name in @('Invoke-Panel.ps1','Collect-Autonomous.ps1')) { Copy-Item -LiteralPath (Join-Path $BundleDirectory ('kit/' + $name)) -Destination $output }

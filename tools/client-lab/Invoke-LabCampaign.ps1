@@ -44,7 +44,7 @@ switch -CaseSensitive ($Operation) {
                 if ($entry.Count -ne 1 -or $entry[0].bodySha256 -cnotmatch '\A[0-9A-F]{64}\z') { throw 'Six reviewed baseline hashes required.' }
                 $key = "$panelName-$languageName"
                 $null = & (Join-Path $PSScriptRoot 'New-LabRun.ps1') -BundleDirectory $BundleDirectory -ActivationPath $ActivationPath `
-                    -AddonDirectory $AddonDirectory -HelperBinaryPath $HelperBinaryPath -Language $languageName -OutputDirectory (Join-Path $root $key)
+                    -AddonDirectory $AddonDirectory -HelperBinaryPath $HelperBinaryPath -Language $languageName -Scenario $Scenario -OutputDirectory (Join-Path $root $key)
                 $case=@{ key = $key; panel = $panelName; language = $languageName; baselineSha256 = $entry[0].bodySha256 }
                 if($Scenario -ceq 'guns'){$case.menuBaselines=$entry[0].menuBaselines}
                 $cases += $case

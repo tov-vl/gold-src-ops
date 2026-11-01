@@ -22,5 +22,5 @@ $reapi=Join-Path $CacheDirectory 'reapi-5.24.0.300/addons/amxmodx/scripting/incl
 & (Join-Path $scripting 'amxxpc.exe') (Join-Path $PSScriptRoot 'fixture_vgui_guard.sma') ('-i'+$includes) ('-i'+$reapi) ('-o'+$output) -d0 -E | Out-Host
 if($LASTEXITCODE -ne 0){throw 'Fixture helper compilation failed.'}
 $hash=(Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash
-if($hash -cne '719A62370E26DB410F112AB74F6BB2F51B236531416CF2ECFC2E147640C35030'){throw 'Fixture helper differs from the reviewed source pin; do not use the output.'}
+if($hash -cne '2D9CA9339D07489DC0A1FE301F283DCFF32E48DD3DCDE44FE23D411098576F8D'){throw 'Fixture helper differs from the reviewed source pin; do not use the output.'}
 @{status='compiled-not-installed';sha256=$hash;runtimeChanged=$false;downloaded=$false}|ConvertTo-Json

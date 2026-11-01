@@ -9,6 +9,8 @@ new bool:g_moved[33];
 new bool:g_reported[33];
 new Float:g_firstRules[33];
 new g_panel[33];
+new g_readiness;
+new bool:g_spawnReady[33], bool:g_programRequested[33];
 new const PANELS[][] = { "rules", "ranks", "profile", "topall" };
 
 // Fresh disposable fixture data only. No connected player's identity is replaced.
@@ -30,7 +32,8 @@ public plugin_precache()
 
 public plugin_init()
 {
-    register_plugin("Fixture interaction evidence", "1.2.0", "");
+    register_plugin("Fixture interaction evidence", "1.3.0", "");
+    g_readiness = register_cvar("gso_lab_readiness", "0");
     register_message(get_user_msgid("VGUIMenu"), "OnVguiMenu");
     register_clcmd("rules", "ObserveRules");
     register_clcmd("say_team /rules", "ObserveRulesAlias");
@@ -47,6 +50,38 @@ public plugin_init()
     register_clcmd("menuselect", "ObserveGunsSelection");
     register_message(get_user_msgid("ShowMenu"), "ObserveGunsMenu");
     RegisterHookChain(RG_CBasePlayer_Spawn, "ObserveGunsSpawn", true);
+}
+
+// Opt-in for weapons runs only. Fixed one-shot client aliases, never supplied text.
+public client_putinserver(player)
+{
+    g_spawnReady[player] = false;
+    g_programRequested[player] = false;
+    if (get_pcvar_num(g_readiness)) { set_task(0.2, "ReadinessJoin", player + 100); }
+}
+
+public ReadinessJoin(task)
+{
+    new player = task - 100;
+    if (!is_user_connected(player) || !get_pcvar_num(g_readiness)) { return; }
+    log_amx("FIXTURE_GUNS_READY phase=connected");
+    client_cmd(player, "gso_lab_join");
+}
+
+public ReadinessSpawn(task)
+{
+    new player = task - 200;
+    if (!is_user_alive(player) || !get_pcvar_num(g_readiness)) { return; }
+    log_amx("FIXTURE_GUNS_READY phase=spawn");
+    client_cmd(player, "gso_lab_spawn");
+}
+
+public ReadinessProgram(task)
+{
+    new player = task - 300;
+    if (!is_user_alive(player) || !get_pcvar_num(g_readiness)) { return; }
+    log_amx("FIXTURE_GUNS_READY phase=program");
+    client_cmd(player, "gso_lab_program");
 }
 
 public OnVguiMenu(message_id, destination, player)
@@ -156,6 +191,12 @@ GunsMovementStart(player)
 public ObserveGuns(player)
 {
     if (!is_user_alive(player)) { return PLUGIN_CONTINUE; }
+    if (get_pcvar_num(g_readiness) && g_spawnReady[player] && !g_programRequested[player])
+    {
+        g_programRequested[player] = true;
+        set_task(0.2, "ReadinessProgram", player + 300);
+        return PLUGIN_CONTINUE;
+    }
     if (!g_guns[player])
     {
         g_guns[player] = 1;
@@ -240,6 +281,11 @@ public GunsRespawnRequest(player)
 
 public ObserveGunsSpawn(player)
 {
+    if (get_pcvar_num(g_readiness) && is_user_alive(player) && !g_spawnReady[player])
+    {
+        g_spawnReady[player] = true;
+        set_task(0.2, "ReadinessSpawn", player + 200);
+    }
     if (g_guns_respawn[player] && is_user_alive(player)) { set_task(0.2, "ObserveGunsLoadout", player); }
     return HC_CONTINUE;
 }
@@ -260,6 +306,11 @@ public ObserveGunsLoadout(player)
 public client_disconnected(player)
 {
     remove_task(player);
+    remove_task(player + 100);
+    remove_task(player + 200);
+    remove_task(player + 300);
+    g_spawnReady[player] = false;
+    g_programRequested[player] = false;
     g_guns[player] = 0;
     g_guns_menu[player] = 0;
     g_guns_respawn[player] = false;

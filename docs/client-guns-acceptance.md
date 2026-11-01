@@ -141,3 +141,47 @@ all six client requests and prior failed-trial evidence were preserved. No game
 was launched by that recovery. The next gate is readiness synchronization and
 a newly frozen baseline attempt. Never delete claims or repeat the rejected
 update/game request to bypass this gate. No live weapons acceptance is claimed.
+
+## Capture readiness synchronization
+
+The next source slice replaces the initial frame-count wait with an opt-in
+fixture handshake for weapons runs. Prepare both baseline and live fixtures
+with `New-LabRun.ps1 -Scenario guns`; the campaign forwards that option.
+Legacy MOTD fixtures keep the handshake disabled.
+
+The fixed launch CFG installs three one-shot aliases before connecting. The
+fixture requests team/class selection after connection and one bootstrap
+snapshot after the first actual spawn. The worker then checks the exact game
+process, owner, session and owned-window readiness. Only after a durable phase
+claim does the existing fixed native `/guns` action request execution of a
+second, job-owned CFG with the finite menu setup. This setup action does not
+count as interactive acceptance. The first trigger is excluded from the
+fixture's five-selection acceptance sequence.
+
+No setup or baseline snapshots are scheduled during connection. A missing or
+filtered callback, multiple bootstrap frames, cancellation, changed owner or
+failed window guard terminates the request without retry. The spawn deadline
+is 90 seconds; live setup and interaction share the existing monotonic budget.
+Client command filters and persisted bindings are never weakened. Both CFGs
+require exact content and non-linked paths for cleanup; ambiguous files remain
+an incomplete cleanup gate.
+
+Baseline collection now rejects duplicate full frames, duplicate menu bodies
+and frames without the expected black backdrop/menu structure. Structural
+recognition does not establish titles, language or selected items: all eight
+native profiles still require review before weapons input can be enabled.
+Live acceptance additionally requires one ordered `connected`, `spawn` and
+`program` fixture marker, readiness metadata and confirmed second-CFG cleanup.
+
+Offline verification includes 54 readiness checks and 15 worker cleanup cases
+in each PowerShell runtime, the existing client policy suite, both native
+compilations, synthetic baseline rejection and the unchanged 459 native checks.
+The helper compiles reproducibly using the pinned offline toolchain. Seven Python
+policy tests and the solution Quality Gate passed: zero build warnings/errors,
+1,294 passing tests, 62 opt-in browser skips and no vulnerable packages. No native
+client compatibility or menu acceptance follows from these tests.
+
+Delivery and signed runner adoption are pending. Steam is held because the
+shared account is in use. The next native gate is one newly prepared RU baseline
+with a fresh ID after availability is confirmed; the old failed request and
+all its evidence remain untouched. No automatic game or input retry is allowed.
