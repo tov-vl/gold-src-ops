@@ -4439,7 +4439,7 @@ See [recovery boundary and gates](client-updater-recovery.md).
 
 ## Autonomous client lab - weapon capture readiness
 
-Source and capture-only adoption completed on 2026-11-01; native trial held.
+Source and capture-only adoption completed on 2026-11-01; native baseline not accepted.
 Product PR #436 merged at `d02844a` after six green required checks. A normal
 signed update installed at sequence 18 without a local administrator installer.
 Independent readback verified nine hashes, six preserved requests, prior evidence
@@ -4450,5 +4450,11 @@ duplicate/loading frames and retains readiness evidence separately. Both owned
 CFGs have exact-content cleanup. Live evidence requires ordered independent
 readiness markers; eight reviewed menu profiles still gate weapons acceptance.
 The trust engine, four pinned dependencies, permissions and production remain
-outside this slice. Offline policy and synthetic-frame checks passed; the Steam
-hold prevents new client trials. See [readiness boundary](client-guns-acceptance.md#capture-readiness-synchronization).
+outside this slice. Offline policy and synthetic-frame checks passed.
+After Steam became available, one fresh RU trial confirmed connection/spawn,
+the bootstrap snapshot and owned-window readiness, but produced no menu frames.
+Execution of the second CFG is unproved. Independent game/both-CFG/fixture/
+network/relay cleanup and a fresh zero-game heartbeat passed with zero AMXX
+errors. No retry or EN run occurred; sequence 18 and prior evidence were
+preserved. The next gate is menu setup delivery review, not Steam availability.
+See [trial evidence and claim limits](client-guns-acceptance.md#first-handshake-trial---readiness-confirmed-baseline-not-accepted).
