@@ -95,7 +95,47 @@ formatter style (MA0007), bounded focus failure reporting (CA1031) and a
 constructor invoked dynamically from PowerShell (UnusedMember.Global).
 No inspection was suppressed or downgraded.
 
-Required CI, signed target adoption, eight reviewed native baselines and fresh
-RU/EN interaction trials remain separate gates. No live weapons pass is claimed.
-Rollback retains the exact installed predecessor bundle and operator receipts;
-failed trials remain unaccepted and are reconciled by their existing IDs.
+Product [PR #432](https://github.com/tov-vl/gold-src-ops/pull/432) merged at
+`06a12ab`. All six required checks passed in
+[PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/41294883255) and
+[post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/41295943200).
+These checks do not establish native menu acceptance.
+
+## First target trial - not accepted
+
+The capture-only signed package installed successfully on 2026-11-01 at updater
+sequence 16. Independent reads verified all nine installed hashes, the four
+unchanged pinned dependencies and the absence of weapons input capability.
+Three exact owned terminal requests were archived through signed maintenance;
+their results and representative images remained byte-identical and readable.
+All five unrelated active-queue records retained their identities and hashes.
+
+One RU baseline request produced four valid native BMP files, but all four
+were byte-identical and showed the connection/loading screen, not weapon menus.
+The server log recorded a connection but no completed in-game menu sequence.
+Frame-count waits did not establish readiness in this trial. The underlying
+timing/launch cause is not yet proved; increasing waits alone is not acceptance.
+No reviewed baseline manifest was created, no input-enabled package was signed,
+and neither an EN baseline nor a live weapons interaction was dispatched.
+
+Cleanup passed independently: the owned game and generated configuration were
+removed, fixture/container/network/relay were removed, a fresh heartbeat showed
+zero game processes, and AMXX reported zero error files. Raw acceptance and
+renderer flags remain false. The failed request and images are retained.
+
+A separately signed rollback to the exact predecessor bytes was attempted once.
+The gateway rejected it at preflight; the package ID remained `not_reported`,
+and a fresh state read still showed sequence 16, enabled and unblocked, with
+the same nine capture-only hashes. The rollback did not install and was not
+retried. The gateway's 16-file inbox capacity guard is the leading explanation;
+the fixed read interface does not expose the actual inbox inventory, so its
+count is not claimed as directly observed.
+
+The target therefore retains the capture-only runner. Weapons input remains
+disabled and the trial is held. The exact predecessor, signed rollback package,
+one-attempt receipts and failed baseline remain in the private operator record.
+Next: review a bounded updater-inbox recovery outside this stage's unchanged
+trust-engine boundary, then repair readiness synchronization and authorize a
+fresh baseline attempt. Never delete claims, widen gateway limits blindly or
+repeat the rejected update/game request to bypass this gate. No live weapons
+acceptance is claimed.

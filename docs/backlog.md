@@ -4406,11 +4406,18 @@ See [operations](client-controller.md) and [readiness](client-controller-readine
 
 ## Autonomous client lab - weapon menus
 
-In progress: fixed RU/EN `/guns` selection, repeated selection, exit and
-post-respawn loadout acceptance on isolated fixtures with addon 0.38.0.
+Implemented; target acceptance held: fixed RU/EN `/guns` selection, repeated
+selection, exit and post-respawn loadout acceptance on isolated fixtures with
+addon 0.38.0.
 Reviewed native menu profiles gate input; independent inventory and movement
 markers distinguish menu selection from actual item delivery. The fixture uses
 a controlled scene backdrop and one real death, without granting weapons.
 Existing access, pinned runner dependencies, trust engine and production remain
-outside the change. Offline checks, signed adoption, baseline review and live
-acceptance are separate gates. See [scope](client-guns-acceptance.md).
+outside the change. Product PR #432 passed required and post-merge CI and merged
+at `06a12ab`. Capture-only adoption verified nine hashes and preservation of
+three archived results/images. The sole RU baseline trial showed four identical
+loading screens; it was not accepted or repeated. Cleanup and zero AMXX errors
+were verified. EN and live input trials were not dispatched. One signed rollback
+was rejected by gateway preflight; sequence 16 remains installed with weapons
+input disabled. Inbox recovery and capture-readiness correction are the next
+gates. See [scope and failed-trial evidence](client-guns-acceptance.md).
