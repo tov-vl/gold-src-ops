@@ -196,8 +196,36 @@ ready worker and zero game processes. No local administrator installer, new
 permission, task, firewall, trust-engine, addon or production change was needed.
 Neither Steam nor the game was launched; weapons input remains disabled.
 
-Source delivery and capture-only adoption are complete. Native readiness and
-menu acceptance remain unverified because the shared Steam account is held.
-The next native gate is one newly prepared RU baseline with a fresh ID after
-availability is confirmed; the old failed request and all its evidence remain
-untouched. No automatic game or input retry is allowed.
+Source delivery and capture-only adoption are complete. The owner subsequently
+reported Steam available and one fresh RU baseline was attempted, as recorded
+below. No automatic game or input retry is allowed.
+
+## First handshake trial - readiness confirmed, baseline not accepted
+
+One RU request ran on 2026-11-01. The fixture recorded one `connected`, `spawn`
+and `program` marker in order. Team join and actual spawn completed. The worker
+observed one native bootstrap snapshot and a complete ready owned-window guard:
+foreground, active session, default desktop and physical 1920x1200 geometry.
+No activation intervention was needed. The fixed native `/guns` setup request
+reached the fixture.
+
+The four menu frames did not appear. The worker terminated with
+`uncertain_capture` / `game_observed_no_frames`; `FIXTURE_GUNS_START` was absent.
+The `program` marker is emitted before sending the client command. It proves
+the setup request, not execution of the second CFG. Client-side stage execution
+is therefore unproved. Command filtering is a hypothesis, not a demonstrated
+root cause; no filter or binding was relaxed. The diagnostic bootstrap remains
+on the target and is not exposed by the current fixed image-read interface.
+
+Independent cleanup passed: the owned game stopped, both exact CFGs were
+removed, fixture/container/network/relay were absent, AMXX error count was zero
+and a fresh post-completion heartbeat reported a ready worker with no game.
+All six previous request hashes were preserved. The queue now contains seven
+terminal records; sequence 18 and all nine runner hashes remain unchanged.
+The job, claims and evidence were retained. No second RU attempt, EN capture,
+reviewed baseline manifest or live weapons acceptance was performed.
+
+The next gate is review of menu setup delivery, including a distinct client
+stage acknowledgement and fixed local UI setup without server-triggered `exec`.
+That is a proposed correction, not an installed or client-proven change.
+The completed fixture and request must not be reused for another trial.
