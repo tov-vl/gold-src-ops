@@ -2,7 +2,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$ProfilePath,
-    [Parameter(Mandatory = $true)][string]$OutputDirectory
+    [Parameter(Mandatory = $true)][string]$OutputDirectory,
+    [string]$GunsBaselinePath
 )
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'Lab.Tooling.psm1') -Force
@@ -10,6 +11,25 @@ $profile = Read-LabProfile $ProfilePath
 $output = Assert-LabOutputPath $OutputDirectory
 if (Test-Path -LiteralPath $output) { throw 'Never overwrite a generated bundle; use a fresh directory.' }
 $tokens = @{SOURCE_IPV4=$profile.sourceAddress;TARGET_IPV4=$profile.targetAddress;TARGET_NAME=$profile.targetName;FIXTURE_NAME=$profile.fixtureName}
+$guns = @{}
+if ($GunsBaselinePath) {
+    $item=Get-Item -LiteralPath $GunsBaselinePath
+    if($item.Length -gt 65536 -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Invalid weapons baseline file.'}
+    $baseline = Get-Content -LiteralPath $GunsBaselinePath -Raw | ConvertFrom-Json
+    if ($baseline.schema -ne 1 -or $baseline.imagesReviewed -isnot [bool] -or -not $baseline.imagesReviewed -or @($baseline.profiles).Count -ne 8) { throw 'Eight reviewed weapons baselines required.' }
+    foreach ($entry in $baseline.profiles) {
+        if ($entry.key -isnot [string] -or $entry.sha256 -isnot [string] -or
+            $entry.key -cnotmatch '\A(primary-default|pistol-default|primary-selected|pistol-selected)-(ru|en)\z' -or
+            $entry.sha256 -cnotmatch '\A[0-9A-F]{64}\z' -or $guns.ContainsKey($entry.key)) { throw 'Weapons baseline differs.' }
+        $guns[$entry.key] = $entry.sha256
+    }
+    if(@($guns.Values|Select-Object -Unique).Count -ne 8){throw 'Weapons baseline identities must be distinct.'}
+}
+$orderedGuns=[ordered]@{}
+if($guns.Count){foreach($language in @('ru','en')){foreach($name in @('primary-default','pistol-default','primary-selected','pistol-selected')){
+    $key=$name+'-'+$language;$orderedGuns[$key]=$guns[$key]
+}}}
+$tokens.GUNS_BASELINES = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($orderedGuns | ConvertTo-Json -Compress)))
 New-Item -ItemType Directory -Path $output -ErrorAction Stop | Out-Null
 foreach ($area in @('code','controller','updater')) {
     $destination = if ($area -eq 'controller') { Join-Path $output 'kit' } else { Join-Path $output ('kit/' + $area) }

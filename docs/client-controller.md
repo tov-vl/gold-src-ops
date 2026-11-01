@@ -7,6 +7,13 @@ it does not install software or extend the target's permissions. Read the
 [lab runbook](client-lab.md) for prerequisites and
 [panel acceptance scope](client-panel-acceptance.md) for the pending live gate.
 
+An explicit `-Scenario guns` during preparation selects a separate two-case
+RU/EN weapons matrix. It requires the reviewed eight-profile baseline manifest
+and matching installed bundle. `run`/`resume`/`review` use `-Panel guns`; all
+one-attempt, hold, cleanup and source/input-pin guards still apply. Review five
+main frames plus four checkpoint frames per case, with independent inventory
+and respawn markers. See [weapons scope and evidence](client-guns-acceptance.md).
+
 ## Preparation
 
 Use the accepted nine-file bundle, matching revision-16 activation, pinned

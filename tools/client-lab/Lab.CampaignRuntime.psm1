@@ -128,6 +128,13 @@ function Invoke-LabCampaignRuntime([string]$Operation, $Context) {
                     $null = Invoke-CampaignPanel $Context 'image' @('-ImageNumber',$i.ToString())
                 }
             }
+            if($Context.case.panel -ceq 'guns'){
+                foreach($name in @('primary-exit','primary-reopened','pistol-selected-close','pistol-exit')){
+                    if(-not (Test-Path -LiteralPath (Join-Path $directory ('checkpoint-'+$name+'.bmp')))){
+                        $null=Invoke-CampaignPanel $Context 'checkpoint' @('-Checkpoint',$name)
+                    }
+                }
+            }
             return
         }
         absence {

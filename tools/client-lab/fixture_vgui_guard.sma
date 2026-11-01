@@ -42,6 +42,11 @@ public plugin_init()
     register_clcmd("say_team /topall", "ObserveTopallAlias");
     register_message(get_user_msgid("MOTD"), "ObserveMotd");
     RegisterHookChain(RG_CBasePlayer_PostThink, "ObserveMovement", true);
+    register_clcmd("guns", "ObserveGuns");
+    register_clcmd("say_team /guns", "ObserveGuns");
+    register_clcmd("menuselect", "ObserveGunsSelection");
+    register_message(get_user_msgid("ShowMenu"), "ObserveGunsMenu");
+    RegisterHookChain(RG_CBasePlayer_Spawn, "ObserveGunsSpawn", true);
 }
 
 public OnVguiMenu(message_id, destination, player)
@@ -95,6 +100,7 @@ public ObserveRulesAlias(player)
 
 public ObserveMovement(player)
 {
+    ObserveGunsMovement(player);
     if (!is_user_alive(player) || g_epoch[player] < 1 || g_reported[player])
         return HC_CONTINUE;
     new buttons = get_entvar(player, var_button);
@@ -112,6 +118,152 @@ public ObserveMovement(player)
         log_amx("FIXTURE_PANEL_CONTROL panel=%s epoch=%d back_observed=1 left_observed=1 horizontal_distance_over_8=1", PANELS[g_panel[player]], g_epoch[player]);
     }
     return HC_CONTINUE;
+}
+
+new g_guns[33], g_guns_step[33], g_guns_menu[33], g_guns_inventory[33][6];
+new bool:g_guns_failed[33], bool:g_guns_respawn[33], bool:g_guns_movement[33];
+new Float:g_guns_origin[33][3], g_guns_buttons[33];
+new g_guns_text[33][768];
+
+GunsInventory(player, values[6])
+{
+    values[0] = get_entvar(player, var_weapons);
+    values[1] = get_user_weapon(player);
+    get_user_ammo(player, CSW_MP5NAVY, values[2], values[3]);
+    get_user_ammo(player, CSW_USP, values[4], values[5]);
+}
+
+GunsBackdrop(player, bool:enabled)
+{
+    // Opaque scene-only fade makes the real AMXX menu pixels deterministic.
+    // No menu text, callback, weapon, view angle or player origin is supplied here.
+    message_begin(MSG_ONE, get_user_msgid("ScreenFade"), _, player);
+    write_short(0);
+    write_short(0);
+    write_short(enabled ? 5 : 0);
+    write_byte(0); write_byte(0); write_byte(0);
+    write_byte(enabled ? 255 : 0);
+    message_end();
+}
+
+GunsMovementStart(player)
+{
+    get_entvar(player, var_origin, g_guns_origin[player]);
+    g_guns_buttons[player] = 0;
+    g_guns_movement[player] = false;
+}
+
+public ObserveGuns(player)
+{
+    if (!is_user_alive(player)) { return PLUGIN_CONTINUE; }
+    if (!g_guns[player])
+    {
+        g_guns[player] = 1;
+        g_guns_step[player] = 0;
+        g_guns_failed[player] = false;
+        g_guns_respawn[player] = false;
+        GunsInventory(player, g_guns_inventory[player]);
+        log_amx("FIXTURE_GUNS_START mp5=%d usp=%d", user_has_weapon(player, CSW_MP5NAVY), user_has_weapon(player, CSW_USP));
+    }
+    return PLUGIN_CONTINUE;
+}
+
+public ObserveGunsMenu(message_id, destination, player)
+{
+    if (player < 1 || player > 32 || !g_guns[player]) { return PLUGIN_CONTINUE; }
+    new text[512]; get_msg_arg_string(4, text, charsmax(text));
+    if (strlen(g_guns_text[player]) + strlen(text) >= charsmax(g_guns_text[])) { g_guns_failed[player] = true; return PLUGIN_CONTINUE; }
+    add(g_guns_text[player], charsmax(g_guns_text[]), text);
+    if (get_msg_arg_int(3)) { return PLUGIN_CONTINUE; }
+    if (contain(g_guns_text[player], "MP5") >= 0 && contain(g_guns_text[player], "AK-47") >= 0 && contain(g_guns_text[player], "M4A1") >= 0)
+        g_guns_menu[player] = 1;
+    else if (contain(g_guns_text[player], "USP") >= 0 && contain(g_guns_text[player], "Glock") >= 0 && contain(g_guns_text[player], "Desert Eagle") >= 0)
+        g_guns_menu[player] = 2;
+    else { g_guns_menu[player] = 0; }
+    g_guns_text[player][0] = 0;
+    if (g_guns_menu[player]) { set_task(0.05, "GunsShowBackdrop", player); }
+    return PLUGIN_CONTINUE;
+}
+
+public GunsShowBackdrop(player)
+{
+    // Send outside the ShowMenu message hook, after the original message completes.
+    if (is_user_alive(player) && g_guns[player] && g_guns_menu[player]) { GunsBackdrop(player, true); }
+}
+
+public ObserveGunsSelection(player)
+{
+    if (player < 1 || player > 32 || !g_guns[player] || !g_guns_menu[player] || !is_user_alive(player)) { return PLUGIN_CONTINUE; }
+    new argument[8]; read_argv(1, argument, charsmax(argument));
+    new key = str_to_num(argument), step = ++g_guns_step[player];
+    new const KEYS[] = { 10, 2, 3, 2, 10 };
+    new const MENUS[] = { 1, 1, 2, 1, 2 };
+    if (step > sizeof KEYS || key != KEYS[step - 1] || g_guns_menu[player] != MENUS[step - 1]) { g_guns_failed[player] = true; }
+    g_guns_menu[player] = 0;
+    if (key == 10 || key == 3) { GunsBackdrop(player, false); GunsMovementStart(player); }
+    set_task(0.1, "ObserveGunsInventory", player);
+    return PLUGIN_CONTINUE;
+}
+
+public ObserveGunsInventory(player)
+{
+    if (!is_user_alive(player) || !g_guns[player]) { return; }
+    new values[6], unchanged = 1;
+    GunsInventory(player, values);
+    for (new i = 0; i < sizeof values; i++) { if (values[i] != g_guns_inventory[player][i]) { unchanged = 0; } }
+    if (!unchanged) { g_guns_failed[player] = true; }
+    log_amx("FIXTURE_GUNS_SELECT step=%d inventory_unchanged=%d", g_guns_step[player], unchanged);
+    if (g_guns_step[player] == 5 && !g_guns_failed[player]) { set_task(3.0, "GunsRespawnRequest", player); }
+}
+
+ObserveGunsMovement(player)
+{
+    if (!is_user_alive(player) || !g_guns[player] || g_guns_menu[player] || g_guns_movement[player]) { return; }
+    g_guns_buttons[player] |= get_entvar(player, var_button) & (IN_BACK | IN_MOVELEFT);
+    new Float:origin[3]; get_entvar(player, var_origin, origin);
+    new Float:dx = origin[0] - g_guns_origin[player][0], Float:dy = origin[1] - g_guns_origin[player][1];
+    if (dx * dx + dy * dy > 64.0 && g_guns_buttons[player] == (IN_BACK | IN_MOVELEFT))
+    {
+        g_guns_movement[player] = true;
+        log_amx("FIXTURE_GUNS_CONTROL step=%d respawn=%d movement=1", g_guns_step[player], g_guns_respawn[player]);
+    }
+}
+
+public GunsRespawnRequest(player)
+{
+    if (!is_user_alive(player) || g_guns_step[player] != 5 || g_guns_failed[player] || !g_guns_movement[player]) { return; }
+    // One real death in this disposable fixture only. Never grant or replace items.
+    g_guns_respawn[player] = true;
+    user_kill(player, 1);
+    log_amx("FIXTURE_GUNS_DEATH requested=1");
+}
+
+public ObserveGunsSpawn(player)
+{
+    if (g_guns_respawn[player] && is_user_alive(player)) { set_task(0.2, "ObserveGunsLoadout", player); }
+    return HC_CONTINUE;
+}
+
+public ObserveGunsLoadout(player)
+{
+    if (!is_user_alive(player) || !g_guns_respawn[player]) { return; }
+    new ak_clip, ak_reserve, de_clip, de_reserve;
+    get_user_ammo(player, CSW_AK47, ak_clip, ak_reserve);
+    get_user_ammo(player, CSW_DEAGLE, de_clip, de_reserve);
+    new valid = user_has_weapon(player, CSW_AK47) && user_has_weapon(player, CSW_DEAGLE)
+        && !user_has_weapon(player, CSW_MP5NAVY) && !user_has_weapon(player, CSW_USP)
+        && ak_clip == 30 && ak_reserve == 90 && de_clip == 7 && de_reserve == 35;
+    log_amx("FIXTURE_GUNS_RESPAWN selected_loadout=%d", valid);
+    GunsMovementStart(player);
+}
+
+public client_disconnected(player)
+{
+    remove_task(player);
+    g_guns[player] = 0;
+    g_guns_menu[player] = 0;
+    g_guns_respawn[player] = false;
+    g_guns_text[player][0] = 0;
 }
 
 public ObserveMotd(message_id, destination, player)

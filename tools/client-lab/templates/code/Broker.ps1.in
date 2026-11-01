@@ -12,6 +12,8 @@ try {
         if ($policy.PSObject.Properties['panelsEnabled'] -and $policy.panelsEnabled) { Assert-LabPanelPolicy $policy; $state.panelAccess = $true }
         $state.interactionLimits=Get-LabInteractionLimits
         $state.autonomousPanels=@('rules','ranks','profile','topall')
+        if(@($script:LabGunsBaselines.PSObject.Properties).Count -eq 8){$state.autonomousPanels+=@('guns')}
+        $state.gunsBaselineCapture=$true
         $state.terminalArchiveCandidates=@(Get-LabTerminalArchiveCandidates $Root)
         $heartbeat = Join-Path $Root 'results\worker.json'
         if (Test-Path -LiteralPath $heartbeat) { $state.worker = Read-LabJson $heartbeat }
@@ -19,11 +21,12 @@ try {
         exit 0
     }
     $paths = Get-LabPaths $Root $request.id
-    if ($request.operation -in @('run','capture','verify-rules','auto-rules','auto-panel')) {
+    if ($request.operation -in @('run','capture','verify-rules','auto-rules','auto-panel','capture-guns')) {
         if ((Test-Path -LiteralPath (Join-Path $Root 'maintenance-revision-06.json')) -or (Test-Path -LiteralPath (Join-Path $Root 'maintenance-revision-07.json'))) { throw 'Maintenance in progress.' }
         if (@(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') -Filter '*.json' -File).Count -ge 8) { throw 'Session job limit reached.' }
         if ((Test-Path -LiteralPath $paths.request) -or (Test-Path -LiteralPath $paths.result) -or (Test-Path -LiteralPath $paths.archivedRequest)) { throw 'Existing job id; do not retry.' }
         $job = @{ id = $request.id; action = 'launch-local-smoke'; createdUtc = [DateTime]::UtcNow.ToString('o') }
+        if($request.operation -ceq 'capture-guns'){Assert-LabPanelPolicy $policy;$job.action='capture-guns';$job.language=$request.language}
         if ($request.operation -eq 'capture') {
             Assert-LabPanelPolicy $policy
             $job.action = 'capture-panel'; $job.panel = $request.panel; $job.language = $request.language
@@ -36,6 +39,7 @@ try {
             Assert-LabPanelPolicy $policy
             $job.action='verify-panel';$job.panel=$request.panel;$job.language=$request.language
             Assert-LabRunnerJob ([pscustomobject]$job)
+            if($request.panel -ceq 'guns' -and @($script:LabGunsBaselines.PSObject.Properties).Count -ne 8){throw 'Weapons baselines are not installed.'}
         }
         # Keep a permanent one-attempt claim; publish complete JSON atomically for the worker.
         $stream = [IO.File]::Open(($paths.request+'.claim'), [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
@@ -82,6 +86,16 @@ try {
         exit 0
     }
     if ($request.operation -eq 'result') { $result | ConvertTo-Json -Depth 8 -Compress; exit 0 }
+    if($request.operation -ceq 'checkpoint'){
+        if($jobRecord.action -cne 'verify-panel' -or $jobRecord.panel -cne 'guns'){throw 'Weapons checkpoint unavailable.'}
+        $entries=@($result.interaction.checkpoints|Where-Object {$_.name -ceq $request.checkpoint})
+        if($entries.Count -ne 1){throw 'Checkpoint identity unavailable.'}
+        $checkpoint=Join-Path $paths.result ('checkpoint-'+$request.checkpoint+'.bmp')
+        $file=Get-Item -LiteralPath $checkpoint
+        if($file.Length -lt 54 -or $file.Length -gt 16MB -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or
+            $file.Length -ne $entries[0].bytes -or (Get-FileHash -LiteralPath $checkpoint).Hash -cne $entries[0].sha256){throw 'Checkpoint integrity differs.'}
+        [Convert]::ToBase64String([IO.File]::ReadAllBytes($checkpoint));exit 0
+    }
     if([int]$request.image -gt (Get-LabRunnerImageLimit $jobRecord) -or @($result.images|Where-Object{$_.number -eq [int]$request.image}).Count -ne 1){throw 'Image selection is unavailable.'}
     $imageName = 'image-' + $request.image + '.bin'
     $image = Join-Path $paths.result $imageName

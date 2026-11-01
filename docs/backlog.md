@@ -4403,3 +4403,14 @@ held and the game is closed. No game request was repeated and no source,
 installed runner code, access, addon, production or cloud change was needed.
 Renderer, production personal-data, PvP and activity claims remain separate.
 See [operations](client-controller.md) and [readiness](client-controller-readiness.md).
+
+## Autonomous client lab - weapon menus
+
+In progress: fixed RU/EN `/guns` selection, repeated selection, exit and
+post-respawn loadout acceptance on isolated fixtures with addon 0.38.0.
+Reviewed native menu profiles gate input; independent inventory and movement
+markers distinguish menu selection from actual item delivery. The fixture uses
+a controlled scene backdrop and one real death, without granting weapons.
+Existing access, pinned runner dependencies, trust engine and production remain
+outside the change. Offline checks, signed adoption, baseline review and live
+acceptance are separate gates. See [scope](client-guns-acceptance.md).

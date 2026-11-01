@@ -21,17 +21,24 @@ if ($protocolFunctions.Count -ne 2) { throw 'Fixed runner label functions unavai
 $protocolPath = Join-Path $sandbox 'RunnerLabels.ps1'
 [IO.File]::WriteAllText($protocolPath, (($protocolFunctions | ForEach-Object { $_.Extent.Text }) -join "`n"))
 . $protocolPath
-function NewCase {
+function NewCase([switch]$Guns) {
     $root = Join-Path $sandbox ([guid]::NewGuid().ToString('N'))
     $null = New-Item -ItemType Directory -Path (Join-Path $root 'engine')
     [IO.File]::WriteAllText((Join-Path $root 'engine/pin.txt'), 'inert input')
     $cases = @()
-    foreach ($panel in @('ranks','profile','topall')) {
+    $panels=if($Guns){@('guns')}else{@('ranks','profile','topall')}
+    foreach ($panel in $panels) {
         foreach ($language in @('ru','en')) {
             $key = "$panel-$language"
             $null = New-Item -ItemType Directory -Path (Join-Path $root "$key/evidence")
             [IO.File]::WriteAllText((Join-Path $root "$key/input.txt"), 'inert fixture')
-            $cases += @{ key = $key; panel = $panel; language = $language; baselineSha256 = ('A' * 64) }
+            $case=@{ key = $key; panel = $panel; language = $language; baselineSha256 = ('A' * 64) }
+            if($Guns){
+                $case.menuBaselines=@{'primary-default'=('A'*64);'pistol-default'=('B'*64);'primary-selected'=('C'*64);'pistol-selected'=('D'*64)}
+                $canonical=(@('primary-default','pistol-default','primary-selected','pistol-selected')|ForEach-Object {$_+':'+$case.menuBaselines[$_]}) -join "`n"
+                $case.baselineSha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($canonical)))
+            }
+            $cases += $case
         }
     }
     Initialize-LabCampaign $root $cases @{ python = 'unused'; pythonSha256 = ('B' * 64); pwsh = 'unused' }
@@ -72,6 +79,24 @@ function MakeResult($Context) {
         images = $frames; labels = @(Get-LabRunnerCaptureLabels ([pscustomobject]@{action='verify-panel';panel=$Context.case.panel;language=$Context.case.language}))
         interaction = @{ profile = ('motd-v299-' + $Context.case.panel + '-1920x1200-v1'); assessments = $assessments
             actions = @(@{phase='ok-first';inputQueued=$true},@{phase='controls';inputQueued=$true},@{phase='reopen';inputQueued=$true},@{phase='ok-last';inputQueued=$true}) }
+    }
+    if($Context.case.panel -ceq 'guns'){
+        $result.interaction.profile='guns-v299-1920x1200-v1'
+        $phases=@('exit-primary','select-primary','select-pistol','repeat-primary','exit-pistol-respawn')
+        $result.interaction.actions=@($phases|ForEach-Object {@{phase=$_;inputQueued=$true;frameSha256=$bitmapHash}})
+        for($i=0;$i -lt 4;$i++){
+            $key=$result.labels[$i]
+            $result.interaction.assessments[$i].observation=@{panelMatches=$true;sceneCandidate=$false;profile=$key;bodySha256=$Context.case.menuBaselines[$key]}
+        }
+        $result.interaction.assessments[4].observation=@{panelMatches=$false;sceneCandidate=$true;profile='scene';bodySha256=('E'*64)}
+        $result.interaction.checkpoints=@()
+        foreach($name in @('primary-exit','primary-reopened','pistol-selected-close','pistol-exit')){
+            Copy-Item -LiteralPath $bitmap -Destination (Join-Path $directory ('checkpoint-'+$name+'.bmp'))
+            $menu=$name -ceq 'primary-reopened'
+            $result.interaction.checkpoints+=@{name=$name;sha256=$bitmapHash;bytes=6912054;observation=@{panelMatches=$menu;sceneCandidate=(-not $menu);bodySha256=$Context.case.menuBaselines['primary-default']}}
+        }
+        if($script:mode -ceq 'missing-checkpoint'){$result.interaction.checkpoints=@($result.interaction.checkpoints|Select-Object -First 3)}
+        if($script:mode -ceq 'unbound-action'){$result.interaction.actions[0].frameSha256=('F'*64)}
     }
     if ($script:mode -ceq 'terminal') { $result.status = 'cancelled' }
     if ($script:mode -ceq 'bad-cleanup') { $result.cleanupVerified = 'true' }
@@ -117,6 +142,12 @@ $port = {
                 $alias = $epoch - 1
                 $log += "FIXTURE_PANEL_COMMAND panel=$($context.case.panel) epoch=$epoch team_alias=$alias cooldown_verified=$alias"
                 $log += "FIXTURE_PANEL_CONTROL panel=$($context.case.panel) epoch=$epoch back_observed=1 left_observed=1 horizontal_distance_over_8=1"
+            }
+            if($context.case.panel -ceq 'guns'){
+                $log=@('FIXTURE_GUNS_START mp5=1 usp=1','FIXTURE_GUNS_DEATH requested=1','FIXTURE_GUNS_RESPAWN selected_loadout=1',
+                    'FIXTURE_GUNS_CONTROL step=1 respawn=0 movement=1','FIXTURE_GUNS_CONTROL step=3 respawn=0 movement=1',
+                    'FIXTURE_GUNS_CONTROL step=5 respawn=0 movement=1','FIXTURE_GUNS_CONTROL step=5 respawn=1 movement=1')
+                foreach($step in 1..5){$log+="FIXTURE_GUNS_SELECT step=$step inventory_unchanged=1"}
             }
             if ($script:mode -ceq 'missing-marker') { $log = @($log | Select-Object -First 3) }
             [IO.File]::WriteAllText((Join-Path $context.run 'evidence/server-final.log'), ($log -join "`n"))
@@ -269,6 +300,21 @@ Check ($cliInspection.evidence.sha256 -ceq $inspection.evidence.sha256 -and -not
 Reject { Get-LabCampaignEvidence $root ranks en }
 
 # Public CLI planning is inert and does not create missing campaign state.
+foreach($language in @('ru','en')){
+    $root=NewCase -Guns
+    Check ((Get-LabCampaignReport $root).cases.Count -eq 2)
+    Set-LabCampaignSteam $root $true
+    $state=Invoke-LabCampaignCase $root guns $language run $port
+    Check ($state.phase -ceq 'captured_unreviewed')
+    $accepted=Approve-LabCampaignCase $root guns $language $state.evidenceSha256 $true
+    Check ($accepted.phase -ceq 'accepted' -and $accepted.acceptancePassed)
+}
+foreach($failureMode in @('missing-marker','missing-checkpoint','unbound-action','wrong-baseline','stale-heartbeat','bad-cleanup')){
+    $root=NewCase -Guns;Set-LabCampaignSteam $root $true;$script:mode=$failureMode
+    $state=Invoke-LabCampaignCase $root guns en run $port
+    Check ($state.phase -ceq 'needs_reconciliation' -and -not $state.acceptancePassed)
+    Check (@($script:effects|Where-Object {$_ -ceq 'dispatch'}).Count -eq 1)
+}
 $missing = Join-Path $sandbox 'missing'
 $plan = & (Join-Path $ToolRoot 'Invoke-LabCampaign.ps1') -Operation run -CampaignDirectory $missing -Panel ranks -Language en | ConvertFrom-Json
 Check (-not $plan.execute -and -not (Test-Path -LiteralPath $missing))

@@ -69,4 +69,30 @@ try{
     Reject { & (Join-Path $ToolRoot 'New-LabRun.ps1') -BundleDirectory $Workspace -ActivationPath $activationPath -AddonDirectory $Workspace -HelperBinaryPath $activationPath -Language en -OutputDirectory $runPath }
     Check (-not (Test-Path -LiteralPath $runPath))
 }finally{[IO.File]::WriteAllBytes($codePath,$originalCode)}
+$weapons=@();$position=0
+foreach($language in @('ru','en')){foreach($name in @('primary-default','pistol-default','primary-selected','pistol-selected')){
+    $weapons+=@{key=$name+'-'+$language;sha256=([string]'ABCDEF12'[$position])*64};$position++
+}}
+$baselinePath=Join-Path $Workspace 'checks/guns-baselines.json'
+$baseline=@{schema=1;imagesReviewed=$true;profiles=$weapons}
+[IO.File]::WriteAllText($baselinePath,($baseline|ConvertTo-Json -Depth 5))
+$prepared=Join-Path $Workspace 'checks/guns-profile-bundle'
+& (Join-Path $ToolRoot 'New-LabBundle.ps1') -ProfilePath (Join-Path $ToolRoot 'examples/profile.example.json') -GunsBaselinePath $baselinePath -OutputDirectory $prepared | Out-Null
+Check (Test-Path -LiteralPath (Join-Path $prepared 'kit/code/Interaction.ps1'))
+foreach($invalid in @('unreviewed','string-review','missing','duplicate','same-hash','injection','array-hash')){
+    $value=($baseline|ConvertTo-Json -Depth 5)|ConvertFrom-Json
+    switch($invalid){
+        unreviewed {$value.imagesReviewed=$false}
+        string-review {$value.imagesReviewed='true'}
+        missing {$value.profiles=@($value.profiles|Select-Object -First 7)}
+        duplicate {$value.profiles[1].key=$value.profiles[0].key}
+        same-hash {$value.profiles[1].sha256=$value.profiles[0].sha256}
+        injection {$value.profiles[0].key="primary-default-en';exit"}
+        array-hash {$value.profiles[0].sha256=@(('A'*64),('B'*64))}
+    }
+    [IO.File]::WriteAllText($baselinePath,($value|ConvertTo-Json -Depth 6))
+    $destination=Join-Path $Workspace ('checks/guns-rejected-'+$invalid)
+    Reject {& (Join-Path $ToolRoot 'New-LabBundle.ps1') -ProfilePath (Join-Path $ToolRoot 'examples/profile.example.json') -GunsBaselinePath $baselinePath -OutputDirectory $destination}
+    Check (-not (Test-Path -LiteralPath $destination))
+}
 @{passed=$true;checks=$checks;runtimeChanged=$false} | ConvertTo-Json
