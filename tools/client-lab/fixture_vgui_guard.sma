@@ -2,6 +2,8 @@
 #include <reapi>
 #include <nvault>
 
+native goldsrcops_player_language(id);
+
 new g_epoch[33];
 new Float:g_origin[33][3];
 new g_buttons[33];
@@ -10,7 +12,8 @@ new bool:g_reported[33];
 new Float:g_firstRules[33];
 new g_panel[33];
 new g_readiness;
-new bool:g_spawnReady[33], bool:g_programRequested[33];
+new bool:g_spawnReady[33], bool:g_setupSeen[33], bool:g_setupAck[33], bool:g_setupFailed[33];
+new g_setupStep[33], g_setupLanguage[33];
 new const PANELS[][] = { "rules", "ranks", "profile", "topall" };
 
 // Fresh disposable fixture data only. No connected player's identity is replaced.
@@ -30,9 +33,20 @@ public plugin_precache()
     nvault_close(names);
 }
 
+public plugin_natives()
+{
+    set_native_filter("SetupNativeFilter");
+}
+
+public SetupNativeFilter(const name[], index, trap)
+{
+    #pragma unused index
+    return equal(name, "goldsrcops_player_language") && !trap ? PLUGIN_HANDLED : PLUGIN_CONTINUE;
+}
+
 public plugin_init()
 {
-    register_plugin("Fixture interaction evidence", "1.3.0", "");
+    register_plugin("Fixture interaction evidence", "1.4.0", "");
     g_readiness = register_cvar("gso_lab_readiness", "0");
     register_message(get_user_msgid("VGUIMenu"), "OnVguiMenu");
     register_clcmd("rules", "ObserveRules");
@@ -45,6 +59,9 @@ public plugin_init()
     register_clcmd("say_team /topall", "ObserveTopallAlias");
     register_message(get_user_msgid("MOTD"), "ObserveMotd");
     RegisterHookChain(RG_CBasePlayer_PostThink, "ObserveMovement", true);
+    register_clcmd("say_team /settings", "ObserveSetupSettings");
+    register_clcmd("say_team /gso_lab_ready_ru", "ObserveSetupRu");
+    register_clcmd("say_team /gso_lab_ready_en", "ObserveSetupEn");
     register_clcmd("guns", "ObserveGuns");
     register_clcmd("say_team /guns", "ObserveGuns");
     register_clcmd("menuselect", "ObserveGunsSelection");
@@ -56,7 +73,10 @@ public plugin_init()
 public client_putinserver(player)
 {
     g_spawnReady[player] = false;
-    g_programRequested[player] = false;
+    g_setupSeen[player] = false;
+    g_setupAck[player] = false;
+    g_setupFailed[player] = false;
+    g_setupStep[player] = 0;
     if (get_pcvar_num(g_readiness)) { set_task(0.2, "ReadinessJoin", player + 100); }
 }
 
@@ -76,13 +96,29 @@ public ReadinessSpawn(task)
     client_cmd(player, "gso_lab_spawn");
 }
 
-public ReadinessProgram(task)
+public ObserveSetupSettings(player)
 {
-    new player = task - 300;
-    if (!is_user_alive(player) || !get_pcvar_num(g_readiness)) { return; }
-    log_amx("FIXTURE_GUNS_READY phase=program");
-    client_cmd(player, "gso_lab_program");
+    if (get_pcvar_num(g_readiness) && is_user_alive(player) && g_spawnReady[player] && !g_setupSeen[player])
+    {
+        g_setupSeen[player] = true;
+        log_amx("FIXTURE_GUNS_SETUP phase=settings");
+    }
+    return PLUGIN_CONTINUE;
 }
+
+ObserveSetupAck(player, language)
+{
+    if (!get_pcvar_num(g_readiness) || !is_user_alive(player) || !g_spawnReady[player]
+        || !g_setupSeen[player] || g_setupAck[player] || g_setupFailed[player] || g_setupStep[player] != 3
+        || g_setupLanguage[player] != language || !LibraryExists("goldsrcops_player_menu", LibType_Library)) { return; }
+    if (goldsrcops_player_language(player) != language) { return; }
+    g_setupAck[player] = true;
+    log_amx("FIXTURE_GUNS_READY phase=setup-ack language=%s", language == 0 ? "ru" : "en");
+    client_cmd(player, "gso_lab_setup_ack");
+}
+
+public ObserveSetupRu(player) { ObserveSetupAck(player, 0); return PLUGIN_HANDLED; }
+public ObserveSetupEn(player) { ObserveSetupAck(player, 1); return PLUGIN_HANDLED; }
 
 public OnVguiMenu(message_id, destination, player)
 {
@@ -191,12 +227,7 @@ GunsMovementStart(player)
 public ObserveGuns(player)
 {
     if (!is_user_alive(player)) { return PLUGIN_CONTINUE; }
-    if (get_pcvar_num(g_readiness) && g_spawnReady[player] && !g_programRequested[player])
-    {
-        g_programRequested[player] = true;
-        set_task(0.2, "ReadinessProgram", player + 300);
-        return PLUGIN_CONTINUE;
-    }
+    if (get_pcvar_num(g_readiness) && !g_setupAck[player]) { return PLUGIN_CONTINUE; }
     if (!g_guns[player])
     {
         g_guns[player] = 1;
@@ -234,6 +265,16 @@ public GunsShowBackdrop(player)
 
 public ObserveGunsSelection(player)
 {
+    if (get_pcvar_num(g_readiness) && g_setupSeen[player] && !g_setupAck[player])
+    {
+        new argument[8]; read_argv(1, argument, charsmax(argument));
+        new key = str_to_num(argument), step = g_setupStep[player]++;
+        if ((step == 0 && key != 2) || (step == 1 && key != 1 && key != 2)
+            || (step == 2 && key != 10) || step > 2) { g_setupFailed[player] = true; }
+        if (step == 1) { g_setupLanguage[player] = key - 1; }
+        log_amx("FIXTURE_GUNS_SETUP step=%d valid=%d", step + 1, !g_setupFailed[player]);
+        return PLUGIN_CONTINUE;
+    }
     if (player < 1 || player > 32 || !g_guns[player] || !g_guns_menu[player] || !is_user_alive(player)) { return PLUGIN_CONTINUE; }
     new argument[8]; read_argv(1, argument, charsmax(argument));
     new key = str_to_num(argument), step = ++g_guns_step[player];
@@ -308,9 +349,11 @@ public client_disconnected(player)
     remove_task(player);
     remove_task(player + 100);
     remove_task(player + 200);
-    remove_task(player + 300);
     g_spawnReady[player] = false;
-    g_programRequested[player] = false;
+    g_setupSeen[player] = false;
+    g_setupAck[player] = false;
+    g_setupFailed[player] = false;
+    g_setupStep[player] = 0;
     g_guns[player] = 0;
     g_guns_menu[player] = 0;
     g_guns_respawn[player] = false;

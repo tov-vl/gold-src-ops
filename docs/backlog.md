@@ -4458,3 +4458,14 @@ network/relay cleanup and a fresh zero-game heartbeat passed with zero AMXX
 errors. No retry or EN run occurred; sequence 18 and prior evidence were
 preserved. The next gate is menu setup delivery review, not Steam availability.
 See [trial evidence and claim limits](client-guns-acceptance.md#first-handshake-trial---readiness-confirmed-baseline-not-accepted).
+
+## Autonomous client lab - fixed native menu setup
+
+Implemented and locally verified; signed adoption pending. The runner replaces the
+server-triggered second CFG with fixed owned-window settings/language actions
+and an independent fixture acknowledgement of the exact selection sequence
+and effective language. Native F5 screenshots drive four-frame baseline capture;
+the eight reviewed RU/EN menu profiles remain mandatory before live acceptance.
+The existing trust, pinned dependencies, permissions, addon and production stay
+unchanged. The Steam hold is active again, so no new game trial is included.
+See [correction boundary](client-guns-acceptance.md#fixed-native-setup-correction).

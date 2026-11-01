@@ -81,10 +81,11 @@ function MakeResult($Context) {
             actions = @(@{phase='ok-first';inputQueued=$true},@{phase='controls';inputQueued=$true},@{phase='reopen';inputQueued=$true},@{phase='ok-last';inputQueued=$true}) }
     }
     if($Context.case.panel -ceq 'guns'){
-        $result.interaction.profile='guns-v299-1920x1200-v1'
-        $result.readiness=@{status='ready';programRequested=$true;spawnSnapshot=@{sha256=$bitmapHash}}
-        $result.cleanup=@{stageConfig=$true}
-        if($script:mode -ceq 'missing-readiness'){$result.readiness.programRequested=$false}
+        $result.interaction.profile='guns-v299-1920x1200-v2'
+        $result.readiness=@{status='ready';setupAcknowledged=$true;spawnSnapshot=@{sha256=$bitmapHash};setupSnapshot=@{sha256=$bitmapHash};setupActions=@()}
+        foreach($phase in @('open-settings','open-languages',('language-'+$Context.case.language),'close-player-menu',('ack-'+$Context.case.language))){$result.readiness.setupActions+=@{phase=$phase;inputQueued=$true;frameSha256=$bitmapHash}}
+        $result.readiness.mode='native-fixed-v1'
+        if($script:mode -ceq 'missing-readiness'){$result.readiness.setupAcknowledged=$false}
         $phases=@('exit-primary','select-primary','select-pistol','repeat-primary','exit-pistol-respawn')
         $result.interaction.actions=@($phases|ForEach-Object {@{phase=$_;inputQueued=$true;frameSha256=$bitmapHash}})
         for($i=0;$i -lt 4;$i++){
@@ -147,9 +148,11 @@ $port = {
                 $log += "FIXTURE_PANEL_CONTROL panel=$($context.case.panel) epoch=$epoch back_observed=1 left_observed=1 horizontal_distance_over_8=1"
             }
             if($context.case.panel -ceq 'guns'){
-                $log=@('FIXTURE_GUNS_READY phase=connected','FIXTURE_GUNS_READY phase=spawn','FIXTURE_GUNS_READY phase=program','FIXTURE_GUNS_START mp5=1 usp=1','FIXTURE_GUNS_DEATH requested=1','FIXTURE_GUNS_RESPAWN selected_loadout=1',
+                $log=@('FIXTURE_GUNS_READY phase=connected','FIXTURE_GUNS_READY phase=spawn',('FIXTURE_GUNS_READY phase=setup-ack language='+$context.case.language),'FIXTURE_GUNS_START mp5=1 usp=1','FIXTURE_GUNS_DEATH requested=1','FIXTURE_GUNS_RESPAWN selected_loadout=1',
                     'FIXTURE_GUNS_CONTROL step=1 respawn=0 movement=1','FIXTURE_GUNS_CONTROL step=3 respawn=0 movement=1',
                     'FIXTURE_GUNS_CONTROL step=5 respawn=0 movement=1','FIXTURE_GUNS_CONTROL step=5 respawn=1 movement=1')
+                foreach($step in 1..3){$log+="FIXTURE_GUNS_SETUP step=$step valid=1"}
+                if($script:mode -ceq 'wrong-setup-language'){$log[2]='FIXTURE_GUNS_READY phase=setup-ack language=invalid'}
                 foreach($step in 1..5){$log+="FIXTURE_GUNS_SELECT step=$step inventory_unchanged=1"}
             }
             if ($script:mode -ceq 'missing-marker') { $log = @($log | Select-Object -First 3) }
@@ -312,7 +315,7 @@ foreach($language in @('ru','en')){
     $accepted=Approve-LabCampaignCase $root guns $language $state.evidenceSha256 $true
     Check ($accepted.phase -ceq 'accepted' -and $accepted.acceptancePassed)
 }
-foreach($failureMode in @('missing-readiness','missing-marker','missing-checkpoint','unbound-action','wrong-baseline','stale-heartbeat','bad-cleanup')){
+foreach($failureMode in @('wrong-setup-language','missing-readiness','missing-marker','missing-checkpoint','unbound-action','wrong-baseline','stale-heartbeat','bad-cleanup')){
     $root=NewCase -Guns;Set-LabCampaignSteam $root $true;$script:mode=$failureMode
     $state=Invoke-LabCampaignCase $root guns en run $port
     Check ($state.phase -ceq 'needs_reconciliation' -and -not $state.acceptancePassed)

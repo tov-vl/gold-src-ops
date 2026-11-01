@@ -225,7 +225,54 @@ terminal records; sequence 18 and all nine runner hashes remain unchanged.
 The job, claims and evidence were retained. No second RU attempt, EN capture,
 reviewed baseline manifest or live weapons acceptance was performed.
 
-The next gate is review of menu setup delivery, including a distinct client
-stage acknowledgement and fixed local UI setup without server-triggered `exec`.
-That is a proposed correction, not an installed or client-proven change.
-The completed fixture and request must not be reused for another trial.
+That trial led to the native setup correction below. The completed fixture and
+request must not be reused for another trial.
+
+## Fixed native setup correction
+
+The corrective source slice removes the second CFG and server-triggered `exec`.
+After the first-spawn snapshot and owned-window checks, the runner uses five
+one-attempt setup phases: open `/settings`, open its language menu, select RU or
+EN, close the returned player menu, and send the fixed language-specific setup
+acknowledgement. Existing bindings are checked, including `1 -> slot1`; no bind
+or command filter is rewritten. The native bridge exposes only these fixed
+phases and literals, with the existing identity/focus/desktop/session guards.
+No console, global input, arbitrary text or key interface is added.
+
+The fixture observes the actual settings request and three menu selections in
+order, then reads the product's existing `goldsrcops_player_language` native.
+Only a matching language and sequence produce a one-shot setup snapshot and
+`setup-ack language=ru|en` marker. Missing or late acknowledgement stops the
+job before opening weapon menus. Every phase has a permanent claim; uncertain
+delivery is not repeated. Setup and interaction share the monotonic job budget.
+
+Baseline capture then opens `/guns` through the owned window, requests each
+native screenshot with the verified F5 binding, and advances the three fixed
+menu selections. Menu structure, frame freshness and integrity are checked
+before selections. Four distinct frames remain unreviewed until explicit RU/EN
+review; eight reviewed menu profiles still gate live weapons acceptance.
+Live evidence additionally requires the exact setup phase list, snapshot hashes,
+language-specific acknowledgement and independent fixture selection markers.
+
+Protocol 2/revision 16, the four pinned dependencies, trust engine, permissions,
+task definitions, production and addon 0.38.0 remain outside this correction.
+The capture/live profile identities advance so old held campaigns cannot be
+silently reinterpreted as native-setup evidence. Only one bootstrap CFG now needs
+cleanup. Previous failed jobs, receipts and screenshots remain retained.
+
+Local verification passed: the full .NET quality gate (1,294 passing tests,
+62 opt-in browser skips and no vulnerable packages), PowerShell 7/5.1 policy
+checks, 482 synthetic native checks and both native compilation paths. Focused
+readiness and baseline workflows cover missing acknowledgements, stale frames,
+ownership/focus changes, cancellation and permanent claims. The pinned fixture
+helper compiled reproducibly; it was not started.
+
+InspectCode completed at Hint and higher with zero errors/warnings and 55
+reviewed notes. Intentional notes retain C# 5 string parameter names, public
+PowerShell entry points, the fixed single-file bridge boundary, repository
+comma style and the bounded diagnostic catch. The constructor used from
+PowerShell remains callable; no inspection severity or rule was suppressed.
+
+Signed capture-only adoption is pending. The owner reported the shared Steam
+account unavailable during implementation. No new Steam/game trial is allowed
+until fresh availability; native setup and menu acceptance remain unproved.

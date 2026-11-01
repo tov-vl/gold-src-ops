@@ -15,14 +15,14 @@ foreach($language in @('ru','en')){
     Check ($request.operation -ceq 'capture-guns' -and $request.language -ceq $language)
     $job=[pscustomobject]@{id=$id;action='capture-guns';language=$language;createdUtc=[DateTime]::UtcNow.ToString('o')}
     Assert-LabRunnerJob $job
-    $program=New-LabGunsStageProgram $job
-    Check (@($program -split "`r`n"|Where-Object {$_ -ceq 'snapshot'}).Count -eq 4)
+    $program=New-LabGunsProgram $job
+    Check (-not $program.Contains('exec ') -and -not $program.Contains('_stage'))
     Check ([Text.Encoding]::ASCII.GetByteCount($program) -le 32768)
     Check ((Get-LabRunnerImageLimit $job) -eq 4)
     $job.action='verify-panel';$job|Add-Member NoteProperty panel guns
     Assert-LabRunnerJob $job
-    Check (@((New-LabGunsStageProgram $job) -split "`r`n"|Where-Object {$_ -ceq 'snapshot'}).Count -eq 1)
-    Check ((Get-LabAutonomousProfile $job) -ceq 'guns-v299-1920x1200-v1')
+    Check ((New-LabGunsProgram $job).Contains('gso_lab_setup_ack'))
+    Check ((Get-LabAutonomousProfile $job) -ceq 'guns-v299-1920x1200-v2')
 }
 foreach($command in @('capture-guns x en','capture-guns '+[guid]::NewGuid().ToString()+' de','checkpoint '+[guid]::NewGuid().ToString()+' ../policy')){Reject {ConvertFrom-LabRunnerCommand $command}}
 function Initialize-LabInteractionTypes([string]$Source){}
@@ -55,6 +55,7 @@ function New-Object([string]$TypeName,[object[]]$ArgumentList){
     $window|Add-Member ScriptMethod SelectGunsItem {param($Phase);$script:calls.Add($Phase);if($script:case -ceq 'uncertain'){throw 'Uncertain key delivery.'}}
     $window|Add-Member ScriptMethod MoveControls {$script:calls.Add('move')}
     $window|Add-Member ScriptMethod ReopenGuns {$script:calls.Add('reopen')}
+    $window|Add-Member ScriptMethod Snapshot {}
     return $window
 }
 function Get-LabWindowGuardObservation($Window){return @{code='test'}}
@@ -65,7 +66,7 @@ foreach($name in @('success-ru','success-en','wrong-first','wrong-menu','focus',
     $job=[pscustomobject]@{id=[guid]::NewGuid().ToString();action='verify-panel';panel='guns';language=$(if($name -ceq 'success-ru'){'ru'}else{'en'});createdUtc=[DateTime]::UtcNow.ToString('o')}
     if($name -ceq 'claimed'){[IO.File]::WriteAllText((Join-Path $directory 'auto-phase-exit-primary.json'),'claimed')}
     if($name -ceq 'cancelled'){[IO.File]::WriteAllText((Get-LabPaths $directory $job.id).cancel,'cancelled')}
-    $result=[ordered]@{id=$job.id;images=@();gamePid=$null;gameStartedUtc=$null;status='launch_requested';readiness=@{status='ready';programRequested=$true;windowPreparation=@{}};failureCode=$null;acceptancePassed=$false;rendererVerified=$false}
+    $result=[ordered]@{id=$job.id;images=@();gamePid=$null;gameStartedUtc=$null;status='launch_requested';readiness=@{status='ready';setupAcknowledged=$true;setupSnapshot=@{sha256=('A'*64)};setupObservedElapsed=0.0;windowPreparation=@{}};failureCode=$null;acceptancePassed=$false;rendererVerified=$false}
     $ready=@{window=(New-Object GsoLab.Interaction.GameWindow);clock=$null}
     $failed=$false
     try{Invoke-LabAutonomousGunsInteraction $directory ([pscustomobject]@{gameRoot=$directory;gameSessionId=7}) $job $result @{} ([DateTime]::UtcNow.AddSeconds(-1)) (Join-Path $directory 'result.json') $ready}catch{$failed=$true;if($name.StartsWith('success')){throw}}
@@ -73,12 +74,13 @@ foreach($name in @('success-ru','success-en','wrong-first','wrong-menu','focus',
         Check (-not $failed -and $result.status -ceq 'autonomous_captured_unreviewed')
         Check (@($result.images).Count -eq 5 -and @($result.interaction.checkpoints).Count -eq 4 -and @($result.interaction.assessments).Count -eq 5)
         Check (($result.interaction.actions.phase -join ',') -ceq 'exit-primary,select-primary,select-pistol,repeat-primary,exit-pistol-respawn')
-        Check (($script:calls -join ',') -ceq 'exit-primary,move,reopen,select-primary,select-pistol,move,reopen,repeat-primary,exit-pistol-respawn,move,move')
+        Check (($script:calls -join ',') -ceq 'reopen,exit-primary,move,reopen,select-primary,select-pistol,move,reopen,repeat-primary,exit-pistol-respawn,move,move')
         Check (-not $result.acceptancePassed -and -not $result.rendererVerified)
     }else{
         Check $failed
-        if($name -ceq 'uncertain'){Check (($script:calls -join ',') -ceq 'exit-primary')}
-        if($name -cin @('claimed','cancelled','revoked','focus','wrong-first','stale')){Check ($script:calls.Count -eq 0)}
+        if($name -ceq 'uncertain'){Check (($script:calls -join ',') -ceq 'reopen,exit-primary')}
+        if($name -cin @('cancelled','revoked','focus')){Check ($script:calls.Count -eq 0)}
+        if($name -cin @('claimed','wrong-first','stale')){Check (($script:calls -join ',') -ceq 'reopen')}
         if($name -ceq 'wrong-menu'){Check (-not ($script:calls -contains 'select-pistol'))}
     }
 }

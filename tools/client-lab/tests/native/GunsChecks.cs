@@ -63,6 +63,34 @@ namespace GsoLab.Checks
             var chat = new FakeWindowPort();
             new GameWindow(chat).ReopenGuns();
             Require(string.Equals(new string(chat.Messages.Where(message => message.Id == 0x102).Select(message => (char)message.Word).ToArray()), "/guns", StringComparison.Ordinal), "The chat command is fixed.");
+            foreach (var phase in new[] { "open-settings", "open-languages", "language-ru", "language-en", "close-player-menu", "ack-ru", "ack-en" })
+            {
+                var port = new FakeWindowPort();
+                new GameWindow(port).GunsSetupAction(phase);
+                var text = new string(port.Messages.Where(message => message.Id == 0x102).Select(message => (char)message.Word).ToArray());
+                var expected = string.Equals(phase, "open-settings", StringComparison.Ordinal) ? "/settings" :
+                    string.Equals(phase, "ack-ru", StringComparison.Ordinal) ? "/gso_lab_ready_ru" :
+                    string.Equals(phase, "ack-en", StringComparison.Ordinal) ? "/gso_lab_ready_en" : string.Empty;
+                Require(string.Equals(text, expected, StringComparison.Ordinal), "Setup chat is restricted to three fixed literals.");
+                if (expected.Length == 0)
+                {
+                    var key = string.Equals(phase, "language-ru", StringComparison.Ordinal) ? 0x31 :
+                        string.Equals(phase, "close-player-menu", StringComparison.Ordinal) ? 0x30 : 0x32;
+                    Require(port.Messages.Count == 2 && port.Messages[0].Id == 0x100 && port.Messages[1].Id == 0x101 &&
+                        port.Messages.TrueForAll(message => message.Word == key), "Setup posts only the fixed menu key.");
+                }
+                var background = new FakeWindowPort { State = { Foreground = false } };
+                var refused = false;
+                try { new GameWindow(background).GunsSetupAction(phase); } catch (InvalidOperationException) { refused = true; }
+                Require(refused && background.Messages.Count == 0, "Setup cannot type into a background window.");
+            }
+            foreach (var phase in new[] { "exec", "language-de", "ack-ru;quit", "slot9", string.Empty })
+            {
+                var port = new FakeWindowPort();
+                var refused = false;
+                try { new GameWindow(port).GunsSetupAction(phase); } catch (ArgumentException) { refused = true; }
+                Require(refused && port.Messages.Count == 0, "Setup has no arbitrary text or key interface.");
+            }
             Console.WriteLine("Weapons native checks passed: " + _checks.ToString(CultureInfo.InvariantCulture) + ". No native input or capture.");
         }
     }
