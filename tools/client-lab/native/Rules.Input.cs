@@ -330,6 +330,21 @@ namespace GsoLab.Interaction
             }
         }
 
+        public void GunsSetupAction(string phase)
+        {
+            switch (phase)
+            {
+                case "open-settings": ChatFixed("settings"); return;
+                case "open-languages": Key(0x32, 0x03, 40); return;
+                case "language-ru": Key(0x31, 0x02, 40); return;
+                case "language-en": Key(0x32, 0x03, 40); return;
+                case "close-player-menu": Key(0x30, 0x0b, 40); return;
+                case "ack-ru": ChatFixed("gso_lab_ready_ru"); return;
+                case "ack-en": ChatFixed("gso_lab_ready_en"); return;
+                default: throw new ArgumentException("Fixed weapons setup phase required.", "phase");
+            }
+        }
+
         private void ChatFixed(string panel)
         {
             Key(0x55, 0x16, 40); // U / messagemode2.

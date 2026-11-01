@@ -171,8 +171,6 @@ function Assert-LabDesktopRequest([string]$Root,$Policy,[string]$Id) {
     }
     if((Get-Item -LiteralPath $configPath).Length -gt 32KB -or [IO.File]::ReadAllText($configPath) -cne (New-LabRunnerInteractionProgram $job)){throw 'Desktop launch program differs.'}
     if((Get-LabInteractionPanel $job) -ceq 'guns'){
-        $stage=Join-Path $Policy.gameRoot ('cstrike/'+(Get-LabGunsStageName $job))
-        if((Get-Item -LiteralPath $stage).Attributes -band [IO.FileAttributes]::ReparsePoint -or (Get-Item -LiteralPath $stage).Length -gt 32KB -or [IO.File]::ReadAllText($stage) -cne (New-LabGunsStageProgram $job)){throw 'Weapons stage differs.'}
         Assert-LabGunsBindings $Policy.gameRoot
     }
     Assert-LabInteractionBindings $Policy.gameRoot

@@ -14,7 +14,7 @@ foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $output 'kit') -Recurs
 & (Join-Path $PSScriptRoot 'tests/Test-ProfileAndArchive.ps1') -Workspace $output -ToolRoot $PSScriptRoot
 & (Join-Path $PSScriptRoot 'tests/Test-Campaign.ps1') -Workspace $output -ToolRoot $PSScriptRoot
 & (Join-Path $PSScriptRoot 'tests/Test-CampaignRuntime.ps1') -Workspace $output -ToolRoot $PSScriptRoot
-$tests = @('Test-Protocol.ps1','Test-Autonomous.ps1','Test-Guns.ps1','Test-GunsReadiness.ps1','Test-Workflow.ps1','Test-WorkerCleanup.ps1','Test-ShellLaunch.ps1','Test-FocusProjection.ps1','Test-QueueInventory.ps1','Test-Updater.ps1','Test-Recovery.ps1')
+$tests = @('Test-Protocol.ps1','Test-Autonomous.ps1','Test-Guns.ps1','Test-GunsReadiness.ps1','Test-GunsBaseline.ps1','Test-Workflow.ps1','Test-WorkerCleanup.ps1','Test-ShellLaunch.ps1','Test-FocusProjection.ps1','Test-QueueInventory.ps1','Test-Updater.ps1','Test-Recovery.ps1')
 foreach ($name in $tests) { & (Join-Path $PSScriptRoot ('tests/' + $name)) -Workspace $output }
 if (-not $IsWindows) { throw 'Windows PowerShell and native policy checks require a Windows verification host.' }
 $legacy = Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe'

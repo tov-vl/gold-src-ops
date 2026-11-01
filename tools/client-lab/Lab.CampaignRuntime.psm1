@@ -63,7 +63,7 @@ function ConvertTo-CampaignRuntimeUtc($Value) {
 }
 
 function Assert-CampaignWeaponsReadiness($Runtime,[string]$Panel){
-    if($Panel -ceq 'guns' -and ($Runtime.readinessEnabled -isnot [bool] -or -not $Runtime.readinessEnabled)){throw 'Weapons readiness fixture required.'}
+    if($Panel -ceq 'guns' -and ($Runtime.readinessEnabled -isnot [bool] -or -not $Runtime.readinessEnabled -or $Runtime.nativeSetupEnabled -isnot [bool] -or -not $Runtime.nativeSetupEnabled)){throw 'Weapons readiness fixture required.'}
 }
 
 function Invoke-LabCampaignRuntime([string]$Operation, $Context) {

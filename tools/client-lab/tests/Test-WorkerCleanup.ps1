@@ -69,8 +69,8 @@ foreach($scenario in @('rules-success','rules-scenario-fail','rules-cleanup-fail
     $job=@{id=$id;action='verify-rules';language='en';createdUtc=[DateTime]::UtcNow.ToString('o')}
     $mode=@{id=$id;language='en';profile='rules-v299-1920x1200-v1'}
     if($panel -cne 'rules'){$job.action='verify-panel';$job.panel=$panel;$mode.panel=$panel;$mode.profile='motd-v299-'+$panel+'-1920x1200-v1'}
-    if($panel -ceq 'guns'){$mode.profile='guns-v299-1920x1200-v1'}
-    if($panel -ceq 'guns-capture'){$job.Remove('panel');$job.action='capture-guns';$mode.Remove('panel');$mode.profile='guns-baseline-v299-1920x1200-v2'}
+    if($panel -ceq 'guns'){$mode.profile='guns-v299-1920x1200-v2'}
+    if($panel -ceq 'guns-capture'){$job.Remove('panel');$job.action='capture-guns';$mode.Remove('panel');$mode.profile='guns-baseline-v299-1920x1200-v3'}
     Write-LabJson (Join-Path $root ('queue\'+$id+'.json')) $job
     Write-LabJson (Join-Path $root ('queue\steps\'+$id+'.autonomous.json')) $mode
     & (Join-Path $Workspace 'kit\code\Worker.ps1') -Root $root
