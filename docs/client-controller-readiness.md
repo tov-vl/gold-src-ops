@@ -2,14 +2,14 @@
 
 ## Scope
 
-Repository-owned PowerShell 7 orchestration for the six deferred RU/EN MOTD
+Repository-owned PowerShell 7 orchestration for the six RU/EN MOTD
 cases. Local preparation, Steam hold, fixed one-attempt dispatch, same-ID
 collection/reconciliation, explicit cancellation, bounded fixture cleanup,
 evidence integrity and separate visual review are included. The Windows runner,
 trust engine, permissions, addon 0.38.0, production and cloud resources are
 unchanged. No target installation or runtime rollout is part of this slice.
 
-The future live use is state-changing (R2). Offline checks establish controller
+Live use is state-changing (R2). Offline checks establish controller
 behavior only; they do not substitute for that target gate. Rollback for this
 source-only delivery is retaining the existing individual entry points and
 private receipts. Never erase claims or repeat an uncertain runtime attempt.
@@ -110,12 +110,36 @@ or cloud resource changed. This follow-up is evidence only. The already accepted
 source's build/unit/native/InspectCode checks were not repeated; the bounded
 live trial, five-frame review and matching cleanup evidence are the new checks.
 
-## Remaining native scenarios
+## Remaining-case acceptance - 2026-11-01 (MSK)
 
-RU/EN `profile` and RU/EN `topall` remain pending. The current campaign is held
-after acceptance and its pending-case plan excludes the already reviewed EN
-`ranks` request. It is an operator hold, not a claim that Steam is busy. Recheck
-readiness and queue capacity before each next case. No completed request was
-archived during this trial. The old EN campaign's `needs_reconciliation` state,
-all earlier claims, raw evidence and the Steam-conflict cancellation remain
-preserved; none was imported into a different request.
+The four remaining cases, RU/EN `profile` and RU/EN `topall`, each completed
+with one dispatch through the corrected controller. All 20 new native frames
+were independently reviewed. Every case passed readable localized content,
+both OK closes, alternate-alias reopening, cooldown and returned movement.
+Matching source/input pins, baseline identities, ordered actions, both server
+movement epochs, zero AMXX errors, restored configuration, fixture/network/relay
+absence and a fresh zero-game heartbeat were verified before hash-bound review.
+All four normal reviews reached `accepted`. No manual window selection,
+source-pin migration, direct state edit or repeated dispatch was used.
+
+After the two profile cases, the active queue held eight terminal requests.
+One predecessor-bound signed maintenance package archived exactly two owned,
+already accepted requests. No pending work or other request was moved. Readback
+confirmed identical result bytes and accessible matching images, six unchanged
+other requests, all nine unchanged runner hashes and an enabled, unblocked
+revision-16 worker. Queue occupancy fell from eight to six before the two
+topall cases. This was queue maintenance, not a runner-code update.
+
+Together with the earlier independent EN ranks review and RU ranks controller
+pass, all six native scenarios and 30 interaction frames are accepted. The old
+EN campaign remains `needs_reconciliation` with its original source pins,
+claims and raw results; its evidence was not imported into a different request.
+The unused fresh-campaign EN ranks entry remains prepared and was not replayed.
+Raw worker acceptance/renderer flags remain false; review receipts are separate.
+The campaign is held after completion and no game process remains.
+
+This evidence-only follow-up changes no source, installed runner code, trust
+engine, permission, addon, production service or cloud resource. Existing
+build/unit/native suites were not repeated on unchanged code; no new C# work
+requires InspectCode. Renderer identity, production saved personal statistics,
+PvP and activity aggregation remain outside this bounded fixture acceptance.

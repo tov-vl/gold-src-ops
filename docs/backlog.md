@@ -4392,7 +4392,14 @@ campaign's source pins or `needs_reconciliation` phase. On 2026-11-01 (MSK), one
 fresh RU `ranks` trial passed the corrected controller's complete live workflow,
 five-frame review and cleanup checks. The normal hash-bound review reached
 `accepted`, closing its first live end-to-end gate. Both ranks languages are
-accepted; RU/EN `profile` and RU/EN `topall` remain open. The campaign is held
-before further work. No game request was repeated and no source, installed
-runner, access, addon, production or cloud change was needed for the RU trial.
+accepted. The four remaining RU/EN `profile` and `topall` cases subsequently
+passed with one dispatch and five reviewed frames each on 2026-11-01 (MSK).
+All six native scenarios and 30 interaction frames are accepted: readability,
+both OK closes, alternate aliases, cooldown, movement and complete cleanup
+passed, with zero AMXX errors. One signed maintenance package archived only two
+owned accepted terminal requests to free queue capacity, preserving results,
+images, other requests and all nine installed runner hashes. The campaign is
+held and the game is closed. No game request was repeated and no source,
+installed runner code, access, addon, production or cloud change was needed.
+Renderer, production personal-data, PvP and activity claims remain separate.
 See [operations](client-controller.md) and [readiness](client-controller-readiness.md).
