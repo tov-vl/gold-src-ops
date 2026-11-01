@@ -181,7 +181,23 @@ policy tests and the solution Quality Gate passed: zero build warnings/errors,
 1,294 passing tests, 62 opt-in browser skips and no vulnerable packages. No native
 client compatibility or menu acceptance follows from these tests.
 
-Delivery and signed runner adoption are pending. Steam is held because the
-shared account is in use. The next native gate is one newly prepared RU baseline
-with a fresh ID after availability is confirmed; the old failed request and
-all its evidence remain untouched. No automatic game or input retry is allowed.
+Product [PR #436](https://github.com/tov-vl/gold-src-ops/pull/436) merged at
+`d02844a`. All six required checks passed in
+[PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/41314174405).
+The accepted main revision has its separate
+[post-merge run](https://github.com/tov-vl/gold-src-ops/actions/runs/41315478828).
+
+One ordinary signed capture-only update installed at updater sequence 18.
+Independent readback verified all nine hashes, the four unchanged pinned
+files, unchanged native bridge and enabled/unblocked updater state. All six
+client request IDs/hashes, the previous failed result/image and the previous
+update receipt were preserved. A fresh post-install heartbeat confirmed a
+ready worker and zero game processes. No local administrator installer, new
+permission, task, firewall, trust-engine, addon or production change was needed.
+Neither Steam nor the game was launched; weapons input remains disabled.
+
+Source delivery and capture-only adoption are complete. Native readiness and
+menu acceptance remain unverified because the shared Steam account is held.
+The next native gate is one newly prepared RU baseline with a fresh ID after
+availability is confirmed; the old failed request and all its evidence remain
+untouched. No automatic game or input retry is allowed.
