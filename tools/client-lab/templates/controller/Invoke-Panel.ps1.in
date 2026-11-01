@@ -1,13 +1,14 @@
 ﻿#requires -Version 7.0
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('status', 'capture', 'verify-rules', 'auto-rules', 'auto-panel', 'step', 'result', 'image', 'cancel')][string]$Operation,
+    [Parameter(Mandatory=$true)][ValidateSet('status', 'capture', 'capture-guns', 'verify-rules', 'auto-rules', 'auto-panel', 'step', 'result', 'image', 'checkpoint', 'cancel')][string]$Operation,
     [string]$JobId,
     [ValidateSet(1, 2, 3, 4, 5)][int]$ImageNumber = 1,
-    [ValidateSet('ranks','profile','topall','rules','primary','pistol')][string]$Panel,
+    [ValidateSet('ranks','profile','topall','rules','primary','pistol','guns')][string]$Panel,
     [ValidateSet('ru','en')][string]$Language,
     [ValidateSet('ok-first','controls','reopen','ok-last')][string]$Phase,
-    [ValidatePattern('\A[0-9A-F]{64}\z')][string]$FrameSha256
+    [ValidatePattern('\A[0-9A-F]{64}\z')][string]$FrameSha256,
+    [ValidateSet('primary-exit','primary-reopened','pistol-selected-close','pistol-exit')][string]$Checkpoint
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'code\Lab.Common.ps1')
@@ -17,9 +18,11 @@ $privateRoot = Join-Path $env:USERPROFILE '.ssh\gso-client-lab'
 $pairing = Read-LabJson (Join-Path $privateRoot 'pairing.json')
 if (-not (Test-LabManualLease $pairing) -and [DateTime]::UtcNow -ge (ConvertTo-LabUtc $pairing.expiresUtc)) { throw 'Pairing lease expired.' }
 $command = $Operation
-if($Operation -cin @('capture','verify-rules','auto-rules','auto-panel','step')) {
-    if($Operation -ceq 'auto-panel' -and ($Panel -cnotin @('ranks','profile','topall') -or -not $Language)){throw 'Fixed panel and language required.'}
-    if($Operation -ceq 'capture' -and (-not $Panel -or -not $Language)){throw 'Panel and language required.'}
+if(($Operation -ceq 'checkpoint') -ne [bool]$Checkpoint){throw 'Fixed checkpoint selection required.'}
+if($Operation -cin @('capture','capture-guns','verify-rules','auto-rules','auto-panel','step')) {
+    if($Operation -ceq 'auto-panel' -and ($Panel -cnotin @('ranks','profile','topall','guns') -or -not $Language)){throw 'Fixed panel and language required.'}
+    if($Operation -ceq 'capture-guns' -and (-not $Language -or $Panel)){throw 'Only language is accepted for weapons baseline capture.'}
+    if($Operation -ceq 'capture' -and ($Panel -cnotin @('ranks','profile','topall','rules','primary','pistol') -or -not $Language)){throw 'Panel and language required.'}
     if($Operation -cin @('verify-rules','auto-rules') -and (-not $Language -or $Panel)){throw 'Only language is accepted for verify-rules.'}
     if($Operation -ceq 'step' -and (-not $Phase -or -not $FrameSha256 -or $Panel -or $Language)){throw 'Only a fixed phase and reviewed frame hash are accepted for step.'}
     $activation = Read-LabJson (Join-Path $PSScriptRoot 'activation.json')
@@ -28,21 +31,23 @@ if($Operation -cin @('capture','verify-rules','auto-rules','auto-panel','step'))
         -not (Test-LabManualLease $pairing)) { throw 'Matching target activation is required.' }
 } elseif ($Panel -or $Language) { throw 'Panel and language are only valid for capture.' }
 if ($Operation -ne 'status') {
-    if (-not $JobId -and $Operation -cin @('capture','verify-rules','auto-rules','auto-panel')) { $JobId = [guid]::NewGuid().ToString('D') }
+    if (-not $JobId -and $Operation -cin @('capture','capture-guns','verify-rules','auto-rules','auto-panel')) { $JobId = [guid]::NewGuid().ToString('D') }
     Assert-LabId $JobId
     $command += ' ' + $JobId
     if ($Operation -eq 'capture') { $command += ' ' + $Panel + ' ' + $Language }
+    if ($Operation -ceq 'capture-guns') { $command += ' ' + $Language }
     if ($Operation -ceq 'auto-panel') { $command += ' ' + $Panel + ' ' + $Language }
     if($Operation -cin @('verify-rules','auto-rules')){$command+=' '+$Language}
     if($Operation -ceq 'step'){$command+=' '+$Phase+' '+$FrameSha256}
     if ($Operation -eq 'image') { $command += ' ' + $ImageNumber }
+    if ($Operation -ceq 'checkpoint') { $command += ' ' + $Checkpoint }
 }
 $resultRoot = Join-Path $PSScriptRoot 'controller-results'
 if($Operation -ceq 'auto-panel') {
     $capability=(& $PSCommandPath -Operation status)|ConvertFrom-Json
     if(-not $capability.PSObject.Properties['autonomousPanels'] -or $Panel -cnotin $capability.autonomousPanels){throw 'Target fixed panel capability is unavailable; no dispatch.'}
 }
-if($Operation -cin @('capture','verify-rules','auto-rules','auto-panel')) {
+if($Operation -cin @('capture','capture-guns','verify-rules','auto-rules','auto-panel')) {
     New-Item -ItemType Directory -Path $resultRoot -Force | Out-Null
     $claim = Join-Path $resultRoot $JobId
     New-Item -ItemType Directory -Path $claim -ErrorAction Stop | Out-Null
@@ -82,12 +87,23 @@ if (-not $process.WaitForExit(20000)) { $process.Kill($true); throw 'SSH attempt
 $output = $stdout.GetAwaiter().GetResult()
 $errorOutput = $stderr.GetAwaiter().GetResult()
 if ($process.ExitCode -ne 0) { throw ('SSH failed. A dispatched run must be reconciled by ID. ' + $errorOutput.Trim()) }
-if ($Operation -eq 'image') {
+if ($Operation -cin @('image','checkpoint')) {
     if ($output.Length -gt 24MB) { throw 'Image response exceeds limit.' }
     $bytes = [Convert]::FromBase64String($output.Trim())
     if ($bytes.Length -lt 18 -or $bytes.Length -gt 16MB) { throw 'Image size invalid.' }
     $jobDirectory = Join-Path $resultRoot $JobId
     $result = Read-LabJson (Join-Path $jobDirectory 'result.json')
+    if($Operation -ceq 'checkpoint'){
+        if($result.id -cne $JobId -or $result.action -cne 'verify-panel' -or $result.panel -cne 'guns'){throw 'Weapons result required.'}
+        $entry=@($result.interaction.checkpoints|Where-Object {$_.name -ceq $Checkpoint})
+        $inputStream=[IO.MemoryStream]::new($bytes)
+        try{$hash=(Get-FileHash -InputStream $inputStream).Hash}finally{$inputStream.Dispose()}
+        if($entry.Count -ne 1 -or $bytes.Length -ne $entry[0].bytes -or $hash -cne $entry[0].sha256){throw 'Checkpoint bytes differ.'}
+        $path=Join-Path $jobDirectory ('checkpoint-'+$Checkpoint+'.bmp')
+        $stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew)
+        try{$stream.Write($bytes,0,$bytes.Length)}finally{$stream.Dispose()}
+        return
+    }
     if($ImageNumber -gt (Get-LabRunnerImageLimit $result)){throw 'Image number exceeds this action limit.'}
     if ($result.id -cne $JobId) { throw 'Mismatched result id.' }
     $entry = @($result.images | Where-Object { $_.number -eq $ImageNumber })

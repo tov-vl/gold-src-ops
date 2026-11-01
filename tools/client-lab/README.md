@@ -15,6 +15,7 @@ Entry points:
 | --- | --- |
 | `New-LabBundle.ps1` | Validate a private profile and render a fresh nine-file runner and controller bundle |
 | `New-LabRun.ps1` | Prepare a fresh RU or EN fixture from hash-pinned local assets and matching activation |
+| `New-GunsBaselines.ps1` | Bind eight reviewed native weapon-menu baseline frames for signed adoption |
 | `Invoke-LabCampaign.ps1` | Prepare and manage a six-case matrix with Steam hold, one-attempt dispatch, same-ID reconciliation and separate review |
 | `Build-FixtureHelper.ps1` | Rebuild and hash-check the fixture-only helper with the pinned offline AMXX toolchain |
 | `lab_fixture.py` | Explicit plan/start/relay/stop lifecycle, with no client dispatch |
@@ -40,3 +41,5 @@ runtime is contacted by the policy suite.
 For the unified controller workflow and its explicit live gate, see
 [campaign operations](../../docs/client-controller.md) and
 [readiness](../../docs/client-controller-readiness.md).
+The separate [weapon-menu scope](../../docs/client-guns-acceptance.md) defines
+its two-case matrix, required baselines and nine retained frames per trial.

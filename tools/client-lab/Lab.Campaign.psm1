@@ -46,10 +46,11 @@ function New-CampaignClaim([string]$Path) {
 }
 
 function Get-CampaignCase([string]$Root, [string]$Panel, [string]$Language) {
-    if ($Panel -cnotin @('ranks','profile','topall') -or $Language -cnotin @('ru','en')) { throw 'Fixed panel and language required.' }
+    if ($Panel -cnotin @('ranks','profile','topall','guns') -or $Language -cnotin @('ru','en')) { throw 'Fixed panel and language required.' }
     $null = Assert-LabOutputPath $Root
     $campaign = Read-CampaignJson (Join-Path $Root 'campaign.json')
-    if ($campaign.schema -ne 1 -or @($campaign.cases).Count -ne 6) { throw 'Invalid campaign.' }
+    $guns=@($campaign.cases).Count -eq 2 -and @($campaign.cases|Where-Object {$_.panel -cne 'guns'}).Count -eq 0
+    if ($campaign.schema -ne 1 -or (-not $guns -and @($campaign.cases).Count -ne 6)) { throw 'Invalid campaign.' }
     $case = @($campaign.cases | Where-Object { $_.panel -ceq $Panel -and $_.language -ceq $Language })
     if ($case.Count -ne 1 -or $case[0].key -cne "$Panel-$Language" -or
         $case[0].jobId -cnotmatch '\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z' -or
@@ -68,7 +69,7 @@ function Assert-CampaignPins($Context, [switch]$InputsOnly) {
             if ($InputsOnly) { continue }
             $path = Join-Path $PSScriptRoot $pin.name
         } elseif ($pin.scope -ceq 'run') {
-            if ($pin.name -cmatch '\A(?:(?:ranks|profile|topall)-(?:ru|en)|engine)/[A-Za-z0-9_. /-]+\z' -and
+            if ($pin.name -cmatch '\A(?:(?:ranks|profile|topall|guns)-(?:ru|en)|engine)/[A-Za-z0-9_. /-]+\z' -and
                 $pin.name -notmatch '(^|/)\.\.(/|$)') { $path = Join-Path $Context.root $pin.name }
             else { throw 'Invalid run pin.' }
         } else { throw 'Invalid pin scope.' }
@@ -78,15 +79,25 @@ function Assert-CampaignPins($Context, [switch]$InputsOnly) {
 
 function Initialize-LabCampaign([string]$Root, [array]$Cases, [hashtable]$Runtime) {
     $null = Assert-LabOutputPath $Root
-    if ($Cases.Count -ne 6 -or @($Cases.key | Select-Object -Unique).Count -ne 6) { throw 'Exactly six prepared cases required.' }
+    $guns=$Cases.Count -eq 2 -and @($Cases|Where-Object {$_.panel -cne 'guns'}).Count -eq 0
+    if ((-not $guns -and $Cases.Count -ne 6) -or @($Cases.key | Select-Object -Unique).Count -ne $Cases.Count) { throw 'Complete fixed campaign required.' }
     $pins = @()
     foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $Root 'engine') -Recurse -File)) {
         $pins += @{ scope = 'run'; name = [IO.Path]::GetRelativePath($Root,$file.FullName).Replace('\','/'); sha256 = Get-CampaignHash $file.FullName }
     }
     foreach ($case in $Cases) {
-        if ($case.panel -cnotin @('ranks','profile','topall') -or $case.language -cnotin @('ru','en') -or
+        if ($case.panel -cnotin @('ranks','profile','topall','guns') -or $case.language -cnotin @('ru','en') -or
             $case.key -cne ($case.panel + '-' + $case.language) -or $case.baselineSha256 -cnotmatch '\A[0-9A-F]{64}\z') { throw 'Invalid fixed case.' }
         $run = Join-Path $Root $case.key
+        if($case.panel -ceq 'guns'){
+            if(-not $guns -or $case.menuBaselines.Count -ne 4){throw 'Fixed weapons baseline matrix required.'}
+            foreach($name in @('primary-default','pistol-default','primary-selected','pistol-selected')){
+                if($case.menuBaselines[$name] -cnotmatch '\A[0-9A-F]{64}\z'){throw 'Weapons baseline missing.'}
+            }
+            $canonical=(@('primary-default','pistol-default','primary-selected','pistol-selected')|ForEach-Object {$_+':'+$case.menuBaselines[$_]}) -join "`n"
+            if(@($case.menuBaselines.Values|Select-Object -Unique).Count -ne 4 -or
+                [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($canonical))) -cne $case.baselineSha256){throw 'Weapons baseline identity differs.'}
+        }elseif($guns){throw 'Mixed weapons campaign.'}
         $case.jobId = [guid]::NewGuid().ToString('D')
         foreach ($file in @(Get-ChildItem -LiteralPath $run -Recurse -File)) {
             $relative = [IO.Path]::GetRelativePath($Root, $file.FullName).Replace('\','/')
@@ -163,6 +174,7 @@ function Assert-CampaignCleanup($Context, $Result) {
 }
 
 function Get-CampaignEvidence($Context) {
+    $guns=$Context.case.panel -ceq 'guns'
     $resultPath = Join-Path $Context.run ('controller-results/' + $Context.case.jobId + '/result.json')
     $result = Read-CampaignJson $resultPath
     if ($result.id -cne $Context.case.jobId -or $result.panel -cne $Context.case.panel -or $result.language -cne $Context.case.language -or
@@ -171,13 +183,16 @@ function Get-CampaignEvidence($Context) {
         $result.acceptancePassed -isnot [bool] -or $result.acceptancePassed -or $result.rendererVerified -isnot [bool] -or $result.rendererVerified -or
         @($result.images).Count -ne 5) { throw 'Unaccepted client evidence.' }
     $interaction = $result.interaction
-    if ($interaction.profile -cne ('motd-v299-' + $Context.case.panel + '-1920x1200-v1') -or
-        ($interaction.actions.phase -join ',') -cne 'ok-first,controls,reopen,ok-last' -or
+    $profile=if($guns){'guns-v299-1920x1200-v1'}else{'motd-v299-' + $Context.case.panel + '-1920x1200-v1'}
+    $phases=if($guns){'exit-primary,select-primary,select-pistol,repeat-primary,exit-pistol-respawn'}else{'ok-first,controls,reopen,ok-last'}
+    if ($interaction.profile -cne $profile -or
+        ($interaction.actions.phase -join ',') -cne $phases -or
         @($interaction.actions | Where-Object { -not (Test-CampaignTrue $_.inputQueued) }).Count -or @($interaction.assessments).Count -ne 5) { throw 'Interaction evidence differs.' }
     $paths = @($resultPath)
     $expectedLabels = @(
         ($Context.case.panel + '-first'),'after-first-ok','after-controls',($Context.case.panel + '-alias'),'after-last-ok'
     )
+    if($guns){$expectedLabels=@('primary-default','pistol-default','primary-selected','pistol-selected','after-respawn')}
     if (($result.labels -join ',') -cne ($expectedLabels -join ',')) { throw 'Frame labels differ.' }
     for ($i = 1; $i -le 5; $i++) {
         $frame = $result.images[$i - 1]
@@ -199,7 +214,11 @@ function Get-CampaignEvidence($Context) {
             [BitConverter]::ToInt32($header,18) -ne 1920 -or [Math]::Abs([long][BitConverter]::ToInt32($header,22)) -ne 1200 -or
             $offset + $rowBytes * 1200 -ne $frame.bytes) { throw 'Bitmap dimensions or pixels differ.' }
         $observation = $assessment.observation
-        if ($i -in @(1,4)) {
+        if($guns -and $i -le 4){
+            $key=$expectedLabels[$i-1]
+            if(-not (Test-CampaignTrue $observation.panelMatches) -or $observation.profile -cne $key -or
+                $observation.bodySha256 -cne $Context.case.menuBaselines[$key]){throw 'Weapons baseline differs.'}
+        }elseif (-not $guns -and $i -in @(1,4)) {
             if (-not (Test-CampaignTrue $observation.panelMatches) -or $observation.bodySha256 -cne $Context.case.baselineSha256) { throw 'Panel baseline differs.' }
         } elseif (-not (Test-CampaignTrue $observation.sceneCandidate) -or $observation.panelMatches -isnot [bool] -or $observation.panelMatches) { throw 'Closed scene missing.' }
         $paths += $path
@@ -212,11 +231,41 @@ function Get-CampaignEvidence($Context) {
     $null = Assert-LabOutputPath $logPath
     if ((Get-Item -LiteralPath $logPath).Length -gt 128KB) { throw 'Unbounded server evidence.' }
     $log = [IO.File]::ReadAllText($logPath)
-    foreach ($epoch in @(1,2)) {
+    if($guns){
+        foreach($step in 1..5){if(-not $log.Contains("FIXTURE_GUNS_SELECT step=$step inventory_unchanged=1")){throw 'Inventory continuity missing.'}}
+        foreach($marker in @('FIXTURE_GUNS_START mp5=1 usp=1','FIXTURE_GUNS_DEATH requested=1','FIXTURE_GUNS_RESPAWN selected_loadout=1',
+            'FIXTURE_GUNS_CONTROL step=1 respawn=0 movement=1','FIXTURE_GUNS_CONTROL step=3 respawn=0 movement=1',
+            'FIXTURE_GUNS_CONTROL step=5 respawn=0 movement=1','FIXTURE_GUNS_CONTROL step=5 respawn=1 movement=1')){
+            if(-not $log.Contains($marker)){throw 'Independent weapons marker missing.'}
+        }
+        if(@($interaction.checkpoints).Count -ne 4 -or ($interaction.checkpoints.name -join ',') -cne 'primary-exit,primary-reopened,pistol-selected-close,pistol-exit'){throw 'Weapons checkpoints differ.'}
+        foreach($checkpoint in $interaction.checkpoints){
+            $path=Join-Path ([IO.Path]::GetDirectoryName($resultPath)) ('checkpoint-'+$checkpoint.name+'.bmp')
+            if((Get-CampaignHash $path) -cne $checkpoint.sha256 -or (Get-Item -LiteralPath $path).Length -ne $checkpoint.bytes -or $checkpoint.bytes -lt 54 -or $checkpoint.bytes -gt 16MB){throw 'Checkpoint integrity differs.'}
+            $header=[byte[]]::new(54);$stream=[IO.File]::OpenRead($path)
+            try{if($stream.Read($header,0,54) -ne 54){throw 'Checkpoint header missing.'}}finally{$stream.Dispose()}
+            $offset=[BitConverter]::ToUInt32($header,10)
+            if($header[0] -ne 66 -or $header[1] -ne 77 -or [BitConverter]::ToUInt32($header,2) -ne $checkpoint.bytes -or
+                [BitConverter]::ToUInt32($header,14) -ne 40 -or $offset -lt 54 -or $offset -gt 4096 -or
+                [BitConverter]::ToUInt16($header,26) -ne 1 -or [BitConverter]::ToUInt16($header,28) -ne 24 -or
+                [BitConverter]::ToInt32($header,18) -ne 1920 -or [BitConverter]::ToInt32($header,22) -ne 1200 -or
+                [BitConverter]::ToUInt32($header,30) -ne 0 -or $offset+6912000 -ne $checkpoint.bytes){throw 'Checkpoint bitmap differs.'}
+            if($checkpoint.name -ceq 'primary-reopened'){
+                if(-not (Test-CampaignTrue $checkpoint.observation.panelMatches) -or $checkpoint.observation.bodySha256 -cne $Context.case.menuBaselines['primary-default']){throw 'Reopened primary missing.'}
+            }elseif(-not (Test-CampaignTrue $checkpoint.observation.sceneCandidate) -or $checkpoint.observation.panelMatches -isnot [bool] -or $checkpoint.observation.panelMatches){throw 'Closed menu checkpoint missing.'}
+            $paths+=$path
+        }
+        $hashes=@($result.images[0].sha256,$interaction.checkpoints[1].sha256,$result.images[1].sha256,$result.images[2].sha256,$result.images[3].sha256)
+        for($i=0;$i -lt 5;$i++){
+            $action=$interaction.actions[$i]
+            # Returned action bindings must reference the retained native frames.
+            if($action.frameSha256 -cne $hashes[$i]){throw 'Weapons action binding differs.'}
+        }
+    }else{foreach ($epoch in @(1,2)) {
         $alias = $epoch - 1
         if (-not $log.Contains("FIXTURE_PANEL_COMMAND panel=$($Context.case.panel) epoch=$epoch team_alias=$alias cooldown_verified=$alias") -or
             -not $log.Contains("FIXTURE_PANEL_CONTROL panel=$($Context.case.panel) epoch=$epoch back_observed=1 left_observed=1 horizontal_distance_over_8=1")) { throw 'Independent control marker missing.' }
-    }
+    }}
     if ($errors.errorFiles -isnot [long] -and $errors.errorFiles -isnot [int]) { throw 'Invalid error count.' }
     if ($errors.errorFiles -ne 0 -or $log -match 'Run time error|Load fails|bad load|Host_Error|FATAL ERROR' -or
         -not (Test-CampaignTrue $cleanup.fixtureRemoved) -or -not (Test-CampaignTrue $cleanup.fixtureEvidenceComplete)) { throw 'Fixture evidence incomplete.' }

@@ -46,7 +46,9 @@ if($finished){
             (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $frame.sha256){throw 'Collected image differs from target metadata.'}
         $receipt.images+=@{number=$frame.number;sha256=$frame.sha256;bytes=$frame.bytes}
     }}catch{$receipt.failureCode='image_collection_failed'}
-    $receipt.evidenceComplete=$last.status -ceq 'autonomous_captured_unreviewed' -and @($receipt.images).Count -eq 5 -and
+    $expected=if($last.action -ceq 'capture-guns'){4}else{5}
+    $expectedStatus=if($last.action -ceq 'capture-guns'){'captured_unreviewed'}else{'autonomous_captured_unreviewed'}
+    $receipt.evidenceComplete=$last.status -ceq $expectedStatus -and @($receipt.images).Count -eq $expected -and
         $last.cleanupVerified -and $last.configCleanupVerified -and -not $receipt.failureCode
 }
 $path=Join-Path $directory 'collection.json'

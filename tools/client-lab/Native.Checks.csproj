@@ -17,5 +17,6 @@
     <Compile Include="tests/native/Autonomous.Tests.cs" Link="Checks/Autonomous.Tests.cs" />
     <Compile Include="tests/native/FocusDiagnosticsChecks.cs" Link="Checks/FocusDiagnosticsChecks.cs" />
     <Compile Include="tests/native/WindowPatternChecks.cs" Link="Checks/WindowPatternChecks.cs" />
+    <Compile Include="tests/native/GunsChecks.cs" Link="Checks/GunsChecks.cs" />
   </ItemGroup>
 </Project>

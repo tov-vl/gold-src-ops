@@ -32,6 +32,10 @@ flowchart LR
 - Single-panel capture also supports `ranks`, `profile`, `topall`, `rules`,
   `primary` and `pistol`. This does not provide autonomous interaction coverage
   for the weapon-selection menus.
+- The separate fixed weapons workflow adds four-frame `capture-guns` baseline
+  setup and reviewed-profile-gated `auto-panel ... guns ...` interaction.
+  See [the weapon-menu boundary](client-guns-acceptance.md); five main frames
+  plus four checkpoints and independent inventory/respawn evidence are required.
 - Only the test process and owned game window receive actions. Focus denial,
   a locked desktop, a competing game, changed process identity, unexpected
   pixels or expired/revoked authorization stop the attempt. There is no global
@@ -47,9 +51,9 @@ rows (Lab Alpha, Lab Bravo and Lab Charlie), including distinct ranks, kills and
 deaths; the connected client's saved place is unavailable. No identity is forged
 and no real player data is imported. These profiles do not cover arbitrary live
 statistics. See [panel scope and verification](client-panel-acceptance.md).
-The additional panels' code is installed, but their fresh autonomous interaction
-acceptance is deferred while the owner uses the Steam account for another game.
-Reviewed capture-only baselines do not establish successful interaction.
+All six additional MOTD panel/language cases passed native interaction acceptance
+with 30 reviewed frames by 2026-11-01. Their capture-only baselines are separate
+from that interaction proof. The weapons workflow has its own adoption gates.
 
 ## Provisioning contract
 

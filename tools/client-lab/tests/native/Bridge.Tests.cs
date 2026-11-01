@@ -301,6 +301,7 @@ namespace GsoLab.Checks
             AutonomousChecks.Run();
             FocusDiagnosticsChecks.Run();
             WindowPatternChecks.Run();
+            GunsChecks.Run();
             Console.WriteLine("Bridge mock checks passed: " + _checks.ToString(CultureInfo.InvariantCulture) + ". No native input or capture was sent.");
         }
     }

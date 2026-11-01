@@ -312,6 +312,26 @@ namespace GsoLab.Interaction
                 !string.Equals(panel, "profile", StringComparison.Ordinal) &&
                 !string.Equals(panel, "topall", StringComparison.Ordinal))
             { throw new ArgumentException("Fixed panel required.", "panel"); }
+            ChatFixed(panel);
+        }
+
+        public void ReopenGuns() { ChatFixed("guns"); }
+
+        public void SelectGunsItem(string phase)
+        {
+            switch (phase)
+            {
+                case "exit-primary":
+                case "exit-pistol-respawn": Key(0x30, 0x0b, 40); return;
+                case "select-primary":
+                case "repeat-primary": Key(0x32, 0x03, 40); return;
+                case "select-pistol": Key(0x33, 0x04, 40); return;
+                default: throw new ArgumentException("Fixed weapons phase required.", "phase");
+            }
+        }
+
+        private void ChatFixed(string panel)
+        {
             Key(0x55, 0x16, 40); // U / messagemode2.
             _port.Delay(180);
             foreach (var value in "/" + panel)
@@ -626,7 +646,7 @@ namespace GsoLab.Interaction
             }
         }
 
-        private static string ToHex(byte[] digest)
+        internal static string ToHex(byte[] digest)
         {
             const string alphabet = "0123456789ABCDEF";
             var characters = new char[digest.Length * 2];
@@ -638,7 +658,7 @@ namespace GsoLab.Interaction
             return new string(characters);
         }
 
-        private static byte[] ReadPixels(Bitmap bitmap)
+        internal static byte[] ReadPixels(Bitmap bitmap)
         {
             var data = bitmap.LockBits(new Rectangle(0, 0, 1920, 1200), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
             try
@@ -649,6 +669,44 @@ namespace GsoLab.Interaction
                 return pixels;
             }
             finally { bitmap.UnlockBits(data); }
+        }
+    }
+
+    public static class GunsFrameGate
+    {
+        // Fixed fixture backdrop only; these pixels are not a production-scene profile.
+        public static FrameObservation Analyze(byte[] bytes, string expectedSha256)
+        {
+            if (bytes == null || bytes.Length < 54 || bytes.Length > 16 * 1024 * 1024 ||
+                bytes[0] != 66 || bytes[1] != 77 || BitConverter.ToInt32(bytes, 18) != 1920 ||
+                BitConverter.ToInt32(bytes, 22) != 1200 || BitConverter.ToInt16(bytes, 28) != 24 ||
+                BitConverter.ToInt32(bytes, 30) != 0)
+            { throw new ArgumentException("Expected bounded uncompressed 1920x1200 24-bit BMP.", "bytes"); }
+            using (var input = new MemoryStream(bytes, writable: false))
+            using (var bitmap = new Bitmap(input))
+            {
+                var pixels = RulesFrameGate.ReadPixels(bitmap);
+                var body = new byte[800 * 400 * 3];
+                var black = 0;
+                for (var y = 0; y < 400; y++)
+                {
+                    Buffer.BlockCopy(pixels, (y + 350) * 1920 * 3, body, y * 800 * 3, 800 * 3);
+                    // The buy-zone HUD occupies the left margin in the gap below menu items.
+                    if (y >= 180 && y < 300) { Array.Clear(body, y * 800 * 3, 44 * 3); }
+                }
+                for (var offset = 0; offset < body.Length; offset += 3)
+                { if (body[offset] == 0 && body[offset + 1] == 0 && body[offset + 2] == 0) { black++; } }
+                string hash;
+                using (var algorithm = SHA256.Create())
+                { hash = RulesFrameGate.ToHex(algorithm.ComputeHash(body)); }
+                return new FrameObservation
+                {
+                    BodySha256 = hash,
+                    PanelMatches = black > 288000 && black < 319500 &&
+                        string.Equals(hash, expectedSha256, StringComparison.Ordinal),
+                    SceneCandidate = false
+                };
+            }
         }
     }
 

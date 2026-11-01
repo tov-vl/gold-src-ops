@@ -227,8 +227,13 @@ function Invoke-LabRulesInteraction([string]$Root,$Policy,$Job,$Result,[hashtabl
 }
 
 #requires -Version 5.1
+$script:LabGunsBaselines = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{{GUNS_BASELINES}}')) | ConvertFrom-Json
 function ConvertFrom-LabRunnerCommand([string]$Command) {
-    $panel=[regex]::Match($Command,'\Aauto-panel ([0-9a-f-]{36}) (ranks|profile|topall) (ru|en)\z')
+    $checkpoint=[regex]::Match($Command,'\Acheckpoint ([0-9a-f-]{36}) (primary-exit|primary-reopened|pistol-selected-close|pistol-exit)\z')
+    if($checkpoint.Success){Assert-LabId $checkpoint.Groups[1].Value;return @{operation='checkpoint';id=$checkpoint.Groups[1].Value;checkpoint=$checkpoint.Groups[2].Value}}
+    $guns=[regex]::Match($Command,'\Acapture-guns ([0-9a-f-]{36}) (ru|en)\z')
+    if($guns.Success){Assert-LabId $guns.Groups[1].Value;return @{operation='capture-guns';id=$guns.Groups[1].Value;language=$guns.Groups[2].Value}}
+    $panel=[regex]::Match($Command,'\Aauto-panel ([0-9a-f-]{36}) (ranks|profile|topall|guns) (ru|en)\z')
     if($panel.Success){Assert-LabId $panel.Groups[1].Value;return @{operation='auto-panel';id=$panel.Groups[1].Value;panel=$panel.Groups[2].Value;language=$panel.Groups[3].Value}}
     $match=[regex]::Match($Command,'\Aauto-rules ([0-9a-f-]{36}) (ru|en)\z')
     if($match.Success){Assert-LabId $match.Groups[1].Value;return @{operation='auto-rules';id=$match.Groups[1].Value;language=$match.Groups[2].Value}}
@@ -236,26 +241,32 @@ function ConvertFrom-LabRunnerCommand([string]$Command) {
 }
 
 function Assert-LabRunnerJob($Job) {
+    if($Job.action -ceq 'capture-guns'){
+        if((@($Job.PSObject.Properties.Name|Sort-Object)-join ',') -cne 'action,createdUtc,id,language'){throw 'Invalid weapons capture record.'}
+        Assert-LabJob ([pscustomobject]@{id=$Job.id;action='verify-rules';createdUtc=$Job.createdUtc;language=$Job.language});return
+    }
     if($Job.action -cne 'verify-panel'){Assert-LabJob $Job;return}
     if((@($Job.PSObject.Properties.Name|Sort-Object)-join ',') -cne 'action,createdUtc,id,language,panel' -or
-        $Job.panel -isnot [string] -or $Job.panel -cnotin @('ranks','profile','topall')){throw 'Invalid fixed panel interaction record.'}
+        $Job.panel -isnot [string] -or $Job.panel -cnotin @('ranks','profile','topall','guns')){throw 'Invalid fixed panel interaction record.'}
     Assert-LabJob ([pscustomobject]@{id=$Job.id;action='verify-rules';createdUtc=$Job.createdUtc;language=$Job.language})
 }
 
 function Get-LabInteractionPanel($Job) {
     if($Job.action -ceq 'verify-rules'){return 'rules'}
-    if($Job.action -ceq 'verify-panel' -and $Job.panel -is [string] -and $Job.panel -cin @('ranks','profile','topall')){return $Job.panel}
+    if($Job.action -ceq 'verify-panel' -and $Job.panel -is [string] -and $Job.panel -cin @('ranks','profile','topall','guns')){return $Job.panel}
     throw 'Fixed interaction panel required.'
 }
 
 function Get-LabAutonomousProfile($Job) {
     $panel=Get-LabInteractionPanel $Job
+    if($panel -ceq 'guns'){return 'guns-v299-1920x1200-v1'}
     if($panel -ceq 'rules'){return 'rules-v299-1920x1200-v1'}
     return ('motd-v299-'+$panel+'-1920x1200-v1')
 }
 
 function New-LabRunnerInteractionProgram($Job) {
     Assert-LabRunnerJob $Job
+    if($Job.action -ceq 'capture-guns' -or ($Job.action -ceq 'verify-panel' -and $Job.panel -ceq 'guns')){return New-LabGunsProgram $Job}
     if($Job.action -ceq 'verify-rules'){return New-LabInteractionProgram $Job}
     $capture=[pscustomobject]@{id=$Job.id;createdUtc=$Job.createdUtc;action='capture-panel';panel=(Get-LabInteractionPanel $Job);language=$Job.language}
     $lines=@((New-LabPanelProgram $capture) -split "`r`n")
@@ -266,7 +277,7 @@ function New-LabRunnerInteractionProgram($Job) {
 }
 
 function Get-LabRunnerLaunchArguments($Job,[string]$ConfigName) {
-    if($Job.action -ceq 'verify-panel'){
+    if($Job.action -cin @('verify-panel','capture-guns')){
         Assert-LabRunnerJob $Job
         return Get-LabLaunchArguments ([pscustomobject]@{action='capture-panel'}) $ConfigName
     }
@@ -274,11 +285,14 @@ function Get-LabRunnerLaunchArguments($Job,[string]$ConfigName) {
 }
 
 function Get-LabRunnerImageLimit($Job) {
+    if($Job.action -ceq 'capture-guns'){return 4}
     if($Job.action -ceq 'verify-panel'){return 5}
     return Get-LabImageLimit $Job
 }
 
 function Get-LabRunnerCaptureLabels($Job) {
+    if($Job.action -ceq 'capture-guns'){return @('primary-default','pistol-default','primary-selected','pistol-selected')}
+    if($Job.action -ceq 'verify-panel' -and $Job.panel -ceq 'guns'){return @('primary-default','pistol-default','primary-selected','pistol-selected','after-respawn')}
     if($Job.action -ceq 'verify-panel'){$panel=Get-LabInteractionPanel $Job;return @(($panel+'-first'),'after-first-ok','after-controls',($panel+'-alias'),'after-last-ok')}
     return Get-LabCaptureLabels $Job
 }
@@ -485,6 +499,153 @@ function Get-LabFocusProjection($Window) {
         foregroundAccepted=$raw.ForegroundAccepted;providerAttempted=[bool]$raw.ProviderAttempted;
         failureCategory=[string]$raw.FailureCategory;hresult=$raw.FailureHResult;nativeCode=$raw.NativeFailureCode;
         elapsedMilliseconds=[int]$raw.ElapsedMilliseconds;enabled=$raw.Enabled;keyboardFocusable=$raw.KeyboardFocusable;offscreen=$raw.Offscreen;windowPatternAvailable=$raw.WindowPatternAvailable;windowVisualState=$raw.WindowVisualState;windowReady=$raw.WindowReady;method=[string]$raw.Method}
+}
+
+function New-LabGunsProgram($Job) {
+    Assert-LabRunnerJob $Job
+    if($Job.action -cne 'capture-guns' -and ($Job.action -cne 'verify-panel' -or $Job.panel -cne 'guns')){throw 'Fixed weapons program required.'}
+    $capture=[pscustomobject]@{id=$Job.id;createdUtc=$Job.createdUtc;action='capture-panel';panel='primary';language=$Job.language}
+    $lines=@((New-LabPanelProgram $capture) -split "`r`n" | Where-Object {$_ -cne 'snapshot' -and $_ -cne ''})
+    $lines+=@('snapshot')
+    if($Job.action -ceq 'capture-guns'){
+        # Baseline setup only, not interactive acceptance. No operator text is executed.
+        $lines+=(@('wait')*180)+@('menuselect 2')+(@('wait')*180)+@('snapshot','menuselect 3')
+        $lines+=(@('wait')*180)+@('guns')+(@('wait')*180)+@('snapshot','menuselect 2')+(@('wait')*180)+@('snapshot')
+    }
+    return ($lines -join "`r`n")+"`r`n"
+}
+
+function Assert-LabGunsBindings([string]$GameRoot) {
+    Assert-LabInteractionBindings $GameRoot
+    $bindings=@{}
+    foreach($line in [IO.File]::ReadAllLines((Join-Path $GameRoot 'cstrike/config.cfg'))){
+        $target=[regex]::Match($line,'(?i)^\s*bind\s+(?:"(0|2|3)"|(0|2|3))(?=\s|$)')
+        $match=[regex]::Match($line,'(?i)^\s*bind\s+"(0|2|3)"\s+"(slot10|slot2|slot3)"\s*$')
+        if($target.Success -and -not $match.Success){throw 'A weapons binding is unsupported.'}
+        if($match.Success){$bindings[$match.Groups[1].Value]=$match.Groups[2].Value}
+    }
+    foreach($entry in @(@('0','slot10'),@('2','slot2'),@('3','slot3'))){if($bindings[$entry[0]] -cne $entry[1]){throw 'A fixed weapons binding differs.'}}
+}
+
+function Get-LabGunsAssessment([byte[]]$Bytes,[string]$Key,[string]$Language) {
+    if($Key -ceq 'scene'){
+        $gate=[GsoLab.Interaction.RulesFrameGate]::Analyze($Bytes,$Language)
+        if(-not $gate.SceneCandidate -or $gate.PanelMatches){throw 'Closed weapons menu scene missing.'}
+        return @{profile='scene';sceneCandidate=$true;panelMatches=$false;bodySha256=$gate.BodySha256}
+    }
+    if($Key -cnotin @('primary-default','pistol-default','primary-selected','pistol-selected') -or $Language -cnotin @('ru','en')){throw 'Fixed weapons frame required.'}
+    $entry=$script:LabGunsBaselines.PSObject.Properties[$Key+'-'+$Language]
+    if(-not $entry -or $entry.Value -cnotmatch '\A[0-9A-F]{64}\z'){throw 'Reviewed weapons baseline unavailable.'}
+    $gate=[GsoLab.Interaction.GunsFrameGate]::Analyze($Bytes,$entry.Value)
+    if(-not $gate.PanelMatches){throw 'Weapons menu pixels differ from the reviewed profile.'}
+    return @{profile=$Key;sceneCandidate=$false;panelMatches=$true;bodySha256=$gate.BodySha256}
+}
+
+function Save-LabGunsCheckpoint($Window,$Result,[string]$Destination,[string]$Name,[string]$Profile) {
+    if($Name -cnotin @('primary-exit','primary-reopened','pistol-selected-close','pistol-exit')){throw 'Fixed checkpoint required.'}
+    $bytes=$Window.CaptureFrame()
+    $observation=Get-LabGunsAssessment $bytes $Profile $Result.language
+    $path=Join-Path $Destination ('checkpoint-'+$Name+'.bmp')
+    $stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+    $hash=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+    $Result.interaction.checkpoints+=@{name=$Name;sha256=$hash;bytes=$bytes.Length;observation=$observation}
+    return $hash
+}
+
+function Invoke-LabGunsEffect([string]$Root,$Policy,$Job,$Result,$Clock,$Window,[string]$Effect,[string]$Phase) {
+    Assert-LabAutoContext $Root $Policy $Job $Clock -BeforeInput
+    if((Get-LabAutoElapsed $Clock)-$Result.interaction.frameObservedElapsed -ge (Get-LabInteractionLimits).frameSeconds){throw 'Weapons frame became stale.'}
+    Assert-LabInteractionOwner $Policy $Result
+    $Window.CheckReady()
+    switch -CaseSensitive($Effect){
+        item {$Window.SelectGunsItem($Phase)}
+        move {$Window.MoveControls()}
+        reopen {$Window.ReopenGuns()}
+        default {throw 'Fixed weapons effect required.'}
+    }
+}
+
+function Invoke-LabAutonomousGunsInteraction([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseline,[DateTime]$LaunchUtc,[string]$ResultPath) {
+    Assert-LabRunnerJob $Job
+    Assert-LabGunsBindings $Policy.gameRoot
+    $Result['panel']='guns';$Result['language']=$Job.language
+    $Result['interaction']=[ordered]@{schema=2;mode='autonomous-fixed';profile=(Get-LabAutonomousProfile $Job);actions=@();assessments=@();checkpoints=@();automaticRetryAllowed=$false;windowGuard=$null;windowPreparation=$null}
+    $Result.interaction.frameObservedElapsed=0.0
+    $Result.labels=@(Get-LabRunnerCaptureLabels $Job)
+    $clock=[Diagnostics.Stopwatch]::StartNew();$window=$null;$destination=Split-Path -Parent $ResultPath
+    Initialize-LabInteractionTypes (Join-Path $Root 'code/Rules.Input.cs')
+    try{
+        while(@($Result.images).Count -eq 0){
+            Assert-LabAutoContext $Root $Policy $Job $clock
+            if(-not $window){
+                $candidates=@(Get-LabProcess $Policy|Where-Object {$_.StartTime.ToUniversalTime() -ge $LaunchUtc -and $_.SessionId -eq $Policy.gameSessionId})
+                if($candidates.Count -gt 1){throw 'Ambiguous weapons process.'}
+                if($candidates.Count -eq 1){
+                    $Result.gamePid=$candidates[0].Id;$Result.gameStartedUtc=$candidates[0].StartTime.ToUniversalTime().ToString('o')
+                    Assert-LabInteractionOwner $Policy $Result
+                    $window=New-Object GsoLab.Interaction.GameWindow -ArgumentList @([int]$Result.gamePid,(ConvertTo-LabUtc $Result.gameStartedUtc).Ticks,(Join-Path $Policy.gameRoot 'hl.exe'),[int]$Policy.gameSessionId)
+                }
+            }
+            if($window -and (Receive-LabInteractionFrame $Policy $Result $Baseline $destination)){
+                try{$window.PrepareOwnWindow()}finally{$Result.interaction.windowPreparation=Get-LabWindowGuardObservation $window}
+                if($window.ActivationAttempted){Save-LabBeforeActivationFrame $Result $destination;Save-LabOwnedWindowFrame $window $Result $destination}
+                $Result.interaction.frameObservedElapsed=Get-LabAutoElapsed $clock
+                break
+            }
+            Wait-LabAutoTick 200
+        }
+        $phases=@('exit-primary','select-primary','select-pistol','repeat-primary','exit-pistol-respawn')
+        $hash=$null
+        for($index=0;$index -lt 5;$index++){
+            Assert-LabAutoContext $Root $Policy $Job $clock -BeforeInput
+            if($index -ne 1){
+                $frame=$Result.images[-1]
+                $key=$Result.labels[$frame.number-1]
+                $bytes=[IO.File]::ReadAllBytes((Join-Path $destination ('image-'+$frame.number+'.bin')))
+                if((Get-FileHash -LiteralPath (Join-Path $destination ('image-'+$frame.number+'.bin'))).Hash -cne $frame.sha256){throw 'Weapons frame changed.'}
+                $observation=Get-LabGunsAssessment $bytes $key $Job.language
+                $Result.interaction.assessments+=@{number=$frame.number;observation=$observation}
+                $hash=$frame.sha256
+            }
+            $phase=$phases[$index]
+            $claim=Join-Path $destination ('auto-phase-'+$phase+'.json')
+            $stream=[IO.File]::Open($claim,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+            try{$data=[Text.Encoding]::UTF8.GetBytes((@{id=$Job.id;phase=$phase;frameSha256=$hash;automaticRetryAllowed=$false}|ConvertTo-Json -Compress));$stream.Write($data,0,$data.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+            $Result.status='autonomous_interaction_running'
+            $Result.interaction.actions+=@{phase=$phase;frameSha256=$hash;inputQueued=$false;startedUtc=[DateTime]::UtcNow.ToString('o')}
+            Write-LabJson $ResultPath $Result
+            Invoke-LabGunsEffect $Root $Policy $Job $Result $clock $window item $phase
+            $Result.interaction.actions[-1].inputQueued=$true
+            Wait-LabAutoTick 500
+            if($index -in @(0,2,4)){
+                $name=@{0='primary-exit';2='pistol-selected-close';4='pistol-exit'}[$index]
+                $null=Save-LabGunsCheckpoint $window $Result $destination $name scene
+                Invoke-LabGunsEffect $Root $Policy $Job $Result $clock $window move $phase
+                if($index -ne 4){
+                    Invoke-LabGunsEffect $Root $Policy $Job $Result $clock $window reopen $phase
+                    Wait-LabAutoTick 500
+                }else{
+                    Wait-LabAutoTick 6000
+                    Invoke-LabGunsEffect $Root $Policy $Job $Result $clock $window move $phase
+                }
+            }
+            Assert-LabAutoContext $Root $Policy $Job $clock
+            Assert-LabInteractionOwner $Policy $Result
+            if($index -eq 0){$hash=Save-LabGunsCheckpoint $window $Result $destination primary-reopened primary-default}
+            else{Save-LabOwnedWindowFrame $window $Result $destination}
+            $Result.interaction.frameObservedElapsed=Get-LabAutoElapsed $clock
+            Write-LabJson $ResultPath $Result
+        }
+        $frame=$Result.images[-1]
+        $observation=Get-LabGunsAssessment ([IO.File]::ReadAllBytes((Join-Path $destination 'image-5.bin'))) scene $Job.language
+        $Result.interaction.assessments+=@{number=5;observation=$observation}
+        $Result.status='autonomous_captured_unreviewed'
+        Write-LabJson $ResultPath $Result
+    }catch{
+        $Result.interaction.windowGuard=Get-LabWindowGuardObservation $window
+        $Result.failureCode='guns_interaction_failed';throw
+    }
 }
 
 function Get-LabTerminalArchiveCandidates([string]$Root) {
