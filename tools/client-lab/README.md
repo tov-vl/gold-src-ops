@@ -20,6 +20,7 @@ Entry points:
 | `Build-FixtureHelper.ps1` | Rebuild and hash-check the fixture-only helper with the pinned offline AMXX toolchain |
 | `lab_fixture.py` | Explicit plan/start/relay/stop lifecycle, with no client dispatch |
 | `New-ArchivePlan.ps1` | Select exact completed requests for signed queue maintenance without deleting evidence |
+| `New-UpdaterRecovery.ps1` | Prepare a predecessor-bound local trust-engine migration for receipt-bound inbox retirement |
 | `Test-ClientLab.ps1` | Offline policy, parser, native compilation and synthetic-frame tests on Windows |
 | `fixture_vgui_guard.sma` | Fixture-only join-menu suppression, synthetic leaderboard data and independent panel/movement markers |
 

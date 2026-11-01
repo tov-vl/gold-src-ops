@@ -4421,3 +4421,14 @@ were verified. EN and live input trials were not dispatched. One signed rollback
 was rejected by gateway preflight; sequence 16 remains installed with weapons
 input disabled. Inbox recovery and capture-readiness correction are the next
 gates. See [scope and failed-trial evidence](client-guns-acceptance.md).
+
+## Autonomous client lab - updater inbox recovery
+
+Implemented; local adoption pending: bounded retirement of digest-bound
+successful signed packages from the 16-entry inbox into protected retention,
+preserving public receipts and
+one-attempt IDs. Fixed aggregate status makes capacity visible. A separately
+reviewed local two-file trust-engine migration preserves runner, policy, task
+definitions and existing rights. Weapons baseline synchronization and fresh
+native trials remain held until adoption and independent readback.
+See [recovery boundary and gates](client-updater-recovery.md).

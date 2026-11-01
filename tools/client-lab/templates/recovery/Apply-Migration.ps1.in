@@ -1,0 +1,77 @@
+#requires -Version 5.1
+param([Parameter(Mandatory=$true)][string]$GameUserSid,[Parameter(Mandatory=$true)][int]$GameSessionId)
+$ErrorActionPreference='Stop'
+Set-StrictMode -Version Latest
+function Assert-MigrationTrustedPath([string]$Path){
+    $ancestor=[IO.Path]::GetFullPath($Path)
+    while($ancestor){if((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked installed trust path.'};$ancestor=[IO.Path]::GetDirectoryName($ancestor)}
+    $acl=Get-Acl -LiteralPath $Path
+    if($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin @('S-1-5-18','S-1-5-32-544')){throw 'Untrusted installed path owner.'}
+    $write=[Security.AccessControl.FileSystemRights]'Write,Delete,ChangePermissions,TakeOwnership,DeleteSubdirectoriesAndFiles'
+    foreach($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){
+        if($rule.AccessControlType -eq 'Allow' -and ($rule.FileSystemRights -band $write) -and $rule.IdentityReference.Value -notin @('S-1-5-18','S-1-5-32-544')){throw 'Installed trust path is writable by another identity.'}
+    }
+}
+$root='C:\ProgramData\GsoClientLabUpdater';$lab='C:\ProgramData\GsoClientLab'
+if((Test-Path -LiteralPath (Join-Path $PSScriptRoot 'update-result.json')) -or (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'migration-claim.json'))){throw 'Existing migration result or claim; preserve it and do not retry.'}
+$report=@{status='not_started';gameLaunched=$false;newPermissions=$false;automaticRetryAllowed=$false;utc=[DateTime]::UtcNow.ToString('o')}
+try{
+    $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
+    if(-not ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Run the local approved installer with elevation.'}
+    if($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage' -or (Get-ExecutionPolicy -Scope MachinePolicy) -in @('Restricted','AllSigned')){throw 'Existing system policy prevents this local migration.'}
+    $manifestPath=Join-Path $PSScriptRoot 'package-hashes.json'
+    if((Get-Item -LiteralPath $manifestPath).Length -gt 65536){throw 'Package manifest exceeds its limit.'}
+    $manifest=[IO.File]::ReadAllText($manifestPath)|ConvertFrom-Json
+    $names=@('Apply-Migration.ps1','Migration.Core.ps1','Start-Update.ps1','Start-Update.cmd','Verify-Task.ps1','Update.Engine.ps1','Gateway.ps1','expected.json')
+    if($manifest.schema -ne 1 -or (@($manifest.files.name|Sort-Object)-join ',') -cne (@($names|Sort-Object)-join ',')){throw 'Exact migration file set required.'}
+    foreach($entry in $manifest.files){
+        $path=Join-Path $PSScriptRoot $entry.name
+        $ancestor=[IO.Path]::GetFullPath($path)
+        while($ancestor){if((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked migration package.'};$ancestor=[IO.Path]::GetDirectoryName($ancestor)}
+        if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $entry.sha256){throw 'Migration package integrity differs.'}
+        if(Get-Item -LiteralPath $path -Stream Zone.Identifier -ErrorAction SilentlyContinue){throw 'Internet-zone package requires local owner review.'}
+    }
+    $expected=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'expected.json'))|ConvertFrom-Json
+    if((@($expected.trustedFiles.name|Sort-Object)-join ',') -cne 'Gateway.Input.ps1,Gateway.ps1,Task-Budget.ps1,Update.Common.ps1,Update.Engine.ps1,Updater.ps1'){throw 'Unexpected installed trust file set.'}
+    if($env:COMPUTERNAME -cne $expected.targetName -or $GameSessionId -ne $expected.gameSessionId -or $GameSessionId -ne (Get-Process -Id $PID).SessionId){throw 'Target or interactive session differs.'}
+    foreach($path in @($root,(Join-Path $root 'bin'),(Join-Path $root 'bin\config.json'))){Assert-MigrationTrustedPath $path}
+    foreach($entry in $expected.trustedFiles){
+        $path=Join-Path $root ('bin\'+$entry.name)
+        if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $entry.sha256){throw 'Installed trust-engine predecessor differs.'}
+        Assert-MigrationTrustedPath $path
+    }
+    . (Join-Path $root 'bin\Update.Common.ps1')
+    . (Join-Path $root 'bin\Task-Budget.ps1')
+    . (Join-Path $root 'bin\Update.Engine.ps1')
+    . (Join-Path $PSScriptRoot 'Verify-Task.ps1')
+    . (Join-Path $PSScriptRoot 'Migration.Core.ps1')
+    $policy=Read-UpdateJson $lab (Join-Path $lab 'policy.json')
+    if($policy.gameUserSid -cne $GameUserSid -or $policy.gameSessionId -ne $GameSessionId -or $policy.targetName -cne $expected.targetName -or
+       $policy.sessionId -cne $expected.sessionId -or $policy.leaseMode -cne 'manual' -or $null -ne $policy.expiresUtc -or
+       $policy.sourceAddress -cne $expected.sourceAddress -or $policy.targetAddress -cne $expected.targetAddress -or $policy.port -ne 2222){throw 'Installed manual authorization differs.'}
+    function Assert-MigrationUpdaterInactive {
+        $scheduler=New-Object -ComObject Schedule.Service;$scheduler.Connect()
+        if($scheduler.GetFolder('\').GetTask('GsoClientLab-Updater').GetInstances(0).Count){throw 'Updater instance remains active.'}
+    }
+    function Confirm-MigrationSystemTick {
+        $before=Get-ScheduledTaskInfo -TaskName GsoClientLab-Updater -TaskPath '\'
+        Start-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\'
+        $clock=[Diagnostics.Stopwatch]::StartNew()
+        do{
+            Start-Sleep -Milliseconds 250
+            $info=Get-ScheduledTaskInfo -TaskName GsoClientLab-Updater -TaskPath '\'
+            $task=Get-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\'
+            if($info.LastRunTime -gt $before.LastRunTime -and $task.State -ceq 'Ready' -and $info.LastTaskResult -eq 0){return}
+        }while($clock.Elapsed.TotalSeconds -lt 20)
+        throw 'Existing SYSTEM task did not complete a fresh successful tick.'
+    }
+    $clock=[Diagnostics.Stopwatch]::StartNew()
+    while((Get-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\').State -ceq 'Running' -and $clock.Elapsed.TotalSeconds -lt 5){Start-Sleep -Milliseconds 200}
+    $report=Invoke-LabEngineMigration $root $lab $PSScriptRoot $expected
+    if($report.status -ceq 'engine_migrated'){
+        $report.profile=@{targetName=$policy.targetName;targetAddress=$policy.targetAddress;sourceAddress=$policy.sourceAddress;sessionId=$policy.sessionId;gameRoot=$policy.gameRoot;steamRoot=$policy.steamRoot;gameUserSid=$policy.gameUserSid;gameSessionId=$policy.gameSessionId;fixtureName=$policy.serverName}
+    }
+}catch{$report.status='failed';$report.failureType=$_.Exception.GetType().Name;$report.message=$_.Exception.Message}
+finally{[IO.File]::WriteAllText((Join-Path $PSScriptRoot 'update-result.json'),($report|ConvertTo-Json -Depth 8),(New-Object Text.UTF8Encoding($false)))}
+if($report.status -cne 'engine_migrated'){Write-Host 'Return update-result.json; do not retry.';exit 1}
+Write-Host 'Engine migration complete. No new access, runner installation or game launch occurred.'

@@ -33,6 +33,7 @@ try{
         $state=Read-UpdateJson $root (Join-Path $root 'public\state.json')
         if(-not $state.enabled -or $state.blocked -or (Test-Path -LiteralPath $result)){throw 'Updater disabled, blocked or identity used.'}
         $inbox=Join-Path $root 'inbox'
+        $phase='inbox-capacity'
         if(@(Get-ChildItem -LiteralPath $inbox -Force).Count -ge 16){throw 'Update inbox limit reached.'}
         $phase='input'
         $bytes=Read-GatewayPackage ([Console]::In) ([int]$match.Groups[3].Value)
@@ -42,7 +43,8 @@ try{
         $phase='store'
         $path=Join-Path $inbox ($id+'.json')
         Assert-UpdatePath $root $inbox
-        # A claim is permanent. A partial upload is never overwritten or retried.
+        # Never overwrite an upload. Its successful public receipt permanently reserves the ID.
+        # Only SYSTEM may retire completed package bytes into protected retention.
         $stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
         try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
         @{id=$id;status='staged';sha256=$package.sha256}|ConvertTo-Json -Compress

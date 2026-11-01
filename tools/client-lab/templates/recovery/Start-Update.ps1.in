@@ -1,0 +1,10 @@
+#requires -Version 5.1
+$ErrorActionPreference='Stop'
+$expected=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'expected.json') -Raw|ConvertFrom-Json
+if($env:COMPUTERNAME -cne $expected.targetName){throw 'Run on the selected existing client laptop only.'}
+$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$session=(Get-Process -Id $PID).SessionId
+$entry=Join-Path $PSScriptRoot 'Apply-Migration.ps1'
+if($entry.Contains('"') -or $entry.Contains("`r") -or $entry.Contains("`n")){throw 'Unsupported installer path.'}
+$process=Start-Process -FilePath 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' -Verb RunAs -WindowStyle Hidden -ArgumentList ('-NoLogo -NoProfile -File "'+$entry+'" -GameUserSid '+$sid+' -GameSessionId '+$session) -Wait -PassThru
+if($process.ExitCode -ne 0){throw 'Return update-result.json; do not retry.'}

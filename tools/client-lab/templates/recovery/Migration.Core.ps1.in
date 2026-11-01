@@ -1,0 +1,135 @@
+#requires -Version 5.1
+function Write-MigrationClaim([string]$Path,$Value) {
+    $bytes=[Text.Encoding]::UTF8.GetBytes(($Value|ConvertTo-Json -Depth 8 -Compress))
+    $stream=[IO.File]::Open($Path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+}
+function Assert-MigrationPendingAbsent([string]$Root) {
+    if(Test-Path -LiteralPath (Join-Path $Root 'private\active.json')){throw 'An update requires reconciliation.'}
+    $items=@(Get-ChildItem -LiteralPath (Join-Path $Root 'inbox') -Force)
+    if($items.Count -gt 16){throw 'Inbox exceeds the reviewed bound.'}
+    foreach($item in $items){
+        Assert-UpdatePath $Root $item.FullName
+        if($item.PSIsContainer -or $item.Extension -cne '.json'){throw 'Unfinished staging exists.'}
+        Assert-UpdateId $item.BaseName
+        $result=Read-UpdateJson $Root (Join-Path $Root ('public\'+$item.BaseName+'.json'))
+        if($result.id -cne $item.BaseName -or $result.status -cnotin @('installed','rejected_preflight','rolled_back')){throw 'A staged operation is not terminal.'}
+    }
+}
+function Assert-MigrationUnchanged([string]$Root,[string]$Lab,[string]$StateHash,[string]$PolicyHash) {
+    if((Get-UpdateHash (Read-UpdateBytes $Root (Join-Path $Root 'private\state.json'))) -cne $StateHash -or
+       (Get-UpdateHash (Read-UpdateBytes $Lab (Join-Path $Lab 'policy.json'))) -cne $PolicyHash){throw 'State or policy changed during maintenance.'}
+    Assert-MigrationPendingAbsent $Root
+}
+function Set-MigrationBytes([string]$Path,[byte[]]$Bytes){[IO.File]::WriteAllBytes($Path,$Bytes)}
+function Invoke-LabEngineMigration([string]$Root,[string]$Lab,[string]$Package,$Expected) {
+    $configPath=Join-Path $Root 'bin\config.json'
+    $enginePath=Join-Path $Root 'bin\Update.Engine.ps1'
+    $gatewayPath=Join-Path $Root 'bin\Gateway.ps1'
+    $statePath=Join-Path $Root 'private\state.json'
+    $config=Read-UpdateJson $Root $configPath
+    $state=Read-UpdateJson $Root $statePath
+    if(-not $config.enabled -or $config.target -cne $Expected.targetName -or $config.sessionId -cne $Expected.sessionId -or
+       $state.sequence -ne $Expected.sequence -or $state.revision -ne $Expected.revision){throw 'Installed predecessor differs.'}
+    if((@($config.trustedFiles.name|Sort-Object)-join ',') -cne (@($Expected.trustedFiles.name|Sort-Object)-join ',') -or
+       (Get-UpdateHash ([Text.Encoding]::UTF8.GetBytes($config.publicKeyXml))) -cne $Expected.publicKeySha256){throw 'Trusted file set or signing pin differs.'}
+    Assert-UpdateTrust $Root $Lab $config
+    Assert-MigrationPendingAbsent $Root
+    $inboxBefore=@(Get-ChildItem -LiteralPath (Join-Path $Root 'inbox') -File|Sort-Object Name|ForEach-Object {
+        $reportPath=Join-Path $Root ('public\'+$_.BaseName+'.json')
+        @{id=$_.BaseName;sha256=(Get-UpdateHash (Read-UpdateBytes $Root $_.FullName));reportSha256=(Get-UpdateHash (Read-UpdateBytes $Root $reportPath 65536))}
+    })
+    Assert-UpdateWorkerIdle
+    foreach($name in (Get-UpdateNames)){
+        if($state.codeHashes.$name -cne $Expected.codeHashes.$name -or (Get-UpdateHash (Read-UpdateBytes $Lab (Join-Path $Lab ('code\'+$name)))) -cne $Expected.codeHashes.$name){throw 'Runner predecessor differs.'}
+    }
+    $worker=Get-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'
+    if($worker.State -cne 'Ready' -or (Get-LabWorkerInvariant $worker) -cne $config.workerInvariant){throw 'Worker is not idle or its definition changed.'}
+    $updater=Get-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\'
+    if(-not (Get-UpdaterTaskVerification $updater 'Ready').passed){throw 'Updater task differs.'}
+    $engineBefore=Read-UpdateBytes $Root $enginePath
+    $gatewayBefore=Read-UpdateBytes $Root $gatewayPath
+    $configBefore=Read-UpdateBytes $Root $configPath
+    $stateHash=Get-UpdateHash (Read-UpdateBytes $Root $statePath)
+    $policyHash=Get-UpdateHash (Read-UpdateBytes $Lab (Join-Path $Lab 'policy.json'))
+    $engineAfter=Read-UpdateBytes $Package (Join-Path $Package 'Update.Engine.ps1')
+    $gatewayAfter=Read-UpdateBytes $Package (Join-Path $Package 'Gateway.ps1')
+    if((Get-UpdateHash $engineBefore) -cne $Expected.engineBeforeSha256 -or (Get-UpdateHash $engineAfter) -cne $Expected.engineAfterSha256 -or
+       @($config.trustedFiles|Where-Object{$_.name -ceq 'Update.Engine.ps1' -and $_.sha256 -ceq $Expected.engineBeforeSha256}).Count -ne 1){throw 'Engine identity differs.'}
+    if((Get-UpdateHash $gatewayBefore) -cne $Expected.gatewayBeforeSha256 -or (Get-UpdateHash $gatewayAfter) -cne $Expected.gatewayAfterSha256){throw 'Gateway identity differs.'}
+    $marker=Join-Path $Lab 'maintenance-revision-06.json'
+    if(Test-Path -LiteralPath $marker){throw 'Existing maintenance marker; do not retry.'}
+    $backup=Join-Path $Root ('private\engine-migration-'+$Expected.id)
+    if(Test-Path -LiteralPath $backup){throw 'Migration has already been attempted.'}
+    Write-MigrationClaim (Join-Path $Package 'migration-claim.json') @{id=$Expected.id;status='claimed';utc=[DateTime]::UtcNow.ToString('o')}
+    New-Item -ItemType Directory -Path $backup|Out-Null
+    Assert-UpdateWritableOnlyByAdmin $backup
+    [IO.File]::WriteAllBytes((Join-Path $backup 'config-before.json'),$configBefore)
+    [IO.File]::WriteAllBytes((Join-Path $backup 'Update.Engine.ps1'),$engineBefore)
+    [IO.File]::WriteAllBytes((Join-Path $backup 'Gateway.ps1'),$gatewayBefore)
+    Write-UpdateJson (Join-Path $backup 'inbox-before.json') @{packages=$inboxBefore;entries=$inboxBefore.Count;limit=16}
+    $markerHash=$null;$changed=$false
+    try{
+        Disable-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\'|Out-Null
+        if(-not (Get-UpdaterTaskVerification (Get-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\') 'Disabled').passed){throw 'Updater did not become disabled.'}
+        Assert-MigrationUpdaterInactive
+        Write-MigrationClaim $marker @{id=$Expected.id;reason='engine-migration'}
+        $markerHash=Get-UpdateHash (Read-UpdateBytes $Lab $marker)
+        Assert-UpdateWorkerIdle
+        Assert-MigrationUnchanged $Root $Lab $stateHash $policyHash
+        $config.enabled=$false
+        $changed=$true
+        Set-MigrationBytes $configPath ([Text.Encoding]::UTF8.GetBytes(($config|ConvertTo-Json -Depth 12 -Compress)))
+        Publish-UpdateState $Root $config $state
+        Set-MigrationBytes $enginePath $engineAfter
+        Set-MigrationBytes $gatewayPath $gatewayAfter
+        foreach($entry in $config.trustedFiles){
+            if($entry.name -ceq 'Update.Engine.ps1'){$entry.sha256=$Expected.engineAfterSha256}
+            if($entry.name -ceq 'Gateway.ps1'){$entry.sha256=$Expected.gatewayAfterSha256}
+        }
+        $config.enabled=$true
+        Set-MigrationBytes $configPath ([Text.Encoding]::UTF8.GetBytes(($config|ConvertTo-Json -Depth 12 -Compress)))
+        Assert-UpdateTrust $Root $Lab $config
+        if((Get-UpdateHash (Read-UpdateBytes $Root $enginePath)) -cne $Expected.engineAfterSha256){throw 'Installed engine hash differs.'}
+        if((Get-UpdateHash (Read-UpdateBytes $Root $gatewayPath)) -cne $Expected.gatewayAfterSha256){throw 'Installed gateway hash differs.'}
+        . $enginePath
+        Assert-MigrationUnchanged $Root $Lab $stateHash $policyHash
+        Enable-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\'|Out-Null
+        Confirm-MigrationSystemTick
+        if(Test-Path -LiteralPath (Join-Path $Root 'private\inbox-retirement-blocked.json')){throw 'Inbox retirement requires reconciliation.'}
+        Assert-UpdateTrust $Root $Lab $config
+        Assert-MigrationUnchanged $Root $Lab $stateHash $policyHash
+        if((Get-UpdateHash (Read-UpdateBytes $Lab $marker)) -cne $markerHash){throw 'Maintenance marker identity changed.'}
+        Remove-Item -LiteralPath $marker -ErrorAction Stop
+        Publish-UpdateState $Root $config $state
+        $inventory=Get-UpdateInboxInventory $Root $config $state;$null=$inventory.Remove('candidates')
+        $result=@{id=$Expected.id;status='engine_migrated';engineSha256=$Expected.engineAfterSha256;gatewaySha256=$Expected.gatewayAfterSha256;inboxBefore=$inboxBefore.Count;inbox=$inventory;sequence=[int]$state.sequence;revision=[int]$state.revision;policyPreserved=$true;runnerPreserved=$true;tasksPreserved=$true;systemTickVerified=$true;newPermissions=$false;gameLaunched=$false;utc=[DateTime]::UtcNow.ToString('o')}
+        Write-UpdateJson (Join-Path $backup 'result.json') $result
+        return $result
+    }catch{
+        $failureType=$_.Exception.GetType().Name
+        Disable-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\' -ErrorAction SilentlyContinue|Out-Null
+        $restored=$false
+        try{
+            Assert-MigrationUpdaterInactive
+            if($changed){Set-MigrationBytes $enginePath $engineBefore;Set-MigrationBytes $gatewayPath $gatewayBefore;Set-MigrationBytes $configPath $configBefore;. $enginePath}
+            if(Test-Path -LiteralPath (Join-Path $Root 'private\inbox-retirement-blocked.json')){throw 'Retirement evidence is retained for local reconciliation.'}
+            $old=ConvertFrom-UpdateBytes $configBefore
+            Assert-UpdateTrust $Root $Lab $old
+            Assert-MigrationUnchanged $Root $Lab $stateHash $policyHash
+            if($markerHash -and (Test-Path -LiteralPath $marker)){
+                if((Get-UpdateHash (Read-UpdateBytes $Lab $marker)) -cne $markerHash){throw 'Rollback marker differs.'}
+                Remove-Item -LiteralPath $marker -ErrorAction Stop
+            }
+            Publish-UpdateState $Root $old $state
+            Enable-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\'|Out-Null
+            $restored=$true
+        }catch{
+            if(-not (Test-Path -LiteralPath $marker)){Write-MigrationClaim $marker @{id=$Expected.id;reason='blocked-engine-reconciliation'}}
+            Publish-UpdateState $Root $config $state $true
+        }
+        $result=@{id=$Expected.id;status=$(if($restored){'rolled_back'}else{'blocked_reconciliation'});failureType=$failureType;gameLaunched=$false;automaticRetryAllowed=$false;utc=[DateTime]::UtcNow.ToString('o')}
+        Write-UpdateJson (Join-Path $backup 'result.json') $result
+        return $result
+    }
+}

@@ -1,0 +1,50 @@
+#requires -Version 5.1
+function Resolve-UpdaterPrincipalSid([string]$Name) {
+    if([string]::IsNullOrWhiteSpace($Name) -or $Name.Length -gt 256){throw 'Invalid task principal.'}
+    if($Name -cmatch '\AS-[0-9-]+\z'){return (New-Object Security.Principal.SecurityIdentifier($Name)).Value}
+    return (New-Object Security.Principal.NTAccount($Name)).Translate([Security.Principal.SecurityIdentifier]).Value
+}
+function Get-UpdaterTaskVerification($Task,[ValidateSet('Disabled','Ready')][string]$ExpectedState='Disabled') {
+    $sid=$null
+    try{$sid=Resolve-UpdaterPrincipalSid ([string]$Task.Principal.UserId)}catch{ }
+    $actions=@($Task.Actions)
+    $triggers=@($Task.Triggers)
+    $execute=$null;$arguments=$null
+    if($actions.Count -eq 1){$execute=[string]$actions[0].Execute;$arguments=[string]$actions[0].Arguments}
+    $seconds=-1
+    try{$seconds=([Xml.XmlConvert]::ToTimeSpan([string]$Task.Settings.ExecutionTimeLimit)).TotalSeconds}catch{ }
+    $interval=-1;$duration='invalid'
+    if($triggers.Count -eq 1){
+        try{$interval=([Xml.XmlConvert]::ToTimeSpan([string]$triggers[0].Repetition.Interval)).TotalSeconds}catch{ }
+        $duration=[string]$triggers[0].Repetition.Duration
+    }
+    $checks=[ordered]@{
+        taskIdentity=($Task.TaskName -ceq 'GsoClientLab-Updater' -and $Task.TaskPath -ceq '\')
+        state=([string]$Task.State -ceq $ExpectedState)
+        systemSid=($sid -ceq 'S-1-5-18')
+        highest=([string]$Task.Principal.RunLevel -in @('Highest','1'))
+        serviceAccount=([string]$Task.Principal.LogonType -in @('ServiceAccount','5'))
+        actionCount=($actions.Count -eq 1)
+        executable=($execute -ieq 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe')
+        arguments=($arguments -ceq '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File C:\ProgramData\GsoClientLabUpdater\bin\Updater.ps1')
+        timeout=($seconds -eq 180)
+        ignoreNew=([string]$Task.Settings.MultipleInstances -in @('IgnoreNew','2'))
+        triggerCount=($triggers.Count -eq 1)
+        interval=($interval -eq 60)
+        noExpiry=([string]::IsNullOrEmpty($duration))
+    }
+    return [pscustomobject]@{
+        passed=(@($checks.Values|Where-Object{-not $_}).Count -eq 0)
+        checks=$checks
+        principalUserId=[string]$Task.Principal.UserId
+        principalSid=$sid
+        runLevel=[string]$Task.Principal.RunLevel
+        logonType=[string]$Task.Principal.LogonType
+        state=[string]$Task.State
+        execute=$execute
+        arguments=$arguments
+        timeoutSeconds=$seconds
+        intervalSeconds=$interval
+        repetitionDuration=$duration
+    }
+}
