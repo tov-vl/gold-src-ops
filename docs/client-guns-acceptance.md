@@ -134,8 +134,10 @@ count is not claimed as directly observed.
 The target therefore retains the capture-only runner. Weapons input remains
 disabled and the trial is held. The exact predecessor, signed rollback package,
 one-attempt receipts and failed baseline remain in the private operator record.
-Next: review a bounded updater-inbox recovery outside this stage's unchanged
-trust-engine boundary, then repair readiness synchronization and authorize a
-fresh baseline attempt. Never delete claims, widen gateway limits blindly or
-repeat the rejected update/game request to bypass this gate. No live weapons
-acceptance is claimed.
+The subsequent [updater recovery](client-updater-recovery.md) directly observed
+the full inbox, retained its 16 successful packages and accepted one fresh signed
+no-op update at updater sequence 17. The same nine capture-only runner hashes,
+all six client requests and prior failed-trial evidence were preserved. No game
+was launched by that recovery. The next gate is readiness synchronization and
+a newly frozen baseline attempt. Never delete claims or repeat the rejected
+update/game request to bypass this gate. No live weapons acceptance is claimed.
