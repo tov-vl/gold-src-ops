@@ -4418,17 +4418,21 @@ at `06a12ab`. Capture-only adoption verified nine hashes and preservation of
 three archived results/images. The sole RU baseline trial showed four identical
 loading screens; it was not accepted or repeated. Cleanup and zero AMXX errors
 were verified. EN and live input trials were not dispatched. One signed rollback
-was rejected by gateway preflight; sequence 16 remains installed with weapons
-input disabled. Inbox recovery and capture-readiness correction are the next
-gates. See [scope and failed-trial evidence](client-guns-acceptance.md).
+was rejected by gateway preflight. The later updater recovery below restored
+signed updates; updater sequence 17 now retains the same capture-only runner
+with weapons input disabled. Capture-readiness correction and new native trials
+remain gates. See [scope and failed-trial evidence](client-guns-acceptance.md).
 
 ## Autonomous client lab - updater inbox recovery
 
-Implemented; local adoption pending: bounded retirement of digest-bound
-successful signed packages from the 16-entry inbox into protected retention,
-preserving public receipts and
-one-attempt IDs. Fixed aggregate status makes capacity visible. A separately
-reviewed local two-file trust-engine migration preserves runner, policy, task
-definitions and existing rights. Weapons baseline synchronization and fresh
-native trials remain held until adoption and independent readback.
+Completed R3 recovery on 2026-11-01. Product PR #434 merged at `b84b2ec`;
+required and post-merge CI passed. A local two-file migration preserved runner, policy,
+task definitions and existing rights. The actual full 16-entry inbox was
+observed, then all 16 successful packages moved into protected retention with
+their public receipts and one-attempt IDs preserved. A new signed no-op update
+installed once at updater sequence 17, with all nine runner hashes unchanged;
+its package was retained too. Independent reads confirmed an empty inbox,
+17 retained packages, six unchanged client requests, preserved prior evidence
+and a fresh zero-game heartbeat. No game, addon, production or access change
+occurred. Weapons baseline synchronization and fresh native trials remain held.
 See [recovery boundary and gates](client-updater-recovery.md).

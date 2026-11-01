@@ -85,5 +85,44 @@ Tests cover signed retirement, the full 16-entry inbox, eight-per-tick
 limits, retained bytes and used IDs, protected entries, archive collision and
 permanent failure blocking. Migration tests exercise predecessor checks,
 active/pending/busy refusal, one-attempt claims, preserved state/policy, backup,
-success and two-file rollback on both PowerShell runtimes. Actual adoption and
-fresh signed staging remain external gates until the local installer completes.
+success and two-file rollback on both PowerShell runtimes.
+
+## Target acceptance - 2026-11-01
+
+Product [PR #434](https://github.com/tov-vl/gold-src-ops/pull/434) merged at
+`b84b2ec` after all six required checks passed in
+[PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/41307027085).
+[Post-merge CI](https://github.com/tov-vl/gold-src-ops/actions/runs/41308214656)
+also passed all six required checks.
+The local migration was performed once by the owner through UAC. Its report
+verified both installed trust-file hashes, unchanged signing identity, runner,
+policy and task definitions, no new permissions and a fresh successful SYSTEM
+tick. The immutable private package matched the accepted source without a
+rebuild after merge.
+
+The migration directly observed 16 inbox files, confirming the previous capacity
+hypothesis. Its first tick retained eight successful packages; the next tick
+retained the remaining eight. An independent SSH read confirmed zero inbox
+entries, 16 retained packages and enabled/unblocked state at sequence 16.
+All nine installed runner hashes remained identical.
+
+One fresh signed package containing those same nine files, with no client-request
+archive plan, was staged exactly once and installed successfully. Updater
+sequence advanced to 17; protocol 2/runner revision 16 and every runner hash
+remained unchanged. The next tick retained that successful package too.
+Independent readback confirmed an empty inbox, 17 retained packages and
+enabled/unblocked state. Representative old and new installed receipts remained
+byte-identical and readable after retirement.
+
+All six terminal client request IDs/hashes were preserved. A saved result and
+representative native image from the failed RU baseline remained byte-identical.
+A fresh post-update worker heartbeat showed ready with zero game processes;
+no weapons input capability was enabled. No game, addon, production, account,
+credential, firewall or task-definition change occurred. Neither the refused
+rollback nor the failed game request was resent.
+
+Updater recovery and fresh signed staging are accepted. The weapons baseline
+remains unaccepted and held: readiness synchronization and newly frozen native
+trials are the next separate gates. Updating privileged updater code still
+requires the reviewed local administrator path; ordinary permitted runner
+updates use the restored signed channel.
