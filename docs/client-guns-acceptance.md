@@ -273,6 +273,24 @@ PowerShell entry points, the fixed single-file bridge boundary, repository
 comma style and the bounded diagnostic catch. The constructor used from
 PowerShell remains callable; no inspection severity or rule was suppressed.
 
-Signed capture-only adoption is pending. The owner reported the shared Steam
-account unavailable during implementation. No new Steam/game trial is allowed
-until fresh availability; native setup and menu acceptance remain unproved.
+Source and capture-only adoption completed on 2026-11-01.
+[Product PR #439](https://github.com/tov-vl/gold-src-ops/pull/439) merged at
+`844a87a` after all six required checks passed in the
+[product run](https://github.com/tov-vl/gold-src-ops/actions/runs/41324703053).
+The accepted main has its separate
+[post-merge run](https://github.com/tov-vl/gold-src-ops/actions/runs/41326005802).
+
+One normal signed update installed at sequence 19/revision 16 without a local
+administrator installer. Independent readback verified nine exact runner hashes,
+the four unchanged pins, unchanged broker, enabled/unblocked updater, seven
+preserved request IDs/hashes and the previous failed result, image and receipt.
+Settled readback confirmed an empty inbox and 19 retained packages. A fresh
+post-install heartbeat reported a ready worker and zero game processes.
+No new rights, tasks, trust-engine, firewall, addon or production changes occurred.
+
+No Steam, game, fixture, focus or input action ran during this delivery. The
+owner reported the shared account unavailable; the hold remains active. Live
+weapons input stays disabled with zero reviewed weapon profiles. The next gate
+is one fresh RU baseline trial after Steam availability, followed by frame
+review. Native setup and menu acceptance remain unproved; old jobs and claims
+must not be replayed.

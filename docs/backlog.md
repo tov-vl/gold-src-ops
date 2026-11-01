@@ -4461,11 +4461,17 @@ See [trial evidence and claim limits](client-guns-acceptance.md#first-handshake-
 
 ## Autonomous client lab - fixed native menu setup
 
-Implemented and locally verified; signed adoption pending. The runner replaces the
+Source and capture-only adoption completed on 2026-11-01. Product PR #439 merged
+at `844a87a` after six green required checks. One normal signed update installed
+at sequence 19/revision 16 without a local administrator installer. Independent
+readback verified nine hashes, four unchanged pins, seven preserved requests,
+prior evidence and a fresh zero-game heartbeat. The runner replaces the
 server-triggered second CFG with fixed owned-window settings/language actions
 and an independent fixture acknowledgement of the exact selection sequence
 and effective language. Native F5 screenshots drive four-frame baseline capture;
 the eight reviewed RU/EN menu profiles remain mandatory before live acceptance.
 The existing trust, pinned dependencies, permissions, addon and production stay
 unchanged. The Steam hold is active again, so no new game trial is included.
+Native setup and menu acceptance remain unproved; the next gate is one fresh
+RU baseline after availability, without replay of previous jobs or claims.
 See [correction boundary](client-guns-acceptance.md#fixed-native-setup-correction).
