@@ -4436,3 +4436,15 @@ its package was retained too. Independent reads confirmed an empty inbox,
 and a fresh zero-game heartbeat. No game, addon, production or access change
 occurred. Weapons baseline synchronization and fresh native trials remain held.
 See [recovery boundary and gates](client-updater-recovery.md).
+
+## Autonomous client lab - weapon capture readiness
+
+Implemented; delivery pending and native trial held. Weapons fixtures now
+acknowledge connection and first spawn before the worker may trigger the finite
+menu setup. Baseline collection uses the guarded desktop launcher, rejects
+duplicate/loading frames and retains readiness evidence separately. Both owned
+CFGs have exact-content cleanup. Live evidence requires ordered independent
+readiness markers; eight reviewed menu profiles still gate weapons acceptance.
+The trust engine, four pinned dependencies, permissions and production remain
+outside this slice. Offline policy and synthetic-frame checks passed; the Steam
+hold prevents new client trials. See [readiness boundary](client-guns-acceptance.md#capture-readiness-synchronization).

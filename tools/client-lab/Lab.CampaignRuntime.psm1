@@ -62,6 +62,10 @@ function ConvertTo-CampaignRuntimeUtc($Value) {
     return [DateTimeOffset]::Parse([string]$Value,[Globalization.CultureInfo]::InvariantCulture).UtcDateTime
 }
 
+function Assert-CampaignWeaponsReadiness($Runtime,[string]$Panel){
+    if($Panel -ceq 'guns' -and ($Runtime.readinessEnabled -isnot [bool] -or -not $Runtime.readinessEnabled)){throw 'Weapons readiness fixture required.'}
+}
+
 function Invoke-LabCampaignRuntime([string]$Operation, $Context) {
     if (-not $IsWindows) { throw 'Windows controller required.' }
     switch -CaseSensitive ($Operation) {
@@ -96,7 +100,10 @@ function Invoke-LabCampaignRuntime([string]$Operation, $Context) {
                 do {
                     $runtime = Read-CampaignRuntimeJson (Join-Path $Context.run 'evidence/runtime.json')
                     if ($runtime -and $runtime.status -ceq 'failed') { throw 'Fixture failed.' }
-                    if ($runtime -and $runtime.status -ceq 'ready' -and $runtime.runtimeVerified -is [bool] -and $runtime.runtimeVerified) { return }
+                    if ($runtime -and $runtime.status -ceq 'ready' -and $runtime.runtimeVerified -is [bool] -and $runtime.runtimeVerified) {
+                        Assert-CampaignWeaponsReadiness $runtime $Context.case.panel
+                        return
+                    }
                     Start-Sleep -Milliseconds 500
                 } while ($watch.Elapsed.TotalSeconds -lt 60)
                 throw 'Fixture readiness deadline.'

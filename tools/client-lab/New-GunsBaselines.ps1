@@ -25,6 +25,8 @@ foreach($language in @('ru','en')){
         $result.cleanupVerified -isnot [bool] -or -not $result.cleanupVerified -or
         $result.configCleanupVerified -isnot [bool] -or -not $result.configCleanupVerified -or
         ($result.labels -join ',') -cne ($labels -join ',') -or @($result.images).Count -ne 4){throw 'Complete weapons capture required.'}
+    if($result.readiness.status -cne 'ready' -or $result.readiness.programRequested -isnot [bool] -or -not $result.readiness.programRequested -or
+        $result.baselineStructureVerified -isnot [bool] -or -not $result.baselineStructureVerified -or $result.cleanup.stageConfig -isnot [bool] -or -not $result.cleanup.stageConfig){throw 'Acknowledged weapons baseline required.'}
     $menus=@{}
     for($i=1;$i -le 4;$i++){
         $frame=$result.images[$i-1];$path=Join-Path $directory ('image-'+$i+'.bmp')

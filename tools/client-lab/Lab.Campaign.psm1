@@ -232,6 +232,15 @@ function Get-CampaignEvidence($Context) {
     if ((Get-Item -LiteralPath $logPath).Length -gt 128KB) { throw 'Unbounded server evidence.' }
     $log = [IO.File]::ReadAllText($logPath)
     if($guns){
+        if($result.readiness.status -cne 'ready' -or -not (Test-CampaignTrue $result.readiness.programRequested) -or
+            $result.readiness.spawnSnapshot.sha256 -cnotmatch '\A[0-9A-F]{64}\z' -or -not (Test-CampaignTrue $result.cleanup.stageConfig)){throw 'Weapons readiness evidence missing.'}
+        $position=-1
+        foreach($phase in @('connected','spawn','program')){
+            $marker='FIXTURE_GUNS_READY phase='+$phase
+            $next=$log.IndexOf($marker,[StringComparison]::Ordinal)
+            if($next -le $position -or [regex]::Matches($log,[regex]::Escape($marker)).Count -ne 1){throw 'Ordered one-shot weapons readiness markers missing.'}
+            $position=$next
+        }
         foreach($step in 1..5){if(-not $log.Contains("FIXTURE_GUNS_SELECT step=$step inventory_unchanged=1")){throw 'Inventory continuity missing.'}}
         foreach($marker in @('FIXTURE_GUNS_START mp5=1 usp=1','FIXTURE_GUNS_DEATH requested=1','FIXTURE_GUNS_RESPAWN selected_loadout=1',
             'FIXTURE_GUNS_CONTROL step=1 respawn=0 movement=1','FIXTURE_GUNS_CONTROL step=3 respawn=0 movement=1',

@@ -15,13 +15,13 @@ foreach($language in @('ru','en')){
     Check ($request.operation -ceq 'capture-guns' -and $request.language -ceq $language)
     $job=[pscustomobject]@{id=$id;action='capture-guns';language=$language;createdUtc=[DateTime]::UtcNow.ToString('o')}
     Assert-LabRunnerJob $job
-    $program=New-LabGunsProgram $job
+    $program=New-LabGunsStageProgram $job
     Check (@($program -split "`r`n"|Where-Object {$_ -ceq 'snapshot'}).Count -eq 4)
     Check ([Text.Encoding]::ASCII.GetByteCount($program) -le 32768)
     Check ((Get-LabRunnerImageLimit $job) -eq 4)
     $job.action='verify-panel';$job|Add-Member NoteProperty panel guns
     Assert-LabRunnerJob $job
-    Check (@((New-LabGunsProgram $job) -split "`r`n"|Where-Object {$_ -ceq 'snapshot'}).Count -eq 1)
+    Check (@((New-LabGunsStageProgram $job) -split "`r`n"|Where-Object {$_ -ceq 'snapshot'}).Count -eq 1)
     Check ((Get-LabAutonomousProfile $job) -ceq 'guns-v299-1920x1200-v1')
 }
 foreach($command in @('capture-guns x en','capture-guns '+[guid]::NewGuid().ToString()+' de','checkpoint '+[guid]::NewGuid().ToString()+' ../policy')){Reject {ConvertFrom-LabRunnerCommand $command}}
@@ -65,9 +65,10 @@ foreach($name in @('success-ru','success-en','wrong-first','wrong-menu','focus',
     $job=[pscustomobject]@{id=[guid]::NewGuid().ToString();action='verify-panel';panel='guns';language=$(if($name -ceq 'success-ru'){'ru'}else{'en'});createdUtc=[DateTime]::UtcNow.ToString('o')}
     if($name -ceq 'claimed'){[IO.File]::WriteAllText((Join-Path $directory 'auto-phase-exit-primary.json'),'claimed')}
     if($name -ceq 'cancelled'){[IO.File]::WriteAllText((Get-LabPaths $directory $job.id).cancel,'cancelled')}
-    $result=[ordered]@{id=$job.id;images=@();gamePid=$null;gameStartedUtc=$null;status='launch_requested';failureCode=$null;acceptancePassed=$false;rendererVerified=$false}
+    $result=[ordered]@{id=$job.id;images=@();gamePid=$null;gameStartedUtc=$null;status='launch_requested';readiness=@{status='ready';programRequested=$true;windowPreparation=@{}};failureCode=$null;acceptancePassed=$false;rendererVerified=$false}
+    $ready=@{window=(New-Object GsoLab.Interaction.GameWindow);clock=$null}
     $failed=$false
-    try{Invoke-LabAutonomousGunsInteraction $directory ([pscustomobject]@{gameRoot=$directory;gameSessionId=7}) $job $result @{} ([DateTime]::UtcNow.AddSeconds(-1)) (Join-Path $directory 'result.json')}catch{$failed=$true;if($name.StartsWith('success')){throw}}
+    try{Invoke-LabAutonomousGunsInteraction $directory ([pscustomobject]@{gameRoot=$directory;gameSessionId=7}) $job $result @{} ([DateTime]::UtcNow.AddSeconds(-1)) (Join-Path $directory 'result.json') $ready}catch{$failed=$true;if($name.StartsWith('success')){throw}}
     if($name.StartsWith('success')){
         Check (-not $failed -and $result.status -ceq 'autonomous_captured_unreviewed')
         Check (@($result.images).Count -eq 5 -and @($result.interaction.checkpoints).Count -eq 4 -and @($result.interaction.assessments).Count -eq 5)

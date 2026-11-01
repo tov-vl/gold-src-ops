@@ -37,6 +37,13 @@ function Get-LabLogEvidence([string]$SteamRoot,$Checkpoint,[DateTime]$LaunchUtc)
 '@
 $interactionStub=@'
 function Assert-LabInteractionBindings([string]$GameRoot){}
+function Assert-LabGunsBindings([string]$GameRoot){}
+function Wait-LabGunsReady([string]$Root,$Policy,$Job,$Result){
+    $Result.gamePid=1234;$Result.gameStartedUtc=[DateTime]::UtcNow.ToString('o')
+    if($Policy.testCase -cne 'success'){throw 'Injected readiness failure.'}
+    return @{clock=$null;window=$null}
+}
+function Invoke-LabAutonomousGunsInteraction([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseline,[DateTime]$LaunchUtc,[string]$ResultPath,$Readiness){Invoke-LabAutonomousRulesInteraction $Root $Policy $Job $Result $Baseline $LaunchUtc $ResultPath}
 function Invoke-LabAutonomousRulesInteraction([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseline,[DateTime]$LaunchUtc,[string]$ResultPath){
     $Result.gamePid=1234
     $Result.gameStartedUtc=[DateTime]::UtcNow.ToString('o')
@@ -45,8 +52,9 @@ function Invoke-LabAutonomousRulesInteraction([string]$Root,$Policy,$Job,$Result
 }
 '@
 $cases=0
-foreach($scenario in @('rules-success','rules-scenario-fail','rules-cleanup-fail','rules-busy','ranks-success','profile-success','topall-success','profile-scenario-fail','topall-cleanup-fail','ranks-busy')){
+foreach($scenario in @('rules-success','rules-scenario-fail','rules-cleanup-fail','rules-busy','ranks-success','profile-success','topall-success','profile-scenario-fail','topall-cleanup-fail','ranks-busy','guns-success','guns-scenario-fail','guns-cleanup-fail','guns-busy','capture-guns-scenario-fail')){
     $panel,$name=$scenario -split '-',2
+    if($panel -ceq 'capture'){$panel='guns-capture';$name='scenario-fail'}
     $root=Join-Path $sandbox $scenario
     foreach($directory in @('code','queue\steps','results','game\cstrike','steam')){New-Item -ItemType Directory -Path (Join-Path $root $directory) -Force|Out-Null}
     $common=[IO.File]::ReadAllText((Join-Path $Workspace 'kit\code\Lab.Common.ps1'))
@@ -61,6 +69,8 @@ foreach($scenario in @('rules-success','rules-scenario-fail','rules-cleanup-fail
     $job=@{id=$id;action='verify-rules';language='en';createdUtc=[DateTime]::UtcNow.ToString('o')}
     $mode=@{id=$id;language='en';profile='rules-v299-1920x1200-v1'}
     if($panel -cne 'rules'){$job.action='verify-panel';$job.panel=$panel;$mode.panel=$panel;$mode.profile='motd-v299-'+$panel+'-1920x1200-v1'}
+    if($panel -ceq 'guns'){$mode.profile='guns-v299-1920x1200-v1'}
+    if($panel -ceq 'guns-capture'){$job.Remove('panel');$job.action='capture-guns';$mode.Remove('panel');$mode.profile='guns-baseline-v299-1920x1200-v2'}
     Write-LabJson (Join-Path $root ('queue\'+$id+'.json')) $job
     Write-LabJson (Join-Path $root ('queue\steps\'+$id+'.autonomous.json')) $mode
     & (Join-Path $Workspace 'kit\code\Worker.ps1') -Root $root

@@ -45,7 +45,7 @@ try {
         $stream = [IO.File]::Open(($paths.request+'.claim'), [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
         $stream.Dispose()
         if(Test-Path -LiteralPath $paths.request){throw 'Existing request; do not retry.'}
-        if($request.operation -cin @('auto-rules','auto-panel')){New-LabAutonomousMode $Root $job}
+        if($request.operation -cin @('auto-rules','auto-panel','capture-guns')){New-LabAutonomousMode $Root $job}
         Write-LabJson $paths.request $job
         @{ id = $request.id; status = 'queued' } | ConvertTo-Json -Compress
         exit 0

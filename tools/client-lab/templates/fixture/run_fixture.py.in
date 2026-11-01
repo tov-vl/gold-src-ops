@@ -30,7 +30,8 @@ def main():
     started = time.time()
     status = {'schema': 1, 'status': 'preparing', 'pluginSha256': PLUGIN.upper(),
               'dictionarySha256': DICTIONARY.upper(), 'runtimeVerified': False,
-              'endpoint': '127.0.0.1:27025', 'name': '{{FIXTURE_NAME}}'}
+              'endpoint': '127.0.0.1:27025', 'name': '{{FIXTURE_NAME}}',
+              'readinessEnabled': {{GUNS_READINESS}} == 1}
     def report():
         temporary = evidence / 'runtime.tmp'
         temporary.write_text(json.dumps(status, indent=2), encoding='utf-8')
@@ -74,7 +75,8 @@ def main():
         base.HOST = '0.0.0.0'
         base.CONFIGS['cstrike/server.cfg'] = base.CONFIGS['cstrike/server.cfg'].replace('Isolated client acceptance', status['name'])
         base.CONFIGS['cstrike/server.cfg'] += 'mp_forcerespawn 1\nmp_respawn_immunitytime 2\nmp_respawn_immunity_force_unset 2\n'
-        check('/inputs/fixture_vgui_guard.amxx', '719a62370e26db410f112ab74f6bb2f51b236531416cf2ecfc2e147640c35030')
+        check('/inputs/fixture_vgui_guard.amxx', '2d9ca9339d07489dc0a1fe301f283dcff32e48dd3dcde44fe23d411098576f8d')
+        base.CONFIGS['cstrike/server.cfg'] += 'gso_lab_readiness {{GUNS_READINESS}}\n'
         helper = 'cstrike/addons/amxmodx/plugins/fixture_vgui_guard.amxx'
         shutil.copyfile('/inputs/fixture_vgui_guard.amxx', source / helper)
         base.REQUIRED += (helper,)

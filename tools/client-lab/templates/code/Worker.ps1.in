@@ -38,6 +38,9 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
     $resultPath = Join-Path $paths.result 'result.json'
     Write-LabJson $resultPath $result
     $ownsConfig = $false
+    $ownsStage = $false
+    $stageProgram = $null
+    $readiness = $null
     $configPath = $null
     $launcher=$null
     $logCheckpoint=$null
@@ -46,7 +49,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
     try {
         if ((Test-Path -LiteralPath $paths.cancel) -or [DateTime]::UtcNow -gt (ConvertTo-LabUtc $job.createdUtc).AddMinutes(3)) { throw 'Cancelled or stale request.' }
         $autonomous=Get-LabAutonomousMode $Root $job
-        if($job.action -ceq 'verify-panel' -and -not $autonomous){throw 'Panel interaction requires its fixed autonomous profile.'}
+        if($job.action -cin @('verify-panel','capture-guns') -and -not $autonomous){throw 'Panel interaction requires its fixed autonomous profile.'}
         $result.stage = 'client_preflight'
         $client=Get-LabClientReadiness (Get-LabClientObservation $policy)
         $result.diagnostics.client=$client
@@ -76,6 +79,15 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
         $stream = [IO.File]::Open($configPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
         $ownsConfig = $true
         try { $bytes = [Text.Encoding]::ASCII.GetBytes($program); $stream.Write($bytes, 0, $bytes.Length) } finally { $stream.Dispose() }
+        if($job.action -ceq 'capture-guns' -or ($job.action -ceq 'verify-panel' -and $job.panel -ceq 'guns')){
+            Assert-LabGunsBindings $policy.gameRoot
+            $stageProgram=New-LabGunsStageProgram $job
+            if([Text.Encoding]::ASCII.GetByteCount($stageProgram) -gt 32KB){throw 'Weapons stage exceeds limit.'}
+            $stagePath=Join-Path $policy.gameRoot ('cstrike/'+(Get-LabGunsStageName $job))
+            $stream=[IO.File]::Open($stagePath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+            $ownsStage=$true
+            try{$bytes=[Text.Encoding]::ASCII.GetBytes($stageProgram);$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+        }
         $launchUtc = [DateTime]::UtcNow
         $logCheckpoint=Get-LabLogCheckpoint $policy.steamRoot
         Assert-LabLease $policy
@@ -98,10 +110,14 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
         $result.launchCommandDispatched=$true
         $result.status = 'launch_requested'
         Write-LabJson $resultPath $result
+        if($ownsStage){
+            $result.stage='spawn_readiness'
+            $readiness=Wait-LabGunsReady $Root $policy $job $result $baseline $launchUtc $resultPath
+        }
         $result.stage = 'capture'
         if($job.action -cin @('verify-rules','verify-panel')) {
             $result.stage='interaction'
-            if($autonomous -and (Get-LabInteractionPanel $job) -ceq 'guns'){Invoke-LabAutonomousGunsInteraction $Root $policy $job $result $baseline $launchUtc $resultPath}
+            if($autonomous -and (Get-LabInteractionPanel $job) -ceq 'guns'){Invoke-LabAutonomousGunsInteraction $Root $policy $job $result $baseline $launchUtc $resultPath $readiness}
             elseif($autonomous){Invoke-LabAutonomousRulesInteraction $Root $policy $job $result $baseline $launchUtc $resultPath}
             else{Invoke-LabRulesInteraction $Root $policy $job $result $baseline $launchUtc $resultPath}
         } else {
@@ -123,6 +139,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
             $newFiles = @(Get-LabSnapshots $policy.gameRoot | Where-Object { -not $baseline.ContainsKey($_.FullName) } | Sort-Object LastWriteTimeUtc, Name)
             if ($newFiles.Count -gt 4) { throw 'Unexpected screenshot count.' }
             foreach ($file in $newFiles) {
+                if($readiness){Assert-LabInteractionOwner $policy $result;$readiness.window.CheckReady()}
                 if ($result.images.Count -ge $captureLimit) { break }
                 try { $inputStream = [IO.File]::Open($file.FullName, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read) } catch [IO.IOException] { continue }
                 try {
@@ -139,7 +156,10 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
             }
         }
         Set-LabLaunchOutcome $result
-        if($job.action -ceq 'capture-guns' -and $result.gamePid -and $result.images.Count -eq 4){$result.status='captured_unreviewed';$result.failureCode=$null}
+        if($job.action -ceq 'capture-guns' -and $result.gamePid -and $result.images.Count -eq 4){
+            Assert-LabGunsBaseline $result $paths.result
+            $result.status='captured_unreviewed';$result.failureCode=$null
+        }
         if ($result.failureCode) { $result.failureStage='capture' }
         }
     } catch {
@@ -150,6 +170,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
                 'prerequisites' {'game_prerequisite_unavailable'}
                 'capture_preparation' {'capture_preparation_failed'}
                 'launch' {'launch_command_failed'}
+                'spawn_readiness' {'spawn_readiness_failed'}
                 'capture' {'capture_failed'}
                 'interaction' {'interaction_failed'}
                 default {'request_preflight_failed'}
@@ -173,6 +194,12 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
             if ($ownsConfig) { $result.cleanup.config=$(if($result.configCleanupVerified){'verified'}else{'unverified'}) }
             if ($ownsConfig -and -not $result.configCleanupVerified) { $result.status = 'uncertain_cleanup' }
         } catch { $result.status = 'uncertain_cleanup';$result.cleanup.config='unverified' }
+        try{
+            if($ownsStage){
+                $result.cleanup['stageConfig']=Remove-LabGunsStage $policy $job $stageProgram
+                if(-not $result.cleanup.stageConfig){$result.configCleanupVerified=$false;$result.status='uncertain_cleanup'}
+            }
+        }catch{$result.configCleanupVerified=$false;$result.status='uncertain_cleanup';$result.cleanup['stageConfig']=$false}
         if ($launcher) {
             try { $result.launcher.exited=$launcher.HasExited;if($launcher.HasExited){$result.launcher.exitCode=$launcher.ExitCode} } catch { }
             finally { $launcher.Dispose() }

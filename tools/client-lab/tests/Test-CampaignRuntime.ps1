@@ -60,6 +60,12 @@ Reject { Invoke-LabCampaignRuntime preflight $context }
 Reject { Invoke-LabCampaignRuntime preflight $context }
 & $module { $script:testStatus.worker.client.utc = [DateTime]::UtcNow.ToString('o'); $script:testUpdate.codeHashes['Worker.ps1'] = ('F' * 64) }
 Reject { Invoke-LabCampaignRuntime preflight $context }
+& $module { Assert-CampaignWeaponsReadiness @{} ranks }
+& $module { Assert-CampaignWeaponsReadiness @{readinessEnabled=$true} guns }
+$checks+=2
+foreach($value in @($false,'true',$null)){
+    Reject { & $module {param($Value) Assert-CampaignWeaponsReadiness @{readinessEnabled=$Value} guns} $value }
+}
 $summary = @{ passed=$true; checks=$checks; targetNetworkUsed=$false; runtimeChanged=$false; nativeInputSent=$false }
 [IO.File]::WriteAllText((Join-Path $Workspace 'campaign-runtime-summary.json'),($summary | ConvertTo-Json))
 $summary | ConvertTo-Json
