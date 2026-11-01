@@ -4439,7 +4439,11 @@ See [recovery boundary and gates](client-updater-recovery.md).
 
 ## Autonomous client lab - weapon capture readiness
 
-Implemented; delivery pending and native trial held. Weapons fixtures now
+Source and capture-only adoption completed on 2026-11-01; native trial held.
+Product PR #436 merged at `d02844a` after six green required checks. A normal
+signed update installed at sequence 18 without a local administrator installer.
+Independent readback verified nine hashes, six preserved requests, prior evidence
+and a fresh zero-game heartbeat. Weapons fixtures now
 acknowledge connection and first spawn before the worker may trigger the finite
 menu setup. Baseline collection uses the guarded desktop launcher, rejects
 duplicate/loading frames and retains readiness evidence separately. Both owned
