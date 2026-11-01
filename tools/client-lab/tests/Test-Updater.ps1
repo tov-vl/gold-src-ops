@@ -137,6 +137,77 @@ try{
     $reportHash=Get-UpdateHash (Read-UpdateBytes $fixture.root (Join-Path $fixture.root ('public\'+$test.id+'.json')))
     Invoke-UpdateTick $fixture.root $fixture.lab
     Check ((Get-UpdateHash (Read-UpdateBytes $fixture.root (Join-Path $fixture.root ('public\'+$test.id+'.json')))) -ceq $reportHash) 'completed identity not executed twice'
+    $retainedPath=Join-Path $fixture.root ('private\completed-packages\'+$test.id+'.json')
+    Check (Test-Path -LiteralPath $retainedPath) 'successful package is retained outside inbox'
+    Check ((Get-UpdateHash (Read-UpdateBytes $fixture.root $retainedPath)) -ceq $result.sha256) 'retained bytes match trusted receipt'
+    Check (-not (Test-Path -LiteralPath (Join-Path $fixture.root ('inbox\'+$test.id+'.json')))) 'verified inbox copy retired'
+    Check ((Read-UpdateJson $fixture.root (Join-Path $fixture.root 'public\state.json')).inbox.entries -eq 0) 'fresh public inbox count'
+
+    function Add-TerminalPackage($Fixture,[string]$Mode='installed'){
+        $manifest=New-TestManifest;$bytes=New-TestEnvelope $manifest
+        $path=Join-Path $Fixture.root ('inbox\'+$manifest.id+'.json')
+        [IO.File]::WriteAllBytes($path,$bytes)
+        $report=@{id=$manifest.id;status=$Mode;sha256=(Get-UpdateHash $bytes);sequence=1;revision=10;gameLaunched=$false;utc=[DateTime]::UtcNow.ToString('o')}
+        Write-UpdateJson (Join-Path $Fixture.root ('public\'+$manifest.id+'.json')) $report
+        return $manifest.id
+    }
+    $fixture=New-EngineFixture 'full-inbox'
+    $retireState=$state|ConvertTo-Json -Depth 6|ConvertFrom-Json;$retireState.sequence=1
+    $ids=@(1..16|ForEach-Object {Add-TerminalPackage $fixture})
+    $snapshot=Get-UpdateInboxInventory $fixture.root $config $retireState
+    Check ($snapshot.entries -eq 16 -and $snapshot.eligible -eq 16) 'exact full inbox inventory'
+    Move-UpdateCompletedPackages $fixture.root $config $retireState
+    $snapshot=Get-UpdateInboxInventory $fixture.root $config $retireState
+    Check ($snapshot.entries -eq 8 -and $snapshot.retained -eq 8) 'at most eight retirements per tick'
+    Check (@(Get-ChildItem (Join-Path $fixture.root 'public') -Filter '*.json').Count -eq 16) 'all used-ID reports remain'
+    Move-UpdateCompletedPackages $fixture.root $config $retireState
+    Check ((Get-UpdateInboxInventory $fixture.root $config $retireState).entries -eq 0) 'second bounded tick frees remaining terminal slots'
+    Move-UpdateCompletedPackages $fixture.root $config $retireState
+    Check ((Get-UpdateInboxInventory $fixture.root $config $retireState).retained -eq 16) 'completed packages are never overwritten'
+    $fixture=New-EngineFixture 'expired-history'
+    $historical=New-TestManifest
+    $historical.createdUtc=[DateTime]::UtcNow.AddDays(-3).ToString('o');$historical.expiresUtc=[DateTime]::UtcNow.AddDays(-2).ToString('o')
+    $historicalBytes=New-TestEnvelope $historical
+    [IO.File]::WriteAllBytes((Join-Path $fixture.root ('inbox\'+$historical.id+'.json')),$historicalBytes)
+    Write-UpdateJson (Join-Path $fixture.root ('public\'+$historical.id+'.json')) @{id=$historical.id;status='installed';sha256=(Get-UpdateHash $historicalBytes);sequence=1;revision=10;gameLaunched=$false;utc=[DateTime]::UtcNow.AddDays(-3).ToString('o')}
+    $script:busy=$true;Move-UpdateCompletedPackages $fixture.root $config $retireState
+    Check ((Get-UpdateInboxInventory $fixture.root $config $retireState).entries -eq 1) 'busy worker defers without mutation or permanent block'
+    $script:busy=$false;Move-UpdateCompletedPackages $fixture.root $config $retireState
+    Check ((Get-UpdateInboxInventory $fixture.root $config $retireState).retained -eq 1) 'expired successful signed package can be retained without execution'
+    $fixture=New-EngineFixture 'protected-inbox'
+    $rejectedId=Add-TerminalPackage $fixture 'rejected_preflight'
+    $pending=New-TestManifest;Stage-Test $fixture $pending
+    $tamperedId=Add-TerminalPackage $fixture
+    [IO.File]::AppendAllText((Join-Path $fixture.root ('inbox\'+$tamperedId+'.json')),' ')
+    $futureId=Add-TerminalPackage $fixture
+    $testReceiptPath=Join-Path $fixture.root ('public\'+$futureId+'.json')
+    $receipt=Read-UpdateJson $fixture.root $testReceiptPath;$receipt.utc=[DateTime]::UtcNow.AddHours(1).ToString('o');Write-UpdateJson $testReceiptPath $receipt
+    $snapshot=Get-UpdateInboxInventory $fixture.root $config $retireState
+    Check ($snapshot.protected -eq 4 -and $snapshot.eligible -eq 0) 'failed pending changed and future entries retained'
+    Move-UpdateCompletedPackages $fixture.root $config $retireState
+    Check (@(Get-ChildItem (Join-Path $fixture.root 'inbox') -File).Count -eq 4) 'no protected entry is retired'
+    $legacyId=Add-TerminalPackage $fixture
+    Write-UpdateJson (Join-Path $fixture.root ('public\'+$legacyId+'.json')) @{id=$legacyId;status='installed';utc=[DateTime]::UtcNow.ToString('o')}
+    Check ((Get-UpdateInboxInventory $fixture.root $config $retireState).protected -eq 5) 'legacy receipt without digest remains protected'
+    $invalidId=Add-TerminalPackage $fixture
+    $path=Join-Path $fixture.root ('inbox\'+$invalidId+'.json')
+    $envelope=Read-UpdateJson $fixture.root $path 1048576;$envelope.signatureBase64=[Convert]::ToBase64String((New-Object byte[] 384));Write-UpdateJson $path $envelope
+    $testReceiptPath=Join-Path $fixture.root ('public\'+$invalidId+'.json');$receipt=Read-UpdateJson $fixture.root $testReceiptPath
+    $receipt.sha256=Get-UpdateHash (Read-UpdateBytes $fixture.root $path);Write-UpdateJson $testReceiptPath $receipt
+    Check ((Get-UpdateInboxInventory $fixture.root $config $retireState).protected -eq 6) 'receipt digest alone cannot retire an invalid signature'
+    $fixture=New-EngineFixture 'archive-collision'
+    $collisionId=Add-TerminalPackage $fixture
+    $archive=New-Item -ItemType Directory (Join-Path $fixture.root 'private\completed-packages')
+    $collisionPath=Join-Path $archive.FullName ($collisionId+'.json')
+    [IO.File]::WriteAllText($collisionPath,'retained')
+    Reject {Move-UpdateCompletedPackages $fixture.root $config $retireState} 'archive collision rejects without overwrite'
+    Check ([IO.File]::ReadAllText($collisionPath) -ceq 'retained') 'previous archive bytes preserved'
+    Write-UpdateJson (Join-Path $fixture.root 'private\state.json') $retireState
+    Invoke-UpdateTick $fixture.root $fixture.lab
+    Check (Test-Path (Join-Path $fixture.root 'private\inbox-retirement-blocked.json')) 'uncertain retirement blocks future ticks'
+    $blockedHash=Get-UpdateHash (Read-UpdateBytes $fixture.root (Join-Path $fixture.root 'private\inbox-retirement-blocked.json'))
+    Invoke-UpdateTick $fixture.root $fixture.lab
+    Check ((Get-UpdateHash (Read-UpdateBytes $fixture.root (Join-Path $fixture.root 'private\inbox-retirement-blocked.json'))) -ceq $blockedHash) 'blocked retirement is not retried'
     $fixture=New-EngineFixture 'busy'
     $script:busy=$true;$test=New-TestManifest;Stage-Test $fixture $test
     Invoke-UpdateTick $fixture.root $fixture.lab

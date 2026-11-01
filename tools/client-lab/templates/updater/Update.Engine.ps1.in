@@ -5,8 +5,90 @@ function Assert-UpdateWorkerIdle {
     $scheduler.Connect()
     if($scheduler.GetFolder('\').GetTask('GsoClientLab-Worker').GetInstances(0).Count){throw 'Worker is still executing.'}
 }
+function Get-UpdateInboxCandidate([string]$Root,$Item,$Config,$State) {
+    if($Item.PSIsContainer -or $Item.Extension -cne '.json' -or $Item.BaseName -cnotmatch '\A[0-9a-f-]{36}\z'){return $null}
+    Assert-UpdateId $Item.BaseName
+    $reportPath=Join-Path $Root ('public\'+$Item.BaseName+'.json')
+    if(-not (Test-Path -LiteralPath $reportPath)){return $null}
+    $reportBytes=Read-UpdateBytes $Root $reportPath 65536
+    $report=ConvertFrom-UpdateBytes $reportBytes
+    foreach($name in @('id','status','sha256','gameLaunched','utc','sequence','revision')){
+        if(-not $report.PSObject.Properties[$name]){return $null}
+    }
+    # Only successful, digest-bound receipts qualify. Failures and partial uploads stay put.
+    if($report.id -cne $Item.BaseName -or $report.status -cne 'installed' -or
+        $report.sha256 -isnot [string] -or $report.sha256 -cnotmatch '\A[0-9A-F]{64}\z' -or
+        $report.gameLaunched -isnot [bool] -or $report.gameLaunched -or
+        (Get-UpdateUtc $report.utc) -gt [DateTime]::UtcNow.AddSeconds(10)){return $null}
+    $bytes=Read-UpdateBytes $Root $Item.FullName
+    if((Get-UpdateHash $bytes) -cne $report.sha256){return $null}
+    $package=ConvertFrom-UpdateBytes $bytes
+    if($package.schema -ne 1 -or $package.manifestBase64 -isnot [string] -or $package.manifestBase64.Length -gt 65536){return $null}
+    $manifestBytes=[Convert]::FromBase64String($package.manifestBase64)
+    $manifest=ConvertFrom-UpdateBytes $manifestBytes
+    if($manifest.id -cne $Item.BaseName -or $manifest.target -cne $Config.target -or $manifest.sessionId -cne $Config.sessionId -or
+        -not (Test-UpdateInteger $manifest.sequence) -or $manifest.sequence -lt 1 -or $manifest.sequence -gt $State.sequence -or
+        $report.sequence -ne $manifest.sequence -or $report.revision -ne $manifest.revision){return $null}
+    $rsa=New-UpdateVerifier
+    try{
+        $rsa.FromXmlString($Config.publicKeyXml)
+        $signature=[Convert]::FromBase64String($package.signatureBase64)
+        if($rsa.KeySize -ne 3072 -or $signature.Length -ne 384 -or -not $rsa.VerifyData($manifestBytes,'SHA256',$signature)){return $null}
+    }finally{$rsa.Dispose()}
+    return @{id=$Item.BaseName;sha256=$report.sha256;reportSha256=(Get-UpdateHash $reportBytes);bytes=$bytes.Length}
+}
+function Get-UpdateInboxInventory([string]$Root,$Config,$State) {
+    $inbox=Join-Path $Root 'inbox';$archive=Join-Path $Root 'private\completed-packages'
+    Assert-UpdatePath $Root $inbox
+    $entries=@(Get-ChildItem -LiteralPath $inbox -Force)
+    if($entries.Count -gt 16){throw 'Inbox exceeds its limit; local reconciliation required.'}
+    $candidates=@()
+    foreach($item in $entries){
+        Assert-UpdatePath $Root $item.FullName
+        $candidate=Get-UpdateInboxCandidate $Root $item $Config $State
+        if($candidate){$candidates+=$candidate}
+    }
+    $retained=0
+    if(Test-Path -LiteralPath $archive){
+        Assert-UpdatePath $Root $archive
+        $retained=@(Get-ChildItem -LiteralPath $archive -Force).Count
+        if($retained -gt 128){throw 'Completed package archive exceeds its limit.'}
+    }
+    return @{entries=$entries.Count;limit=16;eligible=$candidates.Count;protected=($entries.Count-$candidates.Count);retained=$retained;archiveLimit=128;candidates=$candidates}
+}
+function Move-UpdateCompletedPackages([string]$Root,$Config,$State) {
+    $inventory=Get-UpdateInboxInventory $Root $Config $State
+    if($inventory.retained -ge 128){return}
+    $selected=@($inventory.candidates|Sort-Object id|Select-Object -First ([Math]::Min(8,128-$inventory.retained)))
+    if(-not $selected.Count){return}
+    try{Assert-UpdateWorkerIdle}catch{return}
+    $archive=Join-Path $Root 'private\completed-packages'
+    if(-not (Test-Path -LiteralPath $archive)){New-Item -ItemType Directory -Path $archive|Out-Null}
+    Assert-UpdatePath $Root $archive
+    Assert-UpdateWritableOnlyByAdmin $archive
+    # Copy into the administrator-owned archive before retiring the exact inbox copy.
+    # The public receipt remains the permanent used-ID claim. Never overwrite either file.
+    foreach($entry in $selected){
+        $source=Join-Path $Root ('inbox\'+$entry.id+'.json');$destination=Join-Path $archive ($entry.id+'.json')
+        if(Test-Path -LiteralPath $destination){throw 'Completed package destination already exists.'}
+        $fresh=Get-UpdateInboxCandidate $Root (Get-Item -LiteralPath $source -Force) $Config $State
+        if(-not $fresh -or $fresh.sha256 -cne $entry.sha256 -or $fresh.reportSha256 -cne $entry.reportSha256){throw 'Terminal package changed during maintenance.'}
+        $bytes=Read-UpdateBytes $Root $source
+        if((Get-UpdateHash $bytes) -cne $entry.sha256){throw 'Package changed before retention.'}
+        $stream=[IO.File]::Open($destination,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+        Assert-UpdatePath $Root $destination
+        Assert-UpdateWritableOnlyByAdmin $destination
+        if((Get-UpdateHash (Read-UpdateBytes $Root $destination)) -cne $entry.sha256 -or
+            (Get-UpdateHash (Read-UpdateBytes $Root (Join-Path $Root ('public\'+$entry.id+'.json')) 65536)) -cne $entry.reportSha256 -or
+            (Get-UpdateHash (Read-UpdateBytes $Root $source)) -cne $entry.sha256){throw 'Completed package retention differs.'}
+        Remove-Item -LiteralPath $source -ErrorAction Stop
+    }
+}
 function Publish-UpdateState([string]$Root,$Config,$State,[bool]$Blocked=$false) {
-    Write-UpdateJson (Join-Path $Root 'public\state.json') @{schema=1;enabled=[bool]$Config.enabled;blocked=$Blocked;sequence=[int]$State.sequence;revision=[int]$State.revision;codeHashes=$State.codeHashes;utc=[DateTime]::UtcNow.ToString('o')}
+    $inventory=Get-UpdateInboxInventory $Root $Config $State
+    $null=$inventory.Remove('candidates')
+    Write-UpdateJson (Join-Path $Root 'public\state.json') @{schema=1;enabled=[bool]$Config.enabled;blocked=$Blocked;sequence=[int]$State.sequence;revision=[int]$State.revision;codeHashes=$State.codeHashes;inbox=$inventory;utc=[DateTime]::UtcNow.ToString('o')}
 }
 function Assert-UpdateTrust([string]$Root,[string]$Lab,$Config) {
     foreach($path in @($Root,(Join-Path $Root 'bin'),(Join-Path $Root 'private'),(Join-Path $Root 'public'),$Lab,(Join-Path $Lab 'code'),(Join-Path $Lab 'policy.json'),(Join-Path $Lab 'code-hashes.json'),(Join-Path $Lab 'before-revision-10'),(Join-Path $Lab 'before-revision-10\requests'))){
@@ -30,6 +112,15 @@ function Invoke-UpdateTick([string]$Root,[string]$Lab) {
     Assert-UpdateTrust $Root $Lab $config
     $active=Join-Path $Root 'private\active.json'
     if(Test-Path -LiteralPath $active){Publish-UpdateState $Root $config $state $true;return}
+    $retirementBlocked=Join-Path $Root 'private\inbox-retirement-blocked.json'
+    if(Test-Path -LiteralPath $retirementBlocked){Publish-UpdateState $Root $config $state $true;return}
+    $workerIdle=(Get-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\').State -ceq 'Ready'
+    if($workerIdle){
+        try{Move-UpdateCompletedPackages $Root $config $state}catch{
+            Write-UpdateJson $retirementBlocked @{status='blocked_reconciliation';automaticRetryAllowed=$false;utc=[DateTime]::UtcNow.ToString('o')}
+            Publish-UpdateState $Root $config $state $true;return
+        }
+    }
     $inbox=Join-Path $Root 'inbox'
     Assert-UpdatePath $Root $inbox
     $pending=@(Get-ChildItem -LiteralPath $inbox -Filter '*.json' -File | Sort-Object Name)
@@ -182,4 +273,5 @@ function Invoke-UpdateTick([string]$Root,[string]$Lab) {
         }
         return
     }
+    Publish-UpdateState $Root $config $state
 }

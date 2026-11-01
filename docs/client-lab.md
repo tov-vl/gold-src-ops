@@ -227,3 +227,9 @@ and worker budget. Uncertain rollback leaves the worker disabled and the claim
 retained for local reconciliation. Never replace keys, relax pins or erase
 evidence to force a retry. Use the recorded known-good predecessor only inside
 the same reviewed target, policy and task boundary.
+
+For an exhausted signed-package inbox, see [updater recovery](client-updater-recovery.md).
+The reviewed engine can retire at most eight receipt-bound successful packages
+per idle tick into protected retention while preserving used IDs and all evidence.
+Older installations require the separately reviewed local administrator migration;
+increasing gateway limits or resending a refused package is not a recovery.
