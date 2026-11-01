@@ -109,7 +109,7 @@ were independently verified. No further game request was dispatched and no
 automatic retry occurred. A local operator hold prevents new fixture/game
 dispatch until Steam availability is explicitly restored.
 
-All six autonomous panel/language interaction acceptances remain pending. After
+At that point, all six panel/language interaction acceptances were pending. After
 the account becomes free, use fresh run directories and request IDs, preserving
 the cancelled attempt and its claims. The six baseline frames are not a
 substitute for the required 30 interaction frames. The prior `/rules` adoption
@@ -129,8 +129,8 @@ it expected generic frame labels instead of the runner's existing panel-specific
 labels. Its fail-closed state and source pins were retained. A corrected
 read-only verifier validated the same package; no second dispatch was made and
 raw results were not edited. See [controller readiness](client-controller-readiness.md)
-for the correction and its separate end-to-end gate. RU `ranks`, both `profile`
-and both `topall` native interaction acceptances remain pending. Renderer,
+for the correction and its separate end-to-end gate. At that point, RU `ranks`,
+both `profile` and both `topall` native acceptances were pending. Renderer,
 production personal-data behavior, PvP and activity claims remain separate.
 
 ## RU ranks and live controller acceptance - 2026-11-01 (MSK)
@@ -145,6 +145,40 @@ not edited. There was one dispatch and no manual window-selection request.
 
 This also closes the corrected controller's first live end-to-end gate. Both
 `ranks` languages are now independently accepted, with their original request
-identities preserved. RU/EN `profile` and RU/EN `topall` remain pending. No
+identities preserved. RU/EN `profile` and RU/EN `topall` were still pending. No
 installed runner, addon, production, cloud or access change was performed.
 The completed campaign is held before further work.
+
+## Completed native interaction matrix - 2026-11-01 (MSK)
+
+The four remaining cases each passed one fresh dispatch and a separate
+five-frame review through the corrected controller. No manual window-selection
+request or repeated game dispatch was needed.
+
+| Panel | RU | EN | Reviewed fixture behavior |
+| --- | --- | --- | --- |
+| `/ranks` | Accepted earlier | Accepted earlier | Five thresholds and progression rules |
+| `/profile` | Accepted | Accepted | Unavailable saved data and zero connection/map counters |
+| `/topall` | Accepted | Accepted | Three synthetic rows, localized ranks and unavailable client place |
+
+Each new case verified matching source/input pins and baseline, readable title
+and body, both OK closes, alternate team-chat alias, cooldown and actual movement
+after both closes. Zero AMXX errors, restored client configuration, game cleanup,
+fixture/network/relay absence and a fresh post-result zero-game heartbeat passed.
+All four ordinary hash-bound reviews reported `accepted`. Twenty new frames
+complete the required 30 interaction frames across the six original scenarios;
+capture-only baselines are not counted as interaction acceptance.
+
+Before topall, signed maintenance archived only two owned accepted terminal
+requests to free queue capacity. Result bytes, image identities, all nine runner
+hashes and other requests were preserved and independently read back. No runner
+code, trust engine, task, access rule, addon, production or cloud change occurred.
+The old EN ranks reconciliation state and the separate Steam-conflict result
+remain intact. The unused fresh EN ranks entry was not dispatched or populated
+with another request's evidence. Raw acceptance/renderer flags stay false.
+
+The campaign is held and the game is closed. This closes the bounded panel
+interaction gate. Renderer verification, production saved personal-profile
+contents, live arbitrary leaderboard rows, weapon menus, PvP and activity
+aggregation remain separate. No unchanged build/unit/native suite was repeated;
+this follow-up records live acceptance and uses the documentation-only CI path.
