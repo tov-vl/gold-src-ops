@@ -4519,7 +4519,13 @@ the expected MP5/USP/AK-47/Desert Eagle selection marks and opaque black backdro
 The unchanged structure guard passed; four distinct body profiles, three
 unchanged-inventory selections, zero AMXX errors and independent cleanup passed.
 No manual window activation, runner update, retry or EN attempt was needed.
-Sequence 21 is unchanged and the active queue contains two terminal records.
-Next: one fresh EN baseline capture and actual-frame review. The combined eight
-profiles are not installed; full weapons interaction/acceptance remains unproved.
+One fresh EN capture subsequently completed at 14:34:18 MSK on 2026-11-02,
+also without manual activation. All four EN frames were visually reviewed;
+native structure, producer/inventory records and independent cleanup passed.
+The retained RU evidence was verified and reused without another RU launch.
+`New-GunsBaselines.ps1 -ImagesReviewed` created the private reviewed set with
+eight distinct native RU/EN profiles. Sequence 21 is unchanged; three terminal
+records remain in the active queue. No profile installation or permission change
+occurred. Next: signed adoption of the reviewed set, then separate RU/EN
+interaction/control/respawn acceptance. Full weapons acceptance remains unproved.
 See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
