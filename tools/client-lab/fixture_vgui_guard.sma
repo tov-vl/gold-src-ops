@@ -46,7 +46,7 @@ public SetupNativeFilter(const name[], index, trap)
 
 public plugin_init()
 {
-    register_plugin("Fixture interaction evidence", "1.4.0", "");
+    register_plugin("Fixture interaction evidence", "1.5.0", "");
     g_readiness = register_cvar("gso_lab_readiness", "0");
     register_message(get_user_msgid("VGUIMenu"), "OnVguiMenu");
     register_clcmd("rules", "ObserveRules");
@@ -114,7 +114,7 @@ ObserveSetupAck(player, language)
     if (goldsrcops_player_language(player) != language) { return; }
     g_setupAck[player] = true;
     log_amx("FIXTURE_GUNS_READY phase=setup-ack language=%s", language == 0 ? "ru" : "en");
-    client_cmd(player, "gso_lab_setup_ack");
+    client_cmd(player, "gso_lab_ack");
 }
 
 public ObserveSetupRu(player) { ObserveSetupAck(player, 0); return PLUGIN_HANDLED; }
@@ -272,7 +272,9 @@ public ObserveGunsSelection(player)
         if ((step == 0 && key != 2) || (step == 1 && key != 1 && key != 2)
             || (step == 2 && key != 10) || step > 2) { g_setupFailed[player] = true; }
         if (step == 1) { g_setupLanguage[player] = key - 1; }
-        log_amx("FIXTURE_GUNS_SETUP step=%d valid=%d", step + 1, !g_setupFailed[player]);
+        new valid = 1;
+        if (g_setupFailed[player]) { valid = 0; }
+        log_amx("FIXTURE_GUNS_SETUP step=%d valid=%d", step + 1, valid);
         return PLUGIN_CONTINUE;
     }
     if (player < 1 || player > 32 || !g_guns[player] || !g_guns_menu[player] || !is_user_alive(player)) { return PLUGIN_CONTINUE; }

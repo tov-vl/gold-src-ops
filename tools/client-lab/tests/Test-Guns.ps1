@@ -21,8 +21,8 @@ foreach($language in @('ru','en')){
     Check ((Get-LabRunnerImageLimit $job) -eq 4)
     $job.action='verify-panel';$job|Add-Member NoteProperty panel guns
     Assert-LabRunnerJob $job
-    Check ((New-LabGunsProgram $job).Contains('gso_lab_setup_ack'))
-    Check ((Get-LabAutonomousProfile $job) -ceq 'guns-v299-1920x1200-v2')
+    Check ((New-LabGunsProgram $job).Contains('gso_lab_ack'))
+    Check ((Get-LabAutonomousProfile $job) -ceq 'guns-v299-1920x1200-v3')
 }
 foreach($command in @('capture-guns x en','capture-guns '+[guid]::NewGuid().ToString()+' de','checkpoint '+[guid]::NewGuid().ToString()+' ../policy')){Reject {ConvertFrom-LabRunnerCommand $command}}
 function Initialize-LabInteractionTypes([string]$Source){}

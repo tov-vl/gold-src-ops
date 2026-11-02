@@ -14,7 +14,8 @@ $job=[pscustomobject]@{id=[guid]::NewGuid().ToString();action='capture-guns';lan
 $bootstrap=New-LabGunsProgram $job
 Check (@($bootstrap -split "`r`n"|Where-Object {$_ -ceq 'snapshot' -or $_ -ceq 'guns' -or $_ -like 'jointeam *'}).Count -eq 0)
 Check ($bootstrap.Contains('alias gso_lab_spawn "alias gso_lab_spawn; snapshot"'))
-Check ($bootstrap.Contains('alias gso_lab_setup_ack "alias gso_lab_setup_ack; snapshot"'))
+Check ($bootstrap.Contains('alias gso_lab_ack "alias gso_lab_ack; snapshot"'))
+Check (-not $bootstrap.Contains('_set'))
 Check (-not $bootstrap.Contains('exec ') -and -not $bootstrap.Contains('_stage'))
 $arguments=Get-LabRunnerLaunchArguments $job ('gso_lan_'+([guid]$job.id).ToString('N')+'.cfg')
 Check ($arguments.IndexOf('+exec ') -lt $arguments.IndexOf('+connect '))
@@ -81,6 +82,7 @@ foreach($case in @('ready','setup-stale','missing-setup-ack','missing-spawn','no
         Check $failed
         Check ($script:inputs -eq $(if($case -cin @('uncertain','setup-stale')){1}elseif($case -ceq 'missing-setup-ack'){5}else{0}))
         Check ($result.readiness.status -ceq 'failed')
+        if($case -ceq 'missing-setup-ack'){Check ($result.readiness.failureCode -ceq 'setup_snapshot_missing')}
     }
 }
 Write-Output ('Weapons readiness checks passed: '+$checks+'. No target, game or native input.')
