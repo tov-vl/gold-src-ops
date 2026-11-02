@@ -423,8 +423,8 @@ were preserved after the trial. The active queue contains one new terminal
 record; sequence 21 is unchanged. No retry, EN run, four-frame baseline approval
 or live weapons acceptance followed.
 
-The next gate is offline review of fixture ShowMenu/backdrop delivery and its
-observability, preserving the current image guard before another bounded trial.
+That trial left fixture ShowMenu/backdrop delivery and its observability as the
+next offline gate, addressed by the correction below without changing the guard.
 
 ## Active-menu observer correction
 
@@ -465,7 +465,52 @@ for this fixture-only correction. Required hosted CI remains a separate gate.
 
 No runner file, image guard, native input method, baseline profile, permission,
 task, Steam session, second-laptop installation, addon or production runtime was
-changed. Installed sequence 21 remains as recorded above. The next gate is one
-fresh bounded RU capture with this helper, followed by review of the new markers
-and actual native frame. Prior IDs and evidence must not be replayed. Native
-backdrop delivery, full baselines and weapons acceptance remain unproved.
+changed in that source-only operation. It left one fresh bounded RU capture as
+the next gate. The following trial records the native result. Prior IDs and
+evidence must not be replayed; full baselines and weapons acceptance remain open.
+
+## Reviewed RU menu baselines
+
+One fresh RU baseline capture with helper 1.6.0 completed on 2026-11-02 at
+14:14:19 MSK. Source correction
+[PR #446](https://github.com/tov-vl/gold-src-ops/pull/446) was already merged at
+`c1b862a` with all six required and independent post-merge checks green. The
+installed sequence-21/revision-16 runner and its nine code hashes were unchanged;
+no second-laptop installation or permission change was needed.
+
+The client reached `native-fixed-v2` readiness with acknowledged RU setup.
+All owned-window checks passed without an activation attempt or manual focus
+intervention. The single request ended `captured_unreviewed` with complete
+collection, no failure code and `baselineStructureVerified=true`.
+
+All four native 1920x1200 BMPs were collected, hash/size-verified and visually
+reviewed. Each has the required opaque black backdrop, readable RU title,
+ordered items and exit, with the expected selection:
+
+| Baseline | Selected item |
+| --- | --- |
+| `primary-default` | MP5 |
+| `pistol-default` | USP |
+| `primary-selected` | AK-47 |
+| `pistol-selected` | Desert Eagle |
+
+Independent offline analysis of the unchanged image gate accepted the structure
+of every native BMP and produced four distinct menu-body hashes. No image was
+edited or replaced. Fixture records observed menu kinds `1,2,0,1,2`, four opaque
+backdrop queue events and one release event. All three baseline selections
+reported unchanged held inventory. Actual images now confirm backdrop rendering
+for this RU trial; producer records alone are not the basis of that claim.
+
+The result's game/config cleanup flags and independent readback passed. The owned
+fixture container/network, relay process and UDP endpoint were absent, AMXX
+error-file count was zero and a fresh later heartbeat reported a ready worker
+with zero game processes. The prior terminal request was preserved. Two terminal
+records remain in the active queue; no running request remains. No retry or EN
+attempt followed.
+
+The four RU baselines are reviewed and retained privately. The combined
+eight-profile RU/EN manifest has not been created or installed, and weapons
+interaction remains disabled. Worker `acceptancePassed` and `rendererVerified`
+remain false. This baseline capture does not prove the later five-selection,
+movement, death/respawn, arbitrary-scene readability or full weapons acceptance
+scenario. The next step is one fresh EN baseline capture and actual-frame review.
