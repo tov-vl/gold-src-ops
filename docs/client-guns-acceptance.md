@@ -508,9 +508,42 @@ with zero game processes. The prior terminal request was preserved. Two terminal
 records remain in the active queue; no running request remains. No retry or EN
 attempt followed.
 
-The four RU baselines are reviewed and retained privately. The combined
-eight-profile RU/EN manifest has not been created or installed, and weapons
-interaction remains disabled. Worker `acceptancePassed` and `rendererVerified`
-remain false. This baseline capture does not prove the later five-selection,
-movement, death/respawn, arbitrary-scene readability or full weapons acceptance
-scenario. The next step is one fresh EN baseline capture and actual-frame review.
+The four RU baselines were reviewed and retained privately. At that RU-only
+stage the combined manifest had not been created or installed. The following
+EN record completes the reviewed set. Worker `acceptancePassed` and
+`rendererVerified` remain false; baseline capture does not prove the later
+five-selection, movement, death/respawn, arbitrary-scene readability or full
+weapons acceptance scenario.
+
+## Reviewed EN and combined RU/EN baselines
+
+One fresh EN capture with helper 1.6.0 completed on 2026-11-02 at 14:34:18 MSK.
+The unchanged sequence-21/revision-16 runner reached acknowledged EN readiness
+and completed `captured_unreviewed`, with no failure code or manual activation.
+All four native 1920x1200 BMPs were collected and visually reviewed: readable
+English titles/items/exit, opaque backdrop, MP5/USP defaults and selected
+AK-47/Desert Eagle marks. No image was edited or substituted.
+
+The fixture observed menu kinds `1,2,0,1,2`, four opaque backdrop queue events,
+one release and all three baseline selections with unchanged held inventory.
+Independent verification confirmed game/config cleanup, absence of the owned
+container/network/relay/UDP, zero AMXX error files, a later ready zero-game
+heartbeat and nine unchanged runner hashes. Both earlier terminal records and
+the reviewed RU metadata were preserved. Three terminal records remain in the
+active queue. No retry or additional game run followed.
+
+After reviewing the EN frames, `New-GunsBaselines.ps1 -ImagesReviewed` verified
+both original result sets and all eight native files, including language, labels,
+readiness, cleanup, exact file hashes/sizes and the unchanged image gate. It
+created the private `reviewed-not-installed` manifest with eight distinct
+menu-body profiles and two language cases. Original results retain their raw
+`captured_unreviewed` status; the separate manifest binds the explicit review.
+The four earlier RU images were reused without another RU launch.
+
+The reviewed RU/EN baseline set is complete. No signed update, profile
+installation, permission, task, addon or production change occurred. Weapons
+interaction is still disabled on the target, and `acceptancePassed` and
+`rendererVerified` remain false. The next step is normal predecessor-bound
+signed adoption of these eight profiles, followed by separate bounded RU/EN
+interaction, returned-control and respawn acceptance. The current evidence
+proves only the reviewed baseline capture over the controlled fixture backdrop.
