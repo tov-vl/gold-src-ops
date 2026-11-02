@@ -4494,14 +4494,21 @@ at sequence 20/revision 16. Independent readback verified nine hashes, eight
 unchanged dependencies, eight preserved requests, prior results/image/receipt,
 empty inbox with 20 retained packages and a fresh zero-game heartbeat.
 The callback name no longer contains the fragment reported as filtered in
-upstream notes. This addresses a concrete compatibility concern; the cause on
-the tested client and native delivery remain unproved. Missing setup snapshots
+upstream notes. This addressed a concrete compatibility concern; native delivery
+was not yet proved before the subsequent trial below. Missing setup snapshots
 retain an explicit failure code and stop before menu input. Fixture integer
 flags and complete ordered reader checks replace permissive substring matching.
 Actual BMP receiver tests cover RU/EN and failure paths without native calls.
 Readiness/profile identities advance; old evidence cannot be reused as corrected
 acceptance. Only one target script changes. No native trial, queue archival,
-permission, trust-engine, addon or production change is included. Native callback
-delivery remains unproved. Next: review terminal-record archival capacity, then
-one fresh RU baseline and actual-frame review, preserving old claims and evidence.
+permission, trust-engine, addon or production change was included in that delivery.
+Subsequently, one signed no-code-change package at sequence 21 archived eight
+terminal records, preserving result hashes, prior evidence, code and claims.
+One fresh RU trial confirmed callback delivery and three normalized `valid=1`
+markers. A readable primary-menu frame was collected, but the fixture's black
+backdrop was absent; the unchanged visual guard rejected the frame before a
+weapon selection. Cleanup, zero AMXX error files, archived-result preservation
+and a fresh zero-game heartbeat passed. No retry, EN or baseline approval ran.
+Next: offline ShowMenu/backdrop delivery review; full weapons acceptance remains
+unproved. The active queue contains one new terminal record.
 See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
