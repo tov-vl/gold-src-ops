@@ -381,8 +381,47 @@ worker and zero game processes. No package was resent.
 
 No Steam/game launch, native input, fixture start or queue archival ran during
 this correction. Trust engine, permissions, tasks, addon and production remain
-unchanged. The callback and actual fixture flag output still require a later
-native trial; zero reviewed weapon profiles keeps live weapons input disabled.
-The next gate is review of terminal-record archival capacity, followed by one
-fresh RU baseline request and actual-frame review. Preserve all old IDs, claims,
-results and images; never replay a failed job.
+unchanged. The subsequent RU trial below confirmed callback delivery and the
+normalized fixture flags. Zero reviewed weapon profiles still keeps live weapons
+input disabled. Preserve all old IDs, claims, results and images; never replay
+a failed job.
+
+## Terminal archival and corrected RU trial
+
+On 2026-11-02 one signed no-code-change package advanced the updater to sequence
+21/revision 16 and archived exactly eight cleanup-verified terminal request
+records. Fresh IDs/hashes matched the reviewed selection before staging. The
+installed receipt named exactly those eight IDs. All nine code hashes stayed
+unchanged, all eight result hashes remained readable through the archive-aware
+reader, and a prior image and update receipt were independently preserved. The
+active queue became empty, package retention settled at 21 and a fresh ready
+heartbeat reported zero game processes. Results, images and permanent used-ID
+claims were retained. No task, permission, trust-engine, addon or production
+change was made.
+
+One new RU baseline request then ran with a fresh fixture and request ID. It
+ended at 12:42:13 MSK. Connection/spawn, the owned-window guards and all five
+fixed setup phases passed without activation intervention. The fixture recorded
+three ordered `valid=1` selections and one RU acknowledgement. The corrected
+callback produced the native setup snapshot; readiness reached `ready` in
+`native-fixed-v2` mode. Callback delivery and normalized successful-step output
+are therefore confirmed for this trial.
+
+One native 1920x1200 menu BMP was collected. Visual review found the readable RU
+primary-weapon menu with MP5 selected, but the world scene remained visible.
+The fixture's required opaque black backdrop was absent. Offline analysis of
+that exact BMP with its own body hash returned `PanelMatches=false`, confirming
+that the fixed-backdrop structure requirement was not met. The terminal result
+was `uncertain_error` / `capture_failed`; no weapon-selection marker appeared.
+The guard was not relaxed and no edited or synthetic frame was substituted.
+The reason the backdrop was absent remains unproved by this evidence.
+
+Independent cleanup confirmed the game and exact CFG removed, fixture/network,
+relay process and UDP endpoint absent, zero AMXX error files and a fresh ready
+zero-game heartbeat. All nine runner hashes and all eight archived result hashes
+were preserved after the trial. The active queue contains one new terminal
+record; sequence 21 is unchanged. No retry, EN run, four-frame baseline approval
+or live weapons acceptance followed.
+
+The next gate is offline review of fixture ShowMenu/backdrop delivery and its
+observability, preserving the current image guard before another bounded trial.
