@@ -4524,8 +4524,13 @@ also without manual activation. All four EN frames were visually reviewed;
 native structure, producer/inventory records and independent cleanup passed.
 The retained RU evidence was verified and reused without another RU launch.
 `New-GunsBaselines.ps1 -ImagesReviewed` created the private reviewed set with
-eight distinct native RU/EN profiles. Sequence 21 is unchanged; three terminal
-records remain in the active queue. No profile installation or permission change
-occurred. Next: signed adoption of the reviewed set, then separate RU/EN
-interaction/control/respawn acceptance. Full weapons acceptance remains unproved.
+eight distinct native RU/EN profiles. One normal signed update subsequently
+installed them at sequence 22/protocol 2/revision 16 at 15:16:03 MSK. Only embedded
+profile data changed; eight other files/four pins stayed byte-identical.
+Independent receipt/hash, fixed guns capability, prior receipt, three results,
+nine native-image readbacks, retention and fresh zero-game heartbeat checks passed.
+No installer, permissions, archival or game trial was needed; three terminal
+records remain in the queue. Next: one fresh bounded RU interaction case and
+review of all nine frames, followed separately by EN. Full weapons acceptance,
+returned-control/respawn and renderer verification remain unproved.
 See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
