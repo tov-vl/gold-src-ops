@@ -4576,3 +4576,19 @@ See the [diagnostic result](client-guns-acceptance.md#ru-diagnostic-interaction-
 See the [isolated ammo comparison](client-guns-acceptance.md#isolated-cached-versus-entity-ammo-comparison).
 See the [entity observer correction](client-guns-acceptance.md#authoritative-post-respawn-ammo-observer).
 See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
+
+One fresh RU interaction case with accepted helper 1.6.2 completed at 18:44:29
+MSK on 2026-11-02 without manual window activation. All nine native frames were
+visually reviewed and independently hash/size/image-gate verified. Five
+unchanged-inventory selections, four movement markers and one real death/respawn
+passed. Direct ammo reads reported AK-47 30/90 and Desert Eagle 7/35; the AMXX
+cache still reported Desert Eagle 0/35. The unchanged strict loadout result was
+positive. A separate hash-bound review receipt accepted this RU case, preserving
+the raw worker result and all previous failed cases.
+Independent cleanup, zero AMXX errors, a fresh zero-game heartbeat, nine unchanged
+runner hashes and five preserved terminal identities passed. Six terminal
+requests remain; no update, archival, permission or production change ran.
+The campaign is held and EN remains prepared only. Next: one fresh EN case with
+the same reviewed helper/runner, then separate review. Full two-language weapons
+and renderer acceptance remain open. See the
+[accepted RU result](client-guns-acceptance.md#ru-entity-ammo-interaction-acceptance).

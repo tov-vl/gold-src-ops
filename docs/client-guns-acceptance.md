@@ -785,3 +785,46 @@ The next gate is one fresh bounded RU interaction case using helper 1.6.2,
 retaining direct and cached records plus all nine native frames. Do not replay
 the old request. EN follows only after RU acceptance; full weapons and renderer
 acceptance remain open.
+
+## RU entity-ammo interaction acceptance
+
+One fresh RU case using accepted helper 1.6.2 completed on 2026-11-02 at
+18:44:29 MSK. The sequence-22/protocol-2/revision-16 runner and eight reviewed
+native profiles were unchanged. Native readiness and the fixed five-action
+interaction completed without manual window activation or a client failure.
+
+All five main and four checkpoint original 1920x1200 BMPs were directly reviewed,
+hash/size-verified and independently accepted by the unchanged image gate. RU
+menu titles/items/exit are readable over the controlled fixture backdrop. MP5
+and USP defaults, retained AK-47/Desert Eagle selections, primary reopening and
+closed-menu scene checkpoints match their reviewed profiles. The final scene
+shows AK-47 after the actual death/automatic respawn.
+
+Independent fixture evidence confirms all five selections with unchanged held
+inventory, four movement markers and one requested death/respawn. Exactly one
+post-respawn observation reports:
+
+| Reader | AK-47 clip/reserve | Desert Eagle clip/reserve |
+| --- | --- | --- |
+| Direct ReAPI getters | 30/90 | 7/35 |
+| AMXX cache, both calls successful | 30/90 | 0/35 |
+
+The unchanged strict predicate now returns `selected_loadout=1`. This new native
+case demonstrates the measurement difference for an inactive carried pistol;
+it does not retroactively establish the earlier failed clients' actual magazines.
+No acceptance condition was weakened and no state was repaired to pass it.
+
+Independent game/config/fixture/container/network/relay cleanup, zero AMXX error
+files, a later fresh ready zero-game heartbeat and nine unchanged runner hashes
+passed. Five previous terminal identities/hashes and the prior failed native
+result were preserved. Six terminal requests remain. No signed update, queue
+archival, permission, trust, addon or production change was needed.
+
+A separate immutable review receipt accepted RU against the complete evidence
+digest. The raw worker result stays `autonomous_captured_unreviewed` with its
+original false acceptance/renderer flags and unchanged hash. RU acceptance is a
+controller review decision, not a rewritten raw result. The campaign is held;
+the EN case is prepared only. Next: one separately identified EN interaction
+case with the same helper/runner, review all nine frames and verify strict ammo
+plus complete cleanup. Full two-language weapons acceptance and renderer
+identity remain open, as do PvP, real-identity persistence and activity checks.
