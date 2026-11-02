@@ -46,7 +46,7 @@ public SetupNativeFilter(const name[], index, trap)
 
 public plugin_init()
 {
-    register_plugin("Fixture interaction evidence", "1.5.0", "");
+    register_plugin("Fixture interaction evidence", "1.6.0", "");
     g_readiness = register_cvar("gso_lab_readiness", "0");
     register_message(get_user_msgid("VGUIMenu"), "OnVguiMenu");
     register_clcmd("rules", "ObserveRules");
@@ -65,7 +65,6 @@ public plugin_init()
     register_clcmd("guns", "ObserveGuns");
     register_clcmd("say_team /guns", "ObserveGuns");
     register_clcmd("menuselect", "ObserveGunsSelection");
-    register_message(get_user_msgid("ShowMenu"), "ObserveGunsMenu");
     RegisterHookChain(RG_CBasePlayer_Spawn, "ObserveGunsSpawn", true);
 }
 
@@ -171,6 +170,7 @@ public ObserveRulesAlias(player)
 
 public ObserveMovement(player)
 {
+    ObserveGunsMenu(player);
     ObserveGunsMovement(player);
     if (!is_user_alive(player) || g_epoch[player] < 1 || g_reported[player])
         return HC_CONTINUE;
@@ -194,7 +194,8 @@ public ObserveMovement(player)
 new g_guns[33], g_guns_step[33], g_guns_menu[33], g_guns_inventory[33][6];
 new bool:g_guns_failed[33], bool:g_guns_respawn[33], bool:g_guns_movement[33];
 new Float:g_guns_origin[33][3], g_guns_buttons[33];
-new g_guns_text[33][768];
+new g_guns_resource[33];
+new bool:g_guns_backdrop[33];
 
 GunsInventory(player, values[6])
 {
@@ -215,6 +216,10 @@ GunsBackdrop(player, bool:enabled)
     write_byte(0); write_byte(0); write_byte(0);
     write_byte(enabled ? 255 : 0);
     message_end();
+    g_guns_backdrop[player] = enabled;
+    new active = 0;
+    if (enabled) { active = 1; }
+    log_amx("FIXTURE_GUNS_BACKDROP enabled=%d flags=%d alpha=%d queued=1", active, enabled ? 5 : 0, enabled ? 255 : 0);
 }
 
 GunsMovementStart(player)
@@ -234,33 +239,53 @@ public ObserveGuns(player)
         g_guns_step[player] = 0;
         g_guns_failed[player] = false;
         g_guns_respawn[player] = false;
+        g_guns_resource[player] = -2;
         GunsInventory(player, g_guns_inventory[player]);
         log_amx("FIXTURE_GUNS_START mp5=%d usp=%d", user_has_weapon(player, CSW_MP5NAVY), user_has_weapon(player, CSW_USP));
     }
     return PLUGIN_CONTINUE;
 }
 
-public ObserveGunsMenu(message_id, destination, player)
+bool:GunsWeaponLabel(const label[], const weapon[])
 {
-    if (player < 1 || player > 32 || !g_guns[player]) { return PLUGIN_CONTINUE; }
-    new text[512]; get_msg_arg_string(4, text, charsmax(text));
-    if (strlen(g_guns_text[player]) + strlen(text) >= charsmax(g_guns_text[])) { g_guns_failed[player] = true; return PLUGIN_CONTINUE; }
-    add(g_guns_text[player], charsmax(g_guns_text[]), text);
-    if (get_msg_arg_int(3)) { return PLUGIN_CONTINUE; }
-    if (contain(g_guns_text[player], "MP5") >= 0 && contain(g_guns_text[player], "AK-47") >= 0 && contain(g_guns_text[player], "M4A1") >= 0)
-        g_guns_menu[player] = 1;
-    else if (contain(g_guns_text[player], "USP") >= 0 && contain(g_guns_text[player], "Glock") >= 0 && contain(g_guns_text[player], "Desert Eagle") >= 0)
-        g_guns_menu[player] = 2;
-    else { g_guns_menu[player] = 0; }
-    g_guns_text[player][0] = 0;
-    if (g_guns_menu[player]) { set_task(0.05, "GunsShowBackdrop", player); }
-    return PLUGIN_CONTINUE;
+    if (equal(label, weapon)) { return true; }
+    new prefix[32]; formatex(prefix, charsmax(prefix), "%s \y[", weapon);
+    new length = strlen(label);
+    return equal(label, prefix, strlen(prefix)) && length > strlen(prefix) + 3 && equal(label[length - 3], "]\w");
 }
 
-public GunsShowBackdrop(player)
+GunsMenuKind(menu)
 {
-    // Send outside the ShowMenu message hook, after the original message completes.
-    if (is_user_alive(player) && g_guns[player] && g_guns_menu[player]) { GunsBackdrop(player, true); }
+    if (menu_items(menu) != 3) { return 0; }
+    new const WEAPONS[][] = { "MP5", "AK-47", "M4A1", "USP", "Glock", "Desert Eagle" };
+    new labels[3][128], info[2], access, callback;
+    for (new item = 0; item < 3; item++)
+    {
+        if (!menu_item_getinfo(menu, item, access, info, charsmax(info), labels[item], charsmax(labels[]), callback)
+            || access || info[0] || callback != -1) { return 0; }
+    }
+    for (new kind = 0; kind < 2; kind++)
+    {
+        if (GunsWeaponLabel(labels[0], WEAPONS[kind * 3]) && GunsWeaponLabel(labels[1], WEAPONS[kind * 3 + 1])
+            && GunsWeaponLabel(labels[2], WEAPONS[kind * 3 + 2])) { return kind + 1; }
+    }
+    return 0;
+}
+
+ObserveGunsMenu(player)
+{
+    if (player < 1 || player > 32 || !g_guns[player] || !is_user_alive(player)) { return; }
+    // AMXX menu_display bypasses register_message hooks. Read the active resource
+    // after command dispatch; never redraw, replace or invoke a menu callback.
+    new oldmenu, menu = -1, page;
+    new visible = player_menu_info(player, oldmenu, menu, page);
+    if (!visible || page != 0) { menu = -1; }
+    if (menu == g_guns_resource[player]) { return; }
+    g_guns_resource[player] = menu;
+    g_guns_menu[player] = menu >= 0 ? GunsMenuKind(menu) : 0;
+    log_amx("FIXTURE_GUNS_MENU kind=%d source=active-resource", g_guns_menu[player]);
+    if (g_guns_menu[player]) { GunsBackdrop(player, true); }
+    else if (g_guns_backdrop[player]) { GunsBackdrop(player, false); }
 }
 
 public ObserveGunsSelection(player)
@@ -284,6 +309,7 @@ public ObserveGunsSelection(player)
     new const MENUS[] = { 1, 1, 2, 1, 2 };
     if (step > sizeof KEYS || key != KEYS[step - 1] || g_guns_menu[player] != MENUS[step - 1]) { g_guns_failed[player] = true; }
     g_guns_menu[player] = 0;
+    g_guns_resource[player] = -2;
     if (key == 10 || key == 3) { GunsBackdrop(player, false); GunsMovementStart(player); }
     set_task(0.1, "ObserveGunsInventory", player);
     return PLUGIN_CONTINUE;
@@ -359,7 +385,8 @@ public client_disconnected(player)
     g_guns[player] = 0;
     g_guns_menu[player] = 0;
     g_guns_respawn[player] = false;
-    g_guns_text[player][0] = 0;
+    g_guns_resource[player] = -2;
+    g_guns_backdrop[player] = false;
 }
 
 public ObserveMotd(message_id, destination, player)

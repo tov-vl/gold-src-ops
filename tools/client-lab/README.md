@@ -44,3 +44,19 @@ For the unified controller workflow and its explicit live gate, see
 [readiness](../../docs/client-controller-readiness.md).
 The separate [weapon-menu scope](../../docs/client-guns-acceptance.md) defines
 its two-case matrix, required baselines and nine retained frames per trial.
+
+To check the fixture's active-menu observer without a client, compile its test
+binary and use the existing isolated server harness:
+
+```powershell
+./tools/client-lab/Build-FixtureHelper.ps1 -CacheDirectory <compiler-cache> -OutputPath <new-test.amxx> -MenuTest
+python -B tools/client-lab/tests/run_fixture_menu.py --compiled <new-test.amxx> --cache <engine-assets> --output <new-output>
+```
+
+The compiler cache is the pinned Windows AMXX/ReAPI toolchain. The engine asset
+cache and both digest-pinned images must already exist; this test refuses missing
+inputs instead of downloading them. It runs the actual Pawn observer with real
+AMXX menu resources. Only client state and network-message writes are substituted
+in the test binary. The disposable server has no network or published ports;
+no Steam login, game client, second laptop or native input is used. The test
+binary does not match the helper pin and cannot be used by `New-LabRun.ps1`.

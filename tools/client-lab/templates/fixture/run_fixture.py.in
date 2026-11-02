@@ -77,7 +77,7 @@ def main():
         base.HOST = '0.0.0.0'
         base.CONFIGS['cstrike/server.cfg'] = base.CONFIGS['cstrike/server.cfg'].replace('Isolated client acceptance', status['name'])
         base.CONFIGS['cstrike/server.cfg'] += 'mp_forcerespawn 1\nmp_respawn_immunitytime 2\nmp_respawn_immunity_force_unset 2\n'
-        check('/inputs/fixture_vgui_guard.amxx', '49d3cecc061883b0c3483cc4182e1498c508d850d152e6ef8ad537b28d0171a9')
+        check('/inputs/fixture_vgui_guard.amxx', 'c4d82f092de2a136880936fdc72c1f51cfb96649a4376f0a492008993613b783')
         base.CONFIGS['cstrike/server.cfg'] += 'gso_lab_readiness {{GUNS_READINESS}}\n'
         helper = 'cstrike/addons/amxmodx/plugins/fixture_vgui_guard.amxx'
         shutil.copyfile('/inputs/fixture_vgui_guard.amxx', source / helper)

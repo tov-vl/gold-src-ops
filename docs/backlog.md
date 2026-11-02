@@ -4509,6 +4509,11 @@ markers. A readable primary-menu frame was collected, but the fixture's black
 backdrop was absent; the unchanged visual guard rejected the frame before a
 weapon selection. Cleanup, zero AMXX error files, archived-result preservation
 and a fresh zero-game heartbeat passed. No retry, EN or baseline approval ran.
-Next: offline ShowMenu/backdrop delivery review; full weapons acceptance remains
-unproved. The active queue contains one new terminal record.
+The subsequent offline review replaced the unreachable ShowMenu hook with a
+read-only active-resource observer in fixture helper 1.6.0. Its 45 actual-Pawn
+assertions passed in a network-isolated server without a client. New records
+separate menu recognition from ScreenFade send; the visual guard is unchanged.
+Next: one fresh bounded RU capture and actual-frame review; full weapons
+acceptance remains unproved. No new native trial or second-laptop update ran
+during this correction. The active queue retains its one terminal record.
 See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
