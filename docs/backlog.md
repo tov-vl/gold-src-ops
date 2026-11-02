@@ -4475,7 +4475,10 @@ unchanged. After the owner reported Steam available, one fresh RU trial on
 2026-11-02 confirmed settings, the selection sequence and effective RU language
 through the fixture acknowledgement. The native setup snapshot did not appear;
 the readiness gate stopped with no menu frames. The fixture also emitted a
-malformed numeric `valid` field, which cannot satisfy the evidence contract.
+malformed numeric `valid` field; offline review found the current substring
+check also matches that value's prefix. Producer normalization and exact reader
+validation are required before later acceptance. This trial was rejected on
+missing snapshots and frames.
 Game/CFG/fixture/network/relay cleanup and a fresh zero-game heartbeat passed,
 with zero AMXX error files. Nine runner hashes and seven prior requests were
 preserved; eight terminal records now remain. No retry, EN run or baseline
