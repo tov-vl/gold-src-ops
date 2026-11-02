@@ -4552,9 +4552,17 @@ remains refused. An AMXX cache/direct weapon-entity read difference is a source-
 supported hypothesis, not yet a proved runtime cause or product defect.
 Cleanup, unchanged runner hashes, four prior terminal identities and a fresh
 zero-game heartbeat passed. Five terminal records remain, with no retry or EN.
-Next: an isolated engine comparison of cached/direct clip reads for an inactive
-pistol before an observer change or another native trial. Full weapons and
-renderer verification remain unproved. See the
+One subsequent network-isolated HLDS comparison passed 25 assertions: real AMXX
+calls returned success with cached 0/0 for both weapons while ReAPI and weapon
+entities reported AK-47 30/90 and Desert Eagle 7/35. Two adjacent read-only
+snapshots preserved all observed state; cleanup passed. This proves the cached
+reader's limitation in the synthetic setup, not the earlier native client's
+actual magazine or a product defect. No client/Steam/target operation occurred.
+Next: correct fixture post-respawn measurement to direct clip/reserve reads,
+retain cache diagnostics and add a real empty-magazine refusal control, then
+run a separately identified RU case. Strict values and prior failed cases stay
+unchanged. Full weapons and renderer verification remain unproved. See the
 [RU interaction result](client-guns-acceptance.md#first-ru-interaction-trial-after-profile-adoption).
 See the [diagnostic result](client-guns-acceptance.md#ru-diagnostic-interaction-result).
+See the [isolated ammo comparison](client-guns-acceptance.md#isolated-cached-versus-entity-ammo-comparison).
 See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
