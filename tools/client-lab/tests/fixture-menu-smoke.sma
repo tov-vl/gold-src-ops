@@ -14,6 +14,10 @@
 #define write_short(%1) TestShort(%1)
 #define write_byte(%1) TestByte(%1)
 #define message_end() TestMessageEnd()
+#define get_user_ammo TestAmmo
+#define user_has_weapon TestHasWeapon
+#define get_entvar TestEntvar
+#define log_amx TestLog
 #include <fixture_vgui_guard.sma>
 #undef plugin_init
 #undef plugin_precache
@@ -25,10 +29,16 @@
 #undef write_short
 #undef write_byte
 #undef message_end
+#undef get_user_ammo
+#undef user_has_weapon
+#undef get_entvar
+#undef log_amx
 
 new g_failures, g_checks, g_current = -1, g_page;
 new bool:g_alive = true, bool:g_visible = true;
 new g_sent, g_shorts[3], g_bytes[4], g_short_count, g_byte_count;
+new g_loadout[8], g_loadout_logs, g_respawn_logs, g_origin_reads;
+new g_loadout_report[256], g_respawn_report[80];
 
 public plugin_init() { register_plugin("Fixture menu observer checks", "1.0.0", ""); register_srvcmd("gso_fixture_menu_smoke", "RunMenuSmoke"); }
 public plugin_natives() { set_native_filter("SetupNativeFilter"); }
@@ -55,6 +65,79 @@ TestByte(value)
 }
 TestMessageEnd() { g_sent++; Check(g_short_count == 3 && g_byte_count == 4, "ScreenFade wire shape"); }
 Check(bool:valid, const label[]) { g_checks++; if (!valid) { g_failures++; server_print("FIXTURE_MENU_ASSERTION_FAILED %s", label); } }
+
+TestAmmo(player, weapon, &clip, &ammo)
+{
+    Check(player == 1 && (weapon == CSW_AK47 || weapon == CSW_DEAGLE), "fixed loadout ammo reads");
+    new offset = weapon == CSW_AK47 ? 4 : 6;
+    clip = g_loadout[offset]; ammo = g_loadout[offset + 1];
+    return 1;
+}
+TestHasWeapon(player, weapon)
+{
+    Check(player == 1, "fixed loadout presence target");
+    switch (weapon)
+    {
+        case CSW_AK47: return g_loadout[0];
+        case CSW_DEAGLE: return g_loadout[1];
+        case CSW_MP5NAVY: return g_loadout[2];
+        case CSW_USP: return g_loadout[3];
+    }
+    Check(false, "unexpected weapon presence read");
+    return 0;
+}
+TestEntvar(player, EntVars:member, any:...)
+{
+    Check(player == 1 && member == var_origin, "read-only movement origin after report");
+    for (new index = 0; index < 3; index++) { setarg(2, index, 0); }
+    g_origin_reads++;
+    return 0;
+}
+TestLog(const format[], any:...)
+{
+    new text[256]; vformat(text, charsmax(text), format, 2);
+    if (containi(text, "FIXTURE_GUNS_LOADOUT ") == 0)
+    {
+        Check(!g_loadout_logs && !g_respawn_logs, "one detailed report before strict result");
+        copy(g_loadout_report, charsmax(g_loadout_report), text); g_loadout_logs++;
+    }
+    if (containi(text, "FIXTURE_GUNS_RESPAWN ") == 0)
+    {
+        Check(g_loadout_logs == 1 && !g_respawn_logs, "one strict result after details");
+        copy(g_respawn_report, charsmax(g_respawn_report), text); g_respawn_logs++;
+    }
+    return 1;
+}
+
+RunLoadoutChecks()
+{
+    new const EXPECTED[] = { 1, 1, 0, 0, 30, 90, 7, 35 };
+    for (new variant = -1; variant < sizeof EXPECTED; variant++)
+    {
+        for (new index = 0; index < sizeof EXPECTED; index++) { g_loadout[index] = EXPECTED[index]; }
+        if (variant >= 0) { g_loadout[variant] = variant < 4 ? 1 - g_loadout[variant] : g_loadout[variant] - 1; }
+        g_loadout_logs = 0; g_respawn_logs = 0; g_origin_reads = 0;
+        g_guns_respawn[1] = true;
+        ObserveGunsLoadout(1);
+        new expected[256];
+        formatex(expected, charsmax(expected), "FIXTURE_GUNS_LOADOUT ak47=%d deagle=%d mp5=%d usp=%d ak_clip=%d ak_reserve=%d de_clip=%d de_reserve=%d",
+            g_loadout[0], g_loadout[1], g_loadout[2], g_loadout[3], g_loadout[4], g_loadout[5], g_loadout[6], g_loadout[7]);
+        Check(equal(g_loadout_report, expected) != 0, "exact presence and ammo diagnostics for each failed term");
+        formatex(expected, charsmax(expected), "FIXTURE_GUNS_RESPAWN selected_loadout=%d", variant == -1);
+        Check(equal(g_respawn_report, expected) != 0, "strict predicate rejects every individual mismatch");
+        Check(g_loadout_logs == 1 && g_respawn_logs == 1 && g_origin_reads == 1, "single observation without retry");
+        for (new index = 0; index < sizeof EXPECTED; index++)
+        {
+            new value = EXPECTED[index];
+            if (variant == index) { value = index < 4 ? 1 - value : value - 1; }
+            Check(g_loadout[index] == value, "observation does not change inventory or ammo");
+        }
+    }
+    g_loadout_logs = 0; g_respawn_logs = 0; g_origin_reads = 0;
+    g_alive = false; ObserveGunsLoadout(1); g_alive = true;
+    g_guns_respawn[1] = false; ObserveGunsLoadout(1);
+    Check(!g_loadout_logs && !g_respawn_logs && !g_origin_reads, "dead or unarmed observation is inert");
+}
 
 MakeMenu(kind, selected = -1, language = 0)
 {
@@ -122,6 +205,7 @@ public RunMenuSmoke()
     FixtureDisconnect(1);
     Check(!g_guns[1] && !g_guns_backdrop[1] && g_guns_resource[1] == -2, "disconnect clears observer");
     menu_destroy(primary); menu_destroy(pistol);
+    RunLoadoutChecks();
     server_print("FIXTURE_MENU_SMOKE=%s failures=%d checks=%d", g_failures ? "failed" : "passed", g_failures, g_checks);
     return PLUGIN_HANDLED;
 }
