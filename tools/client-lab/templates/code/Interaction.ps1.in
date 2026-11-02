@@ -260,8 +260,8 @@ function Get-LabInteractionPanel($Job) {
 
 function Get-LabAutonomousProfile($Job) {
     $panel=Get-LabInteractionPanel $Job
-    if($Job.action -ceq 'capture-guns'){return 'guns-baseline-v299-1920x1200-v3'}
-    if($panel -ceq 'guns'){return 'guns-v299-1920x1200-v2'}
+    if($Job.action -ceq 'capture-guns'){return 'guns-baseline-v299-1920x1200-v4'}
+    if($panel -ceq 'guns'){return 'guns-v299-1920x1200-v3'}
     if($panel -ceq 'rules'){return 'rules-v299-1920x1200-v1'}
     return ('motd-v299-'+$panel+'-1920x1200-v1')
 }
@@ -514,7 +514,7 @@ function New-LabGunsProgram($Job) {
     # One-shot native acknowledgements only; no stage file or server-triggered exec.
     return (@('alias gso_lab_join "alias gso_lab_join; jointeam 1; wait; joinclass 1"',
         'alias gso_lab_spawn "alias gso_lab_spawn; snapshot"',
-        'alias gso_lab_setup_ack "alias gso_lab_setup_ack; snapshot"') -join "`r`n")+"`r`n"
+        'alias gso_lab_ack "alias gso_lab_ack; snapshot"') -join "`r`n")+"`r`n"
 }
 
 function Invoke-LabGunsSetup([string]$Root,$Policy,$Job,$Result,$Clock,$Window,[hashtable]$Baseline,[string]$ResultPath) {
@@ -551,6 +551,7 @@ function Invoke-LabGunsSetup([string]$Root,$Policy,$Job,$Result,$Clock,$Window,[
         }
         Wait-LabAutoTick 200
     }
+    $Result.readiness.failureCode='setup_snapshot_missing'
     throw 'Client language/setup acknowledgement missing; no menu input.'
 }
 
@@ -631,7 +632,7 @@ function Invoke-LabGunsBaseline([string]$Root,$Policy,$Job,$Result,$Readiness,[h
 function Wait-LabGunsReady([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseline,[DateTime]$LaunchUtc,[string]$ResultPath) {
     $clock=[Diagnostics.Stopwatch]::StartNew();$window=$null
     $destination=Split-Path -Parent $ResultPath
-    $Result['readiness']=[ordered]@{schema=2;mode='native-fixed-v1';status='waiting-spawn';spawnSnapshot=$null;windowPreparation=$null;setupSnapshot=$null;setupActions=@();setupAcknowledged=$false;language=$Job.language;automaticRetryAllowed=$false}
+    $Result['readiness']=[ordered]@{schema=2;mode='native-fixed-v2';callback='gso_lab_ack';status='waiting-spawn';spawnSnapshot=$null;windowPreparation=$null;setupSnapshot=$null;setupActions=@();setupAcknowledged=$false;language=$Job.language;failureCode=$null;automaticRetryAllowed=$false}
     Initialize-LabInteractionTypes (Join-Path $Root 'code/Rules.Input.cs')
     try{
         while((Get-LabAutoElapsed $clock) -lt 90){

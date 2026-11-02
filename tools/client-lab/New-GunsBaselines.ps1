@@ -26,7 +26,8 @@ foreach($language in @('ru','en')){
         $result.configCleanupVerified -isnot [bool] -or -not $result.configCleanupVerified -or
         ($result.labels -join ',') -cne ($labels -join ',') -or @($result.images).Count -ne 4){throw 'Complete weapons capture required.'}
     if($result.readiness.status -cne 'ready' -or $result.readiness.setupAcknowledged -isnot [bool] -or -not $result.readiness.setupAcknowledged -or
-        $result.baselineStructureVerified -isnot [bool] -or -not $result.baselineStructureVerified -or $result.readiness.mode -cne 'native-fixed-v1'){throw 'Acknowledged weapons baseline required.'}
+        $result.baselineStructureVerified -isnot [bool] -or -not $result.baselineStructureVerified -or $result.readiness.mode -cne 'native-fixed-v2' -or
+        $result.readiness.callback -cne 'gso_lab_ack'){throw 'Acknowledged weapons baseline required.'}
     $menus=@{}
     for($i=1;$i -le 4;$i++){
         $frame=$result.images[$i-1];$path=Join-Path $directory ('image-'+$i+'.bmp')

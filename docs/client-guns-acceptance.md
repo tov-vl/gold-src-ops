@@ -328,3 +328,43 @@ records; the new result and permanent claims remain retained.
 No second attempt, EN run, weapon selection, baseline approval or runner update
 followed. The next gate is offline review of setup snapshot delivery and the
 diagnostic field format, before proposing another bounded native trial.
+
+## Setup callback compatibility correction
+
+Offline review found `_set` inside the old callback name. An upstream
+contributor's [filtering notes in an open Valve repository PR](https://github.com/ValveSoftware/halflife/pull/3160)
+describe discarding stufftext containing that fragment. This is a concrete
+compatibility concern, not proof of the cause on the tested client: no client
+filter trace was collected. The correction changes the fixed one-shot callback
+to `gso_lab_ack` in both the bootstrap and fixture. It retains the independent
+selection/effective-language checks and callback snapshot gate, without changing
+client filters, bindings, input methods or permissions. A missing setup BMP
+records `setup_snapshot_missing` and still stops before weapon-menu input.
+
+The fixture now assigns an explicit integer 0/1 before logging `valid`. The
+reader compares complete ordered step records and the complete language value,
+rejecting the observed long number, zero, extra fields, duplicate/missing or
+reordered steps, and language suffixes. Fixture metadata and evidence must name
+the corrected callback. Readiness mode advances to `native-fixed-v2`; capture
+and live profile identities also advance so old campaigns cannot be silently
+reinterpreted as corrected evidence.
+
+New offline coverage uses the actual BMP parser and file receiver with synthetic
+files for RU/EN, including missing, malformed or ambiguous snapshots, retained
+output collisions, focus refusal and permanent claims. It checks the fixture's
+fixed callback names against the generated bootstrap. These checks make no
+network, native input, focus, Steam or game calls. The helper compiled
+reproducibly with the pinned toolchain. Native callback delivery and actual
+client menu rendering remain unverified by these offline checks.
+
+Local verification passed: the complete PowerShell 7/5.1 client policy,
+74 real-receiver synthetic-BMP checks, 152 campaign checks, both native
+compilation paths, 482 existing synthetic native checks, seven Python fixture
+checks and the full .NET quality gate (1,294 passing tests, 62 opt-in browser
+skips, no vulnerable packages). No C# code changed, so a new InspectCode run
+was not required for this slice.
+
+Source delivery and signed capture-only adoption are pending. The runtime
+boundary is one runner script; protocol 2/revision 16, its eight dependencies,
+trust engine, permissions, tasks, addon and production remain unchanged. No
+native retry or active-queue archival is included in this correction.

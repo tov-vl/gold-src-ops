@@ -183,7 +183,7 @@ function Get-CampaignEvidence($Context) {
         $result.acceptancePassed -isnot [bool] -or $result.acceptancePassed -or $result.rendererVerified -isnot [bool] -or $result.rendererVerified -or
         @($result.images).Count -ne 5) { throw 'Unaccepted client evidence.' }
     $interaction = $result.interaction
-    $profile=if($guns){'guns-v299-1920x1200-v2'}else{'motd-v299-' + $Context.case.panel + '-1920x1200-v1'}
+    $profile=if($guns){'guns-v299-1920x1200-v3'}else{'motd-v299-' + $Context.case.panel + '-1920x1200-v1'}
     $phases=if($guns){'exit-primary,select-primary,select-pistol,repeat-primary,exit-pistol-respawn'}else{'ok-first,controls,reopen,ok-last'}
     if ($interaction.profile -cne $profile -or
         ($interaction.actions.phase -join ',') -cne $phases -or
@@ -233,13 +233,18 @@ function Get-CampaignEvidence($Context) {
     $log = [IO.File]::ReadAllText($logPath)
     if($guns){
         if($result.readiness.status -cne 'ready' -or -not (Test-CampaignTrue $result.readiness.setupAcknowledged) -or
-            $result.readiness.spawnSnapshot.sha256 -cnotmatch '\A[0-9A-F]{64}\z' -or $result.readiness.mode -cne 'native-fixed-v1'){throw 'Weapons readiness evidence missing.'}
+            $result.readiness.spawnSnapshot.sha256 -cnotmatch '\A[0-9A-F]{64}\z' -or $result.readiness.mode -cne 'native-fixed-v2' -or
+            $result.readiness.callback -cne 'gso_lab_ack'){throw 'Weapons readiness evidence missing.'}
         $expectedSetup='open-settings,open-languages,language-'+$Context.case.language+',close-player-menu,ack-'+$Context.case.language
         if(($result.readiness.setupActions.phase -join ',') -cne $expectedSetup -or
             @($result.readiness.setupActions|Where-Object {-not (Test-CampaignTrue $_.inputQueued) -or $_.frameSha256 -cne $result.readiness.spawnSnapshot.sha256}).Count -or
             $result.readiness.setupSnapshot.sha256 -cnotmatch '\A[0-9A-F]{64}\z' -or
             -not $log.Contains('FIXTURE_GUNS_READY phase=setup-ack language='+$Context.case.language)){throw 'Native setup acknowledgement differs.'}
-        foreach($step in 1..3){if(-not $log.Contains("FIXTURE_GUNS_SETUP step=$step valid=1")){throw 'Native setup selection evidence missing.'}}
+        $setupLines=@($log -split '\r?\n'|Where-Object {$_.Contains('FIXTURE_GUNS_SETUP step=')})
+        $ackLines=@($log -split '\r?\n'|Where-Object {$_.Contains('FIXTURE_GUNS_READY phase=setup-ack')})
+        if($setupLines.Count -ne 3 -or $ackLines.Count -ne 1 -or
+            -not $ackLines[0].EndsWith(('FIXTURE_GUNS_READY phase=setup-ack language='+$Context.case.language),[StringComparison]::Ordinal)){throw 'Native setup marker count or language differs.'}
+        foreach($step in 1..3){if(-not $setupLines[$step-1].EndsWith("FIXTURE_GUNS_SETUP step=$step valid=1",[StringComparison]::Ordinal)){throw 'Native setup selection evidence differs.'}}
         $position=-1
         foreach($phase in @('connected','spawn','setup-ack')){
             $marker='FIXTURE_GUNS_READY phase='+$phase

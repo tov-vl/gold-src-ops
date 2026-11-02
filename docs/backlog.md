@@ -4485,3 +4485,17 @@ preserved; eight terminal records now remain. No retry, EN run or baseline
 approval occurred. The next gate is offline snapshot/diagnostic review;
 end-to-end readiness and menu acceptance remain unproved.
 See [correction boundary](client-guns-acceptance.md#fixed-native-setup-correction).
+
+## Autonomous client lab - setup callback compatibility
+
+Implemented and offline-verified; source delivery and signed adoption pending.
+The callback name no longer contains the fragment reported as filtered in
+upstream notes. This addresses a concrete compatibility concern; the cause on
+the tested client and native delivery remain unproved. Missing setup snapshots
+retain an explicit failure code and stop before menu input. Fixture integer
+flags and complete ordered reader checks replace permissive substring matching.
+Actual BMP receiver tests cover RU/EN and failure paths without native calls.
+Readiness/profile identities advance; old evidence cannot be reused as corrected
+acceptance. Only one target script changes. No native trial, queue archival,
+permission, trust-engine, addon or production change is included.
+See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
