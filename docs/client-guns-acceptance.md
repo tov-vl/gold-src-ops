@@ -425,3 +425,47 @@ or live weapons acceptance followed.
 
 The next gate is offline review of fixture ShowMenu/backdrop delivery and its
 observability, preserving the current image guard before another bounded trial.
+
+## Active-menu observer correction
+
+Offline source review found an unreachable observation path: the product uses
+AMXX `menu_display`, whose `UTIL_ShowMenu` writes directly to the engine, while
+the fixture waited for a `register_message` ShowMenu callback. AMXX documents
+that ordinary message writes bypass other plugins, unlike
+[`emessage_begin`](https://www.amxmodx.org/api/messages/emessage_begin).
+The [menu producer](https://github.com/alliedmodders/amxmodx/blob/master/amxmodx/newmenus.cpp)
+and [message producer](https://github.com/alliedmodders/amxmodx/blob/master/amxmodx/util.cpp)
+support this explanation. No message-hook trace was collected in the prior
+client trial, so this is a source-level diagnosis of its missing backdrop.
+
+Fixture helper 1.6.0 reads the current AMXX resource through `player_menu_info`
+after command dispatch. It accepts only page zero, exactly three ordered primary
+or pistol labels, and the product's plain/selected label shape without item
+access flags, attached commands or callbacks. It never redraws the menu or calls
+its handler. Resource transitions set the existing menu kind and send the same
+scene-only ScreenFade; closure or an unrelated resource releases the fade.
+The cache is invalidated after selection and disconnect. Separate
+`FIXTURE_GUNS_MENU` and `FIXTURE_GUNS_BACKDROP` records distinguish recognition
+from an attempted reliable message send. They do not assert client rendering.
+
+The actual Pawn observer passed 45 assertions in the pinned, network-isolated
+local server harness. Tests used real AMXX menu resources for all 12 RU/EN
+selected variants and rejected wrong order/count, label boundaries, item
+commands, access flags and callbacks. Substituted client state and message writes
+covered inactive/dead slots, repeated observations, primary/pistol changes,
+close/reopen, nonzero pages, cache invalidation and disconnect. The test checked
+the unchanged ScreenFade wire fields. No client connected to this server.
+Two production-helper compiles produced the same pinned binary; all three input
+checks now require that helper, while test binaries remain unacceptable inputs.
+The complete Windows client policy passed under PowerShell 7 and 5.1, including
+both native compilation paths and synthetic frame/input checks. Seven Python
+fixture-policy tests, PowerShell parsing and changed-documentation checks passed.
+No C# source changed; the full local .NET suite and InspectCode were not repeated
+for this fixture-only correction. Required hosted CI remains a separate gate.
+
+No runner file, image guard, native input method, baseline profile, permission,
+task, Steam session, second-laptop installation, addon or production runtime was
+changed. Installed sequence 21 remains as recorded above. The next gate is one
+fresh bounded RU capture with this helper, followed by review of the new markers
+and actual native frame. Prior IDs and evidence must not be replayed. Native
+backdrop delivery, full baselines and weapons acceptance remain unproved.

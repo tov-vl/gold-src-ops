@@ -2,7 +2,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)][string]$CacheDirectory,
-    [Parameter(Mandatory=$true)][string]$OutputPath
+    [Parameter(Mandatory=$true)][string]$OutputPath,
+    [switch]$MenuTest
 )
 $ErrorActionPreference='Stop'
 if(-not $IsWindows){throw 'Use the pinned Windows AMXX toolchain.'}
@@ -19,8 +20,9 @@ foreach($entry in @(
 }
 $includes=Join-Path $scripting 'include'
 $reapi=Join-Path $CacheDirectory 'reapi-5.24.0.300/addons/amxmodx/scripting/include'
-& (Join-Path $scripting 'amxxpc.exe') (Join-Path $PSScriptRoot 'fixture_vgui_guard.sma') ('-i'+$includes) ('-i'+$reapi) ('-o'+$output) -d0 -E | Out-Host
+$source = Join-Path $PSScriptRoot $(if ($MenuTest) { 'tests/fixture-menu-smoke.sma' } else { 'fixture_vgui_guard.sma' })
+& (Join-Path $scripting 'amxxpc.exe') $source ('-i'+$includes) ('-i'+$reapi) ('-i'+$PSScriptRoot) ('-o'+$output) -d0 -E | Out-Host
 if($LASTEXITCODE -ne 0){throw 'Fixture helper compilation failed.'}
 $hash=(Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash
-if($hash -cne '49D3CECC061883B0C3483CC4182E1498C508D850D152E6EF8AD537B28D0171A9'){throw 'Fixture helper differs from the reviewed source pin; do not use the output.'}
+if(-not $MenuTest -and $hash -cne 'C4D82F092DE2A136880936FDC72C1F51CFB96649A4376F0A492008993613B783'){throw 'Fixture helper differs from the reviewed source pin; do not use the output.'}
 @{status='compiled-not-installed';sha256=$hash;runtimeChanged=$false;downloaded=$false}|ConvertTo-Json
