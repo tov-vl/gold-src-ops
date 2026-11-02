@@ -311,10 +311,13 @@ capture. A server acknowledgement does not prove receipt of its client callback
 or creation of a BMP. The callback/snapshot failure cause remains unproved.
 
 All three setup log records contained `valid=1677721600`, rather than the
-required normalized `valid=1`. This malformed diagnostic field independently
-fails the current evidence contract; it must not be accepted as a valid flag.
-It does not erase the separate effective-language acknowledgement. No AMXX
-error files were created.
+required normalized `valid=1`. Offline source review also confirmed that the
+current substring check matches that malformed value as a prefix. The producer
+must normalize the field and the reader must compare the complete value before
+a later acceptance. This trial still failed on missing setup snapshot/menu
+frames; the permissive substring check did not produce an accepted result.
+The malformed field does not erase the separate effective-language
+acknowledgement. No AMXX error files were created.
 
 Independent cleanup confirmed the owned game and exact CFG removed, fixture,
 network, relay process and UDP endpoint absent, and a fresh ready heartbeat
