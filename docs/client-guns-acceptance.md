@@ -828,3 +828,46 @@ the EN case is prepared only. Next: one separately identified EN interaction
 case with the same helper/runner, review all nine frames and verify strict ammo
 plus complete cleanup. Full two-language weapons acceptance and renderer
 identity remain open, as do PvP, real-identity persistence and activity checks.
+
+## EN interaction and fixed matrix closure
+
+The previously prepared, never-dispatched EN case completed on 2026-11-02 at
+19:05:35 MSK using the same helper 1.6.2, installed sequence-22/protocol-2/
+revision-16 runner and reviewed native profiles. The fixed native setup and
+five-action interaction completed without manual window activation or a client
+failure. RU was not launched again.
+
+All five main and four checkpoint original 1920x1200 BMPs were directly reviewed,
+hash/size-verified and independently accepted by the unchanged image gate. EN
+titles, items and Exit are readable over the controlled backdrop. MP5/USP
+defaults, retained AK-47/Desert Eagle choices, primary reopening and menu closure
+match the reviewed profiles. The final scene shows AK-47 after real respawn.
+Five selections preserved held inventory and four independent movement markers
+passed. Direct ammo reads were AK-47 30/90 and Desert Eagle 7/35, producing the
+unchanged strict `selected_loadout=1`. Both AMXX calls succeeded with cached
+values 30/90 and 0/35; those diagnostics remain separate from acceptance.
+
+Independent client/config/fixture/container/network/relay cleanup, zero AMXX
+error files, a later fresh ready zero-game heartbeat and nine unchanged runner
+hashes passed. All six prior terminal identities were retained. Every accepted
+RU evidence-file hash and its immutable review receipt remained identical.
+Seven terminal requests remain; no archival, signed update, permission, trust,
+addon or production change was performed.
+
+A separate hash-bound review receipt accepted EN. The raw worker result and its
+false acceptance/renderer flags remain unchanged, as do the earlier failed cases.
+The fixed matrix is closed through the two separate review decisions:
+
+| Language | Completion on 2026-11-02, MSK | Reviewed native frames | Review |
+| --- | --- | --- | --- |
+| RU | 18:44:29 | 9 | accepted |
+| EN | 19:05:35 | 9 | accepted |
+
+This closes only the agreed `/guns` menu, exit/reopen, held-inventory continuity,
+returned controls and next-spawn loadout scope at the reviewed 1920x1200 fixture
+profile. Both original results, 18 frames, server evidence, claims and receipts
+are retained. The campaign is held; neither completed request may be replayed.
+Before future native work exhausts queue capacity, use the existing separately
+reviewed exact-list signed archival workflow while preserving evidence and claims.
+Renderer identity, readability over arbitrary production scenery, real-identity
+persistence, PvP and 24-hour activity remain outside this closure.
