@@ -648,3 +648,49 @@ fixture-only revision. No native trial ran during development. The next gate is
 one fresh RU case with helper 1.6.1; inspect the new values if the strict respawn
 check still fails. Do not replay the previous request, relax acceptance or start
 EN before RU acceptance. Full weapons and renderer acceptance remain open.
+
+## RU diagnostic interaction result
+
+One fresh RU case using helper 1.6.1 completed on 2026-11-02 at 17:02:30 MSK.
+It reached acknowledged native readiness without manual activation, completed
+all five actions and retained raw `autonomous_captured_unreviewed` status.
+All five main and four checkpoint native BMPs were hash/size-verified, visually
+reviewed and independently accepted by the unchanged menu/scene image gate.
+Five unchanged-inventory selections and all four movement markers passed.
+
+The new single post-respawn report identified exactly one mismatching value:
+
+| Field | Observed | Required |
+| --- | --- | --- |
+| `ak47`, `deagle` | 1, 1 | 1, 1 |
+| `mp5`, `usp` | 0, 0 | 0, 0 |
+| `ak_clip`, `ak_reserve` | 30, 90 | 30, 90 |
+| `de_clip`, `de_reserve` | 0, 35 | 7, 35 |
+
+The strict result remained `selected_loadout=0`, and the independent verifier
+again refused acceptance. This identifies the failed observer predicate, not
+the authoritative clip contents of the inactive pistol. The final frame shows
+AK-47 after respawn and cannot establish the Desert Eagle magazine.
+
+Read-only source review found a plausible measurement issue:
+[AMXX `get_user_ammo`](https://github.com/alliedmodders/amxmodx/blob/master/amxmodx/amxmodx.cpp)
+reads a cached weapon record, whose clip is updated by
+[`Client_CurWeapon`](https://github.com/alliedmodders/amxmodx/blob/master/amxmodx/emsg.cpp).
+The inspected upstream source is not proof of the deployed build's exact cache
+contents. In contrast, the pinned-version
+[ReAPI clip getter](https://github.com/rehlds/ReAPI/blob/5.24.0.300/reapi/src/natives/natives_misc.cpp)
+reads the carried weapon entity. Whether those readings differ in this fixture
+remains to be tested; no product defect or observer correction is yet accepted.
+
+Independent cleanup confirmed no owned fixture/container/network/relay/UDP,
+zero AMXX errors, a later ready zero-game heartbeat and nine unchanged runner
+hashes at sequence 22. All four prior terminal identities were preserved and
+the previous RU raw result retained its exact hash. Five terminal requests now
+remain. The campaign is held; no retry, EN run, update, permission or production
+change followed.
+
+Next: compare cached and direct entity clip readings in an isolated engine
+test with an unselected pistol, preserving inventory and the strict expected
+values. Use the evidence to decide whether the observer read needs correction
+before a separately identified native trial. Full weapons/renderer acceptance
+remain false and EN remains pending.

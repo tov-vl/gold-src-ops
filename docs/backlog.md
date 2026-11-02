@@ -4544,7 +4544,17 @@ reproducible binary is pinned at build, preparation and runtime boundaries;
 predecessor/test helpers are rejected. The isolated observer harness passed 256
 Pawn assertions, including all eight single-term mismatches, and seven offline
 fixture-policy tests passed. No native client or second-laptop update ran.
-Next: one fresh RU trial with that helper, then EN after RU acceptance. Full
-weapons and renderer verification remain unproved. See the
+One fresh diagnostic RU trial completed at 17:02:30 MSK on 2026-11-02.
+All nine native frames, five unchanged-inventory selections and four movement
+markers passed. The report isolated `de_clip=0` versus 7 as the only mismatch;
+both selected weapons and all other observed values matched. Strict acceptance
+remains refused. An AMXX cache/direct weapon-entity read difference is a source-
+supported hypothesis, not yet a proved runtime cause or product defect.
+Cleanup, unchanged runner hashes, four prior terminal identities and a fresh
+zero-game heartbeat passed. Five terminal records remain, with no retry or EN.
+Next: an isolated engine comparison of cached/direct clip reads for an inactive
+pistol before an observer change or another native trial. Full weapons and
+renderer verification remain unproved. See the
 [RU interaction result](client-guns-acceptance.md#first-ru-interaction-trial-after-profile-adoption).
+See the [diagnostic result](client-guns-acceptance.md#ru-diagnostic-interaction-result).
 See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
