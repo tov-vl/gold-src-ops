@@ -10,7 +10,15 @@ engine suite passed locally. All 162 language/pair/persistence combinations fit
 the existing MOTD buffer, reaching at most 1177 of 1535 bytes. Real nVault
 failure/reset and fresh-process reload checks passed.
 
-Product CI, immutable package verification, guarded empty-server installation
-and independent technical acceptance are pending. Real-client RU/EN acceptance
-is held while Steam is occupied. Gameplay, storage formats and application
-services are preserved. See [scope and gates](v2.100-profile-loadout.md).
+Product PR #457 merged after all six required checks passed; complete required
+post-merge CI passed too. Published compiler
+and engine artifacts were independently verified; the immutable package uses
+the verified product CI binary without rebuilding. Guarded installation and
+independent technical acceptance remain pending: SSH is unavailable and the
+public projection reports the game host offline. No production changes occurred.
+
+Seven completed client requests were archived with all raw results and image
+references preserved, unchanged runner code and zero game processes. Real-client
+RU/EN acceptance remains held while Steam is occupied. Gameplay, storage formats
+and application services are preserved. The release is not complete; see
+[scope and gates](v2.100-profile-loadout.md).

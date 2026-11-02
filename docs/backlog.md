@@ -4349,9 +4349,13 @@ uses loaded memory only; storage formats, gameplay and existing profile behavior
 are preserved. All ten fixtures compile; dictionary/package boundaries and the
 21-scenario engine suite passed, including 162 language/pair/persistence cases,
 zero profile storage access and fresh-process nVault confirmation. Maximum
-complete profile output is 1177 of 1535 bytes. Product CI, immutable artifact,
-guarded rollout and independent technical acceptance remain pending. Client
-RU/EN acceptance is held while Steam is occupied; existing evidence is retained.
+complete profile output is 1177 of 1535 bytes. Product PR #457 merged after all
+six required and post-merge checks passed; CI binaries/engine evidence and the immutable package
+were independently verified. Guarded rollout and technical acceptance remain
+pending because game-host SSH is unavailable and the public state is offline;
+no production change occurred. Seven terminal client requests were archived with
+exact raw results, image references and runner code preserved. Client RU/EN
+acceptance is held while Steam is occupied; existing evidence is retained.
 See [scope and gates](v2.100-profile-loadout.md) and
 [release notes](release-notes-v2.100.md).
 
