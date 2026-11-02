@@ -4513,7 +4513,13 @@ The subsequent offline review replaced the unreachable ShowMenu hook with a
 read-only active-resource observer in fixture helper 1.6.0. Its 45 actual-Pawn
 assertions passed in a network-isolated server without a client. New records
 separate menu recognition from ScreenFade send; the visual guard is unchanged.
-Next: one fresh bounded RU capture and actual-frame review; full weapons
-acceptance remains unproved. No new native trial or second-laptop update ran
-during this correction. The active queue retains its one terminal record.
+One subsequent RU baseline capture completed at 14:14:19 MSK on 2026-11-02.
+All four actual native menu frames were collected and visually reviewed with
+the expected MP5/USP/AK-47/Desert Eagle selection marks and opaque black backdrop.
+The unchanged structure guard passed; four distinct body profiles, three
+unchanged-inventory selections, zero AMXX errors and independent cleanup passed.
+No manual window activation, runner update, retry or EN attempt was needed.
+Sequence 21 is unchanged and the active queue contains two terminal records.
+Next: one fresh EN baseline capture and actual-frame review. The combined eight
+profiles are not installed; full weapons interaction/acceptance remains unproved.
 See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
