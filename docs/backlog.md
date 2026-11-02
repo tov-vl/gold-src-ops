@@ -4592,3 +4592,19 @@ The campaign is held and EN remains prepared only. Next: one fresh EN case with
 the same reviewed helper/runner, then separate review. Full two-language weapons
 and renderer acceptance remain open. See the
 [accepted RU result](client-guns-acceptance.md#ru-entity-ammo-interaction-acceptance).
+
+The separately prepared EN interaction case completed at 19:05:35 MSK on
+2026-11-02 without manual activation. All nine EN frames, five unchanged-
+inventory selections, four movement markers, real death/respawn and strict
+AK-47 30/90 plus Desert Eagle 7/35 passed. The cache still reported Desert Eagle
+0/35, retained separately. Independent cleanup, zero AMXX errors, a fresh
+zero-game heartbeat, nine unchanged runner hashes and six preserved prior
+terminal identities passed. Accepted RU evidence and its receipt stayed
+byte-identical. No retry, update, archival, permission or production change ran.
+Separate hash-bound receipts now accept both language cases: the fixed RU/EN
+weapon-menu, controls and next-spawn loadout scope is closed with 18 reviewed
+native frames. Raw results retain their original flags/hashes and previous
+failed cases remain unaccepted. The campaign is held with seven terminal
+requests. Renderer identity, arbitrary-scene readability, real-identity
+persistence, PvP and activity checks remain separate. See the
+[EN result and matrix closure](client-guns-acceptance.md#en-interaction-and-fixed-matrix-closure).
