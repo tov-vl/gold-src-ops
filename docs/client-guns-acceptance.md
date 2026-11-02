@@ -288,9 +288,40 @@ Settled readback confirmed an empty inbox and 19 retained packages. A fresh
 post-install heartbeat reported a ready worker and zero game processes.
 No new rights, tasks, trust-engine, firewall, addon or production changes occurred.
 
-No Steam, game, fixture, focus or input action ran during this delivery. The
-owner reported the shared account unavailable; the hold remains active. Live
-weapons input stays disabled with zero reviewed weapon profiles. The next gate
-is one fresh RU baseline trial after Steam availability, followed by frame
-review. Native setup and menu acceptance remain unproved; old jobs and claims
-must not be replayed.
+No Steam, game, fixture, focus or input action ran during that delivery. The
+owner subsequently reported the account available and one fresh RU trial ran,
+as recorded below. Live weapons input stays disabled with zero reviewed weapon
+profiles. End-to-end setup and menu acceptance remain unproved; old jobs and
+claims must not be replayed.
+
+## First native setup trial - server acknowledgement, missing snapshot
+
+One fresh RU baseline request ran on 2026-11-02 and ended at 10:56:35 MSK.
+Connection, first spawn, native bootstrap snapshot and all owned-window guards
+passed without activation intervention. The runner queued each of the five
+fixed setup phases once. Independent fixture evidence recorded the settings
+request, three menu selections and one `setup-ack language=ru` marker. The
+fixture emits that acknowledgement only after checking the exact sequence and
+the product's effective language, so the server-side RU setup is confirmed.
+
+The runner did not observe the native setup snapshot. Its terminal result was
+`uncertain_error` / `spawn_readiness_failed`, with no setup snapshot and no menu
+frames. The end-to-end readiness gate therefore stayed closed before `/guns`
+capture. A server acknowledgement does not prove receipt of its client callback
+or creation of a BMP. The callback/snapshot failure cause remains unproved.
+
+All three setup log records contained `valid=1677721600`, rather than the
+required normalized `valid=1`. This malformed diagnostic field independently
+fails the current evidence contract; it must not be accepted as a valid flag.
+It does not erase the separate effective-language acknowledgement. No AMXX
+error files were created.
+
+Independent cleanup confirmed the owned game and exact CFG removed, fixture,
+network, relay process and UDP endpoint absent, and a fresh ready heartbeat
+with zero game processes. All nine runner hashes, sequence 19 and the seven
+previous request hashes were preserved. The queue now holds eight terminal
+records; the new result and permanent claims remain retained.
+
+No second attempt, EN run, weapon selection, baseline approval or runner update
+followed. The next gate is offline review of setup snapshot delivery and the
+diagnostic field format, before proposing another bounded native trial.

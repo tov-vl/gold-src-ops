@@ -4471,7 +4471,14 @@ and an independent fixture acknowledgement of the exact selection sequence
 and effective language. Native F5 screenshots drive four-frame baseline capture;
 the eight reviewed RU/EN menu profiles remain mandatory before live acceptance.
 The existing trust, pinned dependencies, permissions, addon and production stay
-unchanged. The Steam hold is active again, so no new game trial is included.
-Native setup and menu acceptance remain unproved; the next gate is one fresh
-RU baseline after availability, without replay of previous jobs or claims.
+unchanged. After the owner reported Steam available, one fresh RU trial on
+2026-11-02 confirmed settings, the selection sequence and effective RU language
+through the fixture acknowledgement. The native setup snapshot did not appear;
+the readiness gate stopped with no menu frames. The fixture also emitted a
+malformed numeric `valid` field, which cannot satisfy the evidence contract.
+Game/CFG/fixture/network/relay cleanup and a fresh zero-game heartbeat passed,
+with zero AMXX error files. Nine runner hashes and seven prior requests were
+preserved; eight terminal records now remain. No retry, EN run or baseline
+approval occurred. The next gate is offline snapshot/diagnostic review;
+end-to-end readiness and menu acceptance remain unproved.
 See [correction boundary](client-guns-acceptance.md#fixed-native-setup-correction).
