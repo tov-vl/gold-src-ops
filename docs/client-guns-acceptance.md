@@ -312,7 +312,7 @@ or creation of a BMP. The callback/snapshot failure cause remains unproved.
 
 All three setup log records contained `valid=1677721600`, rather than the
 required normalized `valid=1`. Offline source review also confirmed that the
-current substring check matches that malformed value as a prefix. The producer
+then-current substring check matched that malformed value as a prefix. The producer
 must normalize the field and the reader must compare the complete value before
 a later acceptance. This trial still failed on missing setup snapshot/menu
 frames; the permissive substring check did not produce an accepted result.
@@ -364,7 +364,25 @@ checks and the full .NET quality gate (1,294 passing tests, 62 opt-in browser
 skips, no vulnerable packages). No C# code changed, so a new InspectCode run
 was not required for this slice.
 
-Source delivery and signed capture-only adoption are pending. The runtime
-boundary is one runner script; protocol 2/revision 16, its eight dependencies,
-trust engine, permissions, tasks, addon and production remain unchanged. No
-native retry or active-queue archival is included in this correction.
+Source delivery and signed capture-only adoption completed on 2026-11-02.
+[Product PR #443](https://github.com/tov-vl/gold-src-ops/pull/443) merged at
+`d6537d2` after all six required checks passed in the
+[product run](https://github.com/tov-vl/gold-src-ops/actions/runs/41415697570).
+The accepted source has its separate
+[post-merge run](https://github.com/tov-vl/gold-src-ops/actions/runs/41417625340).
+
+One normal signed update installed at sequence 20/revision 16 without a local
+administrator installer. Independent readback verified all nine expected hashes,
+eight unchanged dependencies, the four existing pins, enabled/unblocked updater,
+eight preserved request IDs/hashes, both earlier failed results, the prior image
+and sequence-19 receipt. The normal retention cycle settled at an empty inbox
+with 20 retained packages. A fresh post-install heartbeat reported a ready
+worker and zero game processes. No package was resent.
+
+No Steam/game launch, native input, fixture start or queue archival ran during
+this correction. Trust engine, permissions, tasks, addon and production remain
+unchanged. The callback and actual fixture flag output still require a later
+native trial; zero reviewed weapon profiles keeps live weapons input disabled.
+The next gate is review of terminal-record archival capacity, followed by one
+fresh RU baseline request and actual-frame review. Preserve all old IDs, claims,
+results and images; never replay a failed job.
