@@ -694,3 +694,40 @@ test with an unselected pistol, preserving inventory and the strict expected
 values. Use the evidence to decide whether the observer read needs correction
 before a separately identified native trial. Full weapons/renderer acceptance
 remain false and EN remains pending.
+
+## Isolated cached versus entity ammo comparison
+
+On 2026-11-02, one disposable HLDS experiment compared the real AMXX and ReAPI
+natives plus direct weapon-entity clip members. The existing pinned engine
+harness used no network or published ports. A fresh synthetic player received
+AK-47 and Desert Eagle during explicit setup, with AK-47 active at observation.
+The product plugin was not loaded; these setup grants do not prove its grants.
+No clip setter or crafted HUD message was used.
+
+Two adjacent snapshots contained only reads. The test confirmed connected/living
+state, carried entity ownership, active primary, successful AMXX native returns,
+ReAPI/entity agreement and equality of all sixteen snapshot values across reads.
+No switch, grant, refill or repair occurred between them. All 25 assertions and
+owned-container cleanup passed.
+
+| Reader | AK-47 clip/reserve | Desert Eagle clip/reserve |
+| --- | --- | --- |
+| AMXX `get_user_ammo` | 0/0 | 0/0 |
+| ReAPI getters | 30/90 | 7/35 |
+| Weapon-entity clip member | 30 / not read | 7 / not read |
+
+Both AMXX calls returned success. The unchanged ammo requirements `30/90` and
+`7/35` rejected the cached snapshot and accepted the direct one. This confirms
+that the cached reader can report zero for an owned pistol whose entity contains
+seven rounds. It does not establish the previous real client's actual magazine
+contents: the synthetic case also had zero cached AK-47/reserve values, unlike
+the earlier native result. That distinction and all original readings remain
+recorded; no previous case was reclassified as accepted.
+
+No CS client, Steam account, second-laptop access/update, helper replacement,
+production change or new permission was involved. The preceding native result
+retained its exact hash. The next correction should use authoritative entity
+clip and reserve reads in the fixture's post-respawn check, retain cached values
+as diagnostic evidence and preserve every strict expected value. Add a real
+empty-magazine rejection control before a separately identified native RU trial.
+Full weapons/renderer acceptance and EN remain pending.
