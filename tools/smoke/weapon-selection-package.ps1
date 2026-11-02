@@ -170,6 +170,28 @@ try {
             }
         }
     }
+    foreach ($lang in @('en', 'ru')) {
+        foreach ($case in @(
+            @{Key='GS_PROFILE_WEAPONS';Text='%s + %s';Accepted=$true},
+            @{Key='GS_PROFILE_WEAPONS';Text='%s';Accepted=$false},
+            @{Key='GS_PROFILE_WEAPONS';Text='%s + %d';Accepted=$false},
+            @{Key='GS_PROFILE_WEAPONS';Text='%s + %s + %s';Accepted=$false},
+            @{Key='GS_PROFILE_WEAPONS';Text='literal';Accepted=$false},
+            @{Key='GS_PROFILE_LOADOUT';Text=('a' * 63);Accepted=$true},
+            @{Key='GS_PROFILE_LOADOUT';Text=('a' * 64);Accepted=$false},
+            @{Key='GS_PROFILE_LOADOUT';Text='%s';Accepted=$false}
+        )) {
+            $pattern = "(?ms)(\[$lang\]\r?\n(?:(?!\[ru\]|\[en\]).)*?^$($case.Key) = )[^\r\n]*"
+            $probe = [regex]::Replace($dictionaryText, $pattern, { param($match) $match.Groups[1].Value + $case.Text })
+            if ($probe -ceq $dictionaryText -and $case.Text -cne '%s + %s') { throw 'Profile probe did not replace its target.' }
+            [IO.File]::WriteAllText($dictionaryProbe, $probe, $utf8)
+            $accepted = $true
+            try { & $dictionaryGate -DictionaryPath $dictionaryProbe | Out-Null }
+            catch { $accepted = $false }
+            if ($accepted -ne $case.Accepted) { throw "Unexpected profile format result: $lang/$($case.Key)" }
+            $checks++
+        }
+    }
     foreach ($invalid in @([byte[]](0xd0), [byte[]](0xc0, 0xaf), [byte[]](0xed, 0xa0, 0x80))) {
         [IO.File]::WriteAllBytes($dictionaryProbe, ($utf8.GetBytes($dictionaryText) + $invalid))
         $rejected = $false

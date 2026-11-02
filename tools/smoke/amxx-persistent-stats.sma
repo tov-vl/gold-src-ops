@@ -1161,6 +1161,8 @@ public VerifySavedStreak()
     CheckSaved(nvault_lookup(g_preferences_vault, "v1:STEAM_0:1:800001", value, charsmax(value), stamp)
         && equal(value, "1 2 1 2") && stamp == 123456789 && g_hud_disabled[player],
         "record recovery retains old preferences and HUD");
+    CheckSaved(LoadedPlayerPreferencesSaved(player) && g_choice[player] == 1 && g_pistol_choice[player] == 2,
+        "fresh process confirms the native persisted loadout snapshot without a new write");
     ShowMapStats(player);
     CheckSaved(contain(g_streak_print, "Saved best streak: 7") >= 0, "restored record is visible in stats");
     new writes = g_vault_writes;
@@ -1208,6 +1210,60 @@ CheckProfileScore(language, const score[])
         ? "Сброс при переподключении или смене карты."
         : "Resets on reconnect or map change.") > position,
         "complete localized connection reset rule follows the score");
+}
+
+CheckProfileLoadout(player)
+{
+    new vault = g_preferences_vault, dirty = g_preferences_dirty[player], language_before = g_language_override[player];
+    new primary_before = g_choice[player], pistol_before = g_pistol_choice[player], snapshot[3];
+    new bool:ready = g_preferences_ready[player], bool:blocked = g_preferences_blocked[player], bool:confirmed = g_preferences_confirmed[player];
+    for (new index = 0; index < sizeof snapshot; index++) { snapshot[index] = g_preferences_snapshot[player][index]; }
+    new reads = g_vault_reads, writes = g_vault_writes, weapons = get_entvar(player, var_weapons), maximum;
+    for (new language = 0; language < sizeof PLAYER_LANGUAGES; language++)
+    {
+        for (new primary = 0; primary < sizeof WEAPON_NAMES; primary++)
+        {
+            for (new pistol = 0; pistol < sizeof PISTOL_NAMES; pistol++)
+            {
+                for (new storage_case = 0; storage_case < 9; storage_case++)
+                {
+                    g_language_override[player] = language + 1;
+                    g_choice[player] = primary; g_pistol_choice[player] = pistol;
+                    RememberPlayerPreferences(player, language + 1, primary, pistol);
+                    g_preferences_vault = storage_case == 5 ? INVALID_HANDLE : vault;
+                    g_preferences_ready[player] = storage_case != 2;
+                    g_preferences_blocked[player] = storage_case == 3;
+                    g_preferences_confirmed[player] = storage_case != 4;
+                    g_preferences_dirty[player] = storage_case == 1 ? PREFERENCE_PRIMARY : 0;
+                    if (storage_case >= 6) { g_preferences_snapshot[player][storage_case - 6]++; }
+                    g_stats_next[player][4] = 0.0;
+                    ShowPlayerProfile(player);
+                    new heading[96], row[96], status[96];
+                    formatex(heading, charsmax(heading), "<h2>%L</h2>", PLAYER_LANGUAGES[language], "GS_PROFILE_LOADOUT");
+                    formatex(row, charsmax(row), "%L", PLAYER_LANGUAGES[language], "GS_PROFILE_WEAPONS", WEAPON_NAMES[primary], PISTOL_NAMES[pistol]);
+                    formatex(status, charsmax(status), "%L", PLAYER_LANGUAGES[language], storage_case == 0 ? "GS_CHANGE_SAVED" : "GS_CHANGE_SESSION");
+                    new heading_at = FindProfileUtf8(g_leader_html, heading), row_at = FindProfileUtf8(g_leader_html, row);
+                    CheckSaved(heading_at >= 0 && row_at > heading_at && FindProfileUtf8(g_leader_html, status) > row_at,
+                        "all RU/EN weapon pairs retain full UTF-8 heading, choices and honest persistence storage_case");
+                    CheckSaved(LoadedPlayerPreferencesSaved(player) == (storage_case == 0), "only a matching confirmed loaded record is saved");
+                    CheckSaved(strlen(g_leader_html) < charsmax(g_leader_html)
+                        && contain(g_leader_html, "</body></html>") == strlen(g_leader_html) - 14,
+                        "maximal profile counters plus every loadout fit complete markup");
+                    maximum = max(maximum, strlen(g_leader_html));
+                    CheckSaved(g_vault_reads == reads && g_vault_writes == writes
+                        && g_choice[player] == primary && g_pistol_choice[player] == pistol
+                        && g_preferences_dirty[player] == (storage_case == 1 ? PREFERENCE_PRIMARY : 0)
+                        && get_entvar(player, var_weapons) == weapons,
+                        "profile loadout is a read-only memory projection without storage, inventory or pending-write effects");
+                }
+            }
+        }
+    }
+    g_preferences_vault = vault; g_preferences_dirty[player] = dirty;
+    g_preferences_ready[player] = ready; g_preferences_blocked[player] = blocked; g_preferences_confirmed[player] = confirmed;
+    g_language_override[player] = language_before; g_choice[player] = primary_before; g_pistol_choice[player] = pistol_before;
+    for (new index = 0; index < sizeof snapshot; index++) { g_preferences_snapshot[player][index] = snapshot[index]; }
+    server_print("PLAYER_PROFILE_LOADOUT_CASES cases=162 languages=2 maximum_bytes=%d limit=1535 storage_reads=0 storage_writes=0", maximum);
 }
 
 public RunPlayerProfileSmoke()
@@ -1520,6 +1576,7 @@ public RunPlayerProfileSmoke()
     ShowPlayerProfile(player);
     set_pcvar_num(g_enabled, 1);
     CheckSaved(g_motds == motds && g_stats_next[player][4] == 0.0, "invalid bot HLTV and disabled requests have no output or cooldown side effect");
+    CheckProfileLoadout(player);
     OnStatusCommand();
     OnMapStatsStatus();
     server_print("PLAYER_PROFILE_SMOKE=%s failures=%d languages=2 storage=real_nvault display=private_motd",

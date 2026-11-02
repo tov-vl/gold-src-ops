@@ -185,6 +185,7 @@ public RunPreferencesSmoke()
     CheckPreferences(g_preferences_ready[id] && !nvault_lookup(g_preferences_vault, KEY, value, charsmax(value), timestamp),
         "join is read-only with no default record");
     CheckPreferences(!PlayerPreferencesSaved(id), "new defaults are not described as saved");
+    CheckPreferences(!LoadedPlayerPreferencesSaved(id), "absent records are not confirmed in memory");
     new writes = g_preference_writes;
     OpenPlayerSettings(id);
     CheckPreferences(g_preference_writes == writes && !nvault_lookup(g_preferences_vault, KEY, value, charsmax(value), timestamp), "settings inspection does not create defaults");
@@ -195,6 +196,7 @@ public RunPreferencesSmoke()
     OnPistolSelected(id, g_pistol_menu[1][g_pistol_choice[id]], 2);
     CheckPreferences(StoredPreferences("1 2 1 2"), "menu choices saved with readback");
     CheckPreferences(PlayerPreferencesSaved(id), "matching validated record is described as saved");
+    CheckPreferences(LoadedPlayerPreferencesSaved(id), "successful native write readback confirms the loaded snapshot");
     nvault_lookup(g_preferences_vault, KEY, value, charsmax(value), timestamp);
     new saved_timestamp = timestamp;
     writes = g_preference_writes;
@@ -210,6 +212,7 @@ public RunPreferencesSmoke()
     RunHelpPersistenceChecks(id);
     g_choice[id] = 0;
     CheckPreferences(!PlayerPreferencesSaved(id), "different session choice is not described as saved");
+    CheckPreferences(!LoadedPlayerPreferencesSaved(id), "cached confirmation cannot cover a different selection");
     g_choice[id] = 1;
     g_preferences_dirty[id] = PREFERENCE_LANGUAGE;
     writes = g_preference_writes;
@@ -281,6 +284,7 @@ public RunPreferencesSmoke()
     g_fail_lookup = false;
     CheckPreferences(g_preferences_blocked[id] && !g_preferences_ready[id], "failed readback blocks further writes");
     CheckPreferences(!PlayerPreferencesSaved(id), "blocked connection is not described as saved");
+    CheckPreferences(!LoadedPlayerPreferencesSaved(id), "failed native write readback invalidates the loaded saved claim");
     OnWeaponSelected(id, g_menu[1][g_choice[id]], 0);
     CheckPreferences(StoredPreferences("1 2 2 2") && !g_choice[id], "failed storage keeps usable session choice without retry");
 
@@ -292,6 +296,7 @@ public RunPreferencesSmoke()
     OnLanguageSelected(id, g_language_menu, 1);
     CheckPreferences(g_preferences_blocked[id] && StoredPreferences("2 99 99 99"), "corrupt record retained without overwrite");
     CheckPreferences(!PlayerPreferencesSaved(id), "corrupt record is not described as saved");
+    CheckPreferences(!LoadedPlayerPreferencesSaved(id), "slot reset and rejected record cannot retain old confirmation");
     nvault_close(g_preferences_vault);
     g_preferences_vault = INVALID_HANDLE;
     client_putinserver(id);
