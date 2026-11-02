@@ -46,7 +46,7 @@ public SetupNativeFilter(const name[], index, trap)
 
 public plugin_init()
 {
-    register_plugin("Fixture interaction evidence", "1.6.1", "");
+    register_plugin("Fixture interaction evidence", "1.6.2", "");
     g_readiness = register_cvar("gso_lab_readiness", "0");
     register_message(get_user_msgid("VGUIMenu"), "OnVguiMenu");
     register_clcmd("rules", "ObserveRules");
@@ -362,15 +362,20 @@ public ObserveGunsSpawn(player)
 public ObserveGunsLoadout(player)
 {
     if (!is_user_alive(player) || !g_guns_respawn[player]) { return; }
-    new ak_clip, ak_reserve, de_clip, de_reserve;
-    get_user_ammo(player, CSW_AK47, ak_clip, ak_reserve);
-    get_user_ammo(player, CSW_DEAGLE, de_clip, de_reserve);
+    new cached_ak_clip, cached_ak_reserve, cached_de_clip, cached_de_reserve;
+    new ak_cached = get_user_ammo(player, CSW_AK47, cached_ak_clip, cached_ak_reserve);
+    new de_cached = get_user_ammo(player, CSW_DEAGLE, cached_de_clip, cached_de_reserve);
+    // A carried inactive weapon may not have populated the AMXX HUD cache.
+    new ak_clip = rg_get_user_ammo(player, WEAPON_AK47), ak_reserve = rg_get_user_bpammo(player, WEAPON_AK47);
+    new de_clip = rg_get_user_ammo(player, WEAPON_DEAGLE), de_reserve = rg_get_user_bpammo(player, WEAPON_DEAGLE);
     new valid = user_has_weapon(player, CSW_AK47) && user_has_weapon(player, CSW_DEAGLE)
         && !user_has_weapon(player, CSW_MP5NAVY) && !user_has_weapon(player, CSW_USP)
         && ak_clip == 30 && ak_reserve == 90 && de_clip == 7 && de_reserve == 35;
     log_amx("FIXTURE_GUNS_LOADOUT ak47=%d deagle=%d mp5=%d usp=%d ak_clip=%d ak_reserve=%d de_clip=%d de_reserve=%d",
         user_has_weapon(player, CSW_AK47), user_has_weapon(player, CSW_DEAGLE),
         user_has_weapon(player, CSW_MP5NAVY), user_has_weapon(player, CSW_USP), ak_clip, ak_reserve, de_clip, de_reserve);
+    log_amx("FIXTURE_GUNS_CACHE ak_ok=%d ak_clip=%d ak_reserve=%d de_ok=%d de_clip=%d de_reserve=%d",
+        ak_cached, cached_ak_clip, cached_ak_reserve, de_cached, cached_de_clip, cached_de_reserve);
     log_amx("FIXTURE_GUNS_RESPAWN selected_loadout=%d", valid);
     GunsMovementStart(player);
 }

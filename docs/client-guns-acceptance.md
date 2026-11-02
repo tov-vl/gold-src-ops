@@ -731,3 +731,57 @@ clip and reserve reads in the fixture's post-respawn check, retain cached values
 as diagnostic evidence and preserve every strict expected value. Add a real
 empty-magazine rejection control before a separately identified native RU trial.
 Full weapons/renderer acceptance and EN remain pending.
+
+## Authoritative post-respawn ammo observer
+
+Fixture helper 1.6.2 uses pinned ReAPI `rg_get_user_ammo` and
+`rg_get_user_bpammo` for both weapons in `ObserveGunsLoadout`. The existing
+`FIXTURE_GUNS_LOADOUT` fields now report these authoritative values. A separate
+`FIXTURE_GUNS_CACHE` line retains both AMXX return codes and the four original
+cached counts, so a later native case can compare readers without changing state.
+The strict predicate is byte-identical: AK-47 and Desert Eagle present, MP5/USP
+absent, AK-47 clip/reserve 30/90 and Desert Eagle 7/35. Delay, death/respawn,
+movement and menu handling are unchanged. There is no polling, repair or grant
+in this observer.
+
+Two ordinary builds produced the same helper bytes, pinned at builder,
+preparation and runtime boundaries. Preparation accepts this helper and refuses
+its predecessor plus both synthetic test binaries before creating output. Mixed
+test switches are refused before compilation. The prior native result's exact
+hash remains unchanged, and no previous trial was reclassified.
+
+The isolated menu/observer harness passed 340 Pawn assertions: every single-term
+mismatch, full direct values with zero cache, an empty direct clip with apparently
+valid cached counts, exact ordered direct/cache/result reports, unchanged input
+state and inert dead/non-respawn observations. Existing AMXX menu checks remain
+covered. A second plugin includes the same observer with real ammo, inventory,
+origin and ownership natives; only entry points and diagnostic capture are
+replaced. The product plugin is not loaded.
+
+That real-entity control passed 42 assertions for two observations:
+
+| Case | Actual Desert Eagle clip | Cached clip | Strict result |
+| --- | --- | --- | --- |
+| Full inactive pistol | 7 | 0 | accepted |
+| Actually empty magazine | 0 | 0 | refused |
+
+The test establishes a synthetic inventory before observation and empties the
+pistol only between the two cases. Each actual observer call preserves all
+eight snapshot values: active item, weapon mask, both clips/reserves and both
+owners. It does not refill the empty magazine. Both engine scenarios passed
+without AMXX errors, network or published ports; owned-container cleanup passed.
+Seven offline fixture-policy tests also passed.
+
+The full offline Windows client-lab suite passed, including controller/protocol,
+updater, queue/recovery, synthetic-frame and native policy checks, target Windows
+PowerShell compilation, optional modern compilation and native source whitespace.
+The unchanged application .NET solution suite was not repeated locally; required
+repository CI remains a separate source-delivery gate.
+
+This source correction is not native acceptance and does not establish the
+earlier real client's actual magazine. No Steam/client launch, second-laptop
+update, new request, permission, trust, addon or production change is included.
+The next gate is one fresh bounded RU interaction case using helper 1.6.2,
+retaining direct and cached records plus all nine native frames. Do not replay
+the old request. EN follows only after RU acceptance; full weapons and renderer
+acceptance remain open.

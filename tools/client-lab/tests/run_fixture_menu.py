@@ -1,4 +1,4 @@
-"""Run only the observer unit plugin in the existing network-isolated engine harness."""
+"""Run menu and optional real-ammo observer tests in the isolated engine harness."""
 import argparse
 import importlib.util
 import json
@@ -14,6 +14,7 @@ spec.loader.exec_module(engine)
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--compiled", required=True, type=Path)
+    parser.add_argument("--ammo-compiled", type=Path)
     parser.add_argument("--cache", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
@@ -29,6 +30,9 @@ def main():
     compiled.mkdir()
     shutil.copyfile(args.compiled, compiled / "fixture_menu_smoke.amxx")
     engine.FIXTURES = {"fixture_menu_smoke.amxx": "tools/client-lab/tests/fixture-menu-smoke.sma"}
+    if args.ammo_compiled is not None:
+        shutil.copyfile(args.ammo_compiled, compiled / "fixture_ammo_smoke.amxx")
+        engine.FIXTURES["fixture_ammo_smoke.amxx"] = "tools/client-lab/tests/fixture-ammo-smoke.sma"
     original_identity = engine.source_identity
 
     def identity():
@@ -42,6 +46,9 @@ def main():
     engine.package_fixtures(compiled, bundle)
     lock["cases"] = [{"plugin": "fixture_menu_smoke", "command": "gso_fixture_menu_smoke",
                       "map": "de_dust2", "markers": ["FIXTURE_MENU_SMOKE"]}]
+    if args.ammo_compiled is not None:
+        lock["cases"].append({"plugin": "fixture_ammo_smoke", "command": "gso_fixture_ammo_smoke",
+                              "map": "de_dust2", "markers": ["FIXTURE_AMMO_SMOKE"]})
     engine.LOCK = output / "test-lock.json"
     engine.LOCK.write_text(json.dumps(lock, indent=2) + "\n", encoding="utf-8")
     engine.execute(args.cache.resolve(), output / "runtime", bundle)

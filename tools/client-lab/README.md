@@ -50,19 +50,28 @@ binary and use the existing isolated server harness:
 
 ```powershell
 ./tools/client-lab/Build-FixtureHelper.ps1 -CacheDirectory <compiler-cache> -OutputPath <new-test.amxx> -MenuTest
-python -B tools/client-lab/tests/run_fixture_menu.py --compiled <new-test.amxx> --cache <engine-assets> --output <new-output>
+./tools/client-lab/Build-FixtureHelper.ps1 -CacheDirectory <compiler-cache> -OutputPath <new-ammo-test.amxx> -AmmoTest
+python -B tools/client-lab/tests/run_fixture_menu.py --compiled <new-test.amxx> --ammo-compiled <new-ammo-test.amxx> --cache <engine-assets> --output <new-output>
 ```
 
 The compiler cache is the pinned Windows AMXX/ReAPI toolchain. The engine asset
 cache and both digest-pinned images must already exist; this test refuses missing
 inputs instead of downloading them. It runs the actual Pawn observer with real
-AMXX menu resources. Only client state and network-message writes are substituted
-in the test binary. The disposable server has no network or published ports;
+AMXX menu resources. Client state, network-message writes and diagnostic capture
+are substituted in the menu test binary. The optional ammo test runs the included
+observer with real inventory/ammo natives and carried weapon entities. Its fresh
+synthetic player has a full inactive pistol, then an explicitly emptied magazine
+as a negative control. No ammo or inventory change is allowed during either
+observation; the product plugin is not loaded. The disposable server has no
+network or published ports;
 no Steam login, game client, second laptop or native input is used. The test
 binary does not match the helper pin and cannot be used by `New-LabRun.ps1`.
 
-Helper 1.6.1 also emits one fixed `FIXTURE_GUNS_LOADOUT` line before the strict
-post-respawn result: four weapon-presence flags and AK-47/Desert Eagle clip and
-reserve counts. This read-only diagnostic never alters the acceptance predicate
-or retries the observation. The same isolated harness covers the valid loadout,
-each single-term mismatch, exact report values and dead/unarmed refusal.
+Helper 1.6.2 uses direct ReAPI clip/reserve getters for the strict post-respawn
+check and its eight-field `FIXTURE_GUNS_LOADOUT` report. One separate fixed
+`FIXTURE_GUNS_CACHE` line retains both AMXX return codes and cached ammo values.
+Weapon-presence terms and required AK-47 30/90 and Desert Eagle 7/35 counts are
+unchanged. The read-only observer never repairs state or retries. The isolated
+harness covers every single-term mismatch, stale-cache independence, exact
+ordered reports and dead/non-respawn refusal. Both test switches are mutually
+exclusive; their binaries cannot satisfy the ordinary helper pin.
