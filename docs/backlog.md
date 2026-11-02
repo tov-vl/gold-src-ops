@@ -4558,11 +4558,21 @@ entities reported AK-47 30/90 and Desert Eagle 7/35. Two adjacent read-only
 snapshots preserved all observed state; cleanup passed. This proves the cached
 reader's limitation in the synthetic setup, not the earlier native client's
 actual magazine or a product defect. No client/Steam/target operation occurred.
-Next: correct fixture post-respawn measurement to direct clip/reserve reads,
-retain cache diagnostics and add a real empty-magazine refusal control, then
-run a separately identified RU case. Strict values and prior failed cases stay
+Fixture helper 1.6.2 now uses direct ReAPI clip/reserve reads for the strict
+post-respawn check and retains AMXX cache values in a separate fixed diagnostic.
+The strict predicate remains byte-identical. Both compiled ordinary helpers
+match the new digest at build, preparation and runtime boundaries; predecessor
+and test helpers are rejected. The isolated harness passed 340 substituted-state
+assertions plus 42 real-entity assertions: a full inactive pistol with zero
+cached clip passes, an actual empty magazine fails, and observation preserves
+inventory/ammo. No product plugin was loaded in that synthetic control.
+Seven offline fixture-policy tests and the full Windows client-lab policy suite
+passed, including target and modern native compilation. No native trial, target update, permission,
+addon or production change was included. Next: one separately identified RU
+case using helper 1.6.2; EN follows RU acceptance. Prior failed cases remain
 unchanged. Full weapons and renderer verification remain unproved. See the
 [RU interaction result](client-guns-acceptance.md#first-ru-interaction-trial-after-profile-adoption).
 See the [diagnostic result](client-guns-acceptance.md#ru-diagnostic-interaction-result).
 See the [isolated ammo comparison](client-guns-acceptance.md#isolated-cached-versus-entity-ammo-comparison).
+See the [entity observer correction](client-guns-acceptance.md#authoritative-post-respawn-ammo-observer).
 See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
