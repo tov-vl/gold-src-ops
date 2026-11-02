@@ -579,3 +579,40 @@ is ready for guarded weapons interaction using the installed reviewed profiles.
 one fresh bounded RU interaction case with all five main and four checkpoint
 frames reviewed, followed separately by EN. Exit/control-return and actual
 death/respawn behavior are not established by this installation record.
+
+## First RU interaction trial after profile adoption
+
+One fresh RU interaction request completed on 2026-11-02 at 15:51:30 MSK using
+the unchanged sequence-22/protocol-2/revision-16 runner and helper 1.6.0. The client
+reached acknowledged `native-fixed-v2` readiness without manual activation and
+finished `autonomous_captured_unreviewed`, with no client failure code. This raw
+capture status is not an acceptance result.
+
+All five main and four checkpoint native 1920x1200 BMPs were collected,
+hash/size-verified and visually reviewed. Independent offline analysis through
+the installed image gate accepted all nine. The menus show readable RU labels,
+MP5/USP defaults, retained AK-47/Desert Eagle selections and the expected exit
+item. Exit checkpoints show the ordinary scene without the menu/backdrop;
+the primary-reopened checkpoint matches the reviewed default profile.
+
+The fixture recorded all five selections with unchanged held inventory and
+four successful movement markers, including movement after respawn. One real
+death and respawn occurred. However, its post-respawn check returned
+`FIXTURE_GUNS_RESPAWN selected_loadout=0`, so the required positive marker was
+absent and the independent campaign verifier refused acceptance. The case remains
+`needs_reconciliation` with `evidence_unconfirmed`; it was not marked accepted.
+The aggregate marker does not retain the individual weapon-presence, clip and
+reserve values, so the failed predicate cannot yet be identified. The final
+frame shows AK-47, but cannot establish the entire selected loadout or ammo.
+
+Game/config cleanup, owned container/network/relay/UDP absence, zero AMXX error
+files, a later ready zero-game heartbeat and all nine unchanged runner hashes
+were independently verified. The three previous terminal IDs/hashes were
+preserved; four terminal requests now remain. The campaign is on hold. No retry,
+EN launch, update, queue archival, permission or production change followed.
+
+Full weapons and renderer acceptance remain false. Next: add bounded read-only
+weapon-presence and clip/reserve details to the fixture's post-respawn report,
+preserving the existing strict predicate. Review and verify that diagnostic
+change before one separately identified RU trial; retain this case and all
+original native evidence unchanged. EN follows only after RU acceptance.

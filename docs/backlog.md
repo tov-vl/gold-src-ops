@@ -4529,8 +4529,17 @@ installed them at sequence 22/protocol 2/revision 16 at 15:16:03 MSK. Only embed
 profile data changed; eight other files/four pins stayed byte-identical.
 Independent receipt/hash, fixed guns capability, prior receipt, three results,
 nine native-image readbacks, retention and fresh zero-game heartbeat checks passed.
-No installer, permissions, archival or game trial was needed; three terminal
-records remain in the queue. Next: one fresh bounded RU interaction case and
-review of all nine frames, followed separately by EN. Full weapons acceptance,
-returned-control/respawn and renderer verification remain unproved.
+No installer, permissions, archival or game trial was needed during adoption.
+One subsequent RU interaction case completed at 15:51:30 MSK on 2026-11-02.
+All nine native frames were reviewed and hash/size/image-gate verified; menu
+exit/reopen, five unchanged-inventory selections and four movement markers passed.
+The independent post-respawn check returned `selected_loadout=0`, so campaign
+acceptance was refused. Individual weapon/clip/reserve values were not retained;
+the precise failed predicate remains unknown. Cleanup, nine unchanged runner
+hashes, prior terminal identities and a later ready zero-game heartbeat passed.
+Four terminal records remain; the campaign is held without retry or EN launch.
+Next: bounded fixture-only post-respawn diagnostics preserving the strict gate,
+then a separately identified RU trial before EN. Full weapons and renderer
+verification remain unproved. See the
+[RU interaction result](client-guns-acceptance.md#first-ru-interaction-trial-after-profile-adoption).
 See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
