@@ -50,7 +50,7 @@ foreach ($lang in @('en', 'ru')) {
             throw "MOTD caption must be plain UTF-8 text of 1-31 bytes: $lang/$key"
         }
     }
-    foreach ($key in @('GS_RANKS', 'GS_PROFILE', 'GS_TOPALL', 'GS_RULES')) {
+    foreach ($key in @('GS_RANKS', 'GS_PROFILE', 'GS_TOPALL', 'GS_RULES', 'GS_PROFILE_LOADOUT')) {
         if ($key -notin $used) { continue }
         if ($utf8.GetByteCount($sections[$lang][$key]) -gt 63) {
             throw "MOTD heading exceeds its byte budget: $lang/$key"
@@ -79,6 +79,12 @@ foreach ($key in $sections.en.Keys) {
         if ([regex]::Replace($value, '%(?:\.2f|d|s)', '').Contains('%')) { throw "Unsupported format: $key" }
         if ($key -eq 'GS_RULES_HEAL' -and ($formats[$lang] -join ',') -cne '%d') {
             throw "Gameplay healing requires exactly one integer: $lang/$key"
+        }
+        if ($key -eq 'GS_PROFILE_WEAPONS' -and ($formats[$lang] -join ',') -cne '%s,%s') {
+            throw "Profile weapons require exactly two bounded strings: $lang/$key"
+        }
+        if ($key -eq 'GS_PROFILE_LOADOUT' -and $formats[$lang].Count -ne 0) {
+            throw "Profile loadout heading must be static text: $lang/$key"
         }
         if ($key -in @('GS_RULES_RESPAWN', 'GS_RULES_PROTECTION') -and ($formats[$lang] -join ',') -cne '%s') {
             throw "Gameplay duration requires exactly one bounded string: $lang/$key"

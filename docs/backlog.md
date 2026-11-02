@@ -4341,6 +4341,20 @@ runtime or renderer-verification claim is made by the client trials.
 See [scope and gates](v2.99-respawn-rules.md) and
 [release notes](release-notes-v2.99.md).
 
+## v2.100 - Next-spawn loadout in the profile
+
+Implemented locally on 2026-11-02: addon 0.39.0 adds the selected primary/pistol
+pair and truthful saved/session-only status to private RU/EN `/profile`. The view
+uses loaded memory only; storage formats, gameplay and existing profile behavior
+are preserved. All ten fixtures compile; dictionary/package boundaries and the
+21-scenario engine suite passed, including 162 language/pair/persistence cases,
+zero profile storage access and fresh-process nVault confirmation. Maximum
+complete profile output is 1177 of 1535 bytes. Product CI, immutable artifact,
+guarded rollout and independent technical acceptance remain pending. Client
+RU/EN acceptance is held while Steam is occupied; existing evidence is retained.
+See [scope and gates](v2.100-profile-loadout.md) and
+[release notes](release-notes-v2.100.md).
+
 ## Autonomous client lab - repository tooling
 
 Repository tooling implemented on 2026-10-31: move reusable Windows client runner/controller, signed-update
