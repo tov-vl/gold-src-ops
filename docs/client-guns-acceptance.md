@@ -540,10 +540,42 @@ menu-body profiles and two language cases. Original results retain their raw
 `captured_unreviewed` status; the separate manifest binds the explicit review.
 The four earlier RU images were reused without another RU launch.
 
-The reviewed RU/EN baseline set is complete. No signed update, profile
-installation, permission, task, addon or production change occurred. Weapons
-interaction is still disabled on the target, and `acceptancePassed` and
-`rendererVerified` remain false. The next step is normal predecessor-bound
-signed adoption of these eight profiles, followed by separate bounded RU/EN
-interaction, returned-control and respawn acceptance. The current evidence
-proves only the reviewed baseline capture over the controlled fixture backdrop.
+The reviewed RU/EN baseline set was complete at that stage, with no signed update
+or profile installation. The following adoption record enables the reviewed
+profiles. Baseline capture proves only the reviewed menus over the controlled
+fixture backdrop; full interaction and renderer acceptance remain separate.
+
+## Signed adoption of the reviewed baseline set
+
+On 2026-11-02 at 15:16:03 MSK, one normal signed predecessor-bound update installed
+the eight reviewed profiles at sequence 22, protocol 2/revision 16. Only the
+embedded profile-data line in `Interaction.ps1` changed. Its remaining source
+text, the other eight files, four pinned dependencies and native bridge retained
+their accepted predecessor bytes. Generation normalized the pinned common
+file's newline encoding only; normalized source text was identical, so its exact
+installed bytes were preserved before signing. No dependency update was included.
+
+Before staging, the original RU/EN result metadata and all eight native frames
+were re-hashed unchanged. The generated candidate parsed successfully and its
+eight embedded profiles accepted those exact native frames through the unchanged
+image guard. Rollback inputs retain all nine verified sequence-21 files. The
+signed package used the existing signer and framed updater, a 540-second
+watchdog and no archive entries. No package was resent.
+
+Independent acceptance confirmed the installed receipt and package identity,
+all nine expected target hashes, eight unchanged files/four pins, enabled and
+unblocked updater, empty inbox with 22 retained packages and the fixed `guns`
+capability. A fresh post-install heartbeat reported a ready worker with zero
+game processes. All three prior terminal request IDs/hashes and result hashes,
+all nine native images belonging to those results, and the preceding update
+receipt remained readable and unchanged through independent readback. Three
+terminal records remain in the active queue; no archival occurred.
+
+No local administrator installer, account, permission, task, firewall,
+trust-engine, addon or production change was required. No Steam/game launch,
+fixture, native input or new acceptance request ran during adoption. The target
+is ready for guarded weapons interaction using the installed reviewed profiles.
+`weaponsAcceptancePassed` and `rendererVerified` remain false. The next gate is
+one fresh bounded RU interaction case with all five main and four checkpoint
+frames reviewed, followed separately by EN. Exit/control-return and actual
+death/respawn behavior are not established by this installation record.
