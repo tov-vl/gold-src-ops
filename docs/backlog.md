@@ -4475,7 +4475,7 @@ unchanged. After the owner reported Steam available, one fresh RU trial on
 2026-11-02 confirmed settings, the selection sequence and effective RU language
 through the fixture acknowledgement. The native setup snapshot did not appear;
 the readiness gate stopped with no menu frames. The fixture also emitted a
-malformed numeric `valid` field; offline review found the current substring
+malformed numeric `valid` field; offline review found the then-current substring
 check also matches that value's prefix. Producer normalization and exact reader
 validation are required before later acceptance. This trial was rejected on
 missing snapshots and frames.
@@ -4488,7 +4488,11 @@ See [correction boundary](client-guns-acceptance.md#fixed-native-setup-correctio
 
 ## Autonomous client lab - setup callback compatibility
 
-Implemented and offline-verified; source delivery and signed adoption pending.
+Source and capture-only adoption completed on 2026-11-02. Product PR #443 merged
+at `d6537d2` after six green required checks. One normal signed update installed
+at sequence 20/revision 16. Independent readback verified nine hashes, eight
+unchanged dependencies, eight preserved requests, prior results/image/receipt,
+empty inbox with 20 retained packages and a fresh zero-game heartbeat.
 The callback name no longer contains the fragment reported as filtered in
 upstream notes. This addresses a concrete compatibility concern; the cause on
 the tested client and native delivery remain unproved. Missing setup snapshots
@@ -4497,5 +4501,7 @@ flags and complete ordered reader checks replace permissive substring matching.
 Actual BMP receiver tests cover RU/EN and failure paths without native calls.
 Readiness/profile identities advance; old evidence cannot be reused as corrected
 acceptance. Only one target script changes. No native trial, queue archival,
-permission, trust-engine, addon or production change is included.
+permission, trust-engine, addon or production change is included. Native callback
+delivery remains unproved. Next: review terminal-record archival capacity, then
+one fresh RU baseline and actual-frame review, preserving old claims and evidence.
 See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
