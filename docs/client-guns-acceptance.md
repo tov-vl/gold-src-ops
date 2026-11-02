@@ -616,3 +616,35 @@ weapon-presence and clip/reserve details to the fixture's post-respawn report,
 preserving the existing strict predicate. Review and verify that diagnostic
 change before one separately identified RU trial; retain this case and all
 original native evidence unchanged. EN follows only after RU acceptance.
+
+## Bounded post-respawn diagnostics
+
+Fixture helper 1.6.1 adds one fixed `FIXTURE_GUNS_LOADOUT` record immediately
+before the existing strict respawn result. Its eight integer fields are
+`ak47`, `deagle`, `mp5`, `usp`, `ak_clip`, `ak_reserve`, `de_clip` and `de_reserve`.
+They report weapon presence and the two ammo reads from the same observation.
+No player identity, address, arbitrary text or persistent game data is included.
+The strict predicate, positive marker, 0.2-second observation delay, death,
+movement and menu logic are unchanged. There is no polling, repair, grant,
+replacement, ammo refill or client action in the added reporting.
+
+The pinned toolchain compiled the ordinary helper twice with identical bytes.
+Builder, preparation and runtime template use the same new helper digest.
+Preparation accepts that helper and rejects both the predecessor and synthetic
+test binary before creating an output directory. Previous trials retain their
+original helper, hashes, claims, results and native frames.
+
+The existing isolated HLDS observer harness passed 256 Pawn assertions. It
+exercises the actual observer with substituted client state and log capture:
+one matching loadout and eight cases changing one predicate term each. It
+checks exact field values, strict rejection of every mismatch, one detail/result
+pair, unchanged input state and inert dead/unarmed observations. Existing real
+AMXX menu/backdrop checks remain covered. The test server used no network or
+published ports and its cleanup passed; seven offline fixture-policy tests
+also passed. These are diagnostic-source checks, not a new native game result.
+
+No signed client update or second-laptop/production change is required for this
+fixture-only revision. No native trial ran during development. The next gate is
+one fresh RU case with helper 1.6.1; inspect the new values if the strict respawn
+check still fails. Do not replay the previous request, relax acceptance or start
+EN before RU acceptance. Full weapons and renderer acceptance remain open.

@@ -60,3 +60,9 @@ AMXX menu resources. Only client state and network-message writes are substitute
 in the test binary. The disposable server has no network or published ports;
 no Steam login, game client, second laptop or native input is used. The test
 binary does not match the helper pin and cannot be used by `New-LabRun.ps1`.
+
+Helper 1.6.1 also emits one fixed `FIXTURE_GUNS_LOADOUT` line before the strict
+post-respawn result: four weapon-presence flags and AK-47/Desert Eagle clip and
+reserve counts. This read-only diagnostic never alters the acceptance predicate
+or retries the observation. The same isolated harness covers the valid loadout,
+each single-term mismatch, exact report values and dead/unarmed refusal.

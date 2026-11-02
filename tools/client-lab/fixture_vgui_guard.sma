@@ -46,7 +46,7 @@ public SetupNativeFilter(const name[], index, trap)
 
 public plugin_init()
 {
-    register_plugin("Fixture interaction evidence", "1.6.0", "");
+    register_plugin("Fixture interaction evidence", "1.6.1", "");
     g_readiness = register_cvar("gso_lab_readiness", "0");
     register_message(get_user_msgid("VGUIMenu"), "OnVguiMenu");
     register_clcmd("rules", "ObserveRules");
@@ -368,6 +368,9 @@ public ObserveGunsLoadout(player)
     new valid = user_has_weapon(player, CSW_AK47) && user_has_weapon(player, CSW_DEAGLE)
         && !user_has_weapon(player, CSW_MP5NAVY) && !user_has_weapon(player, CSW_USP)
         && ak_clip == 30 && ak_reserve == 90 && de_clip == 7 && de_reserve == 35;
+    log_amx("FIXTURE_GUNS_LOADOUT ak47=%d deagle=%d mp5=%d usp=%d ak_clip=%d ak_reserve=%d de_clip=%d de_reserve=%d",
+        user_has_weapon(player, CSW_AK47), user_has_weapon(player, CSW_DEAGLE),
+        user_has_weapon(player, CSW_MP5NAVY), user_has_weapon(player, CSW_USP), ak_clip, ak_reserve, de_clip, de_reserve);
     log_amx("FIXTURE_GUNS_RESPAWN selected_loadout=%d", valid);
     GunsMovementStart(player);
 }

@@ -29,7 +29,7 @@ foreach ($entry in $manifest.files) {
 $inputs = @(
     @{name='goldsrcops.amxx';path=(Join-Path $AddonDirectory 'goldsrcops.amxx');hash='224D38A33FD6EE19C96D6917C748051E5B4FAB3642D0256F703F416D6F8C513F'},
     @{name='goldsrcops.txt';path=(Join-Path $AddonDirectory 'goldsrcops.txt');hash='C37970E8C3AF420CDA33A6D948A9FE6DE3C12F63A9470A9C14DA3B7045C7FEFB'},
-    @{name='fixture_vgui_guard.amxx';path=$HelperBinaryPath;hash='C4D82F092DE2A136880936FDC72C1F51CFB96649A4376F0A492008993613B783'}
+    @{name='fixture_vgui_guard.amxx';path=$HelperBinaryPath;hash='1CD16D2058C363BF92CD7A742598CD59E4B076FC8F14D1564B9F478AB210F211'}
 )
 foreach ($inputFile in $inputs) {
     $item = Get-Item -LiteralPath $inputFile.path

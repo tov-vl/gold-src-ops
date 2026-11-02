@@ -4538,8 +4538,13 @@ acceptance was refused. Individual weapon/clip/reserve values were not retained;
 the precise failed predicate remains unknown. Cleanup, nine unchanged runner
 hashes, prior terminal identities and a later ready zero-game heartbeat passed.
 Four terminal records remain; the campaign is held without retry or EN launch.
-Next: bounded fixture-only post-respawn diagnostics preserving the strict gate,
-then a separately identified RU trial before EN. Full weapons and renderer
-verification remain unproved. See the
+Fixture helper 1.6.1 adds one bounded eight-field presence/clip/reserve report
+without changing the strict predicate, observation timing or gameplay. Its
+reproducible binary is pinned at build, preparation and runtime boundaries;
+predecessor/test helpers are rejected. The isolated observer harness passed 256
+Pawn assertions, including all eight single-term mismatches, and seven offline
+fixture-policy tests passed. No native client or second-laptop update ran.
+Next: one fresh RU trial with that helper, then EN after RU acceptance. Full
+weapons and renderer verification remain unproved. See the
 [RU interaction result](client-guns-acceptance.md#first-ru-interaction-trial-after-profile-adoption).
 See [callback correction](client-guns-acceptance.md#setup-callback-compatibility-correction).
