@@ -23,10 +23,21 @@ Independent checks confirmed healthy 0.38.0, the original baseline, preserved
 agent/queue/control-plane and passing backup guards. The candidate runtime was
 not accepted; this probe failure does not establish a candidate defect.
 
+The corrected operator probe separates direct runtime checks from bounded public
+convergence; the coordinator continues servicing rollback after a rejected probe
+without resending an uncertain response. Nineteen isolated failure/guard cases,
+fresh preflight, installed dry run and predecessor callback passed. A distinct
+guarded operation reached accepted at 10:53:29 UTC on November 3. Independent
+checks confirmed exact 0.39.0, healthy markers, preserved closed inventory,
+unchanged agent/queue/control-plane, the derived three-entry baseline change,
+no pending and passing backup guards. Public state converged separately.
+The package was not rebuilt and the installed workflow was not replaced.
+
 Seven completed client requests were archived with all raw results and image
 references preserved, unchanged runner code and zero game processes. Real-client
 RU/EN acceptance remains held while Steam is occupied. Gameplay, storage formats
-and application services are preserved. Correct and rehearse the operator
-probe/coordinator before a separately reviewed fresh attempt. The consumed
-operation must not be replayed. The release is not complete; see
+and application services are preserved. Technical delivery is accepted; refresh
+the changed fixture/profile baseline and complete native checks against 0.39.0
+after Steam is available. The original failed operation must not be replayed.
+The complete release remains open; see
 [scope and gates](v2.100-profile-loadout.md).
