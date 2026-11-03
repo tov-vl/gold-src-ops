@@ -4398,12 +4398,20 @@ See [scope and evidence](v2.101-player-data-engine-recovery.md) and
 
 ## v2.102 - Player-backup owner notifications
 
-In progress: route the five existing player-data backup warnings through the
-accepted private IRM/email channel. Agent warnings, thresholds, grouping,
+Completed on 2026-11-03: route the five existing player-data backup
+warnings through the accepted private IRM/email channel. Agent warnings, thresholds, grouping,
 deduplication and privacy remain covered. Exact component/severity/name tuples
 are checked in both Prometheus and Alertmanager. Existing historical warnings
 are inspected before activation and preserved; no backup or game mutation is
-included. See [scope and gates](v2.102-backup-notifications.md) and
+included. PR #467, full required/main CI, signed candidate publication and one
+claimed configuration reload passed. Separate acceptance preserved all ten
+containers, file inodes, rule/dashboard definitions, worker flags and credential
+metadata. The isolated canary's firing/resolved webhooks succeeded and it was
+stopped. The owner confirmed the fresh firing email and the matching group's
+Resolved state in IRM. Signed stable v2.102.0 reuses accepted candidate source,
+ZIP and checksum without rebuilding; global latest remains application v2.94.0.
+No separate recovery email or whole-monitoring-host outage coverage is claimed.
+See [scope and gates](v2.102-backup-notifications.md) and
 [release notes](release-notes-v2.102.md).
 
 ## Autonomous client lab - repository tooling
