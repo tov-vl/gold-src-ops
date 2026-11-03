@@ -15,9 +15,10 @@ restore либо повтор попытки. Существующее расп�
 `goldsrcops-player-backup-monitor`.
 
 Предупреждения вычисляет Prometheus. Grafana показывает их и состояние backup
-на dashboard `goldsrcops-player-backup`. По решению владельца личная доставка
-пока отложена: Alertmanager, email и мессенджер не подключаются. Отказ всего
-Prometheus/Grafana этим же стеком обнаружить невозможно.
+на dashboard `goldsrcops-player-backup`. В исходной границе v2.51 личная доставка
+была отложена. Подключение пяти предупреждений к существующему IRM/email каналу
+описано отдельно в [v2.102](v2.102-backup-notifications.md), с независимой приемкой
+доставки. Отказ всего Prometheus/Grafana этим же стеком обнаружить невозможно.
 
 ## Состояния и правила
 

@@ -11,11 +11,8 @@ rule_files:
 
 alerting:
   alert_relabel_configs:
-    - source_labels: [component, severity]
-      regex: game-event-agent;warning
-      action: keep
-    - source_labels: [alertname]
-      regex: GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)
+    - source_labels: [component, severity, alertname]
+      regex: game-event-agent;warning;GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)|player-backup;warning;PlayerBackup(MonitorUnavailable|ObservationInvalid|InterventionRequired|ScheduleProblem|CopyUnavailable)
       action: keep
     - regex: alertname|component|severity
       action: labelkeep
