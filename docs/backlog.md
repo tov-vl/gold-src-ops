@@ -4377,6 +4377,25 @@ coverage. Renderer identity, PvP and 24-hour activity are outside this gate.
 See [scope and gates](v2.100-profile-loadout.md) and
 [release notes](release-notes-v2.100.md).
 
+## v2.101 - Actual player-copy engine recovery
+
+Target exercise accepted on 2026-11-03. The already verified manual Recover
+readback passed two isolated engine process starts using the accepted 0.39.0
+product source and pinned AMXX/ReAPI/runtime. Each checked 42 exact values and
+timestamps plus statistics/ranks, preferences, HUD, streak and name loading.
+Zero attempted product writes, failed assertions or AMXX errors were observed.
+Synthetic positive and intentional mismatch controls passed their expected gates.
+An initial local intent collision was reconciled before actual-data container
+creation; a distinct execution completed. Private data stayed in memory/tmpfs.
+Independent postflight confirmed unchanged source/Recover hashes, removal of
+owned containers and preserved existing container identities. No production
+restore, new capture/Archive/Recover, service/addon/access change or Steam launch
+occurred. This closes this copy's engine gate without claiming full-host recovery,
+crash-journal replay or production RPO/RTO. Publication is documentation only;
+addon 0.39.0 remains accepted.
+See [scope and evidence](v2.101-player-data-engine-recovery.md) and
+[release notes](release-notes-v2.101.md).
+
 ## Autonomous client lab - repository tooling
 
 Repository tooling implemented on 2026-10-31: move reusable Windows client runner/controller, signed-update
@@ -4675,6 +4694,8 @@ identities. Weekly last-success and uncertain-slot evidence stayed unchanged.
 Ordinary monitoring now reports a fresh manual copy; the stale-copy warning
 resolved. The historical failed-weekly-service warning remains visible. Five
 focused orchestration tests passed. This proves closed capture and off-host
-byte/readback integrity; a real isolated AMXX recovery remains separate.
-Addon 0.38.0 stays installed and 0.39.0 remains prepared for its next reviewed
-rollout. See the [manual-copy acceptance](player-backup-manual-refresh.md).
+byte/readback integrity; a real isolated AMXX recovery was left as a separate gate.
+The copy was captured while addon 0.38.0 was installed; the later 0.39.0 rollout
+was accepted separately in v2.100. This copy's separate engine gate subsequently
+passed in [v2.101](v2.101-player-data-engine-recovery.md).
+See the [manual-copy acceptance](player-backup-manual-refresh.md).
