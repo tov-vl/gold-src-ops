@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "gameserver"))
 import player_data_manual as manual
+import player_data_reconciliation as reconciliation
 
 ROOT = Path('/var/lib/goldsrcops/player-data-backup')
 CONFIG = Path('/etc/goldsrcops/player-data-monitor.json')
@@ -29,7 +30,8 @@ SERVICE = 'goldsrcops-player-data-backup.service'
 PREFIX = 'goldsrcops_player_backup_'
 # Stable public codes; filenames, identities, hashes and errors are never labels.
 STATES = {'none': 0, 'verified': 1, 'skipped-busy': 2, 'skipped-window': 3,
-          'running': 4, 'reconcile': 5, 'failed': 6, 'unknown': 7, 'reconciled-no-capture': 8}
+          'running': 4, 'reconcile': 5, 'failed': 6, 'unknown': 7, 'reconciled-no-capture': 8,
+          reconciliation.STATE: 9}
 KEYS = ('observation_success', 'observed_timestamp_seconds',
         'last_success_timestamp_seconds', 'copy_present', 'fresh', 'copy_source',
         'timer_enabled', 'requires_reconciliation', 'service_failed',
@@ -175,10 +177,12 @@ def observe(root, units, moment, enabled_since):
             require(slot(latest) - dt.timedelta(minutes=5) <= started
                     <= slot(latest) + dt.timedelta(minutes=10))
             metrics['last_attempt_timestamp_seconds'] = started.timestamp()
-            require(record['state'] in ('started', 'stopping', 'archiving', 'verified', 'skipped-busy', 'skipped-window', 'reconciled-no-capture'))
-            if record['state'] in ('verified', 'skipped-busy', 'skipped-window', 'reconciled-no-capture'):
+            require(record['state'] in ('started', 'stopping', 'archiving', 'verified', 'skipped-busy', 'skipped-window', 'reconciled-no-capture', reconciliation.STATE))
+            if record['state'] in ('verified', 'skipped-busy', 'skipped-window', 'reconciled-no-capture', reconciliation.STATE):
                 require(timestamp(record['completedUtc'], moment) >= started)
                 metrics['last_attempt_status'] = STATES[record['state']]
+            if record['state'] == reconciliation.STATE:
+                reconciliation.validate(root, latest, record, moment, read_json, private)
             if record['state'] == 'reconciled-no-capture':
                 evidence = read_json(root / latest / 'reconciliation.json')
                 require(evidence['schema'] == 1 and evidence['state'] == record['state']

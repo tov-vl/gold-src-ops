@@ -11,6 +11,7 @@ import stat
 import subprocess
 from zoneinfo import ZoneInfo
 import player_data_manual as manual
+import player_data_reconciliation as reconciliation
 
 MOSCOW = ZoneInfo("Europe/Moscow")
 UTC = dt.timezone.utc
@@ -119,7 +120,9 @@ class Ledger:
         if cycle.exists() or cycle.is_symlink():
             existing = read_json(cycle / "result.json")
             require(existing["slot"] == slot and existing["state"] in
-                    ("skipped-busy", "skipped-window", "captured", "verified", "reconciled-no-capture"))
+                    ("skipped-busy", "skipped-window", "captured", "verified", "reconciled-no-capture", reconciliation.STATE))
+            if existing['state'] == reconciliation.STATE:
+                reconciliation.validate(self.root, slot, existing, now(), read_json, private_path)
             return cycle, existing
         require(len(list(self.root.glob("????-??-??"))) < MAX_CYCLES,
                 "Review private evidence capacity before another cycle.")

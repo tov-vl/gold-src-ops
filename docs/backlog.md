@@ -4626,3 +4626,13 @@ failed cases remain unaccepted. The campaign is held with seven terminal
 requests. Renderer identity, arbitrary-scene readability, real-identity
 persistence, PvP and activity checks remain separate. See the
 [EN result and matrix closure](client-guns-acceptance.md#en-interaction-and-fixed-matrix-closure).
+
+## Separate recovery - uncertain weekly player backup
+
+Prepared locally on 2026-11-03: `closed-uncertain` closes a reviewed old started
+claim after a later game-host restart without claiming no capture or backup
+success. Original bytes and copy age remain intact; failed-service and stale-copy
+warnings remain visible. Reader, writer, dashboard mapping and isolated fixtures
+share the contract. Production mutation and any fresh manual backup require
+their own bounded decision. This recovery does not change the pending addon or
+client-acceptance scope. See the [recovery record](player-backup-uncertain-recovery.md).

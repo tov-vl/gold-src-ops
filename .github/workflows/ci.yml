@@ -476,6 +476,7 @@ jobs:
           sudo bash ./tools/smoke/player-data-capture.sh
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-schedule.py
           sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-maintenance.py
+          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-uncertain.py
           sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/addon-upgrade.py
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/addon-runtime-probe.py
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/release-acceptance.py

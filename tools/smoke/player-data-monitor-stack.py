@@ -84,6 +84,9 @@ def fixtures():
         ("busy", {"last_attempt_status": "2+0x30"}, [], "10m"),
         ("reconciled-no-capture", {"last_attempt_status": "8+0x30"}, [], "10m"),
         ("reconciled-stale", {"last_attempt_status": "8+0x30", "last_success_timestamp_seconds": "-691201+0x30"}, [4], "10m"),
+        ("closed-uncertain", {"last_attempt_status": "9+0x30"}, [], "10m"),
+        ("closed-uncertain-stale", {"last_attempt_status": "9+0x30", "last_success_timestamp_seconds": "-691201+0x30"}, [4], "10m"),
+        ("closed-uncertain-service-failed", {"last_attempt_status": "9+0x30", "service_failed": "1+0x30"}, [2], "10m"),
         ("busy-stale", {"last_attempt_status": "2+0x30", "last_success_timestamp_seconds": "-691201+0x30"}, [4], "10m"),
         ("in-progress", {"last_attempt_status": "4+0x30", "in_progress": "1+0x30"}, [], "10m"),
         ("orphan", {"requires_reconciliation": "1+0x30"}, [2], "10m"),
@@ -134,7 +137,7 @@ def main():
         docker("run", "--rm", "--network", "none", *safe,
                "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m", "--mount", mount(OBS / "rules", "/rules"), "--mount", mount(path, "/fixtures.json"),
                "--entrypoint", "/bin/promtool", images["PROMETHEUS"], "test", "rules", "/fixtures.json")
-        print("PLAYER_BACKUP_RULES=21_scenarios_passed", flush=True)
+        print('PLAYER_BACKUP_RULES=' + str(len(fixtures()['tests'])) + '_scenarios_passed', flush=True)
     docker("run", "--rm", "--network", "none", *safe, "--mount", mount(OBS / "otel-collector.yml", "/config.yml"),
            images["OTEL_COLLECTOR"], "validate", "--config=/config.yml")
     docker("run", "--rm", "--network", "none", *safe,
@@ -243,13 +246,20 @@ def run_stack(images, safe, prometheus_config, fixture_rules):
         wait(lambda: query(PREFIX + "last_attempt_status" + LABELS)[0]["value"][1] == "8")
         assert float(query(PREFIX + "last_success_timestamp_seconds" + LABELS)[0]["value"][1]) == previous_capture
         assert not query('ALERTS{component="player-backup"}')
+        uncertain = status_panel['fieldConfig']['defaults']['mappings'][0]['options']['9']
+        assert uncertain['color'] == 'yellow' and 'неизвестен' in uncertain['text']
+        metrics.update(last_attempt_status=9, observed_timestamp_seconds=time.time())
+        publish()
+        wait(lambda: query(PREFIX + 'last_attempt_status' + LABELS)[0]['value'][1] == '9')
+        assert float(query(PREFIX + 'last_success_timestamp_seconds' + LABELS)[0]['value'][1]) == previous_capture
+        assert not query('ALERTS{component="player-backup"}')
         manual_panel = next(p for p in dashboard['dashboard']['panels'] if p['id'] == 11)
         assert manual_panel['fieldConfig']['defaults']['mappings'][0]['options']['2']['text'] == 'Ручная'
         metrics.update(copy_source=2, last_success_timestamp_seconds=time.time()-60,
                        observed_timestamp_seconds=time.time())
         publish()
         wait(lambda: query(PREFIX + "copy_source" + LABELS)[0]["value"][1] == "2")
-        assert query(PREFIX + "last_attempt_status" + LABELS)[0]["value"][1] == "8"
+        assert query(PREFIX + "last_attempt_status" + LABELS)[0]["value"][1] == "9"
         assert float(query(PREFIX + "last_success_timestamp_seconds" + LABELS)[0]["value"][1]) > previous_capture
         leaderboard.check_stack(collector_url, graf_url, query, request, wait)
         web_alerts.check_stack(prom_url, graf_url, query, request, wait, docker, prometheus, prometheus_config,
