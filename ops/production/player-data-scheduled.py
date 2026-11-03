@@ -14,6 +14,7 @@ DIRECTORY = Path(__file__).resolve().parent
 GAME_DIRECTORY = DIRECTORY.parent / "gameserver"
 sys.path.insert(0, str(GAME_DIRECTORY))
 import player_data_schedule as policy
+import player_data_reconciliation as reconciliation
 
 spec = importlib.util.spec_from_file_location("bundle", GAME_DIRECTORY / "player-data-bundle.py")
 bundle = importlib.util.module_from_spec(spec)
@@ -225,9 +226,69 @@ def reconcile_no_capture(ledger, transport, slot, pending_hash, success_hash, cl
     return record
 
 
+def close_uncertain(ledger, slot, proof_path, pending_hash, success_hash, proof_hash, clock=policy.now):
+    """Close a reviewed old claim, retaining uncertainty and all original bytes; no transport."""
+    moment = clock()
+    policy.valid_slot(slot)
+    cycle = policy.private_path(ledger.root / slot, directory=True)
+    policy.require({p.name for p in cycle.iterdir()} == {'result.json'})
+    for value in (pending_hash, success_hash, proof_hash):
+        policy.require(isinstance(value, str) and re.fullmatch(r'[a-f0-9]{64}', value) is not None)
+    paths = (ledger.pending, cycle / 'result.json', ledger.root / 'last-success.json', proof_path)
+    raw = []
+    for path in paths:
+        path = policy.private_path(path)
+        policy.require(path.stat().st_size <= 16384)
+        raw.append(bundle.read_regular(path, 16384))
+    pending_raw, result_raw, success_raw, proof_raw = raw
+    policy.require(len(proof_raw) <= 4096 and pending_raw == result_raw
+                   and reconciliation.digest(pending_raw) == pending_hash
+                   and reconciliation.digest(success_raw) == success_hash
+                   and reconciliation.digest(proof_raw) == proof_hash)
+    pending, success, proof = (reconciliation.decode(value) for value in (pending_raw, success_raw, proof_raw))
+    reconciliation.original(pending, slot)
+    reconciliation.proof(proof, slot, moment)
+    policy.require(success['schema'] == 1 and success['state'] == 'verified'
+                   and success['workload'] == 'goldsrcops-player-data-v1'
+                   and reconciliation.timestamp(success['capturedUtc']) <= reconciliation.timestamp(pending['startedUtc'])
+                   and all(re.fullmatch(r'[a-f0-9]{64}', success[k]) for k in ('snapshotId', 'bundleSha256')))
+    # Recheck immediately before the first durable write. The caller holds the schedule lock.
+    policy.require(all(bundle.read_regular(policy.private_path(path), 16384) == value
+                       for path, value in zip(paths, raw)))
+    record = dict(pending, state=reconciliation.STATE, completedUtc=moment.isoformat())
+    evidence = dict(record, originalPending=pending, originalResult=pending,
+                    gameProof=proof_raw.decode('utf-8'), gameProofSha256=proof_hash,
+                    lastSuccessSha256=success_hash, pendingSha256=pending_hash, resultSha256=pending_hash)
+    policy.require(len(json.dumps(evidence, separators=(',', ':')).encode('utf-8')) < 16384)
+    # Existing evidence or an interrupted finish is a reconciliation problem, never a retry.
+    bundle.write_new(cycle / 'original-pending.json', pending_raw)
+    bundle.write_new(cycle / 'original-result.json', result_raw)
+    policy.write_json(cycle / 'reconciliation.json', evidence)
+    reconciliation.validate(ledger.root, slot, record, moment, policy.read_json, policy.private_path)
+    ledger.finish(cycle, record)
+    return record
+
+
 def main():
     policy.require(os.geteuid() == 0 and len(sys.argv) >= 2)
     action = sys.argv[1]
+    if action == 'close-uncertain':
+        parser = argparse.ArgumentParser(description='Close one reviewed uncertain old slot without capture or retry.')
+        parser.add_argument('slot')
+        parser.add_argument('--game-proof', type=Path, required=True)
+        parser.add_argument('--expected-pending-sha256', required=True)
+        parser.add_argument('--expected-last-success-sha256', required=True)
+        parser.add_argument('--expected-game-proof-sha256', required=True)
+        args = parser.parse_args(sys.argv[2:])
+        active = policy.run(['systemctl', 'show', 'goldsrcops-player-data-backup.service',
+                             '-p', 'ActiveState', '--value']).strip()
+        policy.require(active in (b'inactive', b'failed'))
+        with policy.lock(ROOT / 'schedule.lock'):
+            close_uncertain(policy.Ledger(ROOT), args.slot, args.game_proof,
+                            args.expected_pending_sha256, args.expected_last_success_sha256,
+                            args.expected_game_proof_sha256)
+        print('PLAYER_DATA_WEEKLY=closed-uncertain')
+        return
     if action == 'register-manual':
         parser = argparse.ArgumentParser(description='Register a verified manual copy without capture or upload.')
         parser.add_argument('--archive-operation', type=Path, required=True)

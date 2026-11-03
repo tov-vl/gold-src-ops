@@ -314,6 +314,11 @@
                   "text": "Сверено: capture не выполнялся",
                   "color": "yellow",
                   "index": 8
+                },
+                "9": {
+                  "text": "Закрыто: исход backup неизвестен",
+                  "color": "yellow",
+                  "index": 9
                 }
               }
             }
