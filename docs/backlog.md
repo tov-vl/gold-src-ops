@@ -4363,8 +4363,17 @@ independent checks confirmed exact 0.39.0, derived baseline, no pending, passing
 guards and preserved agent/queue/control-plane. Public online status converged
 separately. Technical delivery is accepted; the first consumed operation and its
 evidence remain retained. Seven terminal client requests were archived with
-exact raw results, image references and runner code preserved. Client RU/EN
-acceptance is held while Steam is occupied; existing evidence is retained.
+exact raw results, image references and runner code preserved. After Steam became
+available, reviewed 0.39.0 captures refreshed only the two profile baselines.
+Tooling PR #464 and its full required/post-merge CI passed; one signed adoption
+preserved eight other runner files and prior raw results. Separate fresh EN and
+RU cases passed without manual window selection: ten reviewed native frames,
+both OK closes, alternate-alias reopening, cooldown, returned controls and
+independent cleanup. Raw result flags and historical evidence are retained;
+separate review receipts record acceptance. Technical and bounded native client
+gates are closed. Visual coverage is the fixed LAN/unavailable-results profile,
+MP5 + USP at 1920x1200; other pairs and saved records retain separate engine
+coverage. Renderer identity, PvP and 24-hour activity are outside this gate.
 See [scope and gates](v2.100-profile-loadout.md) and
 [release notes](release-notes-v2.100.md).
 

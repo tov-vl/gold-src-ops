@@ -38,9 +38,18 @@ references preserved, unchanged runner code and zero game processes. Real-client
 RU/EN acceptance resumed after the owner confirmed Steam free. Fresh profile
 captures were visually reviewed for both languages, showing the full default
 MP5 + USP and localized connection-only wording without clipping. Fixture pins
-now require 0.39.0; only the two profile baseline hashes change. Signed adoption
-and fresh OK/alias/returned-controls checks remain pending. Gameplay, storage
-formats and application services are preserved. Technical delivery is accepted.
+now require 0.39.0; only the two profile baseline hashes change.
+[PR #464](https://github.com/tov-vl/gold-src-ops/pull/464), its full required CI
+and exact post-merge CI passed. Signed adoption preserved the eight other runner
+files and prior raw results. One fresh EN case and a separate RU case passed
+without manual window selection: all ten native frames were reviewed, both OK
+closes, alternate-alias reopening, cooldown and returned controls were confirmed
+with independent markers, and owned processes/fixtures/relays were cleaned up.
+Raw result flags remain unchanged; separate review receipts record acceptance.
+The visual claim covers the fixed LAN/unavailable-results profile with default
+MP5 + USP at 1920x1200. Saved Steam records and other pairs have separate engine
+coverage; renderer identity, PvP and 24-hour activity are outside this gate.
+Gameplay, storage formats and application services are preserved. Technical
+delivery and bounded native RU/EN acceptance are complete.
 The original failed operation must not be replayed.
-The complete release remains open; see
-[scope and gates](v2.100-profile-loadout.md).
+See [scope and gates](v2.100-profile-loadout.md).
