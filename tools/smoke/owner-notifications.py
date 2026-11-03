@@ -137,7 +137,7 @@ def check_prometheus(temporary, prefix, containers):
     docker('run', '-d', '--name', name, '--network', prefix, *SAFE, '--publish', '127.0.0.1::9090',
            '--tmpfs', '/prometheus:rw,nosuid,size=64m,uid=65534,gid=65534',
            '--mount', mount(config_path, '/config.yml'), '--mount', mount(path, '/rules.json'),
-           image, '--config.file=/config.yml', '--storage.tsdb.path=/prometheus')
+           image, '--config.file=/config.yml', '--storage.tsdb.path=/prometheus', '--rules.alert.resend-delay=1s')
     prom_url, sink_url = endpoint(name, 9090), endpoint(sink, 8080)
     wait(lambda: request(prom_url + '/api/v1/status/runtimeinfo'))
     wait(lambda: request(prom_url + '/api/v1/alertmanagers')['data']['activeAlertmanagers'])
