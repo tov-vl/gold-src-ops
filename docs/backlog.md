@@ -4356,10 +4356,13 @@ were independently verified. One guarded rollout on November 3 returned to
 RCON acceptance; the coordinator exited and missed the rollback hook. Separately
 approved reconciliation retained original evidence, recorded rolled-back and
 cleared only matching addon pending without a restart or install. Independent
-checks confirmed the healthy predecessor, unchanged baseline/agent/queue/control-plane
-and passing backup guards. Correct and rehearse the probe/coordinator before a
-separately reviewed fresh operation; 0.39.0 is not technically accepted and the
-consumed operation must not be replayed. Seven terminal client requests were archived with
+checks confirmed the healthy predecessor and passing backup guards. The corrected
+operator probe/coordinator passed nineteen offline/isolated cases, a fresh dry
+run and predecessor callback. A distinct operation reached accepted on November 3;
+independent checks confirmed exact 0.39.0, derived baseline, no pending, passing
+guards and preserved agent/queue/control-plane. Public online status converged
+separately. Technical delivery is accepted; the first consumed operation and its
+evidence remain retained. Seven terminal client requests were archived with
 exact raw results, image references and runner code preserved. Client RU/EN
 acceptance is held while Steam is occupied; existing evidence is retained.
 See [scope and gates](v2.100-profile-loadout.md) and
