@@ -52,9 +52,11 @@ changed, so the complete local .NET gate and InspectCode were not rerun. Target
 acceptance and documentation CI remain distinct evidence.
 
 This accepts a closed capture and encrypted off-host byte/readback integrity.
-An isolated AMXX engine recovery of this actual copy remains a separate proof;
-synthetic engine tests are not presented as that proof. The current accepted
-addon remains 0.38.0. Backup freshness is restored; the prepared 0.39.0 addon
-still needs its own reviewed installation and independent technical/client
-acceptance. Raw archives, snapshot identifiers, player values and private host
-details remain outside Git.
+At acceptance, an isolated AMXX engine recovery of this actual copy remained a
+separate proof; synthetic engine tests were not presented as that proof. The
+capture used addon 0.38.0. Its later 0.39.0 installation and technical/client
+acceptance completed separately in [v2.100](v2.100-profile-loadout.md).
+The actual copy's isolated engine gate subsequently passed in
+[v2.101](v2.101-player-data-engine-recovery.md). These later results do not
+rewrite the original capture or weekly-backup evidence. Raw archives, snapshot
+identifiers, player values and private host details remain outside Git.
