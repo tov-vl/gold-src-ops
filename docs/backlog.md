@@ -4645,3 +4645,18 @@ exact target variant), 24 backup-rule cases and the complete pinned telemetry
 rehearsal. Product required CI passed; main/evidence CI are separate closure
 checks. This recovery does not change client-acceptance scope. See the
 [recovery record](player-backup-uncertain-recovery.md).
+
+## Manual player-backup freshness refresh
+
+Target acceptance completed on 2026-11-03: one closed capture on an empty
+server, one encrypted Archive, one separate Recover of the same snapshot and
+one manual-copy registration passed. Game stop/start/postflight took 24.237
+seconds; the agent and all ten control-plane containers retained their
+identities. Weekly last-success and uncertain-slot evidence stayed unchanged.
+
+Ordinary monitoring now reports a fresh manual copy; the stale-copy warning
+resolved. The historical failed-weekly-service warning remains visible. Five
+focused orchestration tests passed. This proves closed capture and off-host
+byte/readback integrity; a real isolated AMXX recovery remains separate.
+Addon 0.38.0 stays installed and 0.39.0 remains prepared for its next reviewed
+rollout. See the [manual-copy acceptance](player-backup-manual-refresh.md).

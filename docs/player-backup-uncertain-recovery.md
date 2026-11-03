@@ -78,3 +78,9 @@ The next separate gate is a fresh manual player-data copy with an empty-server
 maintenance window, off-host Archive/Recover verification and registration.
 Closure of an uncertain attempt does not satisfy backup freshness or authorize
 a fresh capture. The pending addon installation remains held on that gate.
+
+The owner subsequently continued with that separate step. A fresh manual copy
+passed closed capture, one Archive, one Recover and registration on 2026-11-03.
+Backup freshness is restored; the historical service failure remains visible.
+See the [manual-copy acceptance](player-backup-manual-refresh.md) for its exact
+claim boundary and the separate AMXX-engine recovery proof.
