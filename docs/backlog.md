@@ -4351,9 +4351,15 @@ are preserved. All ten fixtures compile; dictionary/package boundaries and the
 zero profile storage access and fresh-process nVault confirmation. Maximum
 complete profile output is 1177 of 1535 bytes. Product PR #457 merged after all
 six required and post-merge checks passed; CI binaries/engine evidence and the immutable package
-were independently verified. Guarded rollout and technical acceptance remain
-pending because game-host SSH is unavailable and the public state is offline;
-no production change occurred. Seven terminal client requests were archived with
+were independently verified. One guarded rollout on November 3 returned to
+0.38.0 after the operator probe rejected a still-offline public projection before
+RCON acceptance; the coordinator exited and missed the rollback hook. Separately
+approved reconciliation retained original evidence, recorded rolled-back and
+cleared only matching addon pending without a restart or install. Independent
+checks confirmed the healthy predecessor, unchanged baseline/agent/queue/control-plane
+and passing backup guards. Correct and rehearse the probe/coordinator before a
+separately reviewed fresh operation; 0.39.0 is not technically accepted and the
+consumed operation must not be replayed. Seven terminal client requests were archived with
 exact raw results, image references and runner code preserved. Client RU/EN
 acceptance is held while Steam is occupied; existing evidence is retained.
 See [scope and gates](v2.100-profile-loadout.md) and
