@@ -31,7 +31,7 @@ try {
     }
     $manifest = [ordered]@{ schemaVersion=1; purpose='owner-notifications'; version=$Version
         sourceRevision=$revision; payload=@($payload)
-        alertmanagerVersion='0.34.1'; scope='five-agent-warnings' }
+        alertmanagerVersion='0.34.1'; scope='five-agent-and-five-player-backup-warnings' }
     [IO.File]::WriteAllText((Join-Path $temporary 'manifest.json'), (($manifest | ConvertTo-Json -Depth 8) + "`n").Replace("`r`n","`n"), [Text.UTF8Encoding]::new($false))
     [IO.Compression.ZipFile]::CreateFromDirectory($temporary,$archive)
     $hash=(Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()

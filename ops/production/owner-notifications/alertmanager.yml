@@ -15,6 +15,11 @@ route:
         - component="game-event-agent"
         - severity="warning"
         - alertname=~"GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)"
+    - receiver: owner-email
+      matchers:
+        - component="player-backup"
+        - severity="warning"
+        - alertname=~"PlayerBackup(MonitorUnavailable|ObservationInvalid|InterventionRequired|ScheduleProblem|CopyUnavailable)"
 
 receivers:
   - name: discard
@@ -37,17 +42,18 @@ receivers:
             environment: production
           commonLabels:
             alertname: '{{ .GroupLabels.alertname }}'
-            component: game-event-agent
+            component: '{{ .CommonLabels.component }}'
             severity: warning
           commonAnnotations:
             summary: 'GoldSrcOps - {{ .GroupLabels.alertname }}'
-            runbook_url: https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md
+            runbook_url: '{{ if eq .CommonLabels.component "player-backup" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/game-player-data-monitoring.md{{ else }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md{{ end }}'
           externalURL: https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.98-owner-notifications.md
           alerts: >-
             {{ $safe := list }}{{ range .Alerts }}
+            {{ $runbook := "v2.97-agent-alerts.md" }}{{ if eq .Labels.component "player-backup" }}{{ $runbook = "game-player-data-monitoring.md" }}{{ end }}
             {{ $safe = append $safe (dict "status" .Status
-            "labels" (dict "alertname" .Labels.alertname "component" "game-event-agent" "severity" "warning")
+            "labels" (dict "alertname" .Labels.alertname "component" .Labels.component "severity" "warning")
             "annotations" (dict "summary" (printf "GoldSrcOps - %s" .Labels.alertname)
-            "runbook_url" "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md")
+            "runbook_url" (printf "https://github.com/tov-vl/gold-src-ops/blob/main/docs/%s" $runbook))
             "startsAt" .StartsAt "endsAt" .EndsAt "fingerprint" .Fingerprint) }}
             {{ end }}{{ $safe | toJson }}

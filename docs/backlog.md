@@ -4396,6 +4396,16 @@ addon 0.39.0 remains accepted.
 See [scope and evidence](v2.101-player-data-engine-recovery.md) and
 [release notes](release-notes-v2.101.md).
 
+## v2.102 - Player-backup owner notifications
+
+In progress: route the five existing player-data backup warnings through the
+accepted private IRM/email channel. Agent warnings, thresholds, grouping,
+deduplication and privacy remain covered. Exact component/severity/name tuples
+are checked in both Prometheus and Alertmanager. Existing historical warnings
+are inspected before activation and preserved; no backup or game mutation is
+included. See [scope and gates](v2.102-backup-notifications.md) and
+[release notes](release-notes-v2.102.md).
+
 ## Autonomous client lab - repository tooling
 
 Repository tooling implemented on 2026-10-31: move reusable Windows client runner/controller, signed-update
