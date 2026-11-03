@@ -13,8 +13,8 @@ import time
 
 import fixture_base as base
 
-PLUGIN = '224d38a33fd6ee19c96d6917c748051e5b4fab3642d0256f703f416d6f8c513f'
-DICTIONARY = 'c37970e8c3af420cda33a6d948a9fe6de3c12f63a9470a9c14da3b7045c7fefb'
+PLUGIN = '257f90ba56199d36ed3699d5299b482771d1bd550204946792bdb7276dbcb40d'
+DICTIONARY = '71b1ea3a49331e16e1383817849f04d702ee559c1be11c3e825172f0c5c939b7'
 SDK = '47163830cbb9888e1a8162b7b5054c7118159ec05001059a9cf1d0fec466a43c'
 
 
@@ -105,7 +105,7 @@ def main():
         server.process.stdin.flush()
         time.sleep(1)
         log = server.read_private_log()
-        if b'WEAPON_SELECTION_STATUS version=0.38.0 enabled=1 choices=3 pistol_choices=3 ' not in log:
+        if b'WEAPON_SELECTION_STATUS version=0.39.0 enabled=1 choices=3 pistol_choices=3 ' not in log:
             raise RuntimeError('Pinned addon did not report ready')
         if any(p.name.startswith('error_') for p in (fixture / 'cstrike/addons/amxmodx/logs').glob('*')):
             raise RuntimeError('AMXX error file exists')

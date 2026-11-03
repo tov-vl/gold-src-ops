@@ -35,9 +35,12 @@ The package was not rebuilt and the installed workflow was not replaced.
 
 Seven completed client requests were archived with all raw results and image
 references preserved, unchanged runner code and zero game processes. Real-client
-RU/EN acceptance remains held while Steam is occupied. Gameplay, storage formats
-and application services are preserved. Technical delivery is accepted; refresh
-the changed fixture/profile baseline and complete native checks against 0.39.0
-after Steam is available. The original failed operation must not be replayed.
+RU/EN acceptance resumed after the owner confirmed Steam free. Fresh profile
+captures were visually reviewed for both languages, showing the full default
+MP5 + USP and localized connection-only wording without clipping. Fixture pins
+now require 0.39.0; only the two profile baseline hashes change. Signed adoption
+and fresh OK/alias/returned-controls checks remain pending. Gameplay, storage
+formats and application services are preserved. Technical delivery is accepted.
+The original failed operation must not be replayed.
 The complete release remains open; see
 [scope and gates](v2.100-profile-loadout.md).
