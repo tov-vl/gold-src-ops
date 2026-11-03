@@ -565,7 +565,7 @@ namespace GsoLab.Interaction
 
 namespace GsoLab.Interaction
 {
-    // Fixed visual profile for the retained 1920x1200 v2.99 fixture only.
+    // Fixed visual profiles for the retained 1920x1200 fixture content only.
     public sealed class FrameObservation
     {
         public string BodySha256 { get; internal set; }
@@ -650,8 +650,8 @@ namespace GsoLab.Interaction
                         "671EEE8068DB22686A7CB78219EC7ED62EA8C3BEF797BEF7948D636BB1DDAA98";
                 case "profile":
                     return string.Equals(language, "en", StringComparison.Ordinal) ?
-                        "787DE4A1C1C3EC8A337B76193917F253FB2FDE26CEDAE8C3612C255C6FF6FC07" :
-                        "DAC7E72E928BA219A04F69221D02FCE5445F4211CFA4C63889C815246828925B";
+                        "A9B8D991F88C77EB280EC344153B026AD4C41E842B10BB7552D4C3B7A0C0ED47" :
+                        "35818C10990551B35B5D06FEE3A576466B70A522358431BAC2BB311EA654B866";
                 case "topall":
                     return string.Equals(language, "en", StringComparison.Ordinal) ?
                         "6095B3D59FB2C79C7F38A4D1BBC03FCCD57939E95852B3C0B03E9FFC2002E885" :

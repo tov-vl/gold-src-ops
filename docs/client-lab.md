@@ -22,9 +22,10 @@ flowchart LR
 ## Supported scope
 
 - Protocol 2, runner revision 16, manual lease, Windows PowerShell 5.1 worker.
-- Fixed client area 1920x1200; the current MOTD pixel profiles are tied to addon
-  0.38.0 and reviewed RU/EN content. Different text, fonts, layout or
-  dimensions require a new reviewed profile and real-client evidence.
+- Fixed client area 1920x1200. Fixture generation pins addon 0.39.0. The profile
+  pixel baselines are refreshed from reviewed 0.39.0 RU/EN captures; other MOTD
+  profiles retain their unchanged reviewed content. Different text, fonts,
+  layout or dimensions require a new reviewed profile and real-client evidence.
 - Autonomous `/rules`, `/ranks`, `/profile` and `/topall` interaction: capture, guarded OK, returned movement,
   reopening with the alternate alias, guarded final OK and returned movement.
   Five native frames are retained. A successful result remains
@@ -46,7 +47,10 @@ API or the production game addon. PvP behavior, real player activity, 24-hour
 aggregation and verification of the renderer remain separate acceptance gates.
 
 The fixed `/profile` fixture uses a LAN identity with unavailable saved results
-and zero connection/map counters. `/topall` uses exactly three synthetic stored
+and zero connection/map counters. With addon 0.39.0 it also shows the default
+next-spawn MP5 + USP and connection-only wording. Native saved-record variants
+and other weapon pairs are outside this fixed visual profile; their product
+behavior has separate engine coverage. `/topall` uses exactly three synthetic stored
 rows (Lab Alpha, Lab Bravo and Lab Charlie), including distinct ranks, kills and
 deaths; the connected client's saved place is unavailable. No identity is forged
 and no real player data is imported. These profiles do not cover arbitrary live
