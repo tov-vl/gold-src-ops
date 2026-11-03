@@ -2,10 +2,9 @@
 
 ## Scope and status
 
-Prepared as a separate R3 recovery on 2026-11-03. Local implementation and
-synthetic verification do not authorize a production ledger mutation. The
-previously accepted diagnostic-file recovery remains separate. This work does
-not install an addon, change gameplay, create a snapshot or run Steam.
+Accepted on the target as a separately owner-approved R3 recovery on 2026-11-03.
+The previously accepted diagnostic-file recovery remains separate. This work
+did not install an addon, change gameplay, create a snapshot or run Steam.
 
 An interrupted weekly attempt can retain a started claim while a later game-host
 restart prevents the existing no-capture proof. Current absence cannot establish
@@ -44,10 +43,38 @@ tests and 20 monitor tests in an isolated Linux container without network;
 24 backup alert-rule scenarios and the complete pinned telemetry/dashboard
 rehearsal. The Windows test process used the existing Linux image's Moscow
 timezone data through a process-local path. No package or system change was
-needed. The full .NET gate, InspectCode and hosted CI were not run; no C# or
-application behavior changed, and hosted delivery has not started.
+needed. No C# changed; InspectCode and the complete local .NET gate were not
+run. Hosted Quality Gate and all other required product checks passed in
+[PR #459](https://github.com/tov-vl/gold-src-ops/pull/459). The accepted merge
+tree equals the reviewed source tree. The independent
+[main CI](https://github.com/tov-vl/gold-src-ops/actions/runs/41601854312)
+is recorded separately from local and target evidence; final delivery closure
+requires both it and the documentation PR checks to pass.
 
-Production installation, one exact old-slot close and independent target
-acceptance require a separate owner decision on the frozen recovery plan.
-No production backup record has been changed by this preparation. A fresh
-manual copy, if selected later, is a separate capture/archive/readback operation.
+Six frozen control-plane files were installed with readers before the writer.
+The installed policy had a prior lock-return difference, which was preserved;
+that exact target variant also passed all 74 Linux tests. Two advancing ordinary
+monitor samples read the unchanged old ledger before closure.
+
+One close completed at 08:19:37 UTC on 2026-11-03. Independent acceptance at
+08:22:44 UTC confirmed the retained original bytes and proof, absent pending,
+validated old-slot replay prevention and the unchanged last-success record.
+The public game state remained current/online, all ten control-plane containers
+retained their identities/start times, and game/agent identities, baseline files
+and fresh idle agent cycles were preserved. No service reset or restart ran.
+
+The provisioned dashboard exposes the yellow code-9 mapping. The real failed
+service still yields code 6, `service_failed=1` and
+`PlayerBackupInterventionRequired`. `requires_reconciliation=0` reflects closure
+of the old claim only. The retained copy remains stale (`fresh=0`), and
+`PlayerBackupCopyUnavailable` remains firing. No alert was reset or suppressed.
+
+One read-only verifier initially assumed root ownership of the existing Grafana
+secret. Its observed container UID ownership and read-only mode were pinned
+instead; the corrected acceptance passed without permission, credential or
+runtime changes. The close command was never repeated.
+
+The next separate gate is a fresh manual player-data copy with an empty-server
+maintenance window, off-host Archive/Recover verification and registration.
+Closure of an uncertain attempt does not satisfy backup freshness or authorize
+a fresh capture. The pending addon installation remains held on that gate.

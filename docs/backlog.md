@@ -4629,10 +4629,19 @@ persistence, PvP and activity checks remain separate. See the
 
 ## Separate recovery - uncertain weekly player backup
 
-Prepared locally on 2026-11-03: `closed-uncertain` closes a reviewed old started
-claim after a later game-host restart without claiming no capture or backup
-success. Original bytes and copy age remain intact; failed-service and stale-copy
-warnings remain visible. Reader, writer, dashboard mapping and isolated fixtures
-share the contract. Production mutation and any fresh manual backup require
-their own bounded decision. This recovery does not change the pending addon or
-client-acceptance scope. See the [recovery record](player-backup-uncertain-recovery.md).
+Target acceptance completed on 2026-11-03 after the owner's separate R3 decision
+and [product PR #459](https://github.com/tov-vl/gold-src-ops/pull/459).
+`closed-uncertain` closed one reviewed old started claim after a later restart
+without claiming no capture or backup success. Exact original bytes and copy
+age remain intact; old-slot replay was independently rejected as a new capture.
+Readers preceded the writer, two ordinary monitor samples advanced, and
+Grafana loaded the new mapping. Game/agent identities, accepted baseline and
+all ten control-plane containers were preserved without restarts.
+
+The failed-service and stale-copy warnings remain visible. A fresh manual copy
+with Archive/Recover verification and registration is the next separate gate;
+the addon remains held. Local evidence is 74 Linux tests (also repeated for the
+exact target variant), 24 backup-rule cases and the complete pinned telemetry
+rehearsal. Product required CI passed; main/evidence CI are separate closure
+checks. This recovery does not change client-acceptance scope. See the
+[recovery record](player-backup-uncertain-recovery.md).
