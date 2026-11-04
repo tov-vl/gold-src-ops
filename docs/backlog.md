@@ -4446,16 +4446,23 @@ byte identity during the running-game window is not claimed. See
 
 ## v2.105 - Game-host RAM and CPU monitoring
 
-Implemented locally: passive host MemAvailable/total RAM, swap and bounded sampled CPU
+Implemented and accepted on 2026-11-04: passive host MemAvailable/total RAM, swap and bounded sampled CPU
 work/steal through the existing SSH/private OTLP path. Independent memory/CPU
 availability and freshness gates prevent stale facts appearing current. A new
 private dashboard and three held warnings cover monitor availability, invalid
 observations and low RAM; CPU/swap have no alert thresholds. No game/agent
-restart, live stress, player-data or addon change. The new fixed read command
-requires an explicit permission decision before rollout. Sixteen focused cases,
+restart, live stress, player-data or addon change. The owner approved the new
+fixed read command. Sixteen focused cases,
 six dashboard lifecycle cases, 23 policy scenarios, the complete private telemetry
-stack and 106 notification routing combinations passed locally. Required CI,
-immutable publication and target acceptance remain separate gates.
+stack and 106 notification routing combinations passed locally. PR #473 and full
+PR/main CI passed. Independent target acceptance checked 22 ordinary samples,
+nine dashboard queries, three healthy rules and preserved old runtime/data/
+guards. The first operator-only canary failed before any POST; retained evidence
+and a corrected separately claimed execution established firing/resolved and
+provider email sending. Inbox receipt is not claimed. Signed
+[stable v2.105.0](https://github.com/tov-vl/gold-src-ops/releases/tag/game-resource-monitor-v2.105.0)
+reuses accepted candidate bytes. Application latest and addon remain unchanged;
+the historical backup warning stays visible.
 See [scope and gates](v2.105-game-resource-monitor.md) and
 [release notes](release-notes-v2.105.md).
 
