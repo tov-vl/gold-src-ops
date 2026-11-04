@@ -4428,6 +4428,18 @@ stable 2.103.0 reuses accepted candidate bytes. See
 [scope and gates](v2.103-agent-health-publication.md) and
 [release notes](release-notes-v2.103.md).
 
+## v2.104 - Game-host storage monitoring
+
+In progress: passive available bytes/inodes for fixed queue, spool, players and
+backup roles, a freshness-gated Grafana dashboard and four held warnings through
+the existing owner channel. No paths/device names, automatic cleanup, queue or
+gameplay mutation. Existing agent/backup contracts are preserved. Local failure,
+threshold/recovery, telemetry and notification checks precede immutable package
+publication and a separately approved fixed SSH read capability. Production
+acceptance and stable promotion remain pending. See
+[scope and gates](v2.104-game-storage-monitor.md) and
+[release notes](release-notes-v2.104.md).
+
 ## Autonomous client lab - repository tooling
 
 Repository tooling implemented on 2026-10-31: move reusable Windows client runner/controller, signed-update

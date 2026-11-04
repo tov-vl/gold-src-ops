@@ -1,0 +1,65 @@
+groups:
+  - name: goldsrcops-game-host-storage
+    rules:
+      - record: goldsrcops_storage:policy_evaluated_timestamp_seconds
+        expr: |
+          time()
+      - record: goldsrcops_storage:monitor_live
+        expr: |
+          (max(goldsrcops_game_host_storage_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) >= time() - 180) and (max(goldsrcops_game_host_storage_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) <= time())
+      - record: goldsrcops_storage:observation_valid
+        expr: |
+          (max(goldsrcops_game_host_storage_observation_success{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) == 1) and goldsrcops_storage:monitor_live and (max(goldsrcops_game_host_storage_source_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) >= time() - 180) and (max(goldsrcops_game_host_storage_source_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) <= time())
+      - record: goldsrcops_storage:role_valid
+        expr: |
+          (max by(role) (goldsrcops_game_host_storage_role_available{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) == 1) and on() goldsrcops_storage:observation_valid
+      - record: goldsrcops_storage:bytes_ratio
+        expr: |
+          (max by(role) (goldsrcops_game_host_storage_bytes_available{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) / max by(role) (goldsrcops_game_host_storage_bytes_total{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"})) and on(role) goldsrcops_storage:role_valid
+      - record: goldsrcops_storage:inodes_ratio
+        expr: |
+          (max by(role) (goldsrcops_game_host_storage_inodes_available{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) / max by(role) (goldsrcops_game_host_storage_inodes_total{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"})) and on(role) goldsrcops_storage:role_valid and on(role) (max by(role) (goldsrcops_game_host_storage_inodes_supported{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) == 1)
+      - alert: GameHostStorageMonitorUnavailable
+        expr: |
+          absent(goldsrcops_storage:monitor_live)
+        for: 5m
+        labels:
+          severity: warning
+          component: game-host-storage
+        annotations:
+          summary: "Нет свежих наблюдений места на игровом хосте"
+          description: "Нет heartbeat за 180 секунд; условие держится 5 минут. Проверьте timer, SSH и Collector. Свободное место неизвестно."
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.104-game-storage-monitor.md"
+      - alert: GameHostStorageObservationInvalid
+        expr: |
+          (absent(goldsrcops_storage:observation_valid) and goldsrcops_storage:monitor_live) or ((min(goldsrcops_game_host_storage_role_available{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) == 0) and goldsrcops_storage:observation_valid) or ((count(max by(role) (goldsrcops_game_host_storage_role_available{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"})) != 4) and goldsrcops_storage:observation_valid)
+        for: 5m
+        labels:
+          severity: warning
+          component: game-host-storage
+        annotations:
+          summary: "Наблюдение хранилища неполно или невалидно"
+          description: "Observer работает, но снимок невалиден либо один из фиксированных каталогов недоступен. Не считайте старые значения текущими."
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.104-game-storage-monitor.md"
+      - alert: GameHostStorageBytesLow
+        expr: |
+          (min(goldsrcops_storage:bytes_ratio) < 0.10) or (min((goldsrcops_game_host_storage_bytes_available{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) and on(role) goldsrcops_storage:role_valid) < 2147483648)
+        for: 5m
+        labels:
+          severity: warning
+          component: game-host-storage
+        annotations:
+          summary: "Мало свободного места на игровом хосте"
+          description: "Доступно менее 10 процентов или 2 GiB в одной из ролей более 5 минут. Зарезервированные root-блоки не считаются доступными. Автоматической очистки нет."
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.104-game-storage-monitor.md"
+      - alert: GameHostStorageInodesLow
+        expr: |
+          (min(goldsrcops_storage:inodes_ratio) < 0.10) or (min((goldsrcops_game_host_storage_inodes_available{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) and on(role) goldsrcops_storage:role_valid and on(role) (max by(role) (goldsrcops_game_host_storage_inodes_supported{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) == 1)) < 10000)
+        for: 5m
+        labels:
+          severity: warning
+          component: game-host-storage
+        annotations:
+          summary: "Мало свободных inode на игровом хосте"
+          description: "Доступно менее 10 процентов или 10000 inode более 5 минут. Неподдерживаемый учет inode не считается заполненным диском. Автоматической очистки нет."
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.104-game-storage-monitor.md"
