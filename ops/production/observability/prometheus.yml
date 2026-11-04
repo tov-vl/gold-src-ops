@@ -8,11 +8,12 @@ rule_files:
   - /etc/prometheus/rules/public-leaderboard.yml
   - /etc/prometheus/rules/web-public-api.yml
   - /etc/prometheus/rules/game-event-agent.yml
+  - /etc/prometheus/rules/game-host-storage.yml
 
 alerting:
   alert_relabel_configs:
     - source_labels: [component, severity, alertname]
-      regex: game-event-agent;warning;GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)|player-backup;warning;PlayerBackup(MonitorUnavailable|ObservationInvalid|InterventionRequired|ScheduleProblem|CopyUnavailable)
+      regex: game-event-agent;warning;GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)|player-backup;warning;PlayerBackup(MonitorUnavailable|ObservationInvalid|InterventionRequired|ScheduleProblem|CopyUnavailable)|game-host-storage;warning;GameHostStorage(MonitorUnavailable|ObservationInvalid|BytesLow|InodesLow)
       action: keep
     - regex: alertname|component|severity
       action: labelkeep

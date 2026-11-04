@@ -485,10 +485,13 @@ jobs:
           bash -n ./ops/gameserver/addon-upgrade-guard.sh
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor.py
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/storage-monitor.py
           sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py
           sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py --alerts
+          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py --storage
           systemd-analyze verify ./ops/production/systemd/goldsrcops-player-data-monitor.service ./ops/production/systemd/goldsrcops-player-data-monitor.timer
           systemd-analyze verify ./ops/production/systemd/goldsrcops-game-event-agent-monitor.service ./ops/production/systemd/goldsrcops-game-event-agent-monitor.timer
+          systemd-analyze verify ./ops/production/systemd/goldsrcops-game-host-storage-monitor.service ./ops/production/systemd/goldsrcops-game-host-storage-monitor.timer
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor-stack.py
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/owner-notifications.py
           sudo bash ./tools/smoke/player-data-schedule.sh

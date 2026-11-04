@@ -16,8 +16,11 @@ PYTHON = 'python:3.12-alpine@sha256:5789aa194f757888f41fa3d48e14b6feaa1b57c0af0b
 ALERTS = ['GameEventAgentMonitorUnavailable', 'GameEventAgentObservationInvalid',
           'GameEventAgentWorkerProblem', 'GameEventAgentQueueDelayed', 'GameEventAgentSpoolProblem',
           'PlayerBackupMonitorUnavailable', 'PlayerBackupObservationInvalid',
-          'PlayerBackupInterventionRequired', 'PlayerBackupScheduleProblem', 'PlayerBackupCopyUnavailable']
-COMPONENTS = {name: 'player-backup' if name.startswith('PlayerBackup') else 'game-event-agent' for name in ALERTS}
+          'PlayerBackupInterventionRequired', 'PlayerBackupScheduleProblem', 'PlayerBackupCopyUnavailable',
+          'GameHostStorageMonitorUnavailable','GameHostStorageObservationInvalid',
+          'GameHostStorageBytesLow','GameHostStorageInodesLow']
+COMPONENTS = {name: 'game-host-storage' if name.startswith('GameHostStorage') else
+              'player-backup' if name.startswith('PlayerBackup') else 'game-event-agent' for name in ALERTS}
 SAFE = ['--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '64']
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 SERVER = '''
@@ -90,7 +93,7 @@ def check_projection(payload, state):
     row = payload['alerts'][0]
     assert set(row) == {'status', 'labels', 'annotations', 'startsAt', 'endsAt', 'fingerprint'}
     assert row['status'] == state and row['labels'] == labels
-    runbook = 'game-player-data-monitoring.md' if COMPONENTS[name] == 'player-backup' else 'v2.97-agent-alerts.md'
+    runbook = 'v2.104-game-storage-monitor.md' if COMPONENTS[name] == 'game-host-storage' else 'game-player-data-monitoring.md' if COMPONENTS[name] == 'player-backup' else 'v2.97-agent-alerts.md'
     annotations = {'summary': 'GoldSrcOps - ' + name,
                    'runbook_url': 'https://github.com/tov-vl/gold-src-ops/blob/main/docs/' + runbook}
     assert payload['commonAnnotations'] == annotations and row['annotations'] == annotations
@@ -111,12 +114,12 @@ def check_prometheus(temporary, prefix, containers):
     for name in ALERTS:
         component = COMPONENTS[name]
         for candidate_component, severity in ((component, 'warning'), ('unrelated', 'warning'),
-                ('player-backup' if component == 'game-event-agent' else 'game-event-agent', 'warning'),
+                *[(other,'warning') for other in set(COMPONENTS.values()) if other != component],
                 (component, 'critical')):
             rules.append({'alert': name, 'expr': 'vector(1)',
                           'labels': {'component': candidate_component, 'severity': severity,
                                      'private_host': 'fixture-secret-host'}})
-    for component in ('game-event-agent', 'player-backup'):
+    for component in sorted(set(COMPONENTS.values())):
         rules.append({'alert': 'UnrelatedWarning', 'expr': 'vector(1)',
                       'labels': {'component': component, 'severity': 'warning'}})
     path = temporary / 'routing-rules.json'
@@ -156,7 +159,7 @@ def check_prometheus(temporary, prefix, containers):
     assert {(r['labels']['alertname'], r['labels']['component']) for r in rows} == set(COMPONENTS.items())
     assert all(set(r['labels']) == {'alertname', 'component', 'severity'} and r['labels']['severity'] == 'warning'
                for r in rows)
-    print('OWNER_PROMETHEUS_ROUTING=42_inputs_10_allowed_exact_component_pairs_no_private_labels_passed', flush=True)
+    print('OWNER_PROMETHEUS_ROUTING=' + str(len(rules)) + '_inputs_' + str(len(ALERTS)) + '_allowed_exact_component_pairs_no_private_labels_passed', flush=True)
 
 
 def main():
@@ -229,7 +232,7 @@ def main():
             invalid = [alert('UnrelatedWarning')]
             for name in ALERTS:
                 for component, severity in (('unrelated', 'warning'),
-                        ('game-event-agent' if COMPONENTS[name] == 'player-backup' else 'player-backup', 'warning'),
+                        *[(other,'warning') for other in set(COMPONENTS.values()) if other != COMPONENTS[name]],
                         (COMPONENTS[name], 'critical')):
                     invalid.append(dict(alert(name), labels={'alertname': name, 'component': component, 'severity': severity}))
             request(am_url + '/api/v2/alerts', invalid)
@@ -274,7 +277,7 @@ def main():
             time.sleep(3)
             assert len(request(sink_url)) == len(resolved)
             check_prometheus(temporary, prefix, containers)
-            print('OWNER_NOTIFICATIONS=compose_ten_firing_ten_resolved_retry_dedup_reload_restart_privacy_passed', flush=True)
+            print('OWNER_NOTIFICATIONS=compose_' + str(len(ALERTS)) + '_firing_resolved_retry_dedup_reload_restart_privacy_passed', flush=True)
         except Exception:
             for name in containers:
                 result = subprocess.run(['docker', 'logs', '--tail', '12', name], capture_output=True,

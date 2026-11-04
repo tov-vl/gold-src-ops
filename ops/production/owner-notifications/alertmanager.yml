@@ -12,6 +12,11 @@ route:
   routes:
     - receiver: owner-email
       matchers:
+        - component="game-host-storage"
+        - severity="warning"
+        - alertname=~"GameHostStorage(MonitorUnavailable|ObservationInvalid|BytesLow|InodesLow)"
+    - receiver: owner-email
+      matchers:
         - component="game-event-agent"
         - severity="warning"
         - alertname=~"GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)"
@@ -46,11 +51,11 @@ receivers:
             severity: warning
           commonAnnotations:
             summary: 'GoldSrcOps - {{ .GroupLabels.alertname }}'
-            runbook_url: '{{ if eq .CommonLabels.component "player-backup" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/game-player-data-monitoring.md{{ else }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md{{ end }}'
+            runbook_url: '{{ if eq .CommonLabels.component "game-host-storage" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.104-game-storage-monitor.md{{ else if eq .CommonLabels.component "player-backup" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/game-player-data-monitoring.md{{ else }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md{{ end }}'
           externalURL: https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.98-owner-notifications.md
           alerts: >-
             {{ $safe := list }}{{ range .Alerts }}
-            {{ $runbook := "v2.97-agent-alerts.md" }}{{ if eq .Labels.component "player-backup" }}{{ $runbook = "game-player-data-monitoring.md" }}{{ end }}
+            {{ $runbook := "v2.97-agent-alerts.md" }}{{ if eq .Labels.component "player-backup" }}{{ $runbook = "game-player-data-monitoring.md" }}{{ else if eq .Labels.component "game-host-storage" }}{{ $runbook = "v2.104-game-storage-monitor.md" }}{{ end }}
             {{ $safe = append $safe (dict "status" .Status
             "labels" (dict "alertname" .Labels.alertname "component" .Labels.component "severity" "warning")
             "annotations" (dict "summary" (printf "GoldSrcOps - %s" .Labels.alertname)
