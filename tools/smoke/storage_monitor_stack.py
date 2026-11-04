@@ -51,6 +51,7 @@ def fixtures():
     case('future-source',{'source_observed_timestamp_seconds':'99999+0x30'},[(5,[invalid])])
     case('unavailable-role-suppresses-retained-capacity',{'role_available:queue':'0+0x30','bytes_available:queue':'0+0x30'},[(5,[invalid])])
     case('missing-role',{'role_available:queue':None},[(5,[invalid])])
+    case('all-role-availability-missing',{ 'role_available:'+role:None for role in ROLES},[(5,[invalid])])
     case('bytes-exact-10-percent-and-2gib-are-healthy',{'bytes_total:queue':str(20*1024**3)+'+0x30','bytes_available:queue':str(2*1024**3)+'+0x30'},[(20,[])])
     case('bytes-relative-low',{'bytes_available:queue':str(9*1024**3)+'+0x30'},[(4,[]),(5,[space])])
     case('bytes-absolute-low',{'bytes_total:queue':str(4*1024**3)+'+0x30','bytes_available:queue':str(1024**3)+'+0x30'},[(5,[space])])

@@ -32,7 +32,7 @@ groups:
           runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.104-game-storage-monitor.md"
       - alert: GameHostStorageObservationInvalid
         expr: |
-          (absent(goldsrcops_storage:observation_valid) and goldsrcops_storage:monitor_live) or ((min(goldsrcops_game_host_storage_role_available{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) == 0) and goldsrcops_storage:observation_valid) or ((count(max by(role) (goldsrcops_game_host_storage_role_available{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"})) != 4) and goldsrcops_storage:observation_valid)
+          (absent(goldsrcops_storage:observation_valid) and goldsrcops_storage:monitor_live) or ((min(goldsrcops_game_host_storage_role_available{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"}) == 0) and goldsrcops_storage:observation_valid) or (((count(max by(role) (goldsrcops_game_host_storage_role_available{job="goldsrcops",service_name="goldsrcops-game-host-storage-monitor"})) or vector(0)) != 4) and goldsrcops_storage:observation_valid)
         for: 5m
         labels:
           severity: warning
