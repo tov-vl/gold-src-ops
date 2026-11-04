@@ -4416,14 +4416,16 @@ See [scope and gates](v2.102-backup-notifications.md) and
 
 ## v2.103 - Agent health publication recovery
 
-In progress: unique sibling temporary files prevent old interrupted diagnostic
+Completed on 2026-11-04: unique sibling temporary files prevent old interrupted diagnostic
 writes from blocking future health snapshots. Existing health/status schema,
 freshness, queue and delivery contracts are preserved. Repeated agent upgrades
 recognize the exact installed pending gate and retain unchanged reference bytes/
 inodes; unknown or duplicated gates refuse preparation. The full local .NET
-Quality Gate, scoped inspection and 12 Linux upgrade cases passed. Remaining
-gates are complete CI, immutable package, agent-only target acceptance and
-stable promotion. See [scope and gates](v2.103-agent-health-publication.md) and
+Quality Gate, scoped inspection, 12 Linux upgrade cases, full PR/main CI and
+actual Linux package checks passed. Agent-only production acceptance preserved
+the game and queue, confirmed advancing idle health and fresh monitoring. Signed
+stable 2.103.0 reuses accepted candidate bytes. See
+[scope and gates](v2.103-agent-health-publication.md) and
 [release notes](release-notes-v2.103.md).
 
 ## Autonomous client lab - repository tooling
