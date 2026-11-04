@@ -7,14 +7,20 @@ namespace GoldSrcOps.UnitTests.GameEventAgent;
 
 public sealed class GameEventAgentWorkerHealthTests
 {
-    [Fact]
-    public async Task Idle_import_loop_reports_progress_without_rounds_and_stops_cleanly()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Idle_import_loop_reports_progress_without_rounds_and_stops_cleanly(bool interruptedSnapshot)
     {
         using var database = new TemporaryAgentDatabase();
         using var spool = new TemporaryAgentSpool();
         var options = new GameEventAgentOptions(database.CreateOptions(), spool.CreateOptions(enabled: true), Delivery: null);
         var outbox = new SqliteGameEventOutbox(options.Queue);
         outbox.Initialize();
+        if (interruptedSnapshot)
+        {
+            await File.WriteAllTextAsync(GameEventAgentHealth.PathFor(options) + ".tmp", "interrupted-snapshot");
+        }
         var clock = new TestTimeProvider(GameEventAgentTestData.NowUtc);
         var health = new GameEventAgentHealth(options, clock, NullLogger<GameEventAgentHealth>.Instance);
         using var worker = new GameEventSpoolWorker(new GameEventSpoolImporter(options.Spool, outbox, clock),
@@ -27,6 +33,10 @@ public sealed class GameEventAgentWorkerHealthTests
         result.Health.Import.State.Should().Be("stopped");
         result.Health.Import.Cycle!.Outcome.Should().Be("idle");
         result.Health.Import.Cycle.LastSuccessfulAtUtc.Should().Be(clock.UtcNow);
+        if (interruptedSnapshot)
+        {
+            (await File.ReadAllTextAsync(GameEventAgentHealth.PathFor(options) + ".tmp")).Should().Be("interrupted-snapshot");
+        }
     }
 
     [Fact]

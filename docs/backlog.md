@@ -4414,6 +4414,18 @@ No separate recovery email or whole-monitoring-host outage coverage is claimed.
 See [scope and gates](v2.102-backup-notifications.md) and
 [release notes](release-notes-v2.102.md).
 
+## v2.103 - Agent health publication recovery
+
+In progress: unique sibling temporary files prevent old interrupted diagnostic
+writes from blocking future health snapshots. Existing health/status schema,
+freshness, queue and delivery contracts are preserved. Repeated agent upgrades
+recognize the exact installed pending gate and retain unchanged reference bytes/
+inodes; unknown or duplicated gates refuse preparation. The full local .NET
+Quality Gate, scoped inspection and 12 Linux upgrade cases passed. Remaining
+gates are complete CI, immutable package, agent-only target acceptance and
+stable promotion. See [scope and gates](v2.103-agent-health-publication.md) and
+[release notes](release-notes-v2.103.md).
+
 ## Autonomous client lab - repository tooling
 
 Repository tooling implemented on 2026-10-31: move reusable Windows client runner/controller, signed-update

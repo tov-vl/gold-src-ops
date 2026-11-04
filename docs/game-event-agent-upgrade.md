@@ -15,7 +15,10 @@ the ZIP and independently transported SHA-256. Never overwrite a package.
 Stage the frozen `ops/gameserver/agent-upgrade.py` root-owned, together with the
 package (0600) in a protected operator directory. The transition records the
 installed scheduled-capture consumer and adds its pending-agent gate before
-changing runtime references. An interrupted transition also blocks scheduled
+changing runtime references on a legacy installation. Subsequent upgrades require
+the exact existing gate, retain it without duplication, and preserve the bytes
+and inode of unchanged references during apply and rollback. Unknown or duplicated
+gates refuse preparation. An interrupted transition also blocks scheduled
 backup capture. Its prior bytes and hash are part of the rollback plan. The
 current addon-upgrade consumer also refuses a pending agent claim. No new privilege,
 secret or remote API is introduced.
