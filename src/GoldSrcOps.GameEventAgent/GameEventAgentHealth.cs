@@ -52,7 +52,8 @@ internal sealed partial class GameEventAgentHealth
             _record = import
                 ? _record with { Import = update(_record.Import, nowUtc) }
                 : _record with { Delivery = update(_record.Delivery, nowUtc) };
-            var temporary = PathFor(_options) + ".tmp";
+            var path = PathFor(_options);
+            var temporary = $"{path}.{Guid.NewGuid():N}.tmp";
             var created = false;
             try
             {
@@ -62,7 +63,7 @@ internal sealed partial class GameEventAgentHealth
                     JsonSerializer.Serialize(stream, _record, GameEventJson.SerializerOptions);
                 }
 
-                File.Move(temporary, PathFor(_options), overwrite: true);
+                File.Move(temporary, path, overwrite: true);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {

@@ -120,24 +120,156 @@ public sealed class GameEventAgentHealthTests
         Directory.Exists(Path.GetDirectoryName(database.DatabasePath)).Should().BeFalse();
     }
 
-    [Fact]
-    public void A_preexisting_temporary_record_is_preserved_and_does_not_accumulate_files()
+    [Theory]
+    [InlineData("")]
+    [InlineData("interrupted-record")]
+    [InlineData("{\"schemaVersion\":")]
+    public void Preexisting_temporary_records_are_preserved_without_blocking_fresh_snapshots(string interrupted)
     {
         using var database = new TemporaryAgentDatabase();
         using var spool = new TemporaryAgentSpool();
         var options = new GameEventAgentOptions(database.CreateOptions(), spool.CreateOptions(enabled: true), Delivery: null);
         new SqliteGameEventOutbox(options.Queue).Initialize();
         var path = GameEventAgentHealth.PathFor(options);
-        File.WriteAllText(path + ".tmp", "interrupted-record");
-        var health = new GameEventAgentHealth(options, new TestTimeProvider(GameEventAgentTestData.NowUtc),
-            NullLogger<GameEventAgentHealth>.Instance);
+        var previousAttempt = path + ".0123456789abcdef0123456789abcdef.tmp";
+        File.WriteAllText(path + ".tmp", interrupted);
+        File.WriteAllText(previousAttempt, interrupted);
+        var clock = new TestTimeProvider(GameEventAgentTestData.NowUtc);
+        var health = new GameEventAgentHealth(options, clock, NullLogger<GameEventAgentHealth>.Instance);
 
+        for (var cycle = 0; cycle < 20; cycle++)
+        {
+            health.RecordStart(import: true);
+            health.RecordCompletion(import: true, "idle");
+            GameEventAgentHealth.Read(options, clock.UtcNow).Import.State.Should().Be("running");
+            clock.UtcNow += TimeSpan.FromSeconds(1);
+        }
+
+        File.ReadAllText(path + ".tmp").Should().Be(interrupted);
+        File.ReadAllText(previousAttempt).Should().Be(interrupted);
+        Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp").Should().BeEquivalentTo(path + ".tmp", previousAttempt);
+        GameEventAgentHealth.Read(options, clock.UtcNow).Import.Cycle!.LastSuccessfulAtUtc.Should().Be(clock.UtcNow.AddSeconds(-1));
+    }
+
+    [Fact]
+    public void Failed_replacement_cleans_only_its_own_temporary_file_and_next_cycle_recovers()
+    {
+        using var database = new TemporaryAgentDatabase();
+        using var spool = new TemporaryAgentSpool();
+        var options = new GameEventAgentOptions(database.CreateOptions(), spool.CreateOptions(enabled: true), Delivery: null);
+        new SqliteGameEventOutbox(options.Queue).Initialize();
+        var path = GameEventAgentHealth.PathFor(options);
+        Directory.CreateDirectory(path);
+        File.WriteAllText(path + ".tmp", "preserved-evidence");
+        var clock = new TestTimeProvider(GameEventAgentTestData.NowUtc);
+        var health = new GameEventAgentHealth(options, clock, NullLogger<GameEventAgentHealth>.Instance);
+
+        var failed = () => health.RecordCompletion(import: true, "idle");
+        failed.Should().NotThrow();
+        Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp").Should().Equal(path + ".tmp");
+        File.ReadAllText(path + ".tmp").Should().Be("preserved-evidence");
+        GameEventAgentHealth.Read(options, clock.UtcNow).Import.State.Should().Be("unavailable");
+
+        Directory.Delete(path);
+        clock.UtcNow += TimeSpan.FromSeconds(1);
         health.RecordStart(import: true);
         health.RecordCompletion(import: true, "idle");
 
-        File.ReadAllText(path + ".tmp").Should().Be("interrupted-record");
-        File.Exists(path).Should().BeFalse();
-        Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp").Should().ContainSingle();
+        GameEventAgentHealth.Read(options, clock.UtcNow).Import.State.Should().Be("running");
+        Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp").Should().Equal(path + ".tmp");
+    }
+
+    [Fact]
+    public void Missing_parent_preserves_last_snapshot_and_publication_recovers_after_it_returns()
+    {
+        using var database = new TemporaryAgentDatabase();
+        using var spool = new TemporaryAgentSpool();
+        var options = new GameEventAgentOptions(database.CreateOptions(), spool.CreateOptions(enabled: true), Delivery: null);
+        new SqliteGameEventOutbox(options.Queue).Initialize();
+        var clock = new TestTimeProvider(GameEventAgentTestData.NowUtc);
+        var health = new GameEventAgentHealth(options, clock, NullLogger<GameEventAgentHealth>.Instance);
+        health.RecordStart(import: true);
+        health.RecordCompletion(import: true, "idle");
+        var path = GameEventAgentHealth.PathFor(options);
+        var original = File.ReadAllBytes(path);
+        var parent = Path.GetDirectoryName(path)!;
+        var unavailable = parent + "-unavailable";
+        Directory.Move(parent, unavailable);
+        try
+        {
+            clock.UtcNow += TimeSpan.FromMinutes(10);
+            var failed = () => health.RecordCompletion(import: true, "failed");
+            failed.Should().NotThrow();
+            Directory.Exists(parent).Should().BeFalse();
+            File.ReadAllBytes(Path.Combine(unavailable, Path.GetFileName(path))).Should().Equal(original);
+        }
+        finally
+        {
+            Directory.Move(unavailable, parent);
+        }
+
+        GameEventAgentHealth.Read(options, clock.UtcNow).Import.State.Should().Be("stale");
+        health.RecordStart(import: true);
+        health.RecordCompletion(import: true, "idle");
+        GameEventAgentHealth.Read(options, clock.UtcNow).Import.State.Should().Be("running");
+        Directory.GetFiles(parent, "*.tmp").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Concurrent_readers_observe_complete_snapshots_during_both_loop_updates()
+    {
+        using var database = new TemporaryAgentDatabase();
+        using var spool = new TemporaryAgentSpool();
+        var options = new GameEventAgentOptions(database.CreateOptions(), spool.CreateOptions(enabled: true),
+            GameEventAgentTestData.CreateDeliveryOptions());
+        new SqliteGameEventOutbox(options.Queue).Initialize();
+        var clock = new TestTimeProvider(GameEventAgentTestData.NowUtc);
+        var health = new GameEventAgentHealth(options, clock, NullLogger<GameEventAgentHealth>.Instance);
+        health.RecordStart(import: true);
+        health.RecordCompletion(import: true, "idle");
+        health.RecordStart(import: false);
+        health.RecordCompletion(import: false, "idle");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var cancellationToken = timeout.Token;
+        var readerReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completed = 0;
+        var reads = 0;
+        var reader = Task.Run(async () =>
+        {
+            readerReady.SetResult();
+            do
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var snapshot = GameEventAgentHealth.Read(options, clock.UtcNow);
+                snapshot.Import.State.Should().Be("running");
+                snapshot.Delivery.State.Should().Be("running");
+                reads++;
+                await Task.Yield();
+            }
+            while (Volatile.Read(ref completed) < 2);
+        }, cancellationToken);
+        await readerReady.Task.WaitAsync(cancellationToken);
+
+        Task Write(bool import) => Task.Run(() =>
+        {
+            try
+            {
+                for (var cycle = 0; cycle < 100; cycle++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    health.RecordStart(import);
+                    health.RecordCompletion(import, "idle");
+                }
+            }
+            finally
+            {
+                Interlocked.Increment(ref completed);
+            }
+        }, cancellationToken);
+
+        await Task.WhenAll(reader, Write(import: true), Write(import: false)).WaitAsync(cancellationToken);
+        reads.Should().BeGreaterThan(1);
+        Directory.GetFiles(Path.GetDirectoryName(database.DatabasePath)!, "*.tmp").Should().BeEmpty();
     }
 
     [Fact]

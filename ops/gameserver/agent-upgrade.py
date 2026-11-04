@@ -234,8 +234,17 @@ def prepare(archive, expected, directory):
     old = {str(p): trusted(p) for p in paths}
     verify_baseline(old[str(paths[5])])
     anchor = b"    pending_addon = ledger.root / 'addon-upgrade-pending.json'\n"
-    require(old[str(CAPTURE)].count(anchor) == 1 and b'agent-upgrade-pending.json' not in old[str(CAPTURE)],
-            'Scheduled capture must match the reviewed legacy boundary.')
+    agent_gate = (b"    pending_agent = ledger.root / 'agent-upgrade-pending.json'\n"
+                  b"    policy.require(not pending_agent.exists() and not pending_agent.is_symlink(),\n"
+                  b"                   'Agent upgrade requires reconciliation before scheduled capture.')\n")
+    capture = old[str(CAPTURE)]
+    require(capture.count(anchor) == 1, 'Scheduled capture anchor must match the reviewed boundary.')
+    if b'agent-upgrade-pending.json' in capture:
+        require(capture.count(b'agent-upgrade-pending.json') == 1 and capture.count(agent_gate + anchor) == 1,
+                'Existing agent gate must match the reviewed boundary.')
+        new_capture = capture
+    else:
+        new_capture = capture.replace(anchor, agent_gate + anchor)
     pilot = pairs(old[str(paths[0])])
     require(HASH.fullmatch(pilot['bundle_sha256']) is not None)
     previous = INSTALL / 'releases' / pilot['bundle_sha256']
@@ -281,10 +290,7 @@ def prepare(archive, expected, directory):
     require(not destination.exists())
     manifest_hash = sha(encode(manifest))
     new = dict(old)
-    new[str(CAPTURE)] = old[str(CAPTURE)].replace(anchor,
-        b"    pending_agent = ledger.root / 'agent-upgrade-pending.json'\n"
-        b"    policy.require(not pending_agent.exists() and not pending_agent.is_symlink(),\n"
-        b"                   'Agent upgrade requires reconciliation before scheduled capture.')\n" + anchor)
+    new[str(CAPTURE)] = new_capture
     new[str(paths[3])] = old[str(paths[3])].replace(str(previous).encode(), str(destination).encode())
     require(new[str(paths[3])] != old[str(paths[3])])
     new[str(paths[0])] = replace_pairs(old[str(paths[0])], {
@@ -338,6 +344,8 @@ def install_refs(plan, direction):
     if direction == 'new':
         entries = entries[-1:] + entries[:-1]
     for item in entries:
+        if item['old'] == item['new']:
+            continue
         atomic(Path(item['path']), base64.b64decode(item[direction], validate=True), item['mode'], item['gid'])
 
 

@@ -170,6 +170,48 @@ class Fixture(unittest.TestCase):
             upgrade.execute(self.directory, plan)
         self.assertEqual(self.actions, [])
 
+    def test_second_upgrade_preserves_existing_capture_gate_and_supports_rollback(self):
+        first = self.prepare()
+        upgrade.execute(self.directory, first)
+        capture = upgrade.CAPTURE.read_bytes()
+        capture_inode = upgrade.CAPTURE.stat().st_ino
+        self.assertEqual(capture.count(b'agent-upgrade-pending.json'), 1)
+        previous = {path: path.read_bytes() for path in upgrade.inventory()}
+        # A distinct artifact is required; the installed immutable release is never reused as a new target.
+        with zipfile.ZipFile(self.archive, 'w') as bundle:
+            payload = b'second binary'
+            candidate = {**self.candidate, 'version': '2.103.0',
+                         'payload': [{**self.candidate['payload'][0], 'length': len(payload), 'sha256': upgrade.sha(payload)}]}
+            bundle.writestr('manifest.json', upgrade.encode(candidate))
+            bundle.writestr(upgrade.BINARY, payload)
+        self.archive_hash = upgrade.sha(self.archive.read_bytes())
+        self.directory = self.root / 'second-transition'
+        second = self.prepare()
+        capture_ref = next(row for row in second['refs'] if row['path'] == str(upgrade.CAPTURE))
+        self.assertEqual(base64.b64decode(capture_ref['old']), capture)
+        self.assertEqual(capture_ref['old'], capture_ref['new'])
+        upgrade.execute(self.directory, second)
+        self.assertEqual(upgrade.CAPTURE.read_bytes(), capture)
+        self.assertEqual(upgrade.CAPTURE.stat().st_ino, capture_inode)
+        self.assertEqual(upgrade.queue_snapshot(), self.queue)
+        upgrade.execute(self.directory, second, rollback=True)
+        self.assertEqual(upgrade.CAPTURE.stat().st_ino, capture_inode)
+        self.assertEqual({path: path.read_bytes() for path in previous}, previous)
+        self.assertFalse((upgrade.STATE / 'agent-upgrade-pending.json').exists())
+
+    def test_unrecognized_or_duplicate_capture_gate_is_rejected_before_staging(self):
+        first = self.prepare()
+        upgrade.execute(self.directory, first)
+        accepted = upgrade.CAPTURE.read_bytes()
+        for raw in (accepted.replace(b'not pending_agent.exists()', b'pending_agent.exists()'), accepted + accepted):
+            upgrade.CAPTURE.write_bytes(raw)
+            self.directory = self.root / 'refused-transition'
+            actions = len(self.actions)
+            with self.assertRaises(ValueError):
+                self.prepare()
+            self.assertFalse(self.directory.exists())
+            self.assertEqual(len(self.actions), actions)
+
     def test_pending_work_refuses_before_prepare(self):
         queue = upgrade.HOME / 'game-event-agent/queue/game-event-agent.db'
         with contextlib.closing(sqlite3.connect(queue)) as connection:
