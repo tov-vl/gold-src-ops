@@ -18,8 +18,10 @@ ALERTS = ['GameEventAgentMonitorUnavailable', 'GameEventAgentObservationInvalid'
           'PlayerBackupMonitorUnavailable', 'PlayerBackupObservationInvalid',
           'PlayerBackupInterventionRequired', 'PlayerBackupScheduleProblem', 'PlayerBackupCopyUnavailable',
           'GameHostStorageMonitorUnavailable','GameHostStorageObservationInvalid',
-          'GameHostStorageBytesLow','GameHostStorageInodesLow']
-COMPONENTS = {name: 'game-host-storage' if name.startswith('GameHostStorage') else
+          'GameHostStorageBytesLow','GameHostStorageInodesLow',
+          'GameHostResourceMonitorUnavailable', 'GameHostResourceObservationInvalid', 'GameHostMemoryLow']
+COMPONENTS = {name: 'game-host-resources' if name.startswith(('GameHostResource', 'GameHostMemory')) else
+              'game-host-storage' if name.startswith('GameHostStorage') else
               'player-backup' if name.startswith('PlayerBackup') else 'game-event-agent' for name in ALERTS}
 SAFE = ['--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '64']
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -93,7 +95,7 @@ def check_projection(payload, state):
     row = payload['alerts'][0]
     assert set(row) == {'status', 'labels', 'annotations', 'startsAt', 'endsAt', 'fingerprint'}
     assert row['status'] == state and row['labels'] == labels
-    runbook = 'v2.104-game-storage-monitor.md' if COMPONENTS[name] == 'game-host-storage' else 'game-player-data-monitoring.md' if COMPONENTS[name] == 'player-backup' else 'v2.97-agent-alerts.md'
+    runbook = 'v2.105-game-resource-monitor.md' if COMPONENTS[name] == 'game-host-resources' else 'v2.104-game-storage-monitor.md' if COMPONENTS[name] == 'game-host-storage' else 'game-player-data-monitoring.md' if COMPONENTS[name] == 'player-backup' else 'v2.97-agent-alerts.md'
     annotations = {'summary': 'GoldSrcOps - ' + name,
                    'runbook_url': 'https://github.com/tov-vl/gold-src-ops/blob/main/docs/' + runbook}
     assert payload['commonAnnotations'] == annotations and row['annotations'] == annotations

@@ -3,6 +3,9 @@ set -Eeuo pipefail
 # Install this exact file root-owned at the fixed dispatcher path.
 dispatcher=/usr/local/libexec/goldsrcops-player-data-backup
 if [[ $EUID != 0 ]]; then
+    if [[ $# == 0 && "${SSH_ORIGINAL_COMMAND:-}" == resource-status ]]; then
+        exec sudo -n -- "$dispatcher" resource-status
+    fi
     if [[ $# == 0 && "${SSH_ORIGINAL_COMMAND:-}" == storage-status ]]; then
         exec sudo -n -- "$dispatcher" storage-status
     fi
@@ -11,6 +14,10 @@ if [[ $EUID != 0 ]]; then
     fi
     [[ $# == 0 && "${SSH_ORIGINAL_COMMAND:-}" =~ ^(capture|status|bundle)\ ([0-9]{4}-[0-9]{2}-[0-9]{2})$ ]] || exit 2
     exec sudo -n -- "$dispatcher" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+fi
+if [[ $# == 1 && "$1" == resource-status ]]; then
+    exec /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+        /usr/bin/python3 -I -B /opt/goldsrcops-resource-observation/ops/gameserver/resource-status.py
 fi
 if [[ $# == 1 && "$1" == storage-status ]]; then
     exec /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \

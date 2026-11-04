@@ -18,6 +18,7 @@ import web_public_api_alerts as web_alerts
 import agent_monitor_stack as agent_monitor
 import agent_alerts
 import storage_monitor_stack as storage_monitor
+import resource_monitor_stack as resource_monitor
 
 ROOT = Path(__file__).resolve().parents[2]
 OBS = ROOT / "ops/production/observability"
@@ -132,6 +133,7 @@ def main():
         web_alerts.validate_rules(docker, mount, images["PROMETHEUS"], temporary)
         agent_alerts.validate_rules(docker, mount, images["PROMETHEUS"], temporary)
         storage_monitor.validate_rules(docker, mount, images["PROMETHEUS"], temporary)
+        resource_monitor.validate_rules(docker, mount, images["PROMETHEUS"], temporary)
         path = Path(temporary) / "rules-test.json"
         path.write_text(json.dumps(fixtures(), ensure_ascii=False), encoding="utf-8")
         path.chmod(0o644)
@@ -270,6 +272,7 @@ def run_stack(images, safe, prometheus_config, fixture_rules):
         agent_alerts.check_stack(collector_url, prom_url, graf_url, query, request, wait, docker, prometheus,
                                prometheus_config, fixture_rules / 'game-event-agent.yml')
         storage_monitor.check_stack(collector_url, graf_url, query, request, wait)
+        resource_monitor.check_stack(collector_url, graf_url, query, request, wait)
         metrics.update(observation_success=0, observed_timestamp_seconds=time.time())
         publish()
         wait(lambda: query('ALERTS{alertname="PlayerBackupObservationInvalid",alertstate="pending"}'))

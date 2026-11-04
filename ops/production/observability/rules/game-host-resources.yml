@@ -1,0 +1,54 @@
+groups:
+  - name: goldsrcops-game-host-resources
+    rules:
+      - record: goldsrcops_resources:policy_evaluated_timestamp_seconds
+        expr: |
+          time()
+      - record: goldsrcops_resources:monitor_live
+        expr: |
+          (max(goldsrcops_game_host_resource_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-host-resource-monitor"}) >= time() - 180) and (max(goldsrcops_game_host_resource_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-host-resource-monitor"}) <= time())
+      - record: goldsrcops_resources:observation_valid
+        expr: |
+          (max(goldsrcops_game_host_resource_observation_success{job="goldsrcops",service_name="goldsrcops-game-host-resource-monitor"}) == 1) and goldsrcops_resources:monitor_live and (max(goldsrcops_game_host_resource_source_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-host-resource-monitor"}) >= time() - 180) and (max(goldsrcops_game_host_resource_source_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-game-host-resource-monitor"}) <= time())
+      - record: goldsrcops_resources:memory_valid
+        expr: |
+          (max(goldsrcops_game_host_resource_memory_available{job="goldsrcops",service_name="goldsrcops-game-host-resource-monitor"}) == 1) and goldsrcops_resources:observation_valid
+      - record: goldsrcops_resources:cpu_valid
+        expr: |
+          (max(goldsrcops_game_host_resource_cpu_available{job="goldsrcops",service_name="goldsrcops-game-host-resource-monitor"}) == 1) and goldsrcops_resources:observation_valid
+      - record: goldsrcops_resources:memory_available_ratio
+        expr: |
+          (max(goldsrcops_game_host_resource_memory_available_bytes{job="goldsrcops",service_name="goldsrcops-game-host-resource-monitor"}) / max(goldsrcops_game_host_resource_memory_total_bytes{job="goldsrcops",service_name="goldsrcops-game-host-resource-monitor"})) and goldsrcops_resources:memory_valid
+      - alert: GameHostResourceMonitorUnavailable
+        expr: |
+          absent(goldsrcops_resources:monitor_live)
+        for: 5m
+        labels:
+          severity: warning
+          component: game-host-resources
+        annotations:
+          summary: "Нет свежих наблюдений RAM и CPU игрового хоста"
+          description: "Нет heartbeat за 180 секунд; условие держится 5 минут. Проверьте timer, SSH и Collector. Ресурсы неизвестны."
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.105-game-resource-monitor.md"
+      - alert: GameHostResourceObservationInvalid
+        expr: |
+          (absent(goldsrcops_resources:observation_valid) and goldsrcops_resources:monitor_live) or (absent(goldsrcops_resources:memory_valid) and goldsrcops_resources:observation_valid) or (absent(goldsrcops_resources:cpu_valid) and goldsrcops_resources:observation_valid)
+        for: 5m
+        labels:
+          severity: warning
+          component: game-host-resources
+        annotations:
+          summary: "Наблюдение RAM или CPU невалидно"
+          description: "Observer работает, но снимок невалиден либо одна из групп недоступна. Старые значения не считаются текущими; валидная RAM проверяется независимо от CPU."
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.105-game-resource-monitor.md"
+      - alert: GameHostMemoryLow
+        expr: |
+          (goldsrcops_resources:memory_available_ratio < 0.10) or ((max(goldsrcops_game_host_resource_memory_available_bytes{job="goldsrcops",service_name="goldsrcops-game-host-resource-monitor"}) and goldsrcops_resources:memory_valid) < 268435456)
+        for: 5m
+        labels:
+          severity: warning
+          component: game-host-resources
+        annotations:
+          summary: "Мало доступной RAM на игровом хосте"
+          description: "MemAvailable менее 10 процентов или 256 MiB более 5 минут. Это оценка RAM без необходимости swapping. Автоматических перезапусков и очистки нет."
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.105-game-resource-monitor.md"

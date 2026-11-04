@@ -14,15 +14,18 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[2]
 ALERTS = '--alerts' in sys.argv
 STORAGE = '--storage' in sys.argv
+RESOURCES = '--resources' in sys.argv
+if RESOURCES:
+    sys.argv.remove('--resources')
 if STORAGE:
     sys.argv.remove('--storage')
 if ALERTS:
     sys.argv.remove('--alerts')
-source_name = 'storage-dashboard' if STORAGE else 'agent-alerts-dashboard' if ALERTS else 'agent-monitor-dashboard'
+source_name = 'resource-dashboard' if RESOURCES else 'storage-dashboard' if STORAGE else 'agent-alerts-dashboard' if ALERTS else 'agent-monitor-dashboard'
 spec = importlib.util.spec_from_file_location('dashboard_rollout', ROOT / ('ops/production/' + source_name + '.py'))
 rollout = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rollout)
-if ALERTS or STORAGE:
+if ALERTS or STORAGE or RESOURCES:
     rollout = rollout.protocol
 
 

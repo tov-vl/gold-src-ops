@@ -1,0 +1,13 @@
+[Unit]
+Description=Observe game-host resource every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=false
+Unit=goldsrcops-game-host-resource-monitor.service
+
+[Install]
+WantedBy=timers.target
