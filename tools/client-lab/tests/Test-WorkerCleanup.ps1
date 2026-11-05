@@ -27,6 +27,7 @@ function Start-Process([string]$FilePath,[string]$ArgumentList,[switch]$PassThru
 }
 '@
 $diagnosticsStub=@'
+function Get-LabRetainedRendererDiagnostics([string]$Root,$Policy){return @{schema=1;status='not_required';rendererAccepted=$false;files=@()}}
 function New-LabRendererUnknown([string]$Id,[string]$Reason,[bool]$Enabled=$false){return @{schema=1;jobId=$Id;status='unconfirmed';reason=$Reason;probeEnabled=$Enabled;cleanupVerified=$false}}
 function New-LabRendererProbe($Policy,[string]$Id){return @{enabled=$false;reason='test_disabled';paths=@()}}
 function Add-LabRendererProgram([string]$Id,[string]$Program,[bool]$Enabled){return $Program}
