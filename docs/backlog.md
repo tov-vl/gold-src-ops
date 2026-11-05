@@ -4488,12 +4488,16 @@ or separate recovery email is claimed. See
 
 ## v2.107 - Private game-host health overview
 
-In progress: one additive private Grafana dashboard reuses existing metrics
-and warning policies, with independent freshness for agent, backup, storage,
-RAM and sampled CPU. The latest copy/source and historical weekly attempt stay
-separate. No game/agent restart, new permission, provider setup or activity
-window. See [scope and gates](v2.107-game-health-overview.md) and
-[release notes](release-notes-v2.107.md).
+Accepted on 2026-11-05: one additive private Grafana overview reuses existing
+metrics and warning policies, with independent freshness for agent, backup,
+storage, RAM and sampled CPU. Latest copy/source and historical weekly attempt
+stay separate. PR #477/full PR/main CI, 32 PromQL and six lifecycle scenarios,
+159 existing policy cases, the real telemetry/Grafana stack, signed exact-source
+candidate/stable packages and independent live acceptance passed. All ten
+containers, six existing dashboards, rules, worker flags, latest capture and
+historical backup warning were preserved. No restart, new permission, provider
+setup or activity window. See [scope and evidence](v2.107-game-health-overview.md)
+and [release notes](release-notes-v2.107.md).
 
 ## Autonomous client lab - repository tooling
 
