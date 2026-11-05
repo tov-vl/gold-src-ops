@@ -6,8 +6,11 @@
   historical results or visual acceptance flags.
 - Keep the existing nine-file runner, signed updater and access boundaries.
 
-Local client policy/native compilation and fixture tests passed. Required CI,
-target adoption and the native renderer check remain pending; the current
-Windows session binding prevents dispatch. Production and addon are unchanged.
+Local client policy/native compilation and fixture tests passed. PR #480 and
+required PR/main CI passed. One native EN trial passed its five-frame UI checks,
+but renderer identity and diagnostic-log cleanup were not proved. The candidate
+was rolled back to the exact prior runner. Raw results are retained, no trial
+was replayed, and renderer acceptance remains open. Production and addon are
+unchanged; this is not an accepted native renderer release.
 
 See [scope, review and evidence](v2.108-client-renderer-evidence.md).

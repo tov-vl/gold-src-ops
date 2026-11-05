@@ -54,8 +54,13 @@ function ConvertFrom-LabRendererFrame([string]$Text,[string]$Id) {
     Assert-LabId $Id
     if($Text.Length -gt 16384 -or $Text -match '[^\x09\x0A\x0D\x20-\x7E]'){throw 'Renderer frame is not bounded ASCII.'}
     $token=([guid]$Id).ToString('N')
+    $begin='GSO_RENDERER_BEGIN_'+$token;$end='GSO_RENDERER_END_'+$token
+    if([regex]::Matches($Text,[regex]::Escape($begin)).Count -ne 1 -or [regex]::Matches($Text,[regex]::Escape($end)).Count -ne 1){throw 'Renderer markers are not unique.'}
     $lines=@($Text.Replace("`r`n","`n").Split("`n")|Where-Object {$_.Length})
-    if($lines.Count -lt 5 -or $lines[0] -cne ('GSO_RENDERER_BEGIN_'+$token) -or $lines[-1] -cne ('GSO_RENDERER_END_'+$token)){throw 'Renderer frame identity differs.'}
+    if($lines.Count -ge 4 -and $lines[-1] -cmatch ('\A(GL Extensions: [\x20-\x7E]*)'+[regex]::Escape($end)+'[ \t]*\z')){
+        $extension=$Matches[1];$lines=@($lines[0..($lines.Count-2)])+@($extension,$end)
+    }
+    if($lines.Count -lt 5 -or $lines[0].TrimEnd([char[]]" `t") -cne ('GSO_RENDERER_BEGIN_'+$token) -or $lines[-1].TrimEnd([char[]]" `t") -cne ('GSO_RENDERER_END_'+$token)){throw 'Renderer frame identity differs.'}
     $values=@{}
     foreach($line in $lines[1..($lines.Count-2)]){
         if($line -cmatch '\AGL (Vendor|Renderer|Version): ([\x20-\x7E]{1,256})\z'){
@@ -98,8 +103,8 @@ function Get-LabRendererEvidence($Policy,$Result,$Probe,[DateTime]$LaunchUtc) {
         $token=([guid]$Result.id).ToString('N')
         $begin='GSO_RENDERER_BEGIN_'+$token;$end='GSO_RENDERER_END_'+$token
         $lines=$text.Replace("`r`n","`n").Split("`n")
-        $starts=@(0..($lines.Length-1)|Where-Object {$lines[$_] -ceq $begin})
-        $ends=@(0..($lines.Length-1)|Where-Object {$lines[$_] -ceq $end})
+        $starts=@(0..($lines.Length-1)|Where-Object {$lines[$_].TrimEnd([char[]]" `t") -ceq $begin})
+        $ends=@(0..($lines.Length-1)|Where-Object {$lines[$_].TrimEnd([char[]]" `t") -ceq $end -or $lines[$_] -cmatch ('\AGL Extensions: [\x20-\x7E]*'+[regex]::Escape($end)+'[ \t]*\z')})
         if($starts.Count -ne 1 -or $ends.Count -ne 1 -or $ends[0] -le $starts[0]){throw 'Renderer output boundary missing or repeated.'}
         $frame=($lines[$starts[0]..$ends[0]] -join "`n")+"`n"
         $Probe.logPath=$file.FullName
@@ -149,6 +154,80 @@ function Test-LabRendererEvidence($Result,[string]$Id) {
     $identity=ConvertFrom-LabRendererFrame ([Text.Encoding]::ASCII.GetString($bytes)) $Id
     foreach($key in @('backend','vendor','renderer','version')){if($identity[$key] -cne $report.identity.$key){throw 'Renderer projection differs.'}}
     return $identity
+}
+
+function Get-LabRetainedRendererDiagnostics([string]$Root,$Policy) {
+    $report=@{schema=1;status='unavailable';rendererAccepted=$false;files=@()}
+    try{
+        if(@(Get-Process -Name hl -ErrorAction SilentlyContinue).Count){$report.status='client_busy';return $report}
+        $queue=Get-Item -LiteralPath (Join-Path $Root 'queue')
+        if($queue.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked diagnostic queue.'}
+        $jobs=@(Get-ChildItem -LiteralPath $queue.FullName -Filter '*.json' -File)
+        if($jobs.Count -gt 8){throw 'Diagnostic queue exceeds limit.'}
+        $eligible=@()
+        foreach($job in $jobs){
+            Assert-LabId $job.BaseName
+            $paths=Get-LabPaths $Root $job.BaseName
+            $path=Join-Path $paths.result 'result.json'
+            if(-not (Test-Path -LiteralPath $path)){continue}
+            $parent=Get-Item -LiteralPath $path
+            while($parent){if($parent.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked diagnostic result.'};$parent=$(if($parent -is [IO.DirectoryInfo]){$parent.Parent}else{$parent.Directory})}
+            $result=Read-LabJson $path
+            if($result.PSObject.Properties['rendererEvidence'] -and $result.id -ceq $job.BaseName -and
+                $result.PSObject.Properties['completedUtc'] -and $result.completedUtc -and $result.status -ceq 'uncertain_cleanup' -and
+                $result.rendererEvidence.schema -eq 1 -and $result.rendererEvidence.jobId -ceq $result.id -and
+                $result.rendererEvidence.probeEnabled -is [bool] -and $result.rendererEvidence.probeEnabled -and
+                $result.rendererEvidence.status -ceq 'unconfirmed' -and $result.rendererEvidence.cleanupVerified -is [bool] -and
+                -not $result.rendererEvidence.cleanupVerified){$eligible+=,$result}
+        }
+        if($eligible.Count -ne 1){$report.status=$(if($eligible.Count){'ambiguous'}else{'not_required'});return $report}
+        $result=$eligible[0];$report.jobId=$result.id
+        $started=ConvertTo-LabUtc $result.gameStartedUtc;$completed=ConvertTo-LabUtc $result.completedUtc
+        if($completed -lt $started -or $completed -gt [DateTime]::UtcNow.AddSeconds(10)){throw 'Diagnostic result time differs.'}
+        $token=([guid]$result.id).ToString('N')
+        $paths=@(Get-LabRendererPaths $Policy.gameRoot)
+        for($number=0;$number -lt $paths.Count;$number++){
+            $summary=@{role=@('root-qconsole','root-console','mod-qconsole','mod-console')[$number];exists=$false;read=$false}
+            $item=Get-Item -LiteralPath $paths[$number] -Force -ErrorAction SilentlyContinue
+            if($item){
+                $summary.exists=$true
+                if($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $item.Length -gt 4MB -or
+                    $item.CreationTimeUtc -lt $started -or $item.CreationTimeUtc -gt $completed -or $item.LastWriteTimeUtc -gt $completed.AddSeconds(2)){$summary.reason='unrelated_or_unsafe';$report.files+=,$summary;continue}
+                $summary.bytes=$item.Length;$summary.createdUtc=$item.CreationTimeUtc.ToString('o');$summary.modifiedUtc=$item.LastWriteTimeUtc.ToString('o')
+                $stream=[IO.File]::Open($item.FullName,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+                try{
+                    if($stream.Length -gt 4MB){throw 'Diagnostic log exceeds limit.'}
+                    $bytes=New-Object byte[] ([int]$stream.Length);$read=0
+                    while($read -lt $bytes.Length){$count=$stream.Read($bytes,$read,$bytes.Length-$read);if(-not $count){throw 'Diagnostic log shortened.'};$read+=$count}
+                }finally{$stream.Dispose()}
+                $after=Get-Item -LiteralPath $item.FullName
+                if($after.Length -ne $summary.bytes -or $after.CreationTimeUtc.ToString('o') -cne $summary.createdUtc -or $after.LastWriteTimeUtc.ToString('o') -cne $summary.modifiedUtc){throw 'Diagnostic log changed.'}
+                $summary.sha256=Get-LabRendererHash $bytes
+                $text=[Text.Encoding]::GetEncoding(28591).GetString($bytes)
+                $summary.markerContextsBase64=@()
+                $summary.markerLayout=@()
+                foreach($marker in @(('GSO_RENDERER_BEGIN_'+$token),('GSO_RENDERER_END_'+$token))){
+                    $matches=@([regex]::Matches($text,[regex]::Escape($marker)))
+                    foreach($match in @($matches|Select-Object -First 2)){
+                        $lineStart=$text.LastIndexOf("`n",$match.Index)+1
+                        $lineEnd=$text.IndexOf("`n",$match.Index);if($lineEnd -lt 0){$lineEnd=$text.Length}
+                        $prefix=$text.Substring($lineStart,$match.Index-$lineStart)
+                        $kind=$(if(-not $prefix){'marker'}elseif($prefix.StartsWith('GL Extensions: ')){'extensions'}else{'other'})
+                        $suffix=$text.Substring($match.Index+$match.Length,$lineEnd-$match.Index-$match.Length)
+                        $white=$suffix -cmatch '\A[ \t\r]*\z'
+                        $summary.markerLayout+=,('column='+($match.Index-$lineStart)+';lineBytes='+($lineEnd-$lineStart)+';prefix='+$kind+';suffixWhitespace='+$white)
+                        $context=$match.Value+$(if($white){$suffix.Substring(0,[Math]::Min(16,$suffix.Length))}else{''})
+                        $summary.markerContextsBase64+=,[Convert]::ToBase64String([Text.Encoding]::GetEncoding(28591).GetBytes($context))
+                    }
+                }
+                $summary.glLinesBase64=@($text.Replace("`r`n","`n").Split("`n")|Where-Object {$_ -cmatch '\AGL (Vendor|Renderer|Version): [\x20-\x7E]{1,256}\z'}|Select-Object -First 3|ForEach-Object {[Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($_))})
+                $summary.read=$true
+            }
+            $report.files+=,$summary
+        }
+        $report.status='observed'
+    }catch{$report.status='unavailable'}
+    return $report
 }
 
 function Get-LabClientObservation($Policy) {
