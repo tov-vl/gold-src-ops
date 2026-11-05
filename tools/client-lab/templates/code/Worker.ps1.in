@@ -28,6 +28,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
     $result.expectedWidth = $(if ($job.action -cin @('capture-panel','capture-guns','verify-rules','verify-panel')) { 1920 } else { 1280 })
     $result.expectedHeight = $(if ($job.action -cin @('capture-panel','capture-guns','verify-rules','verify-panel')) { 1200 } else { 800 })
     $result.configCleanupVerified = $false
+    $result.rendererEvidence = New-LabRendererUnknown $job.id 'not_launched'
     if($job.action -ceq 'capture-guns'){$result.language=$job.language}
     $result.failureCode=$null
     $result.launchCommandDispatched=$false
@@ -45,6 +46,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
     $logCheckpoint=$null
     $launchUtc=$null
     $autonomous=$false
+    $rendererProbe=@{enabled=$false;reason='not_launched';paths=@()}
     try {
         if ((Test-Path -LiteralPath $paths.cancel) -or [DateTime]::UtcNow -gt (ConvertTo-LabUtc $job.createdUtc).AddMinutes(3)) { throw 'Cancelled or stale request.' }
         $autonomous=Get-LabAutonomousMode $Root $job
@@ -74,6 +76,9 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
         $program = ((@('wait') * 300) + @('snapshot') + (@('wait') * 120) + @('snapshot')) -join "`r`n"
         if ($job.action -ceq 'capture-panel') { $program = New-LabPanelProgram $job }
         if ($job.action -cin @('verify-rules','verify-panel','capture-guns')) { $program = New-LabRunnerInteractionProgram $job }
+        $rendererProbe=New-LabRendererProbe $policy $job.id
+        $result.rendererEvidence=New-LabRendererUnknown $job.id $rendererProbe.reason ([bool]$rendererProbe.enabled)
+        $program=Add-LabRendererProgram $job.id $program ([bool]$rendererProbe.enabled)
         if ([Text.Encoding]::ASCII.GetByteCount($program) -gt 32KB) { throw 'Generated config exceeds limit.' }
         $stream = [IO.File]::Open($configPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
         $ownsConfig = $true
@@ -87,6 +92,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
         $result.launchRequested = $true
         $result.cleanup.game='unverified_no_owned_process'
         $launchArguments = Get-LabRunnerLaunchArguments $job $configName
+        $launchArguments = Add-LabRendererLaunchArguments $launchArguments ([bool]$rendererProbe.enabled)
         if($autonomous) {
             $result.status='launch_claimed'
             $result.launcher.kind='desktop-shell-helper'
@@ -175,6 +181,10 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
     finally {
         try {
             if($autonomous -and $result.launchRequested -and -not $result.gamePid){Find-LabDispatchedGame $policy $result $launchUtc $job.id}
+            if($result.gamePid -and $launchUtc){
+                try{$result.rendererEvidence=Get-LabRendererEvidence $policy $result $rendererProbe $launchUtc}
+                catch{$result.rendererEvidence=New-LabRendererUnknown $job.id 'client_output_not_proven' ([bool]$rendererProbe.enabled)}
+            }
             Stop-LabOwnedGame $policy $result
             if ($result.gamePid -and $result.gameStartedUtc) {
                 $left = @(Get-LabProcess $policy ([int]$result.gamePid) | Where-Object { $_.StartTime.ToUniversalTime().ToString('o') -ceq $result.gameStartedUtc })
@@ -183,6 +193,10 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
                 if (-not $result.cleanupVerified) { $result.status = 'uncertain_cleanup' }
             }
         } catch { $result.status = 'uncertain_cleanup';$result.cleanup.game='unverified_cleanup_error' }
+        try {
+            if($launchUtc){$result.rendererEvidence.cleanupVerified=Remove-LabRendererLogs $policy $result $rendererProbe $launchUtc}
+            if($rendererProbe.enabled -and -not $result.rendererEvidence.cleanupVerified){$result.status='uncertain_cleanup'}
+        } catch {$result.status='uncertain_cleanup';$result.rendererEvidence.cleanupVerified=$false}
         try {
             if ($ownsConfig) { $result.configCleanupVerified = Remove-LabOwnedConfig $policy.gameRoot $job.id $program }
             if ($ownsConfig) { $result.cleanup.config=$(if($result.configCleanupVerified){'verified'}else{'unverified'}) }

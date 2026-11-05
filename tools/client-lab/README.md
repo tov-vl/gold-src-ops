@@ -31,6 +31,10 @@ Run policy checks from a fresh PowerShell 7 process on Windows:
 python -B -m unittest discover -s tools/client-lab/tests -p test_*.py
 ```
 
+Renderer identity is a separate [process-bound evidence gate](../../docs/v2.108-client-renderer-evidence.md).
+`Test-LabRenderer.ps1` validates a fresh engine report into a new private receipt;
+it never changes historical `rendererVerified=false` or visual review results.
+
 The native harness targets .NET Framework 4.8 and C# 5 to preserve compatibility
 with Windows PowerShell 5.1. Tests use mocked process/task/SSH operations and
 synthetic pixels. They never activate a desktop window or send input. A matching

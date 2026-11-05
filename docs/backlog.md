@@ -4499,6 +4499,17 @@ historical backup warning were preserved. No restart, new permission, provider
 setup or activity window. See [scope and evidence](v2.107-game-health-overview.md)
 and [release notes](release-notes-v2.107.md).
 
+## v2.108 - Process-bound client renderer evidence
+
+Implementation and local client-policy/native compilation checks are complete.
+The runner retains bounded engine output tied to the current request and owned
+process; unavailable identity stays unknown. Old results and renderer flags
+remain unchanged. Required CI, signed adoption and one native renderer trial
+are pending. A changed interactive Windows session currently blocks dispatch;
+no trust-policy bypass or game launch was attempted. Production is unchanged.
+See [scope and evidence](v2.108-client-renderer-evidence.md) and
+[release notes](release-notes-v2.108.md).
+
 ## Autonomous client lab - repository tooling
 
 Repository tooling implemented on 2026-10-31: move reusable Windows client runner/controller, signed-update
