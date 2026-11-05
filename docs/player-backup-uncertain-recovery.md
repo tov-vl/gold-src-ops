@@ -84,3 +84,9 @@ passed closed capture, one Archive, one Recover and registration on 2026-11-03.
 Backup freshness is restored; the historical service failure remains visible.
 See the [manual-copy acceptance](player-backup-manual-refresh.md) for its exact
 claim boundary and the separate AMXX-engine recovery proof.
+
+On 2026-11-05 a separately approved
+[service-state reconciliation](player-backup-service-reconciliation.md)
+cleared the retained systemd failure without starting backup or changing the
+old slot/copy evidence. The ordinary monitor and existing IRM group resolved
+the intervention automatically. The old attempt remains `closed-uncertain`.
