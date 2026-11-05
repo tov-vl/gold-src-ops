@@ -4802,3 +4802,18 @@ The copy was captured while addon 0.38.0 was installed; the later 0.39.0 rollout
 was accepted separately in v2.100. This copy's separate engine gate subsequently
 passed in [v2.101](v2.101-player-data-engine-recovery.md).
 See the [manual-copy acceptance](player-backup-manual-refresh.md).
+
+## Weekly backup service-state reconciliation
+
+Accepted on 2026-11-05 after a separate owner decision: fresh read-only checks
+confirmed the old closed-uncertain slot, no pending, a fresh verified manual
+copy and the existing timer. One fixed reset-failed cleared only the retained
+backup-service failure. Independent acceptance preserved all 21 JSON records,
+capture time, timer, game/agent identities, ten containers, seven dashboards,
+rules and worker flags. The ordinary monitor reported service_failed=0 while
+retaining last_attempt_status=9; the warning disappeared from Prometheus and
+the existing IRM group automatically resolved on the source at 14:47:23 MSK.
+No backup launch, restart, old-slot replay, new copy or manual alert resolution.
+The next weekly activation remains November 8 at 04:00 MSK; its successful
+capture is a separate gate. See the
+[scope and evidence](player-backup-service-reconciliation.md).
