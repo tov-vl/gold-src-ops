@@ -4508,8 +4508,12 @@ trial produced five reviewed frames with passing OK/alias/control checks.
 Renderer identity stayed unconfirmed and diagnostic-log cleanup could not be
 proved, so the overall trial failed. A distinct signed rollback restored the
 exact prior nine-file runner; the worker is ready and the game is closed.
-Raw evidence is retained without replay or manual log deletion. Renderer
-acceptance and read-only diagnosis remain open. Production is unchanged.
+Raw evidence is retained without replay or manual log deletion. Correction
+PR #481 and all six required PR/main checks passed. Its signed runner update
+was accepted by exact hash readback; retained-log diagnostics now arrive through
+the existing status channel without another local script. The log hash and old
+result projection were independently preserved. Renderer acceptance and log
+reconciliation remain open. Production is unchanged.
 See [scope and evidence](v2.108-client-renderer-evidence.md) and
 [release notes](release-notes-v2.108.md).
 

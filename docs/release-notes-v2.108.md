@@ -13,4 +13,10 @@ was rolled back to the exact prior runner. Raw results are retained, no trial
 was replayed, and renderer acceptance remains open. Production and addon are
 unchanged; this is not an accepted native renderer release.
 
+Correction PR #481 handles native echo whitespace and a final extension-line
+marker. Required PR/main CI and signed adoption passed. Bounded read-only
+diagnostics were retrieved remotely through the existing status channel, with
+the retained log hash and original result projection unchanged. No additional
+game trial, log deletion, broker permission or session-policy change occurred.
+
 See [scope, review and evidence](v2.108-client-renderer-evidence.md).
