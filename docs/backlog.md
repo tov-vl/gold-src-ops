@@ -4468,14 +4468,21 @@ See [scope and gates](v2.105-game-resource-monitor.md) and
 
 ## v2.106 - Independent monitoring heartbeat
 
-Prepared on 2026-11-05: one fixed Prometheus heartbeat through the existing
+Accepted on 2026-11-05: one fixed Prometheus heartbeat through the existing
 Alertmanager to external Grafana Cloud IRM, with a dedicated exact route,
-one-minute repeats and a five-minute recommended provider timeout. Preserve
+one-minute repeats and a five-minute provider timeout. Preserved
 the existing 17 warning tuples and owner channel; no direct cron pinger,
 game/agent change, live outage or public port. Retained Alertmanager alerts
 can extend detection after Prometheus loss; the local rehearsal covers expiry
-and recovery. Provider configuration, endpoint transport, publication and R3
-target acceptance remain separate gates. See
+and recovery. PR #475/full PR/main CI, signed candidate/stable exact-source
+publication, approved provider/endpoint setup and independent R3 acceptance
+passed. Only Alertmanager was recreated with its prior image/state; the other
+nine containers, five dashboards, old rules/alerts and worker flags remained.
+The isolated IRM test detected missing heartbeat, sent email and automatically
+resolved on recovery. Delayed test disable created an extra test group/email,
+manually cleaned up and excluded from recovery evidence. Test heartbeat is
+disabled, histories retained, production heartbeat healthy. No inbox receipt
+or separate recovery email is claimed. See
 [scope and gates](v2.106-monitoring-watchdog.md) and
 [release notes](release-notes-v2.106.md).
 
