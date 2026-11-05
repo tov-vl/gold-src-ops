@@ -1,0 +1,1370 @@
+{
+  "id": null,
+  "uid": "goldsrcops-game-host-overview",
+  "title": "GoldSrcOps - Обзор игрового хоста",
+  "description": "Private aggregate overview with independent freshness and preserved backup history.",
+  "editable": false,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "30s",
+  "timezone": "Europe/Moscow",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "tags": [
+    "goldsrcops",
+    "overview"
+  ],
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "type": "link",
+      "title": "Агент",
+      "url": "/d/goldsrcops-game-event-agent",
+      "targetBlank": false
+    },
+    {
+      "type": "link",
+      "title": "Условия агента",
+      "url": "/d/goldsrcops-game-event-agent-alerts",
+      "targetBlank": false
+    },
+    {
+      "type": "link",
+      "title": "Backup",
+      "url": "/d/goldsrcops-player-backup",
+      "targetBlank": false
+    },
+    {
+      "type": "link",
+      "title": "Диск",
+      "url": "/d/goldsrcops-game-host-storage",
+      "targetBlank": false
+    },
+    {
+      "type": "link",
+      "title": "RAM / CPU",
+      "url": "/d/goldsrcops-game-host-resources",
+      "targetBlank": false
+    },
+    {
+      "type": "link",
+      "title": "Runbook",
+      "url": "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.107-game-health-overview.md",
+      "targetBlank": true
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Агент / очередь",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "Нет данных",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Нет свежих валидных данных",
+                  "color": "gray"
+                },
+                "1": {
+                  "text": "Нет предупреждений",
+                  "color": "green"
+                },
+                "2": {
+                  "text": "Условие pending",
+                  "color": "yellow"
+                },
+                "3": {
+                  "text": "Предупреждение firing",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(((max(ALERTS{component=\"game-event-agent\",alertstate=\"firing\"}) * 0 + 3) or (max(ALERTS{component=\"game-event-agent\",alertstate=\"pending\"}) * 0 + 2) or vector(1)) and on() (((goldsrcops_game_event_agent_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"} == 1) and on() ((time() - goldsrcops_game_event_agent_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_event_agent_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_event_agent_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_event_agent_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) <= 180))) and on() (((time() - timestamp(goldsrcops_agent:observation_valid)) >= 0) and ((time() - timestamp(goldsrcops_agent:observation_valid)) <= 60))) or on() vector(0)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "description": "Только существующие условия Prometheus; pending и firing различаются. Наблюдение не старше 180 с, вычисление правил не старше 60 с. Это не общий статус игры и не подтверждение доставки в IRM."
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Резервные копии",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 5,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "Нет данных",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Нет свежих валидных данных",
+                  "color": "gray"
+                },
+                "1": {
+                  "text": "Нет предупреждений",
+                  "color": "green"
+                },
+                "2": {
+                  "text": "Условие pending",
+                  "color": "yellow"
+                },
+                "3": {
+                  "text": "Предупреждение firing",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(((max(ALERTS{component=\"player-backup\",alertstate=\"firing\"}) * 0 + 3) or (max(ALERTS{component=\"player-backup\",alertstate=\"pending\"}) * 0 + 2) or vector(1)) and on() ((goldsrcops_player_backup_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"} == 1) and on() ((time() - goldsrcops_player_backup_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) >= 0) and on() ((time() - goldsrcops_player_backup_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) <= 180)) and on() (((time() - timestamp(goldsrcops_player_backup:observation_valid)) >= 0) and ((time() - timestamp(goldsrcops_player_backup:observation_valid)) <= 60))) or on() vector(0)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "description": "Только существующие условия Prometheus; pending и firing различаются. Наблюдение не старше 180 с, вычисление правил не старше 60 с. Это не общий статус игры и не подтверждение доставки в IRM."
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Диск / inode",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "Нет данных",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Нет свежих валидных данных",
+                  "color": "gray"
+                },
+                "1": {
+                  "text": "Нет предупреждений",
+                  "color": "green"
+                },
+                "2": {
+                  "text": "Условие pending",
+                  "color": "yellow"
+                },
+                "3": {
+                  "text": "Предупреждение firing",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(((max(ALERTS{component=\"game-host-storage\",alertstate=\"firing\"}) * 0 + 3) or (max(ALERTS{component=\"game-host-storage\",alertstate=\"pending\"}) * 0 + 2) or vector(1)) and on() (((goldsrcops_game_host_storage_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} == 1) and on() ((time() - goldsrcops_game_host_storage_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_storage_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_host_storage_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_storage_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) <= 180)) and on() (count(max by(role) (goldsrcops_game_host_storage_role_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\",role=~\"queue|spool|players|backup\"})) == 4) and on() (min(goldsrcops_game_host_storage_role_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\",role=~\"queue|spool|players|backup\"}) == 1)) and on() (((time() - timestamp(goldsrcops_storage:observation_valid)) >= 0) and ((time() - timestamp(goldsrcops_storage:observation_valid)) <= 60))) or on() vector(0)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "description": "Только существующие условия Prometheus; pending и firing различаются. Наблюдение не старше 180 с, вычисление правил не старше 60 с. Это не общий статус игры и не подтверждение доставки в IRM."
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "RAM / swap",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "Нет данных",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Нет свежих валидных данных",
+                  "color": "gray"
+                },
+                "1": {
+                  "text": "Нет предупреждений",
+                  "color": "green"
+                },
+                "2": {
+                  "text": "Условие pending",
+                  "color": "yellow"
+                },
+                "3": {
+                  "text": "Предупреждение firing",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(((max(ALERTS{component=\"game-host-resources\",alertname=\"GameHostMemoryLow\",alertstate=\"firing\"}) * 0 + 3) or (max(ALERTS{component=\"game-host-resources\",alertname=\"GameHostMemoryLow\",alertstate=\"pending\"}) * 0 + 2) or vector(1)) and on() (((goldsrcops_game_host_resource_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} == 1) and on() ((time() - goldsrcops_game_host_resource_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_resource_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_host_resource_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_resource_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) <= 180)) and on() (goldsrcops_game_host_resource_memory_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} == 1)) and on() (((time() - timestamp(goldsrcops_resources:memory_valid)) >= 0) and ((time() - timestamp(goldsrcops_resources:memory_valid)) <= 60))) or on() vector(0)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "description": "Только существующие условия Prometheus; pending и firing различаются. Наблюдение не старше 180 с, вычисление правил не старше 60 с. Это не общий статус игры и не подтверждение доставки в IRM."
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "CPU - наблюдение",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "Нет данных",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Нет свежих валидных данных",
+                  "color": "gray"
+                },
+                "1": {
+                  "text": "Свежий замер; порога CPU нет",
+                  "color": "blue"
+                },
+                "2": {
+                  "text": "Условие pending",
+                  "color": "yellow"
+                },
+                "3": {
+                  "text": "Предупреждение firing",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(vector(1) and on() (((goldsrcops_game_host_resource_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} == 1) and on() ((time() - goldsrcops_game_host_resource_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_resource_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_host_resource_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_resource_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) <= 180)) and on() (goldsrcops_game_host_resource_cpu_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} == 1)) and on() (((time() - timestamp(goldsrcops_resources:cpu_valid)) >= 0) and ((time() - timestamp(goldsrcops_resources:cpu_valid)) <= 60))) or on() vector(0)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "description": "Только существующие условия Prometheus; pending и firing различаются. Наблюдение не старше 180 с, вычисление правил не старше 60 с. Это не общий статус игры и не подтверждение доставки в IRM."
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Pending",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_game_event_agent_queue_pending{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) and on() ((goldsrcops_game_event_agent_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"} == 1) and on() ((time() - goldsrcops_game_event_agent_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_event_agent_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_event_agent_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_event_agent_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) <= 180))",
+          "instant": true,
+          "range": false,
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "In-flight",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_game_event_agent_queue_in_flight{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) and on() ((goldsrcops_game_event_agent_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"} == 1) and on() ((time() - goldsrcops_game_event_agent_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_event_agent_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_event_agent_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_event_agent_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) <= 180))",
+          "instant": true,
+          "range": false,
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Dead-letter",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_game_event_agent_queue_dead_letter{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) and on() ((goldsrcops_game_event_agent_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"} == 1) and on() ((time() - goldsrcops_game_event_agent_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_event_agent_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_event_agent_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_event_agent_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) <= 180))",
+          "instant": true,
+          "range": false,
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Файлы spool: ready + processing",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_game_event_agent_spool_ready{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"} + goldsrcops_game_event_agent_spool_processing{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) and on() ((goldsrcops_game_event_agent_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"} == 1) and on() ((time() - goldsrcops_game_event_agent_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_event_agent_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_event_agent_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_event_agent_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"}) <= 180)) and on() (goldsrcops_game_event_agent_spool_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-event-agent-monitor\"} == 1)",
+          "instant": true,
+          "range": false,
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Возраст копии",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "dtdurations",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 691201
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((time() - max(goldsrcops_player_backup_last_success_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"})) and (max(goldsrcops_player_backup_copy_present{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) == 1) and goldsrcops_player_backup:observation_valid) and on() ((goldsrcops_player_backup_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"} == 1) and on() ((time() - goldsrcops_player_backup_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) >= 0) and on() ((time() - goldsrcops_player_backup_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) <= 180))",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Источник последней копии",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 8,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Нет копии",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "Weekly",
+                  "color": "green"
+                },
+                "2": {
+                  "text": "Ручная",
+                  "color": "blue"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max(goldsrcops_player_backup_copy_source{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) and goldsrcops_player_backup:observation_valid) and on() ((goldsrcops_player_backup_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"} == 1) and on() ((time() - goldsrcops_player_backup_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) >= 0) and on() ((time() - goldsrcops_player_backup_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) <= 180))",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ],
+      "description": "Самая свежая копия по времени capture. Ручная регистрация не подтверждает успешный weekly cycle."
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Weekly: последняя попытка",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Еще не было",
+                  "color": "blue",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Копия проверена",
+                  "color": "green",
+                  "index": 1
+                },
+                "2": {
+                  "text": "Сервер занят",
+                  "color": "blue",
+                  "index": 2
+                },
+                "3": {
+                  "text": "Окно пропущено",
+                  "color": "yellow",
+                  "index": 3
+                },
+                "4": {
+                  "text": "Выполняется",
+                  "color": "blue",
+                  "index": 4
+                },
+                "5": {
+                  "text": "Требуется сверка",
+                  "color": "red",
+                  "index": 5
+                },
+                "6": {
+                  "text": "Ошибка службы",
+                  "color": "red",
+                  "index": 6
+                },
+                "7": {
+                  "text": "Неизвестно",
+                  "color": "red",
+                  "index": 7
+                },
+                "8": {
+                  "text": "Сверено: capture не выполнялся",
+                  "color": "yellow",
+                  "index": 8
+                },
+                "9": {
+                  "text": "Закрыто: исход backup неизвестен",
+                  "color": "yellow",
+                  "index": 9
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max(goldsrcops_player_backup_last_attempt_status{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) and goldsrcops_player_backup:observation_valid) and on() ((goldsrcops_player_backup_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"} == 1) and on() ((time() - goldsrcops_player_backup_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) >= 0) and on() ((time() - goldsrcops_player_backup_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) <= 180))",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Weekly: пропущенный слот",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 8,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Нет свежих данных",
+          "unit": "",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Нет",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Да",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max(goldsrcops_player_backup_missed_cycle{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) and goldsrcops_player_backup:observation_valid) and on() ((goldsrcops_player_backup_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"} == 1) and on() ((time() - goldsrcops_player_backup_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) >= 0) and on() ((time() - goldsrcops_player_backup_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-player-backup-monitor\"}) <= 180))",
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Свободное место",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 6,
+        "h": 6
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "Нет свежих данных",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_game_host_storage_bytes_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) and on(role) ((goldsrcops_game_host_storage_role_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} == 1) and on() ((goldsrcops_game_host_storage_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} == 1) and on() ((time() - goldsrcops_game_host_storage_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_storage_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_host_storage_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_storage_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) <= 180)))",
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{role}}"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Свободное место, доля",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 12,
+        "w": 6,
+        "h": 6
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "Нет свежих данных",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_game_host_storage_bytes_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} / goldsrcops_game_host_storage_bytes_total{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) and on(role) ((goldsrcops_game_host_storage_role_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} == 1) and on() ((goldsrcops_game_host_storage_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} == 1) and on() ((time() - goldsrcops_game_host_storage_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_storage_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_host_storage_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_storage_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) <= 180)))",
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{role}}"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Свободные inode",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 6,
+        "h": 6
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "Нет свежих данных",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_game_host_storage_inodes_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) and on(role) ((goldsrcops_game_host_storage_role_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} == 1) and on() ((goldsrcops_game_host_storage_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} == 1) and on() ((time() - goldsrcops_game_host_storage_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_storage_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_host_storage_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_storage_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) <= 180))) and on(role) (goldsrcops_game_host_storage_inodes_supported{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} == 1)",
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{role}}"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "Свободные inode, доля",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 12,
+        "w": 6,
+        "h": 6
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "Нет свежих данных",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_game_host_storage_inodes_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} / goldsrcops_game_host_storage_inodes_total{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) and on(role) ((goldsrcops_game_host_storage_role_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} == 1) and on() ((goldsrcops_game_host_storage_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} == 1) and on() ((time() - goldsrcops_game_host_storage_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_storage_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_host_storage_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_storage_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"}) <= 180))) and on(role) (goldsrcops_game_host_storage_inodes_supported{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-storage-monitor\"} == 1)",
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{role}}"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "stat",
+      "title": "RAM доступна",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 6,
+        "h": 4
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "Нет свежих данных",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_game_host_resource_memory_available_bytes{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) and on() ((goldsrcops_game_host_resource_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} == 1) and on() ((time() - goldsrcops_game_host_resource_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_resource_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_host_resource_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_resource_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) <= 180) and on() (goldsrcops_game_host_resource_memory_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} == 1))",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "Swap используется",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 18,
+        "w": 6,
+        "h": 4
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "Нет свежих данных",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_game_host_resource_swap_total_bytes{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} - goldsrcops_game_host_resource_swap_free_bytes{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) and on() ((goldsrcops_game_host_resource_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} == 1) and on() ((time() - goldsrcops_game_host_resource_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_resource_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_host_resource_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_resource_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) <= 180) and on() (goldsrcops_game_host_resource_memory_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} == 1))",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "CPU: выполненная работа",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 6,
+        "h": 4
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "Нет свежих данных",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_game_host_resource_cpu_busy_ratio{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) and on() ((goldsrcops_game_host_resource_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} == 1) and on() ((time() - goldsrcops_game_host_resource_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_resource_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_host_resource_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_resource_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) <= 180) and on() (goldsrcops_game_host_resource_cpu_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} == 1))",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "CPU steal",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 18,
+        "w": 6,
+        "h": 4
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "Нет свежих данных",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(goldsrcops_game_host_resource_cpu_steal_ratio{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) and on() ((goldsrcops_game_host_resource_observation_success{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} == 1) and on() ((time() - goldsrcops_game_host_resource_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_resource_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) <= 180) and on() ((time() - goldsrcops_game_host_resource_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) >= 0) and on() ((time() - goldsrcops_game_host_resource_source_observed_timestamp_seconds{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"}) <= 180) and on() (goldsrcops_game_host_resource_cpu_available{job=\"goldsrcops\",service_name=\"goldsrcops-game-host-resource-monitor\"} == 1))",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "table",
+      "title": "Предупреждения Prometheus - pending / firing",
+      "description": "Последние строки Prometheus; отсутствие строк само по себе не означает исправность. Проверяйте свежесть блоков выше. Доставку и внешний heartbeat проверяйте в IRM.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(alertname,component,alertstate) (ALERTS{component=~\"game-event-agent|player-backup|game-host-storage|game-host-resources\",alertstate=~\"pending|firing\"})",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "type": "text",
+      "title": "Как читать обзор",
+      "options": {
+        "mode": "markdown",
+        "content": "Нет предупреждений означает только свежие валидные данные и отсутствие pending/firing по существующим правилам. Нет свежих данных не равно норме. RAM и CPU проверяются отдельно. CPU - короткий замер около 1 с, не FPS и не среднее за минуту; порога загрузки нет. Числа могут обновиться раньше вычисления правил.\n\nИсточник и возраст последней копии не изменяют результат weekly-попытки. Ручная копия не закрывает историческую ошибку расписания. Значения диска показаны по фиксированным ролям; один filesystem может повторяться. Пустое значение inode может означать отсутствие поддержки - подробности в панели диска.\n\nЛокальный heartbeat не подтверждает прием сигнала внешним IRM. Доставку и историю инцидентов проверяйте отдельно в существующем IRM. Обзор ничего не перезапускает и не повторяет."
+      },
+      "id": 23,
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 5
+      }
+    }
+  ]
+}
