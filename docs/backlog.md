@@ -4486,6 +4486,15 @@ or separate recovery email is claimed. See
 [scope and gates](v2.106-monitoring-watchdog.md) and
 [release notes](release-notes-v2.106.md).
 
+## v2.107 - Private game-host health overview
+
+In progress: one additive private Grafana dashboard reuses existing metrics
+and warning policies, with independent freshness for agent, backup, storage,
+RAM and sampled CPU. The latest copy/source and historical weekly attempt stay
+separate. No game/agent restart, new permission, provider setup or activity
+window. See [scope and gates](v2.107-game-health-overview.md) and
+[release notes](release-notes-v2.107.md).
+
 ## Autonomous client lab - repository tooling
 
 Repository tooling implemented on 2026-10-31: move reusable Windows client runner/controller, signed-update
