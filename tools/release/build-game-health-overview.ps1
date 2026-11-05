@@ -24,7 +24,22 @@ try {
     $payload = foreach ($name in $files) {
         $path = Join-Path $temporary $name
         [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)) | Out-Null
-        Copy-Item -LiteralPath (Join-Path $root $name) -Destination $path
+        # Package canonical Git bytes, independent of Windows checkout EOLs.
+        $start = [Diagnostics.ProcessStartInfo]::new('git')
+        $start.WorkingDirectory = $root
+        $start.UseShellExecute = $false
+        $start.RedirectStandardOutput = $true
+        $start.RedirectStandardError = $true
+        foreach ($argument in @('cat-file', 'blob', "${revision}:$name")) { $start.ArgumentList.Add($argument) }
+        $process = [Diagnostics.Process]::Start($start)
+        $stream = [IO.File]::Open($path, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
+        try { $process.StandardOutput.BaseStream.CopyTo($stream) }
+        finally { $stream.Dispose() }
+        $errorText = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        $exitCode = $process.ExitCode
+        $process.Dispose()
+        if ($exitCode -ne 0) { throw "Canonical source unavailable: $name. $errorText" }
         [ordered]@{ path=$name; length=(Get-Item -LiteralPath $path).Length
             sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
             mode=$(if ($name.EndsWith('.sh',[StringComparison]::Ordinal)) { '0755' } else { '0644' }) }
