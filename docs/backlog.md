@@ -4466,6 +4466,19 @@ the historical backup warning stays visible.
 See [scope and gates](v2.105-game-resource-monitor.md) and
 [release notes](release-notes-v2.105.md).
 
+## v2.106 - Independent monitoring heartbeat
+
+Prepared on 2026-11-05: one fixed Prometheus heartbeat through the existing
+Alertmanager to external Grafana Cloud IRM, with a dedicated exact route,
+one-minute repeats and a five-minute recommended provider timeout. Preserve
+the existing 17 warning tuples and owner channel; no direct cron pinger,
+game/agent change, live outage or public port. Retained Alertmanager alerts
+can extend detection after Prometheus loss; the local rehearsal covers expiry
+and recovery. Provider configuration, endpoint transport, publication and R3
+target acceptance remain separate gates. See
+[scope and gates](v2.106-monitoring-watchdog.md) and
+[release notes](release-notes-v2.106.md).
+
 ## Autonomous client lab - repository tooling
 
 Repository tooling implemented on 2026-10-31: move reusable Windows client runner/controller, signed-update

@@ -1,0 +1,8 @@
+groups:
+  - name: goldsrcops-monitoring-heartbeat
+    rules:
+      - alert: MonitoringHeartbeat
+        expr: vector(1)
+        labels:
+          severity: none
+          component: monitoring-pipeline

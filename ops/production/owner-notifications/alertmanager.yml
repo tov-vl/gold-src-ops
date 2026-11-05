@@ -10,6 +10,14 @@ route:
   group_interval: 5m
   repeat_interval: 6h
   routes:
+    - receiver: monitoring-heartbeat
+      matchers:
+        - component="monitoring-pipeline"
+        - severity="none"
+        - alertname="MonitoringHeartbeat"
+      group_wait: 0s
+      group_interval: 1m
+      repeat_interval: 1m
     - receiver: owner-email
       matchers:
         - component="game-host-resources"
@@ -33,6 +41,17 @@ route:
 
 receivers:
   - name: discard
+  - name: monitoring-heartbeat
+    webhook_configs:
+      - url_file: /run/secrets/irm-heartbeat-url
+        send_resolved: false
+        max_alerts: 1
+        timeout: 10s
+        # Heartbeat acceptance needs no host labels, queries or source payload.
+        payload:
+          project: goldsrcops
+          environment: production
+          heartbeat: monitoring-pipeline
   - name: owner-email
     webhook_configs:
       - url_file: /run/secrets/irm-webhook-url

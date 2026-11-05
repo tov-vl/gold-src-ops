@@ -10,11 +10,12 @@ rule_files:
   - /etc/prometheus/rules/game-event-agent.yml
   - /etc/prometheus/rules/game-host-storage.yml
   - /etc/prometheus/rules/game-host-resources.yml
+  - /etc/prometheus/rules/monitoring-heartbeat.yml
 
 alerting:
   alert_relabel_configs:
     - source_labels: [component, severity, alertname]
-      regex: game-event-agent;warning;GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)|player-backup;warning;PlayerBackup(MonitorUnavailable|ObservationInvalid|InterventionRequired|ScheduleProblem|CopyUnavailable)|game-host-storage;warning;GameHostStorage(MonitorUnavailable|ObservationInvalid|BytesLow|InodesLow)|game-host-resources;warning;GameHost(ResourceMonitorUnavailable|ResourceObservationInvalid|MemoryLow)
+      regex: game-event-agent;warning;GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)|player-backup;warning;PlayerBackup(MonitorUnavailable|ObservationInvalid|InterventionRequired|ScheduleProblem|CopyUnavailable)|game-host-storage;warning;GameHostStorage(MonitorUnavailable|ObservationInvalid|BytesLow|InodesLow)|game-host-resources;warning;GameHost(ResourceMonitorUnavailable|ResourceObservationInvalid|MemoryLow)|monitoring-pipeline;none;MonitoringHeartbeat
       action: keep
     - regex: alertname|component|severity
       action: labelkeep

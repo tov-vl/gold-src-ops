@@ -187,6 +187,7 @@ def main():
             env = temporary / 'fixture.env'
             env.write_text('GOLDSRCOPS_TELEMETRY_NETWORK=fixture-telemetry\n'
                            'GOLDSRCOPS_OWNER_ALERTMANAGER_IP=172.29.249.7\n'
+                           'GOLDSRCOPS_IRM_HEARTBEAT_FILE=' + secret.as_posix() + '\n'
                            'GOLDSRCOPS_IRM_WEBHOOK_FILE=' + secret.as_posix() + '\n', encoding='utf-8')
             rendered = json.loads(docker('compose', '--env-file', env, '-f', SOURCE / 'compose.yml',
                                          'config', '--format', 'json'))
@@ -214,6 +215,7 @@ def main():
             docker('run', '-d', '--name', am, '--network', prefix, *SAFE,
                    '--publish', '127.0.0.1::9093', '--mount', 'type=volume,source=' + prefix + ',target=/alertmanager',
                    '--mount', mount(config, '/config.yml'), '--mount', mount(secret, '/run/secrets/irm-webhook-url'),
+                   '--mount', mount(secret, '/run/secrets/irm-heartbeat-url'),
                    IMAGE, '--config.file=/config.yml', '--storage.path=/alertmanager',
                    '--cluster.listen-address=', '--data.maintenance-interval=1s')
             sink_url, am_url = endpoint(sink, 8080), endpoint(am, 9093)
