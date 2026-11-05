@@ -27,6 +27,7 @@ services:
       - notification-state:/alertmanager
     secrets:
       - irm-webhook-url
+      - irm-heartbeat-url
     networks:
       telemetry:
         aliases: [owner-alertmanager]
@@ -54,6 +55,8 @@ networks:
 secrets:
   irm-webhook-url:
     file: ${GOLDSRCOPS_IRM_WEBHOOK_FILE:?Set the protected URL file outside Git}
+  irm-heartbeat-url:
+    file: ${GOLDSRCOPS_IRM_HEARTBEAT_FILE:?Set the protected heartbeat URL file outside Git}
 
 volumes:
   notification-state: {}

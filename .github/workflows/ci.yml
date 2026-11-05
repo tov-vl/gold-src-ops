@@ -497,6 +497,7 @@ jobs:
             systemd-analyze verify ./ops/production/systemd/goldsrcops-game-host-resource-monitor.service ./ops/production/systemd/goldsrcops-game-host-resource-monitor.timer
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor-stack.py
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/owner-notifications.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/monitoring-watchdog.py
           sudo bash ./tools/smoke/player-data-schedule.sh
           pwsh -NoProfile -File ./tools/smoke/player-data-backup.ps1
           bash -n ./tools/smoke/game-player-data-recovery-runtime.sh
