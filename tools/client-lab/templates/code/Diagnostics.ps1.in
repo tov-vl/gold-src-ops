@@ -1,5 +1,156 @@
 Set-StrictMode -Version Latest
 
+function Get-LabRendererHash([byte[]]$Bytes) {
+    $hash=[Security.Cryptography.SHA256]::Create()
+    try{return ([BitConverter]::ToString($hash.ComputeHash($Bytes))).Replace('-','').ToLowerInvariant()}
+    finally{$hash.Dispose()}
+}
+
+function New-LabRendererUnknown([string]$Id,[string]$Reason,[bool]$Enabled=$false) {
+    Assert-LabId $Id
+    return @{schema=1;jobId=$Id;status='unconfirmed';reason=$Reason;probeEnabled=$Enabled;cleanupVerified=$false}
+}
+
+function Get-LabRendererPaths([string]$GameRoot) {
+    foreach($directory in @($GameRoot,(Join-Path $GameRoot 'cstrike'))){
+        $parent=Get-Item -LiteralPath $directory
+        while($parent){
+            if($parent.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked renderer directory.'}
+            $parent=$parent.Parent
+        }
+        foreach($name in @('qconsole.log','console.log')){Join-Path $directory $name}
+    }
+}
+
+function New-LabRendererProbe($Policy,[string]$Id) {
+    Assert-LabId $Id
+    $probe=@{enabled=$false;reason='log_preflight_unavailable';paths=@()}
+    try {
+        $probe.paths=@(Get-LabRendererPaths $Policy.gameRoot)
+        if(@($probe.paths).Count -ne 4){throw 'Unexpected renderer path set.'}
+        foreach($path in $probe.paths){
+            if(Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue){$probe.reason='preexisting_log_preserved';return $probe}
+            if([IO.File]::Exists($path) -or [IO.Directory]::Exists($path)){throw 'Unexpected renderer path.'}
+        }
+        $probe.enabled=$true;$probe.reason='awaiting_client_output'
+    } catch { }
+    return $probe
+}
+
+function Add-LabRendererProgram([string]$Id,[string]$Program,[bool]$Enabled) {
+    Assert-LabId $Id
+    if(-not $Enabled){return $Program}
+    $token=([guid]$Id).ToString('N')
+    return ('echo GSO_RENDERER_BEGIN_'+$token+"`r`ngl_dump`r`necho GSO_RENDERER_END_"+$token+"`r`n"+$Program)
+}
+
+function Add-LabRendererLaunchArguments([string]$Arguments,[bool]$Enabled) {
+    if(-not $Enabled){return $Arguments}
+    if(-not $Arguments.StartsWith('-applaunch 10 -gl ') -or $Arguments.Contains('-condebug')){throw 'Renderer launch boundary differs.'}
+    return $Arguments.Replace('-applaunch 10 -gl ','-applaunch 10 -gl -condebug ')
+}
+
+function ConvertFrom-LabRendererFrame([string]$Text,[string]$Id) {
+    Assert-LabId $Id
+    if($Text.Length -gt 16384 -or $Text -match '[^\x09\x0A\x0D\x20-\x7E]'){throw 'Renderer frame is not bounded ASCII.'}
+    $token=([guid]$Id).ToString('N')
+    $lines=@($Text.Replace("`r`n","`n").Split("`n")|Where-Object {$_.Length})
+    if($lines.Count -lt 5 -or $lines[0] -cne ('GSO_RENDERER_BEGIN_'+$token) -or $lines[-1] -cne ('GSO_RENDERER_END_'+$token)){throw 'Renderer frame identity differs.'}
+    $values=@{}
+    foreach($line in $lines[1..($lines.Count-2)]){
+        if($line -cmatch '\AGL (Vendor|Renderer|Version): ([\x20-\x7E]{1,256})\z'){
+            $key=$Matches[1]
+            if($values.ContainsKey($key) -or [string]::IsNullOrWhiteSpace($Matches[2])){throw 'Duplicate or empty GL field.'}
+            $values[$key]=$Matches[2]
+        } elseif($line -cmatch '\AGL Extensions: [\x20-\x7E]*\z'){
+            if($values.ContainsKey('Extensions')){throw 'Duplicate GL extension line.'};$values.Extensions=$true
+        } else {throw 'Unexpected renderer output.'}
+    }
+    if(-not $values.ContainsKey('Vendor') -or -not $values.ContainsKey('Renderer') -or -not $values.ContainsKey('Version')){throw 'Incomplete GL identity.'}
+    return @{backend='OpenGL';vendor=$values.Vendor;renderer=$values.Renderer;version=$values.Version}
+}
+
+function Get-LabRendererEvidence($Policy,$Result,$Probe,[DateTime]$LaunchUtc) {
+    $unknown=New-LabRendererUnknown $Result.id $Probe.reason ([bool]$Probe.enabled)
+    if(-not $Probe.enabled){return $unknown}
+    try {
+        Assert-LabInteractionOwner $Policy $Result
+        $processes=@(Get-LabProcess $Policy ([int]$Result.gamePid))
+        if($processes.Count -ne 1 -or $processes[0].StartTime.ToUniversalTime().ToString('o') -cne $Result.gameStartedUtc -or
+            $processes[0].StartTime.ToUniversalTime() -lt $LaunchUtc){throw 'Renderer process identity differs.'}
+        $command=@(Get-CimInstance -ClassName Win32_Process -Filter ('ProcessId='+$Result.gamePid) -Property ProcessId,CommandLine -OperationTimeoutSec 3)
+        $config='gso_lan_'+([guid]$Result.id).ToString('N')+'.cfg'
+        if($command.Count -ne 1 -or $command[0].ProcessId -ne $Result.gamePid -or $command[0].CommandLine.Length -gt 32KB -or
+            $command[0].CommandLine -cnotmatch '(?:^|\s)-condebug(?:\s|$)' -or
+            $command[0].CommandLine -cnotmatch ('(?:^|\s)\+exec\s+"?'+[regex]::Escape($config)+'"?(?:\s|$)')){throw 'Renderer process command differs.'}
+        $files=@($Probe.paths|Where-Object {Test-Path -LiteralPath $_})
+        if($files.Count -ne 1){throw 'Renderer log is missing or ambiguous.'}
+        $file=Get-Item -LiteralPath $files[0]
+        if($file.Attributes -band [IO.FileAttributes]::ReparsePoint -or $file.PSIsContainer -or $file.CreationTimeUtc -lt $LaunchUtc -or $file.Length -gt 4MB){throw 'Renderer log identity differs.'}
+        $stream=New-Object IO.FileStream($file.FullName,[IO.FileMode]::Open,[IO.FileAccess]::Read,([IO.FileShare]::ReadWrite))
+        try {
+            if($stream.Length -gt 4MB){throw 'Renderer log exceeds limit.'}
+            $bytes=New-Object byte[] ([int]$stream.Length)
+            $read=0
+            while($read -lt $bytes.Length){$count=$stream.Read($bytes,$read,$bytes.Length-$read);if($count -eq 0){throw 'Renderer log shortened.'};$read+=$count}
+        } finally {$stream.Dispose()}
+        $text=[Text.Encoding]::GetEncoding(28591).GetString($bytes)
+        $token=([guid]$Result.id).ToString('N')
+        $begin='GSO_RENDERER_BEGIN_'+$token;$end='GSO_RENDERER_END_'+$token
+        $lines=$text.Replace("`r`n","`n").Split("`n")
+        $starts=@(0..($lines.Length-1)|Where-Object {$lines[$_] -ceq $begin})
+        $ends=@(0..($lines.Length-1)|Where-Object {$lines[$_] -ceq $end})
+        if($starts.Count -ne 1 -or $ends.Count -ne 1 -or $ends[0] -le $starts[0]){throw 'Renderer output boundary missing or repeated.'}
+        $frame=($lines[$starts[0]..$ends[0]] -join "`n")+"`n"
+        $Probe.logPath=$file.FullName
+        $Probe.logCreatedUtc=$file.CreationTimeUtc.ToString('o')
+        $Probe.frame=$frame
+        $identity=ConvertFrom-LabRendererFrame $frame $Result.id
+        $frameBytes=[Text.Encoding]::ASCII.GetBytes($frame)
+        Assert-LabInteractionOwner $Policy $Result
+        return @{schema=1;jobId=$Result.id;status='identified';reason='process_bound_gl_dump';probeEnabled=$true;cleanupVerified=$false;
+            gamePid=$Result.gamePid;gameStartedUtc=$Result.gameStartedUtc;observedUtc=[DateTime]::UtcNow.ToString('o');
+            identity=$identity;frameBase64=[Convert]::ToBase64String($frameBytes);frameSha256=(Get-LabRendererHash $frameBytes);frameBytes=$frameBytes.Length}
+    } catch {$unknown.reason='client_output_not_proven';return $unknown}
+}
+
+function Remove-LabRendererLogs($Policy,$Result,$Probe,[DateTime]$LaunchUtc) {
+    if(-not $Probe.enabled){return $true}
+    $paths=@(Get-LabRendererPaths $Policy.gameRoot)
+    if(($paths -join '|') -cne ($Probe.paths -join '|')){return $false}
+    $found=@($paths|Where-Object {Test-Path -LiteralPath $_})
+    if(-not $found.Count){return $true}
+    if(-not $Result.cleanupVerified -or -not $Result.gamePid -or -not $Result.gameStartedUtc -or $found.Count -ne 1 -or -not $Probe.ContainsKey('logPath')){return $false}
+    if(@(Get-LabProcess $Policy ([int]$Result.gamePid)).Count){return $false}
+    $file=Get-Item -LiteralPath $found[0]
+    if($file.Attributes -band [IO.FileAttributes]::ReparsePoint -or $file.PSIsContainer -or $file.CreationTimeUtc -lt $LaunchUtc -or $file.Length -gt 4MB -or
+        $file.FullName -cne $Probe.logPath -or $file.CreationTimeUtc.ToString('o') -cne $Probe.logCreatedUtc){return $false}
+    $text=[Text.Encoding]::GetEncoding(28591).GetString([IO.File]::ReadAllBytes($file.FullName)).Replace("`r`n","`n")
+    if(-not $text.Contains($Probe.frame)){return $false}
+    # Only the newly created fixed log of a confirmed, now-closed owned process.
+    [IO.File]::Delete($file.FullName)
+    return -not (Test-Path -LiteralPath $file.FullName)
+}
+
+function Test-LabRendererEvidence($Result,[string]$Id) {
+    Assert-LabId $Id
+    $report=$Result.rendererEvidence
+    if($Result.id -cne $Id -or $report.schema -ne 1 -or $report.jobId -cne $Id -or $report.status -cne 'identified' -or
+        $report.reason -cne 'process_bound_gl_dump' -or $report.probeEnabled -isnot [bool] -or -not $report.probeEnabled -or
+        $report.cleanupVerified -isnot [bool] -or -not $report.cleanupVerified -or
+        $report.gamePid -ne $Result.gamePid -or [int]$report.gamePid -le 0 -or $report.gameStartedUtc -cne $Result.gameStartedUtc -or
+        $Result.cleanupVerified -isnot [bool] -or -not $Result.cleanupVerified){throw 'Unaccepted renderer evidence.'}
+    $started=ConvertTo-LabUtc $report.gameStartedUtc;$observed=ConvertTo-LabUtc $report.observedUtc;$completed=ConvertTo-LabUtc $Result.completedUtc
+    if($observed -lt $started -or $observed -gt $completed){throw 'Renderer observation time differs.'}
+    if($report.frameBase64 -isnot [string] -or $report.frameBase64.Length -gt 21848 -or
+        $report.frameSha256 -isnot [string] -or $report.frameSha256 -cnotmatch '\A[0-9a-f]{64}\z'){throw 'Renderer frame encoding differs.'}
+    $bytes=[Convert]::FromBase64String($report.frameBase64)
+    if($bytes.Length -gt 16384 -or $bytes.Length -ne $report.frameBytes -or @($bytes|Where-Object {$_ -gt 127}).Count -or (Get-LabRendererHash $bytes) -cne $report.frameSha256){throw 'Renderer frame hash differs.'}
+    $identity=ConvertFrom-LabRendererFrame ([Text.Encoding]::ASCII.GetString($bytes)) $Id
+    foreach($key in @('backend','vendor','renderer','version')){if($identity[$key] -cne $report.identity.$key){throw 'Renderer projection differs.'}}
+    return $identity
+}
+
 function Get-LabClientObservation($Policy) {
     $observation=[ordered]@{schema=1;utc=[DateTime]::UtcNow.ToString('o');query='unavailable';truncated=$false;workerUserMatches=$false;workerSessionMatches=$false;steam=@();game=@()}
     try {
@@ -169,13 +320,20 @@ function Assert-LabDesktopRequest([string]$Root,$Policy,[string]$Id) {
     foreach($path in @($Policy.gameRoot,(Join-Path $Policy.gameRoot 'cstrike'),$configPath)) {
         if((Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked desktop launch input.'}
     }
-    if((Get-Item -LiteralPath $configPath).Length -gt 32KB -or [IO.File]::ReadAllText($configPath) -cne (New-LabRunnerInteractionProgram $job)){throw 'Desktop launch program differs.'}
+    $rendererEnabled=$false
+    if($result.PSObject.Properties.Name -contains 'rendererEvidence'){
+        $renderer=$result.rendererEvidence
+        if($renderer.schema -ne 1 -or $renderer.jobId -cne $Id -or $renderer.status -cne 'unconfirmed' -or $renderer.probeEnabled -isnot [bool]){throw 'Renderer launch claim differs.'}
+        $rendererEnabled=$renderer.probeEnabled
+    }
+    $program=Add-LabRendererProgram $Id (New-LabRunnerInteractionProgram $job) $rendererEnabled
+    if((Get-Item -LiteralPath $configPath).Length -gt 32KB -or [IO.File]::ReadAllText($configPath) -cne $program){throw 'Desktop launch program differs.'}
     if((Get-LabInteractionPanel $job) -ceq 'guns'){
         Assert-LabGunsBindings $Policy.gameRoot
     }
     Assert-LabInteractionBindings $Policy.gameRoot
     if(-not (Get-LabClientReadiness (Get-LabClientObservation $Policy)).ready){throw 'Desktop launch prerequisites differ.'}
-    return @{job=$job;directory=$paths.result;arguments=(Get-LabRunnerLaunchArguments $job $configName)}
+    return @{job=$job;directory=$paths.result;arguments=(Add-LabRendererLaunchArguments (Get-LabRunnerLaunchArguments $job $configName) $rendererEnabled)}
 }
 
 function Invoke-LabDesktopChild([string]$Root,$Policy,[string]$Id) {

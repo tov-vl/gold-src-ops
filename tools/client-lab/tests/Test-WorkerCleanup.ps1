@@ -27,6 +27,12 @@ function Start-Process([string]$FilePath,[string]$ArgumentList,[switch]$PassThru
 }
 '@
 $diagnosticsStub=@'
+function New-LabRendererUnknown([string]$Id,[string]$Reason,[bool]$Enabled=$false){return @{schema=1;jobId=$Id;status='unconfirmed';reason=$Reason;probeEnabled=$Enabled;cleanupVerified=$false}}
+function New-LabRendererProbe($Policy,[string]$Id){return @{enabled=$false;reason='test_disabled';paths=@()}}
+function Add-LabRendererProgram([string]$Id,[string]$Program,[bool]$Enabled){return $Program}
+function Add-LabRendererLaunchArguments([string]$Arguments,[bool]$Enabled){return $Arguments}
+function Get-LabRendererEvidence($Policy,$Result,$Probe,[DateTime]$LaunchUtc){if($Policy.testCase -ceq 'renderer-fail'){throw 'Injected diagnostic failure.'};return New-LabRendererUnknown $Result.id 'test_disabled'}
+function Remove-LabRendererLogs($Policy,$Result,$Probe,[DateTime]$LaunchUtc){return $true}
 function Get-LabClientObservation($Policy){return $Policy}
 function Get-LabClientReadiness($Observation){return @{ready=($Observation.testCase -cne 'busy');code='test-prerequisite'}}
 function Start-LabDesktopHelper([string]$Root,[string]$Id){return Start-Process -FilePath (Join-Path $policy.steamRoot 'steam.exe') -ArgumentList '-applaunch 10 mock' -PassThru}
@@ -52,7 +58,7 @@ function Invoke-LabAutonomousRulesInteraction([string]$Root,$Policy,$Job,$Result
 }
 '@
 $cases=0
-foreach($scenario in @('rules-success','rules-scenario-fail','rules-cleanup-fail','rules-busy','ranks-success','profile-success','topall-success','profile-scenario-fail','topall-cleanup-fail','ranks-busy','guns-success','guns-scenario-fail','guns-cleanup-fail','guns-busy','capture-guns-scenario-fail')){
+foreach($scenario in @('rules-success','rules-renderer-fail','rules-scenario-fail','rules-cleanup-fail','rules-busy','ranks-success','profile-success','topall-success','profile-scenario-fail','topall-cleanup-fail','ranks-busy','guns-success','guns-scenario-fail','guns-cleanup-fail','guns-busy','capture-guns-scenario-fail')){
     $panel,$name=$scenario -split '-',2
     if($panel -ceq 'capture'){$panel='guns-capture';$name='scenario-fail'}
     $root=Join-Path $sandbox $scenario
