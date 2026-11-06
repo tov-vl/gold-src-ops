@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <EmbeddedResource Include="../../ops/production/game-health-dashboard.json" LogicalName="GameHostHealthDashboard.json" />
     <ProjectReference Include="..\GoldSrcOps.Application\GoldSrcOps.Application.csproj" />
     <ProjectReference Include="..\GoldSrcOps.Domain\GoldSrcOps.Domain.csproj" />
   </ItemGroup>

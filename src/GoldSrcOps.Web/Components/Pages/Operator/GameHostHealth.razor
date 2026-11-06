@@ -1,0 +1,119 @@
+@page "/operator/game-host-health"
+@attribute [Authorize(Policy = WebSecurity.OperatorPolicy)]
+@inject IGameHostHealthClient HealthClient
+@inject GameHostHealthLinks Links
+
+<PageTitle>Game-host health | GoldSrcOps</PageTitle>
+
+<div class="health-page">
+    <header>
+        <p class="eyebrow">Operator portal</p>
+        <h1>Game-host health</h1>
+        <p>Read-only observations and existing Prometheus warning states.</p>
+        <a href="@RefreshPath">Refresh</a>
+    </header>
+    @if (_snapshot is null)
+    {
+        <section class="health-card state-unknown" role="status">
+            <h2>Unknown</h2>
+            <p>No usable health snapshot. This does not establish that the game host is healthy or offline.</p>
+        </section>
+    }
+    else
+    {
+        <p>Evaluated: @FormatTime(_snapshot.EvaluatedAtUtc). This page does not refresh automatically.</p>
+        <div class="health-grid">
+            @foreach (var component in _snapshot.Components)
+            {
+                <section class="health-card state-@component.State.ToLowerInvariant()" aria-label="@Label(component.Component)">
+                    <h2>@Label(component.Component)</h2>
+                    <strong>@StateLabel(component.State)</strong>
+                    <p>Monitor observed: @FormatTime(component.ObservedAtUtc)</p>
+                </section>
+            }
+        </div>
+        <section class="health-values">
+            <h2>Available measurements</h2>
+            <p>Missing values are unknown. Zero is a valid observation.</p>
+            <dl>
+                @foreach (var value in _snapshot.Values)
+                {
+                    <div><dt>@MetricLabel(value.Metric) @(value.Role.Length == 0 ? "" : $"({value.Role})")</dt>
+                        <dd>@FormatValue(value)</dd></div>
+                }
+            </dl>
+        </section>
+    }
+    <section class="health-notes">
+        <h2>Interpretation</h2>
+        <p>No warnings means only that this observed scope has no existing pending or firing rule. It is not an availability guarantee. Unknown and stale never mean healthy. Rules can lag an observation by one evaluation interval.</p>
+        <p>CPU busy/steal is a roughly one-second sample once a minute, not a minute average, game latency, or FPS. CPU has no utilization warning threshold. RAM remains independent of CPU availability.</p>
+        <p>Backup copy age and weekly outcome are separate. A newer manual copy does not close a failed weekly slot. A local heartbeat does not prove delivery to IRM.</p>
+        <p>Inodes are absent where the filesystem does not support them. Zero swap use is valid, including a host without swap.</p>
+        @if (Links.Dashboards.Count > 0)
+        {
+            <nav aria-label="Grafana detail dashboards">
+                @foreach (var link in Links.Dashboards)
+                {
+                    <a href="@link.Value.AbsoluteUri">@link.Key</a><span> </span>
+                }
+            </nav>
+            <p>Grafana requires its existing private access or local tunnel and separate sign-in.</p>
+        }
+        else
+        {
+            <p>Direct Grafana links are not configured. Use the existing private Grafana access.</p>
+        }
+        <a href="https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.107-game-health-overview.md">Monitoring runbook and Grafana dashboard guide</a>
+    </section>
+</div>
+
+@code {
+    private const string RefreshPath = "/operator/game-host-health";
+    private GameHostHealthResponse? _snapshot;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _snapshot = await HealthClient.ReadAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException or System.Text.Json.JsonException)
+        {
+            _snapshot = null;
+        }
+    }
+
+    private static string FormatTime(DateTimeOffset? value) => value?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture) ?? "Unknown";
+    private static string Label(string component) => component switch
+    {
+        "agent" => "Agent / queue", "backup" => "Player backup", "storage" => "Disk / inode",
+        "memory" => "RAM / swap", "cpu" => "Sampled CPU", _ => "Unknown"
+    };
+    private static string StateLabel(string state) => state switch
+    {
+        "NoWarnings" => "No warnings", "Observed" => "Observed (no CPU threshold)",
+        "Pending" => "Pending", "Firing" => "Firing", "Stale" => "Stale", _ => "Unknown"
+    };
+    private static string MetricLabel(string metric) => metric switch
+    {
+        "queuePending" => "Queue pending", "queueInFlight" => "Queue in-flight", "queueDeadLetter" => "Queue dead-letter", "spoolFiles" => "Spool ready + processing",
+        "backupAgeSeconds" => "Backup copy age (seconds)", "backupSource" => "Backup copy source", "weeklyAttempt" => "Last weekly attempt",
+        "weeklyMissed" => "Missed weekly slot", "diskAvailableBytes" => "Disk available (bytes)", "diskAvailableRatio" => "Disk available (ratio)",
+        "inodesAvailable" => "Inodes available", "inodesAvailableRatio" => "Inodes available (ratio)", "memoryAvailableBytes" => "RAM available (bytes)",
+        "swapUsedBytes" => "Swap used (bytes)", "cpuBusyRatio" => "CPU busy (ratio)", "cpuStealRatio" => "CPU steal (ratio)", _ => "Unknown"
+    };
+
+    private static string FormatValue(GameHostHealthValueResponse value) => value.Metric switch
+    {
+        "backupSource" => value.Value switch { 0 => "No copy", 1 => "Weekly", 2 => "Manual", _ => "Unknown" },
+        "weeklyAttempt" => value.Value switch
+        {
+            0 => "No attempt", 1 => "Copy verified", 2 => "Empty data", 3 => "Pending",
+            4 => "Skipped", 5 => "Verification failed", 6 => "Capture failed", 7 => "Interrupted",
+            8 => "Closed: capture did not start", 9 => "Closed: outcome uncertain", _ => "Unknown"
+        },
+        "weeklyMissed" => value.Value switch { 0 => "No", 1 => "Yes", _ => "Unknown" },
+        _ => value.Value.ToString("0.###", CultureInfo.InvariantCulture)
+    };
+}

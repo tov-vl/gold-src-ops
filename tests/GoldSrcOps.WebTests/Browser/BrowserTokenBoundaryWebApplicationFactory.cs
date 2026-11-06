@@ -27,6 +27,7 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
         "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJicm93c2VyLWlkIn0.c2lnbmF0dXJl";
 
     private readonly bool searchEnabled;
+    private readonly HttpMessageHandler? _gameHostHealthHandler;
     public PlayerSearchFixtureHandler SearchHandler { get; } = new();
     private readonly bool serverEnabled;
     private readonly PublicServerJoinResponse? serverJoinResponse;
@@ -40,8 +41,10 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
         HttpStatusCode? serverJoinFailureStatus = null,
         PublicLeaderboardResponse? leaderboard = null,
         HttpStatusCode? leaderboardFailure = null,
-        bool searchEnabled = false)
+        bool searchEnabled = false,
+        HttpMessageHandler? gameHostHealthHandler = null)
     {
+        _gameHostHealthHandler = gameHostHealthHandler;
         this.searchEnabled = searchEnabled;
         this.serverEnabled = serverEnabled;
         this.serverJoinResponse = serverJoinResponse;
@@ -67,6 +70,11 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
         });
         builder.ConfigureTestServices(services =>
         {
+            if (_gameHostHealthHandler is not null)
+            {
+                services.AddHttpClient<IGameHostHealthClient, GameHostHealthClient>()
+                    .ConfigurePrimaryHttpMessageHandler(() => _gameHostHealthHandler);
+            }
             services.RemoveAll<WebAuthenticationState>();
             services.AddSingleton(new WebAuthenticationState(Enabled: true));
             services.RemoveAll<IReaderApiClient>();

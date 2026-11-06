@@ -29,6 +29,9 @@
                     <NavLink href="/operator/dead-letters">Dead letters</NavLink>
                 </Authorized>
             </AuthorizeView>
+            <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
+                <Authorized><NavLink href="/operator/game-host-health">Game-host health</NavLink></Authorized>
+            </AuthorizeView>
         </nav>
         <div class="session-actions">
             @if (AuthenticationState.Enabled)

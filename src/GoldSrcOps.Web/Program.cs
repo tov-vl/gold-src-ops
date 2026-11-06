@@ -42,6 +42,14 @@ builder.Services.AddHttpClient<PublicPlayerSearchClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(5);
 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<AccessTokenHandler>();
+builder.Services.AddSingleton(new GameHostHealthLinks(builder.Configuration["GameHostHealth:GrafanaBaseUrl"]));
+builder.Services.AddHttpClient<IGameHostHealthClient, GameHostHealthClient>(client =>
+{
+    client.BaseAddress = apiBaseAddress;
+    client.Timeout = TimeSpan.FromSeconds(7);
+    client.MaxResponseContentBufferSize = 65536;
+}).ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false })
+    .AddHttpMessageHandler<AccessTokenHandler>();
 builder.Services.AddHttpClient<IReaderApiClient, ReaderApiClient>(client =>
 {
     client.BaseAddress = apiBaseAddress;
@@ -75,6 +83,15 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.Equals(new PathString("/operator/game-host-health"), StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.Headers.CacheControl = "no-store";
+    }
+
+    await next(context).ConfigureAwait(false);
+});
 app.UseAuthorization();
 app.UsePublicPlayerSearchBoundary();
 app.UseAntiforgery();

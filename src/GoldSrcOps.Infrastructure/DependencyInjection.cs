@@ -71,6 +71,7 @@ public static class DependencyInjection
             gameEventRetentionOptions.RetentionPeriod,
             gameEventRetentionOptions.BatchSize));
         services.AddSingleton<IClock, SystemClock>();
+        services.AddScoped<GameHostHealthService>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IAlertDeliveryReadRepository, EfAlertDeliveryReadRepository>();
         services.AddScoped<IAlertDeliveryReplayRepository, EfAlertDeliveryReplayRepository>();
