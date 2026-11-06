@@ -9,6 +9,8 @@ New-Item -ItemType Directory -Path $sandbox|Out-Null
 $commonStub=@'
 function Assert-LabCode([string]$Root){}
 function Assert-LabLease($Policy){}
+# Hosted CI can use service session 0; this fixture models an interactive worker.
+function Get-Process([int]$Id){if($Id -ne $PID){throw 'Unexpected process lookup.'};return [pscustomobject]@{SessionId=7}}
 function Get-LabFixtureReady($Policy){return @{ready=$true}}
 function Get-LabSnapshots([string]$GameRoot){return @()}
 function Get-LabProcess($Policy,[int]$ProcessId){return @()}
@@ -72,7 +74,7 @@ foreach($scenario in @('rules-current-session','rules-foreign-user','rules-succe
     [IO.File]::WriteAllText((Join-Path $root 'code\Interaction.ps1'),$interaction+"`r`n"+$interactionStub)
     [IO.File]::WriteAllText((Join-Path $root 'code\Diagnostics.ps1'),[IO.File]::ReadAllText((Join-Path $Workspace 'kit\code\Diagnostics.ps1'))+"`r`n"+$diagnosticsStub)
     foreach($file in @('game\hl.exe','game\cstrike\liblist.gam','steam\steam.exe')){[IO.File]::WriteAllText((Join-Path $root $file),'non-executable mock input')}
-    $policy=@{gameUserSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;gameSessionId=(Get-Process -Id $PID).SessionId;gameRoot=(Join-Path $root 'game');steamRoot=(Join-Path $root 'steam');testCase=$name}
+    $policy=@{gameUserSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;gameSessionId=7;gameRoot=(Join-Path $root 'game');steamRoot=(Join-Path $root 'steam');testCase=$name}
     if($sessionCase -cin @('current-session','foreign-user')){$policy.gameSessionMode='current-user-interactive';$policy.gameSessionId++}
     if($sessionCase -ceq 'foreign-user'){$policy.gameUserSid='S-1-5-21-100-200-300-1003'}
     Write-LabJson (Join-Path $root 'policy.json') $policy
@@ -91,7 +93,7 @@ foreach($scenario in @('rules-current-session','rules-foreign-user','rules-succe
         $cases++;continue
     }
     $result=Read-LabJson (Join-Path $root ('results\'+$id+'\result.json'))
-    if($sessionCase -ceq 'current-session' -and $result.gameSessionId -ne (Get-Process -Id $PID).SessionId){throw 'Worker did not pin its actual session.'}
+    if($sessionCase -ceq 'current-session' -and $result.gameSessionId -ne 7){throw 'Worker did not pin its actual session.'}
     if($name -ceq 'busy'){
         if($result.launchRequested -or (Test-Path -LiteralPath (Join-Path $root 'launch-count.json'))){throw 'Busy client attempted a launch.'}
     }else{
