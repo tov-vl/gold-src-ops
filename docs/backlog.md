@@ -5,6 +5,11 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.110 Operator game-host health](v2.110-operator-game-host-health.md).
+Read-only API/BFF page using existing telemetry and warning rules; local
+verification and release evidence are pending. No game-client acceptance is
+needed for this application-only stage.
+
 Completed:
 
 - Repository and solution initialized.

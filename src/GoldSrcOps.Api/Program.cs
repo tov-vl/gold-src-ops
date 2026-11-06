@@ -73,6 +73,8 @@ builder.Services.AddOpenTelemetry()
         .AddPrometheusExporter()
         .AddConfiguredOtlpExporter(otlpMetricsOptions));
 
+builder.Services.AddGameHostHealthSource(builder.Configuration);
+
 var app = builder.Build();
 _ = app.Services.GetRequiredService<PublicServerJoinOptions>();
 _ = app.Services.GetRequiredService<PublicPlayerSearchSettings>();
@@ -112,6 +114,7 @@ app.MapAlertDeliveryEndpoints();
 app.MapServerEndpoints();
 app.MapIncidentEndpoints();
 app.MapDashboardEndpoints();
+app.MapGameHostHealthEndpoints();
 app.MapCommandEndpoints();
 app.MapGameEventEndpoints();
 

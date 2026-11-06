@@ -18,6 +18,7 @@ RUN dotnet restore src/GoldSrcOps.Api/GoldSrcOps.Api.csproj -a $TARGETARCH \
     && dotnet tool restore
 
 COPY --link src/ src/
+COPY --link ops/production/game-health-dashboard.json ops/production/
 
 RUN dotnet publish src/GoldSrcOps.Api/GoldSrcOps.Api.csproj \
     -a $TARGETARCH \

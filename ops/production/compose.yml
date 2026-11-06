@@ -58,6 +58,8 @@ services:
       ReverseProxy__KnownProxy: ${GOLDSRCOPS_PROXY_IP:?Set GOLDSRCOPS_PROXY_IP}
       GOLDSRCOPS_RCON_SECRET_ALIAS: ${GOLDSRCOPS_RCON_SECRET_ALIAS:?Set GOLDSRCOPS_RCON_SECRET_ALIAS}
       AlertDelivery__Enabled: "false"
+      GameHostHealth__Enabled: ${GOLDSRCOPS_GAME_HOST_HEALTH_ENABLED:-false}
+      GameHostHealth__PrometheusBaseUrl: http://prometheus:9090/
       Polling__Enabled: "true"
       PublicLeaderboard__Enabled: ${GOLDSRCOPS_PUBLIC_LEADERBOARD_ENABLED:-false}
       PublicPlayerSearch__Enabled: ${GOLDSRCOPS_PUBLIC_PLAYER_SEARCH_API_ENABLED:-false}
@@ -120,6 +122,7 @@ services:
       DataProtection__PersistKeys: "true"
       DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE: "false"
       GoldSrcOpsApi__BaseUrl: http://api:8080/
+      GameHostHealth__GrafanaBaseUrl: ${GOLDSRCOPS_OPERATOR_GRAFANA_BASE_URL:-}
       ProviderOperations__Enabled: "false"
       PublicPlayerSearch__Enabled: ${GOLDSRCOPS_PUBLIC_PLAYER_SEARCH_WEB_ENABLED:-false}
       Telemetry__Otlp__Enabled: "true"

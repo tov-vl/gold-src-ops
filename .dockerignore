@@ -23,6 +23,7 @@
 !ops/
 !ops/production/
 !ops/production/api-entrypoint.sh
+!ops/production/game-health-dashboard.json
 !ops/alert-receiver/
 !ops/alert-receiver/receiver-entrypoint.sh
 
