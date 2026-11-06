@@ -177,3 +177,32 @@ Only the existing maintenance path and live preservation checks were exercised;
 unchanged application/client test suites were not repeated. The next native
 request remains a separate bounded trial with its own source/input and readiness
 checks. Maintenance does not authorize replaying a prior request.
+
+## Paired profile acceptance - 2026-11-06 (MSK)
+
+One subsequently authorized RU profile request completed through the ordinary
+renderer-required controller, with one dispatch and no replay. All five actual
+frames were visually reviewed and independently reanalyzed: the RU title/body
+were readable, the pinned baseline matched, both OK closes, alternate-alias
+reopening and returned movement passed. Ordered server interaction, cooldown,
+both movement epochs and zero AMXX errors were verified by the normal evidence
+gate. Collection reached `captured_unreviewed` without the earlier EN collection
+anomaly.
+
+The shared and standalone renderer reviews agreed on the result-bound OpenGL
+identity; game and worker sessions matched. Normal hash-bound review and a
+subsequent same-ID accepted resume confirmed UI, renderer and cleanup together,
+without changing raw worker flags or the dispatch claim. Fresh target readback
+confirmed no game process, restored configuration, removed diagnostic logs and
+owned fixture/relay/network absence. All nine runner hashes at sequence 30 /
+revision 16, eight prior results, the retained failed renderer evidence and log
+archive, and the accepted EN campaign receipts remained unchanged.
+
+Both profile languages are now accepted through the renderer-required campaign.
+Steam hold was restored, the four ranks/topall cases remain prepared, and queue
+occupancy is seven with one free slot. No manual script/window selection, runner
+or policy update, permission, addon or production change was needed. This does
+not establish a fresh six-case matrix, production saved statistics, PvP,
+hardware acceleration or locked-desktop operation. Existing code suites were
+not repeated; this evidence-only follow-up adds the native trial, independent
+frame/renderer checks and preservation readback.

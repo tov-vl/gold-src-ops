@@ -15,5 +15,8 @@ controller. An initial unconfirmed collection was reconciled by the same ID
 without replay. Runner, permissions, addon and production are unchanged.
 Subsequent approved maintenance archived two completed request records and
 freed two queue slots while preserving results/images and unchanged runner
-bytes. No further game trial was performed. See
+bytes. One separately authorized RU `/profile` trial then passed five-frame
+UI/OK/alias/control, independent OpenGL, session and cleanup checks without
+replay. Both profile languages are accepted, prior evidence is preserved,
+and the held campaign has one free queue slot. See
 [scope and evidence](v2.109-campaign-renderer-evidence.md).
