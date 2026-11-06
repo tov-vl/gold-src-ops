@@ -153,5 +153,27 @@ cleanup in the ordinary campaign report. Initial unconfirmed collection was
 reconciled by the same ID without replay. Raw results, installed runner bytes,
 prior failed evidence and retained archive were preserved. Legacy campaigns
 retain their original UI-only evidence boundary. This is not a fresh six-case
-matrix. The queue is full at eight terminal requests; bounded maintenance is
-the next gate before another native request.
+matrix. The queue reached eight terminal requests at this gate; bounded
+maintenance was deferred to the follow-up below before another native request.
+
+## Bounded queue maintenance - 2026-11-06 (MSK)
+
+The owner-approved follow-up archived exactly two already accepted EN profile
+request records: the session-transition trial and the v2.109 controller trial.
+One predecessor-bound signed maintenance package used the unchanged nine-file
+runner at revision 16 and advanced updater sequence 29 to 30. The installed
+receipt named exactly those two requests and confirmed no game launch. Active
+queue occupancy fell from eight to six, leaving two slots.
+
+Independent readback confirmed all nine runner hashes, five remaining eligible
+request IDs/hashes, all eight result bodies and all ten selected native image
+hashes. The old failed renderer request/result and retained log archive were
+preserved. A fresh ready/idle worker reported no game process and no diagnostic
+logs; the updater remained enabled and unblocked. Results/images stayed in place
+and their acceptance status was unchanged. No trial, runner-code update, protected
+policy, credential, access, production or addon change was made.
+
+Only the existing maintenance path and live preservation checks were exercised;
+unchanged application/client test suites were not repeated. The next native
+request remains a separate bounded trial with its own source/input and readiness
+checks. Maintenance does not authorize replaying a prior request.
