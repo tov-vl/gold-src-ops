@@ -17,6 +17,9 @@ Subsequent approved maintenance archived two completed request records and
 freed two queue slots while preserving results/images and unchanged runner
 bytes. One separately authorized RU `/profile` trial then passed five-frame
 UI/OK/alias/control, independent OpenGL, session and cleanup checks without
-replay. Both profile languages are accepted, prior evidence is preserved,
-and the held campaign has one free queue slot. See
+replay. After bounded queue maintenance, the four remaining RU/EN ranks/topall
+cases passed the same gate with 20 new frames and no replay. The complete
+six-case MOTD matrix is accepted with 30 native frames. Prior results, profile
+receipts, failed evidence/archive and runner hashes are preserved; the held
+campaign has one free queue slot. See
 [scope and evidence](v2.109-campaign-renderer-evidence.md).

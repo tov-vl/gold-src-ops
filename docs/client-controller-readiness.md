@@ -199,10 +199,58 @@ revision 16, eight prior results, the retained failed renderer evidence and log
 archive, and the accepted EN campaign receipts remained unchanged.
 
 Both profile languages are now accepted through the renderer-required campaign.
-Steam hold was restored, the four ranks/topall cases remain prepared, and queue
-occupancy is seven with one free slot. No manual script/window selection, runner
-or policy update, permission, addon or production change was needed. This does
+Steam hold was restored; four ranks/topall cases were still prepared at that
+gate and queue occupancy was seven with one free slot. No manual script/window
+selection, runner or policy update, permission, addon or production change was
+needed. This does
 not establish a fresh six-case matrix, production saved statistics, PvP,
 hardware acceleration or locked-desktop operation. Existing code suites were
 not repeated; this evidence-only follow-up adds the native trial, independent
 frame/renderer checks and preservation readback.
+
+## Complete renderer-required MOTD matrix - 2026-11-06 (MSK)
+
+The owner-approved remaining-case stage completed four sequential requests:
+RU/EN `ranks` and RU/EN `topall`. Each used one dispatch, reached
+`captured_unreviewed` normally and passed visual review plus independent
+analysis of all five frames against its pinned baseline. Localized titles,
+rank thresholds and seeded leaderboard rows were readable. Both OK closes,
+alternate-alias reopening, cooldown, both control-return movement epochs and
+zero AMXX errors passed the normal evidence gate. No native request was replayed.
+
+Every standalone renderer review agreed with the integrated result/frame-bound
+OpenGL receipt and matching game/worker session. Ordinary hash-bound review and
+accepted same-ID resume preserved raw results and dispatch claims. Game,
+configuration, diagnostic-log and owned fixture/relay/network cleanup passed;
+fresh final readback confirmed an idle worker and no game process.
+
+| Panel | RU | EN |
+| --- | --- | --- |
+| `/ranks` | Accepted | Accepted |
+| `/profile` | Accepted in prior stage | Accepted in prior stage |
+| `/topall` | Accepted | Accepted |
+
+The ordinary campaign report now accepts all six scenarios with renderer
+required: 20 newly reviewed native frames and 30 across the complete matrix.
+The prior profile receipts remain unchanged. This completes the current MOTD
+matrix; it does not retroactively upgrade legacy UI-only campaigns.
+
+Before the four trials, one signed maintenance package archived exactly four
+completed request records, reducing the active queue from seven to three.
+Two old two-frame captures retained their original unreviewed status; archival
+did not accept them. Nine prior results, fourteen selected image hashes, the
+two remaining eligible request hashes, failed renderer evidence and retained
+log archive were independently preserved. A create-only local image-output
+collision was resolved by continuing read-only collection in a fresh directory;
+the signed package was not restaged. Updater sequence advanced from 30 to 31
+with all nine runner hashes, revision 16 and worker budget unchanged.
+
+After all four requests, the queue is seven of eight with one free slot, Steam
+hold is restored, and all nine prior results and profile evidence remain
+unchanged. No local installer, manual window selection, new access, policy,
+runner-code, addon, production or cloud change was needed. Existing code suites
+were not repeated; the new checks are the signed maintenance gate, four native
+trials, visual/frame/renderer review and final preservation readback. The claim
+covers the isolated fixture's UI and engine-reported renderer identity, not
+hardware acceleration, production saved statistics, PvP, activity aggregation,
+Windows/Steam login or operation on a locked desktop.
