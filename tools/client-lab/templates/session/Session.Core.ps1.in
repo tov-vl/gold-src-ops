@@ -1,0 +1,77 @@
+#requires -Version 5.1
+Set-StrictMode -Version Latest
+function Get-SessionHash([byte[]]$Bytes){$h=[Security.Cryptography.SHA256]::Create();try{return ([BitConverter]::ToString($h.ComputeHash($Bytes))).Replace('-','')}finally{$h.Dispose()}}
+function Read-SessionJson([byte[]]$Bytes){return (New-Object Text.UTF8Encoding($false,$true)).GetString($Bytes)|ConvertFrom-Json}
+function Assert-SessionTerminalFiles([string]$RequestPath,[string]$ResultPath,$Expected,[string]$PreviousResultHash){
+    $content=@()
+    foreach($path in @($RequestPath,$ResultPath)){
+        $item=Get-Item -LiteralPath $path -Force
+        if($item.PSIsContainer -or $item.Length -gt 65536 -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Invalid terminal metadata file.'}
+        $bytes=[IO.File]::ReadAllBytes($item.FullName)
+        if($bytes.Length -gt 65536){throw 'Terminal metadata exceeds its limit.'}
+        $content+=,@{bytes=$bytes;hash=(Get-SessionHash $bytes)}
+    }
+    if($Expected.sha256 -and $content[0].hash -cne $Expected.sha256){throw 'Terminal request bytes changed.'}
+    $request=Read-SessionJson $content[0].bytes;$result=Read-SessionJson $content[1].bytes
+    $retained=$Expected.PSObject.Properties['retainedFailure'] -and $Expected.retainedFailure -eq $true
+    if($retained -and ($request.action -cne 'verify-panel' -or $request.panel -cne 'profile' -or $request.language -cne 'en' -or
+        $result.status -cne 'uncertain_cleanup' -or $result.rendererEvidence.cleanupVerified -ne $false -or
+        $result.rendererEvidence.probeEnabled -ne $true -or $result.gamePid -ne $Expected.gamePid -or
+        ([datetime]$result.gameStartedUtc).ToUniversalTime().Ticks -ne ([datetime]$Expected.gameStartedUtc).ToUniversalTime().Ticks -or
+        ([datetime]$result.completedUtc).ToUniversalTime().Ticks -ne ([datetime]$Expected.completedUtc).ToUniversalTime().Ticks)){throw 'Retained failure identity differs.'}
+    if($request.id -cne $Expected.id -or $result.id -cne $Expected.id -or -not $result.completedUtc -or
+        ([datetime]$result.completedUtc).ToUniversalTime() -gt [DateTime]::UtcNow.AddSeconds(10) -or
+        $result.cleanupVerified -isnot [bool] -or -not $result.cleanupVerified -or
+        $result.configCleanupVerified -isnot [bool] -or -not $result.configCleanupVerified -or
+        (-not $retained -and $result.status -cnotin @('captured_unreviewed','interaction_captured_unreviewed','autonomous_captured_unreviewed','uncertain_timeout','uncertain_launch','uncertain_capture','uncertain_error','rejected_preflight'))){throw 'Request is not safely terminal.'}
+    if($PreviousResultHash -and $content[1].hash -cne $PreviousResultHash){throw 'Terminal result bytes changed.'}
+    return $content[1].hash
+}
+function New-SessionBinding([byte[]]$PolicyBytes,[byte[]]$ConfigBytes,$Expected,[string]$CallerSid,[int]$CallerSession){
+    $policy=Read-SessionJson $PolicyBytes;$config=Read-SessionJson $ConfigBytes
+    if($CallerSid -cne $Expected.gameUserSid -or $CallerSession -lt 1 -or
+        $policy.gameUserSid -cne $CallerSid -or $policy.gameSessionId -ne $Expected.oldSession -or
+        $policy.PSObject.Properties['gameSessionMode'] -or
+        (Get-SessionHash $PolicyBytes) -cne $Expected.policyBeforeSha256 -or
+        $policy.targetName -cne $Expected.targetName -or $policy.targetAddress -cne $Expected.targetAddress -or
+        $policy.sourceAddress -cne $Expected.sourceAddress -or $policy.port -ne 2222 -or
+        $policy.sessionId -cne $Expected.sessionId -or $policy.leaseMode -cne 'manual' -or $null -ne $policy.expiresUtc -or
+        $config.target -cne $Expected.targetName -or $config.sessionId -cne $Expected.sessionId -or
+        $config.enabled -isnot [bool] -or -not $config.enabled -or
+        $config.policySha256 -cne (Get-SessionHash $PolicyBytes) -or
+        (Get-SessionHash ([Text.Encoding]::UTF8.GetBytes($config.publicKeyXml))) -cne $Expected.publicKeySha256){throw 'Exact same-user authorization differs.'}
+    $oldPolicy=$policy|ConvertTo-Json -Depth 12 -Compress
+    $oldConfig=$config|ConvertTo-Json -Depth 12 -Compress
+    $policy|Add-Member -MemberType NoteProperty -Name gameSessionMode -Value 'current-user-interactive'
+    $newPolicy=[Text.Encoding]::UTF8.GetBytes(($policy|ConvertTo-Json -Depth 12 -Compress))
+    $config.policySha256=Get-SessionHash $newPolicy
+    $newConfig=[Text.Encoding]::UTF8.GetBytes(($config|ConvertTo-Json -Depth 12 -Compress))
+    $policy.PSObject.Properties.Remove('gameSessionMode');$config.policySha256=Get-SessionHash $PolicyBytes
+    if(($policy|ConvertTo-Json -Depth 12 -Compress) -cne $oldPolicy -or ($config|ConvertTo-Json -Depth 12 -Compress) -cne $oldConfig){throw 'Unexpected policy delta.'}
+    return @{policy=$newPolicy;config=$newConfig;policyBeforeHash=(Get-SessionHash $PolicyBytes);configBeforeHash=(Get-SessionHash $ConfigBytes)}
+}
+function Set-SessionBytes([string]$Path,[byte[]]$Bytes){
+    $temporary=$Path+'.'+[guid]::NewGuid().ToString('N')+'.tmp'
+    $stream=[IO.File]::Open($temporary,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{$stream.Write($Bytes,0,$Bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+    try{[IO.File]::Replace($temporary,$Path,[System.Management.Automation.Language.NullString]::Value)}
+    finally{if([IO.File]::Exists($temporary)){[IO.File]::Delete($temporary)}}
+}
+function Invoke-SessionCommit([string]$PolicyPath,[string]$ConfigPath,[string]$BackupPath,$Change){
+    if((Get-SessionHash ([IO.File]::ReadAllBytes($PolicyPath))) -cne $Change.policyBeforeHash -or
+        (Get-SessionHash ([IO.File]::ReadAllBytes($ConfigPath))) -cne $Change.configBeforeHash){throw 'Session inputs changed before commit.'}
+    if((Get-SessionHash ([IO.File]::ReadAllBytes((Join-Path $BackupPath 'policy-before.json')))) -cne $Change.policyBeforeHash -or
+        (Get-SessionHash ([IO.File]::ReadAllBytes((Join-Path $BackupPath 'config-before.json')))) -cne $Change.configBeforeHash){throw 'Session rollback inputs differ.'}
+    $claim=[IO.File]::Open((Join-Path $BackupPath 'commit.claim'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    $claim.Dispose()
+    Set-SessionBytes $PolicyPath $Change.policy
+    Set-SessionBytes $ConfigPath $Change.config
+    if((Get-SessionHash ([IO.File]::ReadAllBytes($PolicyPath))) -cne (Get-SessionHash $Change.policy) -or
+        (Get-SessionHash ([IO.File]::ReadAllBytes($ConfigPath))) -cne (Get-SessionHash $Change.config)){throw 'Session write readback differs.'}
+}
+function New-SessionBackup([string]$PolicyPath,[string]$ConfigPath,[string]$BackupPath){
+    if(Test-Path -LiteralPath $BackupPath){throw 'Session operation already claimed; no retry.'}
+    New-Item -ItemType Directory -Path $BackupPath|Out-Null
+    [IO.File]::WriteAllBytes((Join-Path $BackupPath 'policy-before.json'),[IO.File]::ReadAllBytes($PolicyPath))
+    [IO.File]::WriteAllBytes((Join-Path $BackupPath 'config-before.json'),[IO.File]::ReadAllBytes($ConfigPath))
+}

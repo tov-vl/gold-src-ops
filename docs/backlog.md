@@ -4517,6 +4517,17 @@ reconciliation remain open. Production is unchanged.
 See [scope and evidence](v2.108-client-renderer-evidence.md) and
 [release notes](release-notes-v2.108.md).
 
+## Autonomous client lab - same-user session preparation
+
+Prepared on 2026-11-05: an optional same-user interactive-session mode
+and a one-time UAC policy bootstrap remove the need for repeated numeric session
+rebinding after login. The bootstrap changes only the reviewed policy mode and
+its existing updater hash pin; Worker/Diagnostics follow through the ordinary
+signed-update path. The owner installed the policy on 2026-11-06; fresh
+restricted SSH status confirmed a healthy unchanged predecessor and no game
+process. Runner delivery, session-change evidence and native renderer acceptance
+remain open. See [scope and installation](client-session-policy.md).
+
 ## Autonomous client lab - repository tooling
 
 Repository tooling implemented on 2026-10-31: move reusable Windows client runner/controller, signed-update

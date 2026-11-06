@@ -1,0 +1,142 @@
+#requires -Version 5.1
+param([Parameter(Mandatory=$true)][string]$GameUserSid,[Parameter(Mandatory=$true)][int]$GameSessionId)
+$ErrorActionPreference='Stop'
+Set-StrictMode -Version Latest
+$lab='C:\ProgramData\GsoClientLab';$root='C:\ProgramData\GsoClientLabUpdater'
+$paused=$false;$report=@{status='preflight';automaticRetryAllowed=$false;gameLaunched=$false;utc=[DateTime]::UtcNow.ToString('o')}
+$resultPath=Join-Path $PSScriptRoot 'session-policy-result.json'
+if(Test-Path -LiteralPath $resultPath){throw 'Existing result; return it without retry.'}
+function Assert-SessionTrusted([string]$Path){
+    $item=Get-Item -LiteralPath $Path -Force
+    $ancestor=$item.FullName
+    while($ancestor){if((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked installed path.'};$ancestor=[IO.Path]::GetDirectoryName($ancestor)}
+    $acl=Get-Acl -LiteralPath $Path
+    if($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin @('S-1-5-18','S-1-5-32-544')){throw 'Untrusted installed owner.'}
+    $write=[Security.AccessControl.FileSystemRights]'Write,Delete,ChangePermissions,TakeOwnership,DeleteSubdirectoriesAndFiles'
+    foreach($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){
+        if($rule.AccessControlType -eq 'Allow' -and ($rule.FileSystemRights -band $write) -and $rule.IdentityReference.Value -notin @('S-1-5-18','S-1-5-32-544')){throw 'Installed path is writable by another identity.'}
+    }
+}
+try{
+    $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
+    if(-not ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Local UAC approval required.'}
+    if($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage' -or (Get-ExecutionPolicy -Scope MachinePolicy) -in @('Restricted','AllSigned')){throw 'System policy prevents this local operation.'}
+    $manifest=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'package-hashes.json') -Raw|ConvertFrom-Json
+    $names=@('Apply-Session.ps1','Session.Core.ps1','Start-Session.cmd','Start-Session.ps1','Verify-Task.ps1','expected.json')
+    if((@($manifest.files.name|Sort-Object)-join ',') -cne (@($names|Sort-Object)-join ',')){throw 'Package file set differs.'}
+    foreach($entry in $manifest.files){
+        $path=Join-Path $PSScriptRoot $entry.name
+        $ancestor=[IO.Path]::GetFullPath($path)
+        while($ancestor){if((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked package.'};$ancestor=[IO.Path]::GetDirectoryName($ancestor)}
+        if((Get-FileHash -LiteralPath $path).Hash -cne $entry.sha256 -or (Get-Item -LiteralPath $path -Stream Zone.Identifier -ErrorAction SilentlyContinue)){throw 'Review package integrity or Internet-zone mark locally.'}
+    }
+    . (Join-Path $PSScriptRoot 'Session.Core.ps1')
+    . (Join-Path $PSScriptRoot 'Verify-Task.ps1')
+    $expected=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'expected.json') -Raw|ConvertFrom-Json
+    $report.id=$expected.id
+    if($env:COMPUTERNAME -cne $expected.targetName -or $GameUserSid -cne $expected.gameUserSid -or $identity.User.Value -cne $GameUserSid -or $GameSessionId -lt 1 -or (Get-Process -Id $PID).SessionId -ne $GameSessionId){throw 'Target or interactive session changed; do not install.'}
+    foreach($path in @($root,(Join-Path $root 'bin'),(Join-Path $root 'private'),$lab,(Join-Path $lab 'policy.json'),(Join-Path $root 'bin\config.json'))){Assert-SessionTrusted $path}
+    foreach($entry in $expected.trustedFiles){
+        $path=Join-Path $root ('bin\'+$entry.name);Assert-SessionTrusted $path
+        if((Get-FileHash -LiteralPath $path).Hash -cne $entry.sha256){throw 'Trusted engine predecessor differs.'}
+    }
+    foreach($name in @('Update.Common.ps1','Task-Budget.ps1','Update.Engine.ps1')){. (Join-Path $root ('bin\'+$name))}
+    $policyPath=Join-Path $lab 'policy.json';$configPath=Join-Path $root 'bin\config.json'
+    $policyBytes=Read-UpdateBytes $lab $policyPath 65536;$configBytes=Read-UpdateBytes $root $configPath 65536
+    $change=New-SessionBinding $policyBytes $configBytes $expected $GameUserSid $GameSessionId
+    $config=Read-SessionJson $configBytes
+    if((@($config.trustedFiles.name|Sort-Object)-join ',') -cne (@($expected.trustedFiles.name|Sort-Object)-join ',')){throw 'Trusted file set changed.'}
+    foreach($entry in $expected.trustedFiles){if(@($config.trustedFiles|Where-Object {$_.name -ceq $entry.name -and $_.sha256 -ceq $entry.sha256}).Count -ne 1){throw 'Trusted file pin changed.'}}
+    Assert-UpdateTrust $root $lab $config
+    $stateHash=(Get-FileHash -LiteralPath (Join-Path $root 'private\state.json')).Hash
+    $requestHashes=@{}
+    $resultHashes=@{}
+    function Assert-SessionIdle {
+        if(@(Get-CimInstance -ClassName Win32_Process -Filter "Name='hl.exe'" -OperationTimeoutSec 3).Count){throw 'Close CS before local recovery.'}
+        if(Test-Path -LiteralPath (Join-Path $root 'private\active.json')){throw 'Active update requires reconciliation.'}
+        if(Test-Path -LiteralPath (Join-Path $root 'private\inbox-retirement-blocked.json')){throw 'Updater retirement requires reconciliation.'}
+        if((Get-UpdateInboxInventory $root $config (Read-UpdateJson $root (Join-Path $root 'private\state.json'))).protected -ne 0){throw 'Updater inbox has an unfinished operation.'}
+        $state=Read-UpdateJson $root (Join-Path $root 'private\state.json')
+        if((Get-FileHash -LiteralPath (Join-Path $root 'private\state.json')).Hash -cne $stateHash){throw 'Updater journal changed.'}
+        if($state.sequence -ne $expected.sequence -or $state.revision -ne $expected.revision){throw 'Updater sequence changed.'}
+        foreach($entry in $expected.codeHashes.PSObject.Properties){if($state.codeHashes.($entry.Name) -cne $entry.Value -or
+            (Get-FileHash -LiteralPath (Join-Path $lab ('code\'+$entry.Name))).Hash -cne $entry.Value){throw 'Runner bytes changed.'}}
+        $requests=@(Get-ChildItem -LiteralPath (Join-Path $lab 'queue') -Filter '*.json' -File)
+        if($requests.Count -ne $expected.terminalResults.Count){throw 'Request inventory changed.'}
+        foreach($request in $requests){
+            Assert-UpdatePath $lab $request.FullName
+            $hash=(Get-FileHash -LiteralPath $request.FullName).Hash
+            if($requestHashes.ContainsKey($request.Name) -and $requestHashes[$request.Name] -cne $hash){throw 'Request bytes changed.'}
+            $requestHashes[$request.Name]=$hash
+            $entry=@($expected.terminalResults|Where-Object {$_.id -ceq $request.BaseName})
+            if($entry.Count -ne 1){throw 'A nonterminal request is present.'}
+            $result=Join-Path $lab ('results\'+$request.BaseName+'\result.json')
+            Assert-UpdatePath $lab $result
+            $previousResultHash=$(if($resultHashes.ContainsKey($request.Name)){$resultHashes[$request.Name]}else{''})
+            $resultHashes[$request.Name]=Assert-SessionTerminalFiles $request.FullName $result $entry[0] $previousResultHash
+        }
+    }
+    Assert-SessionIdle
+    $clock=[Diagnostics.Stopwatch]::StartNew()
+    do{
+        $worker=Get-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'
+        $updater=Get-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\'
+        if($worker.State -ceq 'Ready' -and $updater.State -ceq 'Ready'){break};Start-Sleep -Milliseconds 250
+    }while($clock.Elapsed.TotalSeconds -lt 5)
+    if($worker.State -cne 'Ready' -or (Get-LabWorkerInvariant $worker) -cne $config.workerInvariant -or
+        (Resolve-UpdaterPrincipalSid $worker.Principal.UserId) -cne $expected.gameUserSid -or
+        -not (Get-UpdaterTaskVerification $updater 'Ready').passed){throw 'Existing tasks must be idle and unchanged.'}
+    $workerXml=Export-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'
+    $updaterXml=Export-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\'
+    $backup=Join-Path $root ('private\same-user-policy-'+$expected.id)
+    if(Test-Path -LiteralPath $backup){throw 'This operation was already attempted.'}
+    New-SessionBackup $policyPath $configPath $backup
+    Assert-SessionTrusted $backup
+    [IO.File]::WriteAllText((Join-Path $backup 'worker-before.xml'),$workerXml)
+    [IO.File]::WriteAllText((Join-Path $backup 'updater-before.xml'),$updaterXml)
+    $paused=$true
+    Disable-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'|Out-Null
+    Disable-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\'|Out-Null
+    $scheduler=New-Object -ComObject Schedule.Service;$scheduler.Connect()
+    $clock=[Diagnostics.Stopwatch]::StartNew()
+    do{
+        $active=$scheduler.GetFolder('\').GetTask('GsoClientLab-Worker').GetInstances(0).Count+$scheduler.GetFolder('\').GetTask('GsoClientLab-Updater').GetInstances(0).Count
+        if(-not $active){break};Start-Sleep -Milliseconds 250
+    }while($clock.Elapsed.TotalSeconds -lt 10)
+    if($active){throw 'An existing task is still active; left disabled for review.'}
+    Assert-SessionIdle
+    Invoke-SessionCommit $policyPath $configPath $backup $change
+    Assert-SessionTrusted $backup
+    Assert-UpdateTrust $root $lab (Read-SessionJson $change.config)
+    Assert-SessionIdle
+    $started=[DateTime]::UtcNow
+    Enable-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'|Out-Null
+    Enable-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\'|Out-Null
+    if((Export-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\') -cne $workerXml -or
+        (Export-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\') -cne $updaterXml){throw 'Task definitions changed.'}
+    Start-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\'
+    Start-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\'
+    $clock=[Diagnostics.Stopwatch]::StartNew();$verified=$false
+    do{
+        Start-Sleep -Seconds 1
+        $heartbeat=Read-UpdateJson $lab (Join-Path $lab 'results\worker.json')
+        $state=Read-UpdateJson $root (Join-Path $root 'public\state.json')
+        if([datetime]$heartbeat.utc -gt $started -and $heartbeat.session -eq $GameSessionId -and $heartbeat.state -cin @('ready','blocked') -and [datetime]$state.utc -gt $started -and $state.sequence -eq $expected.sequence -and -not $state.blocked){$verified=$true;break}
+    }while($clock.Elapsed.TotalSeconds -lt 75)
+    if(-not $verified){throw 'Fresh readiness was not confirmed; no game launch.'}
+    Assert-SessionIdle
+    $report.status='policy_installed_pending_runner';$report.mode='current-user-interactive';$report.installerSession=$GameSessionId;$report.sequence=$expected.sequence
+    $report.policySha256=Get-SessionHash $change.policy;$report.runnerPreserved=$true;$report.tasksPreserved=$true
+    $report.accessPreserved=$true;$report.backup=$backup
+    [IO.File]::WriteAllText((Join-Path $backup 'result.json'),($report|ConvertTo-Json -Depth 8),(New-Object Text.UTF8Encoding($false)))
+    $paused=$false
+}catch{
+    if($paused){Disable-ScheduledTask -TaskName GsoClientLab-Worker -TaskPath '\' -ErrorAction SilentlyContinue|Out-Null;Disable-ScheduledTask -TaskName GsoClientLab-Updater -TaskPath '\' -ErrorAction SilentlyContinue|Out-Null}
+    $report.status=$(if($paused){'blocked_reconciliation'}else{'rejected_preflight'})
+    $report.message=$_.Exception.Message;$report.failureType=$_.Exception.GetType().Name
+}finally{
+    $report.completedUtc=[DateTime]::UtcNow.ToString('o')
+    [IO.File]::WriteAllText($resultPath,($report|ConvertTo-Json -Depth 8),(New-Object Text.UTF8Encoding($false)))
+}
+if($report.status -cne 'policy_installed_pending_runner'){Write-Host 'Return session-policy-result.json; do not retry.';exit 1}
+Write-Host 'Same-user policy installed. Signed runner update is still required. No game launched.'
