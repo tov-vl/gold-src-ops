@@ -44,7 +44,9 @@ flowchart LR
 
 This is project test infrastructure. It does not belong in the public monitoring
 API or the production game addon. PvP behavior, real player activity, 24-hour
-aggregation and verification of the renderer remain separate acceptance gates.
+aggregation remain separate acceptance gates. New campaigns also require
+[process-bound renderer evidence](v2.109-campaign-renderer-evidence.md) alongside
+visual review; historical UI-only campaigns do not gain that claim retroactively.
 
 The fixed `/profile` fixture uses a LAN identity with unavailable saved results
 and zero connection/map counters. With addon 0.39.0 it also shows the default

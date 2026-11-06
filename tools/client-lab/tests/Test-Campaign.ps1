@@ -8,7 +8,7 @@ $null = New-Item -ItemType Directory -Path $sandbox
 $script:checks = 0
 $script:effects = [Collections.Generic.List[string]]::new()
 $script:mode = ''
-function Check([bool]$Condition) { if (-not $Condition) { throw "Campaign assertion $script:checks failed." }; $script:checks++ }
+function Check([bool]$Condition) { if (-not $Condition) { throw "Campaign assertion $script:checks failed at line $($MyInvocation.ScriptLineNumber)." }; $script:checks++ }
 function Reject([scriptblock]$Action) { $failed = $false; try { $null = & $Action } catch { $failed = $true }; Check $failed }
 function Json([string]$Path, $Value) { [IO.File]::WriteAllText($Path, ($Value | ConvertTo-Json -Depth 30)) }
 function ReadJson([string]$Path) { return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -AsHashtable }
@@ -21,7 +21,7 @@ if ($protocolFunctions.Count -ne 2) { throw 'Fixed runner label functions unavai
 $protocolPath = Join-Path $sandbox 'RunnerLabels.ps1'
 [IO.File]::WriteAllText($protocolPath, (($protocolFunctions | ForEach-Object { $_.Extent.Text }) -join "`n"))
 . $protocolPath
-function NewCase([switch]$Guns) {
+function NewCase([switch]$Guns,[switch]$Renderer) {
     $root = Join-Path $sandbox ([guid]::NewGuid().ToString('N'))
     $null = New-Item -ItemType Directory -Path (Join-Path $root 'engine')
     [IO.File]::WriteAllText((Join-Path $root 'engine/pin.txt'), 'inert input')
@@ -41,7 +41,8 @@ function NewCase([switch]$Guns) {
             $cases += $case
         }
     }
-    Initialize-LabCampaign $root $cases @{ python = 'unused'; pythonSha256 = ('B' * 64); pwsh = 'unused' }
+    $policy=if($Renderer){'required-v1'}else{'legacy-ui'}
+    Initialize-LabCampaign $root $cases @{ python = 'unused'; pythonSha256 = ('B' * 64); pwsh = 'unused' } -RendererPolicy $policy
     $script:effects.Clear()
     $script:mode = ''
     return $root
@@ -112,6 +113,31 @@ function MakeResult($Context) {
     if ($script:mode -ceq 'generic-labels') { $result.labels[0] = 'panel-first'; $result.labels[3] = 'panel-alias' }
     if ($script:mode -ceq 'foreign-panel-labels') { $result.labels[0] = 'rules-first'; $result.labels[3] = 'rules-alias' }
     if ($script:mode -ceq 'swapped-labels') { $result.labels[0] = $result.labels[3]; $result.labels[3] = 'after-last-ok' }
+    if($Context.campaign.ContainsKey('rendererPolicy')){
+        $result.gameSessionId=9;$result.gamePid=1234;$result.gameStartedUtc=[DateTime]::UtcNow.AddSeconds(-10).ToString('o')
+        $nonce=([guid]$Context.case.jobId).ToString('N')
+        $frame="GSO_RENDERER_BEGIN_$nonce`nGL Vendor: Fixture`nGL Renderer: Synthetic GPU`nGL Version: 4.6 test`nGSO_RENDERER_END_$nonce`n"
+        $bytes=[Text.Encoding]::ASCII.GetBytes($frame)
+        $result.rendererEvidence=@{schema=1;jobId=$Context.case.jobId;status='identified';reason='process_bound_gl_dump';probeEnabled=$true;cleanupVerified=$true;
+            gamePid=1234;gameStartedUtc=$result.gameStartedUtc;observedUtc=[DateTime]::UtcNow.AddSeconds(-7).ToString('o');
+            identity=@{backend='OpenGL';vendor='Fixture';renderer='Synthetic GPU';version='4.6 test'};frameBase64=[Convert]::ToBase64String($bytes);
+            frameSha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant();frameBytes=$bytes.Length}
+        switch -CaseSensitive ($script:mode){
+            renderer-missing {$null=$result.Remove('rendererEvidence')}
+            renderer-unknown {$result.rendererEvidence.status='unconfirmed'}
+            renderer-wrong-job {$result.rendererEvidence.jobId=[guid]::NewGuid().ToString('D')}
+            renderer-wrong-pid {$result.rendererEvidence.gamePid=9999}
+            renderer-wrong-start {$result.rendererEvidence.gameStartedUtc=[DateTime]::UtcNow.AddSeconds(-12).ToString('o')}
+            renderer-wrong-frame {$result.rendererEvidence.frameSha256=('a'*64)}
+            renderer-wrong-projection {$result.rendererEvidence.identity.vendor='Other'}
+            renderer-bad-flag {$result.rendererEvidence.cleanupVerified='true'}
+            renderer-dirty-log {$result.rendererEvidence.cleanupVerified=$false}
+            renderer-stale {$result.rendererEvidence.observedUtc=[DateTime]::UtcNow.AddMinutes(-1).ToString('o')}
+            renderer-future {$result.rendererEvidence.observedUtc=[DateTime]::UtcNow.AddMinutes(1).ToString('o')}
+            renderer-missing-session {$null=$result.Remove('gameSessionId')}
+            renderer-wrong-session {$result.gameSessionId=8}
+        }
+    }
     Json (Join-Path $directory 'result.json') $result
     return $result
 }
@@ -171,7 +197,7 @@ $port = {
         absence { return @{ verified = ($script:mode -cne 'absence'); utc = [DateTime]::UtcNow.ToString('o') } }
         idle {
             $utc = if ($script:mode -ceq 'stale-heartbeat') { [DateTime]::UtcNow.AddMinutes(-5) } else { [DateTime]::UtcNow }
-            return @{ worker = @{ state = 'ready'; client = @{ ready = $true; gameProcessCount = 0; utc = $utc.ToString('o') } } }
+            return @{ worker = @{ state = 'ready';session=9;sessionMode='current-user-interactive'; client = @{ ready = $true; gameProcessCount = 0; utc = $utc.ToString('o') } } }
         }
         cancel { return }
         wait { return }
@@ -330,6 +356,50 @@ foreach($failureMode in @('legacy-readiness','wrong-callback','ack-language-pref
     Check ($state.phase -ceq 'needs_reconciliation' -and -not $state.acceptancePassed)
     Check (@($script:effects|Where-Object {$_ -ceq 'dispatch'}).Count -eq 1)
 }
+# Renderer-required campaigns use the same parser as the standalone reviewer.
+$root=NewCase -Renderer;Set-LabCampaignSteam $root $true
+$state=Invoke-LabCampaignCase $root profile en run $port
+Check ($state.phase -ceq 'captured_unreviewed')
+$caseReport=(Get-LabCampaignReport $root).cases|Where-Object {$_.panel -ceq 'profile' -and $_.language -ceq 'en'}
+Check ($caseReport.renderer.required -and $caseReport.renderer.identified -and $caseReport.cleanupVerified -and -not $caseReport.uiAccepted)
+Check ($caseReport.renderer.gameSessionId -eq 9 -and $caseReport.renderer.workerSessionId -eq 9)
+$rendererPath=Join-Path $root 'profile-en/campaign-renderer.json'
+$receiptHash=(Get-FileHash $rendererPath).Hash
+$rawPath=Join-Path $root ('profile-en/controller-results/'+$state.jobId+'/result.json')
+$rawHash=(Get-FileHash $rawPath).Hash
+$accepted=Approve-LabCampaignCase $root profile en $state.evidenceSha256 $true
+Check ($accepted.phase -ceq 'accepted')
+$report=(Get-LabCampaignReport $root).cases|Where-Object {$_.panel -ceq 'profile' -and $_.language -ceq 'en'}
+Check ($report.acceptancePassed -and $report.uiAccepted -and $report.renderer.identified -and $report.cleanupVerified)
+Check ((Get-FileHash $rawPath).Hash -ceq $rawHash)
+$script:effects.Clear();$null=Invoke-LabCampaignCase $root profile en resume $port
+Check ($script:effects.Count -eq 0 -and (Get-FileHash $rendererPath).Hash -ceq $receiptHash)
+$reviewPath=Join-Path $root 'profile-en/campaign-review.json'
+$review=ReadJson $reviewPath;$review.rendererReceiptSha256=('F'*64);Json $reviewPath $review
+Check (-not @((Get-LabCampaignReport $root).cases|Where-Object acceptancePassed).Count)
+Reject {Invoke-LabCampaignCase $root profile en resume $port}
+$review.rendererReceiptSha256=$receiptHash;Json $reviewPath $review
+$rendererReceipt=ReadJson $rendererPath;$rendererReceipt.identity.vendor='Changed';Json $rendererPath $rendererReceipt
+Check (-not @((Get-LabCampaignReport $root).cases|Where-Object acceptancePassed).Count)
+Reject {Get-LabCampaignEvidence $root profile en}
+Remove-Item -LiteralPath $rendererPath
+Reject {Invoke-LabCampaignCase $root profile en resume $port}
+Check (-not (Test-Path $rendererPath) -and $script:effects.Count -eq 0)
+foreach($rendererMode in @('renderer-missing','renderer-unknown','renderer-wrong-job','renderer-wrong-pid','renderer-wrong-start','renderer-wrong-frame',
+    'renderer-wrong-projection','renderer-bad-flag','renderer-dirty-log','renderer-stale','renderer-future','renderer-missing-session','renderer-wrong-session')){
+    $root=NewCase -Renderer;Set-LabCampaignSteam $root $true;$script:mode=$rendererMode
+    $state=Invoke-LabCampaignCase $root profile en run $port
+    Check ($state.phase -ceq 'needs_reconciliation' -and -not $state.acceptancePassed)
+    Check (@($script:effects|Where-Object {$_ -ceq 'dispatch'}).Count -eq 1)
+    $script:effects.Clear();Reject {Invoke-LabCampaignCase $root profile en run $port};Check ($script:effects.Count -eq 0)
+}
+$root=NewCase -Renderer;$manifestPath=Join-Path $root 'campaign.json';$manifest=ReadJson $manifestPath
+$manifest.pins=@($manifest.pins|Where-Object {$_.name -cne 'Lab.RendererReview.psm1'});Json $manifestPath $manifest
+Reject {Invoke-LabCampaignCase $root profile en run $port}
+Check ($script:effects.Count -eq 0)
+$manifest.rendererPolicy='unknown';Json $manifestPath $manifest
+Reject {Get-LabCampaignReport $root}
+
 $missing = Join-Path $sandbox 'missing'
 $plan = & (Join-Path $ToolRoot 'Invoke-LabCampaign.ps1') -Operation run -CampaignDirectory $missing -Panel ranks -Language en | ConvertFrom-Json
 Check (-not $plan.execute -and -not (Test-Path -LiteralPath $missing))

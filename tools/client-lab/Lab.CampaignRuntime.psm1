@@ -66,6 +66,35 @@ function Assert-CampaignWeaponsReadiness($Runtime,[string]$Panel){
     if($Panel -ceq 'guns' -and ($Runtime.readinessEnabled -isnot [bool] -or -not $Runtime.readinessEnabled -or $Runtime.nativeSetupEnabled -isnot [bool] -or -not $Runtime.nativeSetupEnabled -or $Runtime.setupCallback -cne 'gso_lab_ack')){throw 'Weapons readiness fixture required.'}
 }
 
+function Assert-CampaignQueue($Context,$Status) {
+    $candidates=@($Status.terminalArchiveCandidates)
+    $ids=@($candidates|ForEach-Object {$_.id})
+    if(($Status.pending -isnot [int] -and $Status.pending -isnot [long]) -or $Status.pending -lt 0 -or $Status.pending -ge 8 -or
+        @($ids|Select-Object -Unique).Count -ne $candidates.Count){throw 'Invalid bounded queue inventory.'}
+    foreach($candidate in $candidates){if($candidate.id -cnotmatch '\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z' -or
+        $candidate.id -ceq [guid]::Empty.ToString('D') -or $candidate.sha256 -cnotmatch '\A[0-9A-F]{64}\z'){throw 'Invalid terminal candidate.'}}
+    if($Status.pending -eq $candidates.Count){return}
+    # One preserved failed renderer result is terminal but intentionally not archivable.
+    if($Status.pending -ne ($candidates.Count+1) -or -not $Status.worker.ContainsKey('rendererRecovery')){throw 'Unknown queued request.'}
+    $recovery=$Status.worker.rendererRecovery
+    if($recovery.schema -ne 1 -or $recovery.status -cne 'archived' -or $recovery.resultPreserved -isnot [bool] -or -not $recovery.resultPreserved -or
+        $recovery.gameLaunched -isnot [bool] -or $recovery.gameLaunched -or $recovery.automaticRetryAllowed -isnot [bool] -or $recovery.automaticRetryAllowed -or
+        $recovery.jobId -cnotmatch '\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z' -or $recovery.jobId -ceq [guid]::Empty.ToString('D') -or
+        $recovery.operationId -cnotmatch '\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z' -or $recovery.planSha256 -cnotmatch '\A[0-9a-f]{64}\z' -or
+        $recovery.sha256 -cnotmatch '\A[0-9a-f]{64}\z' -or $recovery.bytes -lt 1 -or $recovery.bytes -gt 4MB -or
+        $recovery.jobId -cin $ids){throw 'Retained renderer recovery is not confirmed.'}
+    $retainedContext=@{run=$Context.run;campaign=$Context.campaign;case=@{jobId=$recovery.jobId}}
+    $result=(Invoke-CampaignPanel $retainedContext 'result')|ConvertFrom-Json -AsHashtable
+    if($result.id -cne $recovery.jobId -or $result.status -cne 'uncertain_cleanup' -or -not $result.completedUtc -or
+        $result.cleanupVerified -isnot [bool] -or -not $result.cleanupVerified -or $result.configCleanupVerified -isnot [bool] -or -not $result.configCleanupVerified -or
+        $result.gamePid -lt 1 -or $result.rendererEvidence.schema -ne 1 -or
+        $result.rendererEvidence.jobId -cne $recovery.jobId -or $result.rendererEvidence.status -cne 'unconfirmed' -or
+        $result.rendererEvidence.probeEnabled -isnot [bool] -or -not $result.rendererEvidence.probeEnabled -or
+        $result.rendererEvidence.cleanupVerified -isnot [bool] -or $result.rendererEvidence.cleanupVerified){throw 'Retained renderer request is not terminal.'}
+    $started=ConvertTo-CampaignRuntimeUtc $result.gameStartedUtc;$completed=ConvertTo-CampaignRuntimeUtc $result.completedUtc
+    if($completed -lt $started -or $completed -gt [DateTime]::UtcNow.AddSeconds(5)){throw 'Retained result lifetime differs.'}
+}
+
 function Invoke-LabCampaignRuntime([string]$Operation, $Context) {
     if (-not $IsWindows) { throw 'Windows controller required.' }
     switch -CaseSensitive ($Operation) {
@@ -77,8 +106,7 @@ function Invoke-LabCampaignRuntime([string]$Operation, $Context) {
             $status = (Invoke-CampaignPanel $Context 'status') | ConvertFrom-Json -AsHashtable
             if ($status.protocol -ne 2 -or $status.revision -ne 16 -or $status.target -cne $activation.targetName -or
                 $status.leaseMode -cne 'manual' -or $null -ne $status.expiresUtc -or
-                $Context.case.panel -cnotin $status.autonomousPanels -or $status.pending -ge 8 -or
-                $status.pending -ne @($status.terminalArchiveCandidates).Count -or
+                $Context.case.panel -cnotin $status.autonomousPanels -or
                 -not (Test-CampaignIdle $status ([DateTime]::UtcNow.AddSeconds(-90)))) { throw 'Client readiness or queue differs.' }
             $updateText = Invoke-CampaignProcess $Context.campaign.runtime.pwsh @('-NoLogo','-NoProfile','-NonInteractive','-File',
                 (Join-Path $Context.root 'engine/Invoke-FramedUpdate.ps1'),'-Operation','status')
@@ -89,6 +117,7 @@ function Invoke-LabCampaignRuntime([string]$Operation, $Context) {
                 $code = Join-Path $Context.run ('code/' + $entry.Key)
                 if ($entry.Key -notmatch '\A[A-Za-z][A-Za-z0-9.-]+\z' -or (Get-FileHash -LiteralPath $code).Hash -cne $entry.Value) { throw 'Installed runner hash differs.' }
             }
+            Assert-CampaignQueue $Context $status
             return @{ ready = $true }
         }
         { $_ -cin @('start','relay','stop') } {

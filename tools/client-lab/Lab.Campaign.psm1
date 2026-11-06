@@ -2,6 +2,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'Lab.Tooling.psm1')
+Import-Module (Join-Path $PSScriptRoot 'Lab.RendererReview.psm1')
 
 function Read-CampaignJson([string]$Path) {
     $null = Assert-LabOutputPath $Path
@@ -45,10 +46,23 @@ function New-CampaignClaim([string]$Path) {
     Write-CampaignJson $Path @{ utc = Get-CampaignUtc; oneAttempt = $true } -New
 }
 
+function Test-CampaignRendererRequired($Campaign) {
+    if(-not $Campaign.ContainsKey('rendererPolicy')){return $false}
+    if($Campaign.rendererPolicy -cne 'required-v1'){throw 'Unknown campaign renderer policy.'}
+    return $true
+}
+
+function Get-CampaignSourceNames([bool]$RendererRequired) {
+    $names=@('Invoke-LabCampaign.ps1','Lab.Campaign.psm1','Lab.CampaignRuntime.psm1','lab_fixture.py','Lab.Tooling.psm1')
+    if($RendererRequired){$names+=@('Lab.RendererReview.psm1','templates/code/Lab.Common.ps1.in','templates/code/Diagnostics.ps1.in')}
+    return $names
+}
+
 function Get-CampaignCase([string]$Root, [string]$Panel, [string]$Language) {
     if ($Panel -cnotin @('ranks','profile','topall','guns') -or $Language -cnotin @('ru','en')) { throw 'Fixed panel and language required.' }
     $null = Assert-LabOutputPath $Root
     $campaign = Read-CampaignJson (Join-Path $Root 'campaign.json')
+    $null=Test-CampaignRendererRequired $campaign
     $guns=@($campaign.cases).Count -eq 2 -and @($campaign.cases|Where-Object {$_.panel -cne 'guns'}).Count -eq 0
     if ($campaign.schema -ne 1 -or (-not $guns -and @($campaign.cases).Count -ne 6)) { throw 'Invalid campaign.' }
     $case = @($campaign.cases | Where-Object { $_.panel -ceq $Panel -and $_.language -ceq $Language })
@@ -65,7 +79,7 @@ function Get-CampaignCase([string]$Root, [string]$Panel, [string]$Language) {
 function Assert-CampaignPins($Context, [switch]$InputsOnly) {
     foreach ($pin in $Context.campaign.pins) {
         if ($pin.scope -ceq 'source') {
-            if ($pin.name -cnotin @('Invoke-LabCampaign.ps1','Lab.Campaign.psm1','Lab.CampaignRuntime.psm1','lab_fixture.py','Lab.Tooling.psm1')) { throw 'Invalid source pin.' }
+            if ($pin.name -cnotin @(Get-CampaignSourceNames (Test-CampaignRendererRequired $Context.campaign))) { throw 'Invalid source pin.' }
             if ($InputsOnly) { continue }
             $path = Join-Path $PSScriptRoot $pin.name
         } elseif ($pin.scope -ceq 'run') {
@@ -75,9 +89,15 @@ function Assert-CampaignPins($Context, [switch]$InputsOnly) {
         } else { throw 'Invalid pin scope.' }
         if ((Get-CampaignHash $path) -cne $pin.sha256) { throw 'Prepared input changed; no operation allowed.' }
     }
+    if(Test-CampaignRendererRequired $Context.campaign){
+        foreach($name in @(Get-CampaignSourceNames $true)){
+            if(@($Context.campaign.pins|Where-Object {$_.scope -ceq 'source' -and $_.name -ceq $name}).Count -ne 1){throw 'Required renderer verifier pin missing or repeated.'}
+        }
+    }
 }
 
-function Initialize-LabCampaign([string]$Root, [array]$Cases, [hashtable]$Runtime) {
+function Initialize-LabCampaign([string]$Root, [array]$Cases, [hashtable]$Runtime,
+    [ValidateSet('required-v1','legacy-ui')][string]$RendererPolicy='required-v1') {
     $null = Assert-LabOutputPath $Root
     $guns=$Cases.Count -eq 2 -and @($Cases|Where-Object {$_.panel -cne 'guns'}).Count -eq 0
     if ((-not $guns -and $Cases.Count -ne 6) -or @($Cases.key | Select-Object -Unique).Count -ne $Cases.Count) { throw 'Complete fixed campaign required.' }
@@ -109,14 +129,16 @@ function Initialize-LabCampaign([string]$Root, [array]$Cases, [hashtable]$Runtim
             reason = $null; evidenceSha256 = $null; acceptancePassed = $false; utc = Get-CampaignUtc
         } -New
     }
-    foreach ($name in @('Invoke-LabCampaign.ps1','Lab.Campaign.psm1','Lab.CampaignRuntime.psm1','lab_fixture.py','Lab.Tooling.psm1')) {
+    foreach ($name in @(Get-CampaignSourceNames ($RendererPolicy -ceq 'required-v1'))) {
         $pins += @{ scope = 'source'; name = $name; sha256 = Get-CampaignHash (Join-Path $PSScriptRoot $name) }
     }
     [IO.File]::WriteAllText((Join-Path $Root 'availability.lock'), '')
     Write-CampaignJson (Join-Path $Root 'availability.json') @{ steamFree = $false; utc = Get-CampaignUtc } -New
-    Write-CampaignJson (Join-Path $Root 'campaign.json') @{
+    $campaign=@{
         schema = 1; id = [guid]::NewGuid().ToString('D'); cases = $Cases; pins = $pins; runtime = $Runtime; utc = Get-CampaignUtc
-    } -New
+    }
+    if($RendererPolicy -ceq 'required-v1'){$campaign.rendererPolicy='required-v1'}
+    Write-CampaignJson (Join-Path $Root 'campaign.json') $campaign -New
 }
 
 function Set-LabCampaignSteam([string]$Root, [bool]$Free) {
@@ -171,6 +193,33 @@ function Assert-CampaignCleanup($Context, $Result) {
         -not (Test-CampaignTrue $runner.worker.client.ready) -or $runner.worker.state -cne 'ready' -or
         $runner.worker.client.gameProcessCount -ne 0 -or $heartbeat -lt $finished -or $finished -gt [DateTime]::UtcNow.AddSeconds(5) -or
         $heartbeat -gt [DateTime]::UtcNow.AddSeconds(5) -or (ConvertTo-CampaignUtc $absence.utc) -lt $finished) { throw 'Fresh cleanup evidence missing.' }
+}
+
+function Get-CampaignRenderer($Context,[string]$ResultPath,[switch]$Create) {
+    if(-not (Test-CampaignRendererRequired $Context.campaign)){return @{required=$false;status='not_required_legacy';identified=$false}}
+    $expected=Get-LabRendererReview $ResultPath $Context.case.jobId
+    $path=Join-Path $Context.run 'campaign-renderer.json'
+    if($Create -and -not (Test-Path -LiteralPath $path)){Write-CampaignJson $path $expected -New}
+    $receipt=Read-CampaignJson $path
+    Assert-LabRendererReceipt $receipt $expected
+    $result=Read-CampaignJson $ResultPath
+    $runner=Read-CampaignJson (Join-Path $Context.run 'runner-after.json')
+    if($result.gameSessionId -isnot [int] -and $result.gameSessionId -isnot [long]){throw 'Game session missing.'}
+    if(($runner.worker.session -isnot [int] -and $runner.worker.session -isnot [long]) -or
+        $result.gameSessionId -lt 1 -or $runner.worker.session -ne $result.gameSessionId -or
+        $runner.worker.sessionMode -cnotin @('exact-session','current-user-interactive')){throw 'Game/worker session binding differs.'}
+    return @{required=$true;status='identified';identified=$true;identity=$expected.identity;receiptSha256=(Get-CampaignHash $path);
+        gameSessionId=$result.gameSessionId;workerSessionId=$runner.worker.session;sessionMode=$runner.worker.sessionMode}
+}
+
+function Test-CampaignReview($Context,$Review,$Evidence) {
+    $accepted=(Test-CampaignTrue $Review.accepted) -and $Review.jobId -ceq $Context.case.jobId -and
+        $Review.nativeFramesReviewed -eq 5 -and $Review.evidenceSha256 -ceq $Evidence.sha256
+    if(Test-CampaignRendererRequired $Context.campaign){
+        $accepted=$accepted -and $Review.ContainsKey('rendererIdentified') -and (Test-CampaignTrue $Review.rendererIdentified) -and
+            $Review.ContainsKey('rendererReceiptSha256') -and $Review.rendererReceiptSha256 -ceq $Evidence.renderer.receiptSha256
+    }
+    return $accepted
 }
 
 function Get-CampaignEvidence($Context) {
@@ -292,10 +341,13 @@ function Get-CampaignEvidence($Context) {
     $absencePath = Join-Path $Context.run 'absence.json'
     $runnerPath = Join-Path $Context.run 'runner-after.json'
     Assert-CampaignCleanup $Context $result
+    $renderer=Get-CampaignRenderer $Context $resultPath
+    if($renderer.required){$paths+=Join-Path $Context.run 'campaign-renderer.json'}
     $paths += @($cleanupPath,$errorsPath,$logPath,$absencePath,$runnerPath)
     $files = @($paths | ForEach-Object { @{ name = [IO.Path]::GetRelativePath($Context.run,$_).Replace('\','/'); sha256 = Get-CampaignHash $_ } })
     $canonical = ($files | ForEach-Object { $_.name + ':' + $_.sha256 }) -join "`n"
-    return @{ sha256 = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($canonical))); files = $files }
+    return @{ sha256 = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($canonical))); files = $files;
+        renderer=$renderer;cleanupVerified=$true }
 }
 
 function Restore-CampaignEvidenceState($Context) {
@@ -307,8 +359,7 @@ function Restore-CampaignEvidenceState($Context) {
     $reviewPath = Join-Path $Context.run 'campaign-review.json'
     if (Test-Path -LiteralPath $reviewPath) {
         $review = Read-CampaignJson $reviewPath
-        if ($review.jobId -cne $Context.case.jobId -or $review.evidenceSha256 -cne $evidence.sha256 -or
-            -not (Test-CampaignTrue $review.accepted) -or $review.nativeFramesReviewed -ne 5) { throw 'Retained review changed.' }
+        if(-not (Test-CampaignReview $Context $review $evidence)){throw 'Retained review changed.'}
         $Context.state.acceptancePassed = $true
         Save-CampaignState $Context 'accepted' ''
     } else { Save-CampaignState $Context 'captured_unreviewed' '' }
@@ -389,6 +440,7 @@ function Invoke-LabCampaignCase([string]$Root, [string]$Panel, [string]$Language
                 if ($raw.status -cne 'autonomous_captured_unreviewed') {
                     Save-CampaignState $context 'terminal_unaccepted' 'client_did_not_capture'
                 } else {
+                    $null=Get-CampaignRenderer $context (Join-Path $context.run ('controller-results/'+$context.case.jobId+'/result.json')) -Create
                     $evidence = Get-CampaignEvidence $context
                     $evidencePath = Join-Path $context.run 'campaign-evidence.json'
                     if (Test-Path -LiteralPath $evidencePath) {
@@ -425,10 +477,12 @@ function Approve-LabCampaignCase([string]$Root, [string]$Panel, [string]$Languag
         $evidence = Get-CampaignEvidence $context
         if ($evidence.sha256 -cne $EvidenceSha256 -or $evidence.sha256 -cne $context.state.evidenceSha256 -or
             (Read-CampaignJson (Join-Path $context.run 'campaign-evidence.json')).sha256 -cne $evidence.sha256) { throw 'Evidence changed after collection.' }
-        Write-CampaignJson (Join-Path $context.run 'campaign-review.json') @{
+        $receipt=@{
             jobId = $context.case.jobId; evidenceSha256 = $evidence.sha256; nativeFramesReviewed = 5
             accepted = $true; rendererVerified = $false; utc = Get-CampaignUtc
-        } -New
+        }
+        if($evidence.renderer.required){$receipt.rendererIdentified=$true;$receipt.rendererReceiptSha256=$evidence.renderer.receiptSha256}
+        Write-CampaignJson (Join-Path $context.run 'campaign-review.json') $receipt -New
         $context.state.acceptancePassed = $true
         Save-CampaignState $context 'accepted' ''
         return $context.state
@@ -442,19 +496,25 @@ function Get-LabCampaignReport([string]$Root) {
         $state = $context.state
         $accepted = $false
         $phase = $state.phase
-        if ($state.phase -ceq 'accepted') {
+        $renderer=@{required=(Test-CampaignRendererRequired $context.campaign);status='not_observed';identified=$false}
+        if(-not $renderer.required){$renderer.status='not_required_legacy'}
+        $cleanup=$false
+        if ($state.phase -cin @('accepted','captured_unreviewed')) {
             try {
                 Assert-CampaignPins $context
                 $evidence = Get-CampaignEvidence $context
-                $review = Read-CampaignJson (Join-Path $context.run 'campaign-review.json')
-                $accepted = (Test-CampaignTrue $state.acceptancePassed) -and (Test-CampaignTrue $review.accepted) -and
-                    $review.jobId -ceq $context.case.jobId -and $review.nativeFramesReviewed -eq 5 -and
-                    $review.evidenceSha256 -ceq $state.evidenceSha256 -and $evidence.sha256 -ceq $state.evidenceSha256
-                if (-not $accepted) { $phase = 'integrity_unconfirmed' }
+                $renderer=$evidence.renderer;$cleanup=$evidence.cleanupVerified
+                if($evidence.sha256 -cne $state.evidenceSha256){throw 'Collected evidence differs.'}
+                if($state.phase -ceq 'accepted'){
+                    $review = Read-CampaignJson (Join-Path $context.run 'campaign-review.json')
+                    $accepted = (Test-CampaignTrue $state.acceptancePassed) -and (Test-CampaignReview $context $review $evidence)
+                    if (-not $accepted) { $phase = 'integrity_unconfirmed' }
+                }
             } catch { $phase = 'integrity_unconfirmed' }
         }
         @{ panel = $context.case.panel; language = $context.case.language; jobId = $context.case.jobId; phase = $phase
-            reason = $state.reason; evidenceSha256 = $state.evidenceSha256; acceptancePassed = $accepted }
+            reason = $state.reason; evidenceSha256 = $state.evidenceSha256; acceptancePassed = $accepted;uiAccepted=$accepted;
+            renderer=$renderer;cleanupVerified=$cleanup }
     })
     return @{ id = $campaign.id; steamHeld = -not (Test-CampaignTrue (Read-CampaignJson (Join-Path $Root 'availability.json')).steamFree); cases = $states }
 }

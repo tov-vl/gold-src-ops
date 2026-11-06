@@ -37,6 +37,7 @@ $calls = [Collections.Generic.List[object]]::new()
         }
         if ($File -cne 'inert-pwsh' -or $Arguments[0] -cne '-NoLogo' -or $Arguments -notcontains '-NonInteractive') { throw 'Unexpected process.' }
         if (($Arguments -join ',') -cmatch 'Invoke-FramedUpdate.ps1,-Operation,status') { return $script:testUpdate | ConvertTo-Json -Depth 10 }
+        if(($Arguments -join ',') -cmatch 'Invoke-Panel.ps1,-Operation,result'){return $script:testRetained|ConvertTo-Json -Depth 10}
         return $script:testStatus | ConvertTo-Json -Depth 10
     }
 } $calls $status $update
@@ -69,6 +70,39 @@ foreach($value in @($false,'true',$null)){
 foreach($callback in @('gso_lab_setup_ack','gso_lab_ack_extra',$null)){
     Reject { & $module {param($Value) Assert-CampaignWeaponsReadiness @{readinessEnabled=$true;nativeSetupEnabled=$true;setupCallback=$Value} guns} $callback }
 }
+# Exactly one terminal failed renderer job may remain after accepted archival.
+$retainedId=[guid]::NewGuid().ToString('D')
+$status.pending=1
+$status.worker.rendererRecovery=@{schema=1;status='archived';resultPreserved=$true;gameLaunched=$false;automaticRetryAllowed=$false;jobId=$retainedId;
+    operationId=[guid]::NewGuid().ToString('D');planSha256=('b'*64);sha256=('a'*64);bytes=2877}
+$retained=@{id=$retainedId;status='uncertain_cleanup';gamePid=1234;gameStartedUtc=[DateTime]::UtcNow.AddMinutes(-2).ToString('o');
+    completedUtc=[DateTime]::UtcNow.AddMinutes(-1).ToString('o');cleanupVerified=$true;configCleanupVerified=$true;
+    rendererEvidence=@{schema=1;jobId=$retainedId;status='unconfirmed';probeEnabled=$true;cleanupVerified=$false}}
+& $module {param($Value) $script:testRetained=$Value} $retained
+$before=$calls.Count
+& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status
+Check ($calls.Count -eq ($before+1) -and ($calls[-1].arguments -join ',').EndsWith('-Operation,result,-JobId,'+$retainedId))
+foreach($field in @('resultPreserved','automaticRetryAllowed','gameLaunched')){
+    $saved=$status.worker.rendererRecovery[$field];$status.worker.rendererRecovery[$field]='false'
+    Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
+    $status.worker.rendererRecovery[$field]=$saved
+}
+foreach($field in @('status','id','completedUtc','configCleanupVerified')){
+    $saved=$retained[$field];$retained[$field]='invalid'
+    Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
+    $retained[$field]=$saved
+}
+$retained.rendererEvidence.cleanupVerified=$true
+Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
+$retained.rendererEvidence.cleanupVerified=$false
+$status.pending=2
+Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
+$status.pending=8
+Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
+$status.pending=2;$status.terminalArchiveCandidates=@(@{id=$retainedId;sha256=('A'*64)})
+Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
+$status.pending=2;$status.terminalArchiveCandidates=@(@{id=$retainedId;sha256=('A'*64)},@{id=$retainedId;sha256=('A'*64)})
+Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
 $summary = @{ passed=$true; checks=$checks; targetNetworkUsed=$false; runtimeChanged=$false; nativeInputSent=$false }
 [IO.File]::WriteAllText((Join-Path $Workspace 'campaign-runtime-summary.json'),($summary | ConvertTo-Json))
 $summary | ConvertTo-Json
