@@ -5,10 +5,10 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.110 Operator game-host health](v2.110-operator-game-host-health.md).
-Read-only API/BFF page using existing telemetry and warning rules; local
-verification and release evidence are pending. No game-client acceptance is
-needed for this application-only stage.
+Completed: [v2.110 Operator game-host health](v2.110-operator-game-host-health.md).
+The read-only API/BFF overview is deployed and accepted; signed stable
+`v2.110.0` reuses the accepted RC2 digests without rebuilding. No game-client
+acceptance was needed for this application-only stage.
 
 Completed:
 
@@ -4899,3 +4899,25 @@ No backup launch, restart, old-slot replay, new copy or manual alert resolution.
 The next weekly activation remains November 8 at 04:00 MSK; its successful
 capture is a separate gate. See the
 [scope and evidence](player-backup-service-reconciliation.md).
+
+## v2.110 - Operator game-host health
+
+Accepted on 2026-11-06: a private read-only Operator page brings five
+timestamped agent/queue, backup, storage, RAM/swap and sampled-CPU cards into
+the main Web application. It reuses existing Prometheus warning rules and
+fixed Grafana detail links, retaining unknown/stale observations and bounded
+sanitized measurements behind the server-side BFF token boundary.
+
+Product PR #493 and verification fix #494 passed required CI. RC1 is retained
+with its failed pre-existing responsive-test race and skipped publication;
+the deterministic slow-CSS correction and all 63 browser cases passed in RC2.
+Complete RC2 and stable workflows passed. Only API and Web were recreated;
+independent runtime and authenticated page acceptance passed without another
+installation after reconciling a mount-list ordering diagnostic. All other
+13 captured containers, game/agent, backup journal, warning policy and database
+were preserved. Stable `v2.110.0` uses the accepted digests without rebuilding.
+Live fault injection and an availability/SLO claim remain outside this scope.
+
+See [scope and evidence](v2.110-operator-game-host-health.md),
+[release notes](release-notes-v2.110.md) and
+[stable release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.110.0).

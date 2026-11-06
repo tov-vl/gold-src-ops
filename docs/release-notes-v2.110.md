@@ -11,4 +11,7 @@ remain unchanged. Prometheus labels, raw responses and BFF tokens stay off the
 browser surface.
 
 See [scope, configuration and readiness](v2.110-operator-game-host-health.md).
-Candidate publication, production acceptance and stable promotion are pending.
+Released as [v2.110.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.110.0).
+RC2 publication, independent runtime/Operator acceptance and stable promotion
+passed. API and Web run the accepted immutable digests; stable reused the same
+images without rebuilding. The running AlertReceiver was not changed.
