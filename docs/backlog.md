@@ -4545,9 +4545,14 @@ reducing queue occupancy from eight to six. All eight results, ten selected
 images, remaining request hashes and failed evidence were preserved; sequence
 advanced to 30 with unchanged runner bytes. One separately authorized RU profile
 trial then passed the same five-frame UI/renderer/session/cleanup gate with one
-dispatch and no replay. Both profile languages are accepted; four ranks/topall
-cases remain prepared. All eight prior results and EN receipts were preserved.
-Steam hold is restored; queue occupancy is seven with one free slot.
+dispatch and no replay. Both profile languages passed; prior results and EN
+receipts were preserved. The subsequent remaining-case stage archived four
+completed request records without changing their status, then passed RU/EN
+ranks and topall with one dispatch each. Twenty new frames close the full
+six-case MOTD matrix with 30 frames, independent OpenGL, matching session and
+owned cleanup. All nine prior results, profile receipts, failed evidence/archive
+and runner hashes were preserved. Sequence is 31 at revision 16; Steam hold is
+restored and queue occupancy is seven with one free slot.
 No runner installation, new permission, addon or production change.
 See [scope](v2.109-campaign-renderer-evidence.md)
 and [release notes](release-notes-v2.109.md).
