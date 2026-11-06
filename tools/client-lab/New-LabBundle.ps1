@@ -3,7 +3,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$ProfilePath,
     [Parameter(Mandatory = $true)][string]$OutputDirectory,
-    [string]$GunsBaselinePath
+    [string]$GunsBaselinePath,
+    [string]$RendererRecoveryPlanPath
 )
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'Lab.Tooling.psm1') -Force
@@ -11,6 +12,18 @@ $profile = Read-LabProfile $ProfilePath
 $output = Assert-LabOutputPath $OutputDirectory
 if (Test-Path -LiteralPath $output) { throw 'Never overwrite a generated bundle; use a fresh directory.' }
 $tokens = @{SOURCE_IPV4=$profile.sourceAddress;TARGET_IPV4=$profile.targetAddress;TARGET_NAME=$profile.targetName;FIXTURE_NAME=$profile.fixtureName}
+$tokens.RENDERER_RECOVERY_PLAN=''
+if($RendererRecoveryPlanPath){
+    $item=Get-Item -LiteralPath $RendererRecoveryPlanPath
+    if($item.Length -gt 4096 -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Invalid renderer recovery review.'}
+    $bytes=[IO.File]::ReadAllBytes($item.FullName)
+    $plan=(New-Object Text.UTF8Encoding($false,$true)).GetString($bytes)|ConvertFrom-Json
+    if((@($plan.PSObject.Properties.Name|Sort-Object)-join ',') -cne 'bytes,completedUtc,createdUtc,gamePid,gameStartedUtc,jobId,modifiedUtc,operationId,schema,sha256' -or
+        $plan.schema -ne 1 -or $plan.sha256 -cnotmatch '\A[0-9a-f]{64}\z' -or
+        $plan.bytes -lt 1 -or $plan.bytes -gt 4MB){throw 'Renderer recovery review differs.'}
+    [void][guid]::ParseExact($plan.operationId,'D');[void][guid]::ParseExact($plan.jobId,'D')
+    $tokens.RENDERER_RECOVERY_PLAN=[Convert]::ToBase64String($bytes)
+}
 $guns = @{}
 if ($GunsBaselinePath) {
     $item=Get-Item -LiteralPath $GunsBaselinePath
