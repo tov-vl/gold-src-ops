@@ -13,6 +13,17 @@ public sealed partial class BrowserTokenBoundaryTests
         await using var factory = new BrowserTokenBoundaryWebApplicationFactory(searchEnabled: true);
         factory.StartServer();
         var browserApiRequests = 0;
+        var delayNextStylesheet = 0;
+        var stylesheetDelayArmed = false;
+        await Page.RouteAsync("**/*.styles.css", async route =>
+        {
+            if (Interlocked.Exchange(ref delayNextStylesheet, 0) == 1)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
+            }
+
+            await route.ContinueAsync().ConfigureAwait(false);
+        });
         void ObserveRequest(object? sender, IRequest request)
         {
             if (request.Url.Contains("/api/", StringComparison.Ordinal))
@@ -37,6 +48,12 @@ public sealed partial class BrowserTokenBoundaryTests
                         await Page.Locator("#player-search-match").SelectOptionAsync(match);
                         await Page.Locator("#player-search-name").FillAsync(query);
                         factory.SearchHandler.RequestCount.Should().Be(calls);
+                        if (width == 320 && !stylesheetDelayArmed)
+                        {
+                            stylesheetDelayArmed = true;
+                            Volatile.Write(ref delayNextStylesheet, 1);
+                        }
+
                         await Page.Locator("#player-search-name").PressAsync("Enter");
                         await Expect(Page.Locator(".player-search-result")).ToHaveCountAsync(10);
                         await Expect(Page.Locator(".player-search-progress").First).ToContainTextAsync("1");
@@ -44,6 +61,7 @@ public sealed partial class BrowserTokenBoundaryTests
                         Page.Url.Should().NotContain(name).And.NotContain(query);
                         factory.SearchHandler.LastMatch.Should().Be(match);
                         await Expect(Page.Locator("#player-search-match")).ToHaveValueAsync(match);
+                        await Page.WaitForLoadStateAsync(LoadState.Load);
                         if (width == 320 && string.Equals(match, "contains", StringComparison.Ordinal))
                             await Page.AddStyleTagAsync(new() { Content = "html { font-size: 200%; }" });
                         factory.SearchHandler.RequestCount.Should().Be(calls + 1);
@@ -74,6 +92,7 @@ public sealed partial class BrowserTokenBoundaryTests
                     }
                 }
             browserApiRequests.Should().Be(0);
+            delayNextStylesheet.Should().Be(0);
         }
         finally
         {
