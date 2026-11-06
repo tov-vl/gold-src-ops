@@ -4514,6 +4514,9 @@ was accepted by exact hash readback; retained-log diagnostics now arrive through
 the existing status channel without another local script. The log hash and old
 result projection were independently preserved. Renderer acceptance and log
 reconciliation remain open. Production is unchanged.
+Retained-log recovery and a fresh EN fixture are prepared. The owner approved
+one guarded archive and new trial on 2026-11-06; target execution and acceptance
+remain pending. See [recovery scope](client-renderer-recovery.md).
 See [scope and evidence](v2.108-client-renderer-evidence.md) and
 [release notes](release-notes-v2.108.md).
 
