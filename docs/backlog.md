@@ -4526,6 +4526,19 @@ See [recovery scope and evidence](client-renderer-recovery.md).
 See [scope and evidence](v2.108-client-renderer-evidence.md) and
 [release notes](release-notes-v2.108.md).
 
+## v2.109 - Renderer evidence in the campaign controller
+
+In progress: new campaigns require a source-result-bound renderer receipt and
+bind it into the existing hash-bound visual review. One report separates UI,
+renderer, Windows-session and cleanup evidence; legacy UI-only campaigns keep
+their original receipt/digest and read-only inspection behavior. Existing
+no-retry and source-pin guards remain. Controller preflight can recognize one
+preserved terminal renderer failure after accepted archival through existing
+read-only status/result evidence, without changing the queue. Required CI and
+one new EN profile trial remain pending. No runner installation, new permission,
+addon or production change. See [scope](v2.109-campaign-renderer-evidence.md)
+and [release notes](release-notes-v2.109.md).
+
 ## Autonomous client lab - same-user session mode
 
 Prepared on 2026-11-05: an optional same-user interactive-session mode
