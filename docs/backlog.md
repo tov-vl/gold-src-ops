@@ -4540,7 +4540,10 @@ five-frame UI/OK/alias/control, independently parsed OpenGL identity, matching
 session and cleanup in the normal report. Initial unconfirmed collection was
 reconciled by the same ID without replay. All nine runner hashes, prior results
 and retained archive were preserved; the other five cases remain prepared.
-Queue occupancy is eight, so bounded maintenance precedes another trial.
+Subsequent approved maintenance archived two accepted terminal request records,
+reducing queue occupancy from eight to six. All eight results, ten selected
+images, remaining request hashes and failed evidence were preserved; sequence
+advanced to 30 with unchanged runner bytes. No further game trial was performed.
 No runner installation, new permission, addon or production change.
 See [scope](v2.109-campaign-renderer-evidence.md)
 and [release notes](release-notes-v2.109.md).

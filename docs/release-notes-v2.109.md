@@ -13,5 +13,7 @@ passed. One new EN `/profile` trial passed five-frame UI/OK/alias/control,
 independent OpenGL identity, session binding and cleanup through the ordinary
 controller. An initial unconfirmed collection was reconciled by the same ID
 without replay. Runner, permissions, addon and production are unchanged.
-The full queue needs bounded maintenance before another trial. See
+Subsequent approved maintenance archived two completed request records and
+freed two queue slots while preserving results/images and unchanged runner
+bytes. No further game trial was performed. See
 [scope and evidence](v2.109-campaign-renderer-evidence.md).
