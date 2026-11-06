@@ -4519,7 +4519,8 @@ result. Signed sequence 29 preserved seven files and passed nine-file readback.
 One new EN `/profile` trial passed independent renderer and five-frame UI review,
 both OK closes, alternate alias/cooldown, control return and full cleanup without
 manual window selection. The engine reported Intel Iris Xe OpenGL; hardware
-acceleration/performance and a real Windows-session transition are not attested.
+acceleration/performance are not attested. A later companion trial separately
+accepted a real same-user Windows-session transition.
 The bounded renderer gate is accepted. Production is unchanged.
 See [recovery scope and evidence](client-renderer-recovery.md).
 See [scope and evidence](v2.108-client-renderer-evidence.md) and
@@ -4534,9 +4535,14 @@ its existing updater hash pin; Worker/Diagnostics follow through the ordinary
 signed-update path. The owner installed the policy on 2026-11-06. PR #483 and
 all six required PR/main checks passed. One signed runner update was accepted
 by independent nine-file hash readback and fresh current-session mode/status;
-seven files, old request/results and retained logs were preserved. No game or
-production change. A real session change remains open; the later separately
-approved EN renderer gate passed under PR #485. See
+seven files, old request/results and retained logs were preserved. The separately
+approved EN renderer gate passed under PR #485. A later real sign-out/in on
+2026-11-06 automatically moved worker execution to the new session without
+rewriting the legacy binding or changing any runner byte. One fresh EN profile
+trial in that session passed five-frame UI/OK/alias/control and independent
+renderer acceptance, full cleanup and retained-result/archive preservation.
+The bounded session-transition gate is accepted. Windows/Steam login and an
+unlocked desktop remain prerequisites. Production and addon are unchanged. See
 [scope and evidence](client-session-policy.md).
 
 ## Autonomous client lab - repository tooling

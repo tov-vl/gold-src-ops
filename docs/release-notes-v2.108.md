@@ -28,4 +28,10 @@ and no manual window selection. The bounded native renderer gate is accepted;
 hardware acceleration/performance, a new RU matrix and an actual Windows-session
 transition are not claimed. Production and addon remain unchanged.
 
+A later same-user companion exercise on 2026-11-06 accepted a real Windows
+session change and one fresh EN profile/renderer trial in the new session,
+without another installer, protected policy update or runner change. Login and
+an unlocked desktop remain prerequisites. See
+[session-policy evidence](client-session-policy.md).
+
 See [scope, review and evidence](v2.108-client-renderer-evidence.md).

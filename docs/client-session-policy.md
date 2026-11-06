@@ -1,9 +1,10 @@
 # Same-user Windows session policy
 
-Status: signed runner adoption and current-session observation accepted on
-2026-11-06 after the owner completed the one-time local policy bootstrap.
-The real changed-session exercise and native trial remain pending; current
-status and a policy-install receipt are not acceptance of those gates.
+Status: signed runner adoption, real same-user session change and one new EN
+native trial accepted on 2026-11-06. The owner completed the local bootstrap
+and later signed out/in; the runner followed the new session without another
+installer or protected policy update. Windows/Steam login and an unlocked
+desktop remain external prerequisites.
 
 The legacy runner binds the worker to one numeric Windows session. The optional
 `gameSessionMode=current-user-interactive` policy permits a newer runner to use
@@ -54,8 +55,8 @@ preserves that failed result, and neither archives nor deletes the log.
 
 Local tests cover policy selection, foreign users, invalid modes, old sessions,
 Steam ambiguity, exact policy/config deltas, backup/commit drift, one-attempt
-claims and retained-failure rejection. Live session change, task execution,
-renderer output and locked-desktop behavior remain target gates.
+claims and retained-failure rejection. Passing these tests alone does not prove
+live session change, task execution, renderer output or locked-desktop behavior.
 
 ## Delivery evidence
 
@@ -81,12 +82,39 @@ retained-log report were independently unchanged. No game was dispatched, no
 log was archived or deleted, and production was untouched. The local bootstrap
 backup and exact previous runner bytes remain available to the owner.
 
-This accepts installation and execution in the existing interactive session.
-It does not claim a real login/session-number transition, unattended Windows or
-Steam login, locked-desktop operation, or native renderer acceptance. Those
-checks remain separate, and the failed renderer job must not be replayed.
+That initial acceptance covered installation and execution in the existing
+interactive session. It did not claim a real login/session-number transition,
+unattended Windows/Steam login, locked-desktop operation or native renderer
+acceptance. The failed renderer job must not be replayed.
 
 The later separately approved [renderer recovery](client-renderer-recovery.md)
 under PR #485 preserved that failed job and accepted one new EN native renderer
 trial on 2026-11-06. It does not prove a real login/session-number transition
 or operation on a locked desktop.
+
+## Real changed-session acceptance
+
+On 2026-11-06 the owner signed out and back into the same Windows account, then
+left the desktop unlocked and Steam ready with a free account. Fresh restricted
+status showed the worker automatically running in a different interactive
+session while the configured legacy session number remained unchanged. The
+installed sequence stayed 29/revision 16, all nine hashes matched, and prior
+terminal results and the retained renderer archive were preserved. No runner
+update, protected policy edit, UAC installer or new permission was needed.
+
+One new EN `/profile` job recorded that observed session in `gameSessionId`.
+Independent review passed five native 1920x1200 BMPs, the accepted profile
+baseline, both OK closes, alternate alias/cooldown and control return in both
+epochs without manual window selection. A separate source-hash-bound renderer
+receipt identified fresh process-bound OpenGL on Intel Iris Xe. Owned process,
+generated CFG and new log cleanup passed; the disposable fixture, relay and
+network were removed without AMXX errors. Final status was fresh, ready and idle
+in the changed session with the same nine code hashes. Old results and archive
+were independently preserved after the trial.
+
+This accepts the bounded same-user session-transition gate. It does not automate
+Windows/Steam authentication, unlock the desktop, cover a different user, prove
+hardware acceleration/performance or extend saved-data/loadout coverage. It adds
+no production or addon change. No unchanged implementation suite was rerun;
+validation used direct target observation, independent native/frame/renderer
+review and changed-documentation checks. C# source is unchanged.
