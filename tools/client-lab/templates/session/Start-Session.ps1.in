@@ -1,0 +1,8 @@
+#requires -Version 5.1
+$ErrorActionPreference='Stop'
+$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$session=(Get-Process -Id $PID).SessionId
+$entry=Join-Path $PSScriptRoot 'Apply-Session.ps1'
+$process=Start-Process -FilePath 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' -Verb RunAs -WindowStyle Hidden -ArgumentList ('-NoLogo -NoProfile -File "'+$entry+'" -GameUserSid '+$sid+' -GameSessionId '+$session) -Wait -PassThru
+if($process.ExitCode -ne 0){throw 'Return session-policy-result.json; do not retry.'}
+Write-Host 'Policy preparation complete. Keep session-policy-result.json and notify the controller.'

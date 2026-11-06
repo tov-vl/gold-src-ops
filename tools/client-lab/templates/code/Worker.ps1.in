@@ -7,12 +7,15 @@ if((Test-Path -LiteralPath (Join-Path $Root 'maintenance-revision-06.json')) -or
 . (Join-Path $Root 'code\Interaction.ps1')
 $policy = Read-LabJson (Join-Path $Root 'policy.json')
 Assert-LabLease $policy
-if($ShellJobId){Invoke-LabDesktopChild $Root $policy $ShellJobId;return}
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-$workerValid=$identity -ceq $policy.gameUserSid -and (Get-Process -Id $PID).SessionId -eq $policy.gameSessionId
+$configuredSession=$policy.gameSessionId
+$workerValid=$false
+try{$policy=Resolve-LabSessionPolicy $policy $identity (Get-Process -Id $PID).SessionId;$workerValid=$true}catch{}
+if($ShellJobId -and -not $workerValid){throw 'Desktop helper identity differs.'}
+if($ShellJobId){Invoke-LabDesktopChild $Root $policy $ShellJobId;return}
 $client=Get-LabClientReadiness (Get-LabClientObservation $policy)
 $rendererDiagnostics=$(if($workerValid){Get-LabRetainedRendererDiagnostics $Root $policy}else{@{schema=1;status='worker_blocked';rendererAccepted=$false;files=@()}})
-Write-LabJson (Join-Path $Root 'results\worker.json') @{ utc = [DateTime]::UtcNow.ToString('o'); state = $(if($workerValid){'ready'}else{'blocked'}); session = (Get-Process -Id $PID).SessionId; client=$client; rendererDiagnostics=$rendererDiagnostics }
+Write-LabJson (Join-Path $Root 'results\worker.json') @{ utc = [DateTime]::UtcNow.ToString('o'); state = $(if($workerValid){'ready'}else{'blocked'}); session = (Get-Process -Id $PID).SessionId; configuredSession=$configuredSession; sessionMode=$(if($policy.PSObject.Properties['gameSessionMode']){$policy.gameSessionMode}else{'exact-session'}); client=$client; rendererDiagnostics=$rendererDiagnostics }
 if (-not $workerValid) { return }
 foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') -Filter '*.json' -File | Sort-Object Name | Select-Object -First 8)) {
     Assert-LabLease $policy
@@ -26,6 +29,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
     New-Item -ItemType Directory -Path $paths.result -ErrorAction Stop | Out-Null
     $result = [ordered]@{ id = $job.id; action = $job.action; status = 'claimed'; stage = 'preflight'; launchRequested = $false; gamePid = $null; gameStartedUtc = $null; images = @(); rendererVerified = $false; acceptancePassed = $false; panelVerified = $false; languageVerified = $false; fixture = $null; cleanupVerified = $false; failureStage = $null; labels = @('scene','scene') }
     $result.labels = @(Get-LabRunnerCaptureLabels $job)
+    $result.gameSessionId=$policy.gameSessionId
     $result.expectedWidth = $(if ($job.action -cin @('capture-panel','capture-guns','verify-rules','verify-panel')) { 1920 } else { 1280 })
     $result.expectedHeight = $(if ($job.action -cin @('capture-panel','capture-guns','verify-rules','verify-panel')) { 1200 } else { 800 })
     $result.configCleanupVerified = $false

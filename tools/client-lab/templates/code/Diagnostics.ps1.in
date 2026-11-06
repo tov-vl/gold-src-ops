@@ -1,5 +1,19 @@
 Set-StrictMode -Version Latest
 
+function Resolve-LabSessionPolicy($Policy, [string]$WorkerSid, [int]$WorkerSession) {
+    $mode='exact-session'
+    if($Policy.PSObject.Properties['gameSessionMode']){$mode=$Policy.gameSessionMode}
+    if($mode -cnotin @('exact-session','current-user-interactive') -or
+        $WorkerSid -cne $Policy.gameUserSid -or $WorkerSession -lt 1 -or
+        ($mode -ceq 'exact-session' -and $WorkerSession -ne $Policy.gameSessionId)){
+        throw 'Interactive worker identity differs.'
+    }
+    # Resolve only the calling worker's session. Never search for another session.
+    $resolved=$Policy|ConvertTo-Json -Depth 12 -Compress|ConvertFrom-Json
+    $resolved.gameSessionId=$WorkerSession
+    return $resolved
+}
+
 function Get-LabRendererHash([byte[]]$Bytes) {
     $hash=[Security.Cryptography.SHA256]::Create()
     try{return ([BitConverter]::ToString($hash.ComputeHash($Bytes))).Replace('-','').ToLowerInvariant()}
@@ -394,6 +408,8 @@ function Assert-LabDesktopRequest([string]$Root,$Policy,[string]$Id) {
     if($job.id -cne $Id -or $job.action -cnotin @('verify-rules','verify-panel','capture-guns') -or -not (Get-LabAutonomousMode $Root $job)){throw 'Desktop launch requires a fixed autonomous panel job.'}
     $result=Read-LabJson (Join-Path $paths.result 'result.json')
     if($result.id -cne $Id -or $result.status -cne 'launch_claimed' -or -not $result.launchRequested){throw 'Desktop launch claim differs.'}
+    if($Policy.PSObject.Properties['gameSessionMode'] -and $Policy.gameSessionMode -ceq 'current-user-interactive' -and
+        (-not $result.PSObject.Properties['gameSessionId'] -or $result.gameSessionId -ne $Policy.gameSessionId)){throw 'Desktop claim belongs to another session.'}
     $configName='gso_lan_'+([guid]$Id).ToString('N')+'.cfg'
     $configPath=Join-Path $Policy.gameRoot ('cstrike\'+$configName)
     foreach($path in @($Policy.gameRoot,(Join-Path $Policy.gameRoot 'cstrike'),$configPath)) {

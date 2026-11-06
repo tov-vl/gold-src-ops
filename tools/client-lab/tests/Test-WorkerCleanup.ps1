@@ -59,8 +59,10 @@ function Invoke-LabAutonomousRulesInteraction([string]$Root,$Policy,$Job,$Result
 }
 '@
 $cases=0
-foreach($scenario in @('rules-success','rules-renderer-fail','rules-scenario-fail','rules-cleanup-fail','rules-busy','ranks-success','profile-success','topall-success','profile-scenario-fail','topall-cleanup-fail','ranks-busy','guns-success','guns-scenario-fail','guns-cleanup-fail','guns-busy','capture-guns-scenario-fail')){
+foreach($scenario in @('rules-current-session','rules-foreign-user','rules-success','rules-renderer-fail','rules-scenario-fail','rules-cleanup-fail','rules-busy','ranks-success','profile-success','topall-success','profile-scenario-fail','topall-cleanup-fail','ranks-busy','guns-success','guns-scenario-fail','guns-cleanup-fail','guns-busy','capture-guns-scenario-fail')){
     $panel,$name=$scenario -split '-',2
+    $sessionCase=$name
+    if($name -cin @('current-session','foreign-user')){$name='success'}
     if($panel -ceq 'capture'){$panel='guns-capture';$name='scenario-fail'}
     $root=Join-Path $sandbox $scenario
     foreach($directory in @('code','queue\steps','results','game\cstrike','steam')){New-Item -ItemType Directory -Path (Join-Path $root $directory) -Force|Out-Null}
@@ -68,9 +70,11 @@ foreach($scenario in @('rules-success','rules-renderer-fail','rules-scenario-fai
     [IO.File]::WriteAllText((Join-Path $root 'code\Lab.Common.ps1'),$common+"`r`n"+$commonStub)
     $interaction=[IO.File]::ReadAllText((Join-Path $Workspace 'kit\code\Interaction.ps1'))
     [IO.File]::WriteAllText((Join-Path $root 'code\Interaction.ps1'),$interaction+"`r`n"+$interactionStub)
-    [IO.File]::WriteAllText((Join-Path $root 'code\Diagnostics.ps1'),$diagnosticsStub)
+    [IO.File]::WriteAllText((Join-Path $root 'code\Diagnostics.ps1'),[IO.File]::ReadAllText((Join-Path $Workspace 'kit\code\Diagnostics.ps1'))+"`r`n"+$diagnosticsStub)
     foreach($file in @('game\hl.exe','game\cstrike\liblist.gam','steam\steam.exe')){[IO.File]::WriteAllText((Join-Path $root $file),'non-executable mock input')}
     $policy=@{gameUserSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;gameSessionId=(Get-Process -Id $PID).SessionId;gameRoot=(Join-Path $root 'game');steamRoot=(Join-Path $root 'steam');testCase=$name}
+    if($sessionCase -cin @('current-session','foreign-user')){$policy.gameSessionMode='current-user-interactive';$policy.gameSessionId++}
+    if($sessionCase -ceq 'foreign-user'){$policy.gameUserSid='S-1-5-21-100-200-300-1003'}
     Write-LabJson (Join-Path $root 'policy.json') $policy
     $id=[guid]::NewGuid().ToString('D')
     $job=@{id=$id;action='verify-rules';language='en';createdUtc=[DateTime]::UtcNow.ToString('o')}
@@ -81,7 +85,13 @@ foreach($scenario in @('rules-success','rules-renderer-fail','rules-scenario-fai
     Write-LabJson (Join-Path $root ('queue\'+$id+'.json')) $job
     Write-LabJson (Join-Path $root ('queue\steps\'+$id+'.autonomous.json')) $mode
     & (Join-Path $Workspace 'kit\code\Worker.ps1') -Root $root
+    if($sessionCase -ceq 'foreign-user'){
+        $heartbeat=Read-LabJson (Join-Path $root 'results\worker.json')
+        if($heartbeat.state -cne 'blocked' -or (Test-Path -LiteralPath (Join-Path $root ('results\'+$id))) -or (Test-Path -LiteralPath (Join-Path $root 'launch-count.json'))){throw 'Foreign user was permitted.'}
+        $cases++;continue
+    }
     $result=Read-LabJson (Join-Path $root ('results\'+$id+'\result.json'))
+    if($sessionCase -ceq 'current-session' -and $result.gameSessionId -ne (Get-Process -Id $PID).SessionId){throw 'Worker did not pin its actual session.'}
     if($name -ceq 'busy'){
         if($result.launchRequested -or (Test-Path -LiteralPath (Join-Path $root 'launch-count.json'))){throw 'Busy client attempted a launch.'}
     }else{
