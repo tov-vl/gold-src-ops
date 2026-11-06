@@ -19,23 +19,21 @@ public sealed class GameHostHealthSource(HttpClient client) : IGameHostHealthSou
         timeout.CancelAfter(TimeSpan.FromSeconds(5));
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/query")
+            using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/query");
+            request.Content = new FormUrlEncodedContent(new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                Content = new FormUrlEncodedContent(new Dictionary<string, string>(StringComparer.Ordinal)
-                {
-                    ["query"] = Query,
-                    ["time"] = atUtc.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
-                    ["timeout"] = "3s"
-                })
-            };
-            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+                ["query"] = Query,
+                ["time"] = atUtc.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
+                ["timeout"] = "3s"
+            });
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 return null;
             }
 
-            await response.Content.LoadIntoBufferAsync(65536, timeout.Token);
-            using var document = JsonDocument.Parse(await response.Content.ReadAsByteArrayAsync(timeout.Token));
+            await response.Content.LoadIntoBufferAsync(65536, timeout.Token).ConfigureAwait(false);
+            using var document = JsonDocument.Parse(await response.Content.ReadAsByteArrayAsync(timeout.Token).ConfigureAwait(false));
             var root = document.RootElement;
             if (!string.Equals(root.GetProperty("status").GetString(), "success", StringComparison.Ordinal) || root.TryGetProperty("warnings", out _) ||
                 !string.Equals(root.GetProperty("data").GetProperty("resultType").GetString(), "vector", StringComparison.Ordinal))
@@ -94,10 +92,8 @@ public sealed class GameHostHealthSource(HttpClient client) : IGameHostHealthSou
                 panel.GetProperty("id").GetInt32())).ToList();
         string[] metrics = ["game_event_agent", "player_backup", "game_host_storage", "game_host_resource", "game_host_resource"];
         string[] services = ["game-event-agent", "player-backup", "game-host-storage", "game-host-resource", "game-host-resource"];
-        for (var index = 0; index < metrics.Length; index++)
-        {
-            expressions.Add(Label($"goldsrcops_{metrics[index]}_observed_timestamp_seconds{{job=\"goldsrcops\",service_name=\"goldsrcops-{services[index]}-monitor\"}}", index + 24));
-        }
+        expressions.AddRange(metrics.Select((metric, index) =>
+            Label($"goldsrcops_{metric}_observed_timestamp_seconds{{job=\"goldsrcops\",service_name=\"goldsrcops-{services[index]}-monitor\"}}", index + 24)));
 
         return string.Join(" or ", expressions);
     }

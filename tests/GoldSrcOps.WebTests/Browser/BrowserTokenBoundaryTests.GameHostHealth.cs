@@ -29,7 +29,7 @@ public sealed partial class BrowserTokenBoundaryTests
         if (Environment.GetEnvironmentVariable(ScreenshotDirectoryVariable) is { Length: > 0 } directory)
         {
             Directory.CreateDirectory(directory);
-            await page.ScreenshotAsync(new PageScreenshotOptions() { Path = Path.Combine(directory, "game-host-health-desktop.png"), FullPage = true });
+            await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(directory, "game-host-health-desktop.png"), FullPage = true });
         }
 
         await page.SetViewportSizeAsync(390, 900);
