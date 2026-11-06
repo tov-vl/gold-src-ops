@@ -8,7 +8,10 @@
 - Recognize one preserved terminal renderer failure through existing read-only
   evidence after accepted log archival, without changing queue contents.
 
-Controller-only implementation and verification are in progress. Required
-PR/main CI and one new EN `/profile` native trial remain pending. Installed
-runner, permissions, addon and production are unchanged. See
+Accepted on 2026-11-06: product PR #488 and all six required PR/main checks
+passed. One new EN `/profile` trial passed five-frame UI/OK/alias/control,
+independent OpenGL identity, session binding and cleanup through the ordinary
+controller. An initial unconfirmed collection was reconciled by the same ID
+without replay. Runner, permissions, addon and production are unchanged.
+The full queue needs bounded maintenance before another trial. See
 [scope and evidence](v2.109-campaign-renderer-evidence.md).
