@@ -95,6 +95,11 @@ foreach($field in @('status','id','completedUtc','configCleanupVerified')){
 $retained.rendererEvidence.cleanupVerified=$true
 Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
 $retained.rendererEvidence.cleanupVerified=$false
+$retained.gamePid='1234'
+Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
+$retained.gamePid=1234;$status.worker.rendererRecovery.bytes='2877'
+Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
+$status.worker.rendererRecovery.bytes=2877
 $status.pending=2
 Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
 $status.pending=8

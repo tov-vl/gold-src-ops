@@ -81,13 +81,14 @@ function Assert-CampaignQueue($Context,$Status) {
         $recovery.gameLaunched -isnot [bool] -or $recovery.gameLaunched -or $recovery.automaticRetryAllowed -isnot [bool] -or $recovery.automaticRetryAllowed -or
         $recovery.jobId -cnotmatch '\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z' -or $recovery.jobId -ceq [guid]::Empty.ToString('D') -or
         $recovery.operationId -cnotmatch '\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z' -or $recovery.planSha256 -cnotmatch '\A[0-9a-f]{64}\z' -or
-        $recovery.sha256 -cnotmatch '\A[0-9a-f]{64}\z' -or $recovery.bytes -lt 1 -or $recovery.bytes -gt 4MB -or
+        $recovery.sha256 -cnotmatch '\A[0-9a-f]{64}\z' -or ($recovery.bytes -isnot [int] -and $recovery.bytes -isnot [long]) -or
+        $recovery.bytes -lt 1 -or $recovery.bytes -gt 4MB -or
         $recovery.jobId -cin $ids){throw 'Retained renderer recovery is not confirmed.'}
     $retainedContext=@{run=$Context.run;campaign=$Context.campaign;case=@{jobId=$recovery.jobId}}
     $result=(Invoke-CampaignPanel $retainedContext 'result')|ConvertFrom-Json -AsHashtable
     if($result.id -cne $recovery.jobId -or $result.status -cne 'uncertain_cleanup' -or -not $result.completedUtc -or
         $result.cleanupVerified -isnot [bool] -or -not $result.cleanupVerified -or $result.configCleanupVerified -isnot [bool] -or -not $result.configCleanupVerified -or
-        $result.gamePid -lt 1 -or $result.rendererEvidence.schema -ne 1 -or
+        ($result.gamePid -isnot [int] -and $result.gamePid -isnot [long]) -or $result.gamePid -lt 1 -or $result.rendererEvidence.schema -ne 1 -or
         $result.rendererEvidence.jobId -cne $recovery.jobId -or $result.rendererEvidence.status -cne 'unconfirmed' -or
         $result.rendererEvidence.probeEnabled -isnot [bool] -or -not $result.rendererEvidence.probeEnabled -or
         $result.rendererEvidence.cleanupVerified -isnot [bool] -or $result.rendererEvidence.cleanupVerified){throw 'Retained renderer request is not terminal.'}
