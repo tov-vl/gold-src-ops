@@ -1,9 +1,9 @@
 # Same-user Windows session policy
 
-Status: the owner completed the one-time local policy bootstrap on 2026-11-06.
-Fresh restricted SSH status confirmed the existing updater and worker remained
-healthy. The signed runner rollout, changed-session exercise and native trial
-are still pending; a policy-install receipt is not acceptance of those gates.
+Status: signed runner adoption and current-session observation accepted on
+2026-11-06 after the owner completed the one-time local policy bootstrap.
+The real changed-session exercise and native trial remain pending; current
+status and a policy-install receipt are not acceptance of those gates.
 
 The legacy runner binds the worker to one numeric Windows session. The optional
 `gameSessionMode=current-user-interactive` policy permits a newer runner to use
@@ -56,3 +56,32 @@ Local tests cover policy selection, foreign users, invalid modes, old sessions,
 Steam ambiguity, exact policy/config deltas, backup/commit drift, one-attempt
 claims and retained-failure rejection. Live session change, task execution,
 renderer output and locked-desktop behavior remain target gates.
+
+## Delivery evidence
+
+[Product PR #483](https://github.com/tov-vl/gold-src-ops/pull/483) accepted source
+`304b8e0c5cba0ed6a64b4231ffdaa94101e90ba4`, merged as
+`9f9b6dff6da625543c705356f16a2760a55a20c8`. All six required checks passed in
+[PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/42182748037) and
+[main CI](https://github.com/tov-vl/gold-src-ops/actions/runs/42184626602).
+The policy and bootstrap checks passed 23 and 39 cases per PowerShell runtime,
+with 18 worker scenarios, the existing client suite, both native compilation
+checks and 482 synthetic native checks. The worker fixture explicitly models an
+interactive session independently of the CI host's session. C# source was not
+changed; the application-wide local gate was not repeated.
+
+One signed sequence-28/revision-16 update replaced Worker and Diagnostics and
+preserved the other seven runner files. Independent restricted readback verified
+all nine hashes, fresh ready status, the approved mode and the worker's current
+session. The updater remained healthy; the configured legacy session was kept
+for compatibility. No new remote permission or credential was needed.
+
+The retained request inventory, original failed renderer result and bounded
+retained-log report were independently unchanged. No game was dispatched, no
+log was archived or deleted, and production was untouched. The local bootstrap
+backup and exact previous runner bytes remain available to the owner.
+
+This accepts installation and execution in the existing interactive session.
+It does not claim a real login/session-number transition, unattended Windows or
+Steam login, locked-desktop operation, or native renderer acceptance. Those
+checks remain separate, and the failed renderer job must not be replayed.
