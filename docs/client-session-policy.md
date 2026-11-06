@@ -85,3 +85,8 @@ This accepts installation and execution in the existing interactive session.
 It does not claim a real login/session-number transition, unattended Windows or
 Steam login, locked-desktop operation, or native renderer acceptance. Those
 checks remain separate, and the failed renderer job must not be replayed.
+
+The later separately approved [renderer recovery](client-renderer-recovery.md)
+under PR #485 preserved that failed job and accepted one new EN native renderer
+trial on 2026-11-06. It does not prove a real login/session-number transition
+or operation on a locked desktop.

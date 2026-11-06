@@ -4512,11 +4512,16 @@ Raw evidence is retained without replay or manual log deletion. Correction
 PR #481 and all six required PR/main checks passed. Its signed runner update
 was accepted by exact hash readback; retained-log diagnostics now arrive through
 the existing status channel without another local script. The log hash and old
-result projection were independently preserved. Renderer acceptance and log
-reconciliation remain open. Production is unchanged.
-Retained-log recovery and a fresh EN fixture are prepared. The owner approved
-one guarded archive and new trial on 2026-11-06; target execution and acceptance
-remain pending. See [recovery scope](client-renderer-recovery.md).
+result projection were independently preserved.
+On 2026-11-06, PR #485 and all six required PR/main checks passed. The separately
+approved R3 recovery archived the exact old log without changing the failed
+result. Signed sequence 29 preserved seven files and passed nine-file readback.
+One new EN `/profile` trial passed independent renderer and five-frame UI review,
+both OK closes, alternate alias/cooldown, control return and full cleanup without
+manual window selection. The engine reported Intel Iris Xe OpenGL; hardware
+acceleration/performance and a real Windows-session transition are not attested.
+The bounded renderer gate is accepted. Production is unchanged.
+See [recovery scope and evidence](client-renderer-recovery.md).
 See [scope and evidence](v2.108-client-renderer-evidence.md) and
 [release notes](release-notes-v2.108.md).
 
@@ -4530,8 +4535,9 @@ signed-update path. The owner installed the policy on 2026-11-06. PR #483 and
 all six required PR/main checks passed. One signed runner update was accepted
 by independent nine-file hash readback and fresh current-session mode/status;
 seven files, old request/results and retained logs were preserved. No game or
-production change. A real session change and native renderer acceptance remain
-open. See [scope and evidence](client-session-policy.md).
+production change. A real session change remains open; the later separately
+approved EN renderer gate passed under PR #485. See
+[scope and evidence](client-session-policy.md).
 
 ## Autonomous client lab - repository tooling
 
