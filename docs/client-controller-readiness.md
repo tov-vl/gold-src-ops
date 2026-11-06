@@ -143,3 +143,15 @@ engine, permission, addon, production service or cloud resource. Existing
 build/unit/native suites were not repeated on unchanged code; no new C# work
 requires InspectCode. Renderer identity, production saved personal statistics,
 PvP and activity aggregation remain outside this bounded fixture acceptance.
+
+## Integrated renderer evidence - 2026-11-06 (MSK)
+
+The [v2.109 controller gate](v2.109-campaign-renderer-evidence.md) accepted one
+new EN profile request with five-frame UI/OK/alias/control review, independently
+parsed process-bound OpenGL identity, matching Windows session and verified
+cleanup in the ordinary campaign report. Initial unconfirmed collection was
+reconciled by the same ID without replay. Raw results, installed runner bytes,
+prior failed evidence and retained archive were preserved. Legacy campaigns
+retain their original UI-only evidence boundary. This is not a fresh six-case
+matrix. The queue is full at eight terminal requests; bounded maintenance is
+the next gate before another native request.
