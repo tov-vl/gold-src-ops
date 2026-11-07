@@ -9,4 +9,9 @@ Only Web changes. API, monitoring rules, game/agent, database, permissions and
 notification policy are preserved. No recovery action runs from the page.
 
 See [scope and readiness](v2.112-operator-warning-guidance.md).
-Candidate publication, target acceptance and stable promotion are pending.
+Released as [v2.112.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.112.0).
+RC1 publication, independent runtime/Operator acceptance and stable promotion
+passed. Web runs the accepted immutable digest; all 14 other captured
+containers, including API, were preserved. Stable references reuse the candidate
+images without rebuilding. Active/unavailable advice was fixture-tested; no live
+fault was injected for this release.
