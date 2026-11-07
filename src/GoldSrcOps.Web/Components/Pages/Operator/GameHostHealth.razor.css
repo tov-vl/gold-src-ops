@@ -1,6 +1,6 @@
 .health-page { max-width: 75rem; margin: 0 auto; display: grid; gap: 1.5rem; }
 .health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; }
-.health-card, .health-values, .health-notes { background: #fff; border: 1px solid #cad5df; border-radius: .75rem; padding: 1.25rem; }
+.health-card, .health-values, .health-notes, .health-warnings { background: #fff; border: 1px solid #cad5df; border-radius: .75rem; padding: 1.25rem; }
 .health-card { border-top: .35rem solid #718096; }
 .state-nowarnings { border-top-color: #23774d; }
 .state-observed { border-top-color: #2867b2; }
@@ -11,3 +11,10 @@
 dl { margin: 0; }
 dl div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; padding: .65rem 0; border-bottom: 1px solid #e0e7ed; }
 dd { margin: 0; font-variant-numeric: tabular-nums; }
+.warning-list { display: grid; gap: 1rem; list-style: none; padding: 0; }
+.warning-row { padding: 1rem; border: 1px solid #cad5df; border-top-width: .35rem; border-radius: .5rem; overflow-wrap: anywhere; }
+.warning-row.state-firing { border-top-color: #b92b34; }
+.warning-row.state-pending { border-top-color: #a56a00; }
+.warning-row h3 { margin-top: 0; font-size: 1rem; }
+.warning-row p { line-height: 1.5; }
+.health-notes nav { display: flex; flex-wrap: wrap; gap: .5rem 1rem; }

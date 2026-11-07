@@ -81,6 +81,7 @@ public sealed class GameHostHealthServiceTests
         source.Setup(service => service.ReadAsync(Now, It.IsAny<CancellationToken>())).ReturnsAsync(samples);
         var clock = new Mock<IClock>();
         clock.SetupGet(static value => value.UtcNow).Returns(Now);
-        return new GameHostHealthService(source.Object, clock.Object).ReadAsync(CancellationToken.None);
+        var warningSource = new Mock<IGameHostWarningSource>();
+        return new GameHostHealthService(source.Object, warningSource.Object, clock.Object).ReadAsync(CancellationToken.None);
     }
 }

@@ -15,7 +15,9 @@ internal static class GameHostHealthEndpoints
             var result = await service.ReadAsync(cancellationToken).ConfigureAwait(false);
             return TypedResults.Ok(new GameHostHealthResponse(result.EvaluatedAtUtc,
                 [.. result.Components.Select(static item => new GameHostHealthComponentResponse(item.Component, item.State, item.ObservedAtUtc))],
-                [.. result.Values.Select(static item => new GameHostHealthValueResponse(item.Metric, item.Role, item.Value))]));
+                [.. result.Values.Select(static item => new GameHostHealthValueResponse(item.Metric, item.Role, item.Value))],
+                result.Warnings is { } warnings ? new GameHostWarningsResponse(warnings.State, warnings.ObservedAtUtc,
+                    [.. warnings.Items.Select(static item => new GameHostWarningResponse(item.Name, item.Component, item.State, item.Description))]) : null));
         }).RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy).WithName("GetGameHostHealth").WithTags("Operator");
     }
 }
