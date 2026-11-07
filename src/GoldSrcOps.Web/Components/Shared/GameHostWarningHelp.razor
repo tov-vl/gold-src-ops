@@ -1,0 +1,22 @@
+@if (Guidance is { } guidance)
+{
+    <div class="warning-guidance">
+        <p><strong>First check:</strong> @guidance.FirstCheck</p>
+        <p><strong>Preserve:</strong> @guidance.Preserve</p>
+        <a class="warning-runbook" href="@guidance.RunbookUrl">Troubleshooting guide</a>
+    </div>
+}
+
+@code {
+    [Parameter] public string? WarningName { get; set; }
+    [Parameter] public string? SnapshotState { get; set; }
+
+    private GameHostWarningGuidance? Guidance => WarningName is { } name
+        ? GameHostWarningGuidance.ForWarning(name)
+        : SnapshotState switch
+        {
+            "Unknown" => GameHostWarningGuidance.Unknown,
+            "Stale" => GameHostWarningGuidance.Stale,
+            _ => null
+        };
+}

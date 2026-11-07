@@ -17,6 +17,7 @@
         <section class="health-card state-unknown" role="status">
             <h2>Unknown</h2>
             <p>No usable health snapshot. This does not establish that the game host is healthy or offline.</p>
+            <GameHostWarningHelp SnapshotState="Unknown" />
         </section>
     }
     else
@@ -51,6 +52,7 @@
                                 <h3>@warning.Name</h3>
                                 <p>@WarningComponentLabel(warning.Component) - <strong>@warning.State</strong></p>
                                 <p>@warning.Description</p>
+                                <GameHostWarningHelp WarningName="@warning.Name" />
                                 @if (Links.WarningDashboard(warning.Component) is { } dashboard)
                                 {
                                     <a href="@dashboard.AbsoluteUri">Grafana details</a>
@@ -64,12 +66,15 @@
             {
                 <p class="warnings-stale">The warning snapshot is stale. It does not establish that there are no warnings.</p>
                 <p>Rules last checked: @FormatTime(stale.ObservedAtUtc)</p>
+                <GameHostWarningHelp SnapshotState="Stale" />
             }
             else
             {
                 <p class="warnings-unknown">Warnings are unavailable or incomplete. This does not mean that there are no warnings.</p>
+                <GameHostWarningHelp SnapshotState="Unknown" />
             }
             <p>This list covers the existing 17 game-host warning rules, not all monitoring. Rule state and host observations are independent snapshots; cards can lag a rule evaluation. There are no acknowledgement or silence controls.</p>
+            <p><a href="@GameHostWarningGuidance.RunbookHome">Troubleshooting all 17 warnings and unavailable snapshots</a>. Guidance is read-only; recovery actions require a separately reviewed plan.</p>
         </section>
         <section class="health-values">
             <h2>Available measurements</h2>

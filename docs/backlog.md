@@ -5,9 +5,11 @@ release steps.
 
 ## Current Status
 
-Completed: [v2.111 active Operator warnings](v2.111-operator-health-warnings.md)
-is released and installed. The read-only overview distinguishes fresh empty,
-unknown and stale rule snapshots; no game-client session is required.
+In progress: [v2.112 Operator warning guidance](v2.112-operator-warning-guidance.md).
+Add static first checks, preservation notes and fixed runbook links for the
+existing 17 warnings and unavailable/stale snapshots. Only Web runtime changes;
+no game-client session is required. The accepted
+[v2.111 warning overview](v2.111-operator-health-warnings.md) remains the baseline.
 
 Completed:
 

@@ -27,6 +27,11 @@ public sealed partial class BrowserTokenBoundaryTests
         await Expect(page.Locator(".warning-row")).ToHaveCountAsync(2);
         await Expect(page.Locator(".warning-row.state-firing")).ToContainTextAsync("PlayerBackupInterventionRequired");
         await Expect(page.Locator(".warning-row.state-pending")).ToContainTextAsync("GameEventAgentMonitorUnavailable");
+        await Expect(page.Locator(".warning-row.state-firing .warning-guidance")).ToContainTextAsync("Do not retry an uncertain backup");
+        await Expect(page.Locator(".warning-row.state-firing .warning-runbook")).ToHaveAttributeAsync("href",
+            "https://github.com/tov-vl/gold-src-ops/blob/main/docs/game-host-warning-triage.md#backup-intervention-required");
+        await Expect(page.Locator(".warning-row.state-pending .warning-runbook")).ToHaveAttributeAsync("href",
+            "https://github.com/tov-vl/gold-src-ops/blob/main/docs/game-host-warning-triage.md#agent-monitor-unavailable");
         AssertTokenFree(await page.ContentAsync());
         handler.Bearer.Should().Be(BrowserTokenBoundaryWebApplicationFactory.AccessTokenSentinel);
         if (Environment.GetEnvironmentVariable(ScreenshotDirectoryVariable) is { Length: > 0 } directory)
@@ -37,20 +42,28 @@ public sealed partial class BrowserTokenBoundaryTests
 
         await page.SetViewportSizeAsync(390, 900);
         (await page.EvaluateAsync<bool>("document.documentElement.scrollWidth > document.documentElement.clientWidth")).Should().BeFalse();
+        await Expect(page.Locator(".warning-row.state-firing .warning-guidance")).ToBeVisibleAsync();
         handler.EmptyWarnings = true;
         await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Refresh", Exact = true }).ClickAsync();
         await Expect(page.Locator(".warnings-empty")).ToBeVisibleAsync();
+        await Expect(page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Troubleshooting all 17 warnings and unavailable snapshots", Exact = true })).ToBeVisibleAsync();
+        await Expect(page.Locator(".warning-guidance")).ToHaveCountAsync(0);
         handler.WarningState = "Stale";
         await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Refresh", Exact = true }).ClickAsync();
         await Expect(page.Locator(".warnings-stale")).ToBeVisibleAsync();
+        await Expect(page.Locator(".warning-runbook")).ToHaveAttributeAsync("href",
+            "https://github.com/tov-vl/gold-src-ops/blob/main/docs/game-host-warning-triage.md#stale-snapshot");
         await Expect(page.Locator(".warnings-empty")).ToHaveCountAsync(0);
         handler.WarningState = "Unknown";
         await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Refresh", Exact = true }).ClickAsync();
         await Expect(page.Locator(".warnings-unknown")).ToBeVisibleAsync();
+        await Expect(page.Locator(".warning-runbook")).ToHaveAttributeAsync("href",
+            "https://github.com/tov-vl/gold-src-ops/blob/main/docs/game-host-warning-triage.md#unknown-snapshot");
         AssertTokenFree(await page.ContentAsync());
         handler.Unavailable = true;
         await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Refresh", Exact = true }).ClickAsync();
         await Expect(page.Locator(".state-unknown")).ToContainTextAsync("No usable health snapshot");
+        await Expect(page.Locator(".warning-guidance")).ToContainTextAsync("Refresh once");
         AssertTokenFree(await page.ContentAsync());
     }
 
