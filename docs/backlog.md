@@ -5,10 +5,9 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.111 active Operator warnings](v2.111-operator-health-warnings.md).
-Add a bounded read-only list of existing Pending/Firing warnings to the accepted
-[v2.110 overview](v2.110-operator-game-host-health.md), with explicit empty,
-unknown and stale states. No game-client session is required.
+Completed: [v2.111 active Operator warnings](v2.111-operator-health-warnings.md)
+is released and installed. The read-only overview distinguishes fresh empty,
+unknown and stale rule snapshots; no game-client session is required.
 
 Completed:
 
@@ -4921,3 +4920,27 @@ Live fault injection and an availability/SLO claim remain outside this scope.
 See [scope and evidence](v2.110-operator-game-host-health.md),
 [release notes](release-notes-v2.110.md) and
 [stable release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.110.0).
+
+## v2.111 - Active Operator game-host warnings
+
+Accepted on 2026-11-07: the existing private game-host page now lists the 17
+existing warning rules when Pending or Firing, with fixed descriptions and
+Grafana destinations. A complete fresh inactive set is explicitly empty;
+invalid, incomplete or stale evaluations remain unavailable/stale. Warning
+availability is independent of the existing five cards and measurements.
+
+Product PR #496, post-merge CI and all 12 RC1 jobs passed. Complete local .NET
+tests and focused protocol/freshness/mixed-version, authorization and static
+responsive browser checks passed. Only API and Web were recreated; independent
+runtime and existing Operator-session acceptance passed, preserving all other
+13 captured containers and the remaining deployment model. No game/agent,
+database, warning rule, permission or notification change was made.
+
+Stable `v2.111.0` passed all 12 promotion jobs and independent same-digest
+verification without rebuilding. The GitHub Release is published. Live faults,
+a game-client run and an availability/SLO observation window are outside this
+claim.
+
+See [scope and evidence](v2.111-operator-health-warnings.md),
+[release notes](release-notes-v2.111.md) and
+[stable release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.111.0).
