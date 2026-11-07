@@ -5,11 +5,10 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.112 Operator warning guidance](v2.112-operator-warning-guidance.md).
-Add static first checks, preservation notes and fixed runbook links for the
-existing 17 warnings and unavailable/stale snapshots. Only Web runtime changes;
-no game-client session is required. The accepted
-[v2.111 warning overview](v2.111-operator-health-warnings.md) remains the baseline.
+Completed: [v2.112 Operator warning guidance](v2.112-operator-warning-guidance.md)
+is released and installed. Static first checks, preservation notes and fixed
+runbook links cover the existing 17 warnings and Unknown/Stale snapshots.
+Only Web runtime changed; the accepted v2.111 API remains installed.
 
 Completed:
 
@@ -4946,3 +4945,27 @@ claim.
 See [scope and evidence](v2.111-operator-health-warnings.md),
 [release notes](release-notes-v2.111.md) and
 [stable release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.111.0).
+
+## v2.112 - First checks for Operator warnings
+
+Accepted on 2026-11-07: each of the 17 existing game-host warnings has static
+first checks, evidence-preservation notes and a fixed guide link. Unknown and
+Stale have separate advice, and the general guide remains available with a
+fresh empty list. The page performs no recovery action.
+
+Product PR #498 and post-merge CI passed. The local full gate, final focused
+Web/Chromium checks, reviewed InspectCode and an independent 17-rule/19-section
+check passed. RC1 and stable each passed all 12 jobs; independent registry and
+job-log verification confirmed identical accepted digests without rebuilding.
+
+Only Web was recreated. Independent runtime and existing Operator-session
+acceptance passed, preserving all 14 other captured containers, including API,
+mounts, static addresses and the remaining deployment model. The general link
+opened all 19 published guide sections; return navigation and Refresh passed. Active
+and unavailable advice is fixture coverage, not live fault injection. No
+game/agent, database, rule, permission or notification change occurred.
+
+See the [triage guide](game-host-warning-triage.md),
+[scope and evidence](v2.112-operator-warning-guidance.md),
+[release notes](release-notes-v2.112.md) and
+[stable release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.112.0).
