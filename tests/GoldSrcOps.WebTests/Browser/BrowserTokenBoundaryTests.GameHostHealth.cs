@@ -23,7 +23,10 @@ public sealed partial class BrowserTokenBoundaryTests
         await page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
         await page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, "/operator/game-host-health").AbsoluteUri);
         await Expect(page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Game-host health", Exact = true })).ToBeVisibleAsync();
-        await Expect(page.Locator(".state-firing")).ToContainTextAsync("Player backup");
+        await Expect(page.Locator(".health-card.state-firing")).ToContainTextAsync("Player backup");
+        await Expect(page.Locator(".warning-row")).ToHaveCountAsync(2);
+        await Expect(page.Locator(".warning-row.state-firing")).ToContainTextAsync("PlayerBackupInterventionRequired");
+        await Expect(page.Locator(".warning-row.state-pending")).ToContainTextAsync("GameEventAgentMonitorUnavailable");
         AssertTokenFree(await page.ContentAsync());
         handler.Bearer.Should().Be(BrowserTokenBoundaryWebApplicationFactory.AccessTokenSentinel);
         if (Environment.GetEnvironmentVariable(ScreenshotDirectoryVariable) is { Length: > 0 } directory)
@@ -34,6 +37,17 @@ public sealed partial class BrowserTokenBoundaryTests
 
         await page.SetViewportSizeAsync(390, 900);
         (await page.EvaluateAsync<bool>("document.documentElement.scrollWidth > document.documentElement.clientWidth")).Should().BeFalse();
+        handler.EmptyWarnings = true;
+        await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Refresh", Exact = true }).ClickAsync();
+        await Expect(page.Locator(".warnings-empty")).ToBeVisibleAsync();
+        handler.WarningState = "Stale";
+        await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Refresh", Exact = true }).ClickAsync();
+        await Expect(page.Locator(".warnings-stale")).ToBeVisibleAsync();
+        await Expect(page.Locator(".warnings-empty")).ToHaveCountAsync(0);
+        handler.WarningState = "Unknown";
+        await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Refresh", Exact = true }).ClickAsync();
+        await Expect(page.Locator(".warnings-unknown")).ToBeVisibleAsync();
+        AssertTokenFree(await page.ContentAsync());
         handler.Unavailable = true;
         await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Refresh", Exact = true }).ClickAsync();
         await Expect(page.Locator(".state-unknown")).ToContainTextAsync("No usable health snapshot");
@@ -43,6 +57,8 @@ public sealed partial class BrowserTokenBoundaryTests
     private sealed class HealthFixtureHandler : HttpMessageHandler
     {
         public bool Unavailable { get; set; }
+        public bool EmptyWarnings { get; set; }
+        public string WarningState { get; set; } = "Available";
         public string? Bearer { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -55,7 +71,10 @@ public sealed partial class BrowserTokenBoundaryTests
                     [new GameHostHealthComponentResponse("backup", "Firing", DateTimeOffset.UtcNow),
                      new GameHostHealthComponentResponse("cpu", "Observed", DateTimeOffset.UtcNow)],
                     [new GameHostHealthValueResponse("weeklyAttempt", string.Empty, 9),
-                     new GameHostHealthValueResponse("backupSource", string.Empty, 2)]))
+                     new GameHostHealthValueResponse("backupSource", string.Empty, 2)],
+                    new GameHostWarningsResponse(WarningState, DateTimeOffset.UtcNow, EmptyWarnings ? [] :
+                    [new GameHostWarningResponse("PlayerBackupInterventionRequired", "player-backup", "Firing", "A backup attempt needs review. Do not retry an uncertain operation."),
+                     new GameHostWarningResponse("GameEventAgentMonitorUnavailable", "game-event-agent", "Pending", "Agent state is unknown.")])))
             });
         }
     }

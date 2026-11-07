@@ -2,7 +2,7 @@ using GoldSrcOps.Application.Common;
 
 namespace GoldSrcOps.Application.Monitoring;
 
-public sealed class GameHostHealthService(IGameHostHealthSource source, IClock clock)
+public sealed class GameHostHealthService(IGameHostHealthSource source, IGameHostWarningSource warningSource, IClock clock)
 {
     private static readonly string[] Components = ["agent", "backup", "storage", "memory", "cpu"];
     private static readonly string[] Metrics = ["queuePending", "queueInFlight", "queueDeadLetter", "spoolFiles", "backupAgeSeconds", "backupSource", "weeklyAttempt", "weeklyMissed", "diskAvailableBytes", "diskAvailableRatio", "inodesAvailable", "inodesAvailableRatio", "memoryAvailableBytes", "swapUsedBytes", "cpuBusyRatio", "cpuStealRatio"];
@@ -11,7 +11,12 @@ public sealed class GameHostHealthService(IGameHostHealthSource source, IClock c
     public async Task<GameHostHealthDto> ReadAsync(CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
-        var samples = await source.ReadAsync(now, cancellationToken).ConfigureAwait(false);
+        var samplesTask = source.ReadAsync(now, cancellationToken);
+        var warningsTask = warningSource.ReadAsync(cancellationToken);
+        await Task.WhenAll(samplesTask, warningsTask).ConfigureAwait(false);
+        var samples = await samplesTask.ConfigureAwait(false);
+        var warnings = await warningsTask.ConfigureAwait(false);
+        now = clock.UtcNow;
         var cards = new List<GameHostHealthCardDto>(5);
         for (var panel = 1; panel <= Components.Length; panel++)
         {
@@ -44,7 +49,7 @@ public sealed class GameHostHealthService(IGameHostHealthSource source, IClock c
             }
         }
 
-        return new GameHostHealthDto(now, cards, values);
+        return new GameHostHealthDto(now, cards, values, GameHostWarningsProjection.Create(warnings, now));
     }
 
     private static double? Single(IReadOnlyList<GameHostHealthSample>? samples, int panel, string role, DateTimeOffset now)

@@ -32,6 +32,45 @@
                 </section>
             }
         </div>
+        <section class="health-warnings" aria-label="Active warnings">
+            <h2>Active warnings</h2>
+            @if (_snapshot.Warnings is { State: "Available", ObservedAtUtc: not null, Items: not null } warnings)
+            {
+                <p>Rules last checked: @FormatTime(warnings.ObservedAtUtc)</p>
+                @if (warnings.Items.Count == 0)
+                {
+                    <p class="warnings-empty">No pending or firing warnings in the current rule snapshot.</p>
+                }
+                else
+                {
+                    <p>Firing warnings appear first. Pending means the condition is active but its existing hold time has not elapsed.</p>
+                    <ul class="warning-list">
+                        @foreach (var warning in warnings.Items)
+                        {
+                            <li class="warning-row state-@warning.State.ToLowerInvariant()">
+                                <h3>@warning.Name</h3>
+                                <p>@WarningComponentLabel(warning.Component) - <strong>@warning.State</strong></p>
+                                <p>@warning.Description</p>
+                                @if (Links.WarningDashboard(warning.Component) is { } dashboard)
+                                {
+                                    <a href="@dashboard.AbsoluteUri">Grafana details</a>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+            else if (_snapshot.Warnings is { State: "Stale" } stale)
+            {
+                <p class="warnings-stale">The warning snapshot is stale. It does not establish that there are no warnings.</p>
+                <p>Rules last checked: @FormatTime(stale.ObservedAtUtc)</p>
+            }
+            else
+            {
+                <p class="warnings-unknown">Warnings are unavailable or incomplete. This does not mean that there are no warnings.</p>
+            }
+            <p>This list covers the existing 17 game-host warning rules, not all monitoring. Rule state and host observations are independent snapshots; cards can lag a rule evaluation. There are no acknowledgement or silence controls.</p>
+        </section>
         <section class="health-values">
             <h2>Available measurements</h2>
             <p>Missing values are unknown. Zero is a valid observation.</p>
@@ -94,6 +133,11 @@
     {
         "NoWarnings" => "No warnings", "Observed" => "Observed (no CPU threshold)",
         "Pending" => "Pending", "Firing" => "Firing", "Stale" => "Stale", _ => "Unknown"
+    };
+    private static string WarningComponentLabel(string component) => component switch
+    {
+        "game-event-agent" => "Agent / queue", "player-backup" => "Player backup",
+        "game-host-storage" => "Disk / inode", "game-host-resources" => "RAM / CPU", _ => "Unknown"
     };
     private static string MetricLabel(string metric) => metric switch
     {

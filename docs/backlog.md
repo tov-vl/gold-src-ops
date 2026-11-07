@@ -5,10 +5,10 @@ release steps.
 
 ## Current Status
 
-Completed: [v2.110 Operator game-host health](v2.110-operator-game-host-health.md).
-The read-only API/BFF overview is deployed and accepted; signed stable
-`v2.110.0` reuses the accepted RC2 digests without rebuilding. No game-client
-acceptance was needed for this application-only stage.
+In progress: [v2.111 active Operator warnings](v2.111-operator-health-warnings.md).
+Add a bounded read-only list of existing Pending/Firing warnings to the accepted
+[v2.110 overview](v2.110-operator-game-host-health.md), with explicit empty,
+unknown and stale states. No game-client session is required.
 
 Completed:
 

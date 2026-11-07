@@ -25,4 +25,20 @@ public sealed class GameHostHealthLinksTests
         var action = () => new GameHostHealthLinks(value);
         action.Should().Throw<InvalidOperationException>();
     }
+
+    [Theory]
+    [InlineData("game-event-agent", "goldsrcops-game-event-agent-alerts")]
+    [InlineData("player-backup", "goldsrcops-player-backup")]
+    [InlineData("game-host-storage", "goldsrcops-game-host-storage")]
+    [InlineData("game-host-resources", "goldsrcops-game-host-resources")]
+    public void Warning_links_use_only_fixed_component_destinations(string component, string dashboard)
+    {
+        new GameHostHealthLinks("https://grafana.example.test/").WarningDashboard(component)!
+            .AbsoluteUri.Should().Be("https://grafana.example.test/d/" + dashboard);
+        new GameHostHealthLinks(baseUrl: null).WarningDashboard(component).Should().BeNull();
+    }
+
+    [Fact]
+    public void Unknown_warning_components_cannot_supply_a_dashboard_url() =>
+        new GameHostHealthLinks("https://grafana.example.test/").WarningDashboard("https://unexpected.test/").Should().BeNull();
 }

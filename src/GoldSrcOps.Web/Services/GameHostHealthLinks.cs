@@ -4,6 +4,19 @@ internal sealed class GameHostHealthLinks
 {
     public IReadOnlyList<KeyValuePair<string, Uri>> Dashboards { get; }
 
+    public Uri? WarningDashboard(string component)
+    {
+        var label = component switch
+        {
+            "game-event-agent" => "Agent warnings",
+            "player-backup" => "Backup",
+            "game-host-storage" => "Disk / inode",
+            "game-host-resources" => "RAM / CPU",
+            _ => null
+        };
+        return Dashboards.FirstOrDefault(pair => string.Equals(pair.Key, label, StringComparison.Ordinal)).Value;
+    }
+
     public GameHostHealthLinks(string? baseUrl)
     {
         if (string.IsNullOrWhiteSpace(baseUrl))

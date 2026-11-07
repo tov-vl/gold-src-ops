@@ -32,6 +32,8 @@ public sealed class GameHostHealthEndpointTests
             response.Headers.CacheControl!.NoStore.Should().BeTrue();
             var snapshot = await response.Content.ReadFromJsonAsync<GameHostHealthResponse>();
             snapshot!.Components.Should().HaveCount(5).And.OnlyContain(static item => item.State == "Unknown");
+            snapshot.Warnings!.State.Should().Be("Unknown");
+            snapshot.Warnings.Items.Should().BeEmpty();
         }
     }
 }
