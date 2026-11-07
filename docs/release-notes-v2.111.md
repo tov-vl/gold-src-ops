@@ -11,4 +11,7 @@ server-held BFF tokens. No warning threshold, notification, game addon, agent,
 backup journal or database change is included.
 
 See [scope, compatibility and readiness](v2.111-operator-health-warnings.md).
-Candidate publication, production acceptance and stable promotion are pending.
+Released as [v2.111.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.111.0).
+RC1 publication, independent runtime/Operator acceptance and stable promotion
+passed. API and Web run the accepted immutable digests; stable reused the same
+images without rebuilding. The running AlertReceiver was preserved.
