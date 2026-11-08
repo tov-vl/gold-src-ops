@@ -19,6 +19,14 @@ maintenance archived only the two accepted weapons requests, preserving all
 results and frames. Sequence is 33 at revision 16 with unchanged runner bytes;
 the client queue is six of eight, leaving two slots for a later campaign.
 
+Backup acceptance on 2026-11-08: the scheduled weekly copy completed verified
+capture and Archive/readback registration. A separate isolated AMXX exercise
+passed two engine starts, each checking all 43 records through native reads and
+addon 0.39.0 loaders. Source files, all 23 backup ledger records and game/agent
+process identities were preserved. See the [weekly-copy acceptance](player-backup-weekly-20261108.md).
+This closes the engine gate for this retained copy; no production restore or
+new off-host Recover was performed.
+
 Completed:
 
 - Repository and solution initialized.
@@ -4908,6 +4916,30 @@ No backup launch, restart, old-slot replay, new copy or manual alert resolution.
 The next weekly activation remains November 8 at 04:00 MSK; its successful
 capture is a separate gate. See the
 [scope and evidence](player-backup-service-reconciliation.md).
+
+## Weekly player-backup acceptance - November 8
+
+Accepted on 2026-11-08: the ordinary weekly cycle completed in 58.896 seconds
+with verified capture and encrypted Archive/readback registration. Both retained
+bundle manifests and hashes matched across the hosts; ordinary monitoring and
+the existing Grafana backup views agreed with the fresh weekly source. No backup
+alert was active during observation. Historical ledger records, including the
+November 1 closed-uncertain slot, remained intact.
+
+A separate isolated engine exercise used the retained verified readback without
+a new capture, Archive or remote Recover. Two engine starts each checked all
+43 values/timestamps and product loading or derived state: six statistics,
+12 preferences, one HUD, five streak and 19 name records. Synthetic valid and
+deliberately mismatched controls passed their respective acceptance/rejection
+gates. Actual-copy starts reported zero failed assertions, attempted product
+writes or engine/AMXX errors. Accepted addon 0.39.0 fixture bytes were reused.
+
+Independent postflight preserved source and Archive-operation hashes, all
+23 backup ledger records and game/agent process identities. Owned containers
+were removed and pre-existing container identities preserved. Original Archive
+metadata retains engineAcceptance=pending; the separate acceptance is bound to
+this exact copy. No production restore, Steam, permission change or RPO/RTO
+claim. See the [evidence and limits](player-backup-weekly-20261108.md).
 
 ## v2.110 - Operator game-host health
 
