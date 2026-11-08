@@ -5,9 +5,11 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.113 Operator health report](v2.113-operator-health-report.md)
-adds a bounded, Operator-only text download from the existing health page.
-Only Web is in rollout scope; API/contracts and monitoring policies stay fixed.
+Completed: [v2.113 Operator health report](v2.113-operator-health-report.md)
+is released and installed. The bounded, Operator-only UTF-8 download passed
+actual browser/file acceptance, runtime checks and same-digest stable promotion.
+Only Web changed; API/contracts, monitoring policies and all 14 other captured
+containers were preserved. The accepted v2.111 API remains installed.
 
 Completed: [v2.112 Operator warning guidance](v2.112-operator-warning-guidance.md)
 is released and installed. Static first checks, preservation notes and fixed
