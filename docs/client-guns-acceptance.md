@@ -871,3 +871,64 @@ Before future native work exhausts queue capacity, use the existing separately
 reviewed exact-list signed archival workflow while preserving evidence and claims.
 Renderer identity, readability over arbitrary production scenery, real-identity
 persistence, PvP and 24-hour activity remain outside this closure.
+
+## Fresh renderer-required matrix accepted on 2026-11-08
+
+Two new `/guns` cases passed with `required-v1` renderer policy, technically
+accepted addon 0.39.0, ordinary fixture helper 1.6.2 and the eight previously
+reviewed menu profiles. Each case had one native dispatch and nine visually
+reviewed original frames: five main captures and four exit/reopen checkpoints.
+Both languages passed the fixed menu profiles, selected markers, returned
+controls, held-inventory continuity and actual death/respawn checks. Direct
+ReAPI observations confirmed AK-47 30/90 and Desert Eagle 7/35. The separately
+retained AMXX cached pistol value remains diagnostic and did not replace the
+authoritative check.
+
+| Language | Original native frames reviewed | UI/control/loadout | Renderer and cleanup |
+| --- | --- | --- | --- |
+| RU | 9 | Accepted | Accepted |
+| EN | 9 | Accepted | Accepted |
+
+Standalone renderer parsing independently agreed with each integrated receipt:
+engine-reported OpenGL 4.2.0 on Intel Iris Xe, bound to that case's job, owned
+process lifetime, original dump-frame hash and matching game/worker session.
+Neither launch arguments nor screenshots alone satisfied this gate. Normal
+hash-bound review and accepted same-ID resume preserved raw results and
+dispatch claims. The new raw results still have their original false
+acceptance/renderer flags; separate receipts record the accepted claims. The
+November 2 UI-only receipts were not upgraded or rewritten.
+
+Before the trials, one separately approved signed maintenance package archived
+exactly one already accepted RU `/ranks` request, reducing queue occupancy from
+seven to six. All seven earlier results, five selected image hashes, remaining
+active request hashes and failed renderer evidence/archive were independently
+preserved. The transport's serialized JSON hash was kept separate from the
+target raw-file hash. Updater sequence advanced from 31 to 32 at revision 16
+with all nine runner hashes unchanged; the package was staged once.
+
+Final readback confirmed Steam hold restored, an idle worker with zero game
+processes, absent diagnostic logs and removal of the owned fixtures, networks
+and relays. Both successful requests remain retained, bringing the active
+queue to eight of eight. Another native campaign needs reviewed exact-list
+capacity maintenance; completed requests must not be replayed.
+
+No local installer, manual window selection, new permission, protected policy,
+runner-code, addon, production or cloud change was required. Preparation had
+passed 269 offline checks; unchanged code suites, full .NET checks and CI were
+not repeated for this runtime-only acceptance. This closes the isolated
+weapons fixture's RU/EN UI and process-bound renderer gate. Hardware
+acceleration, performance, arbitrary scenery, real-identity persistence, PvP,
+24-hour activity and locked-desktop operation remain outside the claim.
+
+## Post-acceptance queue capacity on 2026-11-08
+
+One subsequent signed maintenance package archived only the two newly accepted
+RU/EN weapons request records, reducing active occupancy from eight to six.
+All nine known results, all 18 selected native images/checkpoints, acceptance
+and renderer receipts, remaining active hashes and failed renderer evidence
+were independently preserved. Raw statuses and false flags were not upgraded.
+Sequence advanced from 32 to 33 at revision 16 with all nine runner hashes and
+the existing worker budget unchanged. The worker remained idle with no game
+processes; no game launch, new permission, policy or production change occurred.
+Two slots are available for a later campaign, which still needs fresh target
+readiness and exclusive Steam availability before any native dispatch.
