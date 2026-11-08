@@ -6,16 +6,17 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.94.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.94.0)
-is the current control-plane release. Public fleet status now checks each enabled
-server against its own polling interval, so one fresh observation cannot hide
-another server's expired Online state.
+**Status:** [v2.113.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.113.0)
+is the current control-plane release. The private Operator health page offers a
+bounded UTF-8 diagnostic report with timestamps, component ages, measurements
+and static warning guidance. Unknown and Stale remain explicit; download works
+without JavaScript and retains the server-side token boundary.
 
-API-only production acceptance passed three read-only samples over 196 seconds,
-including public status RU/EN, A2S and telemetry. The other eight containers and
-durable mounts were preserved. Stable references reuse candidate digests without
-rebuilding. See [release notes](docs/release-notes-v2.94.md) and
-[evidence](docs/v2.94-status-freshness.md).
+Only Web was updated. The accepted v2.111 API and all 14 other captured
+containers were preserved. Independent runtime and actual Operator download
+acceptance passed; stable references reuse candidate digests without rebuilding.
+See [release notes](docs/release-notes-v2.113.md) and
+[evidence and claim limits](docs/v2.113-operator-health-report.md).
 
 The separately published [game-event agent v2.95.0](https://github.com/tov-vl/gold-src-ops/releases/tag/game-event-agent-v2.95.0)
 adds passive queue and worker diagnostics. Its agent-only production upgrade
