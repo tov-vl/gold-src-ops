@@ -5,21 +5,24 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.114 credential expiry metadata](v2.114-credential-expiry.md)
-adds an Operator-only four-purpose register with recorded UTC expiry/check
-dates, exact deadline/7/30-day warnings and explicit Unknown metadata. API/Web
-only; no secret values, rotation or notification-policy change.
+Completed: [v2.114 credential expiry metadata](v2.114-credential-expiry.md)
+is released and installed. The Operator-only four-purpose register passed exact
+deadline/7/30-day fixtures, independent runtime and actual browser acceptance,
+and same-digest stable promotion. Only API/Web changed; all 13 other captured
+containers were preserved. Grafana dates were verified; B2 metadata stays
+explicitly Unknown pending a provider check. No rotation or notification-policy
+change was made.
 
 Completed: [v2.113 Operator health report](v2.113-operator-health-report.md)
 is released and installed. The bounded, Operator-only UTF-8 download passed
 actual browser/file acceptance, runtime checks and same-digest stable promotion.
 Only Web changed; API/contracts, monitoring policies and all 14 other captured
-containers were preserved. The accepted v2.111 API remains installed.
+containers were preserved. That rollout retained the accepted v2.111 API.
 
 Completed: [v2.112 Operator warning guidance](v2.112-operator-warning-guidance.md)
 is released and installed. Static first checks, preservation notes and fixed
 runbook links cover the existing 17 warnings and Unknown/Stale snapshots.
-Only Web runtime changed; the accepted v2.111 API remains installed.
+Only Web runtime changed; that rollout retained the accepted v2.111 API.
 
 Client acceptance on 2026-11-08: fresh RU/EN `/guns` trials passed the required
 OpenGL, nine-frame UI, controls, respawn/loadout and cleanup gates. Both new
@@ -5033,3 +5036,27 @@ no API/contracts, database, game/agent, permission or notification change.
 
 See [scope and acceptance](v2.113-operator-health-report.md) and
 [release notes](release-notes-v2.113.md).
+
+## v2.114 - Operational credential expiry metadata
+
+Accepted and released on 2026-11-08: the Operator-only date register shows four
+fixed purposes, recorded UTC expiry/check dates and exact deadline/7/30-day
+warnings. Missing or unverified metadata remains Unknown. The server-side BFF
+retains bearer tokens; there is no rotation or notification control.
+
+Product PR #504, post-merge CI and all 12 candidate jobs passed. Independent
+artifact/runtime and actual Operator-page checks passed. Only API/Web were
+recreated, preserving all 13 other captured containers. Stable passed all 12
+promotion jobs and independent same-digest verification without rebuilding;
+the GitHub Release is published. The pre-apply model check was corrected for
+the existing shared dormant migration image reference; no migration ran.
+
+Two Grafana date pairs were verified; B2 metadata remains Unknown because its
+provider metadata could not be checked. InspectCode completed with a documented
+compiler-proven false unused-import warning and reviewed existing-style notes.
+Live expiry, failed credentials, provider validity and notification delivery
+are outside this release claim.
+
+See [scope and evidence](v2.114-credential-expiry.md),
+[release notes](release-notes-v2.114.md) and
+[stable release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.114.0).
