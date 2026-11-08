@@ -60,6 +60,14 @@ services:
       AlertDelivery__Enabled: "false"
       GameHostHealth__Enabled: ${GOLDSRCOPS_GAME_HOST_HEALTH_ENABLED:-false}
       GameHostHealth__PrometheusBaseUrl: http://prometheus:9090/
+      CredentialExpiry__GrafanaMetrics__ExpiresAtUtc: ${GOLDSRCOPS_METRICS_EXPIRY_UTC:-}
+      CredentialExpiry__GrafanaMetrics__VerifiedAtUtc: ${GOLDSRCOPS_METRICS_VERIFIED_UTC:-}
+      CredentialExpiry__GrafanaLogs__ExpiresAtUtc: ${GOLDSRCOPS_LOGS_EXPIRY_UTC:-}
+      CredentialExpiry__GrafanaLogs__VerifiedAtUtc: ${GOLDSRCOPS_LOGS_VERIFIED_UTC:-}
+      CredentialExpiry__ArchiveReader__ExpiresAtUtc: ${GOLDSRCOPS_ARCHIVE_READER_EXPIRY_UTC:-}
+      CredentialExpiry__ArchiveReader__VerifiedAtUtc: ${GOLDSRCOPS_ARCHIVE_READER_VERIFIED_UTC:-}
+      CredentialExpiry__ArchiveWriter__ExpiresAtUtc: ${GOLDSRCOPS_ARCHIVE_WRITER_EXPIRY_UTC:-}
+      CredentialExpiry__ArchiveWriter__VerifiedAtUtc: ${GOLDSRCOPS_ARCHIVE_WRITER_VERIFIED_UTC:-}
       Polling__Enabled: "true"
       PublicLeaderboard__Enabled: ${GOLDSRCOPS_PUBLIC_LEADERBOARD_ENABLED:-false}
       PublicPlayerSearch__Enabled: ${GOLDSRCOPS_PUBLIC_PLAYER_SEARCH_API_ENABLED:-false}
