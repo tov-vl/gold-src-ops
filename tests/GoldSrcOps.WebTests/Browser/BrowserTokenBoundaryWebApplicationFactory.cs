@@ -28,6 +28,7 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
 
     private readonly bool searchEnabled;
     private readonly HttpMessageHandler? _gameHostHealthHandler;
+    private readonly HttpMessageHandler? _credentialExpiryHandler;
     public PlayerSearchFixtureHandler SearchHandler { get; } = new();
     private readonly bool serverEnabled;
     private readonly PublicServerJoinResponse? serverJoinResponse;
@@ -42,9 +43,11 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
         PublicLeaderboardResponse? leaderboard = null,
         HttpStatusCode? leaderboardFailure = null,
         bool searchEnabled = false,
-        HttpMessageHandler? gameHostHealthHandler = null)
+        HttpMessageHandler? gameHostHealthHandler = null,
+        HttpMessageHandler? credentialExpiryHandler = null)
     {
         _gameHostHealthHandler = gameHostHealthHandler;
+        _credentialExpiryHandler = credentialExpiryHandler;
         this.searchEnabled = searchEnabled;
         this.serverEnabled = serverEnabled;
         this.serverJoinResponse = serverJoinResponse;
@@ -74,6 +77,11 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
             {
                 services.AddHttpClient<IGameHostHealthClient, GameHostHealthClient>()
                     .ConfigurePrimaryHttpMessageHandler(() => _gameHostHealthHandler);
+            }
+            if (_credentialExpiryHandler is not null)
+            {
+                services.AddHttpClient<ICredentialExpiryClient, CredentialExpiryClient>()
+                    .ConfigurePrimaryHttpMessageHandler(() => _credentialExpiryHandler);
             }
             services.RemoveAll<WebAuthenticationState>();
             services.AddSingleton(new WebAuthenticationState(Enabled: true));

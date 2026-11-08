@@ -42,6 +42,14 @@ builder.Services.AddHttpClient<PublicPlayerSearchClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(5);
 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<AccessTokenHandler>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddHttpClient<ICredentialExpiryClient, CredentialExpiryClient>(client =>
+{
+    client.BaseAddress = apiBaseAddress;
+    client.Timeout = TimeSpan.FromSeconds(7);
+    client.MaxResponseContentBufferSize = 16384;
+}).ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false })
+    .AddHttpMessageHandler<AccessTokenHandler>();
 builder.Services.AddSingleton(new GameHostHealthLinks(builder.Configuration["GameHostHealth:GrafanaBaseUrl"]));
 builder.Services.AddHttpClient<IGameHostHealthClient, GameHostHealthClient>(client =>
 {
@@ -85,7 +93,8 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.Equals(new PathString("/operator/game-host-health"), StringComparison.OrdinalIgnoreCase) ||
+    if (context.Request.Path.StartsWithSegments(new PathString("/operator/credential-expiry"), StringComparison.OrdinalIgnoreCase) ||
+        context.Request.Path.Equals(new PathString("/operator/game-host-health"), StringComparison.OrdinalIgnoreCase) ||
         context.Request.Path.StartsWithSegments(new PathString(OperatorHealthReportEndpoints.Path), StringComparison.OrdinalIgnoreCase))
     {
         context.Response.Headers.CacheControl = "no-store";

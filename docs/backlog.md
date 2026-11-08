@@ -5,6 +5,11 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.114 credential expiry metadata](v2.114-credential-expiry.md)
+adds an Operator-only four-purpose register with recorded UTC expiry/check
+dates, exact deadline/7/30-day warnings and explicit Unknown metadata. API/Web
+only; no secret values, rotation or notification-policy change.
+
 Completed: [v2.113 Operator health report](v2.113-operator-health-report.md)
 is released and installed. The bounded, Operator-only UTF-8 download passed
 actual browser/file acceptance, runtime checks and same-digest stable promotion.
@@ -5019,12 +5024,12 @@ See the [triage guide](game-host-warning-triage.md),
 
 ## v2.113 - Downloadable Operator health report
 
-In progress: an authenticated text attachment fetches a fresh bounded health
+Accepted and released: an authenticated text attachment fetches a fresh bounded health
 snapshot through the existing BFF client. It reports generation/evaluation times,
 observation ages, five cards, measurements and existing warning guidance, keeping
 Unknown/Stale explicit and raw provider text excluded. It requires no JavaScript
 or server-side report storage. Web-only R1 delivery and v2.112 Web rollback;
 no API/contracts, database, game/agent, permission or notification change.
 
-See [scope and pending gates](v2.113-operator-health-report.md) and
+See [scope and acceptance](v2.113-operator-health-report.md) and
 [release notes](release-notes-v2.113.md).
