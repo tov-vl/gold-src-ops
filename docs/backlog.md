@@ -10,6 +10,15 @@ is released and installed. Static first checks, preservation notes and fixed
 runbook links cover the existing 17 warnings and Unknown/Stale snapshots.
 Only Web runtime changed; the accepted v2.111 API remains installed.
 
+Client acceptance on 2026-11-08: fresh RU/EN `/guns` trials passed the required
+OpenGL, nine-frame UI, controls, respawn/loadout and cleanup gates. Both new
+receipts retain their original raw results; the earlier UI-only campaign is
+unchanged. See [weapons acceptance](client-guns-acceptance.md#fresh-renderer-required-matrix-accepted-on-2026-11-08).
+No addon or production rollout was needed. Subsequent same-day signed
+maintenance archived only the two accepted weapons requests, preserving all
+results and frames. Sequence is 33 at revision 16 with unchanged runner bytes;
+the client queue is six of eight, leaving two slots for a later campaign.
+
 Completed:
 
 - Repository and solution initialized.
