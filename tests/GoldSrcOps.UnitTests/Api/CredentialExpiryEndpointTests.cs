@@ -26,6 +26,8 @@ public sealed class CredentialExpiryEndpointTests
             ["CredentialExpiry:GrafanaMetrics:ExpiresAtUtc"] = "2026-11-08T12:00:00Z",
             ["CredentialExpiry:GrafanaMetrics:VerifiedAtUtc"] = "2026-11-08T11:00:00Z",
             ["CredentialExpiry:GrafanaLogs:ExpiresAtUtc"] = "private-sentinel",
+            ["CredentialExpiry:ArchiveReader:ExpiresAtMinuteUtc"] = "2026-11-15T12:00Z",
+            ["CredentialExpiry:ArchiveReader:VerifiedAtUtc"] = "2026-11-08T11:00:00Z",
             ["CredentialExpiry:private-sentinel:ExpiresAtUtc"] = "2027-01-01T00:00:00Z"
         });
         using var client = factory.CreateClient();
@@ -35,7 +37,11 @@ public sealed class CredentialExpiryEndpointTests
         var result = await response.Content.ReadFromJsonAsync<CredentialExpiryResponse>();
         result!.Entries[0].State.Should().Be("Expired");
         result.Entries[0].RemainingDays.Should().Be(0);
-        result.Entries.Skip(1).Should().OnlyContain(static item => item.State == "Unknown");
+        result.Entries[1].State.Should().Be("Unknown");
+        result.Entries[2].State.Should().Be("Critical");
+        result.Entries[2].ExpiresAtUtc.Should().BeNull();
+        result.Entries[2].ExpiresAtMinuteUtc.Should().Be("2026-11-15T12:00Z");
+        result.Entries[3].State.Should().Be("Unknown");
     }
 
     [Theory]

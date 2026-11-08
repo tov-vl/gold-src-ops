@@ -13,7 +13,7 @@ internal static class CredentialExpiryEndpoints
             context.Response.Headers.CacheControl = "no-store";
             var result = service.Read(cancellationToken);
             return TypedResults.Ok(new CredentialExpiryResponse(result.EvaluatedAtUtc,
-                [.. result.Entries.Select(static item => new CredentialExpiryEntryResponse(item.Key, item.State, item.ExpiresAtUtc, item.VerifiedAtUtc, item.RemainingDays))]));
+                [.. result.Entries.Select(static item => new CredentialExpiryEntryResponse(item.Key, item.State, item.ExpiresAtUtc, item.VerifiedAtUtc, item.RemainingDays, item.ExpiresAtMinuteUtc))]));
         }).RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy).WithName("GetCredentialExpiry").WithTags("Operator");
     }
 }

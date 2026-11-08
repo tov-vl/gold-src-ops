@@ -26,6 +26,10 @@ public sealed partial class BrowserTokenBoundaryTests
         await Expect(page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Credential expiry", Exact = true })).ToBeVisibleAsync();
         await Expect(page.Locator(".expiry-card")).ToHaveCountAsync(4);
         await Expect(page.Locator(".expiry-state[data-state='Critical']")).ToHaveTextAsync("Due within 7 days");
+        await Expect(page.GetByText("Precision: minute", new PageGetByTextOptions { Exact = false })).ToBeVisibleAsync();
+        await Expect(page.GetByText("2000-01-01 12:19 UTC", new PageGetByTextOptions { Exact = true })).ToBeVisibleAsync();
+        await Expect(page.Locator(".expiry-state[data-state='Expired']")).ToHaveTextAsync("Recorded minute reached (conservative)");
+        (await page.ContentAsync()).Should().NotContain("2000-01-01 12:19:00 UTC");
         await Expect(page.GetByText("not live provider checks", new PageGetByTextOptions { Exact = false })).ToBeVisibleAsync();
         AssertTokenFree(await page.ContentAsync());
         handler.Bearer.Should().Be(BrowserTokenBoundaryWebApplicationFactory.AccessTokenSentinel);
@@ -54,7 +58,10 @@ public sealed partial class BrowserTokenBoundaryTests
             var now = DateTimeOffset.UtcNow;
             return Task.FromResult(Unavailable ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) : new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = JsonContent.Create(new CredentialExpiryResponse(now, [new CredentialExpiryEntryResponse("grafana-metrics", "Critical", now.AddDays(7), now, 7)]))
+                Content = JsonContent.Create(new CredentialExpiryResponse(now, [
+                    new CredentialExpiryEntryResponse("grafana-metrics", "Critical", now.AddDays(7), now, 7),
+                    new CredentialExpiryEntryResponse("archive-reader", "Expired", ExpiresAtUtc: null, now, 0, "2000-01-01T12:19Z")
+                ]))
             });
         }
     }

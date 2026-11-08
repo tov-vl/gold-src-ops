@@ -18,7 +18,22 @@ public sealed class CredentialExpiryService(ICredentialExpirySource source, IClo
             var item = metadata.Length <= 4 && matches.Length == 1 ? matches[0] : null;
             var verified = item?.VerifiedAtUtc is { } checkedAt && checkedAt <= now ? checkedAt : (DateTimeOffset?)null;
             var expires = verified is not null ? item?.ExpiresAtUtc : null;
-            var remaining = expires - now;
+            var minute = verified is not null ? item?.ExpiresAtMinuteUtc : null;
+            var deadline = expires;
+            if (minute is not null)
+            {
+                if (expires is null && CredentialExpiryMinute.TryParse(minute, out var start))
+                {
+                    deadline = start;
+                }
+                else
+                {
+                    deadline = expires = null;
+                    minute = null;
+                }
+            }
+
+            var remaining = deadline - now;
             var state = remaining switch
             {
                 null => "Unknown",
@@ -28,7 +43,7 @@ public sealed class CredentialExpiryService(ICredentialExpirySource source, IClo
                 _ => "Recorded"
             };
             int? days = remaining is { } duration ? Math.Max(0, (int)Math.Ceiling(duration.TotalDays)) : null;
-            entries.Add(new CredentialExpiryEntryDto(key, state, expires, verified, days));
+            entries.Add(new CredentialExpiryEntryDto(key, state, expires, verified, days, minute));
         }
 
         return new CredentialExpiryDto(now, entries);

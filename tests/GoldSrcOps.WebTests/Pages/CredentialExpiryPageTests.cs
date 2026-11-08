@@ -55,6 +55,11 @@ public sealed class CredentialExpiryPageTests
                 .And.Contain("not live provider checks").And.NotContain("private-sentinel").And.NotContain("Bearer ");
             html.Split("class=\"expiry-card\"").Should().HaveCount(5);
             html.Should().Contain(unavailable ? "metadata is missing" : "Due within 7 days");
+            if (!unavailable)
+            {
+                html.Should().Contain("Precision: minute").And.Contain("2000-01-01 12:19 UTC")
+                    .And.Contain("Recorded minute reached (conservative)").And.NotContain("2000-01-01 12:19:00 UTC");
+            }
         }
 
         fixture.Reads.Should().Be(2);
@@ -75,6 +80,7 @@ public sealed class CredentialExpiryPageTests
             var now = DateTimeOffset.UtcNow;
             return Task.FromResult(new CredentialExpiryResponse(now, [
                 new CredentialExpiryEntryResponse("grafana-metrics", "Critical", now.AddDays(7), now, 7),
+                new CredentialExpiryEntryResponse("archive-reader", "Expired", ExpiresAtUtc: null, now, 0, "2000-01-01T12:19Z"),
                 new CredentialExpiryEntryResponse("private-sentinel", "Recorded", now.AddDays(90), now, 90)
             ]));
         }
