@@ -34,6 +34,15 @@ public sealed partial class BrowserTokenBoundaryTests
             "https://github.com/tov-vl/gold-src-ops/blob/main/docs/game-host-warning-triage.md#agent-monitor-unavailable");
         AssertTokenFree(await page.ContentAsync());
         handler.Bearer.Should().Be(BrowserTokenBoundaryWebApplicationFactory.AccessTokenSentinel);
+        var download = await page.RunAndWaitForDownloadAsync(async () =>
+            await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Download health report", Exact = true }).ClickAsync());
+        download.SuggestedFilename.Should().Be("goldsrcops-game-host-health.txt");
+        (await download.FailureAsync()).Should().BeNull();
+        var report = await File.ReadAllTextAsync(await download.PathAsync());
+        report.Should().Contain("GoldSrcOps game-host health report").And.Contain("Snapshot: Available")
+            .And.Contain("PlayerBackupInterventionRequired: Firing").And.Contain("Last weekly attempt: Closed: outcome uncertain");
+        AssertTokenFree(report);
+        page.Url.Should().EndWith("/operator/game-host-health");
         if (Environment.GetEnvironmentVariable(ScreenshotDirectoryVariable) is { Length: > 0 } directory)
         {
             Directory.CreateDirectory(directory);

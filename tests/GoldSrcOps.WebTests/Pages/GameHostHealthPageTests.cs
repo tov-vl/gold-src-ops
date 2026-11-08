@@ -39,6 +39,8 @@ public sealed class GameHostHealthPageTests
         var html = await response.Content.ReadAsStringAsync();
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         html.Should().Contain("Game-host health").And.Contain("does not prove delivery to IRM");
+        html.Should().Contain("Download health report").And.Contain("href=\"/operator/game-host-health/report\"")
+            .And.Contain("data-enhance-nav=\"false\"");
         html.Should().NotContain("private-host-sentinel").And.NotContain("Authorization");
         html.Should().Contain(unavailable ? "No usable health snapshot" : "Firing");
         if (unavailable)

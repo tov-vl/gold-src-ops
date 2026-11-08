@@ -5,6 +5,10 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.113 Operator health report](v2.113-operator-health-report.md)
+adds a bounded, Operator-only text download from the existing health page.
+Only Web is in rollout scope; API/contracts and monitoring policies stay fixed.
+
 Completed: [v2.112 Operator warning guidance](v2.112-operator-warning-guidance.md)
 is released and installed. Static first checks, preservation notes and fixed
 runbook links cover the existing 17 warnings and Unknown/Stale snapshots.
@@ -5010,3 +5014,15 @@ See the [triage guide](game-host-warning-triage.md),
 [scope and evidence](v2.112-operator-warning-guidance.md),
 [release notes](release-notes-v2.112.md) and
 [stable release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.112.0).
+
+## v2.113 - Downloadable Operator health report
+
+In progress: an authenticated text attachment fetches a fresh bounded health
+snapshot through the existing BFF client. It reports generation/evaluation times,
+observation ages, five cards, measurements and existing warning guidance, keeping
+Unknown/Stale explicit and raw provider text excluded. It requires no JavaScript
+or server-side report storage. Web-only R1 delivery and v2.112 Web rollback;
+no API/contracts, database, game/agent, permission or notification change.
+
+See [scope and pending gates](v2.113-operator-health-report.md) and
+[release notes](release-notes-v2.113.md).
