@@ -316,8 +316,26 @@ jobs:
                   record.rmdir()
           PY
           else
-            args=(-ExporterAssemblyPath "$RUNNER_TEMP/availability-exporter/GoldSrcOps.AvailabilityExporter.dll" -WorkingDirectory "$RUNNER_TEMP/availability-evidence")
-            if [[ -n "${REQUESTED_WINDOW_END_UTC:-}" ]]; then args+=(-WindowEndUtc "$REQUESTED_WINDOW_END_UTC"); fi
-            if [[ -n "${REQUESTED_LOOKBACK_MINUTES:-}" ]]; then args+=(-LookbackMinutes "$REQUESTED_LOOKBACK_MINUTES"); fi
-            pwsh -NoProfile -File ./ops/availability/run-export-cycle.ps1 "${args[@]}"
+            ordinary_step="$(mktemp "$RUNNER_TEMP/availability-ordinary.XXXXXX.ps1")"
+            trap 'rm -f -- "$ordinary_step"' EXIT
+            cat > "$ordinary_step" <<'PS'
+          $ErrorActionPreference = "Stop"
+          $arguments = @{
+            ExporterAssemblyPath = "$env:RUNNER_TEMP/availability-exporter/GoldSrcOps.AvailabilityExporter.dll"
+            WorkingDirectory = "$env:RUNNER_TEMP/availability-evidence"
+          }
+
+          if (-not [string]::IsNullOrWhiteSpace($env:REQUESTED_WINDOW_END_UTC)) {
+            $arguments.WindowEndUtc = $env:REQUESTED_WINDOW_END_UTC
+          }
+
+          if (-not [string]::IsNullOrWhiteSpace($env:REQUESTED_LOOKBACK_MINUTES)) {
+            $arguments.LookbackMinutes = [int]::Parse(
+              $env:REQUESTED_LOOKBACK_MINUTES,
+              [Globalization.CultureInfo]::InvariantCulture)
+          }
+
+          ./ops/availability/run-export-cycle.ps1 @arguments
+          PS
+            pwsh -NoProfile -File "$ordinary_step"
           fi
