@@ -7,16 +7,16 @@ namespace GoldSrcOps.UnitTests.Monitoring;
 public sealed class ConfiguredCredentialExpirySourceTests
 {
     [Theory]
-    [InlineData("2026-12-03T12:19Z", null, true)]
-    [InlineData("2026-12-03T12:19Z", "", true)]
-    [InlineData("2026-12-03T12:19Z", "2026-12-03T12:19:00Z", false)]
-    [InlineData("2026-12-03T12:19Z", "invalid-second-value", false)]
-    [InlineData("2026-12-03T12:19:00Z", null, false)]
-    [InlineData("2026-12-03T12:19+00:00", null, false)]
+    [InlineData("2031-04-05T06:17Z", null, true)]
+    [InlineData("2031-04-05T06:17Z", "", true)]
+    [InlineData("2031-04-05T06:17Z", "2031-04-05T06:17:00Z", false)]
+    [InlineData("2031-04-05T06:17Z", "invalid-second-value", false)]
+    [InlineData("2031-04-05T06:17:00Z", null, false)]
+    [InlineData("2031-04-05T06:17+00:00", null, false)]
     [InlineData("2026-02-30T12:19Z", null, false)]
-    [InlineData("2026-12-03T24:19Z", null, false)]
-    [InlineData("2026-12-03T12:19z", null, false)]
-    [InlineData(" 2026-12-03T12:19Z", null, false)]
+    [InlineData("2031-04-05T24:17Z", null, false)]
+    [InlineData("2031-04-05T06:17z", null, false)]
+    [InlineData(" 2031-04-05T06:17Z", null, false)]
     [InlineData("private-sentinel", null, false)]
     public void Only_unambiguous_strict_minutes_are_projected(string minute, string? seconds, bool valid)
     {
