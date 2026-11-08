@@ -20,6 +20,19 @@ on:
         default: 360
         type: number
 
+      expected_segment_sha256:
+        description: Optional preflight segment SHA-256; all three expected fields required together
+        required: false
+        type: string
+      expected_report_sha256:
+        description: Optional deterministic preflight report SHA-256
+        required: false
+        type: string
+      expected_record_count:
+        description: Optional preflight canonical record count
+        required: false
+        type: string
+
 permissions:
   contents: read
 
@@ -101,7 +114,7 @@ jobs:
           --output "$RUNNER_TEMP/availability-exporter"
 
       - name: Export and archive primary evidence
-        shell: pwsh
+        shell: bash
         env:
           REQUESTED_WINDOW_END_UTC: ${{ inputs.window_end_utc }}
           REQUESTED_LOOKBACK_MINUTES: ${{ inputs.lookback_minutes }}
@@ -122,20 +135,189 @@ jobs:
           GOLDSRCOPS_B2_WRITE_APPLICATION_KEY: ${{ secrets.GOLDSRCOPS_B2_WRITE_APPLICATION_KEY }}
           GOLDSRCOPS_B2_READ_KEY_ID: ${{ secrets.GOLDSRCOPS_B2_READ_KEY_ID }}
           GOLDSRCOPS_B2_READ_APPLICATION_KEY: ${{ secrets.GOLDSRCOPS_B2_READ_APPLICATION_KEY }}
+          EXPECTED_SEGMENT_SHA256: ${{ inputs.expected_segment_sha256 }}
+          EXPECTED_REPORT_SHA256: ${{ inputs.expected_report_sha256 }}
+          EXPECTED_RECORD_COUNT: ${{ inputs.expected_record_count }}
         run: |
-          $arguments = @{
-            ExporterAssemblyPath = "$env:RUNNER_TEMP/availability-exporter/GoldSrcOps.AvailabilityExporter.dll"
-            WorkingDirectory = "$env:RUNNER_TEMP/availability-evidence"
-          }
+          set -euo pipefail
+          if [[ -n "${EXPECTED_SEGMENT_SHA256:-}${EXPECTED_REPORT_SHA256:-}${EXPECTED_RECORD_COUNT:-}" ]]; then
+            [[ "${REQUESTED_LOOKBACK_MINUTES:-}" == "60" && -n "${REQUESTED_WINDOW_END_UTC:-}" ]] || exit 1
+          python3 - <<'PY'
+          """Bounded preflight or one pre-bound archive using the unchanged pinned exporter."""
+          import argparse
+          import datetime as dt
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import shutil
+          import subprocess
+          import sys
+          import tempfile
 
-          if (-not [string]::IsNullOrWhiteSpace($env:REQUESTED_WINDOW_END_UTC)) {
-            $arguments.WindowEndUtc = $env:REQUESTED_WINDOW_END_UTC
-          }
+          MAX_BYTES = 64 * 1024 * 1024
+          UTC = dt.timezone.utc
 
-          if (-not [string]::IsNullOrWhiteSpace($env:REQUESTED_LOOKBACK_MINUTES)) {
-            $arguments.LookbackMinutes = [int]::Parse(
-              $env:REQUESTED_LOOKBACK_MINUTES,
-              [Globalization.CultureInfo]::InvariantCulture)
-          }
 
-          ./ops/availability/run-export-cycle.ps1 @arguments
+          class CycleError(Exception):
+              pass
+
+
+          def require(value, message):
+              if not value:
+                  raise CycleError(message)
+
+
+          def minute(value):
+              require(re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00Z', value) is not None, 'Exact UTC minute required')
+              return dt.datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=UTC)
+
+
+          def digest(path):
+              require(path.is_file() and not path.is_symlink(), 'Expected ordinary file missing')
+              require(0 < path.stat().st_size <= MAX_BYTES, 'File size outside bound')
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+          def inspect_segment(path):
+              sha = digest(path)
+              count = 0
+              with path.open('r', encoding='utf-8') as stream:
+                  for line in stream:
+                      require(len(line) <= 65536 and bool(line.strip()), 'Invalid segment line')
+                      require(isinstance(json.loads(line), dict), 'Invalid segment record')
+                      count += 1
+                      require(count <= 10000, 'Segment record count outside bound')
+              require(count > 0, 'Empty segment')
+              return {'sha256': sha, 'bytes': path.stat().st_size, 'recordCount': count}
+
+
+          def exporter(assembly, arguments, writing=False):
+              environment = dict(os.environ)
+              if not writing:
+                  environment = {k: v for k, v in environment.items() if not k.startswith('GOLDSRCOPS_B2_')}
+              try:
+                  result = subprocess.run(['dotnet', str(assembly), *arguments], capture_output=True,
+                                          env=environment, timeout=180)
+              except Exception:
+                  raise CycleError('Exporter stopped; reconcile any claimed PUT') from None
+              require(result.returncode == 0 and len(result.stdout) <= 262144 and len(result.stderr) <= 262144,
+                      'Exporter failed; child output withheld; reconcile any claimed PUT')
+
+
+          def cycle(mode, assembly, end_text, record_dir, expected=None, invoke=None, now=None):
+              invoke = invoke or exporter
+              now = now or dt.datetime.now(UTC)
+              require(mode in ('preflight', 'archive'), 'Invalid cycle mode')
+              end = minute(end_text)
+              require(end <= now.replace(second=0, microsecond=0) - dt.timedelta(minutes=5), 'Window too recent')
+              require(now - end <= dt.timedelta(hours=24), 'Window outside bounded rotation range')
+              require(assembly.is_file() and not assembly.is_symlink(), 'Pinned exporter assembly missing')
+              require(record_dir.is_dir() and not record_dir.is_symlink(), 'Existing private record directory required')
+              if mode == 'archive':
+                  require(expected and set(expected) == {'sha256', 'reportSha256', 'recordCount'}, 'Complete preflight tuple required')
+                  require(all(re.fullmatch('[0-9a-f]{64}', expected[key]) for key in ('sha256', 'reportSha256')), 'Invalid expected digest')
+                  require(type(expected['recordCount']) is int and 1 <= expected['recordCount'] <= 10000, 'Invalid expected count')
+              require(not (record_dir / 'result.json').exists() and not (record_dir / 'put-claim.json').exists(),
+                      'Existing attempt; reconcile instead of retrying')
+              start = end - dt.timedelta(minutes=60)
+              stamp = lambda value: value.strftime('%Y-%m-%dT%H:%M:%SZ')
+              base = ['--window-start', stamp(start), '--window-end', stamp(end)]
+              identity = ['--monitor-revision', 'v2-4-shadow-001', '--location', 'Frankfurt']
+              probe = os.environ.get('GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE', '')
+              require(bool(probe) and len(probe) <= 256, 'Primary probe missing')
+              working = Path(tempfile.mkdtemp(prefix='availability-rotation-'))
+              result = {'mode': mode, 'windowStartUtc': stamp(start), 'windowEndUtc': stamp(end),
+                        'rawEvidenceRetained': False, 'automaticRetryAllowed': False}
+              try:
+                  fingerprints = []
+                  for index in range(2 if mode == 'preflight' else 1):
+                      segment = working / ('segment-' + str(index) + '.jsonl')
+                      report = working / ('report-' + str(index) + '.json')
+                      invoke(assembly, ['export', *base, '--job', 'goldsrcops-api-ready-primary-shadow',
+                                       '--probe', probe, '--environment', 'production', '--role', 'primary',
+                                       *identity, '--output', str(segment), '--overlap-minutes', '10', '--step-seconds', '15'])
+                      fingerprint = inspect_segment(segment)
+                      invoke(assembly, ['evaluate', '--input', str(segment), *base,
+                                       '--evaluated-at', stamp(end + dt.timedelta(minutes=5)),
+                                       *identity, '--output', str(report)])
+                      fingerprint['reportSha256'] = digest(report)
+                      fingerprints.append(fingerprint)
+                  if mode == 'preflight':
+                      require(fingerprints[0] == fingerprints[1], 'Source bytes or deterministic report changed between exports')
+                      result.update(status='preflight-passed', **fingerprints[0])
+                  else:
+                      require(all(fingerprints[0][key] == value for key, value in expected.items()),
+                              'Preflight tuple changed; PUT not started')
+                      with (record_dir / 'put-claim.json').open('x') as stream:
+                          json.dump({'expected': fingerprints[0], 'windowEndUtc': stamp(end),
+                                     'startedUtc': dt.datetime.now(UTC).isoformat(), 'automaticRetryAllowed': False}, stream, indent=2)
+                      result.update(status='put-outcome-uncertain', **fingerprints[0])
+                      invoke(assembly, ['archive', '--input', str(segment)], writing=True)
+                      result['status'] = 'archive-command-succeeded-independent-recovery-required'
+              except Exception:
+                  result['status'] = 'put-outcome-uncertain' if (record_dir / 'put-claim.json').exists() else 'stopped-before-put'
+                  raise CycleError(result['status']) from None
+              finally:
+                  # Only this newly allocated directory is removed, never the operator record.
+                  require(working.parent == Path(tempfile.gettempdir()) and working.name.startswith('availability-rotation-'),
+                          'Temporary cleanup boundary changed')
+                  require(not any(path.is_symlink() for path in working.rglob('*')), 'Unexpected temporary symlink')
+                  shutil.rmtree(working)
+                  result['finishedUtc'] = dt.datetime.now(UTC).isoformat()
+                  with (record_dir / 'result.json').open('x') as stream:
+                      json.dump(result, stream, indent=2)
+              return result
+
+
+          def main():
+              parser = argparse.ArgumentParser(description=__doc__)
+              parser.add_argument('mode', choices=('preflight', 'archive'))
+              parser.add_argument('--assembly', type=Path, required=True)
+              parser.add_argument('--window-end', required=True)
+              parser.add_argument('--record-directory', type=Path, required=True)
+              parser.add_argument('--expected-sha256')
+              parser.add_argument('--expected-report-sha256')
+              parser.add_argument('--expected-record-count', type=int)
+              args = parser.parse_args()
+              expected = None if args.mode == 'preflight' else {
+                  'sha256': args.expected_sha256 or '', 'reportSha256': args.expected_report_sha256 or '',
+                  'recordCount': args.expected_record_count}
+              result = cycle(args.mode, args.assembly, args.window_end, args.record_directory, expected)
+              # Only the bounded fingerprint receipt, never raw source or child output.
+              print('ROTATION_RECEIPT=' + json.dumps(result, separators=(',', ':')))
+
+
+
+          MODE = 'archive'
+
+          if __name__ == '__main__':
+              assembly = Path(os.environ['RUNNER_TEMP']) / 'availability-exporter/GoldSrcOps.AvailabilityExporter.dll'
+              record = Path(os.environ['RUNNER_TEMP']) / ('availability-rotation-record-' + __import__('uuid').uuid4().hex)
+              record.mkdir()
+              try:
+                  expected = None
+                  if MODE == 'archive':
+                      expected = {'sha256': os.environ.get('EXPECTED_SEGMENT_SHA256', ''),
+                                  'reportSha256': os.environ.get('EXPECTED_REPORT_SHA256', ''),
+                                  'recordCount': int(os.environ.get('EXPECTED_RECORD_COUNT', '0'))}
+                  result = cycle(MODE, assembly, os.environ['REQUESTED_WINDOW_END_UTC'], record, expected)
+                  print('ROTATION_RECEIPT=' + json.dumps(result, separators=(',', ':')))
+              except Exception:
+                  if (record / 'result.json').is_file():
+                      print('ROTATION_RECEIPT=' + json.dumps(json.loads((record / 'result.json').read_bytes()), separators=(',', ':')))
+                  print('Guarded cycle stopped; do not retry a claimed PUT.', file=sys.stderr)
+                  sys.exit(1)
+              finally:
+                  # Contains only bounded metadata receipts; raw evidence was already removed.
+                  for item in record.iterdir():
+                      item.unlink()
+                  record.rmdir()
+          PY
+          else
+            args=(-ExporterAssemblyPath "$RUNNER_TEMP/availability-exporter/GoldSrcOps.AvailabilityExporter.dll" -WorkingDirectory "$RUNNER_TEMP/availability-evidence")
+            if [[ -n "${REQUESTED_WINDOW_END_UTC:-}" ]]; then args+=(-WindowEndUtc "$REQUESTED_WINDOW_END_UTC"); fi
+            if [[ -n "${REQUESTED_LOOKBACK_MINUTES:-}" ]]; then args+=(-LookbackMinutes "$REQUESTED_LOOKBACK_MINUTES"); fi
+            pwsh -NoProfile -File ./ops/availability/run-export-cycle.ps1 "${args[@]}"
+          fi
