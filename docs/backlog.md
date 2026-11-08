@@ -5,19 +5,21 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.115 minute-precision expiry](v2.115-minute-credential-expiry.md)
-adds an explicit minute representation and conservative warning/display behavior
-to the existing Operator register. API/Web only; checked B2 metadata will retain
-its actual verification timestamp. Key rotation and scheduler/secret changes
+Completed: [v2.115 minute-precision expiry](v2.115-minute-credential-expiry.md)
+is released and installed. The Operator register shows two previously checked
+B2 minute records without invented seconds and retains their actual verification
+time. Conservative warning boundaries, independent runtime/browser acceptance
+and same-digest stable promotion passed. Only API/Web changed; all 13 other
+captured containers were preserved. Key rotation and scheduler/secret changes
 remain separate operations.
 
 Completed: [v2.114 credential expiry metadata](v2.114-credential-expiry.md)
 is released and installed. The Operator-only four-purpose register passed exact
 deadline/7/30-day fixtures, independent runtime and actual browser acceptance,
 and same-digest stable promotion. Only API/Web changed; all 13 other captured
-containers were preserved. Grafana dates were verified; B2 metadata stays
-explicitly Unknown pending a provider check. No rotation or notification-policy
-change was made.
+containers were preserved. Grafana dates were verified; that rollout left B2
+metadata Unknown. The later v2.115 fills its provider-checked minute records.
+No rotation or notification-policy change was made.
 
 Completed: [v2.113 Operator health report](v2.113-operator-health-report.md)
 is released and installed. The bounded, Operator-only UTF-8 download passed
@@ -5066,3 +5068,25 @@ are outside this release claim.
 See [scope and evidence](v2.114-credential-expiry.md),
 [release notes](release-notes-v2.114.md) and
 [stable release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.114.0).
+
+## v2.115 - Minute-precision credential expiry
+
+Accepted and released on 2026-11-08: the existing Operator register distinguishes
+provider evidence known only to a UTC minute from an exact-second expiry.
+Minute records carry no invented seconds and use a visibly explained conservative
+warning boundary. Invalid or ambiguous metadata remains Unknown; exact-second
+Grafana records stay compatible. Actual B2 verification timestamps are preserved.
+
+Product PR #506, post-merge CI and all 12 candidate jobs passed. Local full and
+focused/browser checks, reviewed InspectCode, independent publication/runtime
+and actual Operator navigation/Refresh acceptance passed. Only API/Web were
+recreated, preserving all 13 other captured containers. All 12 stable checks
+and independent verification confirmed the same three digests without rebuild.
+
+No database, game/agent, provider key/permission, GitHub secret, scheduler, rule
+or notification change occurred. B2 rotation remains a separate pending operation;
+recorded metadata does not establish live credential validity.
+
+See [scope and evidence](v2.115-minute-credential-expiry.md),
+[release notes](release-notes-v2.115.md) and
+[stable release](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.115.0).
