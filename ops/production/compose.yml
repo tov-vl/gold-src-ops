@@ -65,8 +65,10 @@ services:
       CredentialExpiry__GrafanaLogs__ExpiresAtUtc: ${GOLDSRCOPS_LOGS_EXPIRY_UTC:-}
       CredentialExpiry__GrafanaLogs__VerifiedAtUtc: ${GOLDSRCOPS_LOGS_VERIFIED_UTC:-}
       CredentialExpiry__ArchiveReader__ExpiresAtUtc: ${GOLDSRCOPS_ARCHIVE_READER_EXPIRY_UTC:-}
+      CredentialExpiry__ArchiveReader__ExpiresAtMinuteUtc: ${GOLDSRCOPS_ARCHIVE_READER_EXPIRY_MINUTE_UTC:-}
       CredentialExpiry__ArchiveReader__VerifiedAtUtc: ${GOLDSRCOPS_ARCHIVE_READER_VERIFIED_UTC:-}
       CredentialExpiry__ArchiveWriter__ExpiresAtUtc: ${GOLDSRCOPS_ARCHIVE_WRITER_EXPIRY_UTC:-}
+      CredentialExpiry__ArchiveWriter__ExpiresAtMinuteUtc: ${GOLDSRCOPS_ARCHIVE_WRITER_EXPIRY_MINUTE_UTC:-}
       CredentialExpiry__ArchiveWriter__VerifiedAtUtc: ${GOLDSRCOPS_ARCHIVE_WRITER_VERIFIED_UTC:-}
       Polling__Enabled: "true"
       PublicLeaderboard__Enabled: ${GOLDSRCOPS_PUBLIC_LEADERBOARD_ENABLED:-false}

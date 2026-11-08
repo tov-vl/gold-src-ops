@@ -65,12 +65,46 @@ public sealed class CredentialExpiryServiceTests
         source.VerifyNoOtherCalls();
     }
 
-    private static CredentialExpiryService Create(IReadOnlyList<CredentialExpiryMetadata> metadata)
+    [Theory]
+    [InlineData(-59, "Expired", 0)]
+    [InlineData(0, "Expired", 0)]
+    [InlineData(1, "Critical", 1)]
+    [InlineData(604800, "Critical", 7)]
+    [InlineData(604801, "Soon", 8)]
+    [InlineData(2592000, "Soon", 30)]
+    [InlineData(2592001, "Recorded", 31)]
+    public void Minute_deadline_uses_conservative_start_without_publishing_invented_seconds(int remainingSeconds, string state, int days)
+    {
+        var evaluated = Now.AddSeconds(-remainingSeconds);
+        var result = Create([new CredentialExpiryMetadata("archive-reader", ExpiresAtUtc: null, evaluated.AddDays(-1), "2026-11-08T12:00Z")], evaluated)
+            .Read(CancellationToken.None).Entries[2];
+        result.State.Should().Be(state);
+        result.RemainingDays.Should().Be(days);
+        result.ExpiresAtUtc.Should().BeNull();
+        result.ExpiresAtMinuteUtc.Should().Be("2026-11-08T12:00Z");
+    }
+
+    [Theory]
+    [InlineData("private-sentinel", false, false)]
+    [InlineData("2026-11-15T12:00:00Z", false, false)]
+    [InlineData("2026-11-15T12:00Z", true, false)]
+    [InlineData("2026-11-15T12:00Z", false, true)]
+    public void Ambiguous_malformed_or_future_verified_minute_metadata_is_scrubbed(string minute, bool secondDate, bool futureVerification)
+    {
+        var item = new CredentialExpiryMetadata("archive-reader", secondDate ? Now.AddDays(7) : null, futureVerification ? Now.AddSeconds(1) : Now, minute);
+        var entry = Create([item]).Read(CancellationToken.None).Entries[2];
+        entry.State.Should().Be("Unknown");
+        entry.ExpiresAtUtc.Should().BeNull();
+        entry.ExpiresAtMinuteUtc.Should().BeNull();
+        entry.RemainingDays.Should().BeNull();
+    }
+
+    private static CredentialExpiryService Create(IReadOnlyList<CredentialExpiryMetadata> metadata, DateTimeOffset? now = null)
     {
         var source = new Mock<ICredentialExpirySource>();
         source.Setup(static value => value.Read()).Returns(metadata);
         var clock = new Mock<IClock>();
-        clock.SetupGet(static value => value.UtcNow).Returns(Now);
+        clock.SetupGet(static value => value.UtcNow).Returns(now ?? Now);
         return new CredentialExpiryService(source.Object, clock.Object);
     }
 }

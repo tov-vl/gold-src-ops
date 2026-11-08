@@ -5,6 +5,12 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.115 minute-precision expiry](v2.115-minute-credential-expiry.md)
+adds an explicit minute representation and conservative warning/display behavior
+to the existing Operator register. API/Web only; checked B2 metadata will retain
+its actual verification timestamp. Key rotation and scheduler/secret changes
+remain separate operations.
+
 Completed: [v2.114 credential expiry metadata](v2.114-credential-expiry.md)
 is released and installed. The Operator-only four-purpose register passed exact
 deadline/7/30-day fixtures, independent runtime and actual browser acceptance,
