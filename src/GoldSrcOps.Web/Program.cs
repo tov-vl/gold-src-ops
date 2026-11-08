@@ -85,7 +85,8 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.Equals(new PathString("/operator/game-host-health"), StringComparison.OrdinalIgnoreCase))
+    if (context.Request.Path.Equals(new PathString("/operator/game-host-health"), StringComparison.OrdinalIgnoreCase) ||
+        context.Request.Path.StartsWithSegments(new PathString(OperatorHealthReportEndpoints.Path), StringComparison.OrdinalIgnoreCase))
     {
         context.Response.Headers.CacheControl = "no-store";
     }
@@ -108,6 +109,7 @@ app.MapOperatorProviderReviewEndpoints();
 app.MapOperatorServerMonitoringEndpoints();
 app.MapOperatorServerRegistrationEndpoints();
 app.MapOperatorServerUpdateEndpoints();
+app.MapOperatorHealthReportEndpoints();
 app.MapRazorComponents<App>();
 
 app.Run();
