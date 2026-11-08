@@ -6,19 +6,19 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.114.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.114.0)
-is the current control-plane release. Operators can inspect recorded credential
-expiry/check dates for four fixed access purposes, with exact deadline, seven-
-day and 30-day warnings. The page reads dates only and keeps missing metadata
-explicitly Unknown. It works without JavaScript through the server-side BFF.
+**Status:** [v2.115.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.115.0)
+is the current control-plane release. The Operator credential register preserves
+minute-only expiry evidence without inventing seconds, explains its conservative
+warning boundary and retains actual verification times. Exact-second records
+remain compatible; missing or invalid metadata stays Unknown.
 
 API/Web were updated; all 13 other captured containers were preserved.
 Independent runtime and actual Operator-page acceptance passed, and stable
-references reuse candidate digests without rebuilding. Two Grafana date pairs
-were verified; B2 metadata remains Unknown pending a provider check. The
-register does not prove live credential validity or perform rotation.
-See [release notes](docs/release-notes-v2.114.md) and
-[evidence and claim limits](docs/v2.114-credential-expiry.md).
+references reuse candidate digests without rebuilding. Two previously checked
+B2 records now show minute precision; key rotation remains a separate operation.
+Recorded dates do not establish live credential validity. See
+[release notes](docs/release-notes-v2.115.md) and
+[evidence and claim limits](docs/v2.115-minute-credential-expiry.md).
 
 The separately published [game-event agent v2.95.0](https://github.com/tov-vl/gold-src-ops/releases/tag/game-event-agent-v2.95.0)
 adds passive queue and worker diagnostics. Its agent-only production upgrade
