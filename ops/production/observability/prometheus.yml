@@ -11,11 +11,12 @@ rule_files:
   - /etc/prometheus/rules/game-host-storage.yml
   - /etc/prometheus/rules/game-host-resources.yml
   - /etc/prometheus/rules/monitoring-heartbeat.yml
+  - /etc/prometheus/rules/credential-expiry.yml
 
 alerting:
   alert_relabel_configs:
     - source_labels: [component, severity, alertname]
-      regex: game-event-agent;warning;GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)|player-backup;warning;PlayerBackup(MonitorUnavailable|ObservationInvalid|InterventionRequired|ScheduleProblem|CopyUnavailable)|game-host-storage;warning;GameHostStorage(MonitorUnavailable|ObservationInvalid|BytesLow|InodesLow)|game-host-resources;warning;GameHost(ResourceMonitorUnavailable|ResourceObservationInvalid|MemoryLow)|monitoring-pipeline;none;MonitoringHeartbeat
+      regex: game-event-agent;warning;GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)|player-backup;warning;PlayerBackup(MonitorUnavailable|ObservationInvalid|InterventionRequired|ScheduleProblem|CopyUnavailable)|game-host-storage;warning;GameHostStorage(MonitorUnavailable|ObservationInvalid|BytesLow|InodesLow)|game-host-resources;warning;GameHost(ResourceMonitorUnavailable|ResourceObservationInvalid|MemoryLow)|credential-expiry;warning;CredentialExpiry(MonitorUnavailable|(GrafanaMetrics|GrafanaLogs|ArchiveReader|ArchiveWriter)(Soon|Critical|Expired|Unknown))|monitoring-pipeline;none;MonitoringHeartbeat
       action: keep
     - regex: alertname|component|severity
       action: labelkeep

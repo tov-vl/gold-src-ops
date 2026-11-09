@@ -5,6 +5,11 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.116 recorded credential expiry notifications](v2.116-credential-notifications.md).
+Four fixed purposes reuse the existing date evaluation and private IRM/email path.
+API metrics, bounded warning policy and an isolated delivery exercise are in scope;
+key rotation, provider changes and archive scheduling remain separate operations.
+
 Completed: [v2.115 minute-precision expiry](v2.115-minute-credential-expiry.md)
 is released and installed. The Operator register shows two previously checked
 B2 minute records without invented seconds and retains their actual verification
