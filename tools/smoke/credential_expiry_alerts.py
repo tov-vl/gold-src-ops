@@ -46,6 +46,15 @@ def fixtures():
             record: '0+0x20', STATE + '{purpose="' + purpose + '",state="Soon"}': '1+0x6 0+0x13',
             STATE + '{purpose="' + purpose + '",state="Critical"}': '0+0x6 1+0x13'},
             [(5, [soon]), (7, []), (12, [critical])])
+    for previous_state in ('Recorded', 'Expired'):
+        before = len(tests)
+        case('retained-process-' + previous_state + '-must-not-create-unknown', {}, [(10, [])])
+        retained = tests[before]['input_series']
+        retained.append({'series': STAMP + '{job="goldsrcops",service_name="GoldSrcOps",service_instance_id="retained"}', 'values': '-60+0x20'})
+        for purpose in PURPOSES:
+            for state in STATES:
+                retained.append({'series': STATE + '{job="goldsrcops",service_name="GoldSrcOps",service_instance_id="retained",purpose="' + purpose + '",state="' + state + '"}',
+                                 'values': ('1' if state == previous_state else '0') + '+0x20'})
     unavailable = 'CredentialExpiryMonitorUnavailable'
     case('missing-observation-masks-all-states', {STAMP: None}, [(4, []), (5, [unavailable])])
     case('retained-observation-expires', {STAMP: '0+0x20'}, [(3, []), (8, []), (9, [unavailable])])
