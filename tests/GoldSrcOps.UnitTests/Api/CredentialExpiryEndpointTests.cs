@@ -4,14 +4,38 @@ using AwesomeAssertions;
 using GoldSrcOps.Application.Common;
 using GoldSrcOps.Application.Monitoring;
 using GoldSrcOps.Contracts.Monitoring;
+using GoldSrcOps.Infrastructure.Monitoring;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Moq;
 
 namespace GoldSrcOps.UnitTests.Api;
 
 public sealed class CredentialExpiryEndpointTests
 {
+    [Fact]
+    public async Task Reader_metrics_start_without_an_operator_page_request_and_exclude_date_metadata()
+    {
+        await using var factory = new GoldSrcOpsApiFactory(principal: TestApiPrincipal.Reader(),
+            configureTestServices: static services => services.AddHostedService<CredentialExpiryMetrics>(),
+            configurationOverrides: new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["CredentialExpiry:GrafanaMetrics:ExpiresAtUtc"] = "2099-01-01T00:00:00Z",
+                ["CredentialExpiry:GrafanaMetrics:VerifiedAtUtc"] = "2026-01-01T00:00:00Z",
+                ["CredentialExpiry:PrivateKey:ExpiresAtUtc"] = "private-sentinel"
+            });
+        using var client = factory.CreateClient();
+        factory.Services.GetServices<IHostedService>().OfType<CredentialExpiryMetrics>().Should().ContainSingle();
+        using var response = await client.GetAsync("/metrics");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var text = await response.Content.ReadAsStringAsync();
+        text.Should().Contain("goldsrcops_credential_expiry_observed_timestamp_seconds")
+            .And.Contain("goldsrcops_credential_expiry_state")
+            .And.Contain("purpose=\"grafana-metrics\",state=\"Recorded\"")
+            .And.NotContain("2099-01-01").And.NotContain("2026-01-01").And.NotContain("private-sentinel");
+    }
+
     [Fact]
     public async Task Configured_dates_reach_the_endpoint_without_raw_values_or_unknown_keys()
     {

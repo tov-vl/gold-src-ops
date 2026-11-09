@@ -8,6 +8,7 @@ import tempfile
 import time
 import urllib.request
 import uuid
+import credential_expiry_alerts
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'ops/production/owner-notifications'
@@ -20,7 +21,11 @@ ALERTS = ['GameEventAgentMonitorUnavailable', 'GameEventAgentObservationInvalid'
           'GameHostStorageMonitorUnavailable','GameHostStorageObservationInvalid',
           'GameHostStorageBytesLow','GameHostStorageInodesLow',
           'GameHostResourceMonitorUnavailable', 'GameHostResourceObservationInvalid', 'GameHostMemoryLow']
-COMPONENTS = {name: 'game-host-resources' if name.startswith(('GameHostResource', 'GameHostMemory')) else
+ALERTS += ['CredentialExpiryMonitorUnavailable'] + [
+    'CredentialExpiry' + purpose + state
+    for purpose in ('GrafanaMetrics', 'GrafanaLogs', 'ArchiveReader', 'ArchiveWriter')
+    for state in ('Soon', 'Critical', 'Expired', 'Unknown')]
+COMPONENTS = {name: 'credential-expiry' if name.startswith('CredentialExpiry') else 'game-host-resources' if name.startswith(('GameHostResource', 'GameHostMemory')) else
               'game-host-storage' if name.startswith('GameHostStorage') else
               'player-backup' if name.startswith('PlayerBackup') else 'game-event-agent' for name in ALERTS}
 SAFE = ['--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '64']
@@ -95,7 +100,7 @@ def check_projection(payload, state):
     row = payload['alerts'][0]
     assert set(row) == {'status', 'labels', 'annotations', 'startsAt', 'endsAt', 'fingerprint'}
     assert row['status'] == state and row['labels'] == labels
-    runbook = 'v2.105-game-resource-monitor.md' if COMPONENTS[name] == 'game-host-resources' else 'v2.104-game-storage-monitor.md' if COMPONENTS[name] == 'game-host-storage' else 'game-player-data-monitoring.md' if COMPONENTS[name] == 'player-backup' else 'v2.97-agent-alerts.md'
+    runbook = 'v2.116-credential-notifications.md' if COMPONENTS[name] == 'credential-expiry' else 'v2.105-game-resource-monitor.md' if COMPONENTS[name] == 'game-host-resources' else 'v2.104-game-storage-monitor.md' if COMPONENTS[name] == 'game-host-storage' else 'game-player-data-monitoring.md' if COMPONENTS[name] == 'player-backup' else 'v2.97-agent-alerts.md'
     annotations = {'summary': 'GoldSrcOps - ' + name,
                    'runbook_url': 'https://github.com/tov-vl/gold-src-ops/blob/main/docs/' + runbook}
     assert payload['commonAnnotations'] == annotations and row['annotations'] == annotations
@@ -137,6 +142,7 @@ def check_prometheus(temporary, prefix, containers):
     env = dict(line.split('=', 1) for line in (ROOT / 'ops/production/deployment.env.example').read_text().splitlines()
                if '=' in line and not line.startswith('#'))
     image = env['GOLDSRCOPS_PROMETHEUS_IMAGE']
+    credential_expiry_alerts.validate_rules(docker, mount, image, temporary)
     name = prefix + '-prom'
     containers.append(name)
     docker('run', '-d', '--name', name, '--network', prefix, *SAFE, '--publish', '127.0.0.1::9090',
