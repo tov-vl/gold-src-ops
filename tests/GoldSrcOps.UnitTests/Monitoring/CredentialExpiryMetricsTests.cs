@@ -26,7 +26,7 @@ public sealed class CredentialExpiryMetricsTests
         var source = new Mock<ICredentialExpirySource>();
         source.Setup(static value => value.Read()).Returns([
             new CredentialExpiryMetadata("grafana-metrics", deadline, clock.UtcNow.AddDays(-1)),
-            new CredentialExpiryMetadata("archive-reader", null, clock.UtcNow.AddDays(-1), "2026-11-09T12:00Z")]);
+            new CredentialExpiryMetadata("archive-reader", ExpiresAtUtc: null, clock.UtcNow.AddDays(-1), "2026-11-09T12:00Z")]);
         var service = new CredentialExpiryService(source.Object, clock);
         using var metrics = new CredentialExpiryMetrics(service);
         using var collector = new MetricsCollector(GoldSrcOpsMetrics.MeterName, item => ReferenceEquals(item.Meter.Scope, service));
