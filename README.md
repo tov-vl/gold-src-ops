@@ -6,19 +6,19 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.115.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.115.0)
-is the current control-plane release. The Operator credential register preserves
-minute-only expiry evidence without inventing seconds, explains its conservative
-warning boundary and retains actual verification times. Exact-second records
-remain compatible; missing or invalid metadata stays Unknown.
+**Status:** [v2.116.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.116.0)
+is the current control-plane release. Four recorded credential purposes now
+produce bounded expiry and unknown-metadata warnings through the existing
+private Prometheus, Alertmanager and Grafana IRM email path. Evaluation freshness
+has its own warning; recorded deadlines do not prove provider access failure.
 
-API/Web were updated; all 13 other captured containers were preserved.
-Independent runtime and actual Operator-page acceptance passed, and stable
-references reuse candidate digests without rebuilding. Two previously checked
-B2 records now show minute precision; key rotation remains a separate operation.
-Recorded dates do not establish live credential validity. See
-[release notes](docs/release-notes-v2.115.md) and
-[evidence and claim limits](docs/v2.115-minute-credential-expiry.md).
+Only API was recreated; all 14 other captured containers were preserved.
+Monitoring reloaded without replacing notification state. Independent runtime
+and isolated firing/resolved IRM acceptance passed; stable references reuse
+the accepted candidate digests without rebuilding. Keys and archive scheduling
+remain separate operations. See
+[release notes](docs/release-notes-v2.116.md) and
+[evidence and claim limits](docs/v2.116-credential-notifications.md).
 
 The separately published [game-event agent v2.95.0](https://github.com/tov-vl/gold-src-ops/releases/tag/game-event-agent-v2.95.0)
 adds passive queue and worker diagnostics. Its agent-only production upgrade

@@ -11,4 +11,6 @@ labels. No secret value, provider key ID or exact provider date is exported.
 Keys, permissions, provider configuration, archive scheduling, game and backups
 are unchanged. See [scope and acceptance](v2.116-credential-notifications.md).
 
-Release acceptance and publication are pending.
+Released and installed. API-only rollout, monitoring reload, isolated firing/resolved
+IRM acceptance and same-digest stable promotion passed. Web/receiver images were
+verified but not installed. Keys and scheduling remain separate operations.
