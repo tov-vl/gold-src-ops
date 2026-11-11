@@ -1,0 +1,52 @@
+groups:
+  - name: goldsrcops-archive-schedule
+    rules:
+      - record: goldsrcops_archive:monitor_live
+        expr: |
+          (max(goldsrcops_archive_schedule_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-archive-schedule-monitor"}) >= time() - 1800) and (max(goldsrcops_archive_schedule_observed_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-archive-schedule-monitor"}) <= time())
+      - record: goldsrcops_archive:observation_valid
+        expr: |
+          (max(goldsrcops_archive_schedule_observation_success{job="goldsrcops",service_name="goldsrcops-archive-schedule-monitor"}) == 1) and goldsrcops_archive:monitor_live
+      - record: goldsrcops_archive:last_success_age_seconds
+        expr: |
+          (time() - max(goldsrcops_archive_schedule_last_success_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-archive-schedule-monitor"})) and (max(goldsrcops_archive_schedule_has_success{job="goldsrcops",service_name="goldsrcops-archive-schedule-monitor"}) == 1) and (max(goldsrcops_archive_schedule_last_success_timestamp_seconds{job="goldsrcops",service_name="goldsrcops-archive-schedule-monitor"}) <= time()) and goldsrcops_archive:observation_valid
+      - alert: ArchiveScheduleMonitorUnavailable
+        expr: |
+          absent(goldsrcops_archive:monitor_live)
+        for: 5m
+        labels:
+          severity: warning
+          component: archive-schedule
+        annotations:
+          summary: "Archive schedule observer is unavailable"
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.117-archive-reliability.md"
+      - alert: ArchiveScheduleObservationInvalid
+        expr: |
+          absent(goldsrcops_archive:observation_valid) and goldsrcops_archive:monitor_live
+        for: 5m
+        labels:
+          severity: warning
+          component: archive-schedule
+        annotations:
+          summary: "Archive schedule observation is invalid"
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.117-archive-reliability.md"
+      - alert: ArchiveScheduleDelayed
+        expr: |
+          (goldsrcops_archive:last_success_age_seconds > 10800) or ((max(goldsrcops_archive_schedule_has_success{job="goldsrcops",service_name="goldsrcops-archive-schedule-monitor"}) == 0) and goldsrcops_archive:observation_valid)
+        for: 5m
+        labels:
+          severity: warning
+          component: archive-schedule
+        annotations:
+          summary: "No recent successful scheduled Archive"
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.117-archive-reliability.md"
+      - alert: ArchiveScheduleCatchupAtRisk
+        expr: |
+          goldsrcops_archive:last_success_age_seconds > 64800
+        for: 5m
+        labels:
+          severity: warning
+          component: archive-schedule
+        annotations:
+          summary: "Archive delay approaches the 24-hour catch-up bound"
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.117-archive-reliability.md"

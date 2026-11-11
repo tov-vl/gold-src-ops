@@ -5,6 +5,12 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.117 Archive reliability](v2.117-archive-reliability.md) adds a
+scheduled 24-hour catch-up window and an independent public-API freshness
+observer. Manual defaults, exporter pin and writer serialization stay fixed.
+Local observer/rule/routing checks passed; release and production gates remain
+pending. This mitigates delayed events without promising hourly GitHub delivery.
+
 B2 availability key rotation on 10-11 November passed replacement read/write,
 actual scheduled Archive/readback, exact old-key retirement and post-retirement
 read/write checks. The owner retained protected history and marked old records

@@ -1,0 +1,32 @@
+[Unit]
+Description=Read-only public Archive workflow freshness observation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/usr/bin/python3 -I -B /opt/goldsrcops-archive-monitor/ops/availability/archive-monitor.py publish
+TimeoutStartSec=40s
+Restart=no
+MemoryMax=128M
+TasksMax=16
+Nice=10
+NoNewPrivileges=true
+CapabilityBoundingSet=
+PrivateDevices=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadOnlyPaths=/etc/goldsrcops/agent-monitor.json /opt/goldsrcops-archive-monitor
+InaccessiblePaths=-/etc/goldsrcops/deployment.env -/etc/goldsrcops/secrets -/etc/goldsrcops/player-data-backup -/run/docker.sock
+RemoveIPC=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native

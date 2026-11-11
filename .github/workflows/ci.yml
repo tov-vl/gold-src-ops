@@ -505,7 +505,10 @@ jobs:
 
       - name: Validate availability evidence schedule
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
-        run: pwsh -NoProfile -File ./tools/smoke/availability-evidence-schedule.ps1
+        run: |
+          pwsh -NoProfile -File ./tools/smoke/availability-evidence-schedule.ps1
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/archive-schedule.py
+          systemd-analyze verify ./ops/production/systemd/goldsrcops-archive-schedule-monitor.service ./ops/production/systemd/goldsrcops-archive-schedule-monitor.timer
 
       - name: Validate availability shadow audit
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
