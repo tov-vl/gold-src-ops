@@ -1,10 +1,16 @@
 # v2.118 - Archive health in the Operator portal
 
-Adds a separate Operator-only Archive page with successful scheduled-run age,
-observer freshness, four existing warning states and fixed troubleshooting
-guidance. Static Refresh uses the existing server-side BFF and bounded private
-Prometheus reads. Unknown/Stale states do not imply healthy scheduling.
+Released and installed: [v2.118.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.118.0).
 
-API/Web-only R1 delivery. No archive write, schedule/threshold change, new
-credential/permission, game/agent restart or database migration. Publication and
-production acceptance are pending; see [scope and evidence](v2.118-archive-health.md).
+Adds an Operator-only Archive page with the latest accepted scheduled-run age,
+observer freshness and four existing warning states with fixed troubleshooting
+guidance. Refresh works through the server-side BFF without JavaScript.
+Missing, invalid or stale evidence is explicit Unknown/Stale.
+
+R1 API/Web rollout and independent runtime/actual Operator browser acceptance
+passed. The 13 other captured containers and monitoring configuration were
+preserved. Candidate/stable images have identical verified digests; promotion
+does not rebuild. No archive write, scheduler/threshold change, key rotation,
+new permission, migration or game/agent restart was part of this release.
+
+See [verification and claim limits](v2.118-archive-health.md).

@@ -5,10 +5,15 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.118 Archive health in the Operator portal](v2.118-archive-health.md)
-adds a separate read-only page for schedule age, observer freshness and the four
-existing Archive warning states. It reuses private Prometheus and the BFF with
-explicit Unknown/Stale handling; rollout and release gates remain pending.
+Completed: [v2.118 Archive health in the Operator portal](v2.118-archive-health.md)
+is released and installed. The separate Operator-only page projects schedule age,
+observer freshness and four existing warning states through bounded private
+Prometheus reads and the BFF. Explicit Unknown/Stale handling, authorization,
+static Refresh, desktop/mobile browser checks, independent API/Web runtime and
+actual Operator acceptance passed. The other 13 captured containers and existing
+monitoring configuration were preserved; stable promotion reuses the accepted
+digests. Archive writes, policies, schedules, credentials and game/agent stay
+outside this R1 slice.
 
 Completed: [v2.117 Archive reliability](v2.117-archive-reliability.md) is released
 and installed. Scheduled exports request 24 hours; an independent ten-minute
