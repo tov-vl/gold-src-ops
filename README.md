@@ -6,19 +6,18 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.116.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.116.0)
-is the current control-plane release. Four recorded credential purposes now
-produce bounded expiry and unknown-metadata warnings through the existing
-private Prometheus, Alertmanager and Grafana IRM email path. Evaluation freshness
-has its own warning; recorded deadlines do not prove provider access failure.
+**Status:** [v2.118.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.118.0)
+is the current control-plane release. A separate Operator-only Archive health
+page shows accepted scheduled-run age, observer freshness and four existing
+warning states with fixed first checks. Unknown/Stale do not imply healthy
+scheduling; static Refresh keeps the existing server-side BFF token boundary.
 
-Only API was recreated; all 14 other captured containers were preserved.
-Monitoring reloaded without replacing notification state. Independent runtime
-and isolated firing/resolved IRM acceptance passed; stable references reuse
-the accepted candidate digests without rebuilding. Keys and archive scheduling
-remain separate operations. See
-[release notes](docs/release-notes-v2.116.md) and
-[evidence and claim limits](docs/v2.116-credential-notifications.md).
+Only API/Web were recreated. Independent runtime and actual Operator browser
+acceptance passed, preserving the 13 other captured containers and monitoring
+configuration. Stable references reuse the verified candidate digests without
+rebuilding. Archive writes, scheduling policies, credentials and game/agent are
+separate operations. See [release notes](docs/release-notes-v2.118.md) and
+[evidence and claim limits](docs/v2.118-archive-health.md).
 
 The separately published [game-event agent v2.95.0](https://github.com/tov-vl/gold-src-ops/releases/tag/game-event-agent-v2.95.0)
 adds passive queue and worker diagnostics. Its agent-only production upgrade
