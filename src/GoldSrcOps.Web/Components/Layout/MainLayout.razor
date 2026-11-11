@@ -30,7 +30,10 @@
                 </Authorized>
             </AuthorizeView>
             <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
-                <Authorized><NavLink href="/operator/game-host-health">Game-host health</NavLink></Authorized>
+                <Authorized>
+                    <NavLink href="/operator/game-host-health">Game-host health</NavLink>
+                    <NavLink href="/operator/archive-health">Archive health</NavLink>
+                </Authorized>
             </AuthorizeView>
         </nav>
         <div class="session-actions">

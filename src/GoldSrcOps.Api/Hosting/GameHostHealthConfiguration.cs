@@ -29,5 +29,10 @@ internal static class GameHostHealthConfiguration
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(5);
         }).ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
+        services.AddHttpClient<IArchiveHealthSource, ArchiveHealthSource>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(5);
+        }).ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
     }
 }
