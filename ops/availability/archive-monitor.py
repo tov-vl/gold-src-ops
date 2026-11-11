@@ -107,12 +107,22 @@ def observe(document, jobs, now):
     return samples
 
 
-def collect(now, fetch=request):
+def collect(now, fetch=request, clock=None):
     try:
         document = fetch(BASE + '/workflows/' + str(WORKFLOW) + '/runs?event=schedule&branch=main&per_page=20')
-        return observe(document, lambda run: fetch(BASE + '/runs/' + str(run) + '/jobs?filter=latest&per_page=10'), now)
+        require(type(document) is dict and type(document.get('workflow_runs')) is list and len(document['workflow_runs']) <= 20)
+        candidate = next((run for run in document['workflow_runs'] if type(run) is dict
+            and run.get('status') == 'completed' and run.get('conclusion') == 'success'
+            and type(run.get('run_attempt')) is int and run['run_attempt'] == 1), None)
+        details = None
+        if candidate is not None:
+            require(type(candidate.get('id')) is int and 0 < candidate['id'] < 2**63)
+            details = fetch(BASE + '/runs/' + str(candidate['id']) + '/jobs?filter=latest&per_page=10')
+        # Validate against time after both reads: a job may complete during I/O.
+        # All identity, ordering, step and strict future-time checks still apply.
+        return observe(document, lambda _: details, clock() if clock else now)
     except (ValueError, TypeError, KeyError, OverflowError, OSError, http.client.HTTPException):
-        return [('observation_success', 0), ('observed_timestamp_seconds', now.timestamp())]
+        return [('observation_success', 0), ('observed_timestamp_seconds', (clock() if clock else now).timestamp())]
 
 
 def payload(samples, now):
@@ -133,7 +143,7 @@ def main():
         raise TimeoutError('Bounded observation expired')
     signal.signal(signal.SIGALRM, expired)
     signal.alarm(30)
-    samples = collect(dt.datetime.now(UTC))
+    samples = collect(dt.datetime.now(UTC), clock=lambda: dt.datetime.now(UTC))
     signal.alarm(0)
     now = dt.datetime.now(UTC)
     if sys.argv[1] == 'publish':

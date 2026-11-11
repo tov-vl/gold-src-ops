@@ -38,6 +38,19 @@ def fixtures():
     case('stopped-observer-expiry', {'observed_timestamp_seconds': '0+0x1500'}, [(30, []), (36, ['ArchiveScheduleMonitorUnavailable'])])
     case('age-recovers-after-new-scheduled-success', {'last_success_timestamp_seconds': '0+0x200 12060+60x1299'},
         [(200, ['ArchiveScheduleDelayed']), (202, [])])
+    intermittent = {}
+    for key in base:
+        values = []
+        for minute in range(211):
+            phase = minute % 10
+            if phase <= 4:
+                value = (minute // 10) * 600 if key == 'observed_timestamp_seconds' else 0 if key == 'last_success_timestamp_seconds' else 1
+                values.append(str(value))
+            else:
+                values.append('stale' if phase == 5 else '_')
+        intermittent[key] = ' '.join(values)
+    case('collector-expires-between-ten-minute-timer-cycles', intermittent,
+        [(6, []), (9, []), (15, []), (19, []), (180, []), (186, ['ArchiveScheduleDelayed']), (189, ['ArchiveScheduleDelayed']), (195, ['ArchiveScheduleDelayed'])])
     return {'rule_files': ['/rules/archive-schedule.yml'], 'evaluation_interval': '1m', 'tests': tests}
 
 

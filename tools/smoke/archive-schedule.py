@@ -65,6 +65,21 @@ class Tests(unittest.TestCase):
         result = dict(monitor.observe({'total_count': 2, 'workflow_runs': [value, run()]}, jobs, NOW))
         self.assertEqual(result['has_success'], 1)
 
+    def test_job_completed_during_reads_uses_completed_snapshot_time(self):
+        value = run(); value['created_at'] = '2026-11-11T11:59:00Z'
+        detail = jobs(123)
+        detail['jobs'][0].update(started_at='2026-11-11T11:59:05Z', completed_at='2026-11-11T12:00:01Z')
+        calls = []
+        def fetch(path):
+            calls.append(path)
+            return detail if '/jobs?' in path else document(value)
+        result = dict(monitor.collect(NOW, fetch, clock=lambda: NOW + dt.timedelta(seconds=2)))
+        self.assertEqual(result['observation_success'], 1)
+        self.assertEqual(result['observed_timestamp_seconds'], NOW.timestamp() + 2)
+        self.assertEqual(len(calls), 2)
+        detail['jobs'][0]['completed_at'] = '2026-11-11T12:00:03Z'
+        self.assertEqual(dict(monitor.collect(NOW, fetch, clock=lambda: NOW + dt.timedelta(seconds=2)))['observation_success'], 0)
+
     def test_invalid_jobs_steps_and_times_fail_closed(self):
         changes = [lambda j: j.update(total_count=2), lambda j: j.update(total_count=True), lambda j: j.update(jobs=[]),
             lambda j: j['jobs'][0].update(conclusion='skipped'),
