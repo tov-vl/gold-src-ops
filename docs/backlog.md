@@ -5,14 +5,13 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.120 Archive health in the Operator report](v2.120-operator-archive-report.md)
-adds independent Archive observations and four existing rule states to the
-bounded UTF-8 attachment. Scope is Web-only R1 with the existing API, no new
-permissions and no Archive write or schedule change. Verification, publication
-and target acceptance are pending.
-An isolated R3 CI recovery runs the complete browser group offline in the
-matching digest-pinned official Playwright image, avoiding runtime APT/DNS
-dependency installation while retaining audited host restore/build and all tests.
+Completed: [v2.120 Archive health in the Operator report](v2.120-operator-archive-report.md)
+is released and installed. The bounded UTF-8 attachment retains independent
+game-host and Archive observations, timestamps, Unknown/Stale and all four
+Archive rule states. Required CI, published digest checks, Web-only runtime and
+actual Operator download acceptance passed. All 14 other captured containers
+and monitoring configuration were preserved; stable promotion did not rebuild.
+Archive scheduling, keys, policies, game and agent were not changed.
 
 Completed: [v2.119 bounded Archive completeness diagnostics](v2.119-archive-completeness.md)
 is released as an operational component. Protected PR/main CI, signed immutable

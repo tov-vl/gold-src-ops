@@ -6,18 +6,18 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.118.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.118.0)
-is the current control-plane release. A separate Operator-only Archive health
-page shows accepted scheduled-run age, observer freshness and four existing
-warning states with fixed first checks. Unknown/Stale do not imply healthy
-scheduling; static Refresh keeps the existing server-side BFF token boundary.
+**Status:** [v2.120.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.120.0)
+is the current control-plane release. The existing Operator health report now
+includes independent Archive freshness and four rule states in its bounded
+UTF-8 attachment. Unknown/Stale do not imply healthy scheduling; each source
+retains its own timestamps and failure state behind the server-side BFF.
 
-Only API/Web were recreated. Independent runtime and actual Operator browser
-acceptance passed, preserving the 13 other captured containers and monitoring
+Only Web was recreated. Independent runtime and actual Operator download
+acceptance passed, preserving all 14 other captured containers and monitoring
 configuration. Stable references reuse the verified candidate digests without
-rebuilding. Archive writes, scheduling policies, credentials and game/agent are
-separate operations. See [release notes](docs/release-notes-v2.118.md) and
-[evidence and claim limits](docs/v2.118-archive-health.md).
+rebuilding. Archive writes, scheduling, credentials and game/agent remain
+separate operations. See [release notes](docs/release-notes-v2.120.md) and
+[evidence and claim limits](docs/v2.120-operator-archive-report.md).
 
 The separate [availability diagnostics v2.119.0](https://github.com/tov-vl/gold-src-ops/releases/tag/availability-diagnostics-v2.119.0) component
 adds bounded missing-minute/source-neighbor and reviewed Archive-window
