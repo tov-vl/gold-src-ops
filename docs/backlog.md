@@ -5,6 +5,12 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.119 bounded Archive completeness diagnostics](v2.119-archive-completeness.md).
+The existing read-only audit will retain exact missing UTC slots and neighboring
+source observations, plus requested-window coverage from reviewed receipts with
+manual catch-up separate. Unknown input remains explicit. Exporter pin, SLI
+policy, schedules, thresholds, credentials and application/game runtimes stay fixed.
+
 Completed: [v2.118 Archive health in the Operator portal](v2.118-archive-health.md)
 is released and installed. The separate Operator-only page projects schedule age,
 observer freshness and four existing warning states through bounded private
