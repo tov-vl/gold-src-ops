@@ -584,8 +584,18 @@ jobs:
           dotnet build tests/GoldSrcOps.WebTests/GoldSrcOps.WebTests.csproj
           --no-restore
 
+      - name: Prepare official Ubuntu mirrors for browser dependencies
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        timeout-minutes: 2
+        run: |
+          python3 -B tools/smoke/browser-apt.py
+          sudo -n --preserve-env=GITHUB_ACTIONS,RUNNER_OS,RUNNER_ARCH,RUNNER_ENVIRONMENT python3 -I -B tools/ci/prepare-browser-apt.py
+          curl --fail --silent --show-error --connect-timeout 5 --max-time 20 --output /dev/null https://archive.ubuntu.com/ubuntu/dists/noble/InRelease
+          curl --fail --silent --show-error --connect-timeout 5 --max-time 20 --output /dev/null https://security.ubuntu.com/ubuntu/dists/noble-security/InRelease
+
       - name: Install Playwright Chromium
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        timeout-minutes: 6
         run: >-
           pwsh tests/GoldSrcOps.WebTests/bin/Debug/net10.0/playwright.ps1
           install --with-deps --only-shell chromium
