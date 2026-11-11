@@ -7,6 +7,10 @@ on:
         description: Exact completed UTC minute ending the 24-hour shadow window
         required: true
         type: string
+      archive_receipts_json:
+        description: Optional reviewed window receipts JSON (20 entries and 32 KiB maximum); blank reports Unknown coverage
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -115,6 +119,8 @@ jobs:
         shell: pwsh
         env:
           REQUESTED_WINDOW_END_UTC: ${{ inputs.window_end_utc }}
+          REVIEWED_EXPORTER_REVISION: ${{ vars.GOLDSRCOPS_AVAILABILITY_EXPORTER_REVISION }}
+          REVIEWED_ARCHIVE_RECEIPTS_JSON: ${{ inputs.archive_receipts_json }}
           GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE: ${{ secrets.GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE }}
           GOLDSRCOPS_GRAFANA_METRICS_URL: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_URL }}
           GOLDSRCOPS_GRAFANA_METRICS_USER: ${{ secrets.GOLDSRCOPS_GRAFANA_METRICS_USER }}
@@ -125,4 +131,6 @@ jobs:
         run: |
           ./ops/availability/run-shadow-audit.ps1 `
             -ExporterAssemblyPath "$env:RUNNER_TEMP/availability-exporter/GoldSrcOps.AvailabilityExporter.dll" `
-            -WindowEndUtc $env:REQUESTED_WINDOW_END_UTC
+            -WindowEndUtc $env:REQUESTED_WINDOW_END_UTC `
+            -ExporterRevision $env:REVIEWED_EXPORTER_REVISION `
+            -ArchiveReceiptsJson $env:REVIEWED_ARCHIVE_RECEIPTS_JSON

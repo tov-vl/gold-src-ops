@@ -8,9 +8,17 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$WindowEndUtc,
 
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[a-f0-9]{40}$')]
+    [string]$ExporterRevision,
+
+    [string]$ArchiveReceiptsJson = "",
+
     [switch]$PlanOnly,
 
-    [string]$DotNetExecutable = "dotnet"
+    [string]$DotNetExecutable = "dotnet",
+
+    [string]$PythonExecutable = "python3"
 )
 
 Set-StrictMode -Version Latest
@@ -81,6 +89,8 @@ $temporaryRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $directory = Join-Path $temporaryRoot "goldsrcops-shadow-audit-$([Guid]::NewGuid().ToString('N'))"
 $segment = Join-Path $directory "primary.jsonl"
 $reportPath = Join-Path $directory "report.json"
+$diagnosticsPath = Join-Path $directory "completeness.json"
+$receiptsPath = Join-Path $directory "receipts.json"
 [IO.Directory]::CreateDirectory($directory) | Out-Null
 
 function Get-ExporterFailureCategory {
@@ -219,6 +229,62 @@ try {
 
     if (-not $integrityPassed) {
         throw "Shadow audit failed: identity matched=$($plan.IdentityMatched); expected/evaluated/pending/missing slots=$([int]$report.expected_slot_count)/$($plan.EvaluatedSlots)/$($plan.PendingSlots)/$($plan.MissingSlots)."
+    }
+
+    $diagnosticArguments = @(
+        "-B", (Join-Path $PSScriptRoot "completeness-report.py"),
+        "--input", $segment, "--evaluation", $reportPath,
+        "--exporter-revision", $ExporterRevision, "--output", $diagnosticsPath)
+    if (-not [string]::IsNullOrWhiteSpace($ArchiveReceiptsJson)) {
+        if ([Text.Encoding]::UTF8.GetByteCount($ArchiveReceiptsJson) -gt 32768) {
+            throw "Reviewed archive receipts exceed the diagnostic input limit."
+        }
+        [IO.File]::WriteAllText($receiptsPath, $ArchiveReceiptsJson, [Text.UTF8Encoding]::new($false))
+        $diagnosticArguments += @("--receipts", $receiptsPath)
+    }
+    $diagnosticOutput = @(& $PythonExecutable @diagnosticArguments 2>&1)
+    if ($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($diagnosticsPath) -or
+        ([IO.FileInfo]::new($diagnosticsPath)).Length -gt 1MB) {
+        throw "Completeness diagnostics failed validation; input and paths withheld."
+    }
+    $diagnosticsJson = [IO.File]::ReadAllText($diagnosticsPath)
+    # The independently validated projection has only fixed fields and UTC/numeric values.
+    # Emit before the target assertion so a failed SLO audit retains its diagnostics.
+    Write-Host "Completeness report JSON: $diagnosticsJson"
+    if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+        $jsonOptions = @{}
+        if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey("DateKind")) {
+            $jsonOptions.DateKind = "String"
+        }
+        $diagnostics = $diagnosticsJson | ConvertFrom-Json @jsonOptions
+        $lines = [Collections.Generic.List[string]]::new()
+        $lines.AddRange([string[]]@("", "## Source completeness diagnostics", "",
+            "Source identity: production primary / v2-4-shadow-001 / Frankfurt.",
+            "Exporter revision: ``$ExporterRevision``. SLI policy unchanged.",
+            "Neighbors refer only to the selected source window; null means no observation in that direction.",
+            "", "| Missing UTC minute | Previous source UTC | Next source UTC |", "| --- | --- | --- |"))
+        foreach ($slot in $diagnostics.missing_slot_details) {
+            $lines.Add("| $($slot.slot_start_utc) | $($slot.previous_source_utc) | $($slot.next_source_utc) |")
+        }
+        $lines.Add("")
+        $lines.Add("Archive coverage status: ``$($diagnostics.archive_coverage.status)``.")
+        $lines.Add("Coverage uses caller-reviewed receipt windows, not workflow creation times. No object integrity or schedule freshness claim.")
+        if ($diagnostics.archive_coverage.status -ceq "supplied_receipts") {
+            foreach ($kind in @("scheduled_uncovered", "scheduled_and_manual_uncovered")) {
+                $lines.Add("")
+                $lines.Add("### $kind")
+                $lines.Add("| Start UTC | End exclusive UTC | Minutes | Boundary |")
+                $lines.Add("| --- | --- | --- | --- |")
+                foreach ($gap in $diagnostics.archive_coverage.$kind) {
+                    $lines.Add("| $($gap.start_utc) | $($gap.end_exclusive_utc) | $($gap.minutes) | $($gap.boundary) |")
+                }
+            }
+        }
+        $text = ($lines -join "`n") + "`n"
+        if ([Text.Encoding]::UTF8.GetByteCount($text) -gt 512KB) {
+            throw "Completeness summary exceeds the output limit."
+        }
+        [IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, $text, [Text.UTF8Encoding]::new($false))
     }
 
     if (-not $targetPassed) {

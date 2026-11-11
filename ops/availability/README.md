@@ -139,13 +139,18 @@ contiguous 24-hour primary window. Supply an exact UTC end minute at least five
 minutes old. The workflow builds the reviewed exporter revision, exports the
 fixed shadow identity with Metrics and Loki read credentials, requires exactly
 1,440 mature evaluated slots plus a met shadow-scale target, and emits only
-sanitized aggregate counts. A mature slot without a canonical result remains a
+sanitized aggregate counts. v2.119 additionally retains exact missing UTC slots,
+precise neighbors within the selected primary window and optional coverage of
+caller-reviewed requested Archive windows. See the bounded receipt input and
+[claim limits](../../docs/v2.119-archive-completeness.md). Blank input reports
+Unknown coverage; manual catch-up is separate from ordinary schedule freshness.
+A mature slot without a canonical result remains a
 bad `missing` outcome and consumes the target budget without invalidating the
 population. The workflow has no B2 credential, does not archive or upload an
 artifact, and deletes both the raw JSONL and evaluation report from the runner.
 A passing audit proves evidence integrity and shadow-target attainment for that
 bounded window. An integrity or target failure emits the same bounded aggregate
-counts before failing closed. Neither result activates `API-01` or establishes
+counts and validated diagnostics before failing closed. Neither result activates `API-01` or establishes
 that an SLO was achieved.
 
 Before starting a 24-hour shadow:

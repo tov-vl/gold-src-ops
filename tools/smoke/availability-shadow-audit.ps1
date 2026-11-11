@@ -111,8 +111,19 @@ if ($command -eq "export") {
     if ($env:GOLDSRCOPS_FAKE_AUDIT_MODE -eq "oversize") {
         [IO.File]::WriteAllText($output, ('x' * (16MB + 1)))
     }
+    elseif ($env:GOLDSRCOPS_FAKE_AUDIT_MODE -eq "invalid-diagnostics") {
+        [IO.File]::WriteAllText($output, '{"private_unknown_field":"do-not-echo"}')
+    }
     else {
-        [IO.File]::WriteAllText($output, "{}" + [Environment]::NewLine)
+        $start = [DateTimeOffset](Get-Value "--window-start")
+        $missing = switch ($env:GOLDSRCOPS_FAKE_AUDIT_MODE) { "missing" { 1 } "target-miss" { 8 } default { 0 } }
+        $lines = for ($i = $missing; $i -lt 1440; $i++) {
+            $slot = $start.AddMinutes($i).ToString("O")
+            [ordered]@{scheduled_at_utc=$slot;started_at_utc=$null;completed_at_utc=$slot
+                monitor_revision="v2-4-shadow-001";location="Frankfurt";role="primary"
+                execution_id="fixture-$i";outcome="good";http_status=200;duration_ms=1} | ConvertTo-Json -Compress
+        }
+        [IO.File]::WriteAllLines($output, $lines)
     }
     exit 0
 }
@@ -175,6 +186,8 @@ throw "Unexpected command '$command'."
         ExporterAssemblyPath = $fakeExporter
         WindowEndUtc = "2026-09-04T10:00:00Z"
         DotNetExecutable = (Get-Process -Id $PID).Path
+        ExporterRevision = '752b1bccd421d141e761349de9b3166c1c1f541a'
+        PythonExecutable = $(if ($IsWindows) { 'python' } else { 'python3' })
     }
 
     $plan = & $auditPath @arguments -PlanOnly
@@ -266,11 +279,35 @@ throw "Unexpected command '$command'."
         -ExpectedMessage "Shadow audit failed: draft target was not met; good/bad/missing slots=1432/8/8."
     $targetFailureSummary = [IO.File]::ReadAllText($summaryPath)
     foreach ($required in @("Shadow result: failed", "Evidence integrity: passed",
-            "Draft target at shadow scale: ``missed``")) {
+            "Draft target at shadow scale: ``missed``", "Source completeness diagnostics",
+            "2026-09-03T10:07:00Z", "Archive coverage status: ``unknown``")) {
         if (-not $targetFailureSummary.Contains($required, [StringComparison]::Ordinal)) {
             throw "Target-failure shadow summary is missing '$required'."
         }
     }
+    Assert-AuditDirectoriesCleaned
+
+    $env:GOLDSRCOPS_FAKE_AUDIT_MODE = "invalid-diagnostics"
+    Assert-Fails -Operation { & $auditPath @arguments } -ExpectedMessage "Completeness diagnostics failed validation*"
+    Assert-AuditDirectoriesCleaned
+    $env:GOLDSRCOPS_FAKE_AUDIT_MODE = "success"
+    $receipt = @{
+        schema_version=1; exporter_revision=$arguments.ExporterRevision; receipts=@(
+            @{run_id=1;event='workflow_dispatch';window_start_utc='2026-09-03T10:00:00Z'
+                window_end_utc='2026-09-04T10:00:00Z';run_attempt=1
+                archive_job_succeeded=$true;archive_receipt_verified=$true})
+    } | ConvertTo-Json -Depth 5 -Compress
+    Remove-Item -LiteralPath $summaryPath -Force -ErrorAction SilentlyContinue
+    $null = & $auditPath @arguments -ArchiveReceiptsJson $receipt
+    $coverageSummary = [IO.File]::ReadAllText($summaryPath)
+    foreach ($required in @('supplied_receipts', 'scheduled_uncovered', 'scheduled_and_manual_uncovered', '1440')) {
+        if (-not $coverageSummary.Contains($required, [StringComparison]::Ordinal)) {
+            throw "Reviewed receipt coverage summary is incomplete."
+        }
+    }
+    Assert-AuditDirectoriesCleaned
+    Assert-Fails -Operation { & $auditPath @arguments -ArchiveReceiptsJson '{"untrusted":"do-not-echo"}' } `
+        -ExpectedMessage "Completeness diagnostics failed validation*"
     Assert-AuditDirectoriesCleaned
 
     $env:GOLDSRCOPS_FAKE_AUDIT_MODE = "export-fail"
