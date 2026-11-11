@@ -15,4 +15,8 @@ in the matching digest-pinned official Playwright image. Audited host restore
 and build remain; runtime APT/browser installation is unnecessary. Production
 DNS and all required tests stay intact. Earlier failures occurred before tests.
 
-Release and target acceptance are pending.
+Released and installed: [v2.120.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.120.0).
+
+Required CI, independent publication/runtime/actual Operator download acceptance
+and same-digest stable promotion passed. Only Web was recreated; 14 other
+captured containers and monitoring configuration were preserved.
