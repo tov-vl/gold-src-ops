@@ -5,11 +5,15 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.117 Archive reliability](v2.117-archive-reliability.md) adds a
-scheduled 24-hour catch-up window and an independent public-API freshness
-observer. Manual defaults, exporter pin and writer serialization stay fixed.
-Local observer/rule/routing checks passed; release and production gates remain
-pending. This mitigates delayed events without promising hourly GitHub delivery.
+Completed: [v2.117 Archive reliability](v2.117-archive-reliability.md) is released
+and installed. Scheduled exports request 24 hours; an independent ten-minute
+public-API observer tracks the last accepted schedule success and feeds four
+held warnings through existing IRM/email. Exact-head CI, immutable same-byte
+candidate/stable publication, a 24-hour Archive with independent read-only
+Recovery, runtime continuity, a natural timer cycle and isolated Resolved canary
+acceptance passed. Manual defaults, exporter pin, keys and writer serialization
+stay fixed. This mitigates delayed events without promising hourly GitHub delivery,
+complete source coverage or an achieved SLO.
 
 B2 availability key rotation on 10-11 November passed replacement read/write,
 actual scheduled Archive/readback, exact old-key retirement and post-retirement
@@ -18,7 +22,7 @@ Retired. The four-date Operator update also passed independent runtime,
 monitoring and authenticated browser acceptance with the same API image and
 all 14 other captured containers preserved. See the
 [rotation evidence and limits](b2-availability-key-rotation-20261110.md).
-Irregular GitHub scheduled cadence remains a separate reliability concern.
+Future ordinary cadence remains an observation follow-up under v2.117.
 
 Completed: [v2.116 recorded credential expiry notifications](v2.116-credential-notifications.md)
 is released and installed. Four fixed purposes reuse the existing date evaluation
