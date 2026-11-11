@@ -19,5 +19,8 @@ does not establish object integrity or service availability during missing slots
 
 ## Status
 
-Pending protected CI, immutable component package and independent read-only
-acceptance. See [scope, limits and evidence](v2.119-archive-completeness.md).
+Released as [availability-diagnostics-v2.119.0](https://github.com/tov-vl/gold-src-ops/releases/tag/availability-diagnostics-v2.119.0) after protected PR/main CI,
+signed same-byte package promotion and independent read-only acceptance.
+All eight original source gaps and precise neighbors were reproduced; the
+draft SLI target remains missed. API/Web stay on the accepted v2.118 release.
+See [scope, limits and evidence](v2.119-archive-completeness.md).
