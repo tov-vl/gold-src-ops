@@ -5,6 +5,15 @@ release steps.
 
 ## Current Status
 
+B2 availability key rotation on 10-11 November passed replacement read/write,
+actual scheduled Archive/readback, exact old-key retirement and post-retirement
+read/write checks. The owner retained protected history and marked old records
+Retired. The four-date Operator update also passed independent runtime,
+monitoring and authenticated browser acceptance with the same API image and
+all 14 other captured containers preserved. See the
+[rotation evidence and limits](b2-availability-key-rotation-20261110.md).
+Irregular GitHub scheduled cadence remains a separate reliability concern.
+
 Completed: [v2.116 recorded credential expiry notifications](v2.116-credential-notifications.md)
 is released and installed. Four fixed purposes reuse the existing date evaluation
 and private IRM/email path. API-only digest rollout, monitoring reload, independent
