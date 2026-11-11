@@ -1,0 +1,92 @@
+@page "/operator/archive-health"
+@attribute [Authorize(Policy = WebSecurity.OperatorPolicy)]
+@inject IArchiveHealthClient HealthClient
+@inject TimeProvider TimeProvider
+
+<PageTitle>Archive health | GoldSrcOps</PageTitle>
+
+<div class="archive-page">
+    <header>
+        <p class="eyebrow">Operator portal</p>
+        <h1>Archive health</h1>
+        <p>Scheduled export freshness and existing warning states.</p>
+        <nav aria-label="Archive navigation">
+            <a href="@ArchiveHealthView.Path" data-enhance-nav="false">Refresh</a>
+            <a href="/operator/game-host-health">Game-host health</a>
+            <a href="/operator/credential-expiry">Credential expiry</a>
+        </nav>
+    </header>
+    <p>Evaluated: @FormatTime(_snapshot.EvaluatedAtUtc). This page does not refresh automatically.</p>
+    <section class="archive-observation" aria-label="Schedule observation">
+        <h2>Schedule observation</h2>
+        <strong data-observation-state="@_snapshot.ObservationState">@_snapshot.ObservationState</strong>
+        <dl>
+            <dt>Observer last checked</dt><dd>@FormatTime(_snapshot.ObservedAtUtc)</dd>
+            <dt>Last successful scheduled run</dt><dd>@FormatTime(_snapshot.LastSuccessAtUtc)</dd>
+            <dt>Age of last successful scheduled run</dt><dd>@FormatAge(_snapshot.LastSuccessAgeSeconds)</dd>
+        </dl>
+        @if (_snapshot.HasScheduledSuccess == false)
+        {
+            <p>No accepted first-attempt success was found among the observed recent schedule runs. The age is unknown.</p>
+        }
+        @if (_snapshot.ObservationState is "Unknown")
+        {
+            <p>Schedule observation is missing, invalid or unavailable. Retained success values are not current evidence.</p>
+        }
+        @if (_snapshot.ObservationState is "Stale")
+        {
+            <p>The observer timestamp is older than 30 minutes. Current Archive freshness is unknown.</p>
+        }
+        <p>The observer runs every ten minutes. Its own timestamp must be nonfuture and no older than 30 minutes; query time alone cannot refresh it.</p>
+    </section>
+    <section class="archive-warnings" aria-label="Archive warnings">
+        <h2>Archive warnings</h2>
+        <p>Rule snapshot: <strong data-warning-state="@_snapshot.WarningsState">@_snapshot.WarningsState</strong>. Rules last checked: @FormatTime(_snapshot.WarningsObservedAtUtc)</p>
+        @if (_snapshot.WarningsState is not "Available")
+        {
+            <p>The rule snapshot is unavailable, incomplete or stale. This does not mean there are no warnings. Rule evaluations must be no older than 60 seconds.</p>
+        }
+        <div class="archive-warning-grid">
+            @foreach (var definition in ArchiveHealthView.Definitions)
+            {
+                var state = _snapshot.Warnings.SingleOrDefault(item => string.Equals(item.Name, definition.Name, StringComparison.Ordinal))?.State ?? "Unknown";
+                <article class="archive-warning" aria-label="@definition.Title">
+                    <h3>@definition.Title</h3>
+                    <strong data-rule-state="@state">@state</strong>
+                    <p class="rule-name">@definition.Name</p>
+                    <p>@definition.FirstCheck</p>
+                </article>
+            }
+        </div>
+        <p>Each existing condition holds for five minutes before Firing. Delay warnings start strictly above three hours; catch-up risk starts strictly above 18 hours. Pending and inactive rule states are observations, not notification-delivery proof.</p>
+    </section>
+    <section class="archive-notes">
+        <h2>Interpretation and first checks</h2>
+        <p>Age starts at creation of the last successful first-attempt scheduled run on main. Manual runs and reruns do not refresh this measure.</p>
+        <p>A successful workflow does not independently verify its stored object. Recovery is a separate check. Scheduled exports request 24 hours, but GitHub can delay scheduling; complete source coverage and an achieved SLO are not established here.</p>
+        <p>Observation and rule states are independent snapshots. An available observation can coexist with a firing delay warning.</p>
+        <a href="@ArchiveHealthView.Runbook">Archive troubleshooting guide</a>
+        <p>Inspect history and preserve evidence before a separately reviewed recovery. This page does not dispatch, retry, acknowledge, silence or change thresholds.</p>
+    </section>
+</div>
+
+@code {
+    private ArchiveHealthResponse _snapshot = ArchiveHealthView.Create(null, DateTimeOffset.UnixEpoch);
+
+    protected override async Task OnInitializedAsync()
+    {
+        ArchiveHealthResponse? response = null;
+        try
+        {
+            response = await HealthClient.ReadAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException or System.Text.Json.JsonException)
+        {
+        }
+
+        _snapshot = ArchiveHealthView.Create(response, TimeProvider.GetUtcNow());
+    }
+
+    private static string FormatTime(DateTimeOffset? value) => value?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture) ?? "Unknown";
+    private static string FormatAge(double? value) => value is { } seconds ? seconds.ToString("N0", CultureInfo.InvariantCulture) + " seconds" : "Unknown";
+}

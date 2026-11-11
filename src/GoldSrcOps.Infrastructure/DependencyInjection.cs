@@ -72,6 +72,7 @@ public static class DependencyInjection
             gameEventRetentionOptions.BatchSize));
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<GameHostHealthService>();
+        services.AddScoped<ArchiveHealthService>();
         services.AddSingleton<CredentialExpiryService>();
         services.AddSingleton<ICredentialExpirySource, ConfiguredCredentialExpirySource>();
         services.AddHostedService<CredentialExpiryMetrics>();

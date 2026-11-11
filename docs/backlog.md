@@ -5,6 +5,11 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.118 Archive health in the Operator portal](v2.118-archive-health.md)
+adds a separate read-only page for schedule age, observer freshness and the four
+existing Archive warning states. It reuses private Prometheus and the BFF with
+explicit Unknown/Stale handling; rollout and release gates remain pending.
+
 Completed: [v2.117 Archive reliability](v2.117-archive-reliability.md) is released
 and installed. Scheduled exports request 24 hours; an independent ten-minute
 public-API observer tracks the last accepted schedule success and feeds four

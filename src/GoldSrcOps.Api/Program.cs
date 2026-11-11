@@ -115,6 +115,7 @@ app.MapServerEndpoints();
 app.MapIncidentEndpoints();
 app.MapDashboardEndpoints();
 app.MapGameHostHealthEndpoints();
+app.MapArchiveHealthEndpoints();
 app.MapCredentialExpiryEndpoints();
 app.MapCommandEndpoints();
 app.MapGameEventEndpoints();
