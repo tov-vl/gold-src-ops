@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using GoldSrcOps.Contracts.Monitoring;
 using GoldSrcOps.Web.Security;
 using GoldSrcOps.Web.Services;
 
@@ -17,22 +16,30 @@ internal static class OperatorHealthReportEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> DownloadAsync(IGameHostHealthClient client, TimeProvider timeProvider,
-        HttpContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> DownloadAsync(IGameHostHealthClient client, IArchiveHealthClient archiveClient,
+        TimeProvider timeProvider, HttpContext context, CancellationToken cancellationToken)
     {
-        GameHostHealthResponse? snapshot;
+        var gameHostRead = ReadSnapshotAsync(client.ReadAsync, cancellationToken);
+        var archiveRead = ReadSnapshotAsync(archiveClient.ReadAsync, cancellationToken);
+        await Task.WhenAll(gameHostRead, archiveRead).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        context.Response.Headers.XContentTypeOptions = "nosniff";
+        return Results.File(Encoding.UTF8.GetBytes(GameHostHealthReport.Create(
+                await gameHostRead.ConfigureAwait(false), timeProvider.GetUtcNow(), await archiveRead.ConfigureAwait(false))),
+            "text/plain; charset=utf-8", "goldsrcops-game-host-health.txt");
+    }
+
+    private static async Task<T?> ReadSnapshotAsync<T>(Func<CancellationToken, Task<T>> read, CancellationToken cancellationToken) where T : class
+    {
         try
         {
-            snapshot = await client.ReadAsync(cancellationToken).ConfigureAwait(false);
+            return await read(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (!cancellationToken.IsCancellationRequested &&
             exception is HttpRequestException or TaskCanceledException or InvalidDataException or JsonException)
         {
-            snapshot = null;
+            return null;
         }
-
-        context.Response.Headers.XContentTypeOptions = "nosniff";
-        return Results.File(Encoding.UTF8.GetBytes(GameHostHealthReport.Create(snapshot, timeProvider.GetUtcNow())),
-            "text/plain; charset=utf-8", "goldsrcops-game-host-health.txt");
     }
 }

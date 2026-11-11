@@ -5,6 +5,12 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.120 Archive health in the Operator report](v2.120-operator-archive-report.md)
+adds independent Archive observations and four existing rule states to the
+bounded UTF-8 attachment. Scope is Web-only R1 with the existing API, no new
+permissions and no Archive write or schedule change. Verification, publication
+and target acceptance are pending.
+
 Completed: [v2.119 bounded Archive completeness diagnostics](v2.119-archive-completeness.md)
 is released as an operational component. Protected PR/main CI, signed immutable
 package/download verification and same-byte stable promotion passed. One new

@@ -20,31 +20,40 @@ public sealed class GameHostHealthReportTests
     public async Task Unauthorized_users_cannot_download_or_trigger_health_read(string? role)
     {
         var fixture = new FixtureClient();
+        var archive = new ArchiveFixtureClient();
         await using var factory = new ReaderWebApplicationFactory(role);
         await using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IGameHostHealthClient>();
             services.AddSingleton<IGameHostHealthClient>(fixture);
+            services.RemoveAll<IArchiveHealthClient>();
+            services.AddSingleton<IArchiveHealthClient>(archive);
         }));
         using var client = configured.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         using var response = await client.GetAsync(Path);
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
         response.Headers.CacheControl!.NoStore.Should().BeTrue();
         fixture.Reads.Should().Be(0);
+        archive.Reads.Should().Be(0);
         response.Content.Headers.ContentDisposition.Should().BeNull();
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Operator_download_is_uncached_utf8_attachment_with_bounded_sanitized_output(bool unavailable)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Operator_download_is_uncached_utf8_attachment_with_bounded_sanitized_output(bool unavailable, bool archiveUnavailable)
     {
         var fixture = new FixtureClient { Unavailable = unavailable };
+        var archive = new ArchiveFixtureClient { Unavailable = archiveUnavailable };
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
         await using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IGameHostHealthClient>();
             services.AddSingleton<IGameHostHealthClient>(fixture);
+            services.RemoveAll<IArchiveHealthClient>();
+            services.AddSingleton<IArchiveHealthClient>(archive);
         }));
         using var client = configured.CreateClient();
         using var response = await client.GetAsync(Path + "?filename=private-sentinel&host=private-sentinel");
@@ -60,22 +69,29 @@ public sealed class GameHostHealthReportTests
         text.Should().Contain("GoldSrcOps game-host health report").And.Contain("Snapshot evaluated:")
             .And.NotContain("private-sentinel").And.NotContain("Bearer").And.NotContain("Authorization");
         text.Should().Contain(unavailable ? "Snapshot: Unknown" : "Snapshot: Available");
+        text.Should().Contain(archiveUnavailable ? "Archive observation: Unknown" : "Archive observation: Available");
         fixture.Reads.Should().Be(1);
+        archive.Reads.Should().Be(1);
         using var second = await client.GetAsync(Path + "/");
         second.StatusCode.Should().Be(HttpStatusCode.OK);
         second.Headers.CacheControl!.NoStore.Should().BeTrue();
         fixture.Reads.Should().Be(2);
+        archive.Reads.Should().Be(2);
     }
 
-    [Fact]
-    public async Task Caller_cancellation_reaches_upstream_without_an_unknown_report_or_retry()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Caller_cancellation_reaches_upstream_without_an_unknown_report_or_retry(bool waitArchive)
     {
         var fixture = new WaitingClient();
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
         await using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IGameHostHealthClient>();
-            services.AddSingleton<IGameHostHealthClient>(fixture);
+            services.AddSingleton<IGameHostHealthClient>(waitArchive ? new FixtureClient() : fixture);
+            services.RemoveAll<IArchiveHealthClient>();
+            services.AddSingleton<IArchiveHealthClient>(waitArchive ? fixture : new ArchiveFixtureClient());
         }));
         using var client = configured.CreateClient();
         using var cancellation = new CancellationTokenSource();
@@ -89,13 +105,25 @@ public sealed class GameHostHealthReportTests
         fixture.Reads.Should().Be(1);
     }
 
-    private sealed class WaitingClient : IGameHostHealthClient
+    private sealed class WaitingClient : IGameHostHealthClient, IArchiveHealthClient
     {
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Cancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public int Reads { get; private set; }
 
         public async Task<GameHostHealthResponse> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            await WaitAsync(cancellationToken).ConfigureAwait(false);
+            throw new InvalidOperationException("A cancelled request must not complete.");
+        }
+
+        async Task<ArchiveHealthResponse> IArchiveHealthClient.ReadAsync(CancellationToken cancellationToken)
+        {
+            await WaitAsync(cancellationToken).ConfigureAwait(false);
+            throw new InvalidOperationException("A cancelled request must not complete.");
+        }
+
+        private async Task WaitAsync(CancellationToken cancellationToken)
         {
             Reads++;
             Started.SetResult();
@@ -110,8 +138,6 @@ public sealed class GameHostHealthReportTests
                     Cancelled.TrySetResult();
                 }
             }
-
-            throw new InvalidOperationException("A cancelled request must not complete.");
         }
     }
 
@@ -125,6 +151,21 @@ public sealed class GameHostHealthReportTests
             Reads++;
             return Unavailable ? throw new HttpRequestException("private-sentinel") :
                 Task.FromResult(new GameHostHealthResponse(DateTimeOffset.UtcNow, [], [], new GameHostWarningsResponse("Available", DateTimeOffset.UtcNow, [])));
+        }
+    }
+
+    private sealed class ArchiveFixtureClient : IArchiveHealthClient
+    {
+        public bool Unavailable { get; init; }
+        public int Reads { get; private set; }
+
+        public Task<ArchiveHealthResponse> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            Reads++;
+            var now = DateTimeOffset.UtcNow;
+            return Unavailable ? throw new HttpRequestException("private-sentinel") :
+                Task.FromResult(new ArchiveHealthResponse(now, "Available", now, HasScheduledSuccess: false, LastSuccessAtUtc: null, LastSuccessAgeSeconds: null,
+                    "Unknown", WarningsObservedAtUtc: null, []));
         }
     }
 }

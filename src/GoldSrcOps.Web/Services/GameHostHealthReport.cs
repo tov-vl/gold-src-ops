@@ -25,7 +25,7 @@ internal static class GameHostHealthReport
 
     private static readonly string[] StorageRoles = ["queue", "spool", "players", "backup"];
 
-    public static string Create(GameHostHealthResponse? snapshot, DateTimeOffset generatedAt)
+    public static string Create(GameHostHealthResponse? snapshot, DateTimeOffset generatedAt, ArchiveHealthResponse? archive = null)
     {
         var output = new StringBuilder();
         output.AppendLine("GoldSrcOps game-host health report");
@@ -34,7 +34,7 @@ internal static class GameHostHealthReport
         output.Append("Snapshot age (seconds): ").AppendLine(Age(snapshot?.EvaluatedAtUtc, generatedAt));
         var snapshotState = Freshness(snapshot?.EvaluatedAtUtc, generatedAt, 180);
         output.Append("Snapshot: ").AppendLine(snapshotState);
-        output.AppendLine("Download fetches a new snapshot; it can differ from the displayed page. This report does not refresh.");
+        output.AppendLine("Download fetches independent game-host and Archive snapshots; they can differ from the displayed pages. This report does not refresh.");
         output.AppendLine();
         output.AppendLine("Components (monitor age at generation)");
         // Deserialized JSON can violate the contract's non-null annotations.
@@ -84,10 +84,43 @@ internal static class GameHostHealthReport
         output.AppendLine("CPU is a roughly one-second sample once a minute, not a minute average, game latency or FPS; no CPU utilization warning threshold.");
         output.AppendLine("Backup copy age/source and weekly outcome are separate. A newer manual copy does not close an uncertain weekly slot.");
         output.AppendLine("A local heartbeat does not prove IRM delivery. Missing inode data is not zero free inodes; zero swap use is valid.");
-        output.AppendLine("This report covers the existing 17 warning rules, not all monitoring or an availability guarantee.");
+        output.AppendLine("The game-host section covers the existing 17 warning rules, not all monitoring or an availability guarantee.");
         output.AppendLine("Guidance is read-only; recovery actions require a separately reviewed plan.");
         output.Append("Guide: ").AppendLine(GameHostWarningGuidance.RunbookHome);
+        AppendArchive(output, archive, generatedAt);
         return output.ToString();
+    }
+
+    private static void AppendArchive(StringBuilder output, ArchiveHealthResponse? source, DateTimeOffset generatedAt)
+    {
+        var archive = ArchiveHealthView.Create(source, generatedAt);
+        output.AppendLine();
+        output.AppendLine("Archive health (independent source)");
+        output.Append("Archive snapshot evaluated: ").AppendLine(Time(source?.EvaluatedAtUtc));
+        output.Append("Archive snapshot age (seconds): ").AppendLine(Age(source?.EvaluatedAtUtc, generatedAt));
+        output.Append("Archive observation: ").AppendLine(archive.ObservationState);
+        output.Append("Archive observer last checked: ").AppendLine(Time(archive.ObservedAtUtc));
+        output.Append("Archive observer age (seconds): ").AppendLine(Age(archive.ObservedAtUtc, generatedAt));
+        output.Append("Accepted scheduled success found: ").AppendLine(archive.HasScheduledSuccess switch { true => "Yes", false => "No", _ => "Unknown" });
+        output.Append("Last successful scheduled run: ").AppendLine(Time(archive.LastSuccessAtUtc));
+        output.Append("Last successful scheduled run age (seconds): ").AppendLine(
+            archive.LastSuccessAgeSeconds?.ToString("0.###", CultureInfo.InvariantCulture) ?? "Unknown");
+        output.Append("Archive warning snapshot: ").Append(archive.WarningsState).Append("; observed: ").Append(Time(archive.WarningsObservedAtUtc))
+            .Append("; age (seconds): ").AppendLine(Age(archive.WarningsObservedAtUtc, generatedAt));
+        foreach (var definition in ArchiveHealthView.Definitions)
+        {
+            var state = archive.Warnings.SingleOrDefault(item => string.Equals(item.Name, definition.Name, StringComparison.Ordinal))?.State ?? "Unknown";
+            output.Append(definition.Name).Append(": ").AppendLine(state);
+            output.Append("First check: ").AppendLine(definition.FirstCheck);
+        }
+
+        output.AppendLine("Unknown and Stale do not establish Archive freshness or absence of warnings.");
+        output.AppendLine("The observer timestamp must be no older than 30 minutes; rule evaluations must be no older than 60 seconds.");
+        output.AppendLine("Age starts at creation of the last accepted first-attempt scheduled success on main. Manual runs and reruns do not refresh it.");
+        output.AppendLine("An Available observation can coexist with a Firing delay warning. A successful workflow does not verify its stored object.");
+        output.AppendLine("Recovery, source completeness, notification delivery and an achieved SLO are separate evidence.");
+        output.AppendLine("Preserve history before a separately reviewed recovery; do not automatically dispatch or retry.");
+        output.Append("Guide: ").AppendLine(ArchiveHealthView.Runbook);
     }
 
     private static void AppendWarnings(StringBuilder output, GameHostWarningsResponse? warnings,
