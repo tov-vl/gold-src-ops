@@ -138,6 +138,13 @@ class CompletenessTests(unittest.TestCase):
         self.assertEqual('unknown', report.coverage(None, 0, 86400, PIN)['status'])
         value = report.coverage(receipts(), report.moment(text(0)), report.moment(text(1440)), PIN)
         self.assertEqual(1440, value['scheduled_uncovered'][0]['minutes'])
+        self.assertEqual('open_window', value['scheduled_uncovered'][0]['boundary'])
+
+    def test_leading_uncovered_interval_is_not_a_closed_gap(self):
+        value = report.coverage(receipts(receipt(left=60, right=1440)),
+                                report.moment(text(0)), report.moment(text(1440)), PIN)
+        self.assertEqual('open_head', value['scheduled_uncovered'][0]['boundary'])
+        self.assertEqual(60, value['scheduled_uncovered'][0]['minutes'])
 
     def test_receipt_guards(self):
         for extra in [dict(run_attempt=2), dict(event='push'), dict(archive_job_succeeded=False),

@@ -97,11 +97,12 @@ def uncovered(intervals, start, end):
         if left > cursor:
             result.append({'start_utc': iso(cursor), 'end_exclusive_utc': iso(left),
                            'minutes': int((left - cursor) / 60),
-                           'boundary': 'closed_gap'})
+                           'boundary': 'open_head' if cursor == start else 'closed_gap'})
         cursor = max(cursor, right)
     if cursor < end:
         result.append({'start_utc': iso(cursor), 'end_exclusive_utc': iso(end),
-                       'minutes': int((end - cursor) / 60), 'boundary': 'open_tail'})
+                       'minutes': int((end - cursor) / 60),
+                       'boundary': 'open_window' if cursor == start else 'open_tail'})
     return result
 
 
