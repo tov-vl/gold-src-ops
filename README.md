@@ -19,6 +19,12 @@ rebuilding. Archive writes, scheduling policies, credentials and game/agent are
 separate operations. See [release notes](docs/release-notes-v2.118.md) and
 [evidence and claim limits](docs/v2.118-archive-health.md).
 
+The separate [availability diagnostics v2.119.0](https://github.com/tov-vl/gold-src-ops/releases/tag/availability-diagnostics-v2.119.0) component
+adds bounded missing-minute/source-neighbor and reviewed Archive-window
+coverage reports to the read-only shadow audit. Independent acceptance
+reproduced eight existing source gaps while preserving the failed draft
+SLI target and all production runtimes. See [evidence and limits](docs/v2.119-archive-completeness.md).
+
 The separately published [game-event agent v2.95.0](https://github.com/tov-vl/gold-src-ops/releases/tag/game-event-agent-v2.95.0)
 adds passive queue and worker diagnostics. Its agent-only production upgrade
 preserved the game process, queue identity, credentials and control-plane
