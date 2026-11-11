@@ -10,9 +10,9 @@ adds independent Archive observations and four existing rule states to the
 bounded UTF-8 attachment. Scope is Web-only R1 with the existing API, no new
 permissions and no Archive write or schedule change. Verification, publication
 and target acceptance are pending.
-An isolated R3 CI recovery removes the failing Azure entry from the browser
-runner's known APT mirrorlist while retaining its official HTTPS fallbacks,
-archive signing key and complete test suite.
+An isolated R3 CI recovery runs the complete browser group offline in the
+matching digest-pinned official Playwright image, avoiding runtime APT/DNS
+dependency installation while retaining audited host restore/build and all tests.
 
 Completed: [v2.119 bounded Archive completeness diagnostics](v2.119-archive-completeness.md)
 is released as an operational component. Protected PR/main CI, signed immutable

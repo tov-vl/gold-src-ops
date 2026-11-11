@@ -572,6 +572,10 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Configure isolated browser package cache
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        run: printf '%s\n' "NUGET_PACKAGES=$RUNNER_TEMP/browser-nuget-packages" >> "$GITHUB_ENV"
+
       - name: Restore browser tests with NuGet audit
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
         run: >-
@@ -584,28 +588,24 @@ jobs:
           dotnet build tests/GoldSrcOps.WebTests/GoldSrcOps.WebTests.csproj
           --no-restore
 
-      - name: Prepare official Ubuntu mirrors for browser dependencies
+      - name: Verify pinned browser container contract
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
-        timeout-minutes: 2
-        run: |
-          python3 -B tools/smoke/browser-apt.py
-          sudo -n --preserve-env=GITHUB_ACTIONS,RUNNER_OS,RUNNER_ARCH,RUNNER_ENVIRONMENT python3 -I -B tools/ci/prepare-browser-apt.py
-          curl --fail --silent --show-error --connect-timeout 5 --max-time 20 --output /dev/null https://archive.ubuntu.com/ubuntu/dists/noble/InRelease
-          curl --fail --silent --show-error --connect-timeout 5 --max-time 20 --output /dev/null https://security.ubuntu.com/ubuntu/dists/noble-security/InRelease
-
-      - name: Install Playwright Chromium
-        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
-        timeout-minutes: 6
-        run: >-
-          pwsh tests/GoldSrcOps.WebTests/bin/Debug/net10.0/playwright.ps1
-          install --with-deps --only-shell chromium
+        run: python3 -B tools/smoke/browser-container.py
 
       - name: Verify browser token boundary
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
-        run: >-
-          dotnet test tests/GoldSrcOps.WebTests/GoldSrcOps.WebTests.csproj
-          --no-build
-          --filter FullyQualifiedName~BrowserTokenBoundaryTests
+        run: |
+          docker run --rm --init --shm-size=1g --network none \
+            --env GOLDSRCOPS_RUN_BROWSER_TESTS \
+            --env NUGET_PACKAGES --env DOTNET_ROOT=/ci-dotnet \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=$GITHUB_WORKSPACE" \
+            --mount "type=bind,source=$NUGET_PACKAGES,target=$NUGET_PACKAGES,readonly" \
+            --mount "type=bind,source=$DOTNET_ROOT,target=/ci-dotnet,readonly" \
+            --workdir "$GITHUB_WORKSPACE" \
+            --entrypoint /ci-dotnet/dotnet \
+            mcr.microsoft.com/playwright/dotnet:v1.62.0-noble@sha256:25e558a847d4ae1ff7d14fa263de7fa2fffd357c1e50471278e522cec5ac1bb5 \
+            vstest tests/GoldSrcOps.WebTests/bin/Debug/net10.0/GoldSrcOps.WebTests.dll \
+            '--TestCaseFilter:FullyQualifiedName~BrowserTokenBoundaryTests'
 
   publish-image:
     name: Publish Image
