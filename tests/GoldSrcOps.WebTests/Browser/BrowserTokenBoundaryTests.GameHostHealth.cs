@@ -12,7 +12,8 @@ public sealed partial class BrowserTokenBoundaryTests
     public async Task Operator_health_is_server_rendered_token_free_and_readable_without_scripts()
     {
         using var handler = new HealthFixtureHandler();
-        await using var factory = new BrowserTokenBoundaryWebApplicationFactory(gameHostHealthHandler: handler);
+        using var archiveHandler = new ArchiveFixtureHandler();
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory(gameHostHealthHandler: handler, archiveHealthHandler: archiveHandler);
         factory.StartServer();
         await using var context = await Browser.NewContextAsync(new BrowserNewContextOptions
         {
@@ -40,7 +41,11 @@ public sealed partial class BrowserTokenBoundaryTests
         (await download.FailureAsync()).Should().BeNull();
         var report = await File.ReadAllTextAsync(await download.PathAsync());
         report.Should().Contain("GoldSrcOps game-host health report").And.Contain("Snapshot: Available")
-            .And.Contain("PlayerBackupInterventionRequired: Firing").And.Contain("Last weekly attempt: Closed: outcome uncertain");
+            .And.Contain("PlayerBackupInterventionRequired: Firing").And.Contain("Last weekly attempt: Closed: outcome uncertain")
+            .And.Contain("Archive observation: Available").And.Contain("Archive warning snapshot: Available")
+            .And.Contain("ArchiveScheduleDelayed: Firing").And.Contain("Archive snapshot evaluated:");
+        archiveHandler.Reads.Should().Be(1);
+        archiveHandler.Bearer.Should().Be(BrowserTokenBoundaryWebApplicationFactory.AccessTokenSentinel);
         AssertTokenFree(report);
         page.Url.Should().EndWith("/operator/game-host-health");
         if (Environment.GetEnvironmentVariable(ScreenshotDirectoryVariable) is { Length: > 0 } directory)
