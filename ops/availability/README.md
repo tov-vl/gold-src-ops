@@ -6,7 +6,7 @@ production control-plane and game-server failure domains.
 
 The scheduler is not the `API-01` probe. Grafana Cloud Synthetic Monitoring
 continues to produce the one-minute primary population. The workflow exports a
-six-hour rolling window once per hour at minute 53, then writes one
+24-hour rolling window once per hour at minute 53, then writes one
 content-addressed primary segment to the independent B2 archive. The overlap
 allows later runs to recover from ordinary GitHub scheduling delays without
 changing the canonical slot rules.
@@ -16,6 +16,11 @@ inactive public repositories have scheduled workflows disabled after 60 days.
 Missing scheduler runs therefore require operational review; they do not create
 or erase primary probe samples. A later overlapping export may fill an archive
 gap while the provider still retains the source metrics.
+
+The scheduled 24-hour window and independent ten-minute observer are described
+in [v2.117 Archive reliability](../../docs/v2.117-archive-reliability.md).
+Manual exports retain their six-hour default. The independent observer reports
+workflow execution freshness, not complete B2 coverage or guaranteed cron delivery.
 
 ## GitHub Environment
 

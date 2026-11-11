@@ -117,7 +117,7 @@ jobs:
         shell: bash
         env:
           REQUESTED_WINDOW_END_UTC: ${{ inputs.window_end_utc }}
-          REQUESTED_LOOKBACK_MINUTES: ${{ inputs.lookback_minutes }}
+          REQUESTED_LOOKBACK_MINUTES: ${{ github.event_name == 'schedule' && '1440' || inputs.lookback_minutes }}
           GOLDSRCOPS_AVAILABILITY_PRIMARY_JOB: goldsrcops-api-ready-primary-shadow
           GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE: ${{ secrets.GOLDSRCOPS_AVAILABILITY_PRIMARY_PROBE }}
           GOLDSRCOPS_AVAILABILITY_PRIMARY_LOCATION: Frankfurt
