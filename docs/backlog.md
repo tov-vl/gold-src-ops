@@ -5,11 +5,14 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.124 Operator operations health overview](v2.124-operator-health-overview.md)
-combines four existing read-only sources with independent freshness, warning
-states and fixed detail links. Static SSR, partial-failure isolation, caller
-cancellation, Operator authorization and Web-only R1 delivery define the slice.
-API, monitoring policy, credentials, game/agent and Archive cadence stay fixed.
+Completed: [v2.124 Operator operations health overview](v2.124-operator-health-overview.md)
+is released and installed. Four existing sources retain independent freshness,
+observation/rule times, fixed detail links and explicit Unknown/Stale. Concurrent
+reads, caller cancellation, role denial and JS-disabled desktop/mobile behavior
+passed. Required CI, immutable publication, Web-only runtime and actual Operator
+Refresh/detail acceptance passed. Fourteen other containers and monitoring
+configuration were preserved; stable reused all candidate digests without rebuild.
+API, permissions, providers, game/agent and Archive cadence stayed unchanged.
 
 Completed: [v2.123 polling in the Operator report](v2.123-operator-polling-report.md)
 is released and installed. The bounded UTF-8 attachment preserves three

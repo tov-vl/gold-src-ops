@@ -12,5 +12,10 @@ meaning, and the existing three-source report remains a separate download.
 
 R1 Web-only delivery with existing API contracts and exact prior Web rollback.
 API/receiver, monitoring policy, permissions, providers, game/agent and Archive
-cadence remain unchanged. Required CI, immutable publication and independent
-runtime/browser acceptance gate stable promotion.
+cadence remain unchanged. Released and installed:
+[v2.124.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.124.0).
+
+Required CI, independent artifact/runtime and actual authenticated overview
+acceptance passed. Only Web was recreated; all fourteen other captured
+containers and protected monitoring configuration were preserved. Stable
+promotion reused the candidate digests with all build steps skipped.
