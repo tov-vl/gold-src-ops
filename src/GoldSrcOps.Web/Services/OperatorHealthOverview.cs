@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using GoldSrcOps.Contracts.Monitoring;
+using GoldSrcOps.Contracts.ProviderDelivery;
 
 namespace GoldSrcOps.Web.Services;
 
@@ -15,17 +16,27 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
     ];
 
     public static async Task<OperatorHealthOverview> ReadAsync(IGameHostHealthClient gameHost, IArchiveHealthClient archive,
-        IPollingHealthClient polling, ICredentialExpiryClient credentials, TimeProvider clock, CancellationToken cancellationToken)
+        IPollingHealthClient polling, ICredentialExpiryClient credentials, IIncidentDeliveryHealthClient delivery, TimeProvider clock, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var receiverConfigured = delivery.IsReceiverConfigured;
         var gameRead = ReadSourceAsync(gameHost.ReadAsync, cancellationToken);
         var archiveRead = ReadSourceAsync(archive.ReadAsync, cancellationToken);
         var pollingRead = ReadSourceAsync(polling.ReadAsync, cancellationToken);
         var credentialRead = ReadSourceAsync(credentials.ReadAsync, cancellationToken);
-        await Task.WhenAll(gameRead, archiveRead, pollingRead, credentialRead).ConfigureAwait(false);
+        var outboxRead = ReadSourceAsync(delivery.ReadOutboxAsync, cancellationToken);
+        var receiverRead = receiverConfigured ? ReadSourceAsync(delivery.ReadReceiverAsync, cancellationToken) : Task.FromResult<ProviderDeliveryStatusResponse?>(null);
+        await Task.WhenAll(gameRead, archiveRead, pollingRead, credentialRead, outboxRead, receiverRead).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        return Create(await gameRead.ConfigureAwait(false), await archiveRead.ConfigureAwait(false),
-            await pollingRead.ConfigureAwait(false), await credentialRead.ConfigureAwait(false), clock.GetUtcNow());
+        var now = clock.GetUtcNow();
+        var overview = Create(await gameRead.ConfigureAwait(false), await archiveRead.ConfigureAwait(false),
+            await pollingRead.ConfigureAwait(false), await credentialRead.ConfigureAwait(false), now);
+        return overview with
+        {
+            Sources = [.. overview.Sources,
+            IncidentDeliveryHealthView.Outbox(await outboxRead.ConfigureAwait(false), now),
+            IncidentDeliveryHealthView.Receiver(await receiverRead.ConfigureAwait(false), receiverConfigured, now)]
+        };
     }
 
     public static OperatorHealthOverview Create(GameHostHealthResponse? gameHost, ArchiveHealthResponse? archive,
@@ -39,7 +50,7 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
             return await read(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (!cancellationToken.IsCancellationRequested &&
-            exception is HttpRequestException or TaskCanceledException or InvalidDataException or JsonException)
+            exception is HttpRequestException or OperationCanceledException or InvalidDataException or JsonException)
         {
             return null;
         }

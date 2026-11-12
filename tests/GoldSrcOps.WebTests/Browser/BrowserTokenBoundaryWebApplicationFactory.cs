@@ -31,6 +31,7 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
     private readonly HttpMessageHandler? _credentialExpiryHandler;
     private readonly HttpMessageHandler? _archiveHealthHandler;
     private readonly HttpMessageHandler? _pollingHealthHandler;
+    private readonly IIncidentDeliveryHealthClient? _incidentDeliveryHealthClient;
     public PlayerSearchFixtureHandler SearchHandler { get; } = new();
     private readonly bool serverEnabled;
     private readonly PublicServerJoinResponse? serverJoinResponse;
@@ -48,12 +49,14 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
         HttpMessageHandler? gameHostHealthHandler = null,
         HttpMessageHandler? credentialExpiryHandler = null,
         HttpMessageHandler? archiveHealthHandler = null,
-        HttpMessageHandler? pollingHealthHandler = null)
+        HttpMessageHandler? pollingHealthHandler = null,
+        IIncidentDeliveryHealthClient? incidentDeliveryHealthClient = null)
     {
         _gameHostHealthHandler = gameHostHealthHandler;
         _credentialExpiryHandler = credentialExpiryHandler;
         _archiveHealthHandler = archiveHealthHandler;
         _pollingHealthHandler = pollingHealthHandler;
+        _incidentDeliveryHealthClient = incidentDeliveryHealthClient;
         this.searchEnabled = searchEnabled;
         this.serverEnabled = serverEnabled;
         this.serverJoinResponse = serverJoinResponse;
@@ -107,6 +110,11 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
             services.RemoveAll<IProviderOperationsClient>();
             services.AddSingleton<IProviderOperationsClient>(
                 new ReaderWebApplicationFactory.FixtureProviderOperationsClient());
+            if (_incidentDeliveryHealthClient is not null)
+            {
+                services.RemoveAll<IIncidentDeliveryHealthClient>();
+                services.AddSingleton(_incidentDeliveryHealthClient);
+            }
             var publicStatusHandler =
                 new PublicDashboardWebApplicationFactory.FixturePublicStatusHandler(
                     statusUnavailable: false,

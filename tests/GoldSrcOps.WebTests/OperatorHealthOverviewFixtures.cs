@@ -1,4 +1,6 @@
+using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Monitoring;
+using GoldSrcOps.Contracts.ProviderDelivery;
 using GoldSrcOps.Web.Services;
 
 namespace GoldSrcOps.WebTests;
@@ -6,6 +8,9 @@ namespace GoldSrcOps.WebTests;
 internal static class OperatorHealthOverviewFixtures
 {
     public static readonly DateTimeOffset Now = new(2026, 11, 12, 12, 0, 0, TimeSpan.Zero);
+
+    public static AlertDeliveryStatusResponse Outbox(DateTimeOffset now) => new(IsEnabled: false, 2, 1, 3, now.AddMinutes(-3), now.AddSeconds(-4));
+    public static ProviderDeliveryStatusResponse Receiver(DateTimeOffset now) => new(IsEnabled: false, "CatchUp", 1, 0, 2, 1, now.AddMinutes(-2), now.AddSeconds(-5));
 
     public static GameHostHealthResponse GameHost(DateTimeOffset now) => new(now,
     [

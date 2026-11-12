@@ -5,6 +5,7 @@
 @inject IArchiveHealthClient ArchiveClient
 @inject IPollingHealthClient PollingClient
 @inject ICredentialExpiryClient CredentialClient
+@inject IIncidentDeliveryHealthClient IncidentDeliveryClient
 @inject TimeProvider TimeProvider
 
 <PageTitle>Operations health | GoldSrcOps</PageTitle>
@@ -13,7 +14,7 @@
     <header>
         <p class="eyebrow">Operator portal</p>
         <h1>Operations health</h1>
-        <p>Four independent read-only sources, with links to their detailed observations.</p>
+        <p>Six independent read-only sources, with links to their detailed observations.</p>
         <nav aria-label="Health overview actions">
             <a href="@OperatorHealthOverview.Path" data-enhance-nav="false">Refresh</a>
             <a href="@OperatorHealthReportEndpoints.Path" data-enhance-nav="false">Download health report</a>
@@ -27,7 +28,7 @@
             <section class="operations-card" aria-label="@source.Title" data-source="@source.Key">
                 <h2><a href="@source.DetailsPath">@source.Title</a></h2>
                 <p>API snapshot: <strong data-source-state="@source.SnapshotState">@source.SnapshotState</strong></p>
-                <p>Evaluated: @FormatTime(source.EvaluatedAtUtc)</p>
+                <p>Source snapshot time: @FormatTime(source.EvaluatedAtUtc)</p>
                 <dl>
                     @foreach (var fact in source.Facts)
                     {
@@ -60,8 +61,8 @@
             </section>
         }
     </div>
-    <p>Open a source for first checks and interpretation. Refresh reads each source once; a failed source leaves the others available. This overview does not restart, retry, rotate credentials, acknowledge or silence warnings.</p>
-    <p>The download contains game-host, Archive and polling snapshots; credential expiry remains on its detailed page. It is a separate read and can differ from this overview.</p>
+    <p>Open a source for first checks and interpretation. Refresh reads each configured source once; a failed source leaves the others available. This overview does not restart, retry, rotate credentials, acknowledge or silence warnings.</p>
+    <p>The download contains game-host, Archive and polling snapshots. Credential expiry and incident delivery remain on their detailed pages. It is a separate read and can differ from this overview.</p>
 </div>
 
 @code {
@@ -71,7 +72,7 @@
 
     protected override async Task OnInitializedAsync() =>
         _overview = await OperatorHealthOverview.ReadAsync(GameHostClient, ArchiveClient, PollingClient, CredentialClient,
-            TimeProvider, HttpContext?.RequestAborted ?? CancellationToken.None);
+            IncidentDeliveryClient, TimeProvider, HttpContext?.RequestAborted ?? CancellationToken.None);
 
     private static string FormatTime(DateTimeOffset? value) => value?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture) ?? "Unknown";
 }

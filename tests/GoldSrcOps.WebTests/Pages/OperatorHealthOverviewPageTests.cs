@@ -24,7 +24,7 @@ public sealed class OperatorHealthOverviewPageTests
         using var response = await client.GetAsync(OperatorHealthOverview.Path);
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
         response.Headers.CacheControl!.NoStore.Should().BeTrue();
-        fixture.Reads.Should().Equal(0, 0, 0, 0);
+        fixture.Reads.Should().Equal(0, 0, 0, 0, 0, 0);
         using var home = await client.GetAsync("/");
         (await home.Content.ReadAsStringAsync()).Should().NotContain("href=\"/operator/health\"");
     }
@@ -33,6 +33,8 @@ public sealed class OperatorHealthOverviewPageTests
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(15)]
+    [InlineData(32)]
+    [InlineData(63)]
     public async Task Static_refresh_preserves_other_sources_links_and_no_store(int unavailableMask)
     {
         var fixture = new OperatorHealthOverviewTests.FixtureClient(unavailableMask);
@@ -47,21 +49,21 @@ public sealed class OperatorHealthOverviewPageTests
             var html = await response.Content.ReadAsStringAsync();
             html.Should().Contain("Operations health").And.Contain("href=\"/operator/health\"")
                 .And.Contain("Unknown and Stale never mean healthy").And.NotContain("private-sentinel").And.NotContain("Bearer ");
-            html.Split("class=\"operations-card\"").Should().HaveCount(5);
-            foreach (var path in new[] { "/operator/game-host-health", "/operator/archive-health", "/operator/polling-health", "/operator/credential-expiry" })
+            html.Split("class=\"operations-card\"").Should().HaveCount(7);
+            foreach (var path in new[] { "/operator/game-host-health", "/operator/archive-health", "/operator/polling-health", "/operator/credential-expiry", "/operator/alert-delivery", "/operator/provider-delivery" })
             {
                 html.Should().Contain("href=\"" + path + "\"");
             }
 
-            html.Should().Contain("data-source-state=\"" + (unavailableMask == 15 ? "Unknown" : "Available") + "\"");
+            html.Should().Contain("data-source-state=\"" + (unavailableMask == 63 ? "Unknown" : "Available") + "\"");
             html.Length.Should().BeLessThan(65536);
         }
 
-        fixture.Reads.Should().Equal(2, 2, 2, 2);
+        fixture.Reads.Should().Equal(2, 2, 2, 2, 2, 2);
     }
 
     [Fact]
-    public async Task Aborted_ssr_request_cancels_all_four_source_reads()
+    public async Task Aborted_ssr_request_cancels_all_six_source_reads()
     {
         var fixture = new OperatorHealthOverviewTests.FixtureClient(wait: true);
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
@@ -82,7 +84,7 @@ public sealed class OperatorHealthOverviewPageTests
         await read.Should().ThrowAsync<OperationCanceledException>();
         // The request token is already cancelled; observe propagation with an independent deadline.
         await fixture.AllCancelled.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        fixture.Reads.Should().Equal(1, 1, 1, 1);
+        fixture.Reads.Should().Equal(1, 1, 1, 1, 1, 1);
     }
 
     private static WebApplicationFactory<Program> Configure(ReaderWebApplicationFactory factory, OperatorHealthOverviewTests.FixtureClient fixture) =>
@@ -96,6 +98,8 @@ public sealed class OperatorHealthOverviewPageTests
             services.AddSingleton<IPollingHealthClient>(fixture);
             services.RemoveAll<ICredentialExpiryClient>();
             services.AddSingleton<ICredentialExpiryClient>(fixture);
+            services.RemoveAll<IIncidentDeliveryHealthClient>();
+            services.AddSingleton<IIncidentDeliveryHealthClient>(fixture);
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(new OperatorHealthOverviewFixtures.Clock());
         }));
