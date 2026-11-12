@@ -31,6 +31,7 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
     private readonly HttpMessageHandler? _credentialExpiryHandler;
     private readonly HttpMessageHandler? _archiveHealthHandler;
     private readonly HttpMessageHandler? _pollingHealthHandler;
+    private readonly HttpMessageHandler? _retentionHealthHandler;
     private readonly IIncidentDeliveryHealthClient? _incidentDeliveryHealthClient;
     public PlayerSearchFixtureHandler SearchHandler { get; } = new();
     private readonly bool serverEnabled;
@@ -50,12 +51,14 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
         HttpMessageHandler? credentialExpiryHandler = null,
         HttpMessageHandler? archiveHealthHandler = null,
         HttpMessageHandler? pollingHealthHandler = null,
-        IIncidentDeliveryHealthClient? incidentDeliveryHealthClient = null)
+        IIncidentDeliveryHealthClient? incidentDeliveryHealthClient = null,
+        HttpMessageHandler? retentionHealthHandler = null)
     {
         _gameHostHealthHandler = gameHostHealthHandler;
         _credentialExpiryHandler = credentialExpiryHandler;
         _archiveHealthHandler = archiveHealthHandler;
         _pollingHealthHandler = pollingHealthHandler;
+        _retentionHealthHandler = retentionHealthHandler;
         _incidentDeliveryHealthClient = incidentDeliveryHealthClient;
         this.searchEnabled = searchEnabled;
         this.serverEnabled = serverEnabled;
@@ -101,6 +104,11 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
             {
                 services.AddHttpClient<IPollingHealthClient, PollingHealthClient>()
                     .ConfigurePrimaryHttpMessageHandler(() => _pollingHealthHandler);
+            }
+            if (_retentionHealthHandler is not null)
+            {
+                services.AddHttpClient<IRetentionHealthClient, RetentionHealthClient>()
+                    .ConfigurePrimaryHttpMessageHandler(() => _retentionHealthHandler);
             }
             services.RemoveAll<WebAuthenticationState>();
             services.AddSingleton(new WebAuthenticationState(Enabled: true));

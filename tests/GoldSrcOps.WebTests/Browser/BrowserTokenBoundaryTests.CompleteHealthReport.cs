@@ -12,7 +12,7 @@ public sealed partial class BrowserTokenBoundaryTests
     {
         using var handler = new OverviewFixtureHandler();
         await using var factory = new BrowserTokenBoundaryWebApplicationFactory(gameHostHealthHandler: handler,
-            credentialExpiryHandler: handler, archiveHealthHandler: handler, pollingHealthHandler: handler, incidentDeliveryHealthClient: handler);
+            credentialExpiryHandler: handler, archiveHealthHandler: handler, pollingHealthHandler: handler, incidentDeliveryHealthClient: handler, retentionHealthHandler: handler);
         factory.StartServer();
         await using var context = await Browser.NewContextAsync(new BrowserNewContextOptions
         {
@@ -26,8 +26,9 @@ public sealed partial class BrowserTokenBoundaryTests
         report.Should().Contain("Credential snapshot: Available").And.Contain("Precision: minute (conservative start)")
             .And.Contain("Incident outbox snapshot: Available").And.Contain("Incident receiver snapshot: Available")
             .And.Contain("Receiver mode: Catch-up / sandbox").And.Contain("Dispatcher: Disabled");
-        handler.Reads.Should().Equal(2, 2, 2, 2, 2, 2);
-        handler.Bearers.Should().OnlyContain(static item => item == BrowserTokenBoundaryWebApplicationFactory.AccessTokenSentinel);
+        handler.Reads.Should().Equal(2, 2, 2, 2, 2, 2, 1);
+        handler.Bearers.Where(static item => item is not null).Should().HaveCount(5)
+            .And.OnlyContain(static item => item == BrowserTokenBoundaryWebApplicationFactory.AccessTokenSentinel);
         handler.ArchiveUnavailable = true;
         handler.ReceiverUnavailable = true;
         await page.SetViewportSizeAsync(390, 900);
@@ -38,7 +39,7 @@ public sealed partial class BrowserTokenBoundaryTests
         handler.IsReceiverConfigured = false;
         report = await DownloadCompleteReportAsync(page);
         report.Should().Contain("Incident receiver snapshot: Disabled").And.Contain("Pending: Not queried");
-        handler.Reads.Should().Equal(4, 4, 4, 4, 4, 3);
+        handler.Reads.Should().Equal(4, 4, 4, 4, 4, 3, 1);
         AssertTokenFree(await page.ContentAsync());
     }
 

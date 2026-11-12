@@ -1,0 +1,98 @@
+@page "/operator/retention-health"
+@attribute [Authorize(Policy = WebSecurity.OperatorPolicy)]
+@inject IRetentionHealthClient HealthClient
+@inject TimeProvider TimeProvider
+
+<PageTitle>Retention health | GoldSrcOps</PageTitle>
+
+<div class="retention-page">
+    <header>
+        <p class="eyebrow">Operator portal</p>
+        <h1>Retention health</h1>
+        <p>Snapshot cleanup progress and existing warning states.</p>
+        <nav aria-label="Retention navigation">
+            <a href="@RetentionHealthView.Path" data-enhance-nav="false">Refresh</a>
+            <a href="/operator/health">Operations health</a>
+            <a href="/operator/game-host-health">Game-host health</a>
+        </nav>
+    </header>
+    <p>Evaluated: @FormatTime(_snapshot.EvaluatedAtUtc). This page does not refresh automatically.</p>
+    <section class="retention-observation" aria-label="Cycle observation">
+        <h2>Cycle observation</h2>
+        <strong data-observation-state="@_snapshot.ObservationState">@_snapshot.ObservationState</strong>
+        <dl>
+            <dt>Worker last observed</dt><dd>@FormatTime(_snapshot.ObservedAtUtc)</dd>
+            <dt>Last cycle started</dt><dd>@FormatTime(_snapshot.LastCycleStartedAtUtc)</dd>
+            <dt>Last cycle completed</dt><dd>@FormatTime(_snapshot.LastCycleFinishedAtUtc)</dd>
+            <dt>Age of last completion</dt><dd>@FormatSeconds(_snapshot.CompletionAgeSeconds)</dd>
+            <dt>Last successful cycle</dt><dd>@FormatTime(_snapshot.LastSuccessfulCycleAtUtc)</dd>
+            <dt>Last failed cycle</dt><dd>@FormatTime(_snapshot.LastFailureAtUtc)</dd>
+            <dt>Last cycle duration</dt><dd>@FormatSeconds(_snapshot.LastCycleDurationSeconds)</dd>
+            <dt>Consecutive failures</dt><dd>@(_snapshot.ConsecutiveFailures?.ToString(CultureInfo.InvariantCulture) ?? "Unknown")</dd>
+            <dt>Cycle in progress</dt><dd>@(_snapshot.InProgress is { } progress ? progress ? "Yes" : "No" : "Unknown")</dd>
+            <dt>Observation budget</dt><dd>@FormatSeconds(_snapshot.CycleBudgetSeconds)</dd>
+        </dl>
+        @if (_snapshot.ObservationState is "Unknown")
+        {
+            <p>No current, valid, unique active observation is established, or the worker has not completed a cycle. Unknown is not healthy.</p>
+        }
+        @if (_snapshot.ObservationState is "Disabled")
+        {
+            <p>Only disabled sources are observed. Production expects one enabled cleanup worker; inspect its independent warning snapshot.</p>
+        }
+        @if (_snapshot.ObservationState is "Stale")
+        {
+            <p>Observation freshness or cycle progress exceeded its budget. Retained values do not establish current progress.</p>
+        }
+        <p>Worker observations must be nonfuture and no older than 120 seconds. Completion age is calculated independently of the reported worker state.</p>
+    </section>
+    <section class="retention-warnings" aria-label="Retention warnings">
+        <h2>Retention warnings</h2>
+        <p>Rule snapshot: <strong data-warning-state="@_snapshot.WarningsState">@_snapshot.WarningsState</strong>. Rules last checked: @FormatTime(_snapshot.WarningsObservedAtUtc)</p>
+        @if (_snapshot.WarningsState is not "Available")
+        {
+            <p>The rule snapshot is unavailable, incomplete or stale. This does not mean there are no warnings. Rule evaluations must be no older than 60 seconds.</p>
+        }
+        <div class="retention-warning-grid">
+            @foreach (var definition in RetentionHealthView.Definitions)
+            {
+                var state = _snapshot.Warnings.SingleOrDefault(item => string.Equals(item.Name, definition.Name, StringComparison.Ordinal))?.State ?? "Unknown";
+                <article class="retention-warning" aria-label="@definition.Title">
+                    <h3>@definition.Title</h3>
+                    <strong data-rule-state="@state">@state</strong>
+                    <p class="rule-name">@definition.Name</p>
+                    <p>@definition.FirstCheck</p>
+                </article>
+            }
+        </div>
+        <p>Unavailable observations hold for five minutes; failed or stalled cycles hold for two minutes. Pending and inactive states do not establish notification delivery.</p>
+    </section>
+    <section class="retention-notes">
+        <h2>Interpretation and first checks</h2>
+        <p>Completed empty and full-batch passes are worker progress. Successful cycles do not establish backlog size, database size or completion of all eligible cleanup.</p>
+        <p>The observation budget is operational headroom, not a new query timeout or latency SLO. Preserve timestamps and bounded logs before a separately reviewed recovery.</p>
+        <a href="@RetentionHealthView.Runbook">Retention troubleshooting guide</a>
+        <p>This page does not restart, replay, acknowledge, silence or change thresholds.</p>
+    </section>
+</div>
+
+@code {
+    private RetentionHealthResponse _snapshot = RetentionHealthView.Create(null, DateTimeOffset.UnixEpoch);
+
+    protected override async Task OnInitializedAsync()
+    {
+        RetentionHealthResponse? response = null;
+        try
+        {
+            response = await HealthClient.ReadAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException or System.Text.Json.JsonException)
+        {
+        }
+
+        _snapshot = RetentionHealthView.Create(response, TimeProvider.GetUtcNow());
+    }
+
+    private static string FormatTime(DateTimeOffset? value) => value?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture) ?? "Unknown";
+    private static string FormatSeconds(double? value) => value is { } seconds ? seconds.ToString("N3", CultureInfo.InvariantCulture) + " seconds" : "Unknown";
+}

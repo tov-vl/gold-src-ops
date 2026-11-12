@@ -74,6 +74,7 @@ public static class DependencyInjection
         services.AddScoped<GameHostHealthService>();
         services.AddScoped<ArchiveHealthService>();
         services.AddScoped<PollingHealthService>();
+        services.AddScoped<RetentionHealthService>();
         services.AddSingleton<CredentialExpiryService>();
         services.AddSingleton<ICredentialExpirySource, ConfiguredCredentialExpirySource>();
         services.AddHostedService<CredentialExpiryMetrics>();

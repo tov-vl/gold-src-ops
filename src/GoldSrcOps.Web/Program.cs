@@ -58,6 +58,13 @@ builder.Services.AddHttpClient<IPollingHealthClient, PollingHealthClient>(client
     client.MaxResponseContentBufferSize = 16384;
 }).ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })
     .AddHttpMessageHandler<AccessTokenHandler>();
+builder.Services.AddHttpClient<IRetentionHealthClient, RetentionHealthClient>(client =>
+{
+    client.BaseAddress = apiBaseAddress;
+    client.Timeout = TimeSpan.FromSeconds(7);
+    client.MaxResponseContentBufferSize = 16384;
+}).ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })
+    .AddHttpMessageHandler<AccessTokenHandler>();
 builder.Services.AddHttpClient<IArchiveHealthClient, ArchiveHealthClient>(client =>
 {
     client.BaseAddress = apiBaseAddress;
@@ -110,6 +117,7 @@ app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments(new PathString(OperatorHealthOverview.Path), StringComparison.OrdinalIgnoreCase) ||
         context.Request.Path.StartsWithSegments(new PathString("/operator/polling-health"), StringComparison.OrdinalIgnoreCase) ||
+        context.Request.Path.StartsWithSegments(new PathString("/operator/retention-health"), StringComparison.OrdinalIgnoreCase) ||
         context.Request.Path.StartsWithSegments(new PathString("/operator/archive-health"), StringComparison.OrdinalIgnoreCase) ||
         context.Request.Path.StartsWithSegments(new PathString("/operator/credential-expiry"), StringComparison.OrdinalIgnoreCase) ||
         context.Request.Path.Equals(new PathString("/operator/game-host-health"), StringComparison.OrdinalIgnoreCase) ||
