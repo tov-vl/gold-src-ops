@@ -12,5 +12,8 @@ three-source report remains a separate download.
 
 R1 Web-only delivery with exact prior Web rollback. API/receiver, monitoring,
 workers, permissions, providers, game/agent and Archive cadence remain unchanged.
-Required CI, immutable publication and independent runtime/browser acceptance
-gate stable promotion. See [scope and evidence](v2.125-incident-delivery-health.md).
+Released and installed:
+[v2.125.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.125.0).
+Required CI, artifact checks and independent runtime/authenticated browser
+acceptance passed. Fourteen other containers were preserved; stable reused
+candidate digests with all three build steps skipped. See [scope and evidence](v2.125-incident-delivery-health.md).
