@@ -10,4 +10,5 @@
 [data-rule-state="Firing"], [data-fact-state="Critical"], [data-fact-state="Expired"] { color: #8b2020; }
 [data-rule-state="Pending"], [data-source-state="Stale"], [data-warning-state="Stale"], [data-fact-state="Soon"] { color: #755000; }
 [data-source-state="Unknown"], [data-warning-state="Unknown"], [data-fact-state="Unknown"] { color: #4a545f; }
+[data-fact-state="Backlog"], [data-source-state="Disabled"] { color: #755000; }
 @media (max-width: 36rem) { .operations-card dl { grid-template-columns: 1fr; } .operations-card dd { margin-bottom: .5rem; } }

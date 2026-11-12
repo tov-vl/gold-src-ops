@@ -5,6 +5,11 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.125 incident delivery overview](v2.125-incident-delivery-health.md)
+adds independent outbox and receiver queue observations to Operations health.
+Disabled/sandbox, backlog, Unknown/Stale and separate notification paths remain
+explicit. Web-only R1 delivery preserves workers, permissions and Archive cadence.
+
 Completed: [v2.124 Operator operations health overview](v2.124-operator-health-overview.md)
 is released and installed. Four existing sources retain independent freshness,
 observation/rule times, fixed detail links and explicit Unknown/Stale. Concurrent

@@ -1,6 +1,8 @@
 using System.Text.Json;
 using AwesomeAssertions;
+using GoldSrcOps.Contracts.Alerts;
 using GoldSrcOps.Contracts.Monitoring;
+using GoldSrcOps.Contracts.ProviderDelivery;
 using GoldSrcOps.Web.Services;
 
 namespace GoldSrcOps.WebTests.Services;
@@ -61,29 +63,27 @@ public sealed class OperatorHealthOverviewTests
         }
     }
 
+    public static TheoryData<int> FailureMasks
+    {
+        get
+        {
+            var data = new TheoryData<int>();
+            foreach (var mask in Enumerable.Range(0, 64))
+            {
+                data.Add(mask);
+            }
+            return data;
+        }
+    }
+
     [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(2)]
-    [InlineData(3)]
-    [InlineData(4)]
-    [InlineData(5)]
-    [InlineData(6)]
-    [InlineData(7)]
-    [InlineData(8)]
-    [InlineData(9)]
-    [InlineData(10)]
-    [InlineData(11)]
-    [InlineData(12)]
-    [InlineData(13)]
-    [InlineData(14)]
-    [InlineData(15)]
+    [MemberData(nameof(FailureMasks))]
     public async Task Every_partial_failure_combination_reads_each_source_once(int unavailableMask)
     {
         var client = new FixtureClient(unavailableMask);
         var overview = await ReadAsync(client);
-        client.Reads.Should().Equal(1, 1, 1, 1);
-        for (var index = 0; index < 4; index++)
+        client.Reads.Should().Equal(1, 1, 1, 1, 1, 1);
+        for (var index = 0; index < 6; index++)
         {
             overview.Sources[index].SnapshotState.Should().Be((unavailableMask & (1 << index)) == 0 ? "Available" : "Unknown");
         }
@@ -126,7 +126,7 @@ public sealed class OperatorHealthOverviewTests
     }
 
     [Fact]
-    public async Task Four_reads_start_together_and_caller_cancellation_reaches_all_without_retry()
+    public async Task Six_reads_start_together_and_caller_cancellation_reaches_all_without_retry()
     {
         var client = new FixtureClient(wait: true);
         using var cancellation = new CancellationTokenSource();
@@ -142,8 +142,8 @@ public sealed class OperatorHealthOverviewTests
 
         var read = async () => await request;
         await read.Should().ThrowAsync<OperationCanceledException>();
-        client.Reads.Should().Equal(1, 1, 1, 1);
-        client.Cancelled.Should().Be(4);
+        client.Reads.Should().Equal(1, 1, 1, 1, 1, 1);
+        client.Cancelled.Should().Be(6);
     }
 
     [Fact]
@@ -155,18 +155,19 @@ public sealed class OperatorHealthOverviewTests
         var token = cancellation.Token;
         var read = async () => await ReadAsync(client, token);
         await read.Should().ThrowAsync<OperationCanceledException>();
-        client.Reads.Should().Equal(0, 0, 0, 0);
+        client.Reads.Should().Equal(0, 0, 0, 0, 0, 0);
     }
 
     private static OperatorHealthOverview Create() => OperatorHealthOverview.Create(OperatorHealthOverviewFixtures.GameHost(Now),
         OperatorHealthOverviewFixtures.Archive(Now), OperatorHealthOverviewFixtures.Polling(Now), OperatorHealthOverviewFixtures.Credentials(Now), Now);
 
     private static Task<OperatorHealthOverview> ReadAsync(FixtureClient client, CancellationToken token = default) =>
-        OperatorHealthOverview.ReadAsync(client, client, client, client, new OperatorHealthOverviewFixtures.Clock(), token);
+        OperatorHealthOverview.ReadAsync(client, client, client, client, client, new OperatorHealthOverviewFixtures.Clock(), token);
 
-    internal sealed class FixtureClient(int unavailableMask = 0, bool wait = false) : IGameHostHealthClient, IArchiveHealthClient, IPollingHealthClient, ICredentialExpiryClient
+    internal sealed class FixtureClient(int unavailableMask = 0, bool wait = false) : IGameHostHealthClient, IArchiveHealthClient, IPollingHealthClient, ICredentialExpiryClient, IIncidentDeliveryHealthClient
     {
-        public int[] Reads { get; } = new int[4];
+        public int[] Reads { get; } = new int[6];
+        public bool IsReceiverConfigured { get; init; } = true;
         public TaskCompletionSource AllStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource AllCancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _started;
@@ -177,11 +178,13 @@ public sealed class OperatorHealthOverviewTests
         Task<ArchiveHealthResponse> IArchiveHealthClient.ReadAsync(CancellationToken cancellationToken) => ReadAsync(1, OperatorHealthOverviewFixtures.Archive, cancellationToken);
         Task<PollingHealthResponse> IPollingHealthClient.ReadAsync(CancellationToken cancellationToken) => ReadAsync(2, OperatorHealthOverviewFixtures.Polling, cancellationToken);
         Task<CredentialExpiryResponse> ICredentialExpiryClient.ReadAsync(CancellationToken cancellationToken) => ReadAsync(3, OperatorHealthOverviewFixtures.Credentials, cancellationToken);
+        public Task<AlertDeliveryStatusResponse> ReadOutboxAsync(CancellationToken cancellationToken) => ReadAsync(4, OperatorHealthOverviewFixtures.Outbox, cancellationToken);
+        public Task<ProviderDeliveryStatusResponse> ReadReceiverAsync(CancellationToken cancellationToken) => ReadAsync(5, OperatorHealthOverviewFixtures.Receiver, cancellationToken);
 
         private async Task<T> ReadAsync<T>(int index, Func<DateTimeOffset, T> factory, CancellationToken cancellationToken)
         {
             Reads[index]++;
-            if (Interlocked.Increment(ref _started) == 4)
+            if (Interlocked.Increment(ref _started) == 6)
             {
                 AllStarted.TrySetResult();
             }
@@ -196,7 +199,7 @@ public sealed class OperatorHealthOverviewTests
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        if (Interlocked.Increment(ref _cancelled) == 4)
+                        if (Interlocked.Increment(ref _cancelled) == 6)
                         {
                             AllCancelled.TrySetResult();
                         }
@@ -211,6 +214,7 @@ public sealed class OperatorHealthOverviewTests
                     0 => new HttpRequestException("private-sentinel"),
                     1 => new TaskCanceledException("private-sentinel"),
                     2 => new JsonException("private-sentinel"),
+                    4 => new OperationCanceledException("private-sentinel"),
                     _ => new InvalidDataException("private-sentinel")
                 };
             }

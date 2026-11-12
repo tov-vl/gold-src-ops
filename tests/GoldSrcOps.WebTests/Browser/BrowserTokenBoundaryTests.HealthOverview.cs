@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using AwesomeAssertions;
+using GoldSrcOps.Contracts.Alerts;
+using GoldSrcOps.Contracts.ProviderDelivery;
 using GoldSrcOps.Web.Services;
 using Microsoft.Playwright;
 
@@ -13,7 +15,7 @@ public sealed partial class BrowserTokenBoundaryTests
     {
         using var handler = new OverviewFixtureHandler();
         await using var factory = new BrowserTokenBoundaryWebApplicationFactory(gameHostHealthHandler: handler,
-            credentialExpiryHandler: handler, archiveHealthHandler: handler, pollingHealthHandler: handler);
+            credentialExpiryHandler: handler, archiveHealthHandler: handler, pollingHealthHandler: handler, incidentDeliveryHealthClient: handler);
         factory.StartServer();
         await using var context = await Browser.NewContextAsync(new BrowserNewContextOptions
         {
@@ -25,10 +27,12 @@ public sealed partial class BrowserTokenBoundaryTests
         var response = await page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, OperatorHealthOverview.Path).AbsoluteUri);
         response!.Headers["cache-control"].Split(',').Select(static value => value.Trim()).Should().Contain("no-store");
         await Expect(page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Operations health", Exact = true })).ToBeVisibleAsync();
-        await Expect(page.Locator(".operations-card")).ToHaveCountAsync(4);
+        await Expect(page.Locator(".operations-card")).ToHaveCountAsync(6);
         await Expect(page.Locator(".operations-card[data-source='archive'] [data-rule-state='Firing']")).ToHaveTextAsync("Firing");
         await Expect(page.GetByText("Recorded minute reached (conservative)", new PageGetByTextOptions { Exact = true })).ToBeVisibleAsync();
-        handler.Reads.Should().Equal(1, 1, 1, 1);
+        await Expect(page.Locator("[data-source='incident-outbox']").GetByText("Disabled", new LocatorGetByTextOptions { Exact = true })).ToBeVisibleAsync();
+        await Expect(page.Locator("[data-source='incident-receiver']").GetByText("Catch-up / sandbox", new LocatorGetByTextOptions { Exact = true })).ToBeVisibleAsync();
+        handler.Reads.Should().Equal(1, 1, 1, 1, 1, 1);
         handler.Bearers.Should().OnlyContain(static value => value == BrowserTokenBoundaryWebApplicationFactory.AccessTokenSentinel);
         AssertTokenFree(await page.ContentAsync());
         (await page.ContentAsync()).Should().NotContain("private-sentinel");
@@ -41,11 +45,14 @@ public sealed partial class BrowserTokenBoundaryTests
         await page.SetViewportSizeAsync(390, 900);
         (await page.EvaluateAsync<bool>("document.documentElement.scrollWidth > document.documentElement.clientWidth")).Should().BeFalse();
         handler.ArchiveUnavailable = true;
+        handler.ReceiverUnavailable = true;
         await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Refresh", Exact = true }).ClickAsync();
         await Expect(page.Locator(".operations-card[data-source='archive'] [data-source-state='Unknown']")).ToHaveTextAsync("Unknown");
         await Expect(page.Locator(".operations-card[data-source='polling'] [data-source-state='Available']")).ToHaveTextAsync("Available");
         await Expect(page.GetByText("Running", new PageGetByTextOptions { Exact = true })).ToBeVisibleAsync();
-        handler.Reads.Should().Equal(2, 2, 2, 2);
+        await Expect(page.Locator("[data-source='incident-receiver'] [data-source-state='Unknown']")).ToHaveTextAsync("Unknown");
+        await Expect(page.Locator("[data-source='incident-outbox'] [data-source-state='Available']")).ToHaveTextAsync("Available");
+        handler.Reads.Should().Equal(2, 2, 2, 2, 2, 2);
         (await page.EvaluateAsync<bool>("document.documentElement.scrollWidth > document.documentElement.clientWidth")).Should().BeFalse();
         AssertTokenFree(await page.ContentAsync());
         if (Environment.GetEnvironmentVariable(ScreenshotDirectoryVariable) is { Length: > 0 } mobileDirectory)
@@ -56,15 +63,42 @@ public sealed partial class BrowserTokenBoundaryTests
         await page.Locator(".operations-card[data-source='polling']").GetByRole(AriaRole.Link).ClickAsync();
         await Expect(page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Polling health", Exact = true })).ToBeVisibleAsync();
         await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Operations health", Exact = true }).ClickAsync();
-        await Expect(page.Locator(".operations-card")).ToHaveCountAsync(4);
+        await Expect(page.Locator(".operations-card")).ToHaveCountAsync(6);
+        AssertTokenFree(await page.ContentAsync());
+
+        handler.IsReceiverConfigured = false;
+        var previousReads = handler.Reads[5];
+        await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Refresh", Exact = true }).ClickAsync();
+        await Expect(page.Locator("[data-source='incident-receiver'] [data-source-state='Disabled']")).ToHaveTextAsync("Disabled");
+        handler.Reads[5].Should().Be(previousReads);
+        await page.Locator("[data-source='incident-outbox']").GetByRole(AriaRole.Link).ClickAsync();
+        await Expect(page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Alert delivery", Exact = true })).ToBeVisibleAsync();
+        await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Operations health", Exact = true }).ClickAsync();
+        await page.Locator("[data-source='incident-receiver']").GetByRole(AriaRole.Link).ClickAsync();
+        await Expect(page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Provider delivery", Exact = true })).ToBeVisibleAsync();
         AssertTokenFree(await page.ContentAsync());
     }
 
-    private sealed class OverviewFixtureHandler : HttpMessageHandler
+    private sealed class OverviewFixtureHandler : HttpMessageHandler, IIncidentDeliveryHealthClient
     {
         public bool ArchiveUnavailable { get; set; }
-        public int[] Reads { get; } = new int[4];
+        public int[] Reads { get; } = new int[6];
         public string?[] Bearers { get; } = new string?[4];
+        public bool IsReceiverConfigured { get; set; } = true;
+        public bool ReceiverUnavailable { get; set; }
+
+        public Task<AlertDeliveryStatusResponse> ReadOutboxAsync(CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref Reads[4]);
+            return Task.FromResult(OperatorHealthOverviewFixtures.Outbox(DateTimeOffset.UtcNow));
+        }
+
+        public Task<ProviderDeliveryStatusResponse> ReadReceiverAsync(CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref Reads[5]);
+            return ReceiverUnavailable ? Task.FromException<ProviderDeliveryStatusResponse>(new HttpRequestException("private-sentinel")) :
+                Task.FromResult(OperatorHealthOverviewFixtures.Receiver(DateTimeOffset.UtcNow));
+        }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {

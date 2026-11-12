@@ -88,6 +88,7 @@ ProviderOperationsClientConfiguration.Configure(
     builder.Services,
     builder.Configuration,
     builder.Environment);
+builder.Services.AddScoped<IIncidentDeliveryHealthClient, IncidentDeliveryHealthClient>();
 
 var app = builder.Build();
 
