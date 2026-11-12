@@ -5,6 +5,12 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.122 Operator polling health](v2.122-operator-polling-health.md)
+adds a bounded read-only page and Operator-only API for worker progress and
+the three existing warnings. API/Web-only R1 delivery; policy, permissions,
+game/agent and Archive cadence are unchanged. Local checks passed; required CI,
+immutable publication and independent runtime/browser acceptance remain gates.
+
 Completed: [v2.121 A2S polling liveness](v2.121-polling-liveness.md) is released
 and installed. Cycle progress, worker errors, stale observations and disabled
 replicas stay distinct from A2S server failures. Private Grafana provisioning,

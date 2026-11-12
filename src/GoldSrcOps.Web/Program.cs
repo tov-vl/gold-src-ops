@@ -51,6 +51,13 @@ builder.Services.AddHttpClient<ICredentialExpiryClient, CredentialExpiryClient>(
 }).ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false })
     .AddHttpMessageHandler<AccessTokenHandler>();
 builder.Services.AddSingleton(new GameHostHealthLinks(builder.Configuration["GameHostHealth:GrafanaBaseUrl"]));
+builder.Services.AddHttpClient<IPollingHealthClient, PollingHealthClient>(client =>
+{
+    client.BaseAddress = apiBaseAddress;
+    client.Timeout = TimeSpan.FromSeconds(7);
+    client.MaxResponseContentBufferSize = 16384;
+}).ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })
+    .AddHttpMessageHandler<AccessTokenHandler>();
 builder.Services.AddHttpClient<IArchiveHealthClient, ArchiveHealthClient>(client =>
 {
     client.BaseAddress = apiBaseAddress;
@@ -100,7 +107,8 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments(new PathString("/operator/archive-health"), StringComparison.OrdinalIgnoreCase) ||
+    if (context.Request.Path.StartsWithSegments(new PathString("/operator/polling-health"), StringComparison.OrdinalIgnoreCase) ||
+        context.Request.Path.StartsWithSegments(new PathString("/operator/archive-health"), StringComparison.OrdinalIgnoreCase) ||
         context.Request.Path.StartsWithSegments(new PathString("/operator/credential-expiry"), StringComparison.OrdinalIgnoreCase) ||
         context.Request.Path.Equals(new PathString("/operator/game-host-health"), StringComparison.OrdinalIgnoreCase) ||
         context.Request.Path.StartsWithSegments(new PathString(OperatorHealthReportEndpoints.Path), StringComparison.OrdinalIgnoreCase))
