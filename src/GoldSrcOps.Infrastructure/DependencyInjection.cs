@@ -73,6 +73,7 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<GameHostHealthService>();
         services.AddScoped<ArchiveHealthService>();
+        services.AddScoped<PollingHealthService>();
         services.AddSingleton<CredentialExpiryService>();
         services.AddSingleton<ICredentialExpirySource, ConfiguredCredentialExpirySource>();
         services.AddHostedService<CredentialExpiryMetrics>();

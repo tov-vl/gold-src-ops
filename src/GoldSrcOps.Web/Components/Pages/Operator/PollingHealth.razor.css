@@ -1,0 +1,12 @@
+.polling-page { display: grid; gap: 1.25rem; width: min(100% - 40px, 75rem); margin: 0 auto; padding: 2rem 0 4rem; }
+.polling-page header nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+.polling-observation, .polling-notes, .polling-warning { padding: 1.25rem; border: 1px solid #d8ded7; border-radius: .75rem; background: white; }
+.polling-warning-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 1rem; }
+.polling-page h1, .polling-page h2, .polling-page h3 { margin-top: 0; }
+.polling-page dl { display: grid; grid-template-columns: minmax(10rem, 1fr) 2fr; gap: .5rem 1rem; }
+.polling-page dd { margin: 0; overflow-wrap: anywhere; }
+.rule-name { overflow-wrap: anywhere; font-family: monospace; }
+[data-rule-state="Firing"], [data-observation-state="Error"] { color: #8b2020; }
+[data-rule-state="Pending"], [data-observation-state="Stale"], [data-warning-state="Stale"] { color: #755000; }
+[data-rule-state="Unknown"], [data-observation-state="Unknown"], [data-warning-state="Unknown"] { color: #4a545f; }
+@media (max-width: 36rem) { .polling-page dl { grid-template-columns: 1fr; } .polling-page dd { margin-bottom: .75rem; } }

@@ -30,6 +30,7 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
     private readonly HttpMessageHandler? _gameHostHealthHandler;
     private readonly HttpMessageHandler? _credentialExpiryHandler;
     private readonly HttpMessageHandler? _archiveHealthHandler;
+    private readonly HttpMessageHandler? _pollingHealthHandler;
     public PlayerSearchFixtureHandler SearchHandler { get; } = new();
     private readonly bool serverEnabled;
     private readonly PublicServerJoinResponse? serverJoinResponse;
@@ -46,11 +47,13 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
         bool searchEnabled = false,
         HttpMessageHandler? gameHostHealthHandler = null,
         HttpMessageHandler? credentialExpiryHandler = null,
-        HttpMessageHandler? archiveHealthHandler = null)
+        HttpMessageHandler? archiveHealthHandler = null,
+        HttpMessageHandler? pollingHealthHandler = null)
     {
         _gameHostHealthHandler = gameHostHealthHandler;
         _credentialExpiryHandler = credentialExpiryHandler;
         _archiveHealthHandler = archiveHealthHandler;
+        _pollingHealthHandler = pollingHealthHandler;
         this.searchEnabled = searchEnabled;
         this.serverEnabled = serverEnabled;
         this.serverJoinResponse = serverJoinResponse;
@@ -90,6 +93,11 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
             {
                 services.AddHttpClient<IArchiveHealthClient, ArchiveHealthClient>()
                     .ConfigurePrimaryHttpMessageHandler(() => _archiveHealthHandler);
+            }
+            if (_pollingHealthHandler is not null)
+            {
+                services.AddHttpClient<IPollingHealthClient, PollingHealthClient>()
+                    .ConfigurePrimaryHttpMessageHandler(() => _pollingHealthHandler);
             }
             services.RemoveAll<WebAuthenticationState>();
             services.AddSingleton(new WebAuthenticationState(Enabled: true));
