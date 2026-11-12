@@ -5,11 +5,13 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.123 polling in the Operator report](v2.123-operator-polling-report.md)
-adds the accepted polling observation and three warning states to the existing
-bounded UTF-8 download. Three independent reads, unchanged authorization and
-cancellation, Web-only R1 rollout and actual download acceptance define the
-slice. API, monitoring policy, game/agent and Archive cadence are unchanged.
+Completed: [v2.123 polling in the Operator report](v2.123-operator-polling-report.md)
+is released and installed. The bounded UTF-8 attachment preserves three
+independent health sources, polling progress and all three existing rule states.
+Required CI, immutable publication, Web-only continuity and actual authenticated
+download acceptance passed. Fourteen other containers, API identity and protected
+monitoring configuration were preserved; stable promotion reused accepted digests
+without rebuilding. Permissions, game/agent and Archive cadence were unchanged.
 
 Completed: [v2.122 Operator polling health](v2.122-operator-polling-health.md)
 is released and installed. The bounded read-only page and Operator-only API
