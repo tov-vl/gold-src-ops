@@ -5,6 +5,12 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.126 complete Operator report](v2.126-complete-health-report.md)
+adds credential expiry and incident delivery to the existing bounded UTF-8
+download. Six sources retain independent times, Unknown/Stale, minute precision,
+failure isolation and disabled access. Web-only R1 delivery preserves workers,
+permissions, providers and Archive cadence.
+
 Completed: [v2.125 incident delivery overview](v2.125-incident-delivery-health.md)
 is released and installed. Outbox and receiver cards retain independent queue
 snapshots, configured/disabled access and worker/CatchUp modes. Required CI,

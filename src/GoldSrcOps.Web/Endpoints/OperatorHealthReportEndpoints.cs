@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using GoldSrcOps.Contracts.ProviderDelivery;
 using GoldSrcOps.Web.Security;
 using GoldSrcOps.Web.Services;
 
@@ -17,17 +18,25 @@ internal static class OperatorHealthReportEndpoints
     }
 
     private static async Task<IResult> DownloadAsync(IGameHostHealthClient client, IArchiveHealthClient archiveClient, IPollingHealthClient pollingClient,
-        TimeProvider timeProvider, HttpContext context, CancellationToken cancellationToken)
+        ICredentialExpiryClient credentialClient, IIncidentDeliveryHealthClient deliveryClient, TimeProvider timeProvider, HttpContext context, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        var receiverConfigured = deliveryClient.IsReceiverConfigured;
         var gameHostRead = ReadSnapshotAsync(client.ReadAsync, cancellationToken);
         var archiveRead = ReadSnapshotAsync(archiveClient.ReadAsync, cancellationToken);
         var pollingRead = ReadSnapshotAsync(pollingClient.ReadAsync, cancellationToken);
-        await Task.WhenAll(gameHostRead, archiveRead, pollingRead).ConfigureAwait(false);
+        var credentialRead = ReadSnapshotAsync(credentialClient.ReadAsync, cancellationToken);
+        var outboxRead = ReadSnapshotAsync(deliveryClient.ReadOutboxAsync, cancellationToken);
+        var receiverRead = receiverConfigured ? ReadSnapshotAsync(deliveryClient.ReadReceiverAsync, cancellationToken) :
+            Task.FromResult<ProviderDeliveryStatusResponse?>(null);
+        await Task.WhenAll(gameHostRead, archiveRead, pollingRead, credentialRead, outboxRead, receiverRead).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var supplement = new SupplementalHealthReport.Snapshots(await credentialRead.ConfigureAwait(false), await outboxRead.ConfigureAwait(false),
+            await receiverRead.ConfigureAwait(false), receiverConfigured);
         context.Response.Headers.XContentTypeOptions = "nosniff";
         return Results.File(Encoding.UTF8.GetBytes(GameHostHealthReport.Create(
-                await gameHostRead.ConfigureAwait(false), timeProvider.GetUtcNow(), await archiveRead.ConfigureAwait(false), await pollingRead.ConfigureAwait(false))),
+                await gameHostRead.ConfigureAwait(false), timeProvider.GetUtcNow(), await archiveRead.ConfigureAwait(false), await pollingRead.ConfigureAwait(false), supplement)),
             "text/plain; charset=utf-8", "goldsrcops-game-host-health.txt");
     }
 
@@ -38,7 +47,7 @@ internal static class OperatorHealthReportEndpoints
             return await read(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (!cancellationToken.IsCancellationRequested &&
-            exception is HttpRequestException or TaskCanceledException or InvalidDataException or JsonException)
+            exception is HttpRequestException or OperationCanceledException or InvalidDataException or JsonException)
         {
             return null;
         }
