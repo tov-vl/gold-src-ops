@@ -6,14 +6,14 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.124.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.124.0)
-is released and installed. The Operator operations overview combines four
-existing health/expiry sources with independent timestamps, freshness and
-warning states, fixed detail links and static Refresh. Web-only runtime and
-actual authenticated browser acceptance passed; fourteen other captured
-containers and monitoring files were preserved. Stable reused all accepted
-candidate digests without rebuilding. See [release notes](docs/release-notes-v2.124.md)
-and [evidence and claim limits](docs/v2.124-operator-health-overview.md).
+**Status:** [v2.125.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.125.0)
+is released and installed. The Operator operations overview adds independent
+incident outbox and receiver queue snapshots, backlog and worker/CatchUp modes.
+Disabled access and Unknown/Stale remain explicit; queues do not prove email
+receipt. Web-only runtime and authenticated Refresh/detail acceptance passed;
+fourteen other containers and monitoring files were preserved. Stable reused
+accepted candidate digests without rebuilding. See [release notes](docs/release-notes-v2.125.md)
+and [evidence and claim limits](docs/v2.125-incident-delivery-health.md).
 
 The separate [availability diagnostics v2.119.0](https://github.com/tov-vl/gold-src-ops/releases/tag/availability-diagnostics-v2.119.0) component
 adds bounded missing-minute/source-neighbor and reviewed Archive-window
