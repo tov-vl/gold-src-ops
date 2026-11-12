@@ -25,7 +25,7 @@ internal static class GameHostHealthReport
 
     private static readonly string[] StorageRoles = ["queue", "spool", "players", "backup"];
 
-    public static string Create(GameHostHealthResponse? snapshot, DateTimeOffset generatedAt, ArchiveHealthResponse? archive = null)
+    public static string Create(GameHostHealthResponse? snapshot, DateTimeOffset generatedAt, ArchiveHealthResponse? archive = null, PollingHealthResponse? polling = null)
     {
         var output = new StringBuilder();
         output.AppendLine("GoldSrcOps game-host health report");
@@ -34,7 +34,7 @@ internal static class GameHostHealthReport
         output.Append("Snapshot age (seconds): ").AppendLine(Age(snapshot?.EvaluatedAtUtc, generatedAt));
         var snapshotState = Freshness(snapshot?.EvaluatedAtUtc, generatedAt, 180);
         output.Append("Snapshot: ").AppendLine(snapshotState);
-        output.AppendLine("Download fetches independent game-host and Archive snapshots; they can differ from the displayed pages. This report does not refresh.");
+        output.AppendLine("Download fetches independent game-host, Archive and polling snapshots; they can differ from the displayed pages. This report does not refresh.");
         output.AppendLine();
         output.AppendLine("Components (monitor age at generation)");
         // Deserialized JSON can violate the contract's non-null annotations.
@@ -88,6 +88,7 @@ internal static class GameHostHealthReport
         output.AppendLine("Guidance is read-only; recovery actions require a separately reviewed plan.");
         output.Append("Guide: ").AppendLine(GameHostWarningGuidance.RunbookHome);
         AppendArchive(output, archive, generatedAt);
+        AppendPolling(output, polling, generatedAt);
         return output.ToString();
     }
 
@@ -121,6 +122,38 @@ internal static class GameHostHealthReport
         output.AppendLine("Recovery, source completeness, notification delivery and an achieved SLO are separate evidence.");
         output.AppendLine("Preserve history before a separately reviewed recovery; do not automatically dispatch or retry.");
         output.Append("Guide: ").AppendLine(ArchiveHealthView.Runbook);
+    }
+
+    private static void AppendPolling(StringBuilder output, PollingHealthResponse? source, DateTimeOffset generatedAt)
+    {
+        var polling = PollingHealthView.Create(source, generatedAt);
+        output.AppendLine();
+        output.AppendLine("Polling health (independent source)");
+        output.Append("Polling snapshot evaluated: ").AppendLine(Time(source?.EvaluatedAtUtc));
+        output.Append("Polling snapshot age (seconds): ").AppendLine(Age(source?.EvaluatedAtUtc, generatedAt));
+        output.Append("Polling observation: ").AppendLine(polling.ObservationState);
+        output.Append("Worker last observed: ").AppendLine(Time(polling.ObservedAtUtc));
+        output.Append("Worker observation age (seconds): ").AppendLine(Age(polling.ObservedAtUtc, generatedAt));
+        output.Append("Last cycle started: ").AppendLine(Time(polling.LastCycleStartedAtUtc));
+        output.Append("Last cycle completed: ").AppendLine(Time(polling.LastCycleFinishedAtUtc));
+        output.Append("Completion age (seconds): ").AppendLine(polling.CompletionAgeSeconds?.ToString("0.###", CultureInfo.InvariantCulture) ?? "Unknown");
+        output.Append("Observation budget (seconds): ").AppendLine(polling.CycleBudgetSeconds?.ToString("0.###", CultureInfo.InvariantCulture) ?? "Unknown");
+        output.Append("Polling warning snapshot: ").Append(polling.WarningsState).Append("; observed: ").Append(Time(polling.WarningsObservedAtUtc))
+            .Append("; age (seconds): ").AppendLine(Age(polling.WarningsObservedAtUtc, generatedAt));
+        foreach (var definition in PollingHealthView.Definitions)
+        {
+            var state = polling.Warnings.SingleOrDefault(item => string.Equals(item.Name, definition.Name, StringComparison.Ordinal))?.State ?? "Unknown";
+            output.Append(definition.Name).Append(": ").AppendLine(state);
+            output.Append("First check: ").AppendLine(definition.FirstCheck);
+        }
+
+        output.AppendLine("Unknown and Stale do not establish current polling progress or absence of warnings.");
+        output.AppendLine("Worker observations must be nonfuture and at most 120 seconds old; API and warning evaluations must be at most 60 seconds old.");
+        output.AppendLine("One current enabled source is required. Disabled replicas cannot hide a missing, stale or failed active worker.");
+        output.AppendLine("Completion age is independent of reported worker state. The operational budget is not a query deadline or latency SLO.");
+        output.AppendLine("Completed empty passes and failed A2S replies are worker progress. HTTP health and server availability remain separate.");
+        output.AppendLine("Preserve timestamps and bounded logs before reviewed recovery; do not automatically restart, replay or change thresholds.");
+        output.Append("Guide: ").AppendLine(PollingHealthView.Runbook);
     }
 
     private static void AppendWarnings(StringBuilder output, GameHostWarningsResponse? warnings,
