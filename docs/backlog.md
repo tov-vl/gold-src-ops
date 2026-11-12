@@ -5,9 +5,14 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.127 snapshot retention liveness](v2.127-retention-liveness.md).
-Instrument the existing bounded cleanup and add three held warnings plus private
-dashboard panels. Cleanup policy, Archive cadence, credentials and game stay fixed.
+Completed: [v2.127 snapshot retention liveness](v2.127-retention-liveness.md)
+is released and installed. Independent cycle metadata and three held warnings
+separate empty success, repeated errors, stopped progress and unavailable data.
+Required CI, immutable publication, API/monitoring continuity, a later natural
+cleanup cycle and isolated IRM Resolved acceptance passed. Fourteen other
+containers and protected unrelated files were preserved. Stable reused accepted
+digests without rebuilding. Retention policy/batch/delay, Archive cadence,
+credentials, Web/receiver, game and agent stayed unchanged.
 
 Completed: [v2.126 complete Operator report](v2.126-complete-health-report.md)
 is released and installed. All six sources retain independent times, metadata

@@ -60,6 +60,14 @@ OpenTelemetry instruments:
 | `goldsrcops.snapshot_retention.snapshots_deleted` | Number of deleted snapshots |
 | `goldsrcops.snapshot_retention.duration` | Run duration in seconds, tagged by result |
 
+Worker-cycle liveness is monitored independently of deleted-row counts. The
+`goldsrcops.snapshot_retention.worker.*` gauges expose enabled/state, process and
+observation times, cycle start/completion/success/failure, duration, in-progress
+and consecutive failures. A successful empty cleanup is healthy. Private held
+warnings distinguish unavailable metadata, stalled progress and repeated errors;
+they do not change cleanup timing or authorize a manual retry. See
+[worker liveness](v2.127-retention-liveness.md) for budgets and first checks.
+
 The worker logs startup, non-empty successful batches, and failures. Empty
 successful passes are represented by metrics without producing an information
 log on every interval.
