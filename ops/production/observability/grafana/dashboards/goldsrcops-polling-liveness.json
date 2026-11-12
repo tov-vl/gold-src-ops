@@ -343,6 +343,342 @@
       ],
       "title": "Last cycle duration (seconds)",
       "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Unknown",
+                  "color": "gray"
+                },
+                "1": {
+                  "text": "Running",
+                  "color": "green"
+                },
+                "2": {
+                  "text": "Error",
+                  "color": "red"
+                },
+                "3": {
+                  "text": "Disabled",
+                  "color": "gray"
+                },
+                "4": {
+                  "text": "Stale",
+                  "color": "orange"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "noValue": "Unknown"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 101,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "13.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "goldsrcops-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "goldsrcops_snapshot_retention_worker:display_state",
+          "refId": "A"
+        }
+      ],
+      "title": "Snapshot retention - Polling state - 0 Unknown, 1 Running, 2 Error, 3 Disabled, 4 Stale",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "noValue": "Unknown"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 102,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "13.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "goldsrcops-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(goldsrcops_snapshot_retention_worker:active_source)",
+          "refId": "A"
+        }
+      ],
+      "title": "Snapshot retention - Active observation sources (exactly one expected)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "noValue": "Unknown"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 21
+      },
+      "id": 103,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "13.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "goldsrcops-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "goldsrcops_snapshot_retention_worker:progress_age_seconds",
+          "refId": "A"
+        }
+      ],
+      "title": "Snapshot retention - Last completed cycle age (seconds)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "noValue": "Unknown"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 21
+      },
+      "id": 104,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "13.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "goldsrcops-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "goldsrcops_snapshot_retention_worker:budget_seconds",
+          "refId": "A"
+        }
+      ],
+      "title": "Snapshot retention - Observation budget (seconds)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "goldsrcops-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "noValue": "Unknown"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "id": 105,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "13.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "goldsrcops-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(goldsrcops_snapshot_retention_worker_last_cycle_duration_seconds{job=\"goldsrcops\",service_name=\"GoldSrcOps\"} and goldsrcops_snapshot_retention_worker:active_source)",
+          "refId": "A"
+        }
+      ],
+      "title": "Snapshot retention - Last cycle duration (seconds)",
+      "type": "stat"
     }
   ],
   "refresh": "15s",
@@ -360,8 +696,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "GoldSrcOps Polling Liveness",
+  "title": "GoldSrcOps background worker liveness",
   "uid": "goldsrcops-polling-liveness",
   "version": 1,
-  "description": "Cycle progress is independent of game-server availability. Budget is not a cancellation timeout. No fresh data is Unknown; exactly one active polling source is expected. Disabled HTTP-only replicas do not prove an active poller exists."
+  "description": "Polling and snapshot retention keep independent progress and enabled sources. Budgets are observations, not cancellation timeouts. Missing data is Unknown; each worker needs exactly one active source. Disabled HTTP-only replicas cannot prove active work."
 }

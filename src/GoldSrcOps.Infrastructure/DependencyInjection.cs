@@ -110,6 +110,8 @@ public static class DependencyInjection
         services.AddHostedService(static provider => provider.GetRequiredService<GoldSrcPollingMetrics>());
         services.AddScoped<PublicLeaderboardPoller>();
         services.AddHostedService<PublicLeaderboardBackgroundService>();
+        services.AddSingleton<SnapshotRetentionMetrics>();
+        services.AddHostedService(static provider => provider.GetRequiredService<SnapshotRetentionMetrics>());
         services.AddScoped<SnapshotRetentionService>();
         services.AddScoped<GameEventRetentionService>();
         services.AddSingleton<IGoldSrcServerQueryClient>(_ =>

@@ -5,6 +5,10 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.127 snapshot retention liveness](v2.127-retention-liveness.md).
+Instrument the existing bounded cleanup and add three held warnings plus private
+dashboard panels. Cleanup policy, Archive cadence, credentials and game stay fixed.
+
 Completed: [v2.126 complete Operator report](v2.126-complete-health-report.md)
 is released and installed. All six sources retain independent times, metadata
 precision, failure isolation and disabled access. Required CI, immutable

@@ -10,15 +10,18 @@ internal sealed partial class SnapshotRetentionBackgroundService : BackgroundSer
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly SnapshotRetentionOptions _options;
     private readonly ILogger<SnapshotRetentionBackgroundService> _logger;
+    private readonly SnapshotRetentionMetrics _metrics;
 
     public SnapshotRetentionBackgroundService(
         IServiceScopeFactory scopeFactory,
         SnapshotRetentionOptions options,
-        ILogger<SnapshotRetentionBackgroundService> logger)
+        ILogger<SnapshotRetentionBackgroundService> logger,
+        SnapshotRetentionMetrics metrics)
     {
         _scopeFactory = scopeFactory;
         _options = options;
         _logger = logger;
+        _metrics = metrics;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -29,45 +32,59 @@ internal sealed partial class SnapshotRetentionBackgroundService : BackgroundSer
             _options.CleanupInterval,
             _options.BatchSize);
 
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested)
             {
-                await RunCleanupPassAsync(stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                LogCleanupPassFailed(_logger, ex);
-            }
+                _metrics.BeginCycle();
+                var started = System.Diagnostics.Stopwatch.GetTimestamp();
+                try
+                {
+                    await RunCleanupPassAsync(stoppingToken).ConfigureAwait(false);
+                    _metrics.CompleteCycle(failed: false, System.Diagnostics.Stopwatch.GetElapsedTime(started));
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _metrics.CompleteCycle(failed: true, System.Diagnostics.Stopwatch.GetElapsedTime(started));
+                    LogCleanupPassFailed(_logger, ex);
+                }
 
-            try
-            {
-                await Task.Delay(_options.CleanupInterval, stoppingToken);
+                try
+                {
+                    await Task.Delay(_options.CleanupInterval, stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
+        }
+        finally
+        {
+            _metrics.WorkerStopped();
         }
     }
 
     private async Task RunCleanupPassAsync(CancellationToken stoppingToken)
     {
-        await using var scope = _scopeFactory.CreateAsyncScope();
-        var retentionService = scope.ServiceProvider.GetRequiredService<SnapshotRetentionService>();
-        var result = await retentionService.CleanupAsync(stoppingToken);
-
-        if (result.DeletedSnapshots > 0)
+        var scope = _scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
         {
-            LogCleanupPassCompleted(
-                _logger,
-                result.DeletedSnapshots,
-                result.CutoffUtc,
-                result.BatchLimitReached);
+            var retentionService = scope.ServiceProvider.GetRequiredService<SnapshotRetentionService>();
+            var result = await retentionService.CleanupAsync(stoppingToken).ConfigureAwait(false);
+
+            if (result.DeletedSnapshots > 0)
+            {
+                LogCleanupPassCompleted(
+                    _logger,
+                    result.DeletedSnapshots,
+                    result.CutoffUtc,
+                    result.BatchLimitReached);
+            }
         }
     }
 
