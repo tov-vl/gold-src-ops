@@ -6,18 +6,18 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.120.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.120.0)
-is the current control-plane release. The existing Operator health report now
-includes independent Archive freshness and four rule states in its bounded
-UTF-8 attachment. Unknown/Stale do not imply healthy scheduling; each source
-retains its own timestamps and failure state behind the server-side BFF.
+**Status:** [v2.121.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.121.0)
+is the current control-plane release. Bounded A2S cycle telemetry and a private
+Grafana view distinguish worker progress, exceptions, stale/missing observations
+and disabled replicas. Completed empty passes and failed server replies remain
+progress; HTTP health alone does not establish polling liveness.
 
-Only Web was recreated. Independent runtime and actual Operator download
-acceptance passed, preserving all 14 other captured containers and monitoring
-configuration. Stable references reuse the verified candidate digests without
-rebuilding. Archive writes, scheduling, credentials and game/agent remain
-separate operations. See [release notes](docs/release-notes-v2.120.md) and
-[evidence and claim limits](docs/v2.120-operator-archive-report.md).
+API-only runtime acceptance, three held warning rules and an isolated IRM
+firing/resolved canary passed. Fourteen other captured containers were retained;
+stable references reuse all accepted candidate digests without rebuilding.
+Game/agent, credentials and hourly :53 Archive scheduling are unchanged. See
+[release notes](docs/release-notes-v2.121.md) and
+[evidence and claim limits](docs/v2.121-polling-liveness.md).
 
 The separate [availability diagnostics v2.119.0](https://github.com/tov-vl/gold-src-ops/releases/tag/availability-diagnostics-v2.119.0) component
 adds bounded missing-minute/source-neighbor and reviewed Archive-window
