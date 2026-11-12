@@ -13,5 +13,13 @@ public/Operator contracts and game behavior are unchanged.
 
 ## Delivery
 
-Release preparation is in progress. See [readiness](v2.127-retention-liveness.md)
-for semantics, rollback and the independent acceptance boundary.
+Released and installed as v2.127.0. [Product PR #534](https://github.com/tov-vl/gold-src-ops/pull/534)
+and all required PR/main/candidate/stable checks passed. API/monitoring-only
+acceptance retained fourteen other containers and confirmed a later natural
+retention cycle, ten same-UID dashboard panels and isolated IRM Resolved.
+Stable reused all accepted digests without rebuilding.
+
+Local Quality Gate passed 1901 tests with 68 opt-in browser cases left to the
+hosted Browser Smoke gate; final 22 retention cases and 24 rule scenarios passed.
+Scoped InspectCode reported zero errors/warnings and three reviewed notes.
+See [readiness and evidence](v2.127-retention-liveness.md) for rollback and limits.
