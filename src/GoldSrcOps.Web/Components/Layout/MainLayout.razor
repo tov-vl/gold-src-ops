@@ -31,6 +31,7 @@
             </AuthorizeView>
             <AuthorizeView Policy="@WebSecurity.OperatorPolicy">
                 <Authorized>
+                    <NavLink href="/operator/health">Operations health</NavLink>
                     <NavLink href="/operator/game-host-health">Game-host health</NavLink>
                     <NavLink href="/operator/archive-health">Archive health</NavLink>
                     <NavLink href="/operator/polling-health">Polling health</NavLink>

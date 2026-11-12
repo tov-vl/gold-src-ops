@@ -5,6 +5,12 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.124 Operator operations health overview](v2.124-operator-health-overview.md)
+combines four existing read-only sources with independent freshness, warning
+states and fixed detail links. Static SSR, partial-failure isolation, caller
+cancellation, Operator authorization and Web-only R1 delivery define the slice.
+API, monitoring policy, credentials, game/agent and Archive cadence stay fixed.
+
 Completed: [v2.123 polling in the Operator report](v2.123-operator-polling-report.md)
 is released and installed. The bounded UTF-8 attachment preserves three
 independent health sources, polling progress and all three existing rule states.

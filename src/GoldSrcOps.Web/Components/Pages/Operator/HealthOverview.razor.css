@@ -1,0 +1,13 @@
+.operations-health { display: grid; gap: 1rem; width: min(100% - 40px, 80rem); margin: 0 auto; padding: 2rem 0 4rem; }
+.operations-health header nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+.operations-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr)); gap: 1.25rem; align-items: start; }
+.operations-card { min-width: 0; padding: 1.25rem; border: 1px solid #d8ded7; border-radius: .75rem; background: white; overflow-wrap: anywhere; }
+.operations-health h1, .operations-health h2 { margin-top: 0; }
+.operations-card dl { display: grid; grid-template-columns: minmax(8rem, 1fr) 2fr; gap: .5rem 1rem; }
+.operations-card dd { margin: 0; }
+.operations-card ul { padding-left: 1.25rem; }
+.warning-name { font-family: monospace; }
+[data-rule-state="Firing"], [data-fact-state="Critical"], [data-fact-state="Expired"] { color: #8b2020; }
+[data-rule-state="Pending"], [data-source-state="Stale"], [data-warning-state="Stale"], [data-fact-state="Soon"] { color: #755000; }
+[data-source-state="Unknown"], [data-warning-state="Unknown"], [data-fact-state="Unknown"] { color: #4a545f; }
+@media (max-width: 36rem) { .operations-card dl { grid-template-columns: 1fr; } .operations-card dd { margin-bottom: .5rem; } }

@@ -1,0 +1,77 @@
+@page "/operator/health"
+@using GoldSrcOps.Web.Endpoints
+@attribute [Authorize(Policy = WebSecurity.OperatorPolicy)]
+@inject IGameHostHealthClient GameHostClient
+@inject IArchiveHealthClient ArchiveClient
+@inject IPollingHealthClient PollingClient
+@inject ICredentialExpiryClient CredentialClient
+@inject TimeProvider TimeProvider
+
+<PageTitle>Operations health | GoldSrcOps</PageTitle>
+
+<div class="operations-health">
+    <header>
+        <p class="eyebrow">Operator portal</p>
+        <h1>Operations health</h1>
+        <p>Four independent read-only sources, with links to their detailed observations.</p>
+        <nav aria-label="Health overview actions">
+            <a href="@OperatorHealthOverview.Path" data-enhance-nav="false">Refresh</a>
+            <a href="@OperatorHealthReportEndpoints.Path" data-enhance-nav="false">Download health report</a>
+        </nav>
+    </header>
+    <p>Generated: @FormatTime(_overview.GeneratedAtUtc). This page does not refresh automatically.</p>
+    <p>Available describes an API snapshot, not overall health. Unknown and Stale never mean healthy. Sources and warning evaluations have independent timestamps.</p>
+    <div class="operations-grid">
+        @foreach (var source in _overview.Sources)
+        {
+            <section class="operations-card" aria-label="@source.Title" data-source="@source.Key">
+                <h2><a href="@source.DetailsPath">@source.Title</a></h2>
+                <p>API snapshot: <strong data-source-state="@source.SnapshotState">@source.SnapshotState</strong></p>
+                <p>Evaluated: @FormatTime(source.EvaluatedAtUtc)</p>
+                <dl>
+                    @foreach (var fact in source.Facts)
+                    {
+                        <dt>@fact.Label</dt><dd data-fact-state="@fact.State">@fact.Value</dd>
+                    }
+                </dl>
+                @if (source.Rules is { } rules)
+                {
+                    <h3>Existing warnings</h3>
+                    <p>Rule snapshot: <strong data-warning-state="@rules.State">@rules.State</strong>. Last checked: @FormatTime(rules.ObservedAtUtc)</p>
+                    @if (rules.State is not "Available")
+                    {
+                        <p>Warning data is unavailable, incomplete or stale; absence of warnings is not established.</p>
+                    }
+                    else if (rules.Items.Count == 0)
+                    {
+                        <p>No pending or firing warnings in this fresh rule snapshot.</p>
+                    }
+                    else
+                    {
+                        <ul>
+                            @foreach (var warning in rules.Items)
+                            {
+                                <li><span class="warning-name">@warning.Name</span>: <strong data-rule-state="@warning.State">@warning.State</strong></li>
+                            }
+                        </ul>
+                    }
+                }
+                <p>@source.Note</p>
+            </section>
+        }
+    </div>
+    <p>Open a source for first checks and interpretation. Refresh reads each source once; a failed source leaves the others available. This overview does not restart, retry, rotate credentials, acknowledge or silence warnings.</p>
+    <p>The download contains game-host, Archive and polling snapshots; credential expiry remains on its detailed page. It is a separate read and can differ from this overview.</p>
+</div>
+
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    private OperatorHealthOverview _overview = OperatorHealthOverview.Create(null, null, null, null, DateTimeOffset.UnixEpoch);
+
+    protected override async Task OnInitializedAsync() =>
+        _overview = await OperatorHealthOverview.ReadAsync(GameHostClient, ArchiveClient, PollingClient, CredentialClient,
+            TimeProvider, HttpContext?.RequestAborted ?? CancellationToken.None);
+
+    private static string FormatTime(DateTimeOffset? value) => value?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture) ?? "Unknown";
+}
