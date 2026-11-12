@@ -6,16 +6,15 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.122.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.122.0)
-is released and installed. The Operator portal shows polling worker progress,
-cycle timestamps, completion age and budget separately from three existing
-warning evaluations. Unknown/Stale remain explicit, with static Refresh and
-fixed first checks. API/Web-only rollout and authenticated browser acceptance
-passed; thirteen other captured containers and monitoring configuration were
-preserved. Stable promotion reused all accepted candidate digests without rebuild.
-Game/agent, permissions and Archive cadence were unchanged. See
-[release notes](docs/release-notes-v2.122.md) and
-[evidence and claim limits](docs/v2.122-operator-polling-health.md).
+**Status:** [v2.123.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.123.0)
+is released and installed. The Operator health attachment includes polling
+progress, cycle timestamps, completion age/budget and the three existing rule
+states alongside game-host and Archive health. Each source retains independent
+timestamps and Unknown/Stale handling. Web-only runtime and authenticated download
+acceptance passed; fourteen other captured containers and monitoring files were
+preserved. Stable reused all candidate digests without rebuilding. See
+[release notes](docs/release-notes-v2.123.md) and
+[evidence and claim limits](docs/v2.123-operator-polling-report.md).
 
 The separate [availability diagnostics v2.119.0](https://github.com/tov-vl/gold-src-ops/releases/tag/availability-diagnostics-v2.119.0) component
 adds bounded missing-minute/source-neighbor and reviewed Archive-window

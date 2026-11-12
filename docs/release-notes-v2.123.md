@@ -8,5 +8,10 @@ polling runbook travel with the UTF-8 attachment.
 
 The existing path, filename, no-store/nosniff and bounded output remain compatible.
 R1 Web-only delivery; API, receiver, monitoring policy, permissions, game/agent
-and Archive cadence are unchanged. Required CI, immutable publication and
-independent runtime/download acceptance gate stable promotion.
+and Archive cadence are unchanged. Released and installed:
+[v2.123.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.123.0).
+
+Required CI, independent artifact/runtime and actual authenticated download
+acceptance passed. Only Web was recreated; fourteen other containers and
+monitoring configuration were preserved. Stable reused all candidate digests
+without rebuilding.
