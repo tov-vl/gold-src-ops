@@ -21,6 +21,7 @@ public sealed class GameHostHealthReportTests
     {
         var fixture = new FixtureClient();
         var archive = new ArchiveFixtureClient();
+        var polling = new PollingFixtureClient();
         await using var factory = new ReaderWebApplicationFactory(role);
         await using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
@@ -28,6 +29,8 @@ public sealed class GameHostHealthReportTests
             services.AddSingleton<IGameHostHealthClient>(fixture);
             services.RemoveAll<IArchiveHealthClient>();
             services.AddSingleton<IArchiveHealthClient>(archive);
+            services.RemoveAll<IPollingHealthClient>();
+            services.AddSingleton<IPollingHealthClient>(polling);
         }));
         using var client = configured.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         using var response = await client.GetAsync(Path);
@@ -35,18 +38,24 @@ public sealed class GameHostHealthReportTests
         response.Headers.CacheControl!.NoStore.Should().BeTrue();
         fixture.Reads.Should().Be(0);
         archive.Reads.Should().Be(0);
+        polling.Reads.Should().Be(0);
         response.Content.Headers.ContentDisposition.Should().BeNull();
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    [InlineData(true, true)]
-    public async Task Operator_download_is_uncached_utf8_attachment_with_bounded_sanitized_output(bool unavailable, bool archiveUnavailable)
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    public async Task Operator_download_is_uncached_utf8_attachment_with_bounded_sanitized_output(bool unavailable, bool archiveUnavailable, bool pollingUnavailable)
     {
         var fixture = new FixtureClient { Unavailable = unavailable };
         var archive = new ArchiveFixtureClient { Unavailable = archiveUnavailable };
+        var polling = new PollingFixtureClient { Unavailable = pollingUnavailable };
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
         await using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
@@ -54,6 +63,8 @@ public sealed class GameHostHealthReportTests
             services.AddSingleton<IGameHostHealthClient>(fixture);
             services.RemoveAll<IArchiveHealthClient>();
             services.AddSingleton<IArchiveHealthClient>(archive);
+            services.RemoveAll<IPollingHealthClient>();
+            services.AddSingleton<IPollingHealthClient>(polling);
         }));
         using var client = configured.CreateClient();
         using var response = await client.GetAsync(Path + "?filename=private-sentinel&host=private-sentinel");
@@ -72,26 +83,32 @@ public sealed class GameHostHealthReportTests
         text.Should().Contain(archiveUnavailable ? "Archive observation: Unknown" : "Archive observation: Available");
         fixture.Reads.Should().Be(1);
         archive.Reads.Should().Be(1);
+        polling.Reads.Should().Be(1);
+        text.Should().Contain(pollingUnavailable ? "Polling observation: Unknown" : "Polling observation: Running");
         using var second = await client.GetAsync(Path + "/");
         second.StatusCode.Should().Be(HttpStatusCode.OK);
         second.Headers.CacheControl!.NoStore.Should().BeTrue();
         fixture.Reads.Should().Be(2);
         archive.Reads.Should().Be(2);
+        polling.Reads.Should().Be(2);
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Caller_cancellation_reaches_upstream_without_an_unknown_report_or_retry(bool waitArchive)
+    [InlineData("game-host")]
+    [InlineData("archive")]
+    [InlineData("polling")]
+    public async Task Caller_cancellation_reaches_upstream_without_an_unknown_report_or_retry(string waitSource)
     {
         var fixture = new WaitingClient();
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
         await using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IGameHostHealthClient>();
-            services.AddSingleton<IGameHostHealthClient>(waitArchive ? new FixtureClient() : fixture);
+            services.AddSingleton<IGameHostHealthClient>(waitSource is "game-host" ? fixture : new FixtureClient());
             services.RemoveAll<IArchiveHealthClient>();
-            services.AddSingleton<IArchiveHealthClient>(waitArchive ? fixture : new ArchiveFixtureClient());
+            services.AddSingleton<IArchiveHealthClient>(waitSource is "archive" ? fixture : new ArchiveFixtureClient());
+            services.RemoveAll<IPollingHealthClient>();
+            services.AddSingleton<IPollingHealthClient>(waitSource is "polling" ? fixture : new PollingFixtureClient());
         }));
         using var client = configured.CreateClient();
         using var cancellation = new CancellationTokenSource();
@@ -105,7 +122,44 @@ public sealed class GameHostHealthReportTests
         fixture.Reads.Should().Be(1);
     }
 
-    private sealed class WaitingClient : IGameHostHealthClient, IArchiveHealthClient
+    [Fact]
+    public async Task All_three_reads_start_before_any_completes_and_share_request_cancellation()
+    {
+        var game = new WaitingClient();
+        var archive = new WaitingClient();
+        var polling = new WaitingClient();
+        await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
+        await using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IGameHostHealthClient>();
+            services.AddSingleton<IGameHostHealthClient>(game);
+            services.RemoveAll<IArchiveHealthClient>();
+            services.AddSingleton<IArchiveHealthClient>(archive);
+            services.RemoveAll<IPollingHealthClient>();
+            services.AddSingleton<IPollingHealthClient>(polling);
+        }));
+        using var client = configured.CreateClient();
+        using var cancellation = new CancellationTokenSource();
+        var request = client.GetAsync(Path, cancellation.Token);
+        try
+        {
+            await Task.WhenAll(game.Started.Task, archive.Started.Task, polling.Started.Task).WaitAsync(TimeSpan.FromSeconds(10), cancellation.Token);
+        }
+        finally
+        {
+            await cancellation.CancelAsync();
+        }
+
+        var read = async () => await request.ConfigureAwait(false);
+        await read.Should().ThrowAsync<OperationCanceledException>();
+        // The cancelled request token must not replace the independent completion deadline.
+        await Task.WhenAll(game.Cancelled.Task, archive.Cancelled.Task, polling.Cancelled.Task).WaitAsync(TimeSpan.FromSeconds(10));
+        game.Reads.Should().Be(1);
+        archive.Reads.Should().Be(1);
+        polling.Reads.Should().Be(1);
+    }
+
+    private sealed class WaitingClient : IGameHostHealthClient, IArchiveHealthClient, IPollingHealthClient
     {
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Cancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -118,6 +172,12 @@ public sealed class GameHostHealthReportTests
         }
 
         async Task<ArchiveHealthResponse> IArchiveHealthClient.ReadAsync(CancellationToken cancellationToken)
+        {
+            await WaitAsync(cancellationToken).ConfigureAwait(false);
+            throw new InvalidOperationException("A cancelled request must not complete.");
+        }
+
+        async Task<PollingHealthResponse> IPollingHealthClient.ReadAsync(CancellationToken cancellationToken)
         {
             await WaitAsync(cancellationToken).ConfigureAwait(false);
             throw new InvalidOperationException("A cancelled request must not complete.");
@@ -168,4 +228,19 @@ public sealed class GameHostHealthReportTests
                     "Unknown", WarningsObservedAtUtc: null, []));
         }
     }
+    private sealed class PollingFixtureClient : IPollingHealthClient
+    {
+        public bool Unavailable { get; init; }
+        public int Reads { get; private set; }
+
+        public Task<PollingHealthResponse> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            Reads++;
+            var now = DateTimeOffset.UtcNow;
+            return Unavailable ? throw new HttpRequestException("private-sentinel") :
+                Task.FromResult(new PollingHealthResponse(now, "Running", now, now.AddSeconds(-6), now.AddSeconds(-5), 5, 370,
+                    "Unknown", WarningsObservedAtUtc: null, []));
+        }
+    }
+
 }

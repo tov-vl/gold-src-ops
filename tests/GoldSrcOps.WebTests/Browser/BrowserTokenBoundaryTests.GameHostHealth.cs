@@ -13,7 +13,8 @@ public sealed partial class BrowserTokenBoundaryTests
     {
         using var handler = new HealthFixtureHandler();
         using var archiveHandler = new ArchiveFixtureHandler();
-        await using var factory = new BrowserTokenBoundaryWebApplicationFactory(gameHostHealthHandler: handler, archiveHealthHandler: archiveHandler);
+        using var pollingHandler = new PollingFixtureHandler();
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory(gameHostHealthHandler: handler, archiveHealthHandler: archiveHandler, pollingHealthHandler: pollingHandler);
         factory.StartServer();
         await using var context = await Browser.NewContextAsync(new BrowserNewContextOptions
         {
@@ -44,6 +45,10 @@ public sealed partial class BrowserTokenBoundaryTests
             .And.Contain("PlayerBackupInterventionRequired: Firing").And.Contain("Last weekly attempt: Closed: outcome uncertain")
             .And.Contain("Archive observation: Available").And.Contain("Archive warning snapshot: Available")
             .And.Contain("ArchiveScheduleDelayed: Firing").And.Contain("Archive snapshot evaluated:");
+        report.Should().Contain("Polling observation: Running").And.Contain("Polling warning snapshot: Available")
+            .And.Contain("Observation budget (seconds): 370").And.Contain("PollingCycleFailed: Firing");
+        pollingHandler.Reads.Should().Be(1);
+        pollingHandler.Bearer.Should().Be(BrowserTokenBoundaryWebApplicationFactory.AccessTokenSentinel);
         archiveHandler.Reads.Should().Be(1);
         archiveHandler.Bearer.Should().Be(BrowserTokenBoundaryWebApplicationFactory.AccessTokenSentinel);
         AssertTokenFree(report);

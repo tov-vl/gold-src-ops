@@ -90,7 +90,7 @@ public sealed class ArchiveHealthReportTests
     }
 
     [Fact]
-    public void Maximal_known_game_host_and_archive_report_is_bounded()
+    public void Maximal_known_three_source_report_is_bounded()
     {
         var now = Now;
         string[] names = ["GameEventAgentMonitorUnavailable", "GameEventAgentObservationInvalid", "GameEventAgentWorkerProblem", "GameEventAgentQueueDelayed", "GameEventAgentSpoolProblem",
@@ -99,12 +99,13 @@ public sealed class ArchiveHealthReportTests
             "GameHostResourceObservationInvalid", "GameHostMemoryLow"];
         var game = new GameHostHealthResponse(now, [], [], new GameHostWarningsResponse("Available", now,
             [.. names.Select(name => new GameHostWarningResponse(name, "", "Firing", ""))]));
-        var report = GameHostHealthReport.Create(game, now, Snapshot());
+        var report = GameHostHealthReport.Create(game, now, Snapshot(), PollingHealthReportTests.Snapshot() with { EvaluatedAtUtc = now, ObservedAtUtc = now, LastCycleStartedAtUtc = now.AddSeconds(-12), LastCycleFinishedAtUtc = now.AddSeconds(-11), CompletionAgeSeconds = 11, WarningsObservedAtUtc = now });
         report.Should().Contain("Warning snapshot: Available");
         foreach (var name in names)
         {
             report.Should().Contain(name + ": Firing");
         }
+        report.Should().Contain("Polling observation: Running").And.Contain("PollingCycleFailed: Firing");
         Encoding.UTF8.GetByteCount(report).Should().BeLessThan(32768);
     }
 

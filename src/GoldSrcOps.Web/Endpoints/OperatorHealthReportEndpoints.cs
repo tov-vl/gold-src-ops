@@ -16,17 +16,18 @@ internal static class OperatorHealthReportEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> DownloadAsync(IGameHostHealthClient client, IArchiveHealthClient archiveClient,
+    private static async Task<IResult> DownloadAsync(IGameHostHealthClient client, IArchiveHealthClient archiveClient, IPollingHealthClient pollingClient,
         TimeProvider timeProvider, HttpContext context, CancellationToken cancellationToken)
     {
         var gameHostRead = ReadSnapshotAsync(client.ReadAsync, cancellationToken);
         var archiveRead = ReadSnapshotAsync(archiveClient.ReadAsync, cancellationToken);
-        await Task.WhenAll(gameHostRead, archiveRead).ConfigureAwait(false);
+        var pollingRead = ReadSnapshotAsync(pollingClient.ReadAsync, cancellationToken);
+        await Task.WhenAll(gameHostRead, archiveRead, pollingRead).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
 
         context.Response.Headers.XContentTypeOptions = "nosniff";
         return Results.File(Encoding.UTF8.GetBytes(GameHostHealthReport.Create(
-                await gameHostRead.ConfigureAwait(false), timeProvider.GetUtcNow(), await archiveRead.ConfigureAwait(false))),
+                await gameHostRead.ConfigureAwait(false), timeProvider.GetUtcNow(), await archiveRead.ConfigureAwait(false), await pollingRead.ConfigureAwait(false))),
             "text/plain; charset=utf-8", "goldsrcops-game-host-health.txt");
     }
 
