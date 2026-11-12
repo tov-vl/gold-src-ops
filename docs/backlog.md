@@ -5,12 +5,13 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.121 A2S polling liveness](v2.121-polling-liveness.md) adds
-independent cycle-progress metrics, a private Grafana view and held owner
-warnings. Empty passes and failed A2S replies remain completed polling cycles;
-worker errors, stale progress and missing observations stay distinct. Scope is
-API and monitoring policy, with no game/agent or Archive-cadence change.
-
+Completed: [v2.121 A2S polling liveness](v2.121-polling-liveness.md) is released
+and installed. Cycle progress, worker errors, stale observations and disabled
+replicas stay distinct from A2S server failures. Private Grafana provisioning,
+three held warnings, independent API-only runtime acceptance and isolated IRM
+firing/resolved provider acceptance passed. Fourteen other captured containers
+were retained; stable promotion reused accepted digests without rebuilding.
+Game/agent, permissions and the hourly :53 Archive cadence were unchanged.
 
 Completed: [v2.120 Archive health in the Operator report](v2.120-operator-archive-report.md)
 is released and installed. The bounded UTF-8 attachment retains independent

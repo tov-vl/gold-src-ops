@@ -8,4 +8,9 @@ query deadlines, retries, cancellation or game-server incidents.
 
 R3 monitoring-policy rollout: API plus Prometheus/Alertmanager/Grafana files.
 No migration, game/agent change, new credential or Archive schedule change.
-Release and target acceptance are pending.
+Released and installed: [v2.121.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.121.0).
+
+Required CI, independent publication/runtime/policy/provisioning and isolated
+IRM firing/resolved acceptance passed. Only API was recreated; fourteen other
+captured containers were retained. Stable promotion reused all candidate digests
+without rebuild. Inbox receipt remains separate from provider delivery proof.
