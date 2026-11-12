@@ -5,10 +5,14 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.128 Operator retention health](v2.128-operator-retention-health.md)
-adds a bounded read-only detail page and seventh overview card using the accepted
-v2.127 metrics and rules. API/Web verification and the ordinary release cycle
-are pending; retention behavior, monitoring policy and Archive cadence stay unchanged.
+Completed: [v2.128 Operator retention health](v2.128-operator-retention-health.md)
+is released and installed. Operator retention health now shows cleanup cycle
+metadata and the three existing warning states on a detail page and seventh
+overview card. Independent API/Web and authenticated browser acceptance passed;
+thirteen other containers and protected configuration were preserved. Stable
+reused accepted digests without rebuilding. The six-source download, retention
+behavior/settings, monitoring policy, credentials, game/agent and Archive cadence
+stay unchanged.
 
 Completed: [v2.127 snapshot retention liveness](v2.127-retention-liveness.md)
 is released and installed. Independent cycle metadata and three held warnings

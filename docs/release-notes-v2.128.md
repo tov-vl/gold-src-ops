@@ -9,5 +9,7 @@ The six-source health download retains its existing scope. Cleanup behavior,
 retention settings, warning thresholds, credentials, game/agent and the hourly
 Archive schedule are unchanged.
 
-Release verification and installation are pending. See the
+Released and installed after required CI, immutable publication and independent
+API/Web and authenticated Operator acceptance. Stable reused accepted digests
+without rebuilding; thirteen other containers were preserved. See the
 [readiness record](v2.128-operator-retention-health.md).
