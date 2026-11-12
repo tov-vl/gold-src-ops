@@ -10,5 +10,10 @@ server-side BFF. Tokens, source identities and private provider material remain
 outside browser output. Reads have fixed deadlines and size/sample bounds.
 
 R1 API/Web-only release. No monitoring policy, game/agent, schema, credential,
-provider or hourly :53 Archive schedule change. Candidate publication and
-independent production/browser acceptance are required before stable promotion.
+provider or hourly :53 Archive schedule change. Released and installed:
+[v2.122.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.122.0).
+
+Required CI, independent publication/runtime and authenticated Operator browser
+Refresh acceptance passed. Only API/Web were recreated; thirteen other captured
+containers and protected monitoring files were retained. Stable promotion reused
+all three candidate digests without rebuilding.
