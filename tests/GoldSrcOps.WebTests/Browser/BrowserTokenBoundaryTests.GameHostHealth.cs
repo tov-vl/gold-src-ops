@@ -14,7 +14,9 @@ public sealed partial class BrowserTokenBoundaryTests
         using var handler = new HealthFixtureHandler();
         using var archiveHandler = new ArchiveFixtureHandler();
         using var pollingHandler = new PollingFixtureHandler();
-        await using var factory = new BrowserTokenBoundaryWebApplicationFactory(gameHostHealthHandler: handler, archiveHealthHandler: archiveHandler, pollingHealthHandler: pollingHandler);
+        using var expiryHandler = new ExpiryFixtureHandler();
+        await using var factory = new BrowserTokenBoundaryWebApplicationFactory(gameHostHealthHandler: handler,
+            credentialExpiryHandler: expiryHandler, archiveHealthHandler: archiveHandler, pollingHealthHandler: pollingHandler);
         factory.StartServer();
         await using var context = await Browser.NewContextAsync(new BrowserNewContextOptions
         {

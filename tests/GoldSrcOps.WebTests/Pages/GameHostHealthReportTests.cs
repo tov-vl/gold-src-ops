@@ -25,6 +25,7 @@ public sealed class GameHostHealthReportTests
         await using var factory = new ReaderWebApplicationFactory(role);
         await using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
+            CompleteHealthReportTests.ConfigureSupplement(services);
             services.RemoveAll<IGameHostHealthClient>();
             services.AddSingleton<IGameHostHealthClient>(fixture);
             services.RemoveAll<IArchiveHealthClient>();
@@ -59,6 +60,7 @@ public sealed class GameHostHealthReportTests
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
         await using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
+            CompleteHealthReportTests.ConfigureSupplement(services);
             services.RemoveAll<IGameHostHealthClient>();
             services.AddSingleton<IGameHostHealthClient>(fixture);
             services.RemoveAll<IArchiveHealthClient>();
@@ -103,6 +105,7 @@ public sealed class GameHostHealthReportTests
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
         await using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
+            CompleteHealthReportTests.ConfigureSupplement(services);
             services.RemoveAll<IGameHostHealthClient>();
             services.AddSingleton<IGameHostHealthClient>(waitSource is "game-host" ? fixture : new FixtureClient());
             services.RemoveAll<IArchiveHealthClient>();
@@ -131,6 +134,7 @@ public sealed class GameHostHealthReportTests
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
         await using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
+            CompleteHealthReportTests.ConfigureSupplement(services);
             services.RemoveAll<IGameHostHealthClient>();
             services.AddSingleton<IGameHostHealthClient>(game);
             services.RemoveAll<IArchiveHealthClient>();
