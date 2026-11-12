@@ -6,18 +6,16 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.121.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.121.0)
-is the current control-plane release. Bounded A2S cycle telemetry and a private
-Grafana view distinguish worker progress, exceptions, stale/missing observations
-and disabled replicas. Completed empty passes and failed server replies remain
-progress; HTTP health alone does not establish polling liveness.
-
-API-only runtime acceptance, three held warning rules and an isolated IRM
-firing/resolved canary passed. Fourteen other captured containers were retained;
-stable references reuse all accepted candidate digests without rebuilding.
-Game/agent, credentials and hourly :53 Archive scheduling are unchanged. See
-[release notes](docs/release-notes-v2.121.md) and
-[evidence and claim limits](docs/v2.121-polling-liveness.md).
+**Status:** [v2.122.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.122.0)
+is released and installed. The Operator portal shows polling worker progress,
+cycle timestamps, completion age and budget separately from three existing
+warning evaluations. Unknown/Stale remain explicit, with static Refresh and
+fixed first checks. API/Web-only rollout and authenticated browser acceptance
+passed; thirteen other captured containers and monitoring configuration were
+preserved. Stable promotion reused all accepted candidate digests without rebuild.
+Game/agent, permissions and Archive cadence were unchanged. See
+[release notes](docs/release-notes-v2.122.md) and
+[evidence and claim limits](docs/v2.122-operator-polling-health.md).
 
 The separate [availability diagnostics v2.119.0](https://github.com/tov-vl/gold-src-ops/releases/tag/availability-diagnostics-v2.119.0) component
 adds bounded missing-minute/source-neighbor and reviewed Archive-window
