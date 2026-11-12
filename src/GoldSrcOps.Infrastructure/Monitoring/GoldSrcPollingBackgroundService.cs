@@ -10,44 +10,57 @@ internal sealed partial class GoldSrcPollingBackgroundService : BackgroundServic
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly GoldSrcPollingOptions _options;
     private readonly ILogger<GoldSrcPollingBackgroundService> _logger;
+    private readonly GoldSrcPollingMetrics _metrics;
 
     public GoldSrcPollingBackgroundService(
         IServiceScopeFactory scopeFactory,
         GoldSrcPollingOptions options,
-        ILogger<GoldSrcPollingBackgroundService> logger)
+        ILogger<GoldSrcPollingBackgroundService> logger,
+        GoldSrcPollingMetrics metrics)
     {
         _scopeFactory = scopeFactory;
         _options = options;
         _logger = logger;
+        _metrics = metrics;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         LogPollingServiceStarted(_logger, _options.LoopDelay, _options.QueryTimeout);
-
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested)
             {
-                await RunPollingPassAsync(stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                LogPollingPassFailed(_logger, ex);
-            }
+                _metrics.BeginCycle();
+                var started = System.Diagnostics.Stopwatch.GetTimestamp();
+                try
+                {
+                    await RunPollingPassAsync(stoppingToken).ConfigureAwait(false);
+                    _metrics.CompleteCycle(failed: false, System.Diagnostics.Stopwatch.GetElapsedTime(started));
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _metrics.CompleteCycle(failed: true, System.Diagnostics.Stopwatch.GetElapsedTime(started));
+                    LogPollingPassFailed(_logger, ex);
+                }
 
-            try
-            {
-                await Task.Delay(_options.LoopDelay, stoppingToken);
+                try
+                {
+                    await Task.Delay(_options.LoopDelay, stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
+        }
+        finally
+        {
+            _metrics.WorkerStopped();
         }
     }
 
@@ -55,7 +68,7 @@ internal sealed partial class GoldSrcPollingBackgroundService : BackgroundServic
     {
         using var scope = _scopeFactory.CreateScope();
         var pollingService = scope.ServiceProvider.GetRequiredService<ServerPollingService>();
-        var result = await pollingService.PollDueServersAsync(stoppingToken);
+        var result = await pollingService.PollDueServersAsync(stoppingToken).ConfigureAwait(false);
 
         if (result.DueServers > 0)
         {

@@ -105,6 +105,8 @@ public static class DependencyInjection
         services.AddScoped<IPublicPlayerSearchSource, PublicPlayerSearchSource>();
         services.AddSingleton<PublicLeaderboardStore>();
         services.AddSingleton<PublicLeaderboardMetrics>();
+        services.AddSingleton<GoldSrcPollingMetrics>();
+        services.AddHostedService(static provider => provider.GetRequiredService<GoldSrcPollingMetrics>());
         services.AddScoped<PublicLeaderboardPoller>();
         services.AddHostedService<PublicLeaderboardBackgroundService>();
         services.AddScoped<SnapshotRetentionService>();

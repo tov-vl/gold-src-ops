@@ -5,6 +5,13 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.121 A2S polling liveness](v2.121-polling-liveness.md) adds
+independent cycle-progress metrics, a private Grafana view and held owner
+warnings. Empty passes and failed A2S replies remain completed polling cycles;
+worker errors, stale progress and missing observations stay distinct. Scope is
+API and monitoring policy, with no game/agent or Archive-cadence change.
+
+
 Completed: [v2.120 Archive health in the Operator report](v2.120-operator-archive-report.md)
 is released and installed. The bounded UTF-8 attachment retains independent
 game-host and Archive observations, timestamps, Unknown/Stale and all four
