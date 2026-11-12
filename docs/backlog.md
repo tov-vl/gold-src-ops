@@ -5,6 +5,11 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.128 Operator retention health](v2.128-operator-retention-health.md)
+adds a bounded read-only detail page and seventh overview card using the accepted
+v2.127 metrics and rules. API/Web verification and the ordinary release cycle
+are pending; retention behavior, monitoring policy and Archive cadence stay unchanged.
+
 Completed: [v2.127 snapshot retention liveness](v2.127-retention-liveness.md)
 is released and installed. Independent cycle metadata and three held warnings
 separate empty success, repeated errors, stopped progress and unavailable data.

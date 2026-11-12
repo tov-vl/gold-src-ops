@@ -39,6 +39,31 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
         };
     }
 
+    public static async Task<OperatorHealthOverview> WithRetentionAsync(Task<OperatorHealthOverview> overviewRead,
+            IRetentionHealthClient retention, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        var retentionRead = ReadSourceAsync(retention.ReadAsync, cancellationToken);
+        await Task.WhenAll(overviewRead, retentionRead).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        var overview = await overviewRead.ConfigureAwait(false);
+        var response = await retentionRead.ConfigureAwait(false);
+        var now = clock.GetUtcNow();
+        var view = RetentionHealthView.Create(response, now);
+        var source = new Source("retention", "Snapshot retention", RetentionHealthView.Path,
+            Freshness(response?.EvaluatedAtUtc, now, 60), ValidTime(response?.EvaluatedAtUtc, now),
+            [
+                new Fact("Cleanup worker", view.ObservationState, view.ObservationState),
+                new Fact("Worker last observed", Time(view.ObservedAtUtc)),
+                new Fact("Last cycle completed", Time(view.LastCycleFinishedAtUtc)),
+                new Fact("Last successful cycle", Time(view.LastSuccessfulCycleAtUtc)),
+                new Fact("Last cycle duration (seconds)", Seconds(view.LastCycleDurationSeconds)),
+                new Fact("Consecutive failures", view.ConsecutiveFailures?.ToString(CultureInfo.InvariantCulture) ?? "Unknown")
+            ], CreateWarnings(view.WarningsState, view.WarningsObservedAtUtc,
+                view.Warnings.Select(static item => new Warning(item.Name, item.State))),
+            "Empty and full-batch successful passes are progress. This does not establish backlog size or completion of all eligible cleanup.");
+        return new OperatorHealthOverview(now, [.. overview.Sources, source]);
+    }
+
     public static OperatorHealthOverview Create(GameHostHealthResponse? gameHost, ArchiveHealthResponse? archive,
         PollingHealthResponse? polling, CredentialExpiryResponse? credentials, DateTimeOffset now) =>
         new(now, [GameHost(gameHost, now), Archive(archive, now), Polling(polling, now), Credentials(credentials, now)]);

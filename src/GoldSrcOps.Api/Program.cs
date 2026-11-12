@@ -12,7 +12,6 @@ using GoldSrcOps.Application.Telemetry;
 using GoldSrcOps.Infrastructure;
 using GoldSrcOps.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.HttpOverrides;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 
@@ -91,6 +90,15 @@ if (reverseProxyEnabled)
 }
 
 app.UseHttpsRedirection();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments(new PathString("/api/operator/retention-health"), StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.Headers.CacheControl = "no-store";
+    }
+
+    await next(context).ConfigureAwait(false);
+});
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
@@ -117,6 +125,7 @@ app.MapDashboardEndpoints();
 app.MapGameHostHealthEndpoints();
 app.MapArchiveHealthEndpoints();
 app.MapPollingHealthEndpoints();
+app.MapRetentionHealthEndpoints();
 app.MapCredentialExpiryEndpoints();
 app.MapCommandEndpoints();
 app.MapGameEventEndpoints();

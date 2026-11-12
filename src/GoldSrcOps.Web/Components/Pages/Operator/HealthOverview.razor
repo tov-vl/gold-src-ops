@@ -4,6 +4,7 @@
 @inject IGameHostHealthClient GameHostClient
 @inject IArchiveHealthClient ArchiveClient
 @inject IPollingHealthClient PollingClient
+@inject IRetentionHealthClient RetentionClient
 @inject ICredentialExpiryClient CredentialClient
 @inject IIncidentDeliveryHealthClient IncidentDeliveryClient
 @inject TimeProvider TimeProvider
@@ -14,7 +15,7 @@
     <header>
         <p class="eyebrow">Operator portal</p>
         <h1>Operations health</h1>
-        <p>Six independent read-only sources, with links to their detailed observations.</p>
+        <p>Seven independent read-only sources, with links to their detailed observations.</p>
         <nav aria-label="Health overview actions">
             <a href="@OperatorHealthOverview.Path" data-enhance-nav="false">Refresh</a>
             <a href="@OperatorHealthReportEndpoints.Path" data-enhance-nav="false">Download health report</a>
@@ -62,7 +63,7 @@
         }
     </div>
     <p>Open a source for first checks and interpretation. Refresh reads each configured source once; a failed source leaves the others available. This overview does not restart, retry, rotate credentials, acknowledge or silence warnings.</p>
-    <p>The download contains all six sources, including credential expiry and incident delivery. It is a separate read and can differ from this overview.</p>
+    <p>The download contains the six existing sources, including credential expiry and incident delivery. Snapshot retention is available on this overview and its detail page. The report is a separate read and can differ from this overview.</p>
 </div>
 
 @code {
@@ -71,8 +72,10 @@
     private OperatorHealthOverview _overview = OperatorHealthOverview.Create(null, null, null, null, DateTimeOffset.UnixEpoch);
 
     protected override async Task OnInitializedAsync() =>
-        _overview = await OperatorHealthOverview.ReadAsync(GameHostClient, ArchiveClient, PollingClient, CredentialClient,
-            IncidentDeliveryClient, TimeProvider, HttpContext?.RequestAborted ?? CancellationToken.None);
+        _overview = await OperatorHealthOverview.WithRetentionAsync(
+            OperatorHealthOverview.ReadAsync(GameHostClient, ArchiveClient, PollingClient, CredentialClient,
+                IncidentDeliveryClient, TimeProvider, HttpContext?.RequestAborted ?? CancellationToken.None),
+            RetentionClient, TimeProvider, HttpContext?.RequestAborted ?? CancellationToken.None);
 
     private static string FormatTime(DateTimeOffset? value) => value?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture) ?? "Unknown";
 }
