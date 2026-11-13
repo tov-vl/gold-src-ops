@@ -26,7 +26,7 @@ internal static class GameHostHealthReport
     private static readonly string[] StorageRoles = ["queue", "spool", "players", "backup"];
 
     public static string Create(GameHostHealthResponse? snapshot, DateTimeOffset generatedAt, ArchiveHealthResponse? archive = null,
-        PollingHealthResponse? polling = null, SupplementalHealthReport.Snapshots? supplement = null, RetentionHealthResponse? retention = null)
+        PollingHealthResponse? polling = null, SupplementalHealthReport.Snapshots? supplement = null, RetentionHealthResponse? retention = null, CommandDispatchHealthResponse? commandDispatch = null)
     {
         var output = new StringBuilder();
         output.AppendLine("GoldSrcOps game-host health report");
@@ -35,7 +35,7 @@ internal static class GameHostHealthReport
         output.Append("Snapshot age (seconds): ").AppendLine(Age(snapshot?.EvaluatedAtUtc, generatedAt));
         var snapshotState = Freshness(snapshot?.EvaluatedAtUtc, generatedAt, 180);
         output.Append("Snapshot: ").AppendLine(snapshotState);
-        output.AppendLine("Download fetches seven independent health sources; disabled receiver access is not queried. Snapshots can differ from the displayed pages. This report does not refresh.");
+        output.AppendLine("Download fetches eight independent health sources; disabled receiver access is not queried. Snapshots can differ from the displayed pages. This report does not refresh.");
         output.AppendLine();
         output.AppendLine("Components (monitor age at generation)");
         // Deserialized JSON can violate the contract's non-null annotations.
@@ -92,6 +92,7 @@ internal static class GameHostHealthReport
         AppendPolling(output, polling, generatedAt);
         SupplementalHealthReport.Append(output, supplement, generatedAt);
         RetentionHealthReport.Append(output, retention, generatedAt);
+        CommandDispatchHealthReport.Append(output, commandDispatch, generatedAt);
         return output.ToString();
     }
 

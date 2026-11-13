@@ -32,6 +32,7 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
     private readonly HttpMessageHandler? _archiveHealthHandler;
     private readonly HttpMessageHandler? _pollingHealthHandler;
     private readonly HttpMessageHandler? _retentionHealthHandler;
+    private readonly HttpMessageHandler? _commandDispatchHealthHandler;
     private readonly IIncidentDeliveryHealthClient? _incidentDeliveryHealthClient;
     public PlayerSearchFixtureHandler SearchHandler { get; } = new();
     private readonly bool serverEnabled;
@@ -52,13 +53,15 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
         HttpMessageHandler? archiveHealthHandler = null,
         HttpMessageHandler? pollingHealthHandler = null,
         IIncidentDeliveryHealthClient? incidentDeliveryHealthClient = null,
-        HttpMessageHandler? retentionHealthHandler = null)
+        HttpMessageHandler? retentionHealthHandler = null,
+        HttpMessageHandler? commandDispatchHealthHandler = null)
     {
         _gameHostHealthHandler = gameHostHealthHandler;
         _credentialExpiryHandler = credentialExpiryHandler;
         _archiveHealthHandler = archiveHealthHandler;
         _pollingHealthHandler = pollingHealthHandler;
         _retentionHealthHandler = retentionHealthHandler;
+        _commandDispatchHealthHandler = commandDispatchHealthHandler;
         _incidentDeliveryHealthClient = incidentDeliveryHealthClient;
         this.searchEnabled = searchEnabled;
         this.serverEnabled = serverEnabled;
@@ -109,6 +112,11 @@ internal sealed class BrowserTokenBoundaryWebApplicationFactory : WebApplication
             {
                 services.AddHttpClient<IRetentionHealthClient, RetentionHealthClient>()
                     .ConfigurePrimaryHttpMessageHandler(() => _retentionHealthHandler);
+            }
+            if (_commandDispatchHealthHandler is not null)
+            {
+                services.AddHttpClient<ICommandDispatchHealthClient, CommandDispatchHealthClient>()
+                    .ConfigurePrimaryHttpMessageHandler(() => _commandDispatchHealthHandler);
             }
             services.RemoveAll<WebAuthenticationState>();
             services.AddSingleton(new WebAuthenticationState(Enabled: true));

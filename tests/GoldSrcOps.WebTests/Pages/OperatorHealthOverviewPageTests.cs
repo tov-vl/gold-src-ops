@@ -49,7 +49,7 @@ public sealed class OperatorHealthOverviewPageTests
             var html = await response.Content.ReadAsStringAsync();
             html.Should().Contain("Operations health").And.Contain("href=\"/operator/health\"")
                 .And.Contain("Unknown and Stale never mean healthy").And.NotContain("private-sentinel").And.NotContain("Bearer ");
-            html.Split("class=\"operations-card\"").Should().HaveCount(8);
+            html.Split("class=\"operations-card\"").Should().HaveCount(9);
             foreach (var path in new[] { "/operator/game-host-health", "/operator/archive-health", "/operator/polling-health", "/operator/credential-expiry", "/operator/alert-delivery", "/operator/provider-delivery" })
             {
                 html.Should().Contain("href=\"" + path + "\"");
@@ -98,6 +98,8 @@ public sealed class OperatorHealthOverviewPageTests
             services.AddSingleton<IPollingHealthClient>(fixture);
             services.RemoveAll<IRetentionHealthClient>();
             services.AddSingleton<IRetentionHealthClient>(new RetentionHealthFixture { Unavailable = true });
+            services.RemoveAll<ICommandDispatchHealthClient>();
+            services.AddSingleton<ICommandDispatchHealthClient>(new CommandDispatchHealthFixture { Unavailable = true });
             services.RemoveAll<ICredentialExpiryClient>();
             services.AddSingleton<ICredentialExpiryClient>(fixture);
             services.RemoveAll<IIncidentDeliveryHealthClient>();

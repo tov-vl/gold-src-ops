@@ -12,7 +12,7 @@ public sealed partial class BrowserTokenBoundaryTests
     {
         using var handler = new OverviewFixtureHandler();
         await using var factory = new BrowserTokenBoundaryWebApplicationFactory(gameHostHealthHandler: handler,
-            credentialExpiryHandler: handler, archiveHealthHandler: handler, pollingHealthHandler: handler, incidentDeliveryHealthClient: handler, retentionHealthHandler: handler);
+            credentialExpiryHandler: handler, archiveHealthHandler: handler, pollingHealthHandler: handler, incidentDeliveryHealthClient: handler, retentionHealthHandler: handler, commandDispatchHealthHandler: handler);
         factory.StartServer();
         await using var context = await Browser.NewContextAsync(new BrowserNewContextOptions
         {
@@ -25,24 +25,27 @@ public sealed partial class BrowserTokenBoundaryTests
         var report = await DownloadCompleteReportAsync(page);
         report.Should().Contain("Credential snapshot: Available").And.Contain("Precision: minute (conservative start)")
             .And.Contain("Incident outbox snapshot: Available").And.Contain("Incident receiver snapshot: Available")
+            .And.Contain("Command dispatcher observation: Running").And.Contain("CommandDispatchCycleFailed: Inactive")
             .And.Contain("Retention observation: Running").And.Contain("Retention consecutive failures: 0")
             .And.Contain("SnapshotRetentionCycleFailed: Inactive").And.Contain("Receiver mode: Catch-up / sandbox").And.Contain("Dispatcher: Disabled");
-        handler.Reads.Should().Equal(2, 2, 2, 2, 2, 2, 2);
-        handler.Bearers.Where(static item => item is not null).Should().HaveCount(5)
+        handler.Reads.Should().Equal(2, 2, 2, 2, 2, 2, 2, 2);
+        handler.Bearers.Where(static item => item is not null).Should().HaveCount(6)
             .And.OnlyContain(static item => item == BrowserTokenBoundaryWebApplicationFactory.AccessTokenSentinel);
         handler.ArchiveUnavailable = true;
         handler.ReceiverUnavailable = true;
         handler.RetentionUnavailable = true;
+        handler.CommandDispatchUnavailable = true;
         await page.SetViewportSizeAsync(390, 900);
         (await page.EvaluateAsync<bool>("document.documentElement.scrollWidth > document.documentElement.clientWidth")).Should().BeFalse();
         report = await DownloadCompleteReportAsync(page);
         report.Should().Contain("Archive observation: Unknown").And.Contain("Incident receiver snapshot: Unknown")
             .And.Contain("Incident outbox snapshot: Available").And.Contain("Credential snapshot: Available")
+            .And.Contain("Command dispatcher observation: Unknown").And.Contain("CommandDispatchCycleFailed: Unknown")
             .And.Contain("Retention observation: Unknown").And.Contain("SnapshotRetentionCycleFailed: Unknown");
         handler.IsReceiverConfigured = false;
         report = await DownloadCompleteReportAsync(page);
         report.Should().Contain("Incident receiver snapshot: Disabled").And.Contain("Pending: Not queried");
-        handler.Reads.Should().Equal(4, 4, 4, 4, 4, 3, 4);
+        handler.Reads.Should().Equal(4, 4, 4, 4, 4, 3, 4, 4);
         AssertTokenFree(await page.ContentAsync());
     }
 

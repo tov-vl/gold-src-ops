@@ -9,10 +9,10 @@ Planning baseline: 2026-11-13, after accepted v2.130. The
 [current roadmap](roadmap.md) owns scope, dependencies and completion criteria;
 the records below retain historical release evidence.
 
-1. Next release, planned: v2.131 adds command dispatcher health to the
+1. Next release, in progress: v2.131 adds command dispatcher health to the
    Operator-only API, detail page, overview and bounded UTF-8 report together,
    using v2.130 observation and warnings without changing command execution.
-   Implementation and release have not started.
+   Implementation and release follow the [readiness record](v2.131-operator-command-dispatch-health.md).
 2. In parallel: record the required Archive freshness guarantee and decide
    whether its trigger mechanism needs a separate change. Preserve hourly
    `:53`, the 24-hour export window and existing warning policy during review.
@@ -28,6 +28,11 @@ work. The roadmap update is documentation-only; no runtime, schedule or gameplay
 change is implied.
 
 ## Current Status
+
+In progress: [v2.131 Operator command dispatcher health](v2.131-operator-command-dispatch-health.md)
+delivers the read-only API, detail page, overview card and report together.
+Existing v2.130 observations and warning policy are reused. API/Web acceptance
+and release verification remain pending.
 
 Completed: [v2.130 command dispatcher liveness](v2.130-command-dispatch-liveness.md)
 is released and installed. Private cycle metadata, three held warnings and five

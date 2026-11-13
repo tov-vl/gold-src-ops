@@ -101,10 +101,11 @@ public sealed class SupplementalHealthReportTests
             };
             var text = GameHostHealthReport.Create(game, Now, archive, polling,
                 new SupplementalHealthReport.Snapshots(OperatorHealthOverviewFixtures.Credentials(Now), outbox, receiver, ReceiverConfigured: true), RetentionHealthFixture.Valid(Now) with
-                { Warnings = [.. RetentionHealthView.Definitions.Select(static definition => new RetentionWarningResponse(definition.Name, "Firing"))] });
+                { Warnings = [.. RetentionHealthView.Definitions.Select(static definition => new RetentionWarningResponse(definition.Name, "Firing"))] },
+                CommandDispatchHealthFixture.Valid(Now) with { Warnings = [.. CommandDispatchHealthView.Definitions.Select(static definition => new CommandDispatchWarningResponse(definition.Name, "Firing"))] });
             text.Should().Contain("9223372036854775807").And.Contain("Receiver mode: Live").And.Contain("Provider worker: Enabled");
             Encoding.UTF8.GetByteCount(text).Should().BeLessThan(32768);
-            text.Should().Contain("SnapshotRetentionCycleFailed: Firing");
+            text.Should().Contain("SnapshotRetentionCycleFailed: Firing").And.Contain("CommandDispatchCycleFailed: Firing");
             foreach (var name in warningNames)
             {
                 text.Should().Contain(name + ": Firing");
