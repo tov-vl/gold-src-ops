@@ -87,6 +87,7 @@ public sealed partial class BrowserTokenBoundaryTests
         public string?[] Bearers { get; } = new string?[7];
         public bool IsReceiverConfigured { get; set; } = true;
         public bool ReceiverUnavailable { get; set; }
+        public bool RetentionUnavailable { get; set; }
 
         public Task<AlertDeliveryStatusResponse> ReadOutboxAsync(CancellationToken cancellationToken)
         {
@@ -123,7 +124,7 @@ public sealed partial class BrowserTokenBoundaryTests
                 6 => RetentionHealthFixture.Valid(now),
                 _ => OperatorHealthOverviewFixtures.Credentials(now)
             };
-            return Task.FromResult(index == 1 && ArchiveUnavailable ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) :
+            return Task.FromResult(index == 1 && ArchiveUnavailable || index == 6 && RetentionUnavailable ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) :
                 new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(payload) });
         }
     }

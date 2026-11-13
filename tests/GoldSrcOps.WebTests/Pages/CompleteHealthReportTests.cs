@@ -17,7 +17,7 @@ namespace GoldSrcOps.WebTests.Pages;
 public sealed class CompleteHealthReportTests
 {
     private const string Path = "/operator/game-host-health/report";
-    public static TheoryData<int> FailureMasks => new(Enumerable.Range(0, 64));
+    public static TheoryData<int> FailureMasks => new(Enumerable.Range(0, 128));
 
     [Theory]
     [MemberData(nameof(FailureMasks))]
@@ -36,13 +36,13 @@ public sealed class CompleteHealthReportTests
         var bytes = await response.Content.ReadAsByteArrayAsync();
         bytes.Length.Should().BeLessThan(32768);
         var report = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true).GetString(bytes);
-        var labels = new[] { "Snapshot", "Archive observation", "Polling observation", "Credential snapshot", "Incident outbox snapshot", "Incident receiver snapshot" };
+        var labels = new[] { "Snapshot", "Archive observation", "Polling observation", "Credential snapshot", "Incident outbox snapshot", "Incident receiver snapshot", "Retention observation" };
         for (var index = 0; index < labels.Length; index++)
         {
-            report.Should().Contain(labels[index] + ": " + ((failures & (1 << index)) != 0 ? "Unknown" : index == 2 ? "Running" : "Available"));
+            report.Should().Contain(labels[index] + ": " + ((failures & (1 << index)) != 0 ? "Unknown" : index is 2 or 6 ? "Running" : "Available"));
         }
 
-        fixture.Reads.Should().Equal(1, 1, 1, 1, 1, 1);
+        fixture.Reads.Should().Equal(1, 1, 1, 1, 1, 1, 1);
         report.Should().NotContain("private-sentinel").And.NotContain("Authorization").And.NotContain("Bearer");
     }
 
@@ -69,7 +69,7 @@ public sealed class CompleteHealthReportTests
         using var client = configured.CreateClient();
         var report = await client.GetStringAsync(Path);
         report.Should().Contain("Incident receiver snapshot: Disabled").And.Contain("Pending: Not queried");
-        fixture.Reads.Should().Equal(1, 1, 1, 1, 1, 0);
+        fixture.Reads.Should().Equal(1, 1, 1, 1, 1, 0, 1);
     }
 
     [Theory]
@@ -79,10 +79,11 @@ public sealed class CompleteHealthReportTests
     [InlineData(3)]
     [InlineData(4)]
     [InlineData(5)]
-    [InlineData(63)]
+    [InlineData(6)]
+    [InlineData(127)]
     public async Task Concurrent_reads_propagate_caller_cancellation_without_a_report(int waiting)
     {
-        var fixture = new Sources { Waiting = waiting == 63 ? 63 : 1 << waiting };
+        var fixture = new Sources { Waiting = waiting == 127 ? 127 : 1 << waiting };
         await using var factory = new ReaderWebApplicationFactory(WebSecurity.OperatorRole);
         await using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services => Register(services, fixture)));
         using var client = configured.CreateClient();
@@ -102,7 +103,7 @@ public sealed class CompleteHealthReportTests
         // A cancelled request cannot supply the deadline for observing its own completion.
         await Task.WhenAll(fixture.Cancelled.Where((_, index) => (fixture.Waiting & (1 << index)) != 0).Select(static item => item.Task))
             .WaitAsync(TimeSpan.FromSeconds(10));
-        fixture.Reads.Should().Equal(1, 1, 1, 1, 1, 1);
+        fixture.Reads.Should().Equal(1, 1, 1, 1, 1, 1, 1);
     }
 
     internal static void ConfigureSupplement(IServiceCollection services)
@@ -112,6 +113,8 @@ public sealed class CompleteHealthReportTests
         services.AddSingleton<ICredentialExpiryClient>(fixture);
         services.RemoveAll<IIncidentDeliveryHealthClient>();
         services.AddSingleton<IIncidentDeliveryHealthClient>(fixture);
+        services.RemoveAll<IRetentionHealthClient>();
+        services.AddSingleton<IRetentionHealthClient>(fixture);
     }
 
     private static void Register(IServiceCollection services, Sources fixture)
@@ -121,16 +124,18 @@ public sealed class CompleteHealthReportTests
         services.RemoveAll<IPollingHealthClient>(); services.AddSingleton<IPollingHealthClient>(fixture);
         services.RemoveAll<ICredentialExpiryClient>(); services.AddSingleton<ICredentialExpiryClient>(fixture);
         services.RemoveAll<IIncidentDeliveryHealthClient>(); services.AddSingleton<IIncidentDeliveryHealthClient>(fixture);
+        services.RemoveAll<IRetentionHealthClient>();
+        services.AddSingleton<IRetentionHealthClient>(fixture);
     }
 
-    private sealed class Sources : IGameHostHealthClient, IArchiveHealthClient, IPollingHealthClient, ICredentialExpiryClient, IIncidentDeliveryHealthClient
+    private sealed class Sources : IGameHostHealthClient, IArchiveHealthClient, IPollingHealthClient, ICredentialExpiryClient, IIncidentDeliveryHealthClient, IRetentionHealthClient
     {
         public int Failures { get; init; }
         public int Waiting { get; init; }
         public bool IsReceiverConfigured { get; init; } = true;
-        public int[] Reads { get; } = new int[6];
-        public TaskCompletionSource[] Started { get; } = [.. Enumerable.Range(0, 6).Select(static _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously))];
-        public TaskCompletionSource[] Cancelled { get; } = [.. Enumerable.Range(0, 6).Select(static _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously))];
+        public int[] Reads { get; } = new int[7];
+        public TaskCompletionSource[] Started { get; } = [.. Enumerable.Range(0, 7).Select(static _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously))];
+        public TaskCompletionSource[] Cancelled { get; } = [.. Enumerable.Range(0, 7).Select(static _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously))];
 
         public async Task<GameHostHealthResponse> ReadAsync(CancellationToken cancellationToken = default) { await ReadAsync(0, cancellationToken).ConfigureAwait(false); return OperatorHealthOverviewFixtures.GameHost(DateTimeOffset.UtcNow); }
         async Task<ArchiveHealthResponse> IArchiveHealthClient.ReadAsync(CancellationToken cancellationToken) { await ReadAsync(1, cancellationToken).ConfigureAwait(false); return OperatorHealthOverviewFixtures.Archive(DateTimeOffset.UtcNow); }
@@ -138,6 +143,8 @@ public sealed class CompleteHealthReportTests
         async Task<CredentialExpiryResponse> ICredentialExpiryClient.ReadAsync(CancellationToken cancellationToken) { await ReadAsync(3, cancellationToken).ConfigureAwait(false); return OperatorHealthOverviewFixtures.Credentials(DateTimeOffset.UtcNow); }
         public async Task<AlertDeliveryStatusResponse> ReadOutboxAsync(CancellationToken cancellationToken) { await ReadAsync(4, cancellationToken).ConfigureAwait(false); return OperatorHealthOverviewFixtures.Outbox(DateTimeOffset.UtcNow); }
         public async Task<ProviderDeliveryStatusResponse> ReadReceiverAsync(CancellationToken cancellationToken) { await ReadAsync(5, cancellationToken).ConfigureAwait(false); return OperatorHealthOverviewFixtures.Receiver(DateTimeOffset.UtcNow); }
+
+        async Task<RetentionHealthResponse> IRetentionHealthClient.ReadAsync(CancellationToken cancellationToken) { await ReadAsync(6, cancellationToken).ConfigureAwait(false); return RetentionHealthFixture.Valid(DateTimeOffset.UtcNow); }
 
         private async Task ReadAsync(int index, CancellationToken cancellationToken)
         {
