@@ -1,0 +1,51 @@
+groups:
+  - name: goldsrcops-command-dispatch-liveness
+    rules:
+      - record: goldsrcops_command_dispatch_worker:source_live
+        expr: |
+          (goldsrcops_command_dispatch_worker_observed_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} >= time() - 120) and (goldsrcops_command_dispatch_worker_observed_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} <= time()) and (goldsrcops_command_dispatch_worker_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} > 0) and (goldsrcops_command_dispatch_worker_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} <= time()) and (goldsrcops_command_dispatch_worker_cycle_budget_seconds{job="goldsrcops",service_name="GoldSrcOps"} >= 300) and (goldsrcops_command_dispatch_worker_cycle_budget_seconds{job="goldsrcops",service_name="GoldSrcOps"} <= 4295148) and (goldsrcops_command_dispatch_worker_state{job="goldsrcops",service_name="GoldSrcOps"} >= 0) and (goldsrcops_command_dispatch_worker_state{job="goldsrcops",service_name="GoldSrcOps"} <= 4) and (goldsrcops_command_dispatch_worker_state{job="goldsrcops",service_name="GoldSrcOps"} == floor(goldsrcops_command_dispatch_worker_state{job="goldsrcops",service_name="GoldSrcOps"})) and (goldsrcops_command_dispatch_worker_last_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} >= 0) and (goldsrcops_command_dispatch_worker_last_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} <= time()) and (goldsrcops_command_dispatch_worker_last_finished_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} >= 0) and (goldsrcops_command_dispatch_worker_last_finished_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} <= time()) and ((goldsrcops_command_dispatch_worker_enabled{job="goldsrcops",service_name="GoldSrcOps"} == 0) or (goldsrcops_command_dispatch_worker_enabled{job="goldsrcops",service_name="GoldSrcOps"} == 1)) and (goldsrcops_command_dispatch_worker_last_successful_cycle_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} >= 0) and (goldsrcops_command_dispatch_worker_last_successful_cycle_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} <= time()) and (goldsrcops_command_dispatch_worker_last_failure_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} >= 0) and (goldsrcops_command_dispatch_worker_last_failure_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} <= time()) and (goldsrcops_command_dispatch_worker_consecutive_failures{job="goldsrcops",service_name="GoldSrcOps"} >= 0) and (goldsrcops_command_dispatch_worker_consecutive_failures{job="goldsrcops",service_name="GoldSrcOps"} <= 1000000) and (goldsrcops_command_dispatch_worker_consecutive_failures{job="goldsrcops",service_name="GoldSrcOps"} == floor(goldsrcops_command_dispatch_worker_consecutive_failures{job="goldsrcops",service_name="GoldSrcOps"})) and (goldsrcops_command_dispatch_worker_in_progress{job="goldsrcops",service_name="GoldSrcOps"} >= 0) and (goldsrcops_command_dispatch_worker_in_progress{job="goldsrcops",service_name="GoldSrcOps"} <= 1) and (goldsrcops_command_dispatch_worker_in_progress{job="goldsrcops",service_name="GoldSrcOps"} == floor(goldsrcops_command_dispatch_worker_in_progress{job="goldsrcops",service_name="GoldSrcOps"}))
+      - record: goldsrcops_command_dispatch_worker:active_source
+        expr: |
+          (goldsrcops_command_dispatch_worker_enabled{job="goldsrcops",service_name="GoldSrcOps"} == 1) and goldsrcops_command_dispatch_worker:source_live and (goldsrcops_command_dispatch_worker_state{job="goldsrcops",service_name="GoldSrcOps"} != 3)
+      - record: goldsrcops_command_dispatch_worker:active_state
+        expr: |
+          max(goldsrcops_command_dispatch_worker_state{job="goldsrcops",service_name="GoldSrcOps"} and goldsrcops_command_dispatch_worker:active_source) and (count(goldsrcops_command_dispatch_worker:active_source) == 1)
+      - record: goldsrcops_command_dispatch_worker:progress_age_seconds
+        expr: |
+          time() - max((goldsrcops_command_dispatch_worker_last_finished_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} + goldsrcops_command_dispatch_worker_started_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} * (goldsrcops_command_dispatch_worker_last_finished_timestamp_seconds{job="goldsrcops",service_name="GoldSrcOps"} == bool 0)) and goldsrcops_command_dispatch_worker:active_source) and (count(goldsrcops_command_dispatch_worker:active_source) == 1)
+      - record: goldsrcops_command_dispatch_worker:budget_seconds
+        expr: |
+          max(goldsrcops_command_dispatch_worker_cycle_budget_seconds{job="goldsrcops",service_name="GoldSrcOps"} and goldsrcops_command_dispatch_worker:active_source) and (count(goldsrcops_command_dispatch_worker:active_source) == 1)
+      - record: goldsrcops_command_dispatch_worker:display_state
+        expr: |
+          (goldsrcops_command_dispatch_worker:active_state unless (goldsrcops_command_dispatch_worker:progress_age_seconds > goldsrcops_command_dispatch_worker:budget_seconds)) or ((0 * goldsrcops_command_dispatch_worker:progress_age_seconds + 4) and (goldsrcops_command_dispatch_worker:progress_age_seconds > goldsrcops_command_dispatch_worker:budget_seconds)) or (max(goldsrcops_command_dispatch_worker_state{job="goldsrcops",service_name="GoldSrcOps"} and goldsrcops_command_dispatch_worker:source_live) == 3 and absent(goldsrcops_command_dispatch_worker:active_source))
+      - alert: CommandDispatchMonitorUnavailable
+        expr: |
+          absent(goldsrcops_command_dispatch_worker:active_state)
+        for: 5m
+        labels:
+          severity: warning
+          component: command-dispatch-liveness
+        annotations:
+          summary: "Active command dispatch observation is unavailable"
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.130-command-dispatch-liveness.md"
+      - alert: CommandDispatchCycleStalled
+        expr: |
+          (goldsrcops_command_dispatch_worker:progress_age_seconds > goldsrcops_command_dispatch_worker:budget_seconds)
+        for: 2m
+        labels:
+          severity: warning
+          component: command-dispatch-liveness
+        annotations:
+          summary: "Command dispatch cycle has no recent completion"
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.130-command-dispatch-liveness.md"
+      - alert: CommandDispatchCycleFailed
+        expr: |
+          (goldsrcops_command_dispatch_worker:active_state == 2) and (max(goldsrcops_command_dispatch_worker_consecutive_failures{job="goldsrcops",service_name="GoldSrcOps"} and goldsrcops_command_dispatch_worker:active_source) >= 2) unless (goldsrcops_command_dispatch_worker:progress_age_seconds > goldsrcops_command_dispatch_worker:budget_seconds)
+        for: 2m
+        labels:
+          severity: warning
+          component: command-dispatch-liveness
+        annotations:
+          summary: "Command dispatch cycles are failing"
+          runbook_url: "https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.130-command-dispatch-liveness.md"

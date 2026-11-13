@@ -20,6 +20,11 @@ route:
       repeat_interval: 1m
     - receiver: owner-email
       matchers:
+        - component="command-dispatch-liveness"
+        - severity="warning"
+        - alertname=~"CommandDispatch(MonitorUnavailable|CycleStalled|CycleFailed)"
+    - receiver: owner-email
+      matchers:
         - component="snapshot-retention-liveness"
         - severity="warning"
         - alertname=~"SnapshotRetention(MonitorUnavailable|CycleStalled|CycleFailed)"
@@ -95,11 +100,11 @@ receivers:
             severity: warning
           commonAnnotations:
             summary: 'GoldSrcOps - {{ .GroupLabels.alertname }}'
-            runbook_url: '{{ if eq .CommonLabels.component "snapshot-retention-liveness" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.127-retention-liveness.md{{ else if eq .CommonLabels.component "polling-liveness" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.121-polling-liveness.md{{ else if eq .CommonLabels.component "archive-schedule" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.117-archive-reliability.md{{ else if eq .CommonLabels.component "credential-expiry" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.116-credential-notifications.md{{ else if eq .CommonLabels.component "game-host-resources" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.105-game-resource-monitor.md{{ else if eq .CommonLabels.component "game-host-storage" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.104-game-storage-monitor.md{{ else if eq .CommonLabels.component "player-backup" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/game-player-data-monitoring.md{{ else }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md{{ end }}'
+            runbook_url: '{{ if eq .CommonLabels.component "command-dispatch-liveness" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.130-command-dispatch-liveness.md{{ else if eq .CommonLabels.component "snapshot-retention-liveness" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.127-retention-liveness.md{{ else if eq .CommonLabels.component "polling-liveness" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.121-polling-liveness.md{{ else if eq .CommonLabels.component "archive-schedule" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.117-archive-reliability.md{{ else if eq .CommonLabels.component "credential-expiry" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.116-credential-notifications.md{{ else if eq .CommonLabels.component "game-host-resources" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.105-game-resource-monitor.md{{ else if eq .CommonLabels.component "game-host-storage" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.104-game-storage-monitor.md{{ else if eq .CommonLabels.component "player-backup" }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/game-player-data-monitoring.md{{ else }}https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.97-agent-alerts.md{{ end }}'
           externalURL: https://github.com/tov-vl/gold-src-ops/blob/main/docs/v2.98-owner-notifications.md
           alerts: >-
             {{ $safe := list }}{{ range .Alerts }}
-            {{ $runbook := "v2.97-agent-alerts.md" }}{{ if eq .Labels.component "snapshot-retention-liveness" }}{{ $runbook = "v2.127-retention-liveness.md" }}{{ else if eq .Labels.component "polling-liveness" }}{{ $runbook = "v2.121-polling-liveness.md" }}{{ else if eq .Labels.component "archive-schedule" }}{{ $runbook = "v2.117-archive-reliability.md" }}{{ else if eq .Labels.component "credential-expiry" }}{{ $runbook = "v2.116-credential-notifications.md" }}{{ else if eq .Labels.component "player-backup" }}{{ $runbook = "game-player-data-monitoring.md" }}{{ else if eq .Labels.component "game-host-storage" }}{{ $runbook = "v2.104-game-storage-monitor.md" }}{{ else if eq .Labels.component "game-host-resources" }}{{ $runbook = "v2.105-game-resource-monitor.md" }}{{ end }}
+            {{ $runbook := "v2.97-agent-alerts.md" }}{{ if eq .Labels.component "command-dispatch-liveness" }}{{ $runbook = "v2.130-command-dispatch-liveness.md" }}{{ else if eq .Labels.component "snapshot-retention-liveness" }}{{ $runbook = "v2.127-retention-liveness.md" }}{{ else if eq .Labels.component "polling-liveness" }}{{ $runbook = "v2.121-polling-liveness.md" }}{{ else if eq .Labels.component "archive-schedule" }}{{ $runbook = "v2.117-archive-reliability.md" }}{{ else if eq .Labels.component "credential-expiry" }}{{ $runbook = "v2.116-credential-notifications.md" }}{{ else if eq .Labels.component "player-backup" }}{{ $runbook = "game-player-data-monitoring.md" }}{{ else if eq .Labels.component "game-host-storage" }}{{ $runbook = "v2.104-game-storage-monitor.md" }}{{ else if eq .Labels.component "game-host-resources" }}{{ $runbook = "v2.105-game-resource-monitor.md" }}{{ end }}
             {{ $safe = append $safe (dict "status" .Status
             "labels" (dict "alertname" .Labels.alertname "component" .Labels.component "severity" "warning")
             "annotations" (dict "summary" (printf "GoldSrcOps - %s" .Labels.alertname)

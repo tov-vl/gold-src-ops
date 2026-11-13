@@ -12,6 +12,7 @@ import credential_expiry_alerts
 import archive_schedule_alerts
 import polling_liveness_alerts
 import snapshot_retention_liveness_alerts
+import command_dispatch_liveness_alerts
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'ops/production/owner-notifications'
@@ -28,8 +29,8 @@ ALERTS += ['CredentialExpiryMonitorUnavailable'] + [
     'CredentialExpiry' + purpose + state
     for purpose in ('GrafanaMetrics', 'GrafanaLogs', 'ArchiveReader', 'ArchiveWriter')
     for state in ('Soon', 'Critical', 'Expired', 'Unknown')]
-ALERTS += archive_schedule_alerts.alert_names() + polling_liveness_alerts.alert_names() + snapshot_retention_liveness_alerts.alert_names()
-COMPONENTS = {name: 'snapshot-retention-liveness' if name.startswith('SnapshotRetention') else 'polling-liveness' if name.startswith('Polling') else 'archive-schedule' if name.startswith('ArchiveSchedule') else 'credential-expiry' if name.startswith('CredentialExpiry') else 'game-host-resources' if name.startswith(('GameHostResource', 'GameHostMemory')) else
+ALERTS += archive_schedule_alerts.alert_names() + polling_liveness_alerts.alert_names() + snapshot_retention_liveness_alerts.alert_names() + command_dispatch_liveness_alerts.alert_names()
+COMPONENTS = {name: 'command-dispatch-liveness' if name.startswith('CommandDispatch') else 'snapshot-retention-liveness' if name.startswith('SnapshotRetention') else 'polling-liveness' if name.startswith('Polling') else 'archive-schedule' if name.startswith('ArchiveSchedule') else 'credential-expiry' if name.startswith('CredentialExpiry') else 'game-host-resources' if name.startswith(('GameHostResource', 'GameHostMemory')) else
               'game-host-storage' if name.startswith('GameHostStorage') else
               'player-backup' if name.startswith('PlayerBackup') else 'game-event-agent' for name in ALERTS}
 SAFE = ['--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '64']
@@ -104,7 +105,7 @@ def check_projection(payload, state):
     row = payload['alerts'][0]
     assert set(row) == {'status', 'labels', 'annotations', 'startsAt', 'endsAt', 'fingerprint'}
     assert row['status'] == state and row['labels'] == labels
-    runbook = 'v2.127-retention-liveness.md' if COMPONENTS[name] == 'snapshot-retention-liveness' else 'v2.121-polling-liveness.md' if COMPONENTS[name] == 'polling-liveness' else 'v2.117-archive-reliability.md' if COMPONENTS[name] == 'archive-schedule' else 'v2.116-credential-notifications.md' if COMPONENTS[name] == 'credential-expiry' else 'v2.105-game-resource-monitor.md' if COMPONENTS[name] == 'game-host-resources' else 'v2.104-game-storage-monitor.md' if COMPONENTS[name] == 'game-host-storage' else 'game-player-data-monitoring.md' if COMPONENTS[name] == 'player-backup' else 'v2.97-agent-alerts.md'
+    runbook = 'v2.130-command-dispatch-liveness.md' if COMPONENTS[name] == 'command-dispatch-liveness' else 'v2.127-retention-liveness.md' if COMPONENTS[name] == 'snapshot-retention-liveness' else 'v2.121-polling-liveness.md' if COMPONENTS[name] == 'polling-liveness' else 'v2.117-archive-reliability.md' if COMPONENTS[name] == 'archive-schedule' else 'v2.116-credential-notifications.md' if COMPONENTS[name] == 'credential-expiry' else 'v2.105-game-resource-monitor.md' if COMPONENTS[name] == 'game-host-resources' else 'v2.104-game-storage-monitor.md' if COMPONENTS[name] == 'game-host-storage' else 'game-player-data-monitoring.md' if COMPONENTS[name] == 'player-backup' else 'v2.97-agent-alerts.md'
     annotations = {'summary': 'GoldSrcOps - ' + name,
                    'runbook_url': 'https://github.com/tov-vl/gold-src-ops/blob/main/docs/' + runbook}
     assert payload['commonAnnotations'] == annotations and row['annotations'] == annotations
@@ -150,6 +151,7 @@ def check_prometheus(temporary, prefix, containers):
     archive_schedule_alerts.validate_rules(docker, mount, image, temporary)
     polling_liveness_alerts.validate_rules(docker, mount, image, temporary)
     snapshot_retention_liveness_alerts.validate_rules(docker, mount, image, temporary)
+    command_dispatch_liveness_alerts.validate_rules(docker, mount, image, temporary)
     name = prefix + '-prom'
     containers.append(name)
     docker('run', '-d', '--name', name, '--network', prefix, *SAFE, '--publish', '127.0.0.1::9090',

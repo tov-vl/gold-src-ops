@@ -12,17 +12,20 @@ internal sealed partial class CommandDispatchBackgroundService : BackgroundServi
     private readonly IClock _clock;
     private readonly CommandDispatcherOptions _options;
     private readonly ILogger<CommandDispatchBackgroundService> _logger;
+    private readonly CommandDispatchMetrics _metrics;
 
     public CommandDispatchBackgroundService(
         IServiceScopeFactory scopeFactory,
         IClock clock,
         CommandDispatcherOptions options,
-        ILogger<CommandDispatchBackgroundService> logger)
+        ILogger<CommandDispatchBackgroundService> logger,
+        CommandDispatchMetrics metrics)
     {
         _scopeFactory = scopeFactory;
         _clock = clock;
         _options = options;
         _logger = logger;
+        _metrics = metrics;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -35,40 +38,51 @@ internal sealed partial class CommandDispatchBackgroundService : BackgroundServi
 
         var nextRecoveryAtUtc = DateTimeOffset.MinValue;
 
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested)
             {
-                var now = _clock.UtcNow;
-                if (now >= nextRecoveryAtUtc)
+                _metrics.BeginCycle();
+                var started = System.Diagnostics.Stopwatch.GetTimestamp();
+                try
                 {
-                    await RecoverInterruptedAsync(stoppingToken);
-                    nextRecoveryAtUtc = now + _options.RecoveryInterval;
+                    var now = _clock.UtcNow;
+                    if (now >= nextRecoveryAtUtc)
+                    {
+                        await RecoverInterruptedAsync(stoppingToken).ConfigureAwait(false);
+                        nextRecoveryAtUtc = now + _options.RecoveryInterval;
+                    }
+
+                    var claimed = await DispatchBatchAsync(stoppingToken).ConfigureAwait(false);
+                    _metrics.CompleteCycle(failed: false, System.Diagnostics.Stopwatch.GetElapsedTime(started));
+                    if (claimed > 0)
+                    {
+                        continue;
+                    }
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception exception)
+                {
+                    _metrics.CompleteCycle(failed: true, System.Diagnostics.Stopwatch.GetElapsedTime(started));
+                    LogDispatcherPassFailed(_logger, exception);
                 }
 
-                var claimed = await DispatchBatchAsync(stoppingToken);
-                if (claimed > 0)
+                try
                 {
-                    continue;
+                    await Task.Delay(_options.LoopDelay, stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
                 }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception exception)
-            {
-                LogDispatcherPassFailed(_logger, exception);
-            }
-
-            try
-            {
-                await Task.Delay(_options.LoopDelay, stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
+        }
+        finally
+        {
+            _metrics.WorkerStopped();
         }
     }
 
