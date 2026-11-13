@@ -92,7 +92,8 @@ if (reverseProxyEnabled)
 app.UseHttpsRedirection();
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments(new PathString("/api/operator/retention-health"), StringComparison.OrdinalIgnoreCase))
+    if (context.Request.Path.StartsWithSegments(new PathString("/api/operator/retention-health"), StringComparison.OrdinalIgnoreCase) ||
+        context.Request.Path.StartsWithSegments(new PathString("/api/operator/command-dispatch-health"), StringComparison.OrdinalIgnoreCase))
     {
         context.Response.Headers.CacheControl = "no-store";
     }
@@ -126,6 +127,7 @@ app.MapGameHostHealthEndpoints();
 app.MapArchiveHealthEndpoints();
 app.MapPollingHealthEndpoints();
 app.MapRetentionHealthEndpoints();
+app.MapCommandDispatchHealthEndpoints();
 app.MapCredentialExpiryEndpoints();
 app.MapCommandEndpoints();
 app.MapGameEventEndpoints();

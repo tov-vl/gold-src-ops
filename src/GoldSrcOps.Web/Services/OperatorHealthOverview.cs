@@ -64,6 +64,32 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
         return new OperatorHealthOverview(now, [.. overview.Sources, source]);
     }
 
+    public static async Task<OperatorHealthOverview> WithCommandDispatchAsync(Task<OperatorHealthOverview> overviewRead,
+            ICommandDispatchHealthClient commandDispatch, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var commandDispatchRead = ReadSourceAsync(commandDispatch.ReadAsync, cancellationToken);
+        await Task.WhenAll(overviewRead, commandDispatchRead).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        var overview = await overviewRead.ConfigureAwait(false);
+        var response = await commandDispatchRead.ConfigureAwait(false);
+        var now = clock.GetUtcNow();
+        var view = CommandDispatchHealthView.Create(response, now);
+        var source = new Source("command-dispatch", "Command dispatcher", CommandDispatchHealthView.Path,
+            Freshness(response?.EvaluatedAtUtc, now, 60), ValidTime(response?.EvaluatedAtUtc, now),
+            [
+                new Fact("Command dispatcher", view.ObservationState, view.ObservationState),
+                new Fact("Worker last observed", Time(view.ObservedAtUtc)),
+                new Fact("Last cycle completed", Time(view.LastCycleFinishedAtUtc)),
+                new Fact("Last successful cycle", Time(view.LastSuccessfulCycleAtUtc)),
+                new Fact("Last cycle duration (seconds)", Seconds(view.LastCycleDurationSeconds)),
+                new Fact("Consecutive failures", view.ConsecutiveFailures?.ToString(CultureInfo.InvariantCulture) ?? "Unknown")
+            ], CreateWarnings(view.WarningsState, view.WarningsObservedAtUtc,
+                view.Warnings.Select(static item => new Warning(item.Name, item.State))),
+            "Completed cycles, including an empty queue, are progress. An individual failed RCON response is not a cycle failure; Running does not establish command delivery.");
+        return new OperatorHealthOverview(now, [.. overview.Sources, source]);
+    }
+
     public static OperatorHealthOverview Create(GameHostHealthResponse? gameHost, ArchiveHealthResponse? archive,
         PollingHealthResponse? polling, CredentialExpiryResponse? credentials, DateTimeOffset now) =>
         new(now, [GameHost(gameHost, now), Archive(archive, now), Polling(polling, now), Credentials(credentials, now)]);

@@ -5,6 +5,7 @@
 @inject IArchiveHealthClient ArchiveClient
 @inject IPollingHealthClient PollingClient
 @inject IRetentionHealthClient RetentionClient
+@inject ICommandDispatchHealthClient CommandDispatchClient
 @inject ICredentialExpiryClient CredentialClient
 @inject IIncidentDeliveryHealthClient IncidentDeliveryClient
 @inject TimeProvider TimeProvider
@@ -63,7 +64,7 @@
         }
     </div>
     <p>Open a source for first checks and interpretation. Refresh reads each configured source once; a failed source leaves the others available. This overview does not restart, retry, rotate credentials, acknowledge or silence warnings.</p>
-    <p>The download contains all seven sources, including snapshot retention, credential expiry and incident delivery. The report is a separate read and can differ from this overview.</p>
+    <p>The download contains all eight sources, including command dispatch, snapshot retention, credential expiry and incident delivery. The report is a separate read and can differ from this overview.</p>
 </div>
 
 @code {
@@ -72,10 +73,11 @@
     private OperatorHealthOverview _overview = OperatorHealthOverview.Create(null, null, null, null, DateTimeOffset.UnixEpoch);
 
     protected override async Task OnInitializedAsync() =>
-        _overview = await OperatorHealthOverview.WithRetentionAsync(
+        _overview = await OperatorHealthOverview.WithCommandDispatchAsync(OperatorHealthOverview.WithRetentionAsync(
             OperatorHealthOverview.ReadAsync(GameHostClient, ArchiveClient, PollingClient, CredentialClient,
                 IncidentDeliveryClient, TimeProvider, HttpContext?.RequestAborted ?? CancellationToken.None),
-            RetentionClient, TimeProvider, HttpContext?.RequestAborted ?? CancellationToken.None);
+            RetentionClient, TimeProvider, HttpContext?.RequestAborted ?? CancellationToken.None),
+            CommandDispatchClient, TimeProvider, HttpContext?.RequestAborted ?? CancellationToken.None);
 
     private static string FormatTime(DateTimeOffset? value) => value?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture) ?? "Unknown";
 }
