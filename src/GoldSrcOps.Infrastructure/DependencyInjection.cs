@@ -96,6 +96,8 @@ public static class DependencyInjection
         services.AddSingleton<IGoldSrcRconClient>(_ =>
             new GoldSrcRconClient(Encoding.GetEncoding("windows-1251"), rconOptions));
         services.AddScoped<IRconCommandExecutor, GoldSrcRconCommandExecutor>();
+        services.AddSingleton<CommandDispatchMetrics>();
+        services.AddHostedService(static provider => provider.GetRequiredService<CommandDispatchMetrics>());
         services.AddScoped<CommandDispatcher>();
         services.AddScoped<ServerPollingService>();
         services.AddSingleton(static provider => PublicLeaderboardOptions.FromConfiguration(

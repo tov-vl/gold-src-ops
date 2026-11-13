@@ -15,11 +15,12 @@ rule_files:
   - /etc/prometheus/rules/archive-schedule.yml
   - /etc/prometheus/rules/polling-liveness.yml
   - /etc/prometheus/rules/snapshot-retention-liveness.yml
+  - /etc/prometheus/rules/command-dispatch-liveness.yml
 
 alerting:
   alert_relabel_configs:
     - source_labels: [component, severity, alertname]
-      regex: game-event-agent;warning;GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)|player-backup;warning;PlayerBackup(MonitorUnavailable|ObservationInvalid|InterventionRequired|ScheduleProblem|CopyUnavailable)|game-host-storage;warning;GameHostStorage(MonitorUnavailable|ObservationInvalid|BytesLow|InodesLow)|game-host-resources;warning;GameHost(ResourceMonitorUnavailable|ResourceObservationInvalid|MemoryLow)|credential-expiry;warning;CredentialExpiry(MonitorUnavailable|(GrafanaMetrics|GrafanaLogs|ArchiveReader|ArchiveWriter)(Soon|Critical|Expired|Unknown))|archive-schedule;warning;ArchiveSchedule(MonitorUnavailable|ObservationInvalid|Delayed|CatchupAtRisk)|snapshot-retention-liveness;warning;SnapshotRetention(MonitorUnavailable|CycleStalled|CycleFailed)|polling-liveness;warning;Polling(MonitorUnavailable|CycleStalled|CycleFailed)|monitoring-pipeline;none;MonitoringHeartbeat
+      regex: game-event-agent;warning;GameEventAgent(MonitorUnavailable|ObservationInvalid|WorkerProblem|QueueDelayed|SpoolProblem)|player-backup;warning;PlayerBackup(MonitorUnavailable|ObservationInvalid|InterventionRequired|ScheduleProblem|CopyUnavailable)|game-host-storage;warning;GameHostStorage(MonitorUnavailable|ObservationInvalid|BytesLow|InodesLow)|game-host-resources;warning;GameHost(ResourceMonitorUnavailable|ResourceObservationInvalid|MemoryLow)|credential-expiry;warning;CredentialExpiry(MonitorUnavailable|(GrafanaMetrics|GrafanaLogs|ArchiveReader|ArchiveWriter)(Soon|Critical|Expired|Unknown))|archive-schedule;warning;ArchiveSchedule(MonitorUnavailable|ObservationInvalid|Delayed|CatchupAtRisk)|command-dispatch-liveness;warning;CommandDispatch(MonitorUnavailable|CycleStalled|CycleFailed)|snapshot-retention-liveness;warning;SnapshotRetention(MonitorUnavailable|CycleStalled|CycleFailed)|polling-liveness;warning;Polling(MonitorUnavailable|CycleStalled|CycleFailed)|monitoring-pipeline;none;MonitoringHeartbeat
       action: keep
     - regex: alertname|component|severity
       action: labelkeep

@@ -5,6 +5,11 @@ release steps.
 
 ## Current Status
 
+In progress: [v2.130 command dispatcher liveness](v2.130-command-dispatch-liveness.md).
+Observe existing RCON worker cycles and add three private held warnings without
+changing dispatch/recovery semantics or creating commands. R3 API/monitoring
+delivery and isolated notification acceptance are pending.
+
 Completed: [v2.129 retention in the Operator report](v2.129-retention-health-report.md)
 is released and installed. The bounded UTF-8 attachment now includes all seven
 independent sources, retention cycle metadata and its three existing warnings.
