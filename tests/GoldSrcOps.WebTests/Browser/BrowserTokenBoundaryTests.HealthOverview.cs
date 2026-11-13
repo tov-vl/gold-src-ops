@@ -28,6 +28,7 @@ public sealed partial class BrowserTokenBoundaryTests
         response!.Headers["cache-control"].Split(',').Select(static value => value.Trim()).Should().Contain("no-store");
         await Expect(page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Operations health", Exact = true })).ToBeVisibleAsync();
         await Expect(page.Locator(".operations-card")).ToHaveCountAsync(8);
+        await Expect(page.GetByText("Eight independent read-only sources, with links to their detailed observations.", new PageGetByTextOptions { Exact = true })).ToBeVisibleAsync();
         await Expect(page.Locator(".operations-card[data-source='archive'] [data-rule-state='Firing']")).ToHaveTextAsync("Firing");
         await Expect(page.GetByText("Recorded minute reached (conservative)", new PageGetByTextOptions { Exact = true })).ToBeVisibleAsync();
         await Expect(page.Locator("[data-source='incident-outbox']").GetByText("Disabled", new LocatorGetByTextOptions { Exact = true })).ToBeVisibleAsync();
