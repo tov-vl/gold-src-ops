@@ -100,9 +100,11 @@ public sealed class SupplementalHealthReportTests
                 Warnings = [.. PollingHealthView.Definitions.Select(static definition => new PollingWarningResponse(definition.Name, "Firing"))]
             };
             var text = GameHostHealthReport.Create(game, Now, archive, polling,
-                new SupplementalHealthReport.Snapshots(OperatorHealthOverviewFixtures.Credentials(Now), outbox, receiver, ReceiverConfigured: true));
+                new SupplementalHealthReport.Snapshots(OperatorHealthOverviewFixtures.Credentials(Now), outbox, receiver, ReceiverConfigured: true), RetentionHealthFixture.Valid(Now) with
+                { Warnings = [.. RetentionHealthView.Definitions.Select(static definition => new RetentionWarningResponse(definition.Name, "Firing"))] });
             text.Should().Contain("9223372036854775807").And.Contain("Receiver mode: Live").And.Contain("Provider worker: Enabled");
             Encoding.UTF8.GetByteCount(text).Should().BeLessThan(32768);
+            text.Should().Contain("SnapshotRetentionCycleFailed: Firing");
             foreach (var name in warningNames)
             {
                 text.Should().Contain(name + ": Firing");
