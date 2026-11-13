@@ -3,6 +3,30 @@
 This backlog tracks completed milestones and the next reviewable development or
 release steps.
 
+## Next Priorities
+
+Planning baseline: 2026-11-13, after accepted v2.130. The
+[current roadmap](roadmap.md) owns scope, dependencies and completion criteria;
+the records below retain historical release evidence.
+
+1. Next release, planned: v2.131 adds command dispatcher health to the
+   Operator-only API, detail page, overview and bounded UTF-8 report together,
+   using v2.130 observation and warnings without changing command execution.
+   Implementation and release have not started.
+2. In parallel: record the required Archive freshness guarantee and decide
+   whether its trigger mechanism needs a separate change. Preserve hourly
+   `:53`, the 24-hour export window and existing warning policy during review.
+3. When two independent human participants/accounts are available: run one
+   controlled gameplay pilot, then select at most one map/spawn or mechanic
+   improvement from its findings. Prepare the checklist while waiting.
+4. Keep the accepted client lab as a regression tool. Further monitoring UI,
+   plugins and infrastructure need a concrete operator or player problem.
+   Bots and 24-hour human activity aggregation remain deferred.
+
+Archive observation and player availability do not block unrelated bounded
+work. The roadmap update is documentation-only; no runtime, schedule or gameplay
+change is implied.
+
 ## Current Status
 
 Completed: [v2.130 command dispatcher liveness](v2.130-command-dispatch-liveness.md)

@@ -42,7 +42,37 @@ Avoid positioning it as:
 
 ## Current Repository State
 
-Current implementation:
+Planning snapshot: 2026-11-13, after accepted
+[v2.130 command dispatcher liveness](v2.130-command-dispatch-liveness.md).
+
+- The .NET 10 modular monolith and server-side OIDC Web BFF provide public
+  sanitized status, protected Reader/Operator workflows, A2S history, auditable
+  RCON administration and bounded incident delivery.
+- The accepted operational baseline covers game-host health, backup, storage,
+  resources, credential expiry, delivery, Archive, polling and retention, with
+  owner notifications and an independent monitoring watchdog. v2.130 adds
+  private command dispatcher progress and warnings; its Operator UI/report
+  projection is planned next.
+- The managed CS 1.6 mode includes fast reentry, loadout selection, saved
+  progression and RU/EN guidance. The client lab has accepted bounded autonomous
+  scenarios, including fresh RU/EN `/guns` checks with OpenGL evidence.
+  Two-player interaction and balance remain separate acceptance work.
+- Archive schedule irregularity and source-data gaps remain explicit limits;
+  a successful workflow does not establish independent object Recovery or
+  complete source coverage.
+
+The [roadmap](roadmap.md) defines the next priorities and completion criteria;
+the [backlog](backlog.md) tracks milestone status. After completing the Operator
+command dispatcher view, prioritize an evidenced operator problem or a
+controlled gameplay pilot over repeated monitoring UI expansion. Archive
+reliability decisions proceed in parallel, and player-dependent work waits for
+two independent participants. This snapshot is not a fresh production audit.
+
+## Baseline Capabilities And Early Release Evidence
+
+The following context preserves the early implementation and acceptance
+history. Release-specific runtime statements describe those acceptance windows;
+use the roadmap and current backlog for active work.
 
 - .NET 10 modular monolith with API, Contracts, Application, Domain, and
   Infrastructure projects.
@@ -130,7 +160,7 @@ GitHub Release publication are complete; the design and residual UDP limits are
 recorded in
 `docs/v2.2-rcon-response-reliability.md`.
 
-The current v2.5 release records one continuously operated single-node
+The completed v2.5 release records one continuously operated single-node
 reference environment without claiming high availability, long-term
 reliability, or an achieved service-level objective. Stable and
 release-candidate image publication is implemented with digest-preserving
@@ -216,7 +246,7 @@ Release was published. Release scope, compatibility, live evidence, and
 rollback boundaries are defined in
 `docs/release-notes-v2.5.md` and `docs/v2.5-readiness.md`.
 
-## MVP Goal
+## Original MVP Goal
 
 Build a modular ASP.NET Core backend that can:
 
@@ -257,9 +287,10 @@ Build a modular ASP.NET Core backend that can:
 - Docker Compose for local development.
 - xUnit for tests.
 
-## Future Shape
+## Historical Delivery Sequence Through v2.22
 
-The project should evolve in stages:
+These entries preserve the early delivery sequence and its evidence. They are
+not the future work queue; current priorities are in the [roadmap](roadmap.md).
 
 - v1: released modular-monolith monitoring and administration baseline.
 - v2.0 through v2.2: released transactional alert delivery, audited recovery,
@@ -556,14 +587,10 @@ The project should evolve in stages:
   through the private server-side operations boundary. It adds no migration,
   delivery activation, provider mutation, public route, identity change, or
   game-host change.
-- The active v2.22 slice composes source alert delivery, receiver mode, and
+- The completed v2.22 slice composes source alert delivery, receiver mode, and
   provider delivery into one read-only Operator readiness view. It identifies
   safely paused, partially active, action-required, and live chain states while
   preserving the separate authorization boundary and exposing no secret or
   delivery mutation.
-- Sandbox entitlements may follow; real payments remain explicitly out of
-  scope until then.
-- Optional service extraction or a broker only if observed scaling, ownership,
-  or failure-isolation pressure makes the modular monolith insufficient.
 
 See `docs/architecture-decisions.md` for reasoning.
