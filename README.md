@@ -6,15 +6,15 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.129.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.129.0)
-is released and installed. The Operator diagnostic download now includes all
-seven sources, snapshot-retention cycle metadata and its three existing warning
-states. Independent Web-only runtime and authenticated UTF-8 download acceptance
-passed; fourteen other containers and protected configuration were preserved.
-Stable reused accepted digests without rebuilding. Retention behavior/settings,
-monitoring policy, credentials, game/agent and Archive cadence stay unchanged. See
-[release notes](docs/release-notes-v2.129.md) and
-[evidence and claim limits](docs/v2.129-retention-health-report.md).
+**Status:** [v2.130.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.130.0)
+is released and installed. The RCON dispatcher's existing cycles now have private
+progress metadata, three held warnings and five panels on the worker dashboard.
+Independent API/monitoring continuity, later natural empty-queue progress and
+isolated IRM firing/resolved acceptance passed; fourteen other containers were
+preserved. Stable reused accepted digests without rebuilding. Dispatch/recovery,
+credentials, Web/receiver, game/agent and Archive cadence stay unchanged. See
+[release notes](docs/release-notes-v2.130.md) and
+[evidence and claim limits](docs/v2.130-command-dispatch-liveness.md).
 
 The separate [availability diagnostics v2.119.0](https://github.com/tov-vl/gold-src-ops/releases/tag/availability-diagnostics-v2.119.0) component
 adds bounded missing-minute/source-neighbor and reviewed Archive-window
