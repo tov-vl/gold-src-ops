@@ -5,10 +5,14 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.129 retention in the Operator report](v2.129-retention-health-report.md).
-Add the seventh independent source to the existing bounded UTF-8 attachment.
-Web-only R1 installation; retention behavior, monitoring policy, credentials,
-game/agent and Archive cadence stay unchanged. Verification and release pending.
+Completed: [v2.129 retention in the Operator report](v2.129-retention-health-report.md)
+is released and installed. The bounded UTF-8 attachment now includes all seven
+independent sources, retention cycle metadata and its three existing warnings.
+Required CI, immutable publication, Web-only runtime and actual authenticated
+download acceptance passed. Fourteen other containers and protected configuration
+were preserved; stable reused accepted digests without rebuilding. Retention
+behavior/settings, monitoring policy, credentials, game/agent and Archive cadence
+stay unchanged.
 
 Completed: [v2.128 Operator retention health](v2.128-operator-retention-health.md)
 is released and installed. Operator retention health now shows cleanup cycle

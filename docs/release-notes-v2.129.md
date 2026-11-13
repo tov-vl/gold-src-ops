@@ -7,4 +7,7 @@ The overview download text now matches its seven-source content.
 
 Only Web is an installation target. Retention behavior/settings, monitoring,
 permissions, credentials, game/agent and the hourly Archive cadence are unchanged.
-Release and production acceptance are pending.
+Released and installed after required CI, immutable publication and independent
+Web-only runtime and authenticated download acceptance. Stable reused accepted
+digests without rebuilding; fourteen other containers were preserved. See the
+[readiness record](v2.129-retention-health-report.md).

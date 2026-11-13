@@ -6,16 +6,15 @@ servers through A2S, records availability history and incidents, executes
 auditable operator actions through RCON, and exposes health and telemetry for
 operations.
 
-**Status:** [v2.128.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.128.0)
-is released and installed. Operator retention health now shows cleanup cycle
-metadata and the three existing warning states on a detail page and seventh
-overview card. Independent API/Web and authenticated browser acceptance passed;
-thirteen other containers and protected configuration were preserved. Stable
-reused accepted digests without rebuilding. The six-source download, retention
-behavior/settings, monitoring policy, credentials, game/agent and Archive cadence
-stay unchanged. See
-[release notes](docs/release-notes-v2.128.md) and
-[evidence and claim limits](docs/v2.128-operator-retention-health.md).
+**Status:** [v2.129.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.129.0)
+is released and installed. The Operator diagnostic download now includes all
+seven sources, snapshot-retention cycle metadata and its three existing warning
+states. Independent Web-only runtime and authenticated UTF-8 download acceptance
+passed; fourteen other containers and protected configuration were preserved.
+Stable reused accepted digests without rebuilding. Retention behavior/settings,
+monitoring policy, credentials, game/agent and Archive cadence stay unchanged. See
+[release notes](docs/release-notes-v2.129.md) and
+[evidence and claim limits](docs/v2.129-retention-health-report.md).
 
 The separate [availability diagnostics v2.119.0](https://github.com/tov-vl/gold-src-ops/releases/tag/availability-diagnostics-v2.119.0) component
 adds bounded missing-minute/source-neighbor and reviewed Archive-window
