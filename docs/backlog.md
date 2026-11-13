@@ -5,10 +5,14 @@ release steps.
 
 ## Current Status
 
-In progress: [v2.130 command dispatcher liveness](v2.130-command-dispatch-liveness.md).
-Observe existing RCON worker cycles and add three private held warnings without
-changing dispatch/recovery semantics or creating commands. R3 API/monitoring
-delivery and isolated notification acceptance are pending.
+Completed: [v2.130 command dispatcher liveness](v2.130-command-dispatch-liveness.md)
+is released and installed. Private cycle metadata, three held warnings and five
+panels distinguish empty-queue progress, repeated exceptions, stalls and missing
+observation. Required CI, immutable publication, API/monitoring continuity,
+later natural progress and isolated IRM Resolved acceptance passed. Fourteen
+other containers and protected unrelated files were preserved. Stable reused
+accepted digests without rebuilding. Command claiming/recovery/concurrency,
+credentials, Web/receiver, game/agent and Archive cadence stayed unchanged.
 
 Completed: [v2.129 retention in the Operator report](v2.129-retention-health-report.md)
 is released and installed. The bounded UTF-8 attachment now includes all seven

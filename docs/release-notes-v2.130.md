@@ -9,5 +9,8 @@ R3 delivery targets only API and the reviewed private monitoring files. The
 existing dashboard and IRM route are extended. Web/receiver, game/agent,
 credentials, permissions and hourly Archive cadence are preserved.
 
-Release and independent production acceptance are pending. See the
+Released after required CI, immutable publication, API/monitoring continuity,
+later natural empty-queue progress and isolated IRM Resolved acceptance. Stable
+reused accepted digests without rebuilding; fourteen other containers were
+preserved. See the
 [readiness and runbook record](v2.130-command-dispatch-liveness.md).
