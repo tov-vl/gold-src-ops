@@ -36,10 +36,11 @@ detail page, overview and report; 51 focused API tests and all 1,130 non-browser
 Web tests passed. Local restore, format, build and package audit passed, but the
 full test gate remains incomplete: 83 container-dependent tests failed without
 Docker, and 70 opt-in browser tests were skipped. The [component publisher](archive-trigger-publication.md)
-now has eleven offline tests for signed identity, package verification and exact
-candidate promotion. Implementation PR/CI, actual component publication and
-approved live rollout remain pending. No new credential or runtime change has
-been applied.
+now has thirteen offline tests for signed identity, package verification, draft
+lookup and exact candidate promotion. Implementation PR #546 and main CI passed.
+The first candidate retained its tag/draft after a metadata lookup failure; a
+reviewed fix and new candidate publication are in progress. Approved live rollout
+remains pending. No new credential or runtime change has been applied.
 
 Prepared: [Archive reliability decision](archive-trigger-decision.md) and
 [implementation plan](archive-trigger-implementation-plan.md). A read-only

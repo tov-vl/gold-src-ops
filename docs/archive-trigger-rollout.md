@@ -1,7 +1,7 @@
 # Archive External Trigger R3 Delivery Preparation
 
 Prepared on 2026-11-14. Proposed component version: 2.132.0; proposed tags:
-`archive-trigger-v2.132.0-rc.1` and `archive-trigger-v2.132.0`.
+`archive-trigger-v2.132.0-rc.2` and `archive-trigger-v2.132.0`.
 Status: local implementation and review package; no release, deployment or
 freshness guarantee is claimed. This preparation does not authorize new access.
 The [design](archive-trigger-decision.md), [implementation boundary](archive-trigger-implementation-plan.md)
