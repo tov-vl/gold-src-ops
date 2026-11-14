@@ -7,5 +7,9 @@ existing semantics. Sources keep independent freshness, cancellation and failure
 handling; an unavailable source does not hide the others.
 
 R1 delivery targets API and Web only. Command execution, monitoring policy,
-credentials, game/agent and Archive cadence are unchanged. Release verification
-is in progress; see the [readiness record](v2.131-operator-command-dispatch-health.md).
+credentials, game/agent and Archive cadence are unchanged. Required CI, immutable
+publication and independent API/Web acceptance passed.
+The authenticated page, explicit refresh, eight-card overview and UTF-8 download
+were accepted. Thirteen other containers and protected configuration were
+preserved; stable promotion reused candidate bytes without rebuilding. See the
+[readiness record](v2.131-operator-command-dispatch-health.md).
