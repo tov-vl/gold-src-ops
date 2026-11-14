@@ -14,7 +14,7 @@ internal static class ArchiveHealthEndpoints
             var snapshot = await service.ReadAsync(cancellationToken).ConfigureAwait(false);
             return TypedResults.Ok(new ArchiveHealthResponse(snapshot.EvaluatedAtUtc, snapshot.ObservationState, snapshot.ObservedAtUtc,
                 snapshot.HasScheduledSuccess, snapshot.LastSuccessAtUtc, snapshot.LastSuccessAgeSeconds, snapshot.WarningsState,
-                snapshot.WarningsObservedAtUtc, [.. snapshot.Warnings.Select(static item => new ArchiveWarningResponse(item.Name, item.State))]));
+                snapshot.WarningsObservedAtUtc, [.. snapshot.Warnings.Select(static item => new ArchiveWarningResponse(item.Name, item.State))], snapshot.TriggerSource));
         }).RequireAuthorization(GoldSrcOpsSecurity.OperatorPolicy).WithName("GetArchiveHealth").WithTags("Operator");
     }
 }

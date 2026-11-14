@@ -12,7 +12,7 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
     private static readonly (string Key, string Label)[] Components =
     [
         ("agent", "Agent / queue"), ("backup", "Player backup"), ("storage", "Disk / inode"),
-        ("memory", "RAM / swap"), ("cpu", "Sampled CPU")
+        ("memory", "RAM / swap"), ("cpu", "Sampled CPU"),
     ];
 
     public static async Task<OperatorHealthOverview> ReadAsync(IGameHostHealthClient gameHost, IArchiveHealthClient archive,
@@ -35,7 +35,7 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
         {
             Sources = [.. overview.Sources,
             IncidentDeliveryHealthView.Outbox(await outboxRead.ConfigureAwait(false), now),
-            IncidentDeliveryHealthView.Receiver(await receiverRead.ConfigureAwait(false), receiverConfigured, now)]
+            IncidentDeliveryHealthView.Receiver(await receiverRead.ConfigureAwait(false), receiverConfigured, now),],
         };
     }
 
@@ -57,7 +57,7 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
                 new Fact("Last cycle completed", Time(view.LastCycleFinishedAtUtc)),
                 new Fact("Last successful cycle", Time(view.LastSuccessfulCycleAtUtc)),
                 new Fact("Last cycle duration (seconds)", Seconds(view.LastCycleDurationSeconds)),
-                new Fact("Consecutive failures", view.ConsecutiveFailures?.ToString(CultureInfo.InvariantCulture) ?? "Unknown")
+                new Fact("Consecutive failures", view.ConsecutiveFailures?.ToString(CultureInfo.InvariantCulture) ?? "Unknown"),
             ], CreateWarnings(view.WarningsState, view.WarningsObservedAtUtc,
                 view.Warnings.Select(static item => new Warning(item.Name, item.State))),
             "Empty and full-batch successful passes are progress. This does not establish backlog size or completion of all eligible cleanup.");
@@ -83,7 +83,7 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
                 new Fact("Last cycle completed", Time(view.LastCycleFinishedAtUtc)),
                 new Fact("Last successful cycle", Time(view.LastSuccessfulCycleAtUtc)),
                 new Fact("Last cycle duration (seconds)", Seconds(view.LastCycleDurationSeconds)),
-                new Fact("Consecutive failures", view.ConsecutiveFailures?.ToString(CultureInfo.InvariantCulture) ?? "Unknown")
+                new Fact("Consecutive failures", view.ConsecutiveFailures?.ToString(CultureInfo.InvariantCulture) ?? "Unknown"),
             ], CreateWarnings(view.WarningsState, view.WarningsObservedAtUtc,
                 view.Warnings.Select(static item => new Warning(item.Name, item.State))),
             "Completed cycles, including an empty queue, are progress. An individual failed RCON response is not a cycle failure; Running does not establish command delivery.");
@@ -125,7 +125,7 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
                 "Pending" => "Pending",
                 "Firing" => "Firing",
                 "Stale" => "Stale",
-                _ => "Unknown"
+                _ => "Unknown",
             };
             return new Fact(definition.Label, value + "; observed: " + Time(observed));
         }).ToArray();
@@ -142,7 +142,7 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
 
         if (rulesState is "Available" && (items is null || items.Length > 17 ||
             items.Any(item => item is null || string.IsNullOrEmpty(item.Name) || GameHostWarningGuidance.ForWarning(item.Name) is null || item.State is not ("Pending" or "Firing")) ||
-            items.OfType<GameHostWarningResponse>().Select(static item => item.Name).Distinct(StringComparer.Ordinal).Count() != items.Length))
+            items.OfType<GameHostWarningResponse>().Select(static item => item.Name).Distinct(StringComparer.Ordinal).Take(items.Length + 1).Count() != items.Length))
         {
             rulesState = "Unknown";
         }
@@ -159,9 +159,10 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
         [
             new Fact("Observation", view.ObservationState),
             new Fact("Observer last checked", Time(view.ObservedAtUtc)),
-            new Fact("Accepted scheduled success", view.HasScheduledSuccess switch { true => "Yes", false => "No", _ => "Unknown" }),
-            new Fact("Last scheduled success", Time(view.LastSuccessAtUtc)),
-            new Fact("Success age (seconds)", Seconds(view.LastSuccessAgeSeconds))
+            new Fact("Automatic trigger", ArchiveHealthView.TriggerLabel(view.TriggerSource)),
+            new Fact("Accepted automatic success", view.HasScheduledSuccess switch { true => "Yes", false => "No", _ => "Unknown" }),
+            new Fact("Last automatic success", Time(view.LastSuccessAtUtc)),
+            new Fact("Success age (seconds)", Seconds(view.LastSuccessAgeSeconds)),
         ], CreateWarnings(view.WarningsState, view.WarningsObservedAtUtc, view.Warnings.Select(static item => new Warning(item.Name, item.State))),
             "Schedule age and observer freshness are separate. A successful workflow does not verify its stored object; Recovery is separate.");
     }
@@ -175,7 +176,7 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
             new Fact("Worker last observed", Time(view.ObservedAtUtc)),
             new Fact("Last cycle completed", Time(view.LastCycleFinishedAtUtc)),
             new Fact("Completion age (seconds)", Seconds(view.CompletionAgeSeconds)),
-            new Fact("Observation budget (seconds)", Seconds(view.CycleBudgetSeconds))
+            new Fact("Observation budget (seconds)", Seconds(view.CycleBudgetSeconds)),
         ], CreateWarnings(view.WarningsState, view.WarningsObservedAtUtc, view.Warnings.Select(static item => new Warning(item.Name, item.State))),
             "Completed empty passes and failed A2S replies are worker progress. The budget is not a query deadline or latency SLO.");
     }
@@ -185,13 +186,13 @@ internal sealed record OperatorHealthOverview(DateTimeOffset GeneratedAtUtc, IRe
         var entries = CredentialExpiryView.Create(source, now);
         return new Source("credentials", "Credential expiry", CredentialExpiryView.Path, Freshness(source?.EvaluatedAtUtc, now, 180), ValidTime(source?.EvaluatedAtUtc, now),
             [.. CredentialExpiryView.Catalog.Select((label, index) => new Fact(label.Purpose,
-                CredentialExpiryView.StateLabel(entries[index].State, entries[index].ExpiresAtMinuteUtc is not null), entries[index].State))], Rules: null,
+                CredentialExpiryView.StateLabel(entries[index].State, entries[index].ExpiresAtMinuteUtc is not null), entries[index].State)),], Rules: null,
             "Recorded dates, not live provider checks or proof that a credential works. Details retain expiry precision and the actual last verification time.");
     }
 
     private static WarningSnapshot CreateWarnings(string state, DateTimeOffset? observed, IEnumerable<Warning> items) =>
         new(state, observed, state is "Available" ? [.. items.Where(static item => item.State is "Pending" or "Firing")
-            .OrderBy(static item => item.State is "Firing" ? 0 : 1).ThenBy(static item => item.Name, StringComparer.Ordinal)] : []);
+            .OrderBy(static item => item.State is "Firing" ? 0 : 1).ThenBy(static item => item.Name, StringComparer.Ordinal),] : []);
 
     private static string Freshness(DateTimeOffset? value, DateTimeOffset now, int seconds) =>
         value is null || value < DateTimeOffset.UnixEpoch || value > now ? "Unknown" : now - value > TimeSpan.FromSeconds(seconds) ? "Stale" : "Available";

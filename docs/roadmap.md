@@ -1,6 +1,7 @@
 # GoldSrcOps Roadmap
 
-Updated on 2026-11-14 after accepted v2.131, source revision
+Updated on 2026-11-14 after accepted v2.131 and the Archive trigger assessment.
+The accepted product source remains
 `90c2eb9b73de6357c9b3c8c9a69d2289920352d2`.
 
 This is the current planning order. It replaces the priorities in the
@@ -41,7 +42,7 @@ roadmap owns future priorities; it is not a live production health report.
 | Order | Outcome | Dependency | Completion criterion |
 | --- | --- | --- | --- |
 | Completed | v2.131 command dispatcher health across Operator views | Accepted v2.130 observation contract | Independent API/Web and authenticated eight-source UI/report acceptance passed |
-| Next decision | Decide the required Archive freshness and scheduling guarantee | Fresh schedule/job evidence and existing completeness diagnostics | Record acceptable delay, catch-up limits and a decision to retain or replace the trigger mechanism |
+| Next implementation, subject to rollout approval | External hourly trigger for the existing Archive writer | Selected design, durable claims and explicit new credential/service approval | One automatic owner, independent Recovery and natural-slot acceptance; assess the three-hour target in a separate seven-day window |
 | Next gameplay milestone, when people are available | Validate the existing mode with two human players | Two independent participants/accounts and a controlled session | A bounded pilot records observed results, failures and one prioritized follow-up |
 | After the pilot | Improve one evidenced gameplay problem | Pilot findings | One map/spawn adjustment or mechanic passes technical and player acceptance |
 | Later | Human activity analysis and community growth | Real visits and an agreed observation window | Decisions use actual human activity with explicit coverage limits |
@@ -82,29 +83,34 @@ Add monitoring surfaces only for an observed failure
 or an unanswered operator question. Another panel or report section is not a
 milestone by itself.
 
-## Parallel Archive Reliability Decision
+## Archive Trigger Decision And Next Implementation
 
-Keep the existing hourly `53 * * * *` schedule, 1,440-minute scheduled export
-window, independent age observer and warning policy while evaluating the
-required guarantee. [v2.117](v2.117-archive-reliability.md) defines the accepted
-behavior and [v2.119](v2.119-archive-completeness.md) separates requested-window
-coverage from missing source minutes.
+The [seven-day assessment](archive-trigger-decision.md) found 25 scheduled
+Archives against 168 nominal hourly ticks. All 25 jobs/receipts passed, but the
+median creation interval was 6h 44m and the existing success age exceeded three
+hours for 54.50% of the reconstructed window. Job queue time was only 4-6 seconds.
+The 24-hour lookback prevented closed requested-window gaps in the later part of
+the sample; it did not provide timely hourly archiving.
 
-The next decision record should:
+Select an external timer on the existing control plane to dispatch the existing
+GitHub writer. Keep GitHub runners and Grafana/B2 secrets in their current
+environment. This removes the cron event dependency, not GitHub API/runner or
+control-plane host dependencies. Defer an independent executor unless the
+bounded trial fails or a stronger independence requirement is selected.
 
-1. Define the acceptable age of the latest successful scheduled Archive and
-   tolerance for gaps. Existing three-hour and 18-hour warnings are operational
-   thresholds, not proof that a chosen reliability target is met.
-2. Compare fresh scheduled run/job evidence with requested-window coverage.
-   Keep successful execution, object receipt, independent Recovery and source
-   completeness as separate evidence. Manual runs do not establish cadence.
-3. Compare retaining best-effort scheduling with an independent trigger or
-   execution path. A trigger that still depends on GitHub runners does not
-   remove that execution dependency. Preserve one writer, immutable objects,
-   bounded catch-up and reconciliation of uncertain writes in every option.
-4. If the required guarantee is unmet, scope a separate implementation and its
-   permissions, durable state, rollback and acceptance. Do not add another
-   observer or change cron merely to conceal the known limitation.
+The [implementation plan](archive-trigger-implementation-plan.md) covers one
+automatic owner, durable single-attempt claims, bounded 24-hour catch-up,
+uncertain-write reconciliation, precise new token authority and retained-state
+rollback. Its engineering target is automatic-success age at most three hours
+and no closed requested-window gaps during a prospective seven-day trial, not
+a hard SLA. Keep successful execution, receipt, independent Recovery and source
+completeness as separate evidence.
+
+This planning change does not authorize or apply that rollout. Until then,
+preserve hourly `53 * * * *`, the 1,440-minute window, independent observer and
+existing warnings from [v2.117](v2.117-archive-reliability.md).
+[v2.119](v2.119-archive-completeness.md) continues to define the distinction
+between receipt-window coverage and source missing minutes.
 
 The 24-hour export window is unrelated to the deferred 24-hour human activity
 aggregation. Neither scheduling changes nor successful Recovery can reconstruct

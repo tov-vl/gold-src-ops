@@ -40,12 +40,12 @@ public sealed class ArchiveHealthViewTests
             "failed-observer" => source with { ObservationState = "Unknown" },
             "stale-rules" => source with { WarningsObservedAtUtc = Now.AddSeconds(-60.001) },
             "future-rules" => source with { WarningsObservedAtUtc = Now.AddTicks(1) },
-            "missing-rules" => source with { Warnings = source.Warnings.Take(3).ToArray() },
+            "missing-rules" => source with { Warnings = [.. source.Warnings.Take(3)] },
             "duplicate-rules" => source with { Warnings = [source.Warnings[0], source.Warnings[0], source.Warnings[2], source.Warnings[3]] },
             "foreign-rules" => source with { Warnings = [new ArchiveWarningResponse("private-sentinel", "Firing"), .. source.Warnings.Skip(1)] },
             "foreign-state" => source with { Warnings = [source.Warnings[0] with { State = "private-sentinel" }, .. source.Warnings.Skip(1)] },
             "null-rule" => source with { Warnings = [null!, .. source.Warnings.Skip(1)] },
-            _ => source
+            _ => source,
         };
         var result = ArchiveHealthView.Create(source, Now);
         result.ObservationState.Should().Be(observation);
@@ -73,12 +73,36 @@ public sealed class ArchiveHealthViewTests
     [Fact]
     public void Nonfinite_age_is_unknown_and_exact_rule_boundary_is_available()
     {
-        foreach (var age in new[] { double.NaN, double.PositiveInfinity, -1 })
+        foreach (var age in (double[])[double.NaN, double.PositiveInfinity, -1])
         {
             ArchiveHealthView.Create(Valid() with { LastSuccessAgeSeconds = age }, Now).ObservationState.Should().Be("Unknown");
         }
 
         ArchiveHealthView.Create(Valid() with { WarningsObservedAtUtc = Now.AddSeconds(-60) }, Now).WarningsState.Should().Be("Available");
+    }
+
+    [Theory]
+    [InlineData("GitHubSchedule", "GitHub schedule")]
+    [InlineData("ExternalTimer", "External timer")]
+    [InlineData("Unknown", "Unknown")]
+    public void Automatic_source_is_sanitized_and_stale_views_do_not_claim_an_origin(string origin, string label)
+    {
+        var source = Valid() with { TriggerSource = origin };
+        var view = ArchiveHealthView.Create(source, Now);
+        view.TriggerSource.Should().Be(origin);
+        ArchiveHealthView.TriggerLabel(view.TriggerSource).Should().Be(label);
+        ArchiveHealthView.Create(source with { ObservedAtUtc = Now.AddMinutes(-31) }, Now).TriggerSource.Should().Be("Unknown");
+        ArchiveHealthView.Create(source with { TriggerSource = "private-sentinel" }, Now).ObservationState.Should().Be("Unknown");
+    }
+
+    [Fact]
+    public void Old_json_without_source_defaults_to_unknown()
+    {
+        var node = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(Valid()))!;
+        node.AsObject().Remove("TriggerSource");
+        var source = System.Text.Json.JsonSerializer.Deserialize<ArchiveHealthResponse>(node.ToJsonString());
+        source.Should().NotBeNull();
+        source.TriggerSource.Should().Be("Unknown");
     }
 
     private static ArchiveHealthResponse Valid() => new(Now, "Available", Now, HasScheduledSuccess: true, Now.AddHours(-3), 10800, "Available", Now,

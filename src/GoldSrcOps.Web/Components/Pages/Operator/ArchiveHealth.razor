@@ -9,7 +9,7 @@
     <header>
         <p class="eyebrow">Operator portal</p>
         <h1>Archive health</h1>
-        <p>Scheduled export freshness and existing warning states.</p>
+        <p>Automatic export freshness and existing warning states.</p>
         <nav aria-label="Archive navigation">
             <a href="@ArchiveHealthView.Path" data-enhance-nav="false">Refresh</a>
             <a href="/operator/game-host-health">Game-host health</a>
@@ -22,8 +22,9 @@
         <strong data-observation-state="@_snapshot.ObservationState">@_snapshot.ObservationState</strong>
         <dl>
             <dt>Observer last checked</dt><dd>@FormatTime(_snapshot.ObservedAtUtc)</dd>
-            <dt>Last successful scheduled run</dt><dd>@FormatTime(_snapshot.LastSuccessAtUtc)</dd>
-            <dt>Age of last successful scheduled run</dt><dd>@FormatAge(_snapshot.LastSuccessAgeSeconds)</dd>
+            <dt>Automatic trigger</dt><dd>@ArchiveHealthView.TriggerLabel(_snapshot.TriggerSource)</dd>
+            <dt>Last successful automatic run</dt><dd>@FormatTime(_snapshot.LastSuccessAtUtc)</dd>
+            <dt>Age of last successful automatic run</dt><dd>@FormatAge(_snapshot.LastSuccessAgeSeconds)</dd>
         </dl>
         @if (_snapshot.HasScheduledSuccess == false)
         {
@@ -62,8 +63,8 @@
     </section>
     <section class="archive-notes">
         <h2>Interpretation and first checks</h2>
-        <p>Age starts at creation of the last successful first-attempt scheduled run on main. Manual runs and reruns do not refresh this measure.</p>
-        <p>A successful workflow does not independently verify its stored object. Recovery is a separate check. Scheduled exports request 24 hours, but GitHub can delay scheduling; complete source coverage and an achieved SLO are not established here.</p>
+        <p>Age starts at creation of the last successful first-attempt automatic run on main. Ordinary manual runs, probes and reruns do not refresh this measure.</p>
+        <p>A successful workflow does not independently verify its stored object. Recovery is a separate check. Automatic exports request 24 hours. The selected trigger and GitHub runners can be delayed; complete source coverage and an achieved SLO are not established here.</p>
         <p>Observation and rule states are independent snapshots. An available observation can coexist with a firing delay warning.</p>
         <a href="@ArchiveHealthView.Runbook">Archive troubleshooting guide</a>
         <p>Inspect history and preserve evidence before a separately reviewed recovery. This page does not dispatch, retry, acknowledge, silence or change thresholds.</p>

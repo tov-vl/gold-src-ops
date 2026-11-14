@@ -2040,3 +2040,27 @@ tasks, firewall access or a new trust engine. Preserve exact target/session and
 predecessor pins, one-attempt dispatch, bounded runtime, owned-window input and
 independent cleanup evidence. CI cannot establish that a rendered client passed;
 retain the operator review gate described in [the client lab runbook](client-lab.md).
+
+## Decision 51: Separate Archive Triggering From Its Existing Writer
+
+Design selected on 2026-11-14; implementation and runtime cutover remain pending.
+Use one bounded external timer on the control plane to dispatch the existing
+GitHub Archive workflow. Retain hosted runner execution, current exporter and
+Grafana/B2 credential placement. The seven-day assessment found prompt execution
+after creation but multi-hour gaps between scheduled runs; it did not meet the
+selected three-hour automatic-success age objective.
+
+Do not introduce a fallback writer or mistake a dispatch response for an archive
+receipt. Persist a claim before each single attempt, reconcile uncertain POSTs
+and PUTs, coalesce missed slots within the existing 24-hour bound and switch
+automatic ownership only after draining the prior path. Manual maintenance must
+not overlap automatic admission. Preserve independent Recovery and source
+completeness as separate checks.
+
+The timer is independent of GitHub cron, not of the control-plane host or GitHub
+API/runners. It does not alter Decisions 19/20: the primary probe and independent
+stored evidence remain outside the product hosts. A fully independent executor
+is deferred until the measured API/runner behavior or required failure boundary
+justifies new hosting and secret distribution. See the
+[assessment](archive-trigger-decision.md) and
+[implementation/rollback plan](archive-trigger-implementation-plan.md).

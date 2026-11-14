@@ -9,7 +9,7 @@ internal static class GameHostHealthReport
     private static readonly (string Key, string Label)[] Components =
     [
         ("agent", "Agent / queue"), ("backup", "Player backup"), ("storage", "Disk / inode"),
-        ("memory", "RAM / swap"), ("cpu", "Sampled CPU")
+        ("memory", "RAM / swap"), ("cpu", "Sampled CPU"),
     ];
 
     private static readonly (string Key, string Label)[] Metrics =
@@ -20,7 +20,7 @@ internal static class GameHostHealthReport
         ("diskAvailableBytes", "Disk available (bytes)"), ("diskAvailableRatio", "Disk available (ratio)"),
         ("inodesAvailable", "Inodes available"), ("inodesAvailableRatio", "Inodes available (ratio)"),
         ("memoryAvailableBytes", "RAM available (bytes)"), ("swapUsedBytes", "Swap used (bytes)"),
-        ("cpuBusyRatio", "CPU busy (ratio)"), ("cpuStealRatio", "CPU steal (ratio)")
+        ("cpuBusyRatio", "CPU busy (ratio)"), ("cpuStealRatio", "CPU steal (ratio)"),
     ];
 
     private static readonly string[] StorageRoles = ["queue", "spool", "players", "backup"];
@@ -106,9 +106,10 @@ internal static class GameHostHealthReport
         output.Append("Archive observation: ").AppendLine(archive.ObservationState);
         output.Append("Archive observer last checked: ").AppendLine(Time(archive.ObservedAtUtc));
         output.Append("Archive observer age (seconds): ").AppendLine(Age(archive.ObservedAtUtc, generatedAt));
-        output.Append("Accepted scheduled success found: ").AppendLine(archive.HasScheduledSuccess switch { true => "Yes", false => "No", _ => "Unknown" });
-        output.Append("Last successful scheduled run: ").AppendLine(Time(archive.LastSuccessAtUtc));
-        output.Append("Last successful scheduled run age (seconds): ").AppendLine(
+        output.Append("Automatic trigger: ").AppendLine(ArchiveHealthView.TriggerLabel(archive.TriggerSource));
+        output.Append("Accepted automatic success found: ").AppendLine(archive.HasScheduledSuccess switch { true => "Yes", false => "No", _ => "Unknown" });
+        output.Append("Last successful automatic run: ").AppendLine(Time(archive.LastSuccessAtUtc));
+        output.Append("Last successful automatic run age (seconds): ").AppendLine(
             archive.LastSuccessAgeSeconds?.ToString("0.###", CultureInfo.InvariantCulture) ?? "Unknown");
         output.Append("Archive warning snapshot: ").Append(archive.WarningsState).Append("; observed: ").Append(Time(archive.WarningsObservedAtUtc))
             .Append("; age (seconds): ").AppendLine(Age(archive.WarningsObservedAtUtc, generatedAt));
@@ -121,7 +122,7 @@ internal static class GameHostHealthReport
 
         output.AppendLine("Unknown and Stale do not establish Archive freshness or absence of warnings.");
         output.AppendLine("The observer timestamp must be no older than 30 minutes; rule evaluations must be no older than 60 seconds.");
-        output.AppendLine("Age starts at creation of the last accepted first-attempt scheduled success on main. Manual runs and reruns do not refresh it.");
+        output.AppendLine("Age starts at creation of the last accepted first-attempt automatic success on main. Ordinary manual runs, probes and reruns do not refresh it.");
         output.AppendLine("An Available observation can coexist with a Firing delay warning. A successful workflow does not verify its stored object.");
         output.AppendLine("Recovery, source completeness, notification delivery and an achieved SLO are separate evidence.");
         output.AppendLine("Preserve history before a separately reviewed recovery; do not automatically dispatch or retry.");
@@ -224,7 +225,7 @@ internal static class GameHostHealthReport
         "Pending" => "Pending",
         "Firing" => "Firing",
         "Stale" => "Stale",
-        _ => "Unknown"
+        _ => "Unknown",
     };
 
     private static string FormatValue(string metric, double value) => metric switch
@@ -242,9 +243,9 @@ internal static class GameHostHealthReport
             7 => "Interrupted",
             8 => "Closed: capture did not start",
             9 => "Closed: outcome uncertain",
-            _ => "Unknown"
+            _ => "Unknown",
         },
         "weeklyMissed" => value switch { 0 => "No", 1 => "Yes", _ => "Unknown" },
-        _ => value.ToString("0.###", CultureInfo.InvariantCulture)
+        _ => value.ToString("0.###", CultureInfo.InvariantCulture),
     };
 }

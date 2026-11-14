@@ -6,6 +6,7 @@ on:
       - main
     tags:
       - "v*"
+      - "archive-trigger-v*"
   pull_request:
     branches:
       - main
@@ -508,6 +509,10 @@ jobs:
         run: |
           pwsh -NoProfile -File ./tools/smoke/availability-evidence-schedule.ps1
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/archive-schedule.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/archive-trigger-state.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/archive-trigger-integration.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/archive-trigger-service.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/archive-trigger-publication.py
           systemd-analyze verify ./ops/production/systemd/goldsrcops-archive-schedule-monitor.service ./ops/production/systemd/goldsrcops-archive-schedule-monitor.timer
 
       - name: Validate availability shadow audit
@@ -606,6 +611,46 @@ jobs:
             mcr.microsoft.com/playwright/dotnet:v1.62.0-noble@sha256:25e558a847d4ae1ff7d14fa263de7fa2fffd357c1e50471278e522cec5ac1bb5 \
             vstest tests/GoldSrcOps.WebTests/bin/Debug/net10.0/GoldSrcOps.WebTests.dll \
             '--TestCaseFilter:FullyQualifiedName~BrowserTokenBoundaryTests'
+
+  publish-archive-trigger:
+    name: Publish Archive Trigger
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/archive-trigger-v')
+    needs:
+      - quality
+      - client-lab
+      - container-smoke
+      - browser-smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: archive-trigger-publication
+      cancel-in-progress: false
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout component release revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Publish or promote exact Archive trigger assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMPONENT_TAG: ${{ github.ref_name }}
+        run: >-
+          python3 -B tools/release/publish-archive-trigger.py
+          --tag "$COMPONENT_TAG"
+          --output "$RUNNER_TEMP/archive-trigger-publication"
+
+      - name: Retain component publication receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-trigger-publication-${{ github.run_id }}
+          path: ${{ runner.temp }}/archive-trigger-publication/publication.json
+          if-no-files-found: ignore
 
   publish-image:
     name: Publish Image

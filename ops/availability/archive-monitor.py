@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import signal
 import sys
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('archive_transport', ROOT / 'production/agent-monitor.py')
@@ -19,7 +20,7 @@ WORKFLOW = 350269402
 BASE = '/repos/tov-vl/gold-src-ops/actions'
 PREFIX = 'goldsrcops_archive_schedule_'
 SERVICE = 'goldsrcops-archive-schedule-monitor'
-METRICS = {'observation_success', 'observed_timestamp_seconds', 'has_success',
+METRICS = {'trigger_source', 'trigger_source_observed_timestamp_seconds', 'observation_success', 'observed_timestamp_seconds', 'has_success',
            'last_success_timestamp_seconds', 'latest_run_failed'}
 
 
@@ -61,7 +62,7 @@ def request(path):
         connection.close()
 
 
-def observe(document, jobs, now):
+def observe(document, jobs, now, event='schedule'):
     require(type(document) is dict and type(document.get('total_count')) is int and document['total_count'] >= 0)
     runs = document.get('workflow_runs')
     require(type(runs) is list and len(runs) <= 20 and len(runs) <= document['total_count'])
@@ -72,7 +73,7 @@ def observe(document, jobs, now):
     for run in runs:
         require(type(run) is dict and type(run.get('id')) is int and run['id'] > 0 and run['id'] not in seen)
         seen.add(run['id'])
-        require(run.get('workflow_id') == WORKFLOW and run.get('event') == 'schedule' and run.get('head_branch') == 'main')
+        require(run.get('workflow_id') == WORKFLOW and run.get('event') == event and run.get('head_branch') == 'main')
         require(type(run.get('head_sha')) is str and re.fullmatch('[a-f0-9]{40}', run['head_sha']))
         created = moment(run.get('created_at'), now)
         require(created <= previous)
@@ -104,7 +105,42 @@ def observe(document, jobs, now):
             require(len(matches) == 1 and matches[0].get('status') == 'completed' and matches[0].get('conclusion') == 'success')
         # Creation time cannot be refreshed by a later manual rerun or metadata edit.
         samples[2:4] = [('has_success', 1), ('last_success_timestamp_seconds', created.timestamp())]
+    samples.extend([('trigger_source', 1 if event == 'schedule' else 2),
+                    ('trigger_source_observed_timestamp_seconds', now.timestamp())])
     return samples
+
+
+def collect_external(mapping, generation, now, fetch=request):
+    """Correlate a protected read-only claim projection with independent public jobs."""
+    try:
+        require(type(mapping) is dict and set(mapping) == {'generation', 'observed_at', 'claim', 'slot', 'run_id'})
+        require(type(generation) is str and str(uuid.UUID(generation)) == generation
+                and mapping['generation'] == generation)
+        observed = moment(mapping['observed_at'], now)
+        require((now - observed).total_seconds() <= 1800)
+        require(type(mapping['claim']) is str and str(uuid.UUID(mapping['claim'])) == mapping['claim'])
+        slot = moment(mapping['slot'], now)
+        require(slot.minute == 53 and slot.second == 0)
+        run_id = mapping['run_id']
+        require(type(run_id) is int and 0 < run_id < 2**63)
+        run = fetch(BASE + f'/runs/{run_id}/attempts/1')
+        require(run.get('id') == run_id and run.get('run_attempt') == 1)
+        created = moment(run.get('created_at'), now)
+        require(slot <= created < slot + dt.timedelta(hours=1))
+        details = fetch(BASE + f'/runs/{run_id}/attempts/1/jobs?per_page=10')
+        # A completed receipt-validation step is necessary. The authenticated
+        # adapter separately checks the exact stdout receipt and content hashes.
+        require(type(details.get('jobs')) is list and len(details['jobs']) == 1)
+        steps = details['jobs'][0].get('steps')
+        require(type(steps) is list and len(steps) <= 32)
+        for name in ('Validate Archive admission', 'Validate external Archive receipt'):
+            found = [s for s in steps if type(s) is dict and s.get('name') == name]
+            require(len(found) == 1 and found[0].get('conclusion') == 'success'
+                    and found[0].get('status') == 'completed')
+        return observe({'total_count': 1, 'workflow_runs': [run]}, lambda _: details,
+                       now, event='workflow_dispatch')
+    except (ValueError, TypeError, KeyError, OverflowError, OSError, http.client.HTTPException):
+        return [('observation_success', 0), ('observed_timestamp_seconds', now.timestamp())]
 
 
 def collect(now, fetch=request, clock=None):
@@ -138,15 +174,21 @@ def payload(samples, now):
 
 
 def main():
-    require(len(sys.argv) == 2 and sys.argv[1] in ('inspect', 'publish'))
+    external = len(sys.argv) == 4 and sys.argv[1] in ('inspect-external', 'publish-external')
+    require(external or (len(sys.argv) == 2 and sys.argv[1] in ('inspect', 'publish')))
     def expired(*_):
         raise TimeoutError('Bounded observation expired')
     signal.signal(signal.SIGALRM, expired)
     signal.alarm(30)
-    samples = collect(dt.datetime.now(UTC), clock=lambda: dt.datetime.now(UTC))
+    if external:
+        path = Path(sys.argv[2])
+        require(path.is_file() and not path.is_symlink() and path.stat().st_size <= 16384)
+        samples = collect_external(decode(path.read_bytes()), sys.argv[3], dt.datetime.now(UTC))
+    else:
+        samples = collect(dt.datetime.now(UTC), clock=lambda: dt.datetime.now(UTC))
     signal.alarm(0)
     now = dt.datetime.now(UTC)
-    if sys.argv[1] == 'publish':
+    if sys.argv[1] in ('publish', 'publish-external'):
         config = transport.configuration()
         transport.publish(config['collectorAddress'], payload(samples, now))
     print('ARCHIVE_MONITOR=' + ('observed' if samples[0][1] else 'unavailable'))

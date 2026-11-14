@@ -9,6 +9,16 @@ public sealed class ArchiveHealthReportTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
 
+    [Theory]
+    [InlineData("ExternalTimer", "External timer")]
+    [InlineData("GitHubSchedule", "GitHub schedule")]
+    [InlineData("private-sentinel", "Unknown")]
+    public void Automatic_origin_uses_fixed_labels(string origin, string label)
+    {
+        var report = GameHostHealthReport.Create(snapshot: null, Now, Snapshot() with { TriggerSource = origin });
+        report.Should().Contain("Automatic trigger: " + label).And.NotContain("private-sentinel");
+    }
+
     [Fact]
     public void Archive_keeps_its_own_timestamps_and_all_four_rule_states_when_game_host_is_unavailable()
     {
@@ -17,7 +27,7 @@ public sealed class ArchiveHealthReportTests
         report.Should().Contain("Snapshot: Unknown").And.Contain("Archive observation: Available")
             .And.Contain("Archive snapshot evaluated: 2026-11-11 11:59:55 UTC")
             .And.Contain("Archive observer last checked: 2026-11-11 11:50:00 UTC")
-            .And.Contain("Last successful scheduled run age (seconds): 14400")
+            .And.Contain("Last successful automatic run age (seconds): 14400")
             .And.Contain("ArchiveScheduleDelayed: Firing").And.Contain("ArchiveScheduleCatchupAtRisk: Pending")
             .And.Contain("ArchiveScheduleMonitorUnavailable: Inactive").And.Contain("ArchiveScheduleObservationInvalid: Inactive")
             .And.Contain(ArchiveHealthView.Runbook).And.Contain("do not automatically dispatch or retry");
@@ -34,7 +44,7 @@ public sealed class ArchiveHealthReportTests
         report.Should().Contain("Archive observation: " + state).And.Contain("Archive warning snapshot: Available");
         if (state is not "Available")
         {
-            report.Should().Contain("Last successful scheduled run: Unknown").And.Contain("Accepted scheduled success found: Unknown");
+            report.Should().Contain("Last successful automatic run: Unknown").And.Contain("Accepted automatic success found: Unknown");
         }
     }
 
@@ -60,18 +70,18 @@ public sealed class ArchiveHealthReportTests
     {
         var report = GameHostHealthReport.Create(snapshot: null, Now, Snapshot() with { EvaluatedAtUtc = Now.AddSeconds(seconds) });
         report.Should().Contain("Archive observation: Unknown").And.Contain("Archive warning snapshot: Unknown")
-            .And.Contain("Last successful scheduled run: Unknown");
+            .And.Contain("Last successful automatic run: Unknown");
     }
 
     [Fact]
     public void No_accepted_success_is_explicit_and_zero_age_is_valid()
     {
         var source = Snapshot() with { HasScheduledSuccess = false, LastSuccessAtUtc = null, LastSuccessAgeSeconds = null };
-        GameHostHealthReport.Create(snapshot: null, Now, source).Should().Contain("Accepted scheduled success found: No")
-            .And.Contain("Last successful scheduled run age (seconds): Unknown");
+        GameHostHealthReport.Create(snapshot: null, Now, source).Should().Contain("Accepted automatic success found: No")
+            .And.Contain("Last successful automatic run age (seconds): Unknown");
         source = Snapshot() with { EvaluatedAtUtc = Now, ObservedAtUtc = Now, LastSuccessAtUtc = Now, LastSuccessAgeSeconds = 0 };
-        GameHostHealthReport.Create(snapshot: null, Now, source).Should().Contain("Accepted scheduled success found: Yes")
-            .And.Contain("Last successful scheduled run age (seconds): 0");
+        GameHostHealthReport.Create(snapshot: null, Now, source).Should().Contain("Accepted automatic success found: Yes")
+            .And.Contain("Last successful automatic run age (seconds): 0");
     }
 
     [Fact]
@@ -81,7 +91,7 @@ public sealed class ArchiveHealthReportTests
         var source = Snapshot() with
         {
             LastSuccessAgeSeconds = double.NaN,
-            Warnings = [.. Enumerable.Repeat(new ArchiveWarningResponse(sentinel, sentinel), 100)]
+            Warnings = [.. Enumerable.Repeat(new ArchiveWarningResponse(sentinel, sentinel), 100)],
         };
         var report = GameHostHealthReport.Create(snapshot: null, Now, source);
         report.Should().Contain("Archive observation: Unknown").And.Contain("Archive warning snapshot: Unknown")
@@ -96,7 +106,7 @@ public sealed class ArchiveHealthReportTests
         string[] names = ["GameEventAgentMonitorUnavailable", "GameEventAgentObservationInvalid", "GameEventAgentWorkerProblem", "GameEventAgentQueueDelayed", "GameEventAgentSpoolProblem",
             "PlayerBackupMonitorUnavailable", "PlayerBackupObservationInvalid", "PlayerBackupInterventionRequired", "PlayerBackupScheduleProblem", "PlayerBackupCopyUnavailable",
             "GameHostStorageMonitorUnavailable", "GameHostStorageObservationInvalid", "GameHostStorageBytesLow", "GameHostStorageInodesLow", "GameHostResourceMonitorUnavailable",
-            "GameHostResourceObservationInvalid", "GameHostMemoryLow"];
+            "GameHostResourceObservationInvalid", "GameHostMemoryLow",];
         var game = new GameHostHealthResponse(now, [], [], new GameHostWarningsResponse("Available", now,
             [.. names.Select(name => new GameHostWarningResponse(name, "", "Firing", ""))]));
         var report = GameHostHealthReport.Create(game, now, Snapshot(), PollingHealthReportTests.Snapshot() with { EvaluatedAtUtc = now, ObservedAtUtc = now, LastCycleStartedAtUtc = now.AddSeconds(-12), LastCycleFinishedAtUtc = now.AddSeconds(-11), CompletionAgeSeconds = 11, WarningsObservedAtUtc = now });
@@ -111,5 +121,5 @@ public sealed class ArchiveHealthReportTests
 
     private static ArchiveHealthResponse Snapshot() => new(Now.AddSeconds(-5), "Available", Now.AddMinutes(-10), HasScheduledSuccess: true, Now.AddHours(-4), 14395,
         "Available", Now.AddSeconds(-10), [.. ArchiveHealthView.Definitions.Select(static definition => new ArchiveWarningResponse(definition.Name,
-            definition.Name switch { "ArchiveScheduleDelayed" => "Firing", "ArchiveScheduleCatchupAtRisk" => "Pending", _ => "Inactive" }))]);
+            definition.Name switch { "ArchiveScheduleDelayed" => "Firing", "ArchiveScheduleCatchupAtRisk" => "Pending", _ => "Inactive" })),]);
 }

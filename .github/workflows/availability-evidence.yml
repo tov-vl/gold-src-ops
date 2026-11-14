@@ -10,6 +10,15 @@ on:
         required: true
         default: false
         type: boolean
+      trigger_request:
+        description: Bounded external Archive claim JSON
+        required: false
+        type: string
+      probe_only:
+        description: Validate external admission without source or storage secrets
+        required: false
+        default: false
+        type: boolean
       window_end_utc:
         description: Optional exact UTC minute for a reviewed catch-up window
         required: false
@@ -67,6 +76,22 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Checkout Archive admission helpers
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          path: trigger
+          persist-credentials: false
+
+      - name: Validate Archive admission
+        shell: bash
+        env:
+          TRIGGER_MODE: ${{ vars.GOLDSRCOPS_ARCHIVE_TRIGGER_MODE }}
+          SCHEDULE_ENABLED: ${{ vars.GOLDSRCOPS_AVAILABILITY_SCHEDULER_ENABLED }}
+          TRIGGER_GENERATION: ${{ vars.GOLDSRCOPS_ARCHIVE_TRIGGER_GENERATION }}
+          EXPORTER_REVISION: ${{ vars.GOLDSRCOPS_AVAILABILITY_EXPORTER_REVISION }}
+        run: python3 -B trigger/ops/availability/archive_trigger_workflow.py gate
+
       - name: Verify pinned exporter revision
         shell: bash
         env:
@@ -95,17 +120,20 @@ jobs:
           fi
 
       - name: Setup .NET
+        if: ${{ !inputs.probe_only }}
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           global-json-file: global.json
 
       - name: Restore exporter with NuGet audit
+        if: ${{ !inputs.probe_only }}
         run: >-
           dotnet restore
           ./src/GoldSrcOps.AvailabilityExporter/GoldSrcOps.AvailabilityExporter.csproj
           -p:AuditPipeline=true
 
       - name: Publish exporter
+        if: ${{ !inputs.probe_only }}
         run: >-
           dotnet publish
           ./src/GoldSrcOps.AvailabilityExporter/GoldSrcOps.AvailabilityExporter.csproj
@@ -114,8 +142,13 @@ jobs:
           --output "$RUNNER_TEMP/availability-exporter"
 
       - name: Export and archive primary evidence
+        if: ${{ !inputs.probe_only }}
         shell: bash
         env:
+          TRIGGER_MODE: ${{ vars.GOLDSRCOPS_ARCHIVE_TRIGGER_MODE }}
+          TRIGGER_GENERATION: ${{ vars.GOLDSRCOPS_ARCHIVE_TRIGGER_GENERATION }}
+          EXPORTER_REVISION: ${{ vars.GOLDSRCOPS_AVAILABILITY_EXPORTER_REVISION }}
+          EXTERNAL_TRIGGER_REQUEST: ${{ inputs.trigger_request }}
           REQUESTED_WINDOW_END_UTC: ${{ inputs.window_end_utc }}
           REQUESTED_LOOKBACK_MINUTES: ${{ github.event_name == 'schedule' && '1440' || inputs.lookback_minutes }}
           GOLDSRCOPS_AVAILABILITY_PRIMARY_JOB: goldsrcops-api-ready-primary-shadow
@@ -140,6 +173,10 @@ jobs:
           EXPECTED_RECORD_COUNT: ${{ inputs.expected_record_count }}
         run: |
           set -euo pipefail
+          if [[ -n "${EXTERNAL_TRIGGER_REQUEST:-}" ]]; then
+            python3 -B trigger/ops/availability/archive_trigger_workflow.py run
+            exit 0
+          fi
           if [[ -n "${EXPECTED_SEGMENT_SHA256:-}${EXPECTED_REPORT_SHA256:-}${EXPECTED_RECORD_COUNT:-}" ]]; then
             [[ "${REQUESTED_LOOKBACK_MINUTES:-}" == "60" && -n "${REQUESTED_WINDOW_END_UTC:-}" ]] || exit 1
           python3 - <<'PY'
@@ -339,3 +376,8 @@ jobs:
           PS
             pwsh -NoProfile -File "$ordinary_step"
           fi
+
+      - name: Validate external Archive receipt
+        if: ${{ inputs.trigger_request != '' && !inputs.probe_only }}
+        shell: bash
+        run: python3 -B trigger/ops/availability/archive_trigger_workflow.py receipt

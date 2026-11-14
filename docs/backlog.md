@@ -9,9 +9,10 @@ Planning baseline: 2026-11-14, after accepted v2.131. The
 [current roadmap](roadmap.md) owns scope, dependencies and completion criteria;
 the records below retain historical release evidence.
 
-1. Record the required Archive freshness guarantee and decide
-   whether its trigger mechanism needs a separate change. Preserve hourly
-   `:53`, the 24-hour export window and existing warning policy during review.
+1. Implement the selected [external Archive trigger](archive-trigger-implementation-plan.md)
+   after the named R3 rollout and new credential/service boundary are approved.
+   The [assessment and decision](archive-trigger-decision.md) are prepared;
+   current hourly `:53`, the 24-hour export window and warnings remain unchanged.
 2. When two independent human participants/accounts are available: run one
    controlled gameplay pilot, then select at most one map/spawn or mechanic
    improvement from its findings. Prepare the checklist while waiting.
@@ -24,6 +25,30 @@ work. The roadmap update is documentation-only; no runtime, schedule or gameplay
 change is implied.
 
 ## Current Status
+
+In progress: [external Archive trigger](archive-trigger-progress.md). The offline
+SQLite admission/receipt core passed 26 tests; connected GitHub transport,
+workflow admission and observer adapters passed 16 integration tests. The
+existing observer passed 14 regression tests. Service orchestration, protected
+credential loading and the [R3 preparation](archive-trigger-rollout.md) are now
+implemented locally. API/Web now project the automatic trigger origin on the
+detail page, overview and report; 51 focused API tests and all 1,130 non-browser
+Web tests passed. Local restore, format, build and package audit passed, but the
+full test gate remains incomplete: 83 container-dependent tests failed without
+Docker, and 70 opt-in browser tests were skipped. The [component publisher](archive-trigger-publication.md)
+now has eleven offline tests for signed identity, package verification and exact
+candidate promotion. Implementation PR/CI, actual component publication and
+approved live rollout remain pending. No new credential or runtime change has
+been applied.
+
+Prepared: [Archive reliability decision](archive-trigger-decision.md) and
+[implementation plan](archive-trigger-implementation-plan.md). A read-only
+seven-day audit found 25 successful scheduled jobs/receipts but a 6h 44m median
+interval and a three-hour age breach for 54.50% of the reconstructed window.
+The selected external timer retains the existing GitHub writer and requires
+durable claims, single-owner cutover and explicit new credential approval.
+No new service, credential, dispatch, source audit, production change or release
+was performed by this planning stage.
 
 Completed: [v2.131 Operator command dispatcher health](v2.131-operator-command-dispatch-health.md)
 is released and installed. The read-only API, detail page, eighth overview card

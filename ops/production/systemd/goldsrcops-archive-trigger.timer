@@ -1,0 +1,13 @@
+[Unit]
+Description=Reconcile Archive every five minutes and admit hourly UTC slots
+
+[Timer]
+OnCalendar=*-*-* *:0/5:00 UTC
+OnCalendar=*-*-* *:53:00 UTC
+Persistent=true
+AccuracySec=1s
+RandomizedDelaySec=0
+Unit=goldsrcops-archive-trigger.service
+
+[Install]
+WantedBy=timers.target
