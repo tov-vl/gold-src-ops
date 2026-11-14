@@ -73,6 +73,31 @@ class Tests(unittest.TestCase):
             with patch.object(publication.subprocess, 'run', return_value=result), self.assertRaises(ValueError):
                 client.get(path, missing=True)
 
+    def test_draft_and_published_release_lookup_resolves_id(self):
+        client = publication.GitHub()
+        for draft in (True, False):
+            response = dict(id=123, tag_name=CANDIDATE, draft=draft)
+            with patch.object(client, 'command', return_value=b'{"data":{"repository":{"release":{"databaseId":123}}}}') as query, \
+                    patch.object(client, 'get', return_value=response) as get:
+                self.assertEqual(client.release(CANDIDATE), response)
+                self.assertEqual(get.call_args.args[0], f'repos/{publication.REPO}/releases/123')
+                self.assertIn('graphql', query.call_args.args)
+                self.assertIn('query=', query.call_args.args[3])
+                self.assertNotIn('mutation', query.call_args.args[3])
+
+    def test_missing_release_is_distinct_from_query_or_permission_failure(self):
+        client = publication.GitHub()
+        with patch.object(client, 'command', return_value=b'{"data":{"repository":{"release":null}}}'):
+            self.assertIsNone(client.release(CANDIDATE, missing=True))
+            with self.assertRaises(ValueError):
+                client.release(CANDIDATE)
+        for raw in (b'{"errors":[{"message":"forbidden"}]}', b'{"data":{"repository":null}}',
+                    b'{"data":{"repository":{"release":{"databaseId":true}}}}'):
+            with patch.object(client, 'command', return_value=raw), self.assertRaises(ValueError):
+                client.release(CANDIDATE, missing=True)
+        with patch.object(client, 'command', side_effect=ValueError('transport failure')), self.assertRaises(ValueError):
+            client.release(CANDIDATE, missing=True)
+
     def test_signed_annotated_main_tag_is_required(self):
         tag_sha = 'b'*40
         def git(*args):

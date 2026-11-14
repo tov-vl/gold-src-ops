@@ -78,7 +78,21 @@ class GitHub:
 
     def release(self, tag, missing=False):
         tag_parts(tag)
-        return self.get(f'repos/{REPO}/releases/tags/{tag}', missing)
+        # REST tag lookup excludes drafts; resolve their ID with a read-only query.
+        query = ('query($tag:String!){repository(owner:"tov-vl",name:"gold-src-ops")'
+                 '{release(tagName:$tag){databaseId}}}')
+        document = decode(self.command('api', 'graphql', '-f', 'query='+query, '-f', 'tag='+tag))
+        require(type(document) is dict and not document.get('errors'))
+        repository = document.get('data', {}).get('repository')
+        require(type(repository) is dict and 'release' in repository)
+        release = repository['release']
+        if release is None:
+            require(missing)
+            return None
+        require(type(release) is dict and type(release.get('databaseId')) is int and release['databaseId'] > 0)
+        result = self.get(f'repos/{REPO}/releases/{release["databaseId"]}')
+        require(result.get('id') == release['databaseId'] and result.get('tag_name') == tag)
+        return result
 
     def download(self, tag, target):
         self.command('release', 'download', tag, '--repo', REPO, '--dir', str(target),

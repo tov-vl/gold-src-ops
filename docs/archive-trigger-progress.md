@@ -192,5 +192,10 @@ Eleven offline publication tests and the existing CI routing smoke passed.
 The inspected provider setting is mutable; the receipt records that limit and
 the workflow refuses replacement. No provider setting was changed.
 
-Implementation PR/required CI remain pending. No component tag, release asset,
-credential or production action has been performed by this preparation.
+Implementation [PR #546](https://github.com/tov-vl/gold-src-ops/pull/546) and
+[main CI](https://github.com/tov-vl/gold-src-ops/actions/runs/43608886213) passed.
+Candidate rc.1 passed its checks but stopped after uploading a draft, because
+REST tag lookup could not read that draft. The ID-based lookup fix passed 13
+publication tests and a read-only check against the retained draft. A new rc.2
+must use the reviewed fix; rc.1 and its assets remain preserved without retry or
+replacement. No credential or production action has been performed.

@@ -39,6 +39,10 @@ The publisher validates bounded ZIP contents without extracting them, rejects
 duplicate/extra paths and compares every source payload with the clean checkout.
 It creates one draft release with both assets, verifies server sizes/digests,
 downloads and verifies the exact package again, and publishes the draft once.
+Draft and published releases are resolved by a fixed read-only GraphQL query to
+their database ID, then read through REST by ID. REST lookup by tag only covers
+published releases. Missing release, permission failure and query failure remain
+distinct; a failure cannot authorize creation of another release.
 Neither candidate nor stable changes the repository's Latest release pointer.
 Existing published or draft releases are rejected; no assets are replaced.
 
@@ -48,7 +52,7 @@ After separate R3 acceptance, create a signed annotated stable tag at the exact
 candidate revision. Its annotation must contain exactly one line of each form:
 
 ```text
-Candidate: archive-trigger-v2.132.0-rc.1
+Candidate: archive-trigger-v2.132.0-rc.2
 SHA256: <64 lowercase hexadecimal characters from the accepted candidate ZIP>
 ```
 
@@ -83,6 +87,13 @@ and [tag signature verification](https://docs.github.com/en/rest/git/tags).
 
 ## Verification And Remaining Gates
 
+The first candidate `archive-trigger-v2.132.0-rc.1` at `4b3a27e` passed all six
+checks in [candidate CI](https://github.com/tov-vl/gold-src-ops/actions/runs/43610997076),
+then its publisher stopped after creating/uploading a draft because the original
+REST tag lookup could not read that draft. The tag, draft and assets are retained;
+the job is not rerun and the tag is not replaced. The ID-based lookup fix has
+two additional regression tests. A new candidate is required after review/CI.
+
 Offline tests cover strict tags/signatures/main reachability, provider read
 errors, review-package rejection, altered payloads, exact candidate promotion,
 existing releases and an uncertain publish without a retry. The CI routing smoke
@@ -90,6 +101,6 @@ preserves the application publication guards. Remote required CI and actual
 candidate asset round-trip remain separate evidence; local mocks do not prove
 GitHub publication.
 
-The present delivery stops after implementation PR/CI/merge. Signed component
-and application tags, credential/identity approval, target preflight, cutover,
+Component candidate publication is in progress. Application tags,
+credential/identity approval, target preflight, cutover,
 exact-object Recovery and natural-slot acceptance remain in the rollout plan.
