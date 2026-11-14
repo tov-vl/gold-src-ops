@@ -7,6 +7,31 @@ namespace GoldSrcOps.UnitTests.Monitoring;
 
 public sealed class ArchiveHealthServiceTests
 {
+    [Theory]
+    [InlineData(1, "GitHubSchedule")]
+    [InlineData(2, "ExternalTimer")]
+    public async Task Automatic_origin_is_bound_to_the_observation_timestamp(double origin, string expected)
+    {
+        var metrics = ArchiveHealthFixture.Metrics().Concat([
+            new ArchiveMetricSample("trigger_source", origin, ArchiveHealthFixture.Now),
+            new ArchiveMetricSample("trigger_source_observed_timestamp_seconds", ArchiveHealthFixture.Now.ToUnixTimeSeconds(), ArchiveHealthFixture.Now),]).ToArray();
+        var result = await ReadAsync(metrics, ArchiveHealthFixture.Rules());
+        result.TriggerSource.Should().Be(expected);
+        result.LastSuccessAgeSeconds.Should().Be(10800);
+        var staleOrigin = metrics.Select(sample => sample.Metric is "trigger_source_observed_timestamp_seconds" ? sample with { Value = sample.Value - 1 } : sample).ToArray();
+        (await ReadAsync(staleOrigin, ArchiveHealthFixture.Rules())).TriggerSource.Should().Be("Unknown");
+    }
+
+    [Fact]
+    public async Task Legacy_missing_origin_stays_unknown_and_invalid_origin_is_not_accepted()
+    {
+        var legacy = await ReadAsync(ArchiveHealthFixture.Metrics(), ArchiveHealthFixture.Rules());
+        legacy.ObservationState.Should().Be("Available");
+        legacy.TriggerSource.Should().Be("Unknown");
+        var invalid = ArchiveHealthFixture.Metrics().Append(new ArchiveMetricSample("trigger_source", 3, ArchiveHealthFixture.Now)).ToArray();
+        (await ReadAsync(invalid, ArchiveHealthFixture.Rules())).ObservationState.Should().Be("Unknown");
+    }
+
     [Fact]
     public async Task Creation_timestamp_establishes_age_while_rule_states_remain_independent()
     {
@@ -61,8 +86,8 @@ public sealed class ArchiveHealthServiceTests
             "invalid-boolean" => [samples[0] with { Value = 2 }, .. samples[1..]],
             "future-success" => [.. samples[..^1], samples[^1] with { Value = ArchiveHealthFixture.Now.AddSeconds(1).ToUnixTimeSeconds() }],
             "success-after-observer" => [.. samples[..^1], samples[^1] with { Value = ArchiveHealthFixture.Now.AddMinutes(-1).ToUnixTimeSeconds() }],
-            "stale-query" => samples.Select(static sample => sample with { SampledAtUtc = ArchiveHealthFixture.Now.AddSeconds(-60.001) }).ToArray(),
-            _ => samples.Select(static sample => sample with { SampledAtUtc = ArchiveHealthFixture.Now.AddTicks(1) }).ToArray()
+            "stale-query" => [.. samples.Select(static sample => sample with { SampledAtUtc = ArchiveHealthFixture.Now.AddSeconds(-60.001) })],
+            _ => [.. samples.Select(static sample => sample with { SampledAtUtc = ArchiveHealthFixture.Now.AddTicks(1) })],
         };
         var result = await ReadAsync(samples, ArchiveHealthFixture.Rules());
         result.ObservationState.Should().Be("Unknown");
@@ -74,11 +99,12 @@ public sealed class ArchiveHealthServiceTests
     [Fact]
     public async Task Failed_observation_masks_old_values_and_accepts_a_two_field_failure()
     {
-        foreach (var samples in new[]
-        {
-            ArchiveHealthFixture.Metrics().Select(static sample => sample.Metric is "observation_success" ? sample with { Value = 0 } : sample).ToArray(),
-            new[] { new ArchiveMetricSample("observation_success", 0, ArchiveHealthFixture.Now), new ArchiveMetricSample("observed_timestamp_seconds", ArchiveHealthFixture.Now.ToUnixTimeSeconds(), ArchiveHealthFixture.Now) }
-        })
+        ArchiveMetricSample[][] cases =
+        [
+            [.. ArchiveHealthFixture.Metrics().Select(static sample => sample.Metric is "observation_success" ? sample with { Value = 0 } : sample)],
+            [new ArchiveMetricSample("observation_success", 0, ArchiveHealthFixture.Now), new ArchiveMetricSample("observed_timestamp_seconds", ArchiveHealthFixture.Now.ToUnixTimeSeconds(), ArchiveHealthFixture.Now)],
+        ];
+        foreach (var samples in cases)
         {
             var result = await ReadAsync(samples, ArchiveHealthFixture.Rules());
             result.ObservationState.Should().Be("Unknown");
@@ -137,7 +163,7 @@ public sealed class ArchiveHealthServiceTests
                 "component" => rules[0] with { Component = "foreign" },
                 "severity" => rules[0] with { Severity = "critical" },
                 "health" => rules[0] with { Health = "err" },
-                _ => rules[0] with { State = "silenced" }
+                _ => rules[0] with { State = "silenced" },
             };
         }
         var result = await ReadAsync(ArchiveHealthFixture.Metrics(), rules);

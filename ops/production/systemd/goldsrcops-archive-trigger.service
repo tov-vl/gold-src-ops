@@ -1,0 +1,39 @@
+[Unit]
+Description=Bounded external Archive workflow trigger
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=goldsrcops-archive-trigger
+Group=goldsrcops-archive-trigger
+UMask=0077
+StateDirectory=goldsrcops-archive-trigger goldsrcops-archive-trigger-observation
+StateDirectoryMode=0750
+LoadCredential=github-token:/etc/goldsrcops/archive-trigger/github-token
+ExecStart=/usr/bin/python3 -I -B /opt/goldsrcops-archive-trigger/ops/availability/archive_trigger_service.py run
+TimeoutStartSec=90s
+TimeoutStopSec=5s
+KillMode=control-group
+Restart=no
+MemoryMax=128M
+TasksMax=16
+Nice=10
+NoNewPrivileges=true
+CapabilityBoundingSet=
+PrivateDevices=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RemoveIPC=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+ReadOnlyPaths=/etc/goldsrcops/archive-trigger/config.json /opt/goldsrcops-archive-trigger
+InaccessiblePaths=-/etc/goldsrcops/deployment.env -/etc/goldsrcops/secrets -/etc/goldsrcops/player-data-backup -/etc/goldsrcops/archive-trigger/github-token -/run/docker.sock

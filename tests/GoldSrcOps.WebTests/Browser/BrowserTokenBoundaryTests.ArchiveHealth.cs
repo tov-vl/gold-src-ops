@@ -18,7 +18,7 @@ public sealed partial class BrowserTokenBoundaryTests
         await using var context = await Browser.NewContextAsync(new BrowserNewContextOptions
         {
             JavaScriptEnabled = false,
-            ViewportSize = new ViewportSize { Width = 1440, Height = 1000 }
+            ViewportSize = new ViewportSize { Width = 1440, Height = 1000 },
         });
         var page = await context.NewPageAsync();
         await page.GotoAsync(new Uri(factory.ClientOptions.BaseAddress, BrowserTokenBoundaryWebApplicationFactory.SignInPath).AbsoluteUri);
@@ -28,7 +28,8 @@ public sealed partial class BrowserTokenBoundaryTests
         await Expect(page.Locator("[data-observation-state='Available']")).ToHaveTextAsync("Available");
         await Expect(page.Locator(".archive-warning")).ToHaveCountAsync(4);
         await Expect(page.Locator("[data-rule-state='Firing']")).ToHaveTextAsync("Firing");
-        await Expect(page.GetByText("Manual runs and reruns do not refresh", new PageGetByTextOptions { Exact = false })).ToBeVisibleAsync();
+        await Expect(page.GetByText("Ordinary manual runs, probes and reruns do not refresh", new PageGetByTextOptions { Exact = false })).ToBeVisibleAsync();
+        await Expect(page.GetByText("External timer", new PageGetByTextOptions { Exact = true })).ToBeVisibleAsync();
         AssertTokenFree(await page.ContentAsync());
         handler.Bearer.Should().Be(BrowserTokenBoundaryWebApplicationFactory.AccessTokenSentinel);
         if (Environment.GetEnvironmentVariable(ScreenshotDirectoryVariable) is { Length: > 0 } directory)
@@ -67,7 +68,7 @@ public sealed partial class BrowserTokenBoundaryTests
             return Task.FromResult(Unavailable ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) : new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonContent.Create(new ArchiveHealthResponse(now, "Available", now.AddSeconds(-600), HasScheduledSuccess: true, now.AddHours(-4), 14400, "Available", now,
-                    [.. ArchiveHealthView.Definitions.Select(static item => new ArchiveWarningResponse(item.Name, item.Name is "ArchiveScheduleDelayed" ? "Firing" : "Inactive"))]))
+                    [.. ArchiveHealthView.Definitions.Select(static item => new ArchiveWarningResponse(item.Name, item.Name is "ArchiveScheduleDelayed" ? "Firing" : "Inactive"))], TriggerSource: "ExternalTimer")),
             });
         }
     }

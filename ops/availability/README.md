@@ -1,5 +1,15 @@
 # Availability Evidence Scheduler
 
+The [external trigger R3 preparation](../../docs/archive-trigger-rollout.md)
+adds a reviewed alternative automatic owner. Until its accepted cutover, the
+existing workflow schedule remains active. The optional timestamp-bound origin
+fields distinguish GitHub schedule from the external timer in the new Operator
+API/Web; old observations without those fields keep Unknown origin. Ordinary
+manual jobs, no-write probes and reruns cannot refresh automatic Archive age.
+The wire name `HasScheduledSuccess` remains for compatibility. See
+[implementation progress](../../docs/archive-trigger-progress.md) for evidence
+and pending release gates.
+
 This directory contains the external scheduling wrapper for the v2.4
 availability evidence exporter. It runs on a GitHub-hosted runner, outside the
 production control-plane and game-server failure domains.

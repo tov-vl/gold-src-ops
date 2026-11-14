@@ -143,7 +143,9 @@ class Tests(unittest.TestCase):
         self.assertNotIn(b'head_sha', raw)
         self.assertNotIn(b'github.com', raw)
         body = json.loads(raw)
-        self.assertEqual(len(body['resourceMetrics'][0]['scopeMetrics'][0]['metrics']), 5)
+        self.assertEqual(len(body['resourceMetrics'][0]['scopeMetrics'][0]['metrics']), 7)
+        self.assertEqual(dict(samples)['trigger_source'], 1)
+        self.assertEqual(dict(samples)['trigger_source_observed_timestamp_seconds'], NOW.timestamp())
         for value in (True, float('nan'), -1):
             with self.assertRaises(ValueError):
                 monitor.payload([('has_success', value)], NOW)

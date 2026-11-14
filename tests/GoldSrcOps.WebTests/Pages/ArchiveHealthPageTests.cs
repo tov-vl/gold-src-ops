@@ -55,7 +55,11 @@ public sealed class ArchiveHealthPageTests
             response.Headers.CacheControl!.NoStore.Should().BeTrue();
             var html = await response.Content.ReadAsStringAsync();
             html.Should().Contain("Archive health").And.Contain("href=\"/operator/archive-health\"")
-                .And.Contain("Manual runs and reruns do not refresh").And.NotContain("private-sentinel").And.NotContain("Bearer ");
+                .And.Contain("Ordinary manual runs, probes and reruns do not refresh").And.NotContain("private-sentinel").And.NotContain("Bearer ");
+            if (scenario is "valid")
+            {
+                html.Should().Contain("External timer").And.Contain("Last successful automatic run");
+            }
             html.Split("class=\"archive-warning\"").Should().HaveCount(5);
             html.Should().Contain(scenario switch { "valid" => "data-rule-state=\"Firing\"", "stale" => "data-observation-state=\"Stale\"", _ => "data-observation-state=\"Unknown\"" });
         }
@@ -77,7 +81,7 @@ public sealed class ArchiveHealthPageTests
             var now = DateTimeOffset.UtcNow;
             return Task.FromResult(new ArchiveHealthResponse(now, scenario is "foreign" ? "private-sentinel" : "Available",
                 now.AddSeconds(scenario is "stale" ? -1801 : 0), HasScheduledSuccess: true, now.AddHours(-4), 14400, "Available", now,
-                [.. ArchiveHealthView.Definitions.Select(static item => new ArchiveWarningResponse(item.Name, item.Name is "ArchiveScheduleDelayed" ? "Firing" : "Inactive"))]));
+                [.. ArchiveHealthView.Definitions.Select(static item => new ArchiveWarningResponse(item.Name, item.Name is "ArchiveScheduleDelayed" ? "Firing" : "Inactive"))], TriggerSource: "ExternalTimer"));
         }
     }
 }

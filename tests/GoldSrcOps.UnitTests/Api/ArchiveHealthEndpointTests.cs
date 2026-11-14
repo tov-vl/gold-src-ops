@@ -28,7 +28,7 @@ public sealed class ArchiveHealthEndpointTests
             "reader" => TestApiPrincipal.Reader(),
             "no-role" => TestApiPrincipal.WithoutRoles(),
             "no-subject" => TestApiPrincipal.WithoutSubject(),
-            _ => TestApiPrincipal.Operator()
+            _ => TestApiPrincipal.Operator(),
         };
         var source = new Mock<IArchiveHealthSource>(MockBehavior.Strict);
         if (expected == HttpStatusCode.OK)
@@ -55,10 +55,11 @@ public sealed class ArchiveHealthEndpointTests
             var value = await response.Content.ReadFromJsonAsync<ArchiveHealthResponse>();
             value!.ObservationState.Should().Be("Available");
             value.LastSuccessAgeSeconds.Should().Be(10800);
+            value.TriggerSource.Should().Be("Unknown");
             value.Warnings.Should().HaveCount(4);
             using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             document.RootElement.EnumerateObject().Select(static item => item.Name).Should().BeEquivalentTo(
-                "evaluatedAtUtc", "observationState", "observedAtUtc", "hasScheduledSuccess", "lastSuccessAtUtc", "lastSuccessAgeSeconds", "warningsState", "warningsObservedAtUtc", "warnings");
+                "evaluatedAtUtc", "observationState", "observedAtUtc", "hasScheduledSuccess", "lastSuccessAtUtc", "lastSuccessAgeSeconds", "warningsState", "warningsObservedAtUtc", "warnings", "triggerSource");
             source.Verify(static value => value.ReadAsync(ArchiveHealthFixture.Now, It.IsAny<CancellationToken>()), Times.Once);
         }
 

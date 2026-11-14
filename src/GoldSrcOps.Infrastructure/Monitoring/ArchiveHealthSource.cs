@@ -6,7 +6,7 @@ namespace GoldSrcOps.Infrastructure.Monitoring;
 
 public sealed class ArchiveHealthSource(HttpClient client) : IArchiveHealthSource
 {
-    private static readonly string Query = string.Join(" or ", new[] { "observation_success", "observed_timestamp_seconds", "has_success", "last_success_timestamp_seconds" }
+    private static readonly string Query = string.Join(" or ", new[] { "observation_success", "observed_timestamp_seconds", "has_success", "last_success_timestamp_seconds", "trigger_source", "trigger_source_observed_timestamp_seconds" }
         .Select(static name => $"label_replace(last_over_time(goldsrcops_archive_schedule_{name}{{job=\"goldsrcops\",service_name=\"goldsrcops-archive-schedule-monitor\"}}[30m]), \"gso_archive_field\", \"{name}\", \"\", \"\")"));
 
     public async Task<ArchiveHealthSnapshot> ReadAsync(DateTimeOffset atUtc, CancellationToken cancellationToken)
@@ -21,7 +21,7 @@ public sealed class ArchiveHealthSource(HttpClient client) : IArchiveHealthSourc
         {
             ["query"] = Query,
             ["time"] = atUtc.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
-            ["timeout"] = "3s"
+            ["timeout"] = "3s",
         });
         using var rules = new HttpRequestMessage(HttpMethod.Get, "api/v1/rules?type=alert&exclude_alerts=true&rule_group%5B%5D=goldsrcops-archive-schedule");
         var metricsTask = ReadAsync(metrics, ParseMetrics, cancellationToken);
