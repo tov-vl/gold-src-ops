@@ -42,8 +42,8 @@ Avoid positioning it as:
 
 ## Current Repository State
 
-Planning snapshot: 2026-11-13, after accepted
-[v2.130 command dispatcher liveness](v2.130-command-dispatch-liveness.md).
+Planning snapshot: 2026-11-14, after accepted
+[v2.131 Operator command dispatcher health](v2.131-operator-command-dispatch-health.md).
 
 - The .NET 10 modular monolith and server-side OIDC Web BFF provide public
   sanitized status, protected Reader/Operator workflows, A2S history, auditable
@@ -51,8 +51,8 @@ Planning snapshot: 2026-11-13, after accepted
 - The accepted operational baseline covers game-host health, backup, storage,
   resources, credential expiry, delivery, Archive, polling and retention, with
   owner notifications and an independent monitoring watchdog. v2.130 adds
-  private command dispatcher progress and warnings; its Operator UI/report
-  projection is planned next.
+  private command dispatcher progress and warnings; v2.131 exposes them through
+  the Operator API, detail page, overview and bounded report.
 - The managed CS 1.6 mode includes fast reentry, loadout selection, saved
   progression and RU/EN guidance. The client lab has accepted bounded autonomous
   scenarios, including fresh RU/EN `/guns` checks with OpenGL evidence.
@@ -62,8 +62,8 @@ Planning snapshot: 2026-11-13, after accepted
   complete source coverage.
 
 The [roadmap](roadmap.md) defines the next priorities and completion criteria;
-the [backlog](backlog.md) tracks milestone status. After completing the Operator
-command dispatcher view, prioritize an evidenced operator problem or a
+the [backlog](backlog.md) tracks milestone status. With the Operator command
+dispatcher view accepted, prioritize an evidenced operator problem or a
 controlled gameplay pilot over repeated monitoring UI expansion. Archive
 reliability decisions proceed in parallel, and player-dependent work waits for
 two independent participants. This snapshot is not a fresh production audit.

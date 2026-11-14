@@ -1,7 +1,7 @@
 # GoldSrcOps Roadmap
 
-Reviewed on 2026-11-13 against accepted v2.130 and repository revision
-`43778cf61cbee530afeb4acb6a8b805c1fa939cd`.
+Updated on 2026-11-14 after accepted v2.131, source revision
+`90c2eb9b73de6357c9b3c8c9a69d2289920352d2`.
 
 This is the current planning order. It replaces the priorities in the
 2026-10-28 roadmap proposal; historical release and acceptance records remain
@@ -23,7 +23,8 @@ Development should advance a concrete operator or player outcome.
   resources, credential dates, incident delivery, Archive, polling and retention,
   plus an [independent monitoring watchdog](v2.106-monitoring-watchdog.md).
   [v2.130](v2.130-command-dispatch-liveness.md) adds private command dispatcher
-  cycle observation and warnings. Its Operator projection is the next gap.
+  cycle observation and warnings. [v2.131](v2.131-operator-command-dispatch-health.md)
+  exposes them through the Operator API, detail, overview and report.
 - The [client lab](client-lab.md) supports bounded autonomous checks. Fresh
   [RU/EN weapon acceptance](client-guns-acceptance.md#fresh-renderer-required-matrix-accepted-on-2026-11-08)
   passed with process-bound OpenGL evidence. This is evidence for those
@@ -39,24 +40,24 @@ roadmap owns future priorities; it is not a live production health report.
 
 | Order | Outcome | Dependency | Completion criterion |
 | --- | --- | --- | --- |
-| Now | Keep one current roadmap and distinguish historical release context | Accepted v2.130 evidence | Roadmap, backlog priorities and project brief agree; historical evidence is preserved |
-| Next release | v2.131: command dispatcher health in the Operator UI and report | Accepted v2.130 observation contract | One read-only API/UI/report delivery passes independent acceptance |
-| Parallel | Decide the required Archive freshness and scheduling guarantee | Fresh schedule/job evidence and existing completeness diagnostics | Record acceptable delay, catch-up limits and a decision to retain or replace the trigger mechanism |
+| Completed | v2.131 command dispatcher health across Operator views | Accepted v2.130 observation contract | Independent API/Web and authenticated eight-source UI/report acceptance passed |
+| Next decision | Decide the required Archive freshness and scheduling guarantee | Fresh schedule/job evidence and existing completeness diagnostics | Record acceptable delay, catch-up limits and a decision to retain or replace the trigger mechanism |
 | Next gameplay milestone, when people are available | Validate the existing mode with two human players | Two independent participants/accounts and a controlled session | A bounded pilot records observed results, failures and one prioritized follow-up |
 | After the pilot | Improve one evidenced gameplay problem | Pilot findings | One map/spawn adjustment or mechanic passes technical and player acceptance |
 | Later | Human activity analysis and community growth | Real visits and an agreed observation window | Decisions use actual human activity with explicit coverage limits |
 
 Archive investigation and player availability do not block unrelated bounded
 development. A useful two-player pilot can proceed when participants become
-available without waiting for v2.131. If no second player is available, prepare
+available. If no second player is available, prepare
 the pilot checklist; do not treat solo or bot checks as its completion.
 
-## Next Release: v2.131 Operator Command Dispatcher Health
+## Accepted v2.131 Operator Command Dispatcher Health
 
-Expose the accepted v2.130 cycle metadata and three existing warning states
-through an Operator-only API projection, a detail page, an overview card and
-the bounded UTF-8 health report. Deliver the user-facing flow together unless
-implementation reveals a concrete compatibility or rollout reason to split it.
+The accepted v2.130 cycle metadata and three existing warning states are now
+available through an Operator-only API projection, detail page, eighth overview
+card and eighth source in the bounded UTF-8 health report. The complete read
+flow passed independent runtime and authenticated browser/download acceptance.
+See the [release evidence](v2.131-operator-command-dispatch-health.md).
 
 Preserve these acceptance boundaries:
 
@@ -73,11 +74,11 @@ Preserve these acceptance boundaries:
 - Verify the projection and rendering with focused tests, then the applicable
   CI, independent runtime acceptance and authenticated UI/download checks.
 
-No new monitor, warning policy, command probe, retry, replay, queue change,
-migration or game-addon change is planned. Exact runtime scope, risk class and
-rollback inputs belong in the delivery plan, not an assumed roadmap approval.
+The R1 release changed API and Web only. Existing monitors, warning policy,
+command execution, queue behavior, database and game addon were preserved.
+Exact digests and acceptance belong in the release record.
 
-After this gap is closed, add monitoring surfaces only for an observed failure
+Add monitoring surfaces only for an observed failure
 or an unanswered operator question. Another panel or report section is not a
 milestone by itself.
 
