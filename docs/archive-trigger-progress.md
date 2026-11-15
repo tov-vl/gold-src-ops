@@ -1,11 +1,13 @@
 # Archive Trigger Implementation Progress
 
-Updated on 2026-11-15. Status: signed component rc.3 is published and independently
-verified. Its real credential gate, controlled Archive and independent Recovery
-passed, but the observer preview found a missing package dependency. The reviewed
-rollback restored API/Web and legacy scheduling, retaining the verified claim
-and object. External scheduling and the freshness trial are not accepted. The owning boundary is
-the [implementation plan](archive-trigger-implementation-plan.md).
+Updated on 2026-11-15. Status: signed component rc.4 is published, independently
+verified and accepted on the control plane with the reused API/Web candidates.
+The controlled Archive, two natural hourly slots and independent reader Recovery
+of every acceptance object passed. The external timer is the single automatic
+owner. The prior verified claim/history and packages remain preserved. The
+seven-day age/coverage assessment and stable promotion are separate, unfinished
+gates. The owning boundary is the
+[implementation plan](archive-trigger-implementation-plan.md).
 
 ## Completed Offline Unit
 
@@ -252,5 +254,55 @@ The local packaging fix includes the missing contract and exercises the extracte
 ZIP in isolated Python with networking blocked. One regression removes the
 contract and confirms that checkout/PYTHONPATH cannot hide the missing file.
 All 15 publication tests passed on Windows and Linux; 16 transport and 26 state
-tests also passed. A new reviewed candidate and a revised retained-ledger R3
-decision are required; the published rc.3 package must not be patched in place.
+tests also passed. The fix was accepted in
+[PR #549](https://github.com/tov-vl/gold-src-ops/pull/549) and published as rc.4.
+The incomplete rc.3 package remains preserved unchanged.
+
+
+## rc.4 Candidate And R3 Acceptance
+
+The [signed rc.4 candidate](https://github.com/tov-vl/gold-src-ops/releases/tag/archive-trigger-v2.132.0-rc.4)
+uses accepted revision `09d37fe9e1c9dfc5d8ce385727b1b56ec18b8e15`.
+[PR CI](https://github.com/tov-vl/gold-src-ops/actions/runs/43726446381),
+[main CI](https://github.com/tov-vl/gold-src-ops/actions/runs/43728023161) and the full
+[candidate CI](https://github.com/tov-vl/gold-src-ops/actions/runs/43729586735) passed.
+Independent download verification matched the signed source, server/outer/inner
+hashes, paused template, all 23 ZIP entries and all 21 source files. The ZIP
+SHA-256 is `03ac873480136d857d6c64e3a7a3ff3e7cc19373dae6155e0bfba9e099bde55b`.
+The observer and service loaded from the exact extracted publication in isolated
+Python without networking, credentials, ledger access or checkout fallback.
+Provider immutability remains disabled; the signed identity/checksum do not
+constitute a provider-enforced lock.
+
+The approved retained-ledger R3 passed fresh host/source/permission preflight,
+the real paused credential gate and independent API/Web identity, health,
+configuration, authorization and browser acceptance. Only API/Web were recreated;
+thirteen other containers and their configuration were preserved. Application
+candidate `v2.132.0-rc.1` still uses the separately verified source `0608e996`;
+application/Compose and admission compatibility were checked before reuse.
+The existing credential/identity and the previous Verified claim plus its full
+transition history were retained without initialization or reset.
+
+The no-write probe admitted the request and skipped export/B2/receipt writer
+steps. The controlled and natural acceptance results were:
+
+| Role | Archive | Independent reader Recovery |
+| --- | --- | --- |
+| Controlled | [43731591742](https://github.com/tov-vl/gold-src-ops/actions/runs/43731591742) | [43731769791](https://github.com/tov-vl/gold-src-ops/actions/runs/43731769791) |
+| Natural 15:53 UTC | [43732339707](https://github.com/tov-vl/gold-src-ops/actions/runs/43732339707) | [43732584375](https://github.com/tov-vl/gold-src-ops/actions/runs/43732584375) |
+| Natural 16:53 UTC | [43737961103](https://github.com/tov-vl/gold-src-ops/actions/runs/43737961103) | [43738231690](https://github.com/tov-vl/gold-src-ops/actions/runs/43738231690) |
+
+Every acceptance object matched its exact receipt, SHA-256, size and 24-hour
+window ending five minutes before its slot; each independent Recovery matched
+the deterministic report. Both natural slots followed timer activation and
+were dispatched and reconciled automatically, without manual service starts.
+One claim/run per slot and no outstanding uncertain claim were independently
+verified. The protected observer published timestamp-bound ExternalTimer origin;
+overview, detail and the eight-source UTF-8 report agreed. All four existing
+Archive rules were inactive at acceptance. No synthetic notification was added.
+
+The legacy scheduler is disabled and the external timer is enabled. rc.2/rc.3,
+all earlier evidence and created objects remain retained. No stable tag,
+promotion, new account, token, permission, firewall or public port was introduced
+by this retry. The seven-day three-hour-age/window-coverage assessment remains
+pending; two natural slots do not establish that objective or fill source gaps.

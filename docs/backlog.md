@@ -9,10 +9,11 @@ Planning baseline: 2026-11-14, after accepted v2.131. The
 [current roadmap](roadmap.md) owns scope, dependencies and completion criteria;
 the records below retain historical release evidence.
 
-1. Implement the selected [external Archive trigger](archive-trigger-implementation-plan.md)
-   after the named R3 rollout and new credential/service boundary are approved.
-   The [assessment and decision](archive-trigger-decision.md) are prepared;
-   current hourly `:53`, the 24-hour export window and warnings remain unchanged.
+1. Complete the separate seven-day age/window-coverage assessment of the accepted
+   [external Archive trigger](archive-trigger-progress.md#rc4-candidate-and-r3-acceptance).
+   The external timer owns automatic Archive; hourly `:53`, the 24-hour export
+   window and warning thresholds remain unchanged. Candidate acceptance is proved;
+   the three-hour age objective and source completeness are not yet established.
 2. When two independent human participants/accounts are available: run one
    controlled gameplay pilot, then select at most one map/spawn or mechanic
    improvement from its findings. Prepare the checklist while waiting.
@@ -26,26 +27,16 @@ change is implied.
 
 ## Current Status
 
-In progress: [external Archive trigger](archive-trigger-progress.md). The offline
-SQLite admission/receipt core passed 26 tests; connected GitHub transport,
-workflow admission and observer adapters passed 16 integration tests. The
-existing observer passed 14 regression tests. Component rc.2 and application
-candidate v2.132.0-rc.1 passed full CI and independent artifact verification.
-The first approved [R3 attempt](archive-trigger-rollout.md) accepted API/Web,
-baseline Recovery and a no-write probe, then stopped before a production claim.
-Rollback restored the previous API/Web and legacy scheduling. A narrow systemd
-credential-reader fix now handles the confirmed root-owned ACL mount without
-weakening ordinary file checks. Local Linux verification passed nine credential,
-22 service and 26 state tests; 16 transport and 13 publication tests also passed.
-The synthetic real-ACL rehearsal does not replace actual systemd mount acceptance.
-Signed rc.3 passed full CI, independent ZIP verification and the real paused
-credential gate. One controlled Archive and its independent Recovery passed.
-Observer preview then found a missing ZIP dependency, so the reviewed rollback
-restored original API/Web and legacy scheduling while preserving the verified
-claim/object and rc.3. The trigger timer was never enabled. The local package
-closure fix passed 15 publication tests on Windows/Linux. New candidate review
-and a revised retained-ledger R3 decision remain pending. The three-hour age
-objective and seven-day assessment are not yet proved.
+Accepted: [external Archive trigger rc.4](archive-trigger-progress.md#rc4-candidate-and-r3-acceptance).
+Product PR #549, full PR/main/candidate CI, signed publication, independent ZIP
+and extracted-package checks passed. The retained-ledger R3 accepted the real
+credential gate, reused API/Web, no-write probe, controlled Archive and two natural
+hourly slots with independent Recovery of each exact object. Observer metrics,
+Operator overview/detail/eight-source report and final runtime acceptance passed.
+The external timer is enabled; legacy scheduling is disabled. Thirteen other
+containers, the existing credential/identity, prior packages and the earlier
+Verified claim/history were preserved. Stable promotion was not requested; the
+separate seven-day three-hour-age/window-coverage assessment remains pending.
 
 Prepared: [Archive reliability decision](archive-trigger-decision.md) and
 [implementation plan](archive-trigger-implementation-plan.md). A read-only

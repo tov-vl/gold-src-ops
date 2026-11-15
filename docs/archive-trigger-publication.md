@@ -52,7 +52,7 @@ After separate R3 acceptance, create a signed annotated stable tag at the exact
 candidate revision. Its annotation must contain exactly one line of each form:
 
 ```text
-Candidate: archive-trigger-v2.132.0-rc.2
+Candidate: archive-trigger-v2.132.0-rc.4
 SHA256: <64 lowercase hexadecimal characters from the accepted candidate ZIP>
 ```
 
@@ -101,6 +101,11 @@ preserves the application publication guards. Remote required CI and actual
 candidate asset round-trip remain separate evidence; local mocks do not prove
 GitHub publication.
 
-Component candidate publication is in progress. Application tags,
-credential/identity approval, target preflight, cutover,
-exact-object Recovery and natural-slot acceptance remain in the rollout plan.
+Signed `archive-trigger-v2.132.0-rc.4` is published from `09d37fe9` after full
+PR/main/tag CI. Independent download verified its signature, server/outer/inner
+hashes, 23 entries and 21 source files. Observer/service imports also passed from
+the exact extracted ZIP in isolated offline Python without checkout fallback.
+The approved retained-ledger R3 and two natural slots with independent reader
+Recovery are [accepted separately](archive-trigger-progress.md#rc4-candidate-and-r3-acceptance).
+No stable tag or promotion was requested. The provider remains mutable; the
+existing no-replacement publication rules and signed checksum still apply.
