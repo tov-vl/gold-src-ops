@@ -1,13 +1,12 @@
 # Archive External Trigger R3 Delivery Preparation
 
-Updated on 2026-11-15. Component version: 2.132.0; next candidate:
+Updated on 2026-11-15. Component version: 2.132.0; accepted candidate:
 `archive-trigger-v2.132.0-rc.4`; stable target: `archive-trigger-v2.132.0`.
-Signed rc.3 passed full CI, independent package checks, the real systemd
-credential gate and one controlled Archive with independent Recovery. Its
-observer preview found an omitted dependency before drop-in/timer activation.
-Rollback restored legacy scheduling and preserved the verified claim/object.
-The local package fix prepares a new candidate; R3 acceptance and a freshness
-guarantee remain pending. Stable promotion is not part of the current retry.
+The approved retained-ledger R3 passed controlled and two natural Archive slots
+with independent Recovery, observer/Operator acceptance and final runtime proof.
+The external timer is enabled and legacy scheduling is disabled. Prior rc.2/rc.3,
+the previous Verified claim/history and all acceptance objects remain preserved.
+Stable promotion and the seven-day freshness/coverage assessment are separate.
 This document does not authorize new access.
 The [design](archive-trigger-decision.md), [implementation boundary](archive-trigger-implementation-plan.md)
 and [verification progress](archive-trigger-progress.md) remain applicable.
@@ -190,16 +189,18 @@ own exact decision. No rollback deletes B2 objects or rewrites claim history.
 If an unknown attempt cannot be reconciled, leave admission paused and report
 the incomplete rollback rather than enabling cron beside it.
 
-## Gates Still Required Before Live Release
+## Accepted Candidate And Remaining Gates
 
-rc.3 passed required CI, signed publication, independent ZIP verification, the
-real paused credential gate, API/Web acceptance, the no-write probe and exact
-controlled-object Recovery. That does not accept its incomplete observer package:
-the attempt rolled back before the observer drop-in and trigger timer.
+The signed rc.4 package passed required PR/main/candidate CI, independent ZIP and
+isolated extracted-package verification. The approved R3 accepted the real
+credential mount, reused API/Web, no-write probe, controlled Archive, external
+observer, Operator overview/detail/eight-source report and two natural hourly
+slots with independent reader Recovery. The existing ledger was retained rather
+than initialized again. See the [acceptance record](archive-trigger-progress.md#rc4-candidate-and-r3-acceptance).
 
-The package dependency fix needs reviewed source/full CI, a new signed candidate,
-independent extracted-ZIP acceptance and a revised R3 plan that preserves the
-existing Verified claim. Final observer/Operator acceptance, two natural slots
-with independent Recovery and the separate seven-day assessment remain pending.
-The existing credential and service identity are reused; they do not need another
-provisioning step. Published candidates and retained state must not be replaced.
+The external timer is the sole automatic owner; legacy scheduling remains off.
+The previous packages, credential/identity, Verified history and objects remain
+preserved. No stable tag was requested or published. Byte-preserving stable
+promotion requires its own applicable release boundary; the seven-day age and
+window-coverage assessment remains pending and does not block unrelated work.
+Do not replace published candidates or claim that two slots establish an SLO.
