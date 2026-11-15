@@ -1,10 +1,10 @@
 # Archive Trigger Implementation Progress
 
-Updated on 2026-11-14. Status: offline state core implemented and locally
-verified; transport/workflow/observer adapters are also locally integrated.
-Service orchestration, protected credential loading and an R3 review package
-are prepared. Publication and R3 rollout remain pending. This is not
-a deployed scheduler or a completed freshness trial. The owning boundary is
+Updated on 2026-11-15. Status: signed component rc.3 is published and independently
+verified. Its real credential gate, controlled Archive and independent Recovery
+passed, but the observer preview found a missing package dependency. The reviewed
+rollback restored API/Web and legacy scheduling, retaining the verified claim
+and object. External scheduling and the freshness trial are not accepted. The owning boundary is
 the [implementation plan](archive-trigger-implementation-plan.md).
 
 ## Completed Offline Unit
@@ -221,4 +221,36 @@ non-root UID regression, 22 service tests and 26 state tests. The real ACL fixtu
 uses synthetic data; only its mount flag is simulated on the temporary filesystem.
 Actual systemd mount acceptance remains a separate paused-unit target gate.
 The transport's 16 integration tests and 13 publication tests passed locally.
-New candidate rc.3 publication and the revised R3 remain pending.
+The fix was accepted in [PR #548](https://github.com/tov-vl/gold-src-ops/pull/548),
+with green [main CI](https://github.com/tov-vl/gold-src-ops/actions/runs/43720937514)
+and full [rc.3 CI](https://github.com/tov-vl/gold-src-ops/actions/runs/43722384873).
+The signed [rc.3 package](https://github.com/tov-vl/gold-src-ops/releases/tag/archive-trigger-v2.132.0-rc.3)
+was independently downloaded: signature, server/outer checksum, 22 ZIP entries
+and 20 source files matched the accepted revision. Provider immutability remains
+disabled; this does not claim a provider-enforced lock.
+
+## Observer Package Dependency Recovery
+
+The second approved R3 attempt accepted the real read-only systemd credential
+mount and paused service without a production dispatch. API/Web and the baseline
+reader Recovery passed. The no-write probe skipped every writer step. One
+[controlled Archive](https://github.com/tov-vl/gold-src-ops/actions/runs/43724568616)
+produced a strictly matched receipt and reached Verified; its separate
+[reader Recovery](https://github.com/tov-vl/gold-src-ops/actions/runs/43724683078)
+verified the exact object size and deterministic report.
+
+The pre-cutover observer import then failed: packaged `agent-monitor.py` depends
+on `ops/gameserver/agent_diagnostics.py`, which the ZIP inventory omitted.
+Repository-level tests could resolve that file from the checkout. The observer
+drop-in was never installed and the trigger timer was never enabled. The bounded
+rollback restored exact environment/configuration, original API/Web digests,
+the old observer and legacy scheduler. Thirteen other containers, the token,
+identity, all ledger transitions and the verified object were preserved. rc.3
+remains retained unchanged. No natural-slot or seven-day acceptance is claimed.
+
+The local packaging fix includes the missing contract and exercises the extracted
+ZIP in isolated Python with networking blocked. One regression removes the
+contract and confirms that checkout/PYTHONPATH cannot hide the missing file.
+All 15 publication tests passed on Windows and Linux; 16 transport and 26 state
+tests also passed. A new reviewed candidate and a revised retained-ledger R3
+decision are required; the published rc.3 package must not be patched in place.

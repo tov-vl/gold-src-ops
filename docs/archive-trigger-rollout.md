@@ -1,11 +1,13 @@
 # Archive External Trigger R3 Delivery Preparation
 
 Updated on 2026-11-15. Component version: 2.132.0; next candidate:
-`archive-trigger-v2.132.0-rc.3`; stable target: `archive-trigger-v2.132.0`.
-Candidate rc.2 and the application candidates were published. The first R3
-attempt rolled back before a production claim because the private-file reader
-rejected systemd's root-owned ACL credential. The narrow reader fix prepares a
-new candidate; R3 acceptance and a freshness guarantee remain pending.
+`archive-trigger-v2.132.0-rc.4`; stable target: `archive-trigger-v2.132.0`.
+Signed rc.3 passed full CI, independent package checks, the real systemd
+credential gate and one controlled Archive with independent Recovery. Its
+observer preview found an omitted dependency before drop-in/timer activation.
+Rollback restored legacy scheduling and preserved the verified claim/object.
+The local package fix prepares a new candidate; R3 acceptance and a freshness
+guarantee remain pending. Stable promotion is not part of the current retry.
 This document does not authorize new access.
 The [design](archive-trigger-decision.md), [implementation boundary](archive-trigger-implementation-plan.md)
 and [verification progress](archive-trigger-progress.md) remain applicable.
@@ -124,10 +126,18 @@ approval before execution.
 
 ## Ordered Installation And Cutover
 
+For an explicitly approved recovery, freeze the known existing installation,
+identity and complete retained ledger in a fresh plan instead of repeating
+initial provisioning. Completed claims remain recorded across generations;
+never reinitialize the ledger or substitute an empty before-image.
+
 1. Close source review and required CI; freeze the accepted candidate commit,
    signed component artifact and verified manifest. Run the clean-revision
    builder; review mode is not a production artifact. Retain current observer
    executable/configuration/unit bytes and repository mode/flag values privately.
+   Extract the actual ZIP and check observer imports in isolated Python without
+   checkout/PYTHONPATH dependencies or network access. Include the transitive
+   `ops/gameserver/agent_diagnostics.py` contract used by the packaged transport.
 2. Perform read-only host preflight: Linux/systemd credential support (minimum
    systemd 252), Python/SQLite runtime, available disk/RAM, host clock, existing
    identities/paths and no conflicting units. Unexpected existing installation
@@ -182,11 +192,14 @@ the incomplete rollback rather than enabling cron beside it.
 
 ## Gates Still Required Before Live Release
 
-Local tests and a review bundle are preparation evidence only. The full local
-test command is not green while Docker is unavailable; real browser tests also
-remain unexecuted locally. Required CI, component publication acceptance,
-signed candidate publication, current host/permission preflight, protected token
-transport acceptance, final target drop-in, real no-write probe,
-independent Recovery and natural-slot acceptance are not yet completed. The
-new credential/identity and retained-state rollback boundary must be approved
-as one concrete R3 rollout bundle after those preparatory inputs are frozen.
+rc.3 passed required CI, signed publication, independent ZIP verification, the
+real paused credential gate, API/Web acceptance, the no-write probe and exact
+controlled-object Recovery. That does not accept its incomplete observer package:
+the attempt rolled back before the observer drop-in and trigger timer.
+
+The package dependency fix needs reviewed source/full CI, a new signed candidate,
+independent extracted-ZIP acceptance and a revised R3 plan that preserves the
+existing Verified claim. Final observer/Operator acceptance, two natural slots
+with independent Recovery and the separate seven-day assessment remain pending.
+The existing credential and service identity are reused; they do not need another
+provisioning step. Published candidates and retained state must not be replaced.
