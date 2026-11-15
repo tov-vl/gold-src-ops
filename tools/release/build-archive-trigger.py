@@ -14,6 +14,7 @@ FILES = (
     'ops/availability/archive_trigger_github.py', 'ops/availability/archive_trigger_service.py',
     'ops/availability/archive_trigger_store_credential.py',
     'ops/availability/archive-monitor.py', 'ops/production/agent-monitor.py',
+    'ops/gameserver/agent_diagnostics.py',
     'ops/production/systemd/goldsrcops-archive-trigger.service',
     'ops/production/systemd/goldsrcops-archive-trigger.timer',
     'ops/production/systemd/goldsrcops-archive-schedule-monitor-external.conf',

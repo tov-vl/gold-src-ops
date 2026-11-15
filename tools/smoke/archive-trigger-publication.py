@@ -3,8 +3,10 @@ import copy
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -41,6 +43,46 @@ class Tests(unittest.TestCase):
     def package(self, directory='source'):
         path, digest = publication.package.build(self.root/directory, '2.132.0')
         return path.parent, digest
+
+    def extracted_observer(self, directory):
+        # Isolated Python must resolve every dependency from the extracted ZIP.
+        code = '''import datetime as dt,importlib.util,socket,sys
+from pathlib import Path
+def blocked(*args,**kwargs):
+    raise AssertionError('Network is forbidden in the extracted package rehearsal')
+socket.create_connection=blocked
+socket.getaddrinfo=blocked
+socket.socket.connect=blocked
+root=Path(sys.argv[1])
+spec=importlib.util.spec_from_file_location('extracted_observer',root/'ops/availability/archive-monitor.py')
+observer=importlib.util.module_from_spec(spec);spec.loader.exec_module(observer)
+samples=observer.collect_external({},'00000000-0000-0000-0000-000000000001',dt.datetime.now(dt.timezone.utc),fetch=blocked)
+assert samples[0]==('observation_success',0)
+print('EXTRACTED_ARCHIVE_OBSERVER=loaded-offline')
+'''
+        return subprocess.run([sys.executable, '-I', '-B', '-c', code, str(directory)],
+            cwd=directory, env=dict(os.environ, PYTHONPATH=str(ROOT/'ops/gameserver')),
+            capture_output=True, timeout=20)
+
+    def test_extracted_observer_runs_without_checkout_dependencies(self):
+        directory, _ = self.package()
+        extracted = self.root/'extracted'
+        with zipfile.ZipFile(directory/'archive-trigger-2.132.0.zip') as archive:
+            archive.extractall(extracted)
+        result = self.extracted_observer(extracted)
+        self.assertEqual(result.returncode, 0, result.stderr[:1000])
+        self.assertEqual(result.stdout.strip(), b'EXTRACTED_ARCHIVE_OBSERVER=loaded-offline')
+
+    def test_extracted_observer_cannot_borrow_missing_contract_from_checkout(self):
+        directory, _ = self.package()
+        extracted = self.root/'extracted'
+        with zipfile.ZipFile(directory/'archive-trigger-2.132.0.zip') as archive:
+            archive.extractall(extracted)
+        (extracted/'ops/gameserver/agent_diagnostics.py').unlink()
+        result = self.extracted_observer(extracted)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(b'agent_diagnostics', result.stderr)
+        self.assertEqual(result.stdout, b'')
 
     def test_strict_tag_contract(self):
         self.assertEqual(publication.tag_parts(CANDIDATE), ('2.132.0', True))

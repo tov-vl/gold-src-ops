@@ -38,7 +38,13 @@ credential-reader fix now handles the confirmed root-owned ACL mount without
 weakening ordinary file checks. Local Linux verification passed nine credential,
 22 service and 26 state tests; 16 transport and 13 publication tests also passed.
 The synthetic real-ACL rehearsal does not replace actual systemd mount acceptance.
-New rc.3, its required CI and the revised R3 remain pending. The three-hour age
+Signed rc.3 passed full CI, independent ZIP verification and the real paused
+credential gate. One controlled Archive and its independent Recovery passed.
+Observer preview then found a missing ZIP dependency, so the reviewed rollback
+restored original API/Web and legacy scheduling while preserving the verified
+claim/object and rc.3. The trigger timer was never enabled. The local package
+closure fix passed 15 publication tests on Windows/Linux. New candidate review
+and a revised retained-ledger R3 decision remain pending. The three-hour age
 objective and seven-day assessment are not yet proved.
 
 Prepared: [Archive reliability decision](archive-trigger-decision.md) and
