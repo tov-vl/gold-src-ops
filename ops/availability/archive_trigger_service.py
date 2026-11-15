@@ -1,12 +1,14 @@
 """Linux oneshot orchestration; persistent claims survive service termination."""
 import contextlib
 import datetime as dt
+import errno
 import importlib.util
 import json
 import os
 from pathlib import Path
 import signal
 import stat
+import struct
 import sys
 import tempfile
 
@@ -17,6 +19,7 @@ state, workflow = github.state, github.workflow
 CONFIG = Path('/etc/goldsrcops/archive-trigger/config.json')
 STORE = Path('/var/lib/goldsrcops-archive-trigger')
 OBSERVATION = Path('/var/lib/goldsrcops-archive-trigger-observation/latest.json')
+SYSTEMD_CREDENTIALS = Path('/run/credentials/goldsrcops-archive-trigger.service')
 
 
 def utcnow():
@@ -44,6 +47,56 @@ def protected_read(path, limit, owner=None, private=False):
 
 def load_token(directory):
     raw = protected_read(Path(directory)/'github-token', 513, private=True)
+    token = raw.decode('ascii').removesuffix('\n')
+    state.require(1 <= len(token) <= 512 and all(c.isalnum() or c == '_' for c in token), 'credential-format')
+    return token
+
+
+def _systemd_access(descriptor, uid, permission):
+    info = os.fstat(descriptor)
+    directory = permission == 5
+    state.require(uid > 0 and permission in (4, 5), 'credential-identity')
+    state.require(stat.S_ISDIR(info.st_mode) if directory else
+                  stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and 0 < info.st_size <= 513,
+                  'credential-file')
+    state.require(os.fstatvfs(descriptor).f_flag & os.ST_RDONLY, 'credential-mount')
+    try:
+        acl = os.getxattr(descriptor, 'system.posix_acl_access')
+    except OSError as error:
+        if error.errno not in (errno.ENODATA, errno.ENOTSUP):
+            raise ValueError('credential-acl') from None
+        acl = None
+    mode = stat.S_IMODE(info.st_mode)
+    if info.st_uid == uid:
+        state.require(mode == permission << 6 and acl is None, 'credential-private-owner')
+    else:
+        # systemd normally retains root ownership and grants only the service UID
+        # access through an ACL. The group-class mode bits then represent its mask.
+        expected = struct.pack('<I', 2) + b''.join(struct.pack('<HHI', tag, access, identity)
+            for tag, access, identity in ((1, permission, 0xffffffff), (2, permission, uid),
+                (4, 0, 0xffffffff), (16, permission, 0xffffffff), (32, 0, 0xffffffff)))
+        state.require(info.st_uid == 0 and info.st_gid == 0
+            and mode == (permission << 6 | permission << 3) and acl == expected, 'credential-root-acl')
+
+
+def load_systemd_token(directory):
+    directory = Path(directory)
+    state.require(os.name == 'posix' and directory == SYSTEMD_CREDENTIALS, 'credential-directory')
+    state.require(not any(p.is_symlink() for p in (directory, *directory.parents)), 'symlink-path')
+    uid = os.geteuid()
+    parent = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        _systemd_access(parent, uid, 5)
+        descriptor = os.open('github-token', os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent)
+        try:
+            _systemd_access(descriptor, uid, 4)
+            with os.fdopen(descriptor, 'rb', closefd=False) as stream:
+                raw = stream.read(514)
+            state.require(0 < len(raw) <= 513, 'credential-bound')
+        finally:
+            os.close(descriptor)
+    finally:
+        os.close(parent)
     token = raw.decode('ascii').removesuffix('\n')
     state.require(1 <= len(token) <= 512 and all(c.isalnum() or c == '_' for c in token), 'credential-format')
     return token
@@ -166,7 +219,11 @@ def run_pass(ledger, config, path, client_factory, clock=utcnow):
 
 
 def main():
-    state.require(len(sys.argv) == 2 and sys.argv[1] in ('initialize', 'run', 'status'))
+    state.require(len(sys.argv) == 2 and sys.argv[1] in ('initialize', 'run', 'status', 'check-credential'))
+    if sys.argv[1] == 'check-credential':
+        load_systemd_token(os.environ['CREDENTIALS_DIRECTORY'])
+        print('ARCHIVE_TRIGGER_CREDENTIAL=validated')
+        return
     config = configuration(protected_read(CONFIG, 16384, owner=0))
     state.require(config['manifest'] == workflow.content_manifest(Path(__file__).resolve().parents[2]),
                   'installed-content-changed')
@@ -182,7 +239,7 @@ def main():
         try:
             if sys.argv[1] == 'run':
                 def client():
-                    return github.GitHub(load_token(os.environ['CREDENTIALS_DIRECTORY']))
+                    return github.GitHub(load_systemd_token(os.environ['CREDENTIALS_DIRECTORY']))
                 result = run_pass(ledger, config, OBSERVATION, client)
                 protected = utcnow()-dt.timedelta(days=7) if config['assessment_closed'] else state.moment(config['activation'])
                 ledger.retire(utcnow(), protected)

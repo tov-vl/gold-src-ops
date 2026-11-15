@@ -1,9 +1,12 @@
 # Archive External Trigger R3 Delivery Preparation
 
-Prepared on 2026-11-14. Proposed component version: 2.132.0; proposed tags:
-`archive-trigger-v2.132.0-rc.2` and `archive-trigger-v2.132.0`.
-Status: local implementation and review package; no release, deployment or
-freshness guarantee is claimed. This preparation does not authorize new access.
+Updated on 2026-11-15. Component version: 2.132.0; next candidate:
+`archive-trigger-v2.132.0-rc.3`; stable target: `archive-trigger-v2.132.0`.
+Candidate rc.2 and the application candidates were published. The first R3
+attempt rolled back before a production claim because the private-file reader
+rejected systemd's root-owned ACL credential. The narrow reader fix prepares a
+new candidate; R3 acceptance and a freshness guarantee remain pending.
+This document does not authorize new access.
 The [design](archive-trigger-decision.md), [implementation boundary](archive-trigger-implementation-plan.md)
 and [verification progress](archive-trigger-progress.md) remain applicable.
 
@@ -46,11 +49,15 @@ No backlog of writes is dispatched. The OS lock spans credential loading,
 claim admission, POST, reconciliation and projection. SQLite commits Attempting
 before the network call. Killing the process does not erase that state.
 
-Management commands are fixed: `initialize`, `status`, `run`. Initialize requires
+Management commands are fixed: `initialize`, `status`, `run`, `check-credential`. Initialize requires
 paused configuration and a nonexistent ledger. It never recreates an existing
 store. Status reads state without loading a token or changing claims. Run in
 paused mode admits no new write but may reconcile an already Accepted run.
 Unknown/Attempting block every generation; no reset or resend command exists.
+The unit runs `check-credential` as `ExecStartPre`: it validates the mounted
+credential without opening the ledger or creating a network client and prints
+only a fixed success marker. First run the unit with paused configuration and
+the timer disabled to accept the actual credential mount before admission.
 
 Service configuration has a strict schema and begins paused. Fill generation,
 activation time and the last independently verified Archive output end at rollout.
@@ -90,9 +97,16 @@ The root-only token source is consumed through systemd `LoadCredential`; the
 program reads the credential mount identified by `CREDENTIALS_DIRECTORY`.
 The source file is root-owned 0600; its parent is protected. The unit masks that
 original path from the service after credential loading. Only the mounted copy
-is read by the service identity. The loader rejects symlinks/linked parents,
-hard links, wrong owner, group/other access, non-regular files, invalid text and
-oversized values. Token values never appear in arguments, environment values,
+is read by the service identity. The general protected-file reader remains
+strict. A separate systemd-only reader requires the fixed credential directory,
+a read-only filesystem, descriptor-bound metadata, no symlinks/hard links, a
+regular bounded file and valid token text. It accepts service-owned private
+read-only files without an ACL, or root-owned files with the exact service-user
+ACL: owner read, named service UID read, owning group none, mask read, other none.
+The directory has the matching read/execute ACL. Additional principals,
+permissions, writable mounts or unexpected ownership fail closed. Root ownership
+and group-class ACL mask bits are normal systemd behavior; they do not grant the
+owning group access. Token values never appear in arguments, environment values,
 logs, the package, projection or ledger. Python retains the value in process
 memory until exit; no claim of guaranteed memory erasure is made.
 

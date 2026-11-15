@@ -29,18 +29,17 @@ change is implied.
 In progress: [external Archive trigger](archive-trigger-progress.md). The offline
 SQLite admission/receipt core passed 26 tests; connected GitHub transport,
 workflow admission and observer adapters passed 16 integration tests. The
-existing observer passed 14 regression tests. Service orchestration, protected
-credential loading and the [R3 preparation](archive-trigger-rollout.md) are now
-implemented locally. API/Web now project the automatic trigger origin on the
-detail page, overview and report; 51 focused API tests and all 1,130 non-browser
-Web tests passed. Local restore, format, build and package audit passed, but the
-full test gate remains incomplete: 83 container-dependent tests failed without
-Docker, and 70 opt-in browser tests were skipped. The [component publisher](archive-trigger-publication.md)
-now has thirteen offline tests for signed identity, package verification, draft
-lookup and exact candidate promotion. Implementation PR #546 and main CI passed.
-The first candidate retained its tag/draft after a metadata lookup failure; a
-reviewed fix and new candidate publication are in progress. Approved live rollout
-remains pending. No new credential or runtime change has been applied.
+existing observer passed 14 regression tests. Component rc.2 and application
+candidate v2.132.0-rc.1 passed full CI and independent artifact verification.
+The first approved [R3 attempt](archive-trigger-rollout.md) accepted API/Web,
+baseline Recovery and a no-write probe, then stopped before a production claim.
+Rollback restored the previous API/Web and legacy scheduling. A narrow systemd
+credential-reader fix now handles the confirmed root-owned ACL mount without
+weakening ordinary file checks. Local Linux verification passed nine credential,
+22 service and 26 state tests; 16 transport and 13 publication tests also passed.
+The synthetic real-ACL rehearsal does not replace actual systemd mount acceptance.
+New rc.3, its required CI and the revised R3 remain pending. The three-hour age
+objective and seven-day assessment are not yet proved.
 
 Prepared: [Archive reliability decision](archive-trigger-decision.md) and
 [implementation plan](archive-trigger-implementation-plan.md). A read-only
