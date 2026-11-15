@@ -2,6 +2,7 @@
 import copy
 import datetime as dt
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,7 @@ import tempfile
 import unittest
 import uuid
 from unittest.mock import patch
+from contextlib import redirect_stdout
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location('trigger_service', ROOT/'ops/availability/archive_trigger_service.py')
@@ -174,6 +176,19 @@ class Tests(unittest.TestCase):
             self.assertIn(setting,unit)
         self.assertNotIn('/bin/sh',unit)
         self.assertNotIn('Environment=GITHUB_TOKEN',unit)
+        self.assertIn('archive_trigger_service.py check-credential',unit)
+
+    def test_credential_precheck_never_opens_ledger_or_client(self):
+        output=io.StringIO()
+        with patch.object(service.sys,'argv',['service','check-credential']), \
+             patch.dict(service.os.environ,{'CREDENTIALS_DIRECTORY':str(service.SYSTEMD_CREDENTIALS)}), \
+             patch.object(service,'load_systemd_token',return_value='synthetic_value') as loader, \
+             patch.object(service.state,'Ledger',side_effect=AssertionError('Ledger opened')), \
+             patch.object(service.github,'GitHub',side_effect=AssertionError('Network client created')), \
+             redirect_stdout(output):
+            service.main()
+        loader.assert_called_once_with(str(service.SYSTEMD_CREDENTIALS))
+        self.assertEqual(output.getvalue(),'ARCHIVE_TRIGGER_CREDENTIAL=validated\n')
 
     def test_unit_verification_on_native_temporary_files(self):
         for name in ('goldsrcops-archive-trigger.service','goldsrcops-archive-trigger.timer'):

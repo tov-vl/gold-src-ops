@@ -198,4 +198,27 @@ Candidate rc.1 passed its checks but stopped after uploading a draft, because
 REST tag lookup could not read that draft. The ID-based lookup fix passed 13
 publication tests and a read-only check against the retained draft. A new rc.2
 must use the reviewed fix; rc.1 and its assets remain preserved without retry or
-replacement. No credential or production action has been performed.
+replacement. These were publication-stage results, not target acceptance.
+
+## Systemd Credential Compatibility Recovery
+
+Candidate rc.2 and application candidate v2.132.0-rc.1 subsequently passed full CI
+and independent artifact verification. The first approved R3 attempt accepted
+API/Web, independent baseline Recovery and a no-write probe, then stopped before
+preparing a production claim. The reviewed rollback restored API/Web and legacy
+scheduling. No production Archive was dispatched by that attempt.
+
+A separately approved metadata-only unit confirmed systemd's root-owned read-only
+credential with a named-service-user POSIX ACL. The original generic private-file
+reader rejected its legitimate owner and ACL mask. The fix keeps that generic
+reader unchanged and adds a fixed-path systemd reader that requires a read-only
+mount and an exact narrow file/directory ACL. Unexpected owners, principals,
+permissions, links, file types, bounds and token formats remain fail-closed.
+`ExecStartPre` checks the credential before the ledger or network client.
+
+Local Linux verification passed nine credential tests, including a real ACL and
+non-root UID regression, 22 service tests and 26 state tests. The real ACL fixture
+uses synthetic data; only its mount flag is simulated on the temporary filesystem.
+Actual systemd mount acceptance remains a separate paused-unit target gate.
+The transport's 16 integration tests and 13 publication tests passed locally.
+New candidate rc.3 publication and the revised R3 remain pending.

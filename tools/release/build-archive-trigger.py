@@ -19,6 +19,7 @@ FILES = (
     'ops/production/systemd/goldsrcops-archive-schedule-monitor-external.conf',
     'tools/smoke/archive-trigger-state.py', 'tools/smoke/archive-trigger-integration.py',
     'tools/smoke/archive-trigger-service.py',
+    'tools/smoke/archive-trigger-credential.py',
     'tools/release/set-archive-trigger-credential.py',
     'tools/release/build-archive-trigger.py',
     'tools/release/publish-archive-trigger.py',

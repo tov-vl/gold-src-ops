@@ -11,6 +11,7 @@ UMask=0077
 StateDirectory=goldsrcops-archive-trigger goldsrcops-archive-trigger-observation
 StateDirectoryMode=0750
 LoadCredential=github-token:/etc/goldsrcops/archive-trigger/github-token
+ExecStartPre=/usr/bin/python3 -I -B /opt/goldsrcops-archive-trigger/ops/availability/archive_trigger_service.py check-credential
 ExecStart=/usr/bin/python3 -I -B /opt/goldsrcops-archive-trigger/ops/availability/archive_trigger_service.py run
 TimeoutStartSec=90s
 TimeoutStopSec=5s
