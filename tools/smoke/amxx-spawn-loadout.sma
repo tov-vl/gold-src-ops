@@ -1,6 +1,7 @@
 #include <amxmodx>
 #include <reapi>
 #include <fakemeta>
+#include <hamsandwich>
 
 // Only the synthetic fixture client bypasses the production bot exclusion.
 // The shipped plugin is compiled separately, without these substitutions.
@@ -17,15 +18,19 @@ new g_failures;
 new g_menu_displays;
 new bool:g_bypass_bot = true;
 
+#include "amxx-multiplayer.inc"
+
 public plugin_init()
 {
     ProductPluginInit();
     register_srvcmd("goldsrcops_loadout_smoke", "RunLoadoutSmoke");
+    register_srvcmd("goldsrcops_multiplayer_smoke", "RunMultiplayerSmoke");
+    register_srvcmd("goldsrcops_multiplayer_unprotected", "RunUnprotectedMultiplayerSmoke");
 }
 
 bool:FixtureIsBot(id)
 {
-    return (!g_bypass_bot || id != g_fixture_id) && is_user_bot(id);
+    return (!g_bypass_bot || (id != g_fixture_id && !IsMultiplayerFixture(id))) && is_user_bot(id);
 }
 
 FixtureMenuDisplay(id, menu)

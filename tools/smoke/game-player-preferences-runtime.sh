@@ -19,6 +19,7 @@ mkdir -p /server/cstrike/addons/amxmodx/configs/plugins
 printf 'goldsrcops_weapons_enabled "1"\n' > /server/cstrike/addons/amxmodx/configs/plugins/goldsrcops-weapon-selection.cfg
 sed -i 's|^gamedll_linux .*|gamedll_linux "addons/metamod/metamod_i386.so"|' /server/cstrike/liblist.gam
 printf 'sv_lan 1\nsv_password ""\nrcon_password ""\nmp_freezetime 0\nmp_startmoney 0\nmp_autokick 0\nmp_round_infinite 1\n' > /server/cstrike/server.cfg
+cp /repo/ops/gameserver/fast-reentry-loadout-v1.cfg /server/cstrike/multiplayer-profile.cfg
 bash /repo/tools/smoke/game-map-menu-runtime.sh
 useradd --create-home --shell /bin/bash steam
 mkdir -p /home/steam/.steam/sdk32

@@ -348,6 +348,7 @@ $diagnostics = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq 'R
 Assert-Condition -Condition ($diagnostics.Condition.StartsWith('always() &&')) -Message "Engine evidence must survive failed checks."
 Assert-Condition -Condition ($diagnostics.Body -match 'retention-days: 7') -Message "Diagnostic retention must remain bounded."
 Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/negative-map-provider/evidence/')) -Message "Missing-provider failure evidence must be retained."
+Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/negative-spawn-protection/evidence/')) -Message "Disabled-protection failure evidence must be retained."
 Assert-Condition -Condition ($containerJob -notmatch 'needs\.quality|(?m)^      - quality$') -Message "Container Smoke must run independently of Quality Gate."
 # Parallel execution must not turn successful container checks into permission
 # to publish after a failed, cancelled or skipped Quality Gate.

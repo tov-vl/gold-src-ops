@@ -27,6 +27,14 @@ change is implied.
 
 ## Current Status
 
+Locally verified: [automated multiplayer technical acceptance](automated-multiplayer-acceptance.md).
+The existing coverage was audited and native protection, automatic/disabled
+respawn and three-client loadout/reset isolation were added to the engine suite.
+All 22 cases / 42 markers, fourteen runner regressions and three real negative
+checks passed with owned-container cleanup. This is local synthetic-engine
+evidence; hosted CI and the two-human gameplay pilot remain separate. No game
+server, addon version, client laptop or Archive runtime changed.
+
 Accepted: [external Archive trigger rc.4](archive-trigger-progress.md#rc4-candidate-and-r3-acceptance).
 Product PR #549, full PR/main/candidate CI, signed publication, independent ZIP
 and extracted-package checks passed. The retained-ledger R3 accepted the real
