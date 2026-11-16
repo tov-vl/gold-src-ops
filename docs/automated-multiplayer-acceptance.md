@@ -105,8 +105,9 @@ Documentation/link checks and diff review cover the local changes. The scope
 resolver selects full CI rather than a documentation or addon-only fast path.
 Hosted CI remains unrun for this local working tree. No C# or .NET behavior
 changed; the full local .NET gate and InspectCode were not run. The existing CI
-invocation will execute the expanded suite when this change is published; no
-workflow, image pin, production setting or addon version was changed here.
+invocation will execute the expanded suite when this change is published. The
+workflow retains the new negative run's evidence alongside the existing three
+directories. No image pin, production setting or addon version changed here.
 
 This proves bounded interactions between synthetic entities in the real engine.
 It does not establish human network input/rendering, encounter frequency,
