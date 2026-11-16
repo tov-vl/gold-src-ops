@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 LOCK = Path(__file__).with_name('engine-ci-lock.json')
 ERROR = re.compile(r'ASSERTION_FAILED|Run time error|Load fails|bad load|ML_NOTFOUND|failures=[1-9][0-9]*')
 FINAL = 'PLAYER_PREFERENCES_RUNTIME=passed'
+OBJECTIVES = {'goldsrcops_bomb_explode', 'goldsrcops_bomb_defuse', 'goldsrcops_round_timeout'}
 
 
 def digest(path):
@@ -85,9 +86,45 @@ def validate_evidence(evidence, cases):
             validate_log(text, marker)
     if any(path.stat().st_size for path in evidence.glob('error_*.log')):
         raise ValueError('AMXX error log is not empty')
+    validate_objective_records(evidence, cases)
+
+
+def validate_objective_records(evidence, cases):
+    identities = set()
+    for case in cases:
+        command = case['command']
+        if command not in OBJECTIVES:
+            continue
+        root = evidence / 'round-records' / command
+        receipt = root.with_suffix('.tsv')
+        if root.parent.is_symlink() or root.is_symlink() or receipt.is_symlink() or receipt.stat().st_size > 256:
+            raise ValueError('Objective receipt exceeds bound')
+        fields = receipt.read_text().strip().split('\t')
+        if len(fields) != 3 or not re.fullmatch(r'[0-9a-f-]{36}\.json', fields[0]):
+            raise ValueError('Invalid objective transfer receipt')
+        filename, size, checksum = fields
+        identity = uuid.UUID(filename[:-5])
+        path = root / filename
+        if (identity.version != 4 or str(identity) + '.json' != filename or identity in identities
+                or root.is_symlink() or path.is_symlink() or not path.resolve().is_relative_to(root.resolve())
+                or {p.name for p in root.iterdir()} != {filename}):
+            raise ValueError('Duplicate or escaping objective record')
+        if not 0 < path.stat().st_size <= 4096:
+            raise ValueError('Objective record exceeds bound')
+        raw = path.read_bytes()
+        if not 0 < len(raw) <= 4096 or str(len(raw)) != size or hashlib.sha256(raw).hexdigest() != checksum:
+            raise ValueError('Objective record byte receipt mismatch')
+        value = json.loads(raw)
+        if (set(value) != {'spoolVersion', 'recordId', 'event'} or type(value['spoolVersion']) is not int or value['spoolVersion'] != 1
+                or value['recordId'] != str(identity) or set(value['event']) != {'type', 'occurredAtUtc', 'map', 'players', 'bots'}
+                or value['event']['type'] != 'round.ended' or value['event']['map'] != case['map']
+                or value['event']['players'] != 3 or value['event']['bots'] != 3):
+            raise ValueError('Unexpected native objective event')
+        identities.add(identity)
 
 
 FIXTURES = {
+    'round_objectives_smoke.amxx': 'tools/smoke/amxx-round-objectives.sma',
     'goldsrcops_game_events.amxx': 'samples/amxmodx-game-event-producer/goldsrcops_game_events.sma',
     'game_event_producer_smoke.amxx': 'tools/smoke/amxx-game-event-producer.sma',
     'goldsrcops_weapon_selection.amxx': 'samples/amxmodx-weapon-selection/goldsrcops_weapon_selection.sma',
@@ -148,15 +185,17 @@ def cases_tsv(cases):
                 or case['command'] in commands
                 or not re.fullmatch(r'[a-z0-9_]+', case['map'])
                 or not case['markers']
+                or type(case.get('timeoutSeconds', 45)) is not int
+                or not 20 <= case.get('timeoutSeconds', 45) <= 210
                 or any(not re.fullmatch(r'[A-Z0-9_]+', marker) for marker in case['markers'])):
             raise ValueError('Invalid or duplicate engine case')
         commands.add(case['command'])
-        lines.append('\t'.join([','.join(plugins), case['command'], case['markers'][0], case['map']]) + '\n')
+        lines.append('\t'.join([','.join(plugins), case['command'], case['markers'][0], case['map'], str(case.get('timeoutSeconds', 45))]) + '\n')
     return ''.join(lines)
 
 
 def execute(cache, output, compiled, negative=False, missing_map_provider=False, missing_spawn_protection=False,
-            disabled_producer=False):
+            disabled_producer=False, blocked_objective=False):
     started = time.monotonic()
     output.mkdir(parents=True, exist_ok=False)
     evidence = output / 'evidence'
@@ -168,7 +207,8 @@ def execute(cache, output, compiled, negative=False, missing_map_provider=False,
     result = {'result': 'failed', 'mode': ('negative-assertion' if negative else
                                        'missing-map-provider' if missing_map_provider else
                                        'missing-spawn-protection' if missing_spawn_protection else
-                                       'disabled-producer' if disabled_producer else 'gameplay'),
+                                       'disabled-producer' if disabled_producer else
+                                       'blocked-objective' if blocked_objective else 'gameplay'),
               'lockSha256': digest(LOCK), 'network': 'none', 'publishedPorts': 0}
     owned = []
     try:
@@ -197,7 +237,8 @@ def execute(cache, output, compiled, negative=False, missing_map_provider=False,
         cases = ([lock['negativeCase']] if negative else
                  [lock['missingMapProviderCase']] if missing_map_provider else
                  [lock['missingSpawnProtectionCase']] if missing_spawn_protection else
-                 [lock['disabledProducerCase']] if disabled_producer else lock['cases'])
+                 [lock['disabledProducerCase']] if disabled_producer else
+                 [lock['blockedObjectiveCase']] if blocked_objective else lock['cases'])
         (inputs / 'cases.tsv').write_text(cases_tsv(cases), encoding='utf-8', newline='\n')
         name = 'gameplay-engine-' + uuid.uuid4().hex
         owned.append(name)
@@ -252,6 +293,7 @@ def main():
     parser.add_argument('--package-fixtures', action='store_true')
     parser.add_argument('--output', required=True, type=Path)
     negative = parser.add_mutually_exclusive_group()
+    negative.add_argument('--blocked-objective-check', action='store_true', help='Disable natural objective completion; must fail.')
     negative.add_argument('--disabled-producer-check', action='store_true', help='Disable the round-event fixture producer; must fail.')
     negative.add_argument('--missing-spawn-protection-check', action='store_true', help='Disable fixture spawn protection; must fail.')
     negative.add_argument('--missing-map-provider-check', action='store_true', help='Require a missing map language provider; must fail.')
@@ -265,7 +307,7 @@ def main():
                 parser.error('--cache is required for execution')
             execute(args.cache.resolve(), args.output.resolve(), args.compiled.resolve(),
                     args.negative_check, args.missing_map_provider_check, args.missing_spawn_protection_check,
-                    args.disabled_producer_check)
+                    args.disabled_producer_check, args.blocked_objective_check)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         return 1
     return 0

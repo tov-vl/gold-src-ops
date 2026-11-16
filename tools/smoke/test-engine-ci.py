@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise result rejection and, optionally, a real failing engine fixture."""
 import argparse
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -8,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import uuid
 from unittest.mock import patch
 
 SCRIPT = Path(__file__).with_name('engine-ci.py')
@@ -17,6 +19,52 @@ spec.loader.exec_module(engine)
 
 
 class ResultTests(unittest.TestCase):
+    def test_objective_deadlines_are_bounded_and_transferred(self):
+        cases = [case for case in json.loads(engine.LOCK.read_bytes())['cases'] if case['command'] in engine.OBJECTIVES]
+        self.assertEqual(len(cases), 3)
+        for case in cases:
+            self.assertEqual(engine.cases_tsv([case]).splitlines()[0].split('\t')[-1], str(case['timeoutSeconds']))
+            for invalid in (True, 19, 211, '200'):
+                with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                    engine.cases_tsv([{**case, 'timeoutSeconds': invalid}])
+
+    def test_objectives_require_each_native_marker_and_record(self):
+        cases = [case for case in json.loads(engine.LOCK.read_bytes())['cases'] if case['command'] in engine.OBJECTIVES]
+        with tempfile.TemporaryDirectory(prefix='objective-result-test-') as folder:
+            evidence = Path(folder)
+            for case in cases:
+                (evidence / (case['command'] + '.log')).write_text(''.join(marker + '=passed failures=0\n' for marker in case['markers']))
+                root = evidence / 'round-records' / case['command'];root.mkdir(parents=True)
+                identity = str(uuid.uuid4());raw = json.dumps(dict(spoolVersion=1,recordId=identity,event=dict(type='round.ended',occurredAtUtc='2026-11-16T12:00:00Z',map=case['map'],players=3,bots=3))).encode()
+                (root / (identity + '.json')).write_bytes(raw)
+                root.with_suffix('.tsv').write_text(identity + '.json\t' + str(len(raw)) + '\t' + hashlib.sha256(raw).hexdigest() + '\n')
+            engine.validate_evidence(evidence, cases)
+            target = next((evidence / 'round-records' / cases[0]['command']).glob('*.json'))
+            original = target.read_bytes();target.write_bytes(original + b' ')
+            with self.assertRaises(ValueError):engine.validate_evidence(evidence, cases)
+            target.write_bytes(original)
+            extra = target.with_name(str(uuid.uuid4()) + '.json');extra.write_bytes(original)
+            with self.assertRaises(ValueError):engine.validate_evidence(evidence, cases)
+            extra.unlink()
+            receipt = target.parent.with_suffix('.tsv');original_receipt = receipt.read_text()
+            value = json.loads(original);value['spoolVersion'] = True;raw = json.dumps(value).encode()
+            target.write_bytes(raw)
+            receipt.write_text(target.name + '\t' + str(len(raw)) + '\t' + hashlib.sha256(raw).hexdigest() + '\n')
+            with self.assertRaises(ValueError):engine.validate_evidence(evidence, cases)
+            target.write_bytes(original);receipt.write_text(original_receipt)
+            other_root = evidence / 'round-records' / cases[1]['command']
+            other = next(other_root.glob('*.json'));other_raw = other.read_bytes()
+            other_receipt = other_root.with_suffix('.tsv');other_row = other_receipt.read_text()
+            other.unlink();duplicate = other_root / target.name;duplicate.write_bytes(original)
+            other_receipt.write_text(original_receipt)
+            with self.assertRaises(ValueError):engine.validate_evidence(evidence, cases)
+            duplicate.unlink();other.write_bytes(other_raw);other_receipt.write_text(other_row)
+            for marker in cases[0]['markers']:
+                log = evidence / (cases[0]['command'] + '.log');original_log = log.read_text()
+                log.write_text(original_log.replace(marker + '=passed failures=0\n', ''))
+                with self.assertRaises(ValueError):engine.validate_evidence(evidence, cases)
+                log.write_text(original_log)
+
     def test_success(self):
         engine.validate_log('SMOKE=passed failures=0 languages=2\n', 'SMOKE')
 
@@ -255,6 +303,17 @@ def main():
                 or 'PRODUCER_ASSERTION_FAILED native round end commits bot-only record' not in log):
             raise RuntimeError('Disabled producer did not fail native round-event acceptance')
         print('PRODUCER_FAILURE_GATE=passed disabled_producer=rejected')
+        blocked = args.output.with_name(args.output.name + '-objective')
+        attempt = subprocess.run([sys.executable, '-B', str(SCRIPT), '--cache', str(args.cache),
+                                  '--output', str(blocked), '--compiled', str(args.compiled),
+                                  '--blocked-objective-check'], timeout=720)
+        outcome = json.loads((blocked/'evidence/result.json').read_bytes())
+        log = (blocked/'evidence/goldsrcops_bomb_blocked.log').read_text(errors='replace')
+        if (attempt.returncode == 0 or outcome['result'] != 'failed' or outcome['cleanup'] != 'passed'
+                or 'ROUND_OBJECTIVE_ASSERTION_FAILED natural objective completion reached before deadline' not in log
+                or 'ROUND_OBJECTIVE_CONTROL plants=1 explosions=1 ends=0' not in log):
+            raise RuntimeError('Blocked natural objective did not fail the round-completion fixture')
+        print('ROUND_OBJECTIVE_FAILURE_GATE=passed blocked_completion=rejected')
     return 0
 
 

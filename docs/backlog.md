@@ -27,6 +27,14 @@ change is implied.
 
 ## Current Status
 
+Locally verified: [natural round objective engine acceptance](round-objectives-engine-acceptance.md).
+The unchanged managed profile passed real C4 explosion/defuse and 150-second
+round expiry, then native restart, loadout/protection/statistics continuity and
+one producer record per completed round. All 26 cases / 55 markers, seventeen
+runner tests and five precise negative controls passed. Hosted CI/publication
+remain separate. No game profile, shipped addon, producer, client laptop or
+Archive runtime was changed.
+
 Accepted: [round.ended producer engine acceptance](round-ended-producer-engine-acceptance.md)
 through [PR #553](https://github.com/tov-vl/gold-src-ops/pull/553). The real
 round-end/restart hooks, roster snapshots, deduplication, backpressure and

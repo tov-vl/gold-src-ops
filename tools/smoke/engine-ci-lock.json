@@ -258,6 +258,48 @@
         "PRODUCER_LIFECYCLE_SMOKE",
         "PRODUCER_SPOOL_SMOKE"
       ]
+    },
+    {
+      "plugin": "round_objectives_smoke",
+      "companionPlugins": [
+        "goldsrcops_game_events"
+      ],
+      "command": "goldsrcops_bomb_explode",
+      "map": "de_dust2",
+      "timeoutSeconds": 80,
+      "markers": [
+        "ROUND_OBJECTIVE_SMOKE",
+        "ROUND_RESTART_SMOKE",
+        "ROUND_PRODUCER_SMOKE"
+      ]
+    },
+    {
+      "plugin": "round_objectives_smoke",
+      "companionPlugins": [
+        "goldsrcops_game_events"
+      ],
+      "command": "goldsrcops_bomb_defuse",
+      "map": "de_dust2",
+      "timeoutSeconds": 80,
+      "markers": [
+        "ROUND_OBJECTIVE_SMOKE",
+        "ROUND_RESTART_SMOKE",
+        "ROUND_PRODUCER_SMOKE"
+      ]
+    },
+    {
+      "plugin": "round_objectives_smoke",
+      "companionPlugins": [
+        "goldsrcops_game_events"
+      ],
+      "command": "goldsrcops_round_timeout",
+      "map": "de_dust2",
+      "timeoutSeconds": 200,
+      "markers": [
+        "ROUND_OBJECTIVE_SMOKE",
+        "ROUND_RESTART_SMOKE",
+        "ROUND_PRODUCER_SMOKE"
+      ]
     }
   ],
   "disabledProducerCase": {
@@ -297,6 +339,20 @@
     "markers": [
       "MAP_MENU_PROVIDER_SMOKE",
       "MAP_MENU_SMOKE"
+    ]
+  },
+  "blockedObjectiveCase": {
+    "plugin": "round_objectives_smoke",
+    "companionPlugins": [
+      "goldsrcops_game_events"
+    ],
+    "command": "goldsrcops_bomb_blocked",
+    "map": "de_dust2",
+    "timeoutSeconds": 80,
+    "markers": [
+      "ROUND_OBJECTIVE_SMOKE",
+      "ROUND_RESTART_SMOKE",
+      "ROUND_PRODUCER_SMOKE"
     ]
   }
 }
