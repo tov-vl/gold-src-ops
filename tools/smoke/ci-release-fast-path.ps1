@@ -338,7 +338,7 @@ foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
     }
 }
 Assert-Condition -Condition ($containerJob -match '(?m)^      - map-menu-compile$') -Message "Container Smoke must wait for addon compilation."
-foreach ($name in @('Verify real engine failure rejection', 'Run isolated gameplay engine smoke', 'Verify native producer records with the agent spool contract', 'Accept native telemetry through agent API PostgreSQL and Reader')) {
+foreach ($name in @('Verify real engine failure rejection', 'Run isolated gameplay engine smoke', 'Verify native producer records with the agent spool contract', 'Accept native telemetry through agent API PostgreSQL and Reader', 'Accept telemetry queue saturation and recovery')) {
     $step = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq $name)[0]
     Assert-Condition -Condition ($step.Body -notmatch 'continue-on-error:|\|\| true') -Message "Engine failure must fail Container Smoke."
     Assert-Condition -Condition ($step.Body -match 'timeout-minutes:') -Message "Engine execution needs a bounded timeout."
@@ -359,6 +359,11 @@ Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/telemet
 $telemetry = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq 'Accept native telemetry through agent API PostgreSQL and Reader')[0]
 Assert-Condition -Condition ($telemetry.Condition.Contains("needs.change-scope.outputs.addon_only != 'true'")) -Message "Telemetry acceptance requires the full CI path."
 Assert-Condition -Condition ($telemetry.Body.Contains('--compiled "$RUNNER_TEMP/gameplay-fixtures"')) -Message "Telemetry inputs must be bound to the downloaded native fixtures."
+Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/telemetry-queue-contract/')) -Message "Queue recovery evidence must be retained."
+$queueRecovery = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq 'Accept telemetry queue saturation and recovery')[0]
+Assert-Condition -Condition ($queueRecovery.Condition.Contains("needs.change-scope.outputs.addon_only != 'true'")) -Message "Queue recovery requires the full CI path."
+Assert-Condition -Condition ($queueRecovery.Body.Contains('--queue-recovery')) -Message "Queue recovery must explicitly select its runtime scenarios."
+Assert-Condition -Condition ($queueRecovery.Body.Contains('--compiled "$RUNNER_TEMP/gameplay-fixtures"')) -Message "Queue recovery must use this run's fixture identity."
 Assert-Condition -Condition ($containerJob -notmatch 'needs\.quality|(?m)^      - quality$') -Message "Container Smoke must run independently of Quality Gate."
 # Parallel execution must not turn successful container checks into permission
 # to publish after a failed, cancelled or skipped Quality Gate.

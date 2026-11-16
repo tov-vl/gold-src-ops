@@ -17,15 +17,17 @@ internal sealed class FaultProxy : IAsyncDisposable
     private readonly HttpClient _api;
     private readonly string _writerToken;
     private readonly string _secret;
+    private readonly DateTimeOffset? _rejectedOccurrence;
     private readonly ConcurrentQueue<DeliveryObservation> _observations = [];
     private int _mode;
 
-    private FaultProxy(WebApplication application, HttpClient api, string writerToken, string secret)
+    private FaultProxy(WebApplication application, HttpClient api, string writerToken, string secret, DateTimeOffset? rejectedOccurrence)
     {
         _application = application;
         _api = api;
         _writerToken = writerToken;
         _secret = secret;
+        _rejectedOccurrence = rejectedOccurrence;
     }
 
     public Uri Address => new(_application.Urls.Single());
@@ -37,7 +39,8 @@ internal sealed class FaultProxy : IAsyncDisposable
         set => Volatile.Write(ref _mode, (int)value);
     }
 
-    public static async Task<FaultProxy> StartAsync(HttpClient api, Guid serverId, string writerToken, string secret)
+    public static async Task<FaultProxy> StartAsync(HttpClient api, Guid serverId, string writerToken, string secret,
+        DateTimeOffset? rejectedOccurrence = null)
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.ClearProviders();
@@ -47,7 +50,7 @@ internal sealed class FaultProxy : IAsyncDisposable
             options.Limits.MaxRequestBodySize = 4096;
         });
         var application = builder.Build();
-        var proxy = new FaultProxy(application, api, writerToken, secret);
+        var proxy = new FaultProxy(application, api, writerToken, secret, rejectedOccurrence);
         application.MapPost("/token", proxy.IssueTokenAsync);
         var ingestPath = string.Concat("/api/servers/", serverId.ToString("D"), "/game-events");
         application.MapPost(ingestPath, proxy.ForwardAsync);
@@ -78,10 +81,19 @@ internal sealed class FaultProxy : IAsyncDisposable
         await context.Request.Body.CopyToAsync(buffer, context.RequestAborted).ConfigureAwait(false);
         var bytes = buffer.ToArray();
         var hash = Convert.ToHexString(SHA256.HashData(bytes));
+        var eventRequest = JsonSerializer.Deserialize<GameEventIngestRequest>(bytes, JsonSerializerOptions.Web)
+            ?? throw new InvalidOperationException("Agent sent an empty request.");
         if (Mode is DeliveryMode.Unavailable)
         {
-            _observations.Enqueue(new DeliveryObservation(hash, 503, Receipt: null));
+            _observations.Enqueue(new DeliveryObservation(hash, 503, Receipt: null, eventRequest));
             context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return;
+        }
+
+        if (eventRequest.OccurredAtUtc == _rejectedOccurrence)
+        {
+            _observations.Enqueue(new DeliveryObservation(hash, 409, Receipt: null, eventRequest));
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
             return;
         }
 
@@ -100,7 +112,7 @@ internal sealed class FaultProxy : IAsyncDisposable
             Mode = DeliveryMode.Unavailable;
         }
 
-        _observations.Enqueue(new DeliveryObservation(hash, (int)response.StatusCode, receipt));
+        _observations.Enqueue(new DeliveryObservation(hash, (int)response.StatusCode, receipt, eventRequest));
         if (loseAcknowledgement)
         {
             context.Abort();

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Admission controls only; generated unit inputs are never runtime evidence."""
+import copy
 import hashlib
 import importlib.util
 import json
@@ -80,6 +81,96 @@ class TelemetryAdmissionTests(unittest.TestCase):
                     (evidence / 'round-records/goldsrcops_bomb_defuse.tsv').unlink()
                 with self.assertRaises((ValueError, OSError)):
                     acceptance.read_records(evidence, compiled)
+
+
+class QueueReceiptTests(unittest.TestCase):
+    def prepare(self):
+        def identity(number):
+            return str(uuid.UUID(int=number, version=4))
+
+        records = {name: json.dumps(dict(spoolVersion=1, recordId=identity(index + 1), event=dict(
+            type='round.ended', occurredAtUtc=f'2026-11-16T09:0{index}:00Z', map='de_dust2', players=3, bots=3))).encode()
+                   for index, name in enumerate(acceptance.SCENARIOS)}
+        source, other = identity(11), identity(12)
+        server, second_server = identity(21), identity(22)
+
+        def observations(offset, source_id, server_id):
+            result = []
+            for index, raw in enumerate(records.values()):
+                event = json.loads(raw)['event']
+                request = dict(event, eventId=identity(offset + index), sourceInstanceId=source_id,
+                               sequenceNumber=index + 1, contractVersion=1)
+                receipt = {key: request[key] for key in ('eventId', 'sourceInstanceId', 'sequenceNumber')}
+                receipt.update(serverId=server_id, duplicate=False)
+                result.append(dict(payloadSha256=hashlib.sha256(json.dumps(request).encode()).hexdigest().upper(),
+                                   status=202, request=request, receipt=receipt))
+            return result
+
+        delivered, second = observations(100, source, server), observations(200, other, second_server)
+
+        def entry(observation, next_sequence, status=0, attempts=1, failure=None):
+            request = observation['request']
+            return dict(identity=dict(source=request['sourceInstanceId'], nextSequence=next_sequence, eventId=request['eventId'],
+                                      sequence=request['sequenceNumber'], payloadSha256=observation['payloadSha256']),
+                        status=status, attempts=attempts, failure=failure)
+
+        def cycles(started, outcome='idle'):
+            return dict(startedAtUtc=started, importOutcome=outcome, deliveryOutcome='idle', bothCompleted=True,
+                        importCompletedAtUtc=started, deliveryCompletedAtUtc=started)
+
+        rejected = dict(second[0], status=409, receipt=None)
+        full = dict(scenario='bounded-capacity', status='passed', serverId=server, capacity=2, maximumObservedDepth=2, queued=2,
+                    deferred=1, deferredSha256=hashlib.sha256(list(records.values())[2]).hexdigest(), persistedRows=0,
+                    cycles=cycles('2026-11-16T10:00:00Z', 'blocked'),
+                    snapshot=dict(source=source, nextSequence=3, entries=[entry(item, 3) for item in delivered[:2]]))
+        drained = dict(scenario='restart-and-drain', status='passed', serverId=server, maximumObservedDepth=2, nextSequence=4,
+                       persistedRows=3, queueDrained=True, spoolDrained=True, source=source, readerProjection='matched',
+                       accepted=delivered, restartedCycles=cycles('2026-11-16T10:01:00Z'))
+        dead = dict(scenario='dead-letter-isolation', status='passed', serverId=second_server, capacity=3, maximumObservedDepth=3,
+                    persistedRows=2, deadLetterRetainedAcrossRestart=True, automaticReplay=False, readerProjection='matched',
+                    snapshot=dict(source=other, nextSequence=4, entries=[entry(second[0], 4, status=2, failure='conflict')]),
+                    previousCycles=cycles('2026-11-16T10:02:00Z'), restartedCycles=cycles('2026-11-16T10:03:00Z'),
+                    accepted=second[1:], rejected=rejected)
+        return records, dict(status='native-telemetry-queue-recovery-accepted', persistedRows=5,
+                             nativeInputHashes={name: hashlib.sha256(raw).hexdigest() for name, raw in records.items()},
+                             scenarios=[full, drained, dead])
+
+    def test_queue_receipt_requires_its_explicit_mode(self):
+        records, result = self.prepare()
+        acceptance.validate_result(result, records, queue_recovery=True)
+        with self.assertRaises(ValueError):
+            acceptance.validate_result(result, records)
+
+    def test_corrupted_queue_claims_fail_closed(self):
+        controls = [
+            (('persistedRows',), 4),
+            (('nativeInputHashes', 'ordinary'), '0' * 64),
+            (('scenarios', 0, 'maximumObservedDepth'), 3),
+            (('scenarios', 0, 'snapshot', 'nextSequence'), 4),
+            (('scenarios', 0, 'deferredSha256'), '0' * 64),
+            (('scenarios', 0, 'cycles', 'importOutcome'), 'idle'),
+            (('scenarios', 1, 'queueDrained'), False),
+            (('scenarios', 1, 'restartedCycles', 'startedAtUtc'), '2026-11-16T10:00:00Z'),
+            (('scenarios', 1, 'restartedCycles', 'deliveryCompletedAtUtc'), '2026-11-16T09:59:00Z'),
+            (('scenarios', 1, 'accepted', 0, 'payloadSha256'), '0' * 64),
+            (('scenarios', 2, 'snapshot', 'entries', 0, 'status'), 0),
+            (('scenarios', 2, 'snapshot', 'entries', 0, 'attempts'), 2),
+            (('scenarios', 2, 'automaticReplay'), True),
+            (('scenarios', 2, 'restartedCycles', 'bothCompleted'), False),
+            (('scenarios', 2, 'rejected', 'payloadSha256'), '0' * 64),
+            (('scenarios', 2, 'accepted', 0, 'receipt', 'sourceInstanceId'), 'wrong-source'),
+            (('scenarios', 2, 'accepted', 0, 'request', 'players'), 0),
+        ]
+        for path, replacement in controls:
+            with self.subTest(path=path):
+                records, original = self.prepare()
+                result = copy.deepcopy(original)
+                target = result
+                for key in path[:-1]:
+                    target = target[key]
+                target[path[-1]] = replacement
+                with self.assertRaises(ValueError):
+                    acceptance.validate_result(result, records, queue_recovery=True)
 
 
 if __name__ == '__main__':
