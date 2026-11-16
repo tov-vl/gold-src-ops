@@ -441,6 +441,13 @@ jobs:
           python3 -B tools/smoke/test-game-event-producer-contract.py
           python3 -B tools/smoke/game-event-producer-contract.py --evidence "$RUNNER_TEMP/gameplay-engine/positive/evidence" --output "$RUNNER_TEMP/gameplay-engine/producer-contract"
 
+      - name: Accept native telemetry through agent API PostgreSQL and Reader
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        timeout-minutes: 5
+        run: |
+          python3 -B tools/smoke/test-game-event-telemetry-e2e.py
+          python3 -B tools/smoke/game-event-telemetry-e2e.py --evidence "$RUNNER_TEMP/gameplay-engine/positive/evidence" --compiled "$RUNNER_TEMP/gameplay-fixtures" --output "$RUNNER_TEMP/gameplay-engine/telemetry-contract"
+
       - name: Retain gameplay engine diagnostics
         if: always() && needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         uses: actions/upload-artifact@v4
@@ -453,6 +460,7 @@ jobs:
             ${{ runner.temp }}/gameplay-engine/negative-producer/evidence/
             ${{ runner.temp }}/gameplay-engine/negative-objective/evidence/
             ${{ runner.temp }}/gameplay-engine/producer-contract/
+            ${{ runner.temp }}/gameplay-engine/telemetry-contract/
             ${{ runner.temp }}/gameplay-engine/positive/evidence/
           if-no-files-found: warn
           retention-days: 7

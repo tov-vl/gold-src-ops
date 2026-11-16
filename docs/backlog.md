@@ -27,6 +27,15 @@ change is implied.
 
 ## Current Status
 
+Prepared: [native gameplay telemetry acceptance](native-telemetry-acceptance.md)
+joins verified natural round records with the real spool importer/delivery
+worker, loopback HTTP/JWT API, disposable PostgreSQL and Reader projection.
+Ordinary delivery, lost acknowledgement after commit, and unavailable API with
+agent restart passed locally, with 2,323 tests and the complete local Quality
+Gate green. Remote PR/full CI and independent downloaded-artifact acceptance
+remain pending.
+Production, Archive and real-player acceptance boundaries are preserved.
+
 Accepted: [natural round objective engine acceptance](round-objectives-engine-acceptance.md)
 through [PR #555](https://github.com/tov-vl/gold-src-ops/pull/555). The unchanged
 managed profile passed real C4 explosion/defuse and 150-second round expiry,
