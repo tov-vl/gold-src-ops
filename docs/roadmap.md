@@ -126,10 +126,12 @@ establish map flow, fairness or enjoyment. Full PR/main CI and independent
 artifact verification passed; human acceptance remains separate.
 
 The [natural objective checks](round-objectives-engine-acceptance.md) additionally
-have local evidence for real bomb explosion/defuse and round-time expiry under
-the managed fast-reentry profile, followed by restart and event continuity.
+have local and hosted evidence for real bomb explosion/defuse and round-time
+expiry under the managed fast-reentry profile, followed by restart and event
+continuity.
 These controlled native stimuli preserve normal round timers and do not accept
-client planting inputs or player map flow. Hosted CI remains a separate gate.
+client planting inputs or player map flow. Full PR/main CI and independent
+artifact verification passed; human gameplay acceptance remains separate.
 
 Plan a 30-45 minute controlled session with two independent human players and
 accounts. The second client-lab laptop using the same Steam account is not a

@@ -2,8 +2,10 @@
 
 This slice exercises natural bomb-map completion under the repository's
 unchanged [fast-reentry profile](../ops/gameserver/fast-reentry-loadout-v1.cfg).
-Locally accepted on 2026-11-16 against the source following PR #554. Hosted CI
-and production acceptance remain separate gates. No profile, shipped addon, producer or event-contract change is included.
+Accepted on 2026-11-16 through PR #555 after full PR/main CI and independent
+verification of downloaded fixture and engine-evidence artifacts. Production
+and real-player acceptance remain separate. No profile, shipped addon, producer
+or event-contract change is included.
 
 ## Scope And Stimuli
 
@@ -133,6 +135,40 @@ from the three new objective records validated above.
 
 No C# was authored; InspectCode is inapplicable. The unchanged full local .NET
 gate was not repeated; the existing agent build/importer was exercised directly.
-Hosted CI, a deployed server configuration, real-player map flow, fairness and
-enjoyment are not proved by this local record. Human gameplay acceptance remains
-separate. Archive settings, observation and application runtimes were preserved.
+Full hosted CI and independently downloaded artifacts subsequently passed as
+recorded below. A deployed server configuration, real-player map flow, fairness
+and enjoyment remain outside this evidence. Archive settings, observation and
+application runtimes were preserved.
+
+## Hosted Delivery Evidence
+
+[PR #555](https://github.com/tov-vl/gold-src-ops/pull/555) accepted head `15eca2ae5b9d5fcab8f3f18ae8974f7c2dff4282`
+as main revision `eba80464569d978cf49c920c0868e7b02f2fdab0` after full green required CI
+and CLEAN/MERGEABLE. No protection bypass, force push or manual rerun was used.
+
+| Evidence | PR | Post-merge main |
+| --- | --- | --- |
+| Full CI | [Passed](https://github.com/tov-vl/gold-src-ops/actions/runs/43859200615) | [Passed](https://github.com/tov-vl/gold-src-ops/actions/runs/43862458164) |
+| Complete engine suite | 26 cases / 55 markers, 442.065 s | 26 cases / 55 markers, 443.078 s |
+| Thirteen compiled payloads and source/toolchain binding | Verified | Verified |
+| `goldsrcops_bomb_explode` including bootstrap/restart | 60.977 s | 60.57 s |
+| `goldsrcops_bomb_defuse` including bootstrap/restart | 30.411 s | 30.514 s |
+| `goldsrcops_round_timeout` including bootstrap/restart | 174.349 s | 174.248 s |
+| Three unique objective records with byte receipts and 3/3 roster | Verified | Verified |
+| Five precise native negative assertions and cleanup | Passed | Passed |
+| Baseline agent: ten native imports / five malformed controls | Accepted / rejected | Accepted / rejected |
+
+Both fixture and engine-evidence ZIPs were independently downloaded. Provider
+digests, extracted payload hashes, source/toolchain identities, all 55 markers,
+actual objective records and matching manifest/lock identities passed. Each
+blocked-objective control contained a real planting/explosion with zero round
+completions before the expected failure. Native admission traces confirmed
+started scoring with no pending winner or bootstrap restart. The successful
+engine runs had no nonempty AMXX error log and cleanup passed.
+
+Full CI executed .NET restore/audit, format, build, tests and vulnerability
+reporting, plus client-policy, browser and container checks. Agent delivery
+remained disabled; its result hashes matched the same run's ten baseline records.
+The unchanged full local .NET gate was not repeated and InspectCode was
+inapplicable because no C# was authored. No server rollout, game profile or
+producer change, client-laptop action, Archive change or tag publication occurred.
