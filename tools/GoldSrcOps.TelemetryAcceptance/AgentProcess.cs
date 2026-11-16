@@ -18,6 +18,13 @@ internal sealed class AgentProcess : IAsyncDisposable
     }
 
     public static AgentProcess Start(string agent, string scratch, Guid serverId, Uri proxy, bool delivery, params string[] command)
+        => StartConfigured(agent, scratch, serverId, proxy, delivery, importSpool: !delivery, capacity: 10_000, command);
+
+    public static AgentProcess StartCombined(string agent, string scratch, Guid serverId, Uri proxy, int capacity)
+        => StartConfigured(agent, scratch, serverId, proxy, delivery: true, importSpool: true, capacity, ["run"]);
+
+    private static AgentProcess StartConfigured(string agent, string scratch, Guid serverId, Uri proxy,
+        bool delivery, bool importSpool, int capacity, string[] command)
     {
         var start = new ProcessStartInfo("dotnet")
         {
@@ -45,13 +52,15 @@ internal sealed class AgentProcess : IAsyncDisposable
             ["Logging__LogLevel__Default"] = "Warning",
             ["GameEventAgent__QueuePath"] = Path.Combine(scratch, "queue.db"),
             ["GameEventAgent__Spool__RootPath"] = Path.Combine(scratch, "spool"),
-            ["GameEventAgent__Spool__Enabled"] = delivery ? "false" : "true",
+            ["GameEventAgent__QueueCapacity"] = capacity.ToString(CultureInfo.InvariantCulture),
+            ["GameEventAgent__Spool__Enabled"] = importSpool ? "true" : "false",
+            ["GameEventAgent__Spool__ImportIntervalSeconds"] = "1",
             ["GameEventAgent__Delivery__Enabled"] = delivery ? "true" : "false",
             ["GameEventAgent__Delivery__ServerId"] = serverId.ToString("D"),
             ["GameEventAgent__Delivery__ApiBaseUrl"] = proxy.AbsoluteUri,
             ["GameEventAgent__Delivery__DispatchIntervalSeconds"] = "1",
             ["GameEventAgent__Delivery__LeaseSeconds"] = "5",
-            ["GameEventAgent__Delivery__RequestTimeoutSeconds"] = "1",
+            ["GameEventAgent__Delivery__RequestTimeoutSeconds"] = delivery && importSpool ? "2" : "1",
             ["GameEventAgent__Delivery__RetryBaseSeconds"] = "1",
             ["GameEventAgent__Delivery__RetryMaximumSeconds"] = "2",
             ["GameEventAgent__Delivery__MaximumAttempts"] = "30",
@@ -140,6 +149,43 @@ internal sealed class AgentProcess : IAsyncDisposable
         using var reader = command.ExecuteReader();
         EntryPoint.Require(reader.Read(), "Agent source state disappeared.");
         return (reader.GetString(0), reader.GetInt64(1));
+    }
+
+    public static QueueSnapshot ReadSnapshot(string scratch)
+    {
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = Path.Combine(scratch, "queue.db"),
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false,
+        }.ToString());
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT a.source_instance_id, a.next_sequence_number,
+                   (SELECT COUNT(*) FROM game_event_spool_receipt),
+                   q.event_id, q.sequence_number, q.payload_json, q.status, q.attempt_count, q.last_failure_code
+            FROM agent_state a LEFT JOIN game_event_outbox q ON 1 = 1
+            ORDER BY q.sequence_number;
+            """;
+        using var reader = command.ExecuteReader();
+        EntryPoint.Require(reader.Read(), "Agent state disappeared.");
+        var source = reader.GetString(0);
+        var nextSequence = reader.GetInt64(1);
+        var receipts = reader.GetInt32(2);
+        var entries = new List<QueueEntry>();
+        do
+        {
+            if (!reader.IsDBNull(3))
+            {
+                entries.Add(new QueueEntry(new QueueIdentity(source, nextSequence, reader.GetString(3), reader.GetInt64(4),
+                    Convert.ToHexString(System.Security.Cryptography.SHA256.HashData((byte[])reader[5]))),
+                    reader.GetInt32(6), reader.GetInt32(7), reader.IsDBNull(8) ? null : reader.GetString(8)));
+            }
+        }
+        while (reader.Read());
+
+        return new QueueSnapshot(source, nextSequence, receipts, entries);
     }
 
     private static async Task DrainAsync(StreamReader reader)

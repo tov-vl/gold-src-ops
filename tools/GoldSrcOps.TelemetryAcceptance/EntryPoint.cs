@@ -18,7 +18,8 @@ internal static class EntryPoint
 
     public static async Task<int> Main(string[] args)
     {
-        Require(args.Length == 5, "Expected repository, agent, inputs, scratch and result paths.");
+        Require(args.Length == 5 || (args.Length == 6 && string.Equals(args[5], "queue-recovery", StringComparison.Ordinal)),
+            "Expected repository, agent, inputs, scratch and result paths, optionally queue-recovery.");
         var repository = Path.GetFullPath(args[0]);
         var agent = Path.GetFullPath(args[1]);
         var inputs = Path.GetFullPath(args[2]);
@@ -71,6 +72,14 @@ internal static class EntryPoint
         var secret = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var proxy = await FaultProxy.StartAsync(api, server.Id, writerToken, secret).ConfigureAwait(false);
         await using var proxyLifetime = proxy.ConfigureAwait(false);
+        if (args.Length == 6)
+        {
+            var acceptance = new QueueRecoveryAcceptance(factory, api, readerToken, agent, inputs, scratch, secret);
+            var result = await acceptance.RunAsync(server.Id, proxy).ConfigureAwait(false);
+            await WriteResultAsync(resultPath, result).ConfigureAwait(false);
+            Console.WriteLine("NATIVE_TELEMETRY_QUEUE_RECOVERY=passed scenarios=3 rows=5");
+            return 0;
+        }
         var results = new List<object>();
         var cases = new[] { "ordinary", "lost-ack", "unavailable-restart" };
         for (var index = 0; index < cases.Length; index++)
@@ -166,13 +175,13 @@ internal static class EntryPoint
             });
         }
 
-        await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
+        await WriteResultAsync(resultPath, new
         {
             status = "native-telemetry-e2e-accepted",
             transport = "loopback HTTP with real JWT validation",
             persistence = "disposable PostgreSQL with production migrations",
             scenarios = results,
-        }, ResultJson) + Environment.NewLine, CancellationToken.None).ConfigureAwait(false);
+        }).ConfigureAwait(false);
         Console.WriteLine("NATIVE_TELEMETRY_E2E=passed scenarios=3 rows=3");
         return 0;
     }
@@ -185,7 +194,10 @@ internal static class EntryPoint
         }
     }
 
-    private static async Task WaitAsync(Func<bool> predicate, AgentProcess process)
+    private static Task WriteResultAsync(string path, object result) =>
+        File.WriteAllTextAsync(path, JsonSerializer.Serialize(result, ResultJson) + Environment.NewLine, CancellationToken.None);
+
+    internal static async Task WaitAsync(Func<bool> predicate, AgentProcess process)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         while (!predicate())
@@ -193,6 +205,8 @@ internal static class EntryPoint
             process.RequireRunning();
             await Task.Delay(100, deadline.Token).ConfigureAwait(false);
         }
+
+        process.RequireRunning();
     }
 
     private static async Task VerifyAuthorizationAsync(HttpClient api, Guid serverId, string writer, string reader)
@@ -208,10 +222,11 @@ internal static class EntryPoint
         Require(writeResponse.StatusCode == HttpStatusCode.Forbidden, "Reader token gained ingest access.");
     }
 
-    private static async Task VerifyPersistenceAsync(AcceptanceApi factory, HttpClient api, string reader, Guid serverId,
+    internal static async Task VerifyPersistenceAsync(AcceptanceApi factory, HttpClient api, string reader, Guid serverId,
         GameEventIngestResponse receipt, JsonElement native, int expectedCount)
     {
-        var rows = await factory.DatabaseAsync(context => context.GameEventInbox.AsNoTracking().ToListAsync()).ConfigureAwait(false);
+        var rows = await factory.DatabaseAsync(context => context.GameEventInbox.AsNoTracking()
+            .Where(row => row.ServerId == serverId).ToListAsync()).ConfigureAwait(false);
         Require(rows.Count == expectedCount && rows.Where(row => row.Id == receipt.EventId).Take(2).Count() == 1, "Inbox contains a missing or duplicate row.");
         var row = rows.Single(row => row.Id == receipt.EventId);
         Require(row.ServerId == serverId && row.SourceInstanceId == receipt.SourceInstanceId && row.SequenceNumber == receipt.SequenceNumber &&

@@ -9,6 +9,7 @@ from pathlib import Path
 import signal
 import subprocess
 import tempfile
+from datetime import datetime
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('engine_ci', Path(__file__).with_name('engine-ci.py'))
@@ -65,7 +66,80 @@ def command(arguments, log):
             raise ValueError('Telemetry acceptance command failed; inspect retained diagnostics')
 
 
-def execute(evidence, compiled, output):
+def validate_result(result, records, queue_recovery=False):
+    names = {'bounded-capacity', 'restart-and-drain', 'dead-letter-isolation'} if queue_recovery else set(SCENARIOS)
+    expected = 'native-telemetry-queue-recovery-accepted' if queue_recovery else 'native-telemetry-e2e-accepted'
+    if (result.get('status') != expected or len(result.get('scenarios', [])) != 3
+            or {case['scenario'] for case in result['scenarios']} != names
+            or any(case['status'] != 'passed' for case in result['scenarios'])):
+        raise ValueError('Incomplete telemetry acceptance receipt')
+    hashes = {name: hashlib.sha256(raw).hexdigest() for name, raw in records.items()}
+    if not queue_recovery:
+        if any(case['nativeSha256'].lower() != hashes[case['scenario']] for case in result['scenarios']):
+            raise ValueError('Acceptance receipt is not bound to native input')
+        return
+    if result.get('persistedRows') != 5 or {name: value.lower() for name, value in result['nativeInputHashes'].items()} != hashes:
+        raise ValueError('Queue receipt is not bound to all native inputs')
+    cases = {case['scenario']: case for case in result['scenarios']}
+    full, drained, dead = (cases[name] for name in ('bounded-capacity', 'restart-and-drain', 'dead-letter-isolation'))
+    if (full['capacity'] != 2 or full['maximumObservedDepth'] != 2 or full['queued'] != 2 or full['deferred'] != 1
+            or full['persistedRows'] != 0 or full['snapshot']['nextSequence'] != 3 or len(full['snapshot']['entries']) != 2
+            or full['deferredSha256'].lower() not in hashes.values()
+            or full['cycles']['importOutcome'] != 'blocked' or full['cycles']['bothCompleted'] is not True):
+        raise ValueError('Missing bounded-capacity or deferred-input evidence')
+    if (drained['maximumObservedDepth'] != 2 or drained['nextSequence'] != 4 or drained['persistedRows'] != 3
+            or drained['queueDrained'] is not True or drained['spoolDrained'] is not True
+            or drained['source'] != full['snapshot']['source'] or drained['readerProjection'] != 'matched'):
+        raise ValueError('Incomplete restart and drain evidence')
+    for restarted, previous in ((drained['restartedCycles'], full['cycles']), (dead['restartedCycles'], dead['previousCycles'])):
+        started = datetime.fromisoformat(restarted['startedAtUtc'].replace('Z', '+00:00'))
+        if (restarted['bothCompleted'] is not True or restarted['importOutcome'] != 'idle' or restarted['deliveryOutcome'] != 'idle'
+                or started == datetime.fromisoformat(previous['startedAtUtc'].replace('Z', '+00:00'))
+                or any(datetime.fromisoformat(restarted[key].replace('Z', '+00:00')) < started
+                       for key in ('importCompletedAtUtc', 'deliveryCompletedAtUtc'))):
+            raise ValueError('Restart did not provide fresh completed worker cycles')
+    if (dead['capacity'] != 3 or not 1 <= dead['maximumObservedDepth'] <= 3 or dead['persistedRows'] != 2
+            or dead['deadLetterRetainedAcrossRestart'] is not True or dead['automaticReplay'] is not False
+            or dead['readerProjection'] != 'matched' or len(dead['snapshot']['entries']) != 1
+            or dead['snapshot']['nextSequence'] != 4 or dead['restartedCycles']['bothCompleted'] is not True
+            or dead['restartedCycles']['importOutcome'] != 'idle' or dead['restartedCycles']['deliveryOutcome'] != 'idle'):
+        raise ValueError('Incomplete dead-letter restart evidence')
+    if full['serverId'] != drained['serverId'] or dead['serverId'] == drained['serverId'] or dead['snapshot']['source'] == drained['source']:
+        raise ValueError('Queue scenarios do not have the expected isolated bindings')
+    entry = dead['snapshot']['entries'][0]
+    if (entry['status'] != 2 or entry['attempts'] != 1 or entry['failure'] != 'conflict'
+            or entry['identity']['payloadSha256'] != dead['rejected']['payloadSha256'] or dead['rejected']['status'] != 409
+            or entry['identity']['eventId'] != dead['rejected']['request']['eventId']):
+        raise ValueError('Dead-letter identity, bytes or classification changed')
+    native = [json.loads(raw)['event'] for raw in records.values()]
+    seen = set()
+    for case, count in ((drained, 3), (dead, 2)):
+        if len(case['accepted']) != count:
+            raise ValueError('Missing or duplicate successful delivery')
+        for observation in case['accepted']:
+            request, receipt = observation['request'], observation['receipt']
+            if (observation['status'] != 202 or receipt['duplicate'] is not False
+                    or any(receipt[key] != request[key] for key in ('eventId', 'sourceInstanceId', 'sequenceNumber'))
+                    or receipt['serverId'] != case['serverId']
+                    or request['sourceInstanceId'] != (case['source'] if case is drained else case['snapshot']['source'])
+                    or request['eventId'] in seen):
+                raise ValueError('Successful delivery identity or receipt mismatch')
+            seen.add(request['eventId'])
+            if not any(all(request[key] == event[key] for key in ('type', 'map', 'players', 'bots'))
+                       and datetime.fromisoformat(request['occurredAtUtc'].replace('Z', '+00:00')) ==
+                       datetime.fromisoformat(event['occurredAtUtc'].replace('Z', '+00:00')) for event in native):
+                raise ValueError('Delivered request differs from native event')
+    delivered = {item['receipt']['eventId']: item for item in drained['accepted']}
+    for queued in full['snapshot']['entries']:
+        identity = queued['identity']
+        if (identity['eventId'] not in delivered or delivered[identity['eventId']]['payloadSha256'] != identity['payloadSha256']
+                or delivered[identity['eventId']]['receipt']['sequenceNumber'] != identity['sequence']):
+            raise ValueError('Recovery replaced a queued identity, sequence or payload')
+    if dead['rejected']['request']['eventId'] in seen:
+        raise ValueError('Rejected event was reported as delivered')
+
+
+def execute(evidence, compiled, output, queue_recovery=False):
     records, binding = read_records(evidence, compiled)
     output.mkdir(parents=True, exist_ok=False)
     log = []
@@ -79,16 +153,12 @@ def execute(evidence, compiled, output):
                 (inputs / (scenario + '.json')).write_bytes(raw)
             harness = PROJECT.parent / 'bin/Debug/net10.0/GoldSrcOps.TelemetryAcceptance.dll'
             agent = ROOT / 'src/GoldSrcOps.GameEventAgent/bin/Debug/net10.0/GoldSrcOps.GameEventAgent.dll'
-            command(['dotnet', str(harness), str(ROOT), str(agent), str(inputs), str(root / 'runtime'),
-                     str(root / 'result.json')], log)
+            arguments = ['dotnet', str(harness), str(ROOT), str(agent), str(inputs), str(root / 'runtime'), str(root / 'result.json')]
+            if queue_recovery:
+                arguments.append('queue-recovery')
+            command(arguments, log)
             result = json.loads((root / 'result.json').read_bytes())
-            if (result.get('status') != 'native-telemetry-e2e-accepted'
-                    or {case['scenario'] for case in result['scenarios']} != set(SCENARIOS)
-                    or len(result['scenarios']) != 3):
-                raise ValueError('Incomplete telemetry acceptance receipt')
-            for case in result['scenarios']:
-                if case['status'] != 'passed' or case['nativeSha256'].lower() != hashlib.sha256(records[case['scenario']]).hexdigest():
-                    raise ValueError('Acceptance receipt is not bound to native input')
+            validate_result(result, records, queue_recovery)
             result['nativeEngine'] = binding
             sources = [PROJECT, Path(__file__).resolve(), Path(__file__).with_name('test-game-event-telemetry-e2e.py')]
             sources.extend(sorted(PROJECT.parent.glob('*.cs')))
@@ -97,7 +167,7 @@ def execute(evidence, compiled, output):
                 ('api', harness.parent / 'GoldSrcOps.Api.dll'), ('agent', agent), ('acceptance', harness))}
         result['cleanup'] = 'temporary queues, synthetic credentials and database removed'
         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
-        print('NATIVE_TELEMETRY_E2E=passed scenarios=3 rows=3')
+        print('NATIVE_TELEMETRY_QUEUE_RECOVERY=passed scenarios=3 rows=5' if queue_recovery else 'NATIVE_TELEMETRY_E2E=passed scenarios=3 rows=3')
     finally:
         (output / 'runner.log').write_text('\n'.join(log), encoding='utf-8')
 
@@ -107,8 +177,9 @@ def main():
     parser.add_argument('--evidence', type=Path, required=True)
     parser.add_argument('--compiled', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--queue-recovery', action='store_true')
     args = parser.parse_args()
-    execute(args.evidence.resolve(), args.compiled.resolve(), args.output.resolve())
+    execute(args.evidence.resolve(), args.compiled.resolve(), args.output.resolve(), args.queue_recovery)
 
 
 if __name__ == '__main__':

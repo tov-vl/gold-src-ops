@@ -1,8 +1,9 @@
 # GoldSrcOps Roadmap
 
-Updated on 2026-11-14 after accepted v2.131 and the Archive trigger assessment.
-The accepted product source remains
-`90c2eb9b73de6357c9b3c8c9a69d2289920352d2`.
+Updated on 2026-11-16 after Archive trigger rc.4 R3 acceptance and the accepted
+automated gameplay/telemetry checks. The accepted repository planning baseline
+is `a60952d3ae9ba6d5b1acb5a2fc08955a99acbd9c`; runtime identities remain in their
+own release and acceptance records.
 
 This is the current planning order. It replaces the priorities in the
 2026-10-28 roadmap proposal; historical release and acceptance records remain
@@ -30,9 +31,17 @@ Development should advance a concrete operator or player outcome.
   [RU/EN weapon acceptance](client-guns-acceptance.md#fresh-renderer-required-matrix-accepted-on-2026-11-08)
   passed with process-bound OpenGL evidence. This is evidence for those
   scenarios, not arbitrary gameplay, performance or two-player balance.
-- Archive schedule irregularity and missing source minutes remain separate
-  limitations. Existing diagnostics and notifications expose them; they do not
-  guarantee hourly execution or complete source data.
+- The [external Archive trigger rc.4](archive-trigger-progress.md#rc4-candidate-and-r3-acceptance)
+  has accepted candidate and R3 evidence, including two natural slots and
+  independent Recovery. Its separate seven-day age/window-coverage assessment
+  and stable promotion remain pending. Missing source minutes remain a separate
+  limitation that a scheduler cannot repair.
+- [Multiplayer technical checks](automated-multiplayer-acceptance.md),
+  [native producer checks](round-ended-producer-engine-acceptance.md),
+  [natural objectives](round-objectives-engine-acceptance.md) and
+  [end-to-end telemetry](native-telemetry-acceptance.md) have full PR/main CI and
+  independent artifact evidence. Their synthetic actors do not establish human
+  gameplay quality, balance or demand.
 
 The [backlog](backlog.md) retains milestone status and acceptance links. This
 roadmap owns future priorities; it is not a live production health report.
@@ -42,7 +51,9 @@ roadmap owns future priorities; it is not a live production health report.
 | Order | Outcome | Dependency | Completion criterion |
 | --- | --- | --- | --- |
 | Completed | v2.131 command dispatcher health across Operator views | Accepted v2.130 observation contract | Independent API/Web and authenticated eight-source UI/report acceptance passed |
-| Next implementation, subject to rollout approval | External hourly trigger for the existing Archive writer | Selected design, durable claims and explicit new credential/service approval | One automatic owner, independent Recovery and natural-slot acceptance; assess the three-hour target in a separate seven-day window |
+| Candidate/R3 accepted; assessment pending | Assess the external Archive trigger over seven days | Accepted rc.4, single automatic owner and independent observer | Assess the three-hour age target, receipt-window coverage and source completeness separately; stable promotion remains a separate gate |
+| Technical baseline accepted | Native gameplay and real agent/API/PostgreSQL/Reader telemetry acceptance | Pinned isolated engine fixtures | Full PR/main CI and independent downloaded-artifact verification passed; human acceptance remains separate |
+| Locally verified; hosted acceptance pending | Queue capacity, concurrent import/delivery and restart acceptance | Existing telemetry harness and verified native inputs | Preserve deferred bytes at capacity, drain without loss/duplicates after restart, and retain a permanent failure without automatic replay; full CI/artifact acceptance remains a later gate |
 | Next gameplay milestone, when people are available | Validate the existing mode with two human players | Two independent participants/accounts and a controlled session | A bounded pilot records observed results, failures and one prioritized follow-up |
 | After the pilot | Improve one evidenced gameplay problem | Pilot findings | One map/spawn adjustment or mechanic passes technical and player acceptance |
 | Later | Human activity analysis and community growth | Real visits and an agreed observation window | Decisions use actual human activity with explicit coverage limits |
@@ -83,20 +94,21 @@ Add monitoring surfaces only for an observed failure
 or an unanswered operator question. Another panel or report section is not a
 milestone by itself.
 
-## Archive Trigger Decision And Next Implementation
+## Accepted Archive Trigger And Pending Observation
 
-The [seven-day assessment](archive-trigger-decision.md) found 25 scheduled
+The [earlier seven-day assessment](archive-trigger-decision.md) found 25 scheduled
 Archives against 168 nominal hourly ticks. All 25 jobs/receipts passed, but the
-median creation interval was 6h 44m and the existing success age exceeded three
+median creation interval was 6h 44m and the success age in that window exceeded three
 hours for 54.50% of the reconstructed window. Job queue time was only 4-6 seconds.
 The 24-hour lookback prevented closed requested-window gaps in the later part of
 the sample; it did not provide timely hourly archiving.
 
-Select an external timer on the existing control plane to dispatch the existing
-GitHub writer. Keep GitHub runners and Grafana/B2 secrets in their current
-environment. This removes the cron event dependency, not GitHub API/runner or
-control-plane host dependencies. Defer an independent executor unless the
-bounded trial fails or a stronger independence requirement is selected.
+The accepted rc.4 uses an external timer on the existing control plane to
+dispatch the existing GitHub writer. GitHub runners and Grafana/B2 secrets stay
+in their existing environment. This removes the cron event dependency, not
+GitHub API/runner or control-plane host dependencies. Defer an independent
+executor unless the bounded trial fails or a stronger independence requirement
+is selected.
 
 The [implementation plan](archive-trigger-implementation-plan.md) covers one
 automatic owner, durable single-attempt claims, bounded 24-hour catch-up,
@@ -106,15 +118,38 @@ and no closed requested-window gaps during a prospective seven-day trial, not
 a hard SLA. Keep successful execution, receipt, independent Recovery and source
 completeness as separate evidence.
 
-This planning change does not authorize or apply that rollout. Until then,
-preserve hourly `53 * * * *`, the 1,440-minute window, independent observer and
-existing warnings from [v2.117](v2.117-archive-reliability.md).
+The [R3 record](archive-trigger-progress.md#rc4-candidate-and-r3-acceptance)
+already records external-owner cutover, retained-history acceptance and
+independent Recovery. Keep the separate seven-day assessment open: two natural
+slots do not establish the three-hour objective over that window. Preserve
+hourly `53 * * * *`, the 1,440-minute window, independent observer and existing
+warnings from [v2.117](v2.117-archive-reliability.md).
 [v2.119](v2.119-archive-completeness.md) continues to define the distinction
 between receipt-window coverage and source missing minutes.
 
 The 24-hour export window is unrelated to the deferred 24-hour human activity
 aggregation. Neither scheduling changes nor successful Recovery can reconstruct
 measurements that were absent from the source.
+
+## Isolated Queue Acceptance While Waiting
+
+The accepted telemetry harness delivers pre-imported records with import
+disabled during dispatch. The current [queue recovery slice](telemetry-queue-recovery-acceptance.md)
+checks the missing concurrent-loop boundary with small disposable queue limits,
+the real agent, HTTP API, PostgreSQL and Reader projection.
+
+Require deferred native bytes to survive capacity pressure, existing identities
+and sequence to survive restart, and one persisted row per delivered input.
+Permanent failures must retain their bytes/classification across restart;
+delivery of other entries is checked with capacity available. Dead letters
+continue to occupy capacity. Do not clear queues or add automatic dead-letter
+replay to make acceptance pass. This is bounded recovery evidence, not a
+throughput benchmark, production rollout or long-duration reliability claim.
+
+Reuse the existing native artifacts locally and require fresh artifacts in full
+CI. No game-profile, producer, access, monitoring-policy or Archive change is
+part of this slice. Further implementation should follow a concrete uncovered
+boundary or operator/player need.
 
 ## Gameplay Pilot And Follow-up
 
