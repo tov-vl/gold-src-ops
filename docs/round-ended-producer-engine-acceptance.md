@@ -1,9 +1,10 @@
 # round.ended Producer Engine Acceptance
 
-Locally verified on 2026-11-16 against the source following PR #552. This slice
+Accepted on 2026-11-16 through PR #553 after full PR/main CI and independent
+verification of downloaded fixture and engine-evidence artifacts. This slice
 records the existing producer contract in executable tests; it changes neither
 the producer source/version nor the event schema or human-activity policy.
-Hosted CI, publication and a production rollout are not claimed here.
+Production rollout and real-player activity acceptance remain separate.
 
 ## Current Contract And Native Coverage
 
@@ -130,9 +131,45 @@ See the [shared engine setup](v2.90-engine-ci.md#local-command) and the
   intentional assertion, missing map provider, disabled spawn protection and
   disabled producer. The same compiled manifest was used throughout.
 - The CI routing/retention contract, documentation links and scoped diff were
-  checked locally. Required hosted CI remains a separate publication gate.
+  checked locally. Full required PR/main CI subsequently passed with independent
+  artifact acceptance as recorded below.
 
 No C# was authored, so InspectCode is inapplicable. The unchanged full local
 .NET solution gate was not repeated; the agent build/importer was exercised
 directly. No production server, client laptop, player data, bot enablement,
 Archive setting, plugin version, application image or event schema was changed.
+
+## Hosted Delivery Evidence
+
+[PR #553](https://github.com/tov-vl/gold-src-ops/pull/553) accepted head `68dd34a0796369630af2cc4e04207be95c115bcf`
+as main revision `a9d21b88d1a19bef17d5b8d83ec7d103004f667e` after green required
+checks and CLEAN/MERGEABLE. No protection bypass or workflow rerun was used.
+
+| Evidence | PR | Post-merge main |
+| --- | --- | --- |
+| Full CI | [Passed](https://github.com/tov-vl/gold-src-ops/actions/runs/43845365914) | [Passed](https://github.com/tov-vl/gold-src-ops/actions/runs/43847968165) |
+| Positive engine suite | 23 cases / 46 markers, 159.367 s | 23 cases / 46 markers, 160.587 s |
+| Four precise negative assertions | Rejected | Rejected |
+| Twelve compiled payloads and source/toolchain binding | Verified | Verified |
+| Actual agent: ten native records / five malformed controls | Accepted / rejected | Accepted / rejected |
+| Delivery disabled and owned-container/temporary-queue cleanup | Passed | Passed |
+
+The initial PR run exposed unreadable root-owned copies of synthetic records
+([failed CI](https://github.com/tov-vl/gold-src-ops/actions/runs/43843876893)).
+A signed correction exports byte-identical diagnostic copies as `0644` while
+checking that original spool records remain `0600`. The subsequent complete
+PR/main runs listed above accepted that correction. No manual rerun was used.
+
+Both compiled-fixture and engine-evidence ZIPs were independently downloaded.
+Payload hashes, pinned toolchain, exact source identities, all 46 markers, all
+four precise negative assertions and matching manifest/lock identities passed.
+The original native records were checked against their bounded transfer receipts
+and the actual agent result from the same run; all ten byte hashes matched.
+The successful runs had no nonempty AMXX error log. Engine, negative-producer
+and agent-contract evidence is retained by CI for seven days.
+
+Full CI executed the .NET restore/audit, format, build, test, vulnerable package
+report, client-policy, browser and container checks. The unchanged full local
+.NET gate was not repeated and InspectCode was inapplicable because no C# was
+authored. No game-server update, addon publication, application tag, Archive
+change, client-laptop action or real-player acceptance occurred in this delivery.
