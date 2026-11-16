@@ -153,6 +153,9 @@ bounded rollback. Avoid duplicating the existing rank and persistence system.
   producer's empty/bot-only/mixed roster behavior; its current round guard
   excludes HLTV but does not suppress bot-only activity. This is a prerequisite,
   not a claim of a current production incident.
+  The [native producer checks](round-ended-producer-engine-acceptance.md) now
+  lock that existing behavior locally; a suppression-policy change remains a
+  separate decision.
 - Human activity aggregation: wait for real visits and explicit agreement on
   the observation window. Synthetic or solo checks cannot establish demand.
 - Plugin packs, combat-advantage VIP, economies, skins and additional modes:

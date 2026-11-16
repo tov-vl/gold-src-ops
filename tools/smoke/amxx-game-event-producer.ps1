@@ -3,7 +3,8 @@
 [CmdletBinding()]
 param(
     [string]$CacheDirectory,
-    [switch]$Offline
+    [switch]$Offline,
+    [switch]$RuntimeFixture
 )
 
 Set-StrictMode -Version Latest
@@ -92,6 +93,11 @@ $amxxIncludePath = Join-Path $amxxRoot "addons/amxmodx/scripting/include"
 $reApiIncludePath = Join-Path $reApiRoot "addons/amxmodx/scripting/include"
 $outputDirectory = Join-Path $CacheDirectory "output"
 $outputPath = Join-Path $outputDirectory "goldsrcops_game_events.amxx"
+if ($RuntimeFixture) {
+    $sourcePath = Join-Path $PSScriptRoot "amxx-game-event-producer.sma"
+    $outputPath = Join-Path $outputDirectory "game_event_producer_smoke.amxx"
+}
+$productIncludes = Join-Path $repositoryRoot "samples/amxmodx-game-event-producer"
 
 foreach ($requiredPath in $compilerPath, $amxxIncludePath, $reApiIncludePath, $sourcePath) {
     if (-not (Test-Path -LiteralPath $requiredPath)) {
@@ -106,6 +112,7 @@ Remove-Item -LiteralPath $outputPath -Force -ErrorAction SilentlyContinue
     $sourcePath `
     "-i$amxxIncludePath" `
     "-i$reApiIncludePath" `
+    "-i$productIncludes" `
     "-o$outputPath" `
     -E
 

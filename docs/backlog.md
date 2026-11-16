@@ -27,6 +27,14 @@ change is implied.
 
 ## Current Status
 
+Locally verified: [round.ended producer engine acceptance](round-ended-producer-engine-acceptance.md).
+The real round-end/restart hooks, empty/bot-only/mixed/HLTV rosters, deduplication,
+backpressure and filesystem failures passed in the isolated engine. The expanded
+suite passed 23 cases / 46 markers, fifteen runner tests and four precise
+negative runs. The existing agent imported ten native records and rejected five
+malformed controls with delivery disabled. Producer/schema semantics are
+preserved; hosted CI and publication remain separate. No runtime was changed.
+
 Accepted: [automated multiplayer technical acceptance](automated-multiplayer-acceptance.md)
 through [PR #551](https://github.com/tov-vl/gold-src-ops/pull/551). Native protection,
 automatic/disabled respawn and three-client state isolation passed with the

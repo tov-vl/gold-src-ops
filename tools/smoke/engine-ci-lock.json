@@ -247,8 +247,30 @@
         "KILL_AMMO_SMOKE",
         "KILL_STREAK_SMOKE"
       ]
+    },
+    {
+      "plugin": "game_event_producer_smoke",
+      "command": "goldsrcops_producer_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "PRODUCER_SMOKE",
+        "PRODUCER_ROSTER_SMOKE",
+        "PRODUCER_LIFECYCLE_SMOKE",
+        "PRODUCER_SPOOL_SMOKE"
+      ]
     }
   ],
+  "disabledProducerCase": {
+    "plugin": "game_event_producer_smoke",
+    "command": "goldsrcops_producer_disabled",
+    "map": "de_dust2",
+    "markers": [
+      "PRODUCER_SMOKE",
+      "PRODUCER_ROSTER_SMOKE",
+      "PRODUCER_LIFECYCLE_SMOKE",
+      "PRODUCER_SPOOL_SMOKE"
+    ]
+  },
   "missingSpawnProtectionCase": {
     "plugin": "spawn_loadout_smoke",
     "command": "goldsrcops_multiplayer_unprotected",
