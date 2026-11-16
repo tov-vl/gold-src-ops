@@ -336,7 +336,7 @@ foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
     }
 }
 Assert-Condition -Condition ($containerJob -match '(?m)^      - map-menu-compile$') -Message "Container Smoke must wait for addon compilation."
-foreach ($name in @('Verify real engine failure rejection', 'Run isolated gameplay engine smoke')) {
+foreach ($name in @('Verify real engine failure rejection', 'Run isolated gameplay engine smoke', 'Verify native producer records with the agent spool contract')) {
     $step = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq $name)[0]
     Assert-Condition -Condition ($step.Body -notmatch 'continue-on-error:|\|\| true') -Message "Engine failure must fail Container Smoke."
     Assert-Condition -Condition ($step.Body -match 'timeout-minutes:') -Message "Engine execution needs a bounded timeout."
@@ -349,6 +349,8 @@ Assert-Condition -Condition ($diagnostics.Condition.StartsWith('always() &&')) -
 Assert-Condition -Condition ($diagnostics.Body -match 'retention-days: 7') -Message "Diagnostic retention must remain bounded."
 Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/negative-map-provider/evidence/')) -Message "Missing-provider failure evidence must be retained."
 Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/negative-spawn-protection/evidence/')) -Message "Disabled-protection failure evidence must be retained."
+Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/negative-producer/evidence/')) -Message "Disabled-producer failure evidence must be retained."
+Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/producer-contract/')) -Message "Native producer/agent contract evidence must be retained."
 Assert-Condition -Condition ($containerJob -notmatch 'needs\.quality|(?m)^      - quality$') -Message "Container Smoke must run independently of Quality Gate."
 # Parallel execution must not turn successful container checks into permission
 # to publish after a failed, cancelled or skipped Quality Gate.

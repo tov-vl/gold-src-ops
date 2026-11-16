@@ -64,6 +64,19 @@ run_case() {
     printf 'quit\n' >&3
     wait "$pid"
     pid=
+    if [[ "$command" == goldsrcops_producer_smoke || "$command" == goldsrcops_producer_disabled ]]; then
+        local producer_root=cstrike/addons/amxmodx/data/producer-engine-smoke label filename players bots source
+        mkdir /evidence/producer-records
+        : > /evidence/producer-records.tsv
+        while IFS=$'\t' read -r label filename players bots; do
+            [[ "$label" =~ ^[a-z_]+$ && "$filename" =~ ^[0-9a-f-]{36}\.json$ && "$players" =~ ^[0-9]+$ && "$bots" =~ ^[0-9]+$ ]]
+            source="$producer_root/$label/$filename"
+            [[ -f "$source" && ! -L "$source" && "$(stat -c %a "$source")" == 600 && "$(stat -c %h "$source")" == 1 ]]
+            mkdir -p "/evidence/producer-records/$label"
+            cp "$source" "/evidence/producer-records/$label/$filename"
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$label" "$filename" "$players" "$bots" "$(stat -c %s "$source")" "$(sha256sum "$source" | cut -d ' ' -f 1)" >> /evidence/producer-records.tsv
+        done < "$producer_root/records.tsv"
+    fi
     grep -Eq "^${marker}=passed( [^[:space:]]+)* failures=0( |$)" "$log"
     if grep -Eq 'ASSERTION_FAILED|Run time error|Load fails|bad load|ML_NOTFOUND|failures=[1-9][0-9]*' "$log"; then return 1; fi
     [[ -z "$(find cstrike/addons/amxmodx/logs -name 'error_*.log' -type f -size +0c -print -quit)" ]]

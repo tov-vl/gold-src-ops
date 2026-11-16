@@ -157,8 +157,10 @@ class ResultTests(unittest.TestCase):
                         with self.assertRaises(ValueError):
                             engine.validate_evidence(evidence, [case])
 
-    def test_changed_multiplayer_inputs_reject_old_compiled_manifest(self):
-        targets = ('tools/smoke/amxx-multiplayer.inc', 'ops/gameserver/fast-reentry-loadout-v1.cfg')
+    def test_changed_native_inputs_reject_old_compiled_manifest(self):
+        targets = ('tools/smoke/amxx-multiplayer.inc', 'ops/gameserver/fast-reentry-loadout-v1.cfg',
+                   'tools/smoke/amxx-game-event-producer.sma',
+                   'samples/amxmodx-game-event-producer/goldsrcops_game_events.sma')
         for changed in targets:
             with self.subTest(changed=changed), tempfile.TemporaryDirectory(prefix='multiplayer-source-test-') as folder:
                 root = Path(folder)
@@ -178,6 +180,27 @@ class ResultTests(unittest.TestCase):
                     target.write_bytes(target.read_bytes() + b'\n// changed test input\n')
                     with self.assertRaises(ValueError):
                         engine.verify_fixtures(root / 'package')
+
+    def test_producer_requires_each_native_checkpoint(self):
+        lock = json.loads(engine.LOCK.read_bytes())
+        case = next(c for c in lock['cases'] if c['command'] == 'goldsrcops_producer_smoke')
+        markers = ['PRODUCER_SMOKE', 'PRODUCER_ROSTER_SMOKE',
+                   'PRODUCER_LIFECYCLE_SMOKE', 'PRODUCER_SPOOL_SMOKE']
+        self.assertEqual(case['markers'], markers)
+        self.assertEqual(lock['disabledProducerCase']['markers'], markers)
+        self.assertEqual(lock['disabledProducerCase']['plugin'], case['plugin'])
+        self.assertNotEqual(lock['disabledProducerCase']['command'], case['command'])
+        with tempfile.TemporaryDirectory(prefix='producer-markers-test-') as folder:
+            path = Path(folder) / (case['command'] + '.log')
+            valid = {name: name + '=passed failures=0\n' for name in markers}
+            path.write_text(''.join(valid.values()))
+            engine.validate_evidence(path.parent, [case])
+            for marker in markers:
+                for invalid in ('', marker + '=failed failures=1\n', valid[marker] * 2):
+                    with self.subTest(marker=marker, invalid=invalid):
+                        path.write_text(''.join(invalid if name == marker else value for name, value in valid.items()))
+                        with self.assertRaises(ValueError):
+                            engine.validate_evidence(path.parent, [case])
 
 
 def main():
@@ -222,6 +245,16 @@ def main():
                 or 'MULTIPLAYER_ASSERTION_FAILED spawn protection blocks native enemy damage' not in log):
             raise RuntimeError('Disabled spawn protection did not fail the native damage fixture')
         print('SPAWN_PROTECTION_FAILURE_GATE=passed disabled_protection=rejected')
+        disabled = args.output.with_name(args.output.name + '-producer')
+        attempt = subprocess.run([sys.executable, '-B', str(SCRIPT), '--cache', str(args.cache),
+                                  '--output', str(disabled), '--compiled', str(args.compiled),
+                                  '--disabled-producer-check'], timeout=720)
+        outcome = json.loads((disabled/'evidence/result.json').read_bytes())
+        log = (disabled/'evidence/goldsrcops_producer_disabled.log').read_text(errors='replace')
+        if (attempt.returncode == 0 or outcome['result'] != 'failed' or outcome['cleanup'] != 'passed'
+                or 'PRODUCER_ASSERTION_FAILED native round end commits bot-only record' not in log):
+            raise RuntimeError('Disabled producer did not fail native round-event acceptance')
+        print('PRODUCER_FAILURE_GATE=passed disabled_producer=rejected')
     return 0
 
 

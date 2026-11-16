@@ -234,6 +234,7 @@ jobs:
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -PlayerMenuFixture
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -PlayerPreferencesFixture
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -EngineFailureFixture
+          ./tools/smoke/amxx-game-event-producer.ps1 -CacheDirectory $cache -RuntimeFixture -Offline
           ./tools/smoke/weapon-selection-package.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'weapon-addon') -Target game-host-addon
           ./tools/smoke/weapon-selection-package.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'weapon-lookup-addon') -Target game-host-addon -EnablePlayerLookup
 
@@ -432,6 +433,13 @@ jobs:
           --compiled "$RUNNER_TEMP/gameplay-fixtures"
           --output "$RUNNER_TEMP/gameplay-engine/positive"
 
+      - name: Verify native producer records with the agent spool contract
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        timeout-minutes: 5
+        run: |
+          python3 -B tools/smoke/test-game-event-producer-contract.py
+          python3 -B tools/smoke/game-event-producer-contract.py --evidence "$RUNNER_TEMP/gameplay-engine/positive/evidence" --output "$RUNNER_TEMP/gameplay-engine/producer-contract"
+
       - name: Retain gameplay engine diagnostics
         if: always() && needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         uses: actions/upload-artifact@v4
@@ -441,6 +449,8 @@ jobs:
             ${{ runner.temp }}/gameplay-engine/negative/evidence/
             ${{ runner.temp }}/gameplay-engine/negative-map-provider/evidence/
             ${{ runner.temp }}/gameplay-engine/negative-spawn-protection/evidence/
+            ${{ runner.temp }}/gameplay-engine/negative-producer/evidence/
+            ${{ runner.temp }}/gameplay-engine/producer-contract/
             ${{ runner.temp }}/gameplay-engine/positive/evidence/
           if-no-files-found: warn
           retention-days: 7
