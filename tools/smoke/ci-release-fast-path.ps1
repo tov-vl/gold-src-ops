@@ -137,6 +137,8 @@ foreach ($path in @(
         "tools/smoke/amxx-game-event-producer.ps1", "tools/smoke/unknown-runtime.sh",
         "tools/smoke/engine-ci.py", "tools/smoke/test-engine-ci.py",
         "tools/smoke/engine-ci-lock.json", "tools/smoke/amxx-engine-failure.sma",
+        "tools/smoke/game-event-telemetry-e2e.py", "tools/smoke/test-game-event-telemetry-e2e.py",
+        "tools/GoldSrcOps.TelemetryAcceptance/EntryPoint.cs", "tools/GoldSrcOps.TelemetryAcceptance/GoldSrcOps.TelemetryAcceptance.csproj",
         "samples/amxmodx-game-event-producer/goldsrcops_game_events.sma",
         "samples/amxmodx-weapon-selection/unknown.sma", "samples/amxmodx-map-menu/extra.cfg",
         "ops/gameserver/game-event-persistent.sh", "ops/production/compose.yml",
@@ -336,7 +338,7 @@ foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
     }
 }
 Assert-Condition -Condition ($containerJob -match '(?m)^      - map-menu-compile$') -Message "Container Smoke must wait for addon compilation."
-foreach ($name in @('Verify real engine failure rejection', 'Run isolated gameplay engine smoke', 'Verify native producer records with the agent spool contract')) {
+foreach ($name in @('Verify real engine failure rejection', 'Run isolated gameplay engine smoke', 'Verify native producer records with the agent spool contract', 'Accept native telemetry through agent API PostgreSQL and Reader')) {
     $step = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq $name)[0]
     Assert-Condition -Condition ($step.Body -notmatch 'continue-on-error:|\|\| true') -Message "Engine failure must fail Container Smoke."
     Assert-Condition -Condition ($step.Body -match 'timeout-minutes:') -Message "Engine execution needs a bounded timeout."
@@ -353,6 +355,10 @@ Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/negativ
 Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/negative-objective/evidence/')) -Message "Blocked-objective failure evidence must be retained."
 Assert-Condition -Condition ($compileJob.Contains('-RoundObjectivesFixture')) -Message "Natural objective fixture must be compiled."
 Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/producer-contract/')) -Message "Native producer/agent contract evidence must be retained."
+Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/telemetry-contract/')) -Message "Native telemetry acceptance evidence must be retained."
+$telemetry = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq 'Accept native telemetry through agent API PostgreSQL and Reader')[0]
+Assert-Condition -Condition ($telemetry.Condition.Contains("needs.change-scope.outputs.addon_only != 'true'")) -Message "Telemetry acceptance requires the full CI path."
+Assert-Condition -Condition ($telemetry.Body.Contains('--compiled "$RUNNER_TEMP/gameplay-fixtures"')) -Message "Telemetry inputs must be bound to the downloaded native fixtures."
 Assert-Condition -Condition ($containerJob -notmatch 'needs\.quality|(?m)^      - quality$') -Message "Container Smoke must run independently of Quality Gate."
 # Parallel execution must not turn successful container checks into permission
 # to publish after a failed, cancelled or skipped Quality Gate.
