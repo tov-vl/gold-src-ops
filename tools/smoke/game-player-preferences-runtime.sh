@@ -73,7 +73,9 @@ run_case() {
             source="$producer_root/$label/$filename"
             [[ -f "$source" && ! -L "$source" && "$(stat -c %a "$source")" == 600 && "$(stat -c %h "$source")" == 1 ]]
             mkdir -p "/evidence/producer-records/$label"
-            cp "$source" "/evidence/producer-records/$label/$filename"
+            install -m 0644 "$source" "/evidence/producer-records/$label/$filename"
+            [[ "$(stat -c %a "/evidence/producer-records/$label/$filename")" == 644 ]]
+            cmp "$source" "/evidence/producer-records/$label/$filename"
             printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$label" "$filename" "$players" "$bots" "$(stat -c %s "$source")" "$(sha256sum "$source" | cut -d ' ' -f 1)" >> /evidence/producer-records.tsv
         done < "$producer_root/records.tsv"
     fi

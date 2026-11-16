@@ -59,6 +59,9 @@ The runtime exports only the ten canonical ready records named in the fixture
 manifest. Before copying each original, it independently checks `0600`, a single
 hard link and no symlink, then records its size and SHA-256. Unrecognized and
 incomplete backpressure files are excluded from this transfer.
+Only the exported synthetic copies use `0644`, so the unprivileged CI runner
+can read them for agent acceptance and artifact retention. Their bytes must
+match the originals; the spool originals retain `0600`.
 This is complete-file process handoff evidence, not a power-loss durability
 claim; AMXX still provides no portable filesystem sync primitive here.
 
