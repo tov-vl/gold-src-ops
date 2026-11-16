@@ -227,6 +227,17 @@
       ]
     },
     {
+      "plugin": "spawn_loadout_smoke",
+      "command": "goldsrcops_multiplayer_smoke",
+      "map": "de_dust2",
+      "markers": [
+        "MULTIPLAYER_SMOKE",
+        "SPAWN_PROTECTION_SMOKE",
+        "AUTOMATIC_RESPAWN_SMOKE",
+        "MULTIPLAYER_ISOLATION_SMOKE"
+      ]
+    },
+    {
       "plugin": "map_stats_smoke",
       "command": "goldsrcops_map_stats_smoke",
       "map": "de_dust2",
@@ -238,6 +249,17 @@
       ]
     }
   ],
+  "missingSpawnProtectionCase": {
+    "plugin": "spawn_loadout_smoke",
+    "command": "goldsrcops_multiplayer_unprotected",
+    "map": "de_dust2",
+    "markers": [
+      "MULTIPLAYER_SMOKE",
+      "SPAWN_PROTECTION_SMOKE",
+      "AUTOMATIC_RESPAWN_SMOKE",
+      "MULTIPLAYER_ISOLATION_SMOKE"
+    ]
+  },
   "negativeCase": {
     "plugin": "engine_failure_smoke",
     "command": "goldsrcops_engine_failure",

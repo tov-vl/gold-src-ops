@@ -118,6 +118,12 @@ measurements that were absent from the source.
 
 ## Gameplay Pilot And Follow-up
 
+The [automated multiplayer technical checks](automated-multiplayer-acceptance.md)
+now have local native-engine evidence for protection, respawn and client-state
+isolation alongside the existing combat/persistence suite. These synthetic
+checks can run without players; they do not close the human pilot below or
+establish map flow, fairness or enjoyment. Hosted CI is a separate gate.
+
 Plan a 30-45 minute controlled session with two independent human players and
 accounts. The second client-lab laptop using the same Steam account is not a
 substitute. Keep existing ranks, familiar weapon handling and the fast-reentry

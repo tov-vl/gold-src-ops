@@ -105,6 +105,8 @@ def source_identity():
     paths = list(FIXTURES.values()) + ['samples/amxmodx-weapon-selection/goldsrcops-player-menu.txt',
                                      'samples/amxmodx-map-menu/goldsrcops-map-menu.txt',
                                      'tools/smoke/amxx-map-menu.ps1',
+                                     'tools/smoke/amxx-multiplayer.inc',
+                                     'ops/gameserver/fast-reentry-loadout-v1.cfg',
                                      'tools/smoke/amxx-weapon-selection.ps1',
                                      'tools/smoke/amxx-game-event-producer.ps1']
     return {path: digest(ROOT / path) for path in paths}
@@ -151,7 +153,7 @@ def cases_tsv(cases):
     return ''.join(lines)
 
 
-def execute(cache, output, compiled, negative=False, missing_map_provider=False):
+def execute(cache, output, compiled, negative=False, missing_map_provider=False, missing_spawn_protection=False):
     started = time.monotonic()
     output.mkdir(parents=True, exist_ok=False)
     evidence = output / 'evidence'
@@ -161,7 +163,8 @@ def execute(cache, output, compiled, negative=False, missing_map_provider=False)
     cache.mkdir(parents=True, exist_ok=True)
     lock = json.loads(LOCK.read_bytes())
     result = {'result': 'failed', 'mode': ('negative-assertion' if negative else
-                                       'missing-map-provider' if missing_map_provider else 'gameplay'),
+                                       'missing-map-provider' if missing_map_provider else
+                                       'missing-spawn-protection' if missing_spawn_protection else 'gameplay'),
               'lockSha256': digest(LOCK), 'network': 'none', 'publishedPorts': 0}
     owned = []
     try:
@@ -188,7 +191,8 @@ def execute(cache, output, compiled, negative=False, missing_map_provider=False)
         docker('cp', steam_name + ':' + lock['images']['steam']['path'], str(steam))
         verify(steam, lock['images']['steam']['sha256'])
         cases = ([lock['negativeCase']] if negative else
-                 [lock['missingMapProviderCase']] if missing_map_provider else lock['cases'])
+                 [lock['missingMapProviderCase']] if missing_map_provider else
+                 [lock['missingSpawnProtectionCase']] if missing_spawn_protection else lock['cases'])
         (inputs / 'cases.tsv').write_text(cases_tsv(cases), encoding='utf-8', newline='\n')
         name = 'gameplay-engine-' + uuid.uuid4().hex
         owned.append(name)
@@ -243,6 +247,7 @@ def main():
     parser.add_argument('--package-fixtures', action='store_true')
     parser.add_argument('--output', required=True, type=Path)
     negative = parser.add_mutually_exclusive_group()
+    negative.add_argument('--missing-spawn-protection-check', action='store_true', help='Disable fixture spawn protection; must fail.')
     negative.add_argument('--missing-map-provider-check', action='store_true', help='Require a missing map language provider; must fail.')
     negative.add_argument('--negative-check', action='store_true', help='Run a deliberately failing engine fixture; must exit nonzero.')
     args = parser.parse_args()
@@ -253,7 +258,7 @@ def main():
             if args.cache is None:
                 parser.error('--cache is required for execution')
             execute(args.cache.resolve(), args.output.resolve(), args.compiled.resolve(),
-                    args.negative_check, args.missing_map_provider_check)
+                    args.negative_check, args.missing_map_provider_check, args.missing_spawn_protection_check)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         return 1
     return 0

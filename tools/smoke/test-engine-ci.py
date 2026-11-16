@@ -133,6 +133,52 @@ class ResultTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='gameplay-missing-test-') as folder, self.assertRaises(FileNotFoundError):
             engine.validate_evidence(Path(folder),[{'command':'case','markers':['SMOKE']}])
 
+    def test_multiplayer_requires_all_native_checkpoints(self):
+        lock = json.loads(engine.LOCK.read_bytes())
+        case = next(case for case in lock['cases'] if case['command'] == 'goldsrcops_multiplayer_smoke')
+        markers = ['MULTIPLAYER_SMOKE', 'SPAWN_PROTECTION_SMOKE',
+                   'AUTOMATIC_RESPAWN_SMOKE', 'MULTIPLAYER_ISOLATION_SMOKE']
+        self.assertEqual(case['markers'], markers)
+        negative = lock['missingSpawnProtectionCase']
+        self.assertEqual(negative['plugin'], case['plugin'])
+        self.assertEqual(negative['markers'], markers)
+        self.assertNotEqual(negative['command'], case['command'])
+        with tempfile.TemporaryDirectory(prefix='multiplayer-result-test-') as folder:
+            evidence = Path(folder)
+            log = evidence / (case['command'] + '.log')
+            valid = {marker: marker + '=passed failures=0\n' for marker in markers}
+            log.write_text(''.join(valid.values()))
+            engine.validate_evidence(evidence, [case])
+            for marker in markers:
+                for invalid in ('', marker + '=failed failures=1\n', valid[marker] * 2):
+                    with self.subTest(marker=marker, invalid=invalid):
+                        log.write_text(''.join(invalid if name == marker else value
+                                               for name, value in valid.items()))
+                        with self.assertRaises(ValueError):
+                            engine.validate_evidence(evidence, [case])
+
+    def test_changed_multiplayer_inputs_reject_old_compiled_manifest(self):
+        targets = ('tools/smoke/amxx-multiplayer.inc', 'ops/gameserver/fast-reentry-loadout-v1.cfg')
+        for changed in targets:
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory(prefix='multiplayer-source-test-') as folder:
+                root = Path(folder)
+                checkout = root / 'checkout'
+                for name in set(engine.source_identity()) | set(targets):
+                    destination = checkout / name
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    destination.write_bytes((engine.ROOT / name).read_bytes())
+                compiled = root / 'compiled'
+                compiled.mkdir()
+                for name in engine.FIXTURES:
+                    (compiled / name).write_bytes(b'fixture-bytes')
+                with patch.object(engine, 'ROOT', checkout):
+                    engine.package_fixtures(compiled, root / 'package')
+                    engine.verify_fixtures(root / 'package')
+                    target = checkout / changed
+                    target.write_bytes(target.read_bytes() + b'\n// changed test input\n')
+                    with self.assertRaises(ValueError):
+                        engine.verify_fixtures(root / 'package')
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -166,6 +212,16 @@ def main():
                 or 'MAP_MENU_ASSERTION_FAILED expected language provider presence' not in log):
             raise RuntimeError('Missing map provider did not fail the runner')
         print('MAP_PROVIDER_FAILURE_GATE=passed missing_provider=rejected')
+        unprotected = args.output.with_name(args.output.name + '-spawn-protection')
+        attempt = subprocess.run([sys.executable, '-B', str(SCRIPT), '--cache', str(args.cache),
+                                  '--output', str(unprotected), '--compiled', str(args.compiled),
+                                  '--missing-spawn-protection-check'], timeout=720)
+        outcome = json.loads((unprotected/'evidence/result.json').read_bytes())
+        log = (unprotected/'evidence/goldsrcops_multiplayer_unprotected.log').read_text(errors='replace')
+        if (attempt.returncode == 0 or outcome['result'] != 'failed' or outcome['cleanup'] != 'passed'
+                or 'MULTIPLAYER_ASSERTION_FAILED spawn protection blocks native enemy damage' not in log):
+            raise RuntimeError('Disabled spawn protection did not fail the native damage fixture')
+        print('SPAWN_PROTECTION_FAILURE_GATE=passed disabled_protection=rejected')
     return 0
 
 
