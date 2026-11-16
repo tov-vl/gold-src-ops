@@ -15,14 +15,10 @@ the records below retain historical release evidence.
    The external timer owns automatic Archive; hourly `:53`, the 24-hour export
    window and warning thresholds remain unchanged. Candidate acceptance is proved;
    the three-hour age objective and source completeness are not yet established.
-2. Complete the isolated [queue recovery acceptance](telemetry-queue-recovery-acceptance.md)
-   for capacity pressure, concurrent import/delivery and restart. Reuse the
-   existing harness and preserve current dead-letter/capacity policy. Hosted
-   PR/full CI and independent artifacts remain separate from local evidence.
-3. When two independent human participants/accounts are available: run one
+2. When two independent human participants/accounts are available: run one
    controlled gameplay pilot, then select at most one map/spawn or mechanic
    improvement from its findings. Prepare the checklist while waiting.
-4. Keep the accepted client lab as a regression tool. Further monitoring UI,
+3. Keep the accepted client lab as a regression tool. Further monitoring UI,
    plugins and infrastructure need a concrete operator or player problem.
    Bots and 24-hour human activity aggregation remain deferred.
 
@@ -32,13 +28,15 @@ change is implied.
 
 ## Current Status
 
-Locally verified: [telemetry queue recovery acceptance](telemetry-queue-recovery-acceptance.md).
-The existing real-agent/API/PostgreSQL/Reader harness now exercises concurrent
-import/delivery, capacity pressure, retained deferred input and restart, plus a
-permanent conflict retained across a second process. Production worker code,
-contracts and policy are preserved. All three new cases and the original
-delivery regression passed, alongside the complete local Quality Gate and
-reviewed InspectCode. Hosted CI/publication remain pending.
+Accepted: [telemetry queue recovery acceptance](telemetry-queue-recovery-acceptance.md)
+through [PR #559](https://github.com/tov-vl/gold-src-ops/pull/559). Full PR/main CI,
+independent downloaded-artifact verification and separate local replays passed.
+Concurrent import/delivery preserved a deferred native record at capacity,
+drained three events after restart without duplicates, and retained one conflict
+across a second process while two other records reached PostgreSQL and Reader.
+Existing delivery regressions passed. Roadmap records the accepted technical
+baseline and unfinished Archive assessment; production worker/policy and human
+gameplay acceptance remain separate.
 
 Accepted: [native gameplay telemetry acceptance](native-telemetry-acceptance.md)
 through [PR #557](https://github.com/tov-vl/gold-src-ops/pull/557). Full PR/main CI,

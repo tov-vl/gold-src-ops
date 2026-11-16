@@ -2,7 +2,7 @@
 
 Updated on 2026-11-16 after Archive trigger rc.4 R3 acceptance and the accepted
 automated gameplay/telemetry checks. The accepted repository planning baseline
-is `a60952d3ae9ba6d5b1acb5a2fc08955a99acbd9c`; runtime identities remain in their
+is `e6babbfb01489d9e0b20d79cdc0072f5e217bd82`; runtime identities remain in their
 own release and acceptance records.
 
 This is the current planning order. It replaces the priorities in the
@@ -53,7 +53,7 @@ roadmap owns future priorities; it is not a live production health report.
 | Completed | v2.131 command dispatcher health across Operator views | Accepted v2.130 observation contract | Independent API/Web and authenticated eight-source UI/report acceptance passed |
 | Candidate/R3 accepted; assessment pending | Assess the external Archive trigger over seven days | Accepted rc.4, single automatic owner and independent observer | Assess the three-hour age target, receipt-window coverage and source completeness separately; stable promotion remains a separate gate |
 | Technical baseline accepted | Native gameplay and real agent/API/PostgreSQL/Reader telemetry acceptance | Pinned isolated engine fixtures | Full PR/main CI and independent downloaded-artifact verification passed; human acceptance remains separate |
-| Locally verified; hosted acceptance pending | Queue capacity, concurrent import/delivery and restart acceptance | Existing telemetry harness and verified native inputs | Preserve deferred bytes at capacity, drain without loss/duplicates after restart, and retain a permanent failure without automatic replay; full CI/artifact acceptance remains a later gate |
+| Technical acceptance completed | Queue capacity, concurrent import/delivery and restart acceptance | Existing telemetry harness and verified native inputs | Full PR/main CI, independent artifacts and separate replays passed: deferred bytes and identity preserved, drain without duplicates, permanent failure retained without automatic replay |
 | Next gameplay milestone, when people are available | Validate the existing mode with two human players | Two independent participants/accounts and a controlled session | A bounded pilot records observed results, failures and one prioritized follow-up |
 | After the pilot | Improve one evidenced gameplay problem | Pilot findings | One map/spawn adjustment or mechanic passes technical and player acceptance |
 | Later | Human activity analysis and community growth | Real visits and an agreed observation window | Decisions use actual human activity with explicit coverage limits |
@@ -133,9 +133,9 @@ measurements that were absent from the source.
 
 ## Isolated Queue Acceptance While Waiting
 
-The accepted telemetry harness delivers pre-imported records with import
-disabled during dispatch. The current [queue recovery slice](telemetry-queue-recovery-acceptance.md)
-checks the missing concurrent-loop boundary with small disposable queue limits,
+The original accepted telemetry cases deliver pre-imported records with import
+disabled during dispatch. The accepted [queue recovery slice](telemetry-queue-recovery-acceptance.md)
+now covers the concurrent-loop boundary with small disposable queue limits,
 the real agent, HTTP API, PostgreSQL and Reader projection.
 
 Require deferred native bytes to survive capacity pressure, existing identities

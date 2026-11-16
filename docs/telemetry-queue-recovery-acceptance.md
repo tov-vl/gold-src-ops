@@ -3,8 +3,8 @@
 This isolated slice extends the [accepted telemetry harness](native-telemetry-acceptance.md)
 to run the real import and delivery loops together. It preserves the current
 producer, spool/HTTP contracts, worker code, retry limits and dead-letter policy.
-Local verification passed on 2026-11-16; remote publication/full CI and
-independently downloaded evidence remain separate gates.
+Accepted through [PR #559](https://github.com/tov-vl/gold-src-ops/pull/559), full
+PR/main CI and independent downloaded-artifact acceptance on 2026-11-16.
 
 ## Existing Coverage And Missing Boundary
 
@@ -96,5 +96,36 @@ trailing-comma preferences conflict with enabled MA0007, and the explicit
 severities or suppressions changed. Inspection covered the changed test project;
 the unchanged API/agent references were used as built assemblies.
 
-Hosted CI, artifact download verification and publication have not been
-performed for this slice. No production rollout or stable promotion is claimed.
+Hosted acceptance is recorded below. No production rollout or stable promotion
+is claimed.
+
+## Hosted Acceptance
+
+| Stage | Exact source | Full CI |
+| --- | --- | --- |
+| PR #559 | `a3d2e02` | [Run 43897559501](https://github.com/tov-vl/gold-src-ops/actions/runs/43897559501) |
+| Post-merge main | `e6babbf` | [Run 43901851385](https://github.com/tov-vl/gold-src-ops/actions/runs/43901851385) |
+
+Both first-attempt full runs passed Quality Gate, native compilation, client
+policy, browser and Container Smoke, including the original telemetry cases and
+the explicit queue recovery step. No manual rerun or protection bypass was used.
+
+Independently downloaded fixture and engine ZIPs matched their provider SHA-256
+digests. Each retained set passed source/fixture/lock verification, 26 native
+cases / 55 markers, five precise native failure controls and owned cleanup.
+The baseline producer bridge and original three HTTP-delivery cases remained
+accepted. Queue receipts matched all three native input hashes and every
+committed acceptance source-file hash.
+
+Each queue run proved capacity two with two queued records and one unchanged
+deferred record, retained identity/payload/sequence after restart, three accepted
+inbox rows and a matching Reader projection. A separate server/source delivered
+two other records while retaining one conflict with a single attempt. The
+conflict remained unchanged after new import/delivery cycles completed, with
+no automatic replay. Five rows were persisted across the two synthetic servers.
+
+Separate independent local replays of both runs' downloaded native inputs also
+passed in fresh disposable databases with new identities. API/agent/harness
+assembly digests are recorded by CI; executable DLLs are outside the diagnostic
+archives, so this is not an independently verified executable release. Archive
+observation, production behavior and the human gameplay pilot remain separate.
