@@ -1,8 +1,9 @@
 # Automated Multiplayer Technical Acceptance
 
-Locally verified on 2026-11-16 against the source following PR #550. This is an
-isolated engine-test extension. No hosted CI, publication, deployment or
-real-player pilot is claimed by this record.
+Accepted on 2026-11-16 through PR #551 after full required PR/main CI and
+independent verification of both downloaded fixture and engine-evidence artifacts.
+This closes isolated technical acceptance. The human gameplay pilot remains
+separate.
 
 ## Coverage Audit
 
@@ -103,13 +104,38 @@ failure and corrected-run evidence are retained; no product fix was needed.
 
 Documentation/link checks and diff review cover the local changes. The scope
 resolver selects full CI rather than a documentation or addon-only fast path.
-Hosted CI remains unrun for this local working tree. No C# or .NET behavior
-changed; the full local .NET gate and InspectCode were not run. The existing CI
-invocation will execute the expanded suite when this change is published. The
-workflow retains the new negative run's evidence alongside the existing three
+Full required CI executed the .NET restore/audit, format, build, test, vulnerable
+package report, browser and container checks. No C# or .NET behavior changed; the
+unchanged full local .NET gate was not repeated and InspectCode was inapplicable.
+The workflow retains the new negative run's evidence alongside the existing three
 directories. No image pin, production setting or addon version changed here.
 
 This proves bounded interactions between synthetic entities in the real engine.
 It does not establish human network input/rendering, encounter frequency,
 spawn-camping resistance, player enjoyment, busy-server balance or retention.
 The two-human pilot remains separate; successful automation does not close it.
+
+## Hosted Delivery Evidence
+
+[PR #551](https://github.com/tov-vl/gold-src-ops/pull/551) accepted head `7b45d8b6bdff8b6a1968934303bd73723d58c4c3`
+as main revision `ef21fce2ed924cce8e58f06688f96cb26309115f` after green required
+checks and CLEAN/MERGEABLE. No protection bypass or workflow rerun was used.
+
+| Evidence | PR | Post-merge main |
+| --- | --- | --- |
+| Full CI | [Passed](https://github.com/tov-vl/gold-src-ops/actions/runs/43830943308) | [Passed](https://github.com/tov-vl/gold-src-ops/actions/runs/43833350726) |
+| Positive engine suite | 22 cases / 42 markers, 153.343 s | 22 cases / 42 markers, 154.973 s |
+| Three precise negative assertions | Rejected | Rejected |
+| Ten compiled payloads and source/policy binding | Verified | Verified |
+| Owned-container cleanup | Passed | Passed |
+
+Both compiled and engine-evidence ZIPs were independently downloaded. Payload
+hashes, pinned toolchain, exact source identities, all 42 markers, all three
+precise negative assertions and cleanup were verified. Each engine result matched
+the source-bound compiled manifest and lock from its own run. The successful
+runs had no nonempty AMXX error log. Evidence from the disabled protection run
+is retained for seven days with the other results; the CI contract now rejects
+omission of this directory.
+
+No game-server update, addon publication, application tag, Archive change or
+real-client/human gameplay acceptance was performed by this delivery.
