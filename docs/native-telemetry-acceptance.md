@@ -3,8 +3,9 @@
 This repository-only slice joins previously separate native producer, agent,
 PostgreSQL inbox and Reader checks. Local acceptance uses the three verified
 natural objective records from the preceding engine acceptance. Full CI must
-produce and accept its own engine records before running this check. Publication
-and remote CI acceptance remain pending.
+produce and accept its own engine records before running this check. Accepted
+through [PR #557](https://github.com/tov-vl/gold-src-ops/pull/557), full PR/main CI
+and independent downloaded-artifact verification on 2026-11-16.
 
 ## Executed Boundary
 
@@ -90,14 +91,47 @@ trailing-comma preferences conflict with the enabled MA0007 rule, and the
 explicit `ConcurrentQueue.ToArray()` keeps the observation snapshot operation
 visible. No severity, suppression or inspection settings were changed. The
 API and agent references were inspected as built assemblies; production source
-was not changed. Full remote CI and independently downloaded acceptance
-artifacts remain the next gate.
+was not changed. Hosted acceptance and independent downloaded-artifact
+verification are recorded below.
 
 Full Container Smoke executes the check after native engine acceptance and
 retains `gameplay-engine/telemetry-contract/` with the existing seven-day engine
 artifact, including on failure. Docs-only, stable-promotion and addon-only paths
 do not run the .NET telemetry harness. The fast-path smoke checks this boundary,
 the required timeout, fixture input and diagnostic retention.
+
+## Hosted Acceptance
+
+| Stage | Exact source | Full CI |
+| --- | --- | --- |
+| PR #557 | `11e2eed` | [Run 43874687617](https://github.com/tov-vl/gold-src-ops/actions/runs/43874687617) |
+| Post-merge main | `e4267ab` | [Run 43878593103](https://github.com/tov-vl/gold-src-ops/actions/runs/43878593103) |
+
+Both complete runs passed Change Scope, Quality Gate, Map Menu Compile, Client
+Lab Policy, Container Smoke and Browser Smoke on their first attempt. The full
+telemetry step executed in each run; no manual rerun or protection bypass was
+used.
+
+Independently downloaded fixture and engine ZIPs matched their provider SHA-256
+digests. Each accepted set contained thirteen compiled fixtures, 26 native
+scenarios / 55 markers, all five precise failure controls, three natural round
+records and successful owned-container cleanup. The existing offline bridge
+still imported ten baseline records and rejected five malformed controls.
+
+Each telemetry receipt matched its own run's native byte hashes, fixture/lock
+identities and ten exact committed source-file hashes. Ordinary delivery,
+lost acknowledgement and unavailable/restarted delivery preserved identity and
+payload, produced one inbox row per native input, drained the queues and matched
+the Reader projection. Their ordinary status sequences were `202`, `202 -> 200`
+and `503 -> 202`.
+
+An additional independent execution of each run's downloaded native inputs
+passed in a fresh local PostgreSQL database with new event/source identities.
+It verified real agent delivery, API persistence and Reader HTTP results again.
+The receipt records API/agent/harness assembly hashes, but executable DLLs are
+outside the retained diagnostic archives; no independently verified executable
+release is claimed. Archive observation and human gameplay acceptance remain
+separate.
 
 No shipped producer, schema, application contract, production identity, running
 service, client laptop, Archive schedule or observation state changes. No release
