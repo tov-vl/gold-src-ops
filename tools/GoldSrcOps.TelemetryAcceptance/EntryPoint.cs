@@ -18,8 +18,8 @@ internal static class EntryPoint
 
     public static async Task<int> Main(string[] args)
     {
-        Require(args.Length == 5 || (args.Length == 6 && string.Equals(args[5], "queue-recovery", StringComparison.Ordinal)),
-            "Expected repository, agent, inputs, scratch and result paths, optionally queue-recovery.");
+        Require(args.Length == 5 || (args.Length == 6 && (string.Equals(args[5], "queue-recovery", StringComparison.Ordinal) || string.Equals(args[5], "server-isolation", StringComparison.Ordinal))),
+            "Expected repository, agent, inputs, scratch and result paths, optionally queue-recovery or server-isolation.");
         var repository = Path.GetFullPath(args[0]);
         var agent = Path.GetFullPath(args[1]);
         var inputs = Path.GetFullPath(args[2]);
@@ -72,13 +72,24 @@ internal static class EntryPoint
         var secret = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var proxy = await FaultProxy.StartAsync(api, server.Id, writerToken, secret).ConfigureAwait(false);
         await using var proxyLifetime = proxy.ConfigureAwait(false);
-        if (args.Length == 6)
+        switch (args.Length == 6 ? args[5] : null)
         {
-            var acceptance = new QueueRecoveryAcceptance(factory, api, readerToken, agent, inputs, scratch, secret);
-            var result = await acceptance.RunAsync(server.Id, proxy).ConfigureAwait(false);
-            await WriteResultAsync(resultPath, result).ConfigureAwait(false);
-            Console.WriteLine("NATIVE_TELEMETRY_QUEUE_RECOVERY=passed scenarios=3 rows=5");
-            return 0;
+            case "server-isolation":
+                {
+                    var isolation = new ServerIsolationAcceptance(factory, api, readerToken, agent, inputs, scratch);
+                    var result = await isolation.RunAsync(server.Id, proxy, secret, writerToken).ConfigureAwait(false);
+                    await WriteResultAsync(resultPath, result).ConfigureAwait(false);
+                    Console.WriteLine("NATIVE_TELEMETRY_SERVER_ISOLATION=passed scenarios=4 rows=6");
+                    return 0;
+                }
+            case "queue-recovery":
+                {
+                    var acceptance = new QueueRecoveryAcceptance(factory, api, readerToken, agent, inputs, scratch, secret);
+                    var result = await acceptance.RunAsync(server.Id, proxy).ConfigureAwait(false);
+                    await WriteResultAsync(resultPath, result).ConfigureAwait(false);
+                    Console.WriteLine("NATIVE_TELEMETRY_QUEUE_RECOVERY=passed scenarios=3 rows=5");
+                    return 0;
+                }
         }
         var results = new List<object>();
         var cases = new[] { "ordinary", "lost-ack", "unavailable-restart" };

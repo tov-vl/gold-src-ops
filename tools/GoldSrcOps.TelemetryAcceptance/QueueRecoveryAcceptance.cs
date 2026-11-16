@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Text.Json;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,7 +6,6 @@ namespace GoldSrcOps.TelemetryAcceptance;
 
 internal sealed class QueueRecoveryAcceptance
 {
-    private static readonly string[] SpoolDirectories = ["incoming", "processing", "accepted", "rejected"];
     private readonly AcceptanceApi _factory;
     private readonly HttpClient _api;
     private readonly string _readerToken;
@@ -25,7 +23,7 @@ internal sealed class QueueRecoveryAcceptance
         _agent = agent;
         _scratch = scratch;
         _secret = secret;
-        _native = [ReadInput(inputs, "ordinary"), ReadInput(inputs, "lost-ack"), ReadInput(inputs, "unavailable-restart")];
+        _native = [AcceptanceFiles.ReadInput(inputs, "ordinary"), AcceptanceFiles.ReadInput(inputs, "lost-ack"), AcceptanceFiles.ReadInput(inputs, "unavailable-restart")];
         EntryPoint.Require(_native.Select(static item => item.RecordId).Distinct().Take(4).Count() == 3 &&
             _native.Select(static item => item.OccurredAtUtc).Distinct().Take(4).Count() == 3, "Native objective identities or times are not distinct.");
     }
@@ -47,7 +45,8 @@ internal sealed class QueueRecoveryAcceptance
 
     private async Task<(object Full, object Drained)> VerifyCapacityAsync(Guid serverId, FaultProxy proxy)
     {
-        var directory = await InitializeAsync("capacity", serverId, proxy).ConfigureAwait(false);
+        var directory = Path.Combine(_scratch, "capacity");
+        await AcceptanceFiles.PrepareAsync(_agent, directory, serverId, proxy, _secret, _native).ConfigureAwait(false);
         var initial = AgentProcess.ReadSnapshot(directory);
         proxy.Mode = DeliveryMode.Unavailable;
         QueueSnapshot? full = null;
@@ -58,8 +57,8 @@ internal sealed class QueueRecoveryAcceptance
             await EntryPoint.WaitAsync(() =>
             {
                 var snapshot = Observe(directory, initial.Source, capacity: 2, ref maximumObservedDepth);
-                var cycles = ReadCycles(directory);
-                if (snapshot.Entries.Count != 2 || snapshot.SpoolReceipts != 0 || SpoolFiles(directory).Length != 1 ||
+                var cycles = AcceptanceFiles.ReadCycles(directory);
+                if (snapshot.Entries.Count != 2 || snapshot.SpoolReceipts != 0 || AcceptanceFiles.SpoolFiles(directory).Length != 1 ||
                     cycles is not { ImportOutcome: "blocked", BothCompleted: true } || !proxy.Observations.Any(static item => item.Status == 503))
                 {
                     return false;
@@ -74,7 +73,7 @@ internal sealed class QueueRecoveryAcceptance
         EntryPoint.Require(full is not null && retained.NextSequence == 3 &&
             retained.Entries.Select(static item => item.Identity).SequenceEqual(full.Entries.Select(static item => item.Identity)),
             "Stopping the full queue changed its identities or consumed another sequence.");
-        var deferred = SpoolFiles(directory).Single();
+        var deferred = AcceptanceFiles.SpoolFiles(directory).Single();
         EntryPoint.Require(new FileInfo(deferred).Length <= 4096, "Deferred record exceeds native byte bound.");
         var deferredBytes = await File.ReadAllBytesAsync(deferred, CancellationToken.None).ConfigureAwait(false);
         var deferredHash = Convert.ToHexString(SHA256.HashData(deferredBytes));
@@ -82,7 +81,7 @@ internal sealed class QueueRecoveryAcceptance
             "Deferred spool bytes differ from native input.");
         var beforeRows = await _factory.DatabaseAsync(context => context.GameEventInbox.CountAsync(CancellationToken.None)).ConfigureAwait(false);
         EntryPoint.Require(beforeRows == 0 && proxy.Observations.All(static item => item.Status == 503), "Unavailable delivery reached persistence.");
-        var previousCycles = ReadCycles(directory) ?? throw new InvalidOperationException("Missing worker cycles.");
+        var previousCycles = AcceptanceFiles.ReadCycles(directory) ?? throw new InvalidOperationException("Missing worker cycles.");
         object fullResult = new
         {
             scenario = "bounded-capacity",
@@ -105,8 +104,8 @@ internal sealed class QueueRecoveryAcceptance
             await EntryPoint.WaitAsync(() =>
             {
                 var snapshot = Observe(directory, initial.Source, capacity: 2, ref maximumObservedDepth);
-                return snapshot is { Entries.Count: 0, SpoolReceipts: 0, NextSequence: 4 } && SpoolFiles(directory).Length == 0 &&
-                    ReadCycles(directory) is { ImportOutcome: "idle", DeliveryOutcome: "idle", BothCompleted: true } cycles &&
+                return snapshot is { Entries.Count: 0, SpoolReceipts: 0, NextSequence: 4 } && AcceptanceFiles.SpoolFiles(directory).Length == 0 &&
+                    AcceptanceFiles.ReadCycles(directory) is { ImportOutcome: "idle", DeliveryOutcome: "idle", BothCompleted: true } cycles &&
                     cycles.StartedAtUtc != previousCycles.StartedAtUtc;
             }, restarted).ConfigureAwait(false);
         }
@@ -139,7 +138,7 @@ internal sealed class QueueRecoveryAcceptance
             spoolDrained = true,
             persistedRows = 3,
             readerProjection = "matched",
-            restartedCycles = ReadCycles(directory),
+            restartedCycles = AcceptanceFiles.ReadCycles(directory),
             accepted,
         };
         return (fullResult, drainedResult);
@@ -158,7 +157,8 @@ internal sealed class QueueRecoveryAcceptance
         var proxy = await FaultProxy.StartAsync(_api, server.Id, _factory.Token(server.Id, reader: false), _secret,
             rejectedOccurrence: _native[0].OccurredAtUtc).ConfigureAwait(false);
         await using var proxyLifetime = proxy.ConfigureAwait(false);
-        var directory = await InitializeAsync("dead-letter", server.Id, proxy).ConfigureAwait(false);
+        var directory = Path.Combine(_scratch, "dead-letter");
+        await AcceptanceFiles.PrepareAsync(_agent, directory, server.Id, proxy, _secret, _native).ConfigureAwait(false);
         var initial = AgentProcess.ReadSnapshot(directory);
         var maximumObservedDepth = 0;
         var worker = AgentProcess.StartCombined(_agent, directory, server.Id, proxy.Address, capacity: 3);
@@ -168,13 +168,13 @@ internal sealed class QueueRecoveryAcceptance
             {
                 var snapshot = Observe(directory, initial.Source, capacity: 3, ref maximumObservedDepth);
                 return snapshot is { Entries: [{ Status: 2, Attempts: 1, Failure: "conflict" }], SpoolReceipts: 0, NextSequence: 4 } &&
-                    SpoolFiles(directory).Length == 0 &&
-                    ReadCycles(directory) is { ImportOutcome: "idle", DeliveryOutcome: "idle", BothCompleted: true };
+                    AcceptanceFiles.SpoolFiles(directory).Length == 0 &&
+                    AcceptanceFiles.ReadCycles(directory) is { ImportOutcome: "idle", DeliveryOutcome: "idle", BothCompleted: true };
             }, worker).ConfigureAwait(false);
         }
 
         var retained = AgentProcess.ReadSnapshot(directory);
-        var previousCycles = ReadCycles(directory) ?? throw new InvalidOperationException("Missing worker cycles.");
+        var previousCycles = AcceptanceFiles.ReadCycles(directory) ?? throw new InvalidOperationException("Missing worker cycles.");
         var rejected = proxy.Observations.Single(static item => item.Status == 409);
         EntryPoint.Require(string.Equals(retained.Entries[0].Identity.PayloadSha256, rejected.PayloadSha256, StringComparison.Ordinal),
             "Dead-letter evidence lost the rejected bytes.");
@@ -183,7 +183,7 @@ internal sealed class QueueRecoveryAcceptance
         await using (restarted.ConfigureAwait(false))
         {
             await EntryPoint.WaitAsync(() =>
-                ReadCycles(directory) is { ImportOutcome: "idle", DeliveryOutcome: "idle", BothCompleted: true } cycles &&
+                AcceptanceFiles.ReadCycles(directory) is { ImportOutcome: "idle", DeliveryOutcome: "idle", BothCompleted: true } cycles &&
                 cycles.StartedAtUtc != previousCycles.StartedAtUtc, restarted).ConfigureAwait(false);
         }
 
@@ -209,40 +209,11 @@ internal sealed class QueueRecoveryAcceptance
             deadLetterRetainedAcrossRestart = true,
             automaticReplay = false,
             previousCycles,
-            restartedCycles = ReadCycles(directory),
+            restartedCycles = AcceptanceFiles.ReadCycles(directory),
             readerProjection = "matched",
             rejected,
             accepted,
         };
-    }
-
-    private async Task<string> InitializeAsync(string name, Guid serverId, FaultProxy proxy)
-    {
-        var directory = Path.Combine(_scratch, name);
-        EntryPoint.Require(!Directory.Exists(directory), "Scenario directory must be fresh.");
-        Directory.CreateDirectory(directory);
-        var secretPath = Path.Combine(directory, "oauth-secret");
-        await File.WriteAllTextAsync(secretPath, _secret, CancellationToken.None).ConfigureAwait(false);
-        if (!OperatingSystem.IsWindows())
-        {
-            File.SetUnixFileMode(secretPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-        }
-
-        var initialize = AgentProcess.Start(_agent, directory, serverId, proxy.Address, delivery: false, "initialize-queue", "--fresh");
-        await using (initialize.ConfigureAwait(false))
-        {
-            await initialize.CompleteAsync().ConfigureAwait(false);
-        }
-
-        var incoming = Path.Combine(directory, "spool", "incoming");
-        Directory.CreateDirectory(incoming);
-        foreach (var input in _native)
-        {
-            await File.WriteAllBytesAsync(Path.Combine(incoming, input.RecordId.ToString("D") + ".json"), input.Bytes,
-                CancellationToken.None).ConfigureAwait(false);
-        }
-
-        return directory;
     }
 
     private async Task VerifyDeliveredAsync(Guid serverId, string source, DeliveryObservation[] observations, int expectedCount)
@@ -272,47 +243,5 @@ internal sealed class QueueRecoveryAcceptance
         EntryPoint.Require(snapshot.Entries.Count <= capacity && string.Equals(snapshot.Source, source, StringComparison.Ordinal) && snapshot.NextSequence is >= 1 and <= 4,
             "Queue capacity or source/sequence boundary was violated.");
         return snapshot;
-    }
-
-    private static string[] SpoolFiles(string directory)
-    {
-        var directories = SpoolDirectories.Select(name => Path.Combine(directory, "spool", name)).Where(Directory.Exists);
-        return [.. directories.SelectMany(Directory.GetFiles)];
-    }
-
-    private static WorkerCycles? ReadCycles(string directory)
-    {
-        try
-        {
-            using var stream = new FileStream(Path.Combine(directory, "queue.db.health.json"), FileMode.Open, FileAccess.Read,
-                FileShare.ReadWrite | FileShare.Delete);
-            EntryPoint.Require(stream.Length is > 0 and <= 16 * 1024, "Worker cycle record exceeds bound.");
-            using var document = JsonDocument.Parse(stream);
-            var root = document.RootElement;
-            EntryPoint.Require(root.GetProperty("schemaVersion").GetInt32() == 1 && root.GetProperty("importEnabled").GetBoolean() &&
-                root.GetProperty("deliveryEnabled").GetBoolean(), "Both real worker loops must be enabled.");
-            var started = root.GetProperty("startedAtUtc").GetDateTimeOffset();
-            var import = root.GetProperty("import");
-            var delivery = root.GetProperty("delivery");
-            var complete = import.GetProperty("lastCompletedAtUtc");
-            var delivered = delivery.GetProperty("lastCompletedAtUtc");
-            var importTime = complete.ValueKind == JsonValueKind.Null ? (DateTimeOffset?)null : complete.GetDateTimeOffset();
-            var deliveryTime = delivered.ValueKind == JsonValueKind.Null ? (DateTimeOffset?)null : delivered.GetDateTimeOffset();
-            return new WorkerCycles(started, import.GetProperty("outcome").GetString(), delivery.GetProperty("outcome").GetString(),
-                importTime, deliveryTime);
-        }
-        catch (FileNotFoundException)
-        {
-            return null;
-        }
-    }
-
-    private static NativeInput ReadInput(string directory, string name)
-    {
-        var bytes = File.ReadAllBytes(Path.Combine(directory, name + ".json"));
-        EntryPoint.Require(bytes.Length is > 0 and <= 4096, "Native input exceeds bound.");
-        using var document = JsonDocument.Parse(bytes);
-        return new NativeInput(name, document.RootElement.GetProperty("recordId").GetGuid(), bytes,
-            Convert.ToHexString(SHA256.HashData(bytes)), document.RootElement.GetProperty("event").Clone());
     }
 }
