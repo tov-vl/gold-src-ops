@@ -43,7 +43,7 @@ finish() {
 trap finish EXIT
 
 run_case() {
-    local command="$2" marker="$3" map="$4" log="/evidence/$2.log" plugin
+    local command="$2" marker="$3" map="$4" deadline="$5" log="/evidence/$2.log" plugin
     local -a plugins
     IFS=',' read -r -a plugins <<< "$1"
     : > cstrike/addons/amxmodx/configs/plugins.ini
@@ -52,11 +52,17 @@ run_case() {
         chown steam:steam "cstrike/addons/amxmodx/plugins/$plugin.amxx"
         printf '%s.amxx\n' "$plugin" >> cstrike/addons/amxmodx/configs/plugins.ini
     done
-    runuser -u steam -- timeout --signal=TERM --kill-after=3 45 ./hlds_run -norestart -insecure -game cstrike -strictportbind +ip 127.0.0.1 -port 27025 +map "$map" +servercfgfile server.cfg -maxplayers 8 <&3 > "$log" 2>&1 &
+    [[ "$deadline" =~ ^[0-9]+$ && "$deadline" -ge 20 && "$deadline" -le 210 ]]
+    if [[ "$command" == goldsrcops_bomb_* || "$command" == goldsrcops_round_timeout ]]; then
+        sed -i 's/mp_round_infinite 1/mp_round_infinite 0/' cstrike/server.cfg
+    else
+        sed -i 's/mp_round_infinite 0/mp_round_infinite 1/' cstrike/server.cfg
+    fi
+    runuser -u steam -- timeout --signal=TERM --kill-after=3 "$deadline" ./hlds_run -norestart -insecure -game cstrike -strictportbind +ip 127.0.0.1 -port 27025 +map "$map" +servercfgfile server.cfg -maxplayers 8 <&3 > "$log" 2>&1 &
     pid=$!
     sleep 5
     printf '%s\n' "$command" >&3
-    for ((attempt=0; attempt<25; attempt++)); do
+    for ((attempt=0; attempt<deadline-10; attempt++)); do
         if grep -q "$marker" "$log"; then break; fi
         kill -0 "$pid" 2>/dev/null || break
         sleep 1
@@ -64,6 +70,19 @@ run_case() {
     printf 'quit\n' >&3
     wait "$pid"
     pid=
+    if [[ "$command" == goldsrcops_bomb_* || "$command" == goldsrcops_round_timeout ]]; then
+        local record filename original="cstrike/addons/amxmodx/data/round-objectives/$command"
+        mkdir -p "/evidence/round-records/$command"
+        : > "/evidence/round-records/$command.tsv"
+        for record in "$original"/*.json; do
+            [[ -e "$record" ]] || continue
+            filename="${record##*/}"
+            [[ "$filename" =~ ^[0-9a-f-]{36}\.json$ && ! -L "$record" && "$(stat -c %a "$record")" == 600 && "$(stat -c %h "$record")" == 1 ]]
+            install -m 0644 "$record" "/evidence/round-records/$command/$filename"
+            cmp "$record" "/evidence/round-records/$command/$filename"
+            printf '%s\t%s\t%s\n' "$filename" "$(stat -c %s "$record")" "$(sha256sum "$record" | cut -d ' ' -f 1)" >> "/evidence/round-records/$command.tsv"
+        done
+    fi
     if [[ "$command" == goldsrcops_producer_smoke || "$command" == goldsrcops_producer_disabled ]]; then
         local producer_root=cstrike/addons/amxmodx/data/producer-engine-smoke label filename players bots source
         mkdir /evidence/producer-records
@@ -85,7 +104,7 @@ run_case() {
     grep -E 'SMOKE=|SEED=|RELOAD=|PLAYER_LOOKUP_(LOAD|TIMING)[= ]' "$log"
 }
 
-while IFS=$'\t' read -r plugin command marker map; do
-    run_case "$plugin" "$command" "$marker" "$map"
+while IFS=$'\t' read -r plugin command marker map deadline; do
+    run_case "$plugin" "$command" "$marker" "$map" "$deadline"
 done < /inputs/cases.tsv
 echo PLAYER_PREFERENCES_RUNTIME=passed

@@ -234,6 +234,7 @@ jobs:
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -PlayerMenuFixture
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -PlayerPreferencesFixture
           ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -EngineFailureFixture
+          ./tools/smoke/amxx-weapon-selection.ps1 -CacheDirectory $cache -RoundObjectivesFixture
           ./tools/smoke/amxx-game-event-producer.ps1 -CacheDirectory $cache -RuntimeFixture -Offline
           ./tools/smoke/weapon-selection-package.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'weapon-addon') -Target game-host-addon
           ./tools/smoke/weapon-selection-package.ps1 -CacheDirectory $cache -OutputDirectory (Join-Path $env:RUNNER_TEMP 'weapon-lookup-addon') -Target game-host-addon -EnablePlayerLookup
@@ -450,6 +451,7 @@ jobs:
             ${{ runner.temp }}/gameplay-engine/negative-map-provider/evidence/
             ${{ runner.temp }}/gameplay-engine/negative-spawn-protection/evidence/
             ${{ runner.temp }}/gameplay-engine/negative-producer/evidence/
+            ${{ runner.temp }}/gameplay-engine/negative-objective/evidence/
             ${{ runner.temp }}/gameplay-engine/producer-contract/
             ${{ runner.temp }}/gameplay-engine/positive/evidence/
           if-no-files-found: warn

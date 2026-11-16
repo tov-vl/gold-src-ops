@@ -350,6 +350,8 @@ Assert-Condition -Condition ($diagnostics.Body -match 'retention-days: 7') -Mess
 Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/negative-map-provider/evidence/')) -Message "Missing-provider failure evidence must be retained."
 Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/negative-spawn-protection/evidence/')) -Message "Disabled-protection failure evidence must be retained."
 Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/negative-producer/evidence/')) -Message "Disabled-producer failure evidence must be retained."
+Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/negative-objective/evidence/')) -Message "Blocked-objective failure evidence must be retained."
+Assert-Condition -Condition ($compileJob.Contains('-RoundObjectivesFixture')) -Message "Natural objective fixture must be compiled."
 Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/producer-contract/')) -Message "Native producer/agent contract evidence must be retained."
 Assert-Condition -Condition ($containerJob -notmatch 'needs\.quality|(?m)^      - quality$') -Message "Container Smoke must run independently of Quality Gate."
 # Parallel execution must not turn successful container checks into permission

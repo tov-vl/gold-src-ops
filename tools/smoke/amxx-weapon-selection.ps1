@@ -15,12 +15,14 @@ param(
 
     [switch]$PlayerPreferencesFixture,
 
-    [switch]$EngineFailureFixture
+    [switch]$EngineFailureFixture,
+
+    [switch]$RoundObjectivesFixture
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-if (@($RuntimeFixture, $MapStatsFixture, $PersistentStatsFixture, $PlayerMenuFixture, $PlayerPreferencesFixture, $EngineFailureFixture | Where-Object { $_ }).Count -gt 1) {
+if (@($RuntimeFixture, $MapStatsFixture, $PersistentStatsFixture, $PlayerMenuFixture, $PlayerPreferencesFixture, $EngineFailureFixture, $RoundObjectivesFixture | Where-Object { $_ }).Count -gt 1) {
     throw "Choose only one runtime fixture."
 }
 
@@ -63,6 +65,11 @@ if ($PlayerPreferencesFixture) {
 if ($EngineFailureFixture) {
     $source = Join-Path $PSScriptRoot "amxx-engine-failure.sma"
     $output = Join-Path $CacheDirectory "output/engine_failure_smoke.amxx"
+}
+
+if ($RoundObjectivesFixture) {
+    $source = Join-Path $PSScriptRoot "amxx-round-objectives.sma"
+    $output = Join-Path $CacheDirectory "output/round_objectives_smoke.amxx"
 }
 
 & $compiler $source "-i$amxxIncludes" "-i$reApiIncludes" "-i$productIncludes" "-o$output" -E
