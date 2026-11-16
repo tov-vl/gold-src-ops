@@ -287,8 +287,8 @@ not expose a portable filesystem sync primitive, so buffered flush and close
 prove complete-file process handoff but not survival across host power loss.
 
 The [native producer acceptance](round-ended-producer-engine-acceptance.md)
-adds local engine evidence for actual round hooks, roster snapshots, deduplication
-and spool failure boundaries. Its real ready files are also accepted through
+adds local and hosted engine evidence for actual round hooks, roster snapshots,
+deduplication and spool failure boundaries. Its real ready files are accepted through
 the unchanged agent importer. Bot-only publication semantics remain unchanged;
 this is separate from human activity analysis and production acceptance.
 
