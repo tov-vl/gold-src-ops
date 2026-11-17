@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "amxx": {
+    "repository": "amxmodx",
+    "revision": "eaab23f0068b34e295987486ed5ca89408326271",
+    "sha256": "2cfe8f9e99abe54d6e7d625f85dfc8931d50c30b83f1ed9f9a81d0427ca5be72"
+  },
+  "amtl": {
+    "repository": "amtl",
+    "revision": "bee3fc51a95a6aab4143779316353ed64531fbf3",
+    "sha256": "b73d79bf0eb0f1f2eb22b7e25b2b5f61450470891c2a39303375ed49702e08ad"
+  },
+  "compilerPackages": {
+    "g++-8": "8.3.0-6",
+    "g++-multilib": "4:8.3.0-1",
+    "binutils": "2.31.1-16"
+  },
+  "amxxInterface": 4,
+  "processContract": 1,
+  "target": "linux-i386",
+  "upstreamRebuildSha256": "b31e46e93cc08e317c6788f90b9a9a852897291e4ee87278711b2235a085dd2c",
+  "upstreamRebuildOptions": "static-libstdc++ static-libgcc _FILE_OFFSET_BITS=64; initial dynamic-runtime and stat32 ABI gates retained separately"
+}

@@ -9,6 +9,9 @@ cp -a /hlds/. /server/
 cp -a /inputs/rehlds/bin/linux32/. /server/
 cp -a /inputs/regamedll/bin/linux32/cstrike/. /server/cstrike/
 cp -a /inputs/amxx/. /server/cstrike/
+if [[ -f /inputs/nvault_amxx_i386.so ]]; then
+    cp /inputs/nvault_amxx_i386.so /server/cstrike/addons/amxmodx/modules/nvault_amxx_i386.so
+fi
 cp -a /inputs/cstrike/. /server/cstrike/
 cp -a /inputs/metamod/addons/. /server/cstrike/addons/
 cp -a /inputs/reapi/addons/. /server/cstrike/addons/
@@ -43,7 +46,8 @@ finish() {
 trap finish EXIT
 
 run_case() {
-    local command="$2" marker="$3" map="$4" deadline="$5" log="/evidence/$2.log" plugin
+    local command="$2" marker="$3" map="$4" deadline="$5" log="/evidence/$2.log" plugin slots=8
+    if [[ "$command" == goldsrcops_storage_* ]]; then slots=32; fi
     local -a plugins
     IFS=',' read -r -a plugins <<< "$1"
     : > cstrike/addons/amxmodx/configs/plugins.ini
@@ -58,7 +62,7 @@ run_case() {
     else
         sed -i 's/mp_round_infinite 0/mp_round_infinite 1/' cstrike/server.cfg
     fi
-    runuser -u steam -- timeout --signal=TERM --kill-after=3 "$deadline" ./hlds_run -norestart -insecure -game cstrike -strictportbind +ip 127.0.0.1 -port 27025 +map "$map" +servercfgfile server.cfg -maxplayers 8 <&3 > "$log" 2>&1 &
+    runuser -u steam -- timeout --signal=TERM --kill-after=3 "$deadline" ./hlds_run -norestart -insecure -game cstrike -strictportbind +ip 127.0.0.1 -port 27025 +map "$map" +servercfgfile server.cfg -maxplayers "$slots" <&3 > "$log" 2>&1 &
     pid=$!
     sleep 5
     printf '%s\n' "$command" >&3
@@ -101,7 +105,7 @@ run_case() {
     grep -Eq "^${marker}=passed( [^[:space:]]+)* failures=0( |$)" "$log"
     if grep -Eq 'ASSERTION_FAILED|Run time error|Load fails|bad load|ML_NOTFOUND|failures=[1-9][0-9]*' "$log"; then return 1; fi
     [[ -z "$(find cstrike/addons/amxmodx/logs -name 'error_*.log' -type f -size +0c -print -quit)" ]]
-    grep -E 'SMOKE=|SEED=|RELOAD=|PLAYER_LOOKUP_(LOAD|TIMING)[= ]' "$log"
+    grep -E 'SMOKE=|SEED=|RELOAD=|PLAYER_LOOKUP_(LOAD|TIMING)[= ]|PROCESS_STORAGE_(BENCHMARK|FAILURE|TIMING)[= ]' "$log"
 }
 
 while IFS=$'\t' read -r plugin command marker map deadline; do

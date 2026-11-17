@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -19,6 +20,33 @@ LOCK = Path(__file__).with_name('engine-ci-lock.json')
 ERROR = re.compile(r'ASSERTION_FAILED|Run time error|Load fails|bad load|ML_NOTFOUND|failures=[1-9][0-9]*')
 FINAL = 'PLAYER_PREFERENCES_RUNTIME=passed'
 OBJECTIVES = {'goldsrcops_bomb_explode', 'goldsrcops_bomb_defuse', 'goldsrcops_round_timeout'}
+CRASH_CASES = [dict(plugin='player_data_crash_smoke', command=command, map='de_dust2', markers=[marker])
+               for command, marker in [('goldsrcops_crash_baseline', 'PLAYER_DATA_BASELINE'),
+                                       ('goldsrcops_crash_write', 'PLAYER_DATA_BEFORE_KILL'),
+                                       ('goldsrcops_crash_recover', 'PLAYER_DATA_RECOVERED'),
+                                       ('goldsrcops_crash_reopen', 'PLAYER_DATA_REOPENED')]]
+RUNTIME_PATHS = ('tools/smoke/game-player-preferences-runtime.sh', 'tools/smoke/game-player-data-crash-runtime.sh',
+                 'tools/smoke/game-map-menu-runtime.sh', 'ops/gameserver/managed-profile.sh',
+                 'ops/gameserver/fast-reentry-loadout-v1.cfg',
+                 'samples/amxmodx-weapon-selection/goldsrcops-player-menu.txt',
+                 'samples/amxmodx-map-menu/goldsrcops-map-menu.txt')
+PROCESS_CASES = [dict(plugin='process_storage_smoke', command='goldsrcops_storage_' + name, map='de_dust2',
+                     markers=['PROCESS_STORAGE_BENCHMARK' if name == 'benchmark' else 'PROCESS_STORAGE_FAILURE'])
+                 for name in ('benchmark', 'fail_stats', 'fail_preferences', 'fail_streak', 'fail_hud', 'fail_name')]
+
+
+def freeze_runtime(directory):
+    snapshot = directory / 'runtime-source'
+    snapshot.mkdir()
+    hashes = {}
+    for path in RUNTIME_PATHS:
+        source, target = ROOT / path, snapshot / path
+        if source.is_symlink():
+            raise ValueError('Linked runtime source is not allowed')
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(source.read_bytes())
+        hashes[path] = digest(target)
+    return snapshot, hashes
 
 
 def digest(path):
@@ -87,6 +115,39 @@ def validate_evidence(evidence, cases):
     if any(path.stat().st_size for path in evidence.glob('error_*.log')):
         raise ValueError('AMXX error log is not empty')
     validate_objective_records(evidence, cases)
+    if any(case['command'] == 'goldsrcops_crash_write' for case in cases):
+        validate_crash_evidence(evidence)
+    if any(case['command'] == 'goldsrcops_storage_benchmark' for case in cases):
+        validate_storage_timing(evidence)
+
+
+def validate_storage_timing(evidence):
+    log = (evidence / 'goldsrcops_storage_benchmark.log').read_text(errors='replace')
+    rows = re.findall(r'^PROCESS_STORAGE_TIMING samples=10000 identities=32 handler_p99_us=([0-9]+) max_us=([0-9]+)$', log, re.M)
+    if len(rows) != 1 or not 0 <= int(rows[0][0]) <= 5000 or not int(rows[0][0]) <= int(rows[0][1]) <= 1000000:
+        raise ValueError('Missing or excessive full-handler wall-time evidence')
+
+
+def validate_crash_evidence(evidence):
+    receipt = evidence / 'process-kill.tsv'
+    if receipt.is_symlink() or receipt.stat().st_size > 32 or receipt.read_text() != '9\t137\n':
+        raise ValueError('Engine must terminate by SIGKILL with exit 137')
+    for case in CRASH_CASES:
+        log = (evidence / (case['command'] + '.log')).read_text(errors='replace')
+        ended = re.findall(r'^PLAYER_DATA_PLUGIN_END=called$', log, re.M)
+        if len(ended) != (0 if case['command'] == 'goldsrcops_crash_write' else 1):
+            raise ValueError('Wrong clean/crash shutdown boundary')
+    for name in ('goldsrcops-player-stats-v1', 'goldsrcops-player-preferences-v1'):
+        baseline = evidence / 'baseline' / (name + '.vault')
+        checkpoint = evidence / 'post-crash' / (name + '.vault')
+        journal = checkpoint.with_suffix('.journal')
+        if baseline.parent.is_symlink() or checkpoint.parent.is_symlink():
+            raise ValueError('Crash snapshots must not use linked directories')
+        for path in (baseline, checkpoint, journal):
+            if path.is_symlink() or not 8 < path.stat().st_size <= 1024*1024:
+                raise ValueError('Missing or unbounded synthetic crash snapshot')
+        if baseline.read_bytes() != checkpoint.read_bytes():
+            raise ValueError('Crash updates must not be in the baseline checkpoint')
 
 
 def validate_objective_records(evidence, cases):
@@ -124,6 +185,8 @@ def validate_objective_records(evidence, cases):
 
 
 FIXTURES = {
+    'process_storage_smoke.amxx': 'tools/smoke/amxx-process-storage.sma',
+    'player_data_crash_smoke.amxx': 'tools/smoke/amxx-player-data-crash.sma',
     'round_objectives_smoke.amxx': 'tools/smoke/amxx-round-objectives.sma',
     'goldsrcops_game_events.amxx': 'samples/amxmodx-game-event-producer/goldsrcops_game_events.sma',
     'game_event_producer_smoke.amxx': 'tools/smoke/amxx-game-event-producer.sma',
@@ -142,6 +205,7 @@ FIXTURES = {
 
 def source_identity():
     paths = list(FIXTURES.values()) + ['samples/amxmodx-weapon-selection/goldsrcops-player-menu.txt',
+                                     'samples/amxmodx-weapon-selection/goldsrcops-process-storage.inc',
                                      'samples/amxmodx-map-menu/goldsrcops-map-menu.txt',
                                      'tools/smoke/amxx-map-menu.ps1',
                                      'tools/smoke/amxx-multiplayer.inc',
@@ -195,7 +259,8 @@ def cases_tsv(cases):
 
 
 def execute(cache, output, compiled, negative=False, missing_map_provider=False, missing_spawn_protection=False,
-            disabled_producer=False, blocked_objective=False):
+            disabled_producer=False, blocked_objective=False, player_data_crash=False, discard_crash_journals=False,
+            nvault_module=None, process_storage=False):
     started = time.monotonic()
     output.mkdir(parents=True, exist_ok=False)
     evidence = output / 'evidence'
@@ -208,11 +273,15 @@ def execute(cache, output, compiled, negative=False, missing_map_provider=False,
                                        'missing-map-provider' if missing_map_provider else
                                        'missing-spawn-protection' if missing_spawn_protection else
                                        'disabled-producer' if disabled_producer else
-                                       'blocked-objective' if blocked_objective else 'gameplay'),
+                                       'blocked-objective' if blocked_objective else
+                                       'discard-crash-journals' if discard_crash_journals else
+                                       'player-data-crash' if player_data_crash else
+                                       'process-storage-helpers' if process_storage else 'gameplay'),
               'lockSha256': digest(LOCK), 'network': 'none', 'publishedPorts': 0}
     owned = []
     try:
         result['fixtureManifestSha256'] = verify_fixtures(compiled)
+        runtime_source, result['runtimeSourceHashes'] = freeze_runtime(inputs)
         for asset in lock['assets']:
             archive = download(asset, cache)
             destination = inputs / asset['directory']
@@ -227,6 +296,14 @@ def execute(cache, output, compiled, negative=False, missing_map_provider=False,
                 with tarfile.open(archive) as source:
                     source.extractall(destination, filter='data')
         result['images'] = {name: ensure_image(value['reference']) for name, value in lock['images'].items()}
+        if nvault_module is not None:
+            if nvault_module.is_symlink() or not 0 < nvault_module.stat().st_size <= 8*1024*1024:
+                raise ValueError('Invalid isolated nVault module')
+            header = nvault_module.read_bytes()[:20]
+            if header[:7] != b'\x7fELF\x01\x01\x01' or header[18:20] != b'\x03\x00':
+                raise ValueError('nVault test module must be ELF32 little-endian i386')
+            shutil.copyfile(nvault_module, inputs / 'nvault_amxx_i386.so')
+            result['nvaultModuleSha256'] = digest(inputs / 'nvault_amxx_i386.so')
         steam_name = 'gameplay-steam-' + uuid.uuid4().hex
         owned.append(steam_name)
         docker('create', '--name', steam_name, '--network', 'none', '--entrypoint', '/bin/true',
@@ -238,18 +315,23 @@ def execute(cache, output, compiled, negative=False, missing_map_provider=False,
                  [lock['missingMapProviderCase']] if missing_map_provider else
                  [lock['missingSpawnProtectionCase']] if missing_spawn_protection else
                  [lock['disabledProducerCase']] if disabled_producer else
-                 [lock['blockedObjectiveCase']] if blocked_objective else lock['cases'])
+                 [lock['blockedObjectiveCase']] if blocked_objective else
+                 CRASH_CASES if player_data_crash or discard_crash_journals else
+                 PROCESS_CASES if process_storage else lock['cases'])
         (inputs / 'cases.tsv').write_text(cases_tsv(cases), encoding='utf-8', newline='\n')
         name = 'gameplay-engine-' + uuid.uuid4().hex
         owned.append(name)
         docker('create', '--name', name, '--network', 'none', '--cpus', '2', '--memory', '1g',
                '--pids-limit', '256', '--security-opt', 'no-new-privileges',
-               '--mount', f'type=bind,source={ROOT},target=/repo,readonly',
+               '--mount', f'type=bind,source={runtime_source},target=/repo,readonly',
                '--mount', f'type=bind,source={inputs},target=/inputs,readonly',
                '--mount', f'type=bind,source={compiled},target=/compiled,readonly',
                '--mount', f'type=bind,source={evidence},target=/evidence',
+               '--env', 'DISCARD_CRASH_JOURNALS=' + ('1' if discard_crash_journals else '0'),
                '--entrypoint', '/usr/bin/timeout', lock['images']['engine']['reference'],
-               '--signal=TERM', '--kill-after=10', '600', 'bash', '/repo/tools/smoke/game-player-preferences-runtime.sh')
+               '--signal=TERM', '--kill-after=10', '600', 'bash',
+               '/repo/tools/smoke/game-player-data-crash-runtime.sh' if player_data_crash or discard_crash_journals
+               else '/repo/tools/smoke/game-player-preferences-runtime.sh')
         inspected = json.loads(docker('inspect', name).stdout)[0]
         host = inspected['HostConfig']
         if (host['NetworkMode'] != 'none' or host['PortBindings'] or host['Privileged']
@@ -263,7 +345,8 @@ def execute(cache, output, compiled, negative=False, missing_map_provider=False,
         if state['Running'] or state['ExitCode'] != 0 or state['OOMKilled']:
             raise ValueError('Engine container failed')
         validate_evidence(evidence, cases)
-        if FINAL not in (evidence / 'runner.log').read_text(encoding='utf-8'):
+        final = 'PLAYER_DATA_CRASH_RUNTIME=passed' if player_data_crash or discard_crash_journals else FINAL
+        if final not in (evidence / 'runner.log').read_text(encoding='utf-8'):
             raise ValueError('Missing runtime completion marker')
         result.update(result='passed', cases=len(cases), compiledFixtures=len(FIXTURES))
     except (OSError, ValueError, subprocess.SubprocessError) as error:
@@ -292,7 +375,12 @@ def main():
     parser.add_argument('--compiled', required=True, type=Path)
     parser.add_argument('--package-fixtures', action='store_true')
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--nvault-module', type=Path, default=os.environ.get('GOLDSRCOPS_ISOLATED_NVAULT_MODULE'),
+                        help='Verified local ELF32 module for isolated engine checks only.')
     negative = parser.add_mutually_exclusive_group()
+    negative.add_argument('--process-storage', action='store_true', help='Exercise commit-failure UI and handler timing with a test-only module.')
+    negative.add_argument('--player-data-crash', action='store_true', help='Verify journal recovery after process SIGKILL.')
+    negative.add_argument('--discard-crash-journals-check', action='store_true', help='Remove synthetic journals after KILL; recovery must fail.')
     negative.add_argument('--blocked-objective-check', action='store_true', help='Disable natural objective completion; must fail.')
     negative.add_argument('--disabled-producer-check', action='store_true', help='Disable the round-event fixture producer; must fail.')
     negative.add_argument('--missing-spawn-protection-check', action='store_true', help='Disable fixture spawn protection; must fail.')
@@ -307,7 +395,9 @@ def main():
                 parser.error('--cache is required for execution')
             execute(args.cache.resolve(), args.output.resolve(), args.compiled.resolve(),
                     args.negative_check, args.missing_map_provider_check, args.missing_spawn_protection_check,
-                    args.disabled_producer_check, args.blocked_objective_check)
+                    args.disabled_producer_check, args.blocked_objective_check,
+                    args.player_data_crash, args.discard_crash_journals_check,
+                    args.nvault_module.resolve() if args.nvault_module else None, args.process_storage)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         return 1
     return 0

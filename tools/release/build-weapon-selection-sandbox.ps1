@@ -84,7 +84,12 @@ $payload = @($relativePaths | ForEach-Object {
 $manifest = [ordered]@{
     schemaVersion = 2
     purpose = $(if ($Target -eq "sandbox") { "local-sandbox" } else { "game-host-addon" })
-    productionInstallSupported = ($Target -eq "game-host-addon")
+    # The new addon requires a separately reviewed module+addon R3 bundle.
+    productionInstallSupported = $false
+    requiredNvaultProcessContract = 1
+    sourceDependencies = @{
+        "goldsrcops-process-storage.inc" = (Get-FileHash -LiteralPath (Join-Path $root "samples/amxmodx-weapon-selection/goldsrcops-process-storage.inc") -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
     enabledByDefault = ($Target -eq "game-host-addon")
     amxxVersion = $build.AmxxVersion
     reApiVersion = $build.ReApiVersion
