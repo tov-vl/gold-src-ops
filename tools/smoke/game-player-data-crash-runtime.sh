@@ -77,8 +77,8 @@ run_case() {
         printf '9\t%s\n' "$status" > /evidence/process-kill.tsv
         mkdir /evidence/post-crash
         for name in "${names[@]}"; do
-            cp "$vault/$name.vault" /evidence/post-crash/
-            if [[ -f "$vault/$name.journal" ]]; then cp "$vault/$name.journal" /evidence/post-crash/; fi
+            install -m 0644 "$vault/$name.vault" /evidence/post-crash/
+            if [[ -f "$vault/$name.journal" ]]; then install -m 0644 "$vault/$name.journal" /evidence/post-crash/; fi
             # A journal is essential: the old checkpoint must not contain updates.
             cmp "/evidence/baseline/$name.vault" "$vault/$name.vault"
             [[ -f "$vault/$name.journal" && ! -L "$vault/$name.journal" ]] || { echo "Journal missing: $name" >&2; return 1; }
@@ -99,7 +99,8 @@ run_case() {
 
 run_case goldsrcops_crash_baseline PLAYER_DATA_BASELINE clean
 mkdir /evidence/baseline
-for name in "${names[@]}"; do cp "$vault/$name.vault" /evidence/baseline/; done
+# These are synthetic evidence copies; live vault permissions stay untouched.
+for name in "${names[@]}"; do install -m 0644 "$vault/$name.vault" /evidence/baseline/; done
 run_case goldsrcops_crash_write PLAYER_DATA_BEFORE_KILL kill
 run_case goldsrcops_crash_recover PLAYER_DATA_RECOVERED clean
 run_case goldsrcops_crash_reopen PLAYER_DATA_REOPENED clean
