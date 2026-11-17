@@ -30,14 +30,14 @@ change is implied.
 
 ## Current Status
 
-Prepared locally: [two-player gameplay pilot](gameplay-pilot.md), with a
+Prepared: [two-player gameplay pilot](gameplay-pilot.md), with a
 30-45 minute sequence, fresh installed-baseline gate, seventeen scenarios,
 explicit conditional cases, result form and one-follow-up decision rule.
 No session, client launch or gameplay change was performed. The separate
 [Archive interim check](archive-trigger-progress.md#interim-read-only-checkpoint-on-2026-11-17)
 passed for 41 natural slots over the frozen 41-hour observation; the full
 seven-day assessment, source completeness and new independent Recovery remain
-separate. This documentation preparation has no hosted CI/publication yet.
+separate. Publishing these documents does not close either acceptance gate.
 
 Accepted: [parallel server telemetry acceptance](telemetry-server-isolation-acceptance.md)
 through [PR #561](https://github.com/tov-vl/gold-src-ops/pull/561). Full PR/main CI,
