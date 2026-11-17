@@ -18,7 +18,8 @@ the records below retain historical release evidence.
 2. When two independent human participants/accounts are available: run one
    controlled gameplay pilot, then select at most one map/spawn or mechanic
    improvement from its findings. The [session protocol](gameplay-pilot.md) and
-   [result template](templates/gameplay-pilot-result.md) are prepared; no human
+   [result template](templates/gameplay-pilot-result.md) and
+   [Russian participant brief](gameplay-pilot-participants-ru.md) are prepared; no human
    acceptance is claimed until a session is actually recorded.
 3. Keep the accepted client lab as a regression tool. Further monitoring UI,
    plugins and infrastructure need a concrete operator or player problem.

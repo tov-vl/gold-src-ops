@@ -3,6 +3,8 @@
 Preparation baseline: `2b33081022ad54061fa8c8e1f4efef4a3f3ad1e0`, 2026-11-17.
 This is a ready-to-use protocol, not a completed player acceptance record.
 Use the [result template](templates/gameplay-pilot-result.md) for one session.
+Share the [Russian participant brief](gameplay-pilot-participants-ru.md) with
+actors A/B when arranging the session. It adds no automation or completed cases.
 
 ## Outcome And Boundary
 

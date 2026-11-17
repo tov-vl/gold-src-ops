@@ -3,6 +3,7 @@
 Copy this template to a new owner-controlled session record. Follow the
 [protocol](../gameplay-pilot.md). All cases start `Not tested`; this empty
 template is not acceptance evidence. Publish only a sanitized summary.
+The [participant brief](../gameplay-pilot-participants-ru.md) is available in Russian.
 
 ## Session And Baseline
 

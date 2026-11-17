@@ -203,7 +203,9 @@ mode as the baseline.
 
 Use the [prepared protocol](gameplay-pilot.md) and copy the
 [result template](templates/gameplay-pilot-result.md) into a new private session
-record. Freeze actual installed versions/configuration immediately before play;
+record. The [Russian participant brief](gameplay-pilot-participants-ru.md) gives
+actors A/B their sequence and reporting format. Freeze actual installed
+versions/configuration immediately before play;
 the preparation's source revision is not an installed-version claim. Distinguish
 core and conditional scenarios, retain failed repeats and every untested reason,
 and select at most one follow-up. If no evidenced issue is found, select none.
