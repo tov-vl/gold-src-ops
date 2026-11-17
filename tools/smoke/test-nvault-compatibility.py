@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -30,7 +31,11 @@ def main():
 
     def run(version, mode, directory):
         command = ['docker', 'run', '--rm', '--network', 'none', '--cpus', '1', '--memory', '256m',
-                   '--mount', f'type=bind,source={output},target=/out', args.builder_image,
+                   '--mount', f'type=bind,source={output},target=/out']
+        # Native checkpoints stay 0600. Match their owner to the host reader.
+        if os.name != 'nt':
+            command += ['--user', f'{os.getuid()}:{os.getgid()}']
+        command += [args.builder_image,
                    '/out/tests/compatibility-' + version, mode, '/out/' + evidence.name + '/' + directory]
         result = subprocess.run(command, timeout=30, capture_output=True, text=True)
         (evidence / (directory + '-' + version + '-' + mode + '.log')).write_text(
