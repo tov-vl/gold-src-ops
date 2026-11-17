@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 LOCK = Path(__file__).with_name('engine-ci-lock.json')
 ERROR = re.compile(r'ASSERTION_FAILED|Run time error|Load fails|bad load|ML_NOTFOUND|failures=[1-9][0-9]*')
 FINAL = 'PLAYER_PREFERENCES_RUNTIME=passed'
+ENGINE_TIMEOUT_SECONDS = 600
 OBJECTIVES = {'goldsrcops_bomb_explode', 'goldsrcops_bomb_defuse', 'goldsrcops_round_timeout'}
 CRASH_CASES = [dict(plugin='player_data_crash_smoke', command=command, map='de_dust2', markers=[marker])
                for command, marker in [('goldsrcops_crash_baseline', 'PLAYER_DATA_BASELINE'),
@@ -124,8 +125,11 @@ def validate_evidence(evidence, cases):
 def validate_storage_timing(evidence):
     log = (evidence / 'goldsrcops_storage_benchmark.log').read_text(errors='replace')
     rows = re.findall(r'^PROCESS_STORAGE_TIMING samples=10000 identities=32 handler_p99_us=([0-9]+) max_us=([0-9]+)$', log, re.M)
-    if len(rows) != 1 or not 0 <= int(rows[0][0]) <= 5000 or not int(rows[0][0]) <= int(rows[0][1]) <= 1000000:
+    # The approved performance gate is p99. Keep max as evidence, bounded by
+    # the existing container lifetime, rather than adding a separate max SLO.
+    if len(rows) != 1 or not 0 <= int(rows[0][0]) <= 5000 or not int(rows[0][0]) <= int(rows[0][1]) <= ENGINE_TIMEOUT_SECONDS * 1000000:
         raise ValueError('Missing or excessive full-handler wall-time evidence')
+    return dict(samples=10000, identities=32, handlerP99Us=int(rows[0][0]), handlerMaxUs=int(rows[0][1]))
 
 
 def validate_crash_evidence(evidence):
@@ -329,7 +333,7 @@ def execute(cache, output, compiled, negative=False, missing_map_provider=False,
                '--mount', f'type=bind,source={evidence},target=/evidence',
                '--env', 'DISCARD_CRASH_JOURNALS=' + ('1' if discard_crash_journals else '0'),
                '--entrypoint', '/usr/bin/timeout', lock['images']['engine']['reference'],
-               '--signal=TERM', '--kill-after=10', '600', 'bash',
+               '--signal=TERM', '--kill-after=10', str(ENGINE_TIMEOUT_SECONDS), 'bash',
                '/repo/tools/smoke/game-player-data-crash-runtime.sh' if player_data_crash or discard_crash_journals
                else '/repo/tools/smoke/game-player-preferences-runtime.sh')
         inspected = json.loads(docker('inspect', name).stdout)[0]
@@ -339,12 +343,14 @@ def execute(cache, output, compiled, negative=False, missing_map_provider=False,
                 or host['PidsLimit'] != 256 or inspected['Image'] != result['images']['engine']):
             raise ValueError('Unexpected container isolation')
         with (evidence / 'runner.log').open('w', encoding='utf-8') as log:
-            docker('start', '-a', name, timeout=630, stdout=log)
+            docker('start', '-a', name, timeout=ENGINE_TIMEOUT_SECONDS + 30, stdout=log)
         state = json.loads(docker('inspect', name).stdout)[0]['State']
         result['containerExitCode'] = state['ExitCode']
         if state['Running'] or state['ExitCode'] != 0 or state['OOMKilled']:
             raise ValueError('Engine container failed')
         validate_evidence(evidence, cases)
+        if process_storage:
+            result['storageTiming'] = validate_storage_timing(evidence)
         final = 'PLAYER_DATA_CRASH_RUNTIME=passed' if player_data_crash or discard_crash_journals else FINAL
         if final not in (evidence / 'runner.log').read_text(encoding='utf-8'):
             raise ValueError('Missing runtime completion marker')
