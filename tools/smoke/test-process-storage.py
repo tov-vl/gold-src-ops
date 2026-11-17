@@ -29,10 +29,23 @@ class StorageTests(unittest.TestCase):
             path.write_text(good)
             engine.validate_storage_timing(evidence)
             for invalid in ('', good*2, good.replace('40 ', '5001 '), good.replace('10000', '100'),
-                            good.replace('max_us=400', 'max_us=20'), good.replace('identities=32', 'identities=2')):
+                            good.replace('max_us=400', 'max_us=20'), good.replace('identities=32', 'identities=2'),
+                            good.replace('max_us=400', 'max_us=' + str(engine.ENGINE_TIMEOUT_SECONDS * 1000000 + 1))):
                 path.write_text(invalid)
                 with self.subTest(value=invalid), self.assertRaises(ValueError):
                     engine.validate_storage_timing(evidence)
+
+    def test_single_tail_outlier_is_retained_without_replacing_p99_gate(self):
+        with tempfile.TemporaryDirectory() as folder:
+            evidence = Path(folder)
+            path = evidence / 'goldsrcops_storage_benchmark.log'
+            observed = 'PROCESS_STORAGE_TIMING samples=10000 identities=32 handler_p99_us=8 max_us=1595399\n'
+            path.write_text(observed)
+            self.assertEqual(engine.validate_storage_timing(evidence),
+                             dict(samples=10000, identities=32, handlerP99Us=8, handlerMaxUs=1595399))
+            path.write_text(observed.replace('handler_p99_us=8', 'handler_p99_us=5001'))
+            with self.assertRaises(ValueError):
+                engine.validate_storage_timing(evidence)
 
     def test_each_helper_has_separate_case(self):
         self.assertEqual(len(engine.PROCESS_CASES), 6)
