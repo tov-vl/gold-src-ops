@@ -90,8 +90,39 @@ remain intentional. No settings, severities or suppressions changed. Inspection
 covered the four changed/new harness files; unchanged API/agent references were
 used as built assemblies.
 
-Hosted PR/main CI, publication and independently downloaded artifacts have not
-been performed for this slice. No production rollout, Archive change, provider
+Hosted acceptance through [PR #561](https://github.com/tov-vl/gold-src-ops/pull/561)
+is recorded below. No production rollout, Archive change, provider
 access, game profile change or client session is part of this acceptance. The
 seven-day Archive assessment and two-human gameplay pilot remain open
 independently.
+
+## Hosted Acceptance On 2026-11-17
+
+| Stage | Exact source | Full CI |
+| --- | --- | --- |
+| PR #561 | `5c2a5ca` | [Run 44040804025](https://github.com/tov-vl/gold-src-ops/actions/runs/44040804025) |
+| Post-merge main | `f89f36a` | [Run 44043802107](https://github.com/tov-vl/gold-src-ops/actions/runs/44043802107) |
+
+Both first-attempt full runs passed Quality Gate, native compilation, client
+policy, browser and Container Smoke. The new server-isolation step and both
+preceding telemetry modes executed successfully; no manual rerun or protection
+bypass was used.
+
+Independently downloaded fixture and diagnostic ZIPs matched their provider
+SHA-256 digests. Each set passed source/fixture/lock verification, 26 native
+cases / 55 markers, five precise native failure controls and owned cleanup.
+The native producer bridge, three original delivery cases and three queue
+recovery cases remained accepted.
+
+Each new isolation receipt matched all three native input hashes and seventeen
+committed acceptance source-file hashes. It proved two concurrent live agents,
+independent queues/sources/sequences, healthy delivery before releasing the
+other server's HTTP 503 outage, a real cross-server HTTP 403 without an inbox
+write and progress after that denial. Recovery preserved queued bytes and
+identities, produced six distinct rows and matched each server's Reader history.
+
+Separate local replays of both runs' downloaded native inputs passed in fresh
+disposable databases with new identities. Assembly digests are recorded by CI;
+DLLs are outside the diagnostic archives, so this does not independently verify
+an executable release. Production, Archive observation and the human gameplay
+pilot remain separate.
