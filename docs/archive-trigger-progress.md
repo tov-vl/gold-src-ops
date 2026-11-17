@@ -306,3 +306,39 @@ all earlier evidence and created objects remain retained. No stable tag,
 promotion, new account, token, permission, firewall or public port was introduced
 by this retry. The seven-day three-hour-age/window-coverage assessment remains
 pending; two natural slots do not establish that objective or fill source gaps.
+
+## Interim Read-only Checkpoint On 2026-11-17
+
+This frozen checkpoint covers 2026-11-15 15:51:11 UTC (timer activation) through
+2026-11-17 08:52:04 UTC, approximately 41.01 hours. It is a partial observation,
+not completion of the prospective seven-day assessment or stable promotion.
+
+- All 41 nominal natural slots from November 15 15:53 UTC through November 17
+  07:53 UTC had one matching Verified claim and a completed first-attempt
+  GitHub `workflow_dispatch` run. Admission, exporter pin, actual writer and
+  external-receipt validation steps succeeded for every selected job.
+- Independent read-only log parsing matched exactly one stdout receipt per
+  job to its ledger receipt hash, claim/generation/slot, exporter/manifest,
+  run ID and bounded object hash/size. Each requested window was exactly
+  1,440 minutes ending five minutes before its slot. Raw logs were not retained;
+  object/claim metadata and log digests remain in the private owner record.
+- The reconstructed accepted-automatic-success age used run creation time,
+  with each later success becoming available only at its ledger verification
+  time. The preceding accepted baseline seeded the activation boundary. The
+  maximum age was 3,724 seconds (1h 2m 4s); time above three hours was zero.
+- Requested windows had no closed gap. A separate half-open minute-grid
+  calculation checked their union independently. At the cutoff, coverage ended
+  at 07:48 UTC; the open tail through 08:52:04 UTC was disclosed separately,
+  rather than treated as already exported or as a closed-window failure.
+- The snapshot contained 43 total retained claims, all Verified, with no
+  outstanding/uncertain claim. The timer was enabled/active, the effective
+  GitHub owner mode was external, legacy scheduling was disabled and generation
+  bindings agreed. Fresh independent observer metrics reported ExternalTimer;
+  all four existing Archive warnings were inactive.
+
+No service was started/restarted, workflow dispatched, configuration or
+credential changed, object uploaded or B2 read performed by this checkpoint.
+No new independent Recovery was run; prior R3 object-Recovery evidence remains
+separate. Receipt-window coverage does not prove complete source measurements.
+Observations after the frozen cutoff, the remaining seven-day window and source
+completeness are not accepted by this record.

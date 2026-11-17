@@ -17,7 +17,9 @@ the records below retain historical release evidence.
    the three-hour age objective and source completeness are not yet established.
 2. When two independent human participants/accounts are available: run one
    controlled gameplay pilot, then select at most one map/spawn or mechanic
-   improvement from its findings. Prepare the checklist while waiting.
+   improvement from its findings. The [session protocol](gameplay-pilot.md) and
+   [result template](templates/gameplay-pilot-result.md) are prepared; no human
+   acceptance is claimed until a session is actually recorded.
 3. Keep the accepted client lab as a regression tool. Further monitoring UI,
    plugins and infrastructure need a concrete operator or player problem.
    Bots and 24-hour human activity aggregation remain deferred.
@@ -27,6 +29,15 @@ work. The roadmap update is documentation-only; no runtime, schedule or gameplay
 change is implied.
 
 ## Current Status
+
+Prepared locally: [two-player gameplay pilot](gameplay-pilot.md), with a
+30-45 minute sequence, fresh installed-baseline gate, seventeen scenarios,
+explicit conditional cases, result form and one-follow-up decision rule.
+No session, client launch or gameplay change was performed. The separate
+[Archive interim check](archive-trigger-progress.md#interim-read-only-checkpoint-on-2026-11-17)
+passed for 41 natural slots over the frozen 41-hour observation; the full
+seven-day assessment, source completeness and new independent Recovery remain
+separate. This documentation preparation has no hosted CI/publication yet.
 
 Accepted: [parallel server telemetry acceptance](telemetry-server-isolation-acceptance.md)
 through [PR #561](https://github.com/tov-vl/gold-src-ops/pull/561). Full PR/main CI,

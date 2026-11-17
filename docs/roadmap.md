@@ -2,7 +2,7 @@
 
 Updated on 2026-11-17 after Archive trigger rc.4 R3 acceptance and the accepted
 automated gameplay/telemetry checks. The accepted repository planning baseline
-is `f89f36a0119827b9ca0f3c389b7c4e021fcffb3b`; runtime identities remain in their
+is `2b33081022ad54061fa8c8e1f4efef4a3f3ad1e0`; runtime identities remain in their
 own release and acceptance records.
 
 This is the current planning order. It replaces the priorities in the
@@ -55,14 +55,15 @@ roadmap owns future priorities; it is not a live production health report.
 | Technical baseline accepted | Native gameplay and real agent/API/PostgreSQL/Reader telemetry acceptance | Pinned isolated engine fixtures | Full PR/main CI and independent downloaded-artifact verification passed; human acceptance remains separate |
 | Technical acceptance completed | Queue capacity, concurrent import/delivery and restart acceptance | Existing telemetry harness and verified native inputs | Full PR/main CI, independent artifacts and separate replays passed: deferred bytes and identity preserved, drain without duplicates, permanent failure retained without automatic replay |
 | Technical acceptance completed | Parallel telemetry server isolation | Existing harness, two actual agents and synthetic machine credentials | Healthy server progresses during another server's outage; cross-server ingest is denied without a write; retained backlog drains without duplicates and Reader history stays separated |
-| Next gameplay milestone, when people are available | Validate the existing mode with two human players | Two independent participants/accounts and a controlled session | A bounded pilot records observed results, failures and one prioritized follow-up |
+| Protocol prepared; session pending | Validate the existing mode with two human players | Two independent participants/accounts and a controlled session | Use the prepared protocol/result form; a bounded pilot records observed results, failures and at most one evidenced follow-up |
 | After the pilot | Improve one evidenced gameplay problem | Pilot findings | One map/spawn adjustment or mechanic passes technical and player acceptance |
 | Later | Human activity analysis and community growth | Real visits and an agreed observation window | Decisions use actual human activity with explicit coverage limits |
 
 Archive investigation and player availability do not block unrelated bounded
 development. A useful two-player pilot can proceed when participants become
-available. If no second player is available, prepare
-the pilot checklist; do not treat solo or bot checks as its completion.
+available. The [pilot protocol](gameplay-pilot.md) and
+[result form](templates/gameplay-pilot-result.md) are prepared while waiting;
+solo or bot checks do not complete the human gate.
 
 ## Accepted v2.131 Operator Command Dispatcher Health
 
@@ -127,6 +128,12 @@ hourly `53 * * * *`, the 1,440-minute window, independent observer and existing
 warnings from [v2.117](v2.117-archive-reliability.md).
 [v2.119](v2.119-archive-completeness.md) continues to define the distinction
 between receipt-window coverage and source missing minutes.
+
+The [2026-11-17 interim read-only checkpoint](archive-trigger-progress.md#interim-read-only-checkpoint-on-2026-11-17)
+matched 41/41 natural slots, jobs and receipts through 08:52 UTC, with no closed
+requested-window gap or three-hour-age breach in that partial window. It does
+not close the seven-day assessment or establish source completeness or fresh
+independent object Recovery. Scheduling, thresholds and runtime remain unchanged.
 
 The 24-hour export window is unrelated to the deferred 24-hour human activity
 aggregation. Neither scheduling changes nor successful Recovery can reconstruct
@@ -193,6 +200,13 @@ Plan a 30-45 minute controlled session with two independent human players and
 accounts. The second client-lab laptop using the same Steam account is not a
 substitute. Keep existing ranks, familiar weapon handling and the fast-reentry
 mode as the baseline.
+
+Use the [prepared protocol](gameplay-pilot.md) and copy the
+[result template](templates/gameplay-pilot-result.md) into a new private session
+record. Freeze actual installed versions/configuration immediately before play;
+the preparation's source revision is not an installed-version claim. Distinguish
+core and conditional scenarios, retain failed repeats and every untested reason,
+and select at most one follow-up. If no evidenced issue is found, select none.
 
 Record actual checks of respawn timing and protection, damage and protection
 cancellation on attack, eligible HP/ammunition rewards, team behavior, native
