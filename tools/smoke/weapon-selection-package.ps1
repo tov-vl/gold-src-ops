@@ -23,10 +23,12 @@ $manifest = Get-Content -LiteralPath (Join-Path $package.Content "manifest.json"
 $addon = $Target -eq "game-host-addon"
 $purpose = if ($addon) { "game-host-addon" } else { "local-sandbox" }
 if ($manifest.schemaVersion -ne 2 -or $manifest.purpose -cne $purpose `
-    -or $manifest.productionInstallSupported -ne $addon -or $manifest.enabledByDefault -ne $addon `
+    -or $manifest.productionInstallSupported -ne $false -or $manifest.requiredNvaultProcessContract -ne 1 -or $manifest.enabledByDefault -ne $addon `
     -or $manifest.amxxVersion -cne "1.10.0.5481" -or $manifest.reApiVersion -cne "5.24.0.300") {
     throw "Unexpected sandbox manifest boundary."
 }
+$expectedIncludeHash = (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot "../../samples/amxmodx-weapon-selection/goldsrcops-process-storage.inc") -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($manifest.sourceDependencies.'goldsrcops-process-storage.inc' -cne $expectedIncludeHash) { throw "Storage native include identity mismatch." }
 
 $expectedPayload = @(
     "cstrike/addons/amxmodx/configs/plugins/goldsrcops-weapon-selection.cfg",

@@ -55,6 +55,7 @@ roadmap owns future priorities; it is not a live production health report.
 | Technical baseline accepted | Native gameplay and real agent/API/PostgreSQL/Reader telemetry acceptance | Pinned isolated engine fixtures | Full PR/main CI and independent downloaded-artifact verification passed; human acceptance remains separate |
 | Technical acceptance completed | Queue capacity, concurrent import/delivery and restart acceptance | Existing telemetry harness and verified native inputs | Full PR/main CI, independent artifacts and separate replays passed: deferred bytes and identity preserved, drain without duplicates, permanent failure retained without automatic replay |
 | Technical acceptance completed | Parallel telemetry server isolation | Existing harness, two actual agents and synthetic machine credentials | Healthy server progresses during another server's outage; cross-server ingest is denied without a write; retained backlog drains without duplicates and Reader history stays separated |
+| Durability fix accepted locally | Player-data process-crash recovery | Full hosted CI and independent downloaded-artifact checks, then separate paired R3 plan | Checked commit/checkpoint, SIGKILL and two reopens, missing-journal control, compatibility and failure paths; production still pending |
 | Protocol prepared; session pending | Validate the existing mode with two human players | Two independent participants/accounts and a controlled session | Use the prepared protocol/result form; a bounded pilot records observed results, failures and at most one evidenced follow-up |
 | After the pilot | Improve one evidenced gameplay problem | Pilot findings | One map/spawn adjustment or mechanic passes technical and player acceptance |
 | Later | Human activity analysis and community growth | Real visits and an agreed observation window | Decisions use actual human activity with explicit coverage limits |
@@ -178,6 +179,27 @@ PR/main CI and independent downloaded artifacts are separate gates. This is
 technical process/authorization isolation, not a throughput benchmark or a
 new production permission model. Production, Archive and the client lab are
 outside this slice; the human gameplay pilot remains separate.
+
+## Player Data Crash Recovery While Waiting
+
+The existing closed-vault backup/reload fixture quits normally. The new bounded
+[process-crash check](player-data-crash-acceptance.md) found a real limitation:
+after acknowledged scoring/settings changes, SIGKILL retained the old checkpoint
+but both journals were empty. Reopening lost the new counters/settings and failed
+seven assertions. That original failure remains historical evidence.
+
+The separately approved [local fix](player-data-durability-implementation.md)
+uses checked journal commit and a verified atomic checkpoint in a reproducibly
+built Linux i386 module. Addon 0.40.0 acknowledges only committed saves. Strict
+recovery with reversed slots, a second reopen, missing-journal rejection,
+save-path failures and the existing regression pass locally. Complete hosted CI
+and independent downloaded-artifact checks next, then prepare paired R3 delivery.
+
+Implementation is verified in a disposable isolated engine. Production addon,
+backup policy, real player data and Archive remain unchanged. It does not prove
+power-loss/fsync durability or replace the human pilot. Record local results,
+full hosted CI and independently downloaded evidence separately before calling
+this technical acceptance complete.
 
 ## Gameplay Pilot And Follow-up
 

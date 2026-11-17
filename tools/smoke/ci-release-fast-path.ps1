@@ -220,6 +220,7 @@ $qualityJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "quality"
 $containerJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "container-smoke"
 $browserJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "browser-smoke"
 $compileJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "map-menu-compile"
+$nativeJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "nvault-process"
 Assert-Condition `
     -Condition ($scopeJob -match '(?m)^      stable_promotion: \$\{\{ steps\.scope\.outputs\.stable_promotion \}\}$') `
     -Message "Change Scope does not expose the stable-promotion decision."
@@ -280,12 +281,13 @@ function Get-WorkflowSteps {
     }
 }
 
-$jobs = @{ quality = $qualityJob; container = $containerJob; browser = $browserJob; compile = $compileJob }
+$jobs = @{ quality = $qualityJob; container = $containerJob; browser = $browserJob; compile = $compileJob; native = $nativeJob }
 $addonSteps = @{
     quality = @('Checkout', 'Validate CI release fast path', 'Confirm addon-only fast path', 'Validate changed documentation')
-    container = @('Confirm addon-only fast path', 'Checkout', 'Validate weapon-selection addon installation, upgrade and toggle', 'Validate gameplay runtime script syntax', 'Download gameplay fixtures', 'Cache verified gameplay archives', 'Verify real engine failure rejection', 'Run isolated gameplay engine smoke', 'Retain gameplay engine diagnostics', 'Validate map-menu addon installation, removal and rollback')
+    container = @('Confirm addon-only fast path', 'Checkout', 'Validate weapon-selection addon installation, upgrade and toggle', 'Validate gameplay runtime script syntax', 'Download gameplay fixtures', 'Download native storage module', 'Verify native storage source and binary identity', 'Cache verified gameplay archives', 'Verify real engine failure rejection', 'Run isolated gameplay engine smoke', 'Validate player-data crash evidence contract', 'Accept player-data process crash and negative control', 'Accept addon commit failure handling and bounded wall time', 'Retain gameplay engine diagnostics', 'Validate map-menu addon installation, removal and rollback')
     browser = @('Confirm addon-only fast path')
     compile = @('Checkout', 'Compile map menu and isolated fixture with pinned toolchain', 'Compile weapon addon and gameplay fixtures, verify package', 'Package gameplay fixtures', 'Upload gameplay fixtures')
+    native = @('Checkout', 'Build and verify isolated native storage', 'Identify module artifact', 'Verify both closed-vault backup compatibility directions', 'Retain verified module and corresponding source', 'Retain native diagnostics')
 }
 foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
     $context = @{
@@ -295,6 +297,7 @@ foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
         'needs.change-scope.result' = 'success'
         'needs.quality.result' = 'success'
         'needs.map-menu-compile.result' = 'success'
+        'needs.nvault-process.result' = 'success'
     }
     foreach ($jobName in $jobs.Keys) {
         $steps = @(Get-WorkflowSteps -Job $jobs[$jobName])
@@ -308,6 +311,7 @@ foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
             $expected = switch ($jobName) {
                 quality { if ($mode -eq 'docs-only') { @('Checkout', 'Validate changed documentation') } else { @('Checkout', $confirmation) } }
                 compile { @('Confirm addon checks unnecessary') }
+                native { @('Confirm native storage checks unnecessary') }
                 default { @($confirmation) }
             }
             Assert-Condition -Condition (($active -join '|') -ceq ($expected -join '|')) `
@@ -328,6 +332,14 @@ foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
         Assert-Condition -Condition ($guard.Body -match 'run: throw ') -Message "The addon result guard must fail the required check."
     }
     $context['needs.map-menu-compile.result'] = 'success'
+    foreach ($status in @('failure', 'cancelled', 'skipped')) {
+        $context['needs.nvault-process.result'] = $status
+        $guard = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq 'Require successful native storage build')[0]
+        $blocks = Test-WorkflowCondition -Condition $guard.Condition -Context $context
+        Assert-Condition -Condition ($blocks -eq ($mode -in @('addon-only', 'full'))) -Message "Native $status propagation is incorrect for $mode."
+        Assert-Condition -Condition ($guard.Body -match 'run: exit 1') -Message "The native result guard must fail the required check."
+    }
+    $context['needs.nvault-process.result'] = 'success'
     foreach ($dependency in @('needs.change-scope.result')) {
         foreach ($status in @('failure', 'cancelled', 'skipped')) {
             $context[$dependency] = $status
@@ -338,6 +350,7 @@ foreach ($mode in @('addon-only', 'docs-only', 'stable-promotion', 'full')) {
     }
 }
 Assert-Condition -Condition ($containerJob -match '(?m)^      - map-menu-compile$') -Message "Container Smoke must wait for addon compilation."
+Assert-Condition -Condition ($containerJob -match '(?m)^      - nvault-process$') -Message "Container Smoke must wait for native storage acceptance."
 foreach ($name in @('Verify real engine failure rejection', 'Run isolated gameplay engine smoke', 'Verify native producer records with the agent spool contract', 'Accept native telemetry through agent API PostgreSQL and Reader', 'Accept telemetry queue saturation and recovery', 'Accept parallel telemetry server isolation')) {
     $step = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq $name)[0]
     Assert-Condition -Condition ($step.Body -notmatch 'continue-on-error:|\|\| true') -Message "Engine failure must fail Container Smoke."

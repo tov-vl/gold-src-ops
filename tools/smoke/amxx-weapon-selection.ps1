@@ -17,12 +17,16 @@ param(
 
     [switch]$EngineFailureFixture,
 
-    [switch]$RoundObjectivesFixture
+    [switch]$RoundObjectivesFixture,
+
+    [switch]$PlayerDataCrashFixture,
+
+    [switch]$ProcessStorageFixture
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-if (@($RuntimeFixture, $MapStatsFixture, $PersistentStatsFixture, $PlayerMenuFixture, $PlayerPreferencesFixture, $EngineFailureFixture, $RoundObjectivesFixture | Where-Object { $_ }).Count -gt 1) {
+if (@($RuntimeFixture, $MapStatsFixture, $PersistentStatsFixture, $PlayerMenuFixture, $PlayerPreferencesFixture, $EngineFailureFixture, $RoundObjectivesFixture, $PlayerDataCrashFixture, $ProcessStorageFixture | Where-Object { $_ }).Count -gt 1) {
     throw "Choose only one runtime fixture."
 }
 
@@ -70,6 +74,16 @@ if ($EngineFailureFixture) {
 if ($RoundObjectivesFixture) {
     $source = Join-Path $PSScriptRoot "amxx-round-objectives.sma"
     $output = Join-Path $CacheDirectory "output/round_objectives_smoke.amxx"
+}
+
+if ($PlayerDataCrashFixture) {
+    $source = Join-Path $PSScriptRoot "amxx-player-data-crash.sma"
+    $output = Join-Path $CacheDirectory "output/player_data_crash_smoke.amxx"
+}
+
+if ($ProcessStorageFixture) {
+    $source = Join-Path $PSScriptRoot "amxx-process-storage.sma"
+    $output = Join-Path $CacheDirectory "output/process_storage_smoke.amxx"
 }
 
 & $compiler $source "-i$amxxIncludes" "-i$reApiIncludes" "-i$productIncludes" "-o$output" -E
