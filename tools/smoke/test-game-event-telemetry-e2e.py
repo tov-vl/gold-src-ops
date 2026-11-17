@@ -173,5 +173,96 @@ class QueueReceiptTests(unittest.TestCase):
                     acceptance.validate_result(result, records, queue_recovery=True)
 
 
+class ServerIsolationReceiptTests(unittest.TestCase):
+    def prepare(self):
+        records, queue = QueueReceiptTests().prepare()
+        original = queue['scenarios']
+        first = copy.deepcopy(original[1]['accepted'])
+        second = [copy.deepcopy(original[2]['rejected']), *copy.deepcopy(original[2]['accepted'])]
+        first_id, second_id = original[1]['serverId'], original[2]['serverId']
+        source, other = original[1]['source'], original[2]['snapshot']['source']
+        native = [json.loads(raw)['event'] for raw in records.values()]
+        for index, item in enumerate(second):
+            item['status'] = 202
+            item['request'].update(native[(index + 1) % 3])
+            item['receipt'] = {key: item['request'][key] for key in ('eventId', 'sourceInstanceId', 'sequenceNumber', 'occurredAtUtc')}
+            item['receipt'].update(serverId=second_id, duplicate=False)
+            item['payloadSha256'] = hashlib.sha256(json.dumps(item['request']).encode()).hexdigest().upper()
+
+        def snapshot(items, source_id, next_sequence):
+            return dict(source=source_id, nextSequence=next_sequence, spoolReceipts=0, entries=[dict(
+                identity=dict(source=source_id, nextSequence=next_sequence, eventId=item['request']['eventId'],
+                              sequence=item['request']['sequenceNumber'], payloadSha256=item['payloadSha256']),
+                status=0, attempts=1, failure=None) for item in items])
+
+        cycles = dict(startedAtUtc='2026-11-16T10:00:00Z', bothCompleted=True, importOutcome='idle', deliveryOutcome='idle',
+                      importCompletedAtUtc='2026-11-16T10:01:00Z', deliveryCompletedAtUtc='2026-11-16T10:01:00Z')
+        common = dict(status='passed', bothAgentsRunning=True, firstServerId=first_id, secondServerId=second_id)
+        rejected = dict(first[1], status=503, receipt=None)
+        parallel = dict(common, scenario='parallel-delivery', firstInitial=snapshot(first[:1], source, 2),
+                        secondInitial=snapshot(second[:1], other, 2), firstAccepted=first[:1], secondAccepted=second[:1],
+                        firstCycles=cycles, secondCycles=cycles, persistedRows=2)
+        outage = dict(common, scenario='one-server-unavailable', firstSnapshot=snapshot(first[1:2], source, 3),
+                      rejectedDelivery=rejected, recoveryReleased=False, firstPersistedRows=1, secondPersistedRows=2,
+                      secondAccepted=second[:2])
+        forbidden = dict(status='passed', bothAgentsRunning=True, scenario='cross-server-forbidden', credentialServerId=first_id,
+                         targetServerId=second_id, httpStatus=403, beforeRows=3, afterRows=3, attempted=rejected,
+                         secondPersistedRowsAfterDenial=3, recoveryReleased=False, beforeRecovery=snapshot(first[1:], source, 4),
+                         secondAcceptedAfterDenial=second)
+        recovered = dict(common, scenario='recover-and-isolate', firstFinal=snapshot([], source, 4), secondFinal=snapshot([], other, 4),
+                         firstAccepted=first, secondAccepted=second, firstCycles=cycles, secondCycles=cycles, persistedRows=6,
+                         readerProjection='matched-per-server')
+        return records, json.loads(json.dumps(dict(status='native-telemetry-server-isolation-accepted', persistedRows=6,
+                             nativeInputHashes={name: hashlib.sha256(raw).hexdigest() for name, raw in records.items()},
+                             scenarios=[parallel, outage, forbidden, recovered])))
+
+    def test_two_server_receipt_requires_its_explicit_mode(self):
+        records, receipt = self.prepare()
+        acceptance.validate_result(receipt, records, server_isolation=True)
+        for kwargs in ({}, {'queue_recovery': True}, {'queue_recovery': True, 'server_isolation': True}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                acceptance.validate_result(receipt, records, **kwargs)
+
+    def test_corrupted_isolation_receipts_fail_closed(self):
+        controls = [
+            (('persistedRows',), 5),
+            (('nativeInputHashes', 'ordinary'), '0' * 64),
+            (('scenarios', 0, 'bothAgentsRunning'), False),
+            (('scenarios', 0, 'persistedRows'), 3),
+            (('scenarios', 0, 'firstInitial', 'nextSequence'), 3),
+            (('scenarios', 1, 'secondPersistedRows'), 1),
+            (('scenarios', 1, 'recoveryReleased'), True),
+            (('scenarios', 1, 'firstSnapshot', 'entries', 0, 'identity', 'payloadSha256'), '0' * 64),
+            (('scenarios', 1, 'rejectedDelivery', 'status'), 202),
+            (('scenarios', 2, 'httpStatus'), 202),
+            (('scenarios', 2, 'afterRows'), 4),
+            (('scenarios', 2, 'targetServerId'), 'wrong-server'),
+            (('scenarios', 2, 'credentialServerId'), 'wrong-credential'),
+            (('scenarios', 2, 'secondPersistedRowsAfterDenial'), 2),
+            (('scenarios', 2, 'recoveryReleased'), True),
+            (('scenarios', 2, 'beforeRecovery', 'nextSequence'), 5),
+            (('scenarios', 2, 'beforeRecovery', 'entries', 0, 'status'), 2),
+            (('scenarios', 3, 'firstFinal', 'nextSequence'), 5),
+            (('scenarios', 3, 'firstFinal', 'spoolReceipts'), 1),
+            (('scenarios', 3, 'readerProjection'), 'unverified'),
+            (('scenarios', 3, 'firstCycles', 'bothCompleted'), False),
+            (('scenarios', 3, 'secondCycles', 'startedAtUtc'), '2026-11-16T10:05:00Z'),
+            (('scenarios', 3, 'firstAccepted', 0, 'receipt', 'duplicate'), True),
+            (('scenarios', 3, 'secondAccepted', 0, 'receipt', 'serverId'), 'wrong-server'),
+            (('scenarios', 3, 'secondAccepted', 0, 'request', 'players'), 0),
+            (('scenarios', 3, 'secondAccepted', 0, 'request', 'sourceInstanceId'), 'wrong-source'),
+        ]
+        for path, replacement in controls:
+            with self.subTest(path=path):
+                records, receipt = self.prepare()
+                receipt = copy.deepcopy(receipt)
+                target = receipt
+                for key in path[:-1]:
+                    target = target[key]
+                target[path[-1]] = replacement
+                with self.assertRaises(ValueError):
+                    acceptance.validate_result(receipt, records, server_isolation=True)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

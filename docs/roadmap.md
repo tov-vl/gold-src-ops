@@ -2,7 +2,7 @@
 
 Updated on 2026-11-16 after Archive trigger rc.4 R3 acceptance and the accepted
 automated gameplay/telemetry checks. The accepted repository planning baseline
-is `e6babbfb01489d9e0b20d79cdc0072f5e217bd82`; runtime identities remain in their
+is `d00dfbd97b70081b8539e660385544d655ca1176`; runtime identities remain in their
 own release and acceptance records.
 
 This is the current planning order. It replaces the priorities in the
@@ -54,6 +54,7 @@ roadmap owns future priorities; it is not a live production health report.
 | Candidate/R3 accepted; assessment pending | Assess the external Archive trigger over seven days | Accepted rc.4, single automatic owner and independent observer | Assess the three-hour age target, receipt-window coverage and source completeness separately; stable promotion remains a separate gate |
 | Technical baseline accepted | Native gameplay and real agent/API/PostgreSQL/Reader telemetry acceptance | Pinned isolated engine fixtures | Full PR/main CI and independent downloaded-artifact verification passed; human acceptance remains separate |
 | Technical acceptance completed | Queue capacity, concurrent import/delivery and restart acceptance | Existing telemetry harness and verified native inputs | Full PR/main CI, independent artifacts and separate replays passed: deferred bytes and identity preserved, drain without duplicates, permanent failure retained without automatic replay |
+| Locally verified; hosted acceptance pending | Parallel telemetry server isolation | Existing harness, two actual agents and synthetic machine credentials | Healthy server progresses during another server's outage; cross-server ingest is denied without a write; retained backlog drains without duplicates and Reader history stays separated |
 | Next gameplay milestone, when people are available | Validate the existing mode with two human players | Two independent participants/accounts and a controlled session | A bounded pilot records observed results, failures and one prioritized follow-up |
 | After the pilot | Improve one evidenced gameplay problem | Pilot findings | One map/spawn adjustment or mechanic passes technical and player acceptance |
 | Later | Human activity analysis and community growth | Real visits and an agreed observation window | Decisions use actual human activity with explicit coverage limits |
@@ -150,6 +151,25 @@ Reuse the existing native artifacts locally and require fresh artifacts in full
 CI. No game-profile, producer, access, monitoring-policy or Archive change is
 part of this slice. Further implementation should follow a concrete uncovered
 boundary or operator/player need.
+
+## Parallel Server Acceptance While Waiting
+
+The accepted queue cases exercise one agent at a time. The locally verified
+[server isolation slice](telemetry-server-isolation-acceptance.md) uses two
+concurrent real agents with separate queues and credentials against the same
+HTTP API/PostgreSQL. Preserve native bytes and independent source/sequence
+identity, prove healthy progress before releasing the other server's outage,
+deny a cross-server machine write and recover retained events without duplicates.
+Reader checks use different intermediate native histories to detect mixing.
+All four local cases and the existing delivery/queue regressions passed; full
+hosted CI/publication and independent artifacts remain pending.
+
+Reuse existing native artifacts and unit-level authorization/race coverage.
+Keep original delivery and queue-recovery regressions. Local checks, full
+PR/main CI and independent downloaded artifacts are separate gates. This is
+technical process/authorization isolation, not a throughput benchmark or a
+new production permission model. Production, Archive and the client lab are
+outside this slice; the human gameplay pilot remains separate.
 
 ## Gameplay Pilot And Follow-up
 

@@ -66,7 +66,12 @@ def command(arguments, log):
             raise ValueError('Telemetry acceptance command failed; inspect retained diagnostics')
 
 
-def validate_result(result, records, queue_recovery=False):
+def validate_result(result, records, queue_recovery=False, server_isolation=False):
+    if queue_recovery and server_isolation:
+        raise ValueError('Telemetry modes are mutually exclusive')
+    if server_isolation:
+        validate_isolation(result, records)
+        return
     names = {'bounded-capacity', 'restart-and-drain', 'dead-letter-isolation'} if queue_recovery else set(SCENARIOS)
     expected = 'native-telemetry-queue-recovery-accepted' if queue_recovery else 'native-telemetry-e2e-accepted'
     if (result.get('status') != expected or len(result.get('scenarios', [])) != 3
@@ -139,7 +144,89 @@ def validate_result(result, records, queue_recovery=False):
         raise ValueError('Rejected event was reported as delivered')
 
 
-def execute(evidence, compiled, output, queue_recovery=False):
+def validate_isolation(result, records):
+    names = {'parallel-delivery', 'one-server-unavailable', 'cross-server-forbidden', 'recover-and-isolate'}
+    if (result.get('status') != 'native-telemetry-server-isolation-accepted' or result.get('persistedRows') != 6
+            or len(result.get('scenarios', [])) != 4 or {case['scenario'] for case in result['scenarios']} != names
+            or any(case['status'] != 'passed' or case['bothAgentsRunning'] is not True for case in result['scenarios'])
+            or {name: value.lower() for name, value in result['nativeInputHashes'].items()} !=
+            {name: hashlib.sha256(raw).hexdigest() for name, raw in records.items()}):
+        raise ValueError('Incomplete or unbound two-server acceptance')
+    cases = {case['scenario']: case for case in result['scenarios']}
+    parallel, outage, forbidden, recovered = (cases[name] for name in (
+        'parallel-delivery', 'one-server-unavailable', 'cross-server-forbidden', 'recover-and-isolate'))
+    first, second = recovered['firstServerId'], recovered['secondServerId']
+    if (first == second or any(case['firstServerId'] != first or case['secondServerId'] != second for case in (parallel, outage))
+            or forbidden['credentialServerId'] != first or forbidden['targetServerId'] != second
+            or forbidden['httpStatus'] != 403 or forbidden['beforeRows'] != 3 or forbidden['afterRows'] != 3
+            or forbidden['secondPersistedRowsAfterDenial'] != 3 or forbidden['recoveryReleased'] is not False
+            or outage['recoveryReleased'] is not False or outage['firstPersistedRows'] != 1 or outage['secondPersistedRows'] != 2
+            or parallel['persistedRows'] != 2 or recovered['persistedRows'] != 6 or recovered['readerProjection'] != 'matched-per-server'):
+        raise ValueError('Server binding, denial or independent progress changed')
+    if recovered['firstFinal']['source'] == recovered['secondFinal']['source']:
+        raise ValueError('Servers share a queue source')
+    native = [json.loads(raw)['event'] for raw in records.values()]
+    all_ids = set()
+    for prefix, server in (('first', first), ('second', second)):
+        final, initial = recovered[prefix + 'Final'], parallel[prefix + 'Initial']
+        observations = recovered[prefix + 'Accepted']
+        if (final['source'] != initial['source'] or initial['nextSequence'] != 2 or len(initial['entries']) != 1
+                or final['nextSequence'] != 4 or final['entries'] or final['spoolReceipts'] != 0
+                or len(observations) != 3 or sorted(item['receipt']['sequenceNumber'] for item in observations) != [1, 2, 3]
+                or parallel[prefix + 'Accepted'] != observations[:1]):
+            raise ValueError('Missing independent queue identity, sequence or drain')
+        occurrences = set()
+        for item in observations:
+            request, receipt = item['request'], item['receipt']
+            if (item['status'] != 202 or receipt['duplicate'] is not False or receipt['serverId'] != server
+                    or request['sourceInstanceId'] != final['source'] or request['eventId'] in all_ids
+                    or any(receipt[key] != request[key] for key in ('eventId', 'sourceInstanceId', 'sequenceNumber'))):
+                raise ValueError('Cross-server or duplicate accepted event')
+            occurrence = datetime.fromisoformat(request['occurredAtUtc'].replace('Z', '+00:00'))
+            if occurrence in occurrences or not any(
+                    all(request[key] == event[key] for key in ('type', 'map', 'players', 'bots')) and
+                    occurrence == datetime.fromisoformat(event['occurredAtUtc'].replace('Z', '+00:00')) for event in native):
+                raise ValueError('Two-server delivery differs from native input')
+            occurrences.add(occurrence)
+            all_ids.add(request['eventId'])
+        cycles, previous = recovered[prefix + 'Cycles'], parallel[prefix + 'Cycles']
+        started = datetime.fromisoformat(cycles['startedAtUtc'].replace('Z', '+00:00'))
+        if (cycles['startedAtUtc'] != previous['startedAtUtc'] or previous['bothCompleted'] is not True
+                or cycles['bothCompleted'] is not True or cycles['importOutcome'] != 'idle' or cycles['deliveryOutcome'] != 'idle'
+                or any(datetime.fromisoformat(cycles[key].replace('Z', '+00:00')) < started
+                       for key in ('importCompletedAtUtc', 'deliveryCompletedAtUtc'))):
+            raise ValueError('Both worker loops did not complete in the retained processes')
+    first_delivered = {item['request']['eventId']: item for item in recovered['firstAccepted']}
+    for snapshot, source, count, next_sequence, delivered in (
+            (parallel['firstInitial'], recovered['firstFinal']['source'], 1, 2, first_delivered),
+            (parallel['secondInitial'], recovered['secondFinal']['source'], 1, 2,
+             {item['request']['eventId']: item for item in recovered['secondAccepted']}),
+            (outage['firstSnapshot'], recovered['firstFinal']['source'], 1, 3, first_delivered),
+            (forbidden['beforeRecovery'], recovered['firstFinal']['source'], 2, 4, first_delivered)):
+        if snapshot['source'] != source or len(snapshot['entries']) != count or snapshot['nextSequence'] != next_sequence:
+            raise ValueError('Pending queue identity or depth changed')
+        for entry in snapshot['entries']:
+            identity = entry['identity']
+            item = delivered.get(identity['eventId'])
+            if (item is None or identity['source'] != source or identity['nextSequence'] != next_sequence
+                    or identity['payloadSha256'] != item['payloadSha256'] or identity['sequence'] != item['request']['sequenceNumber']
+                    or entry['status'] not in (0, 1)):
+                raise ValueError('Recovery replaced queued bytes or sequence')
+    rejected = outage['rejectedDelivery']
+    if (rejected != forbidden['attempted'] or rejected['status'] != 503 or rejected['receipt'] is not None
+            or rejected['request']['sourceInstanceId'] != recovered['firstFinal']['source']
+            or rejected['request']['sequenceNumber'] != 2
+            or rejected['payloadSha256'] != first_delivered[rejected['request']['eventId']]['payloadSha256']
+            or outage['secondAccepted'] != recovered['secondAccepted'][:2]
+            or forbidden['secondAcceptedAfterDenial'] != recovered['secondAccepted']):
+        raise ValueError('Missing held-back request or healthy progress before recovery')
+    if parallel['firstAccepted'][0]['request']['occurredAtUtc'] == parallel['secondAccepted'][0]['request']['occurredAtUtc']:
+        raise ValueError('Initial Reader histories do not distinguish the servers')
+
+
+def execute(evidence, compiled, output, queue_recovery=False, server_isolation=False):
+    if queue_recovery and server_isolation:
+        raise ValueError('Telemetry modes are mutually exclusive')
     records, binding = read_records(evidence, compiled)
     output.mkdir(parents=True, exist_ok=False)
     log = []
@@ -156,9 +243,11 @@ def execute(evidence, compiled, output, queue_recovery=False):
             arguments = ['dotnet', str(harness), str(ROOT), str(agent), str(inputs), str(root / 'runtime'), str(root / 'result.json')]
             if queue_recovery:
                 arguments.append('queue-recovery')
+            if server_isolation:
+                arguments.append('server-isolation')
             command(arguments, log)
             result = json.loads((root / 'result.json').read_bytes())
-            validate_result(result, records, queue_recovery)
+            validate_result(result, records, queue_recovery, server_isolation)
             result['nativeEngine'] = binding
             sources = [PROJECT, Path(__file__).resolve(), Path(__file__).with_name('test-game-event-telemetry-e2e.py')]
             sources.extend(sorted(PROJECT.parent.glob('*.cs')))
@@ -167,7 +256,8 @@ def execute(evidence, compiled, output, queue_recovery=False):
                 ('api', harness.parent / 'GoldSrcOps.Api.dll'), ('agent', agent), ('acceptance', harness))}
         result['cleanup'] = 'temporary queues, synthetic credentials and database removed'
         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
-        print('NATIVE_TELEMETRY_QUEUE_RECOVERY=passed scenarios=3 rows=5' if queue_recovery else 'NATIVE_TELEMETRY_E2E=passed scenarios=3 rows=3')
+        print('NATIVE_TELEMETRY_SERVER_ISOLATION=passed scenarios=4 rows=6' if server_isolation else
+              'NATIVE_TELEMETRY_QUEUE_RECOVERY=passed scenarios=3 rows=5' if queue_recovery else 'NATIVE_TELEMETRY_E2E=passed scenarios=3 rows=3')
     finally:
         (output / 'runner.log').write_text('\n'.join(log), encoding='utf-8')
 
@@ -177,9 +267,11 @@ def main():
     parser.add_argument('--evidence', type=Path, required=True)
     parser.add_argument('--compiled', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--queue-recovery', action='store_true')
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--queue-recovery', action='store_true')
+    modes.add_argument('--server-isolation', action='store_true')
     args = parser.parse_args()
-    execute(args.evidence.resolve(), args.compiled.resolve(), args.output.resolve(), args.queue_recovery)
+    execute(args.evidence.resolve(), args.compiled.resolve(), args.output.resolve(), args.queue_recovery, args.server_isolation)
 
 
 if __name__ == '__main__':

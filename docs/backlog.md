@@ -15,10 +15,14 @@ the records below retain historical release evidence.
    The external timer owns automatic Archive; hourly `:53`, the 24-hour export
    window and warning thresholds remain unchanged. Candidate acceptance is proved;
    the three-hour age objective and source completeness are not yet established.
-2. When two independent human participants/accounts are available: run one
+2. Complete isolated [parallel server telemetry acceptance](telemetry-server-isolation-acceptance.md):
+   two live agents share the real API/PostgreSQL while preserving separate
+   queues, identities, server authorization and Reader histories. Verify healthy
+   progress during another server's outage and recovery without duplicates.
+3. When two independent human participants/accounts are available: run one
    controlled gameplay pilot, then select at most one map/spawn or mechanic
    improvement from its findings. Prepare the checklist while waiting.
-3. Keep the accepted client lab as a regression tool. Further monitoring UI,
+4. Keep the accepted client lab as a regression tool. Further monitoring UI,
    plugins and infrastructure need a concrete operator or player problem.
    Bots and 24-hour human activity aggregation remain deferred.
 
@@ -27,6 +31,15 @@ work. The roadmap update is documentation-only; no runtime, schedule or gameplay
 change is implied.
 
 ## Current Status
+
+Locally verified: [parallel server telemetry acceptance](telemetry-server-isolation-acceptance.md).
+Two real agents with separate queues/credentials passed parallel delivery,
+healthy progress during the first server's outage, real cross-server HTTP 403
+without persistence, and recovery to six rows with isolated Reader histories.
+Both previous runtime modes, complete local Quality Gate and reviewed
+InspectCode passed. Full hosted CI/publication and independent artifacts remain
+pending. Production workers, authorization contracts, queues and policies are
+preserved.
 
 Accepted: [telemetry queue recovery acceptance](telemetry-queue-recovery-acceptance.md)
 through [PR #559](https://github.com/tov-vl/gold-src-ops/pull/559). Full PR/main CI,
