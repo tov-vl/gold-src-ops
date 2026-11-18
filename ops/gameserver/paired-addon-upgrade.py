@@ -22,16 +22,46 @@ require = pair.require
 Uncertain = base.Uncertain
 GAME, AGENT = base.GAME, base.AGENT
 HOOKS = ('probe', 'backup', 'runtime')
+PERSISTENT_GUARD = Path('/usr/local/libexec/goldsrcops-game-event-persistent')
+BACKUP_GUARD = Path('/opt/goldsrcops-player-backup/ops/gameserver/game-event-persistent.sh')
 
 
-def read_plan(path, expected, server=base.SERVER, config=base.CONFIG):
+def read_plan(path, expected, server=base.SERVER, config=base.CONFIG,
+              guard_path=PERSISTENT_GUARD, backup_guard_path=BACKUP_GUARD):
     plan = pair.decode(pair.reference({'path': str(path), 'sha256': expected}))
-    return validate_plan(plan, server, config)
+    return validate_plan(plan, server, config, guard_path, backup_guard_path)
 
 
-def validate_plan(plan, server, config):
+def persistent_files(plan, config, guard_path, backup_guard_path, new):
+    files = plan['persistent']
+    require(set(files) == {'previousGuard', 'previousMarker', 'previousBackupGuard', 'candidateGuard'})
+    old_guard, old_marker, old_backup_guard, new_guard = (pair.reference(files[name]) for name in
+        ('previousGuard', 'previousMarker', 'previousBackupGuard', 'candidateGuard'))
+    require(new_guard == pair.read(DIRECTORY / 'game-event-persistent.sh') and old_guard != new_guard,
+            'Candidate guard must be the reviewed persistent workflow.')
+    require(old_marker.endswith(b'\n'))
+    keys = {}
+    for line in old_marker.decode('ascii').splitlines():
+        match = re.fullmatch(r'([a-z0-9_]+)=([a-zA-Z0-9._-]+)', line)
+        require(match and match[1] not in keys, 'Invalid predecessor persistent marker.')
+        keys[match[1]] = match[2]
+    require(keys.get('schema_version') in ('1', '2') and keys.get('policy_id') == 'persistent-gameplay-v1'
+            and keys.get('guard_sha256') == pair.digest(old_guard)
+            and not {'storage_module_sha256', 'storage_plugin_sha256'} & keys.keys(),
+            'Unexpected predecessor guard or storage binding.')
+    old_pin = f'guard_sha256={pair.digest(old_guard)}\n'.encode()
+    require(old_marker.count(old_pin) == 1)
+    new_marker = old_marker.replace(old_pin, f'guard_sha256={pair.digest(new_guard)}\n'.encode())
+    new_marker += (f'storage_module_sha256={pair.digest(new[pair.MODULE])}\n'
+                   f'storage_plugin_sha256={pair.digest(new[pair.PLUGIN])}\n').encode()
+    return ((guard_path, old_guard, new_guard),
+            (config / 'game-event-persistent-active', old_marker, new_marker),
+            (backup_guard_path, old_backup_guard, new_guard))
+
+
+def validate_plan(plan, server, config, guard_path=PERSISTENT_GUARD, backup_guard_path=BACKUP_GUARD):
     require(set(plan) == {'schema', 'operationId', 'previous', 'previousModule', 'candidate',
-                          'baselines', 'hooks'} and type(plan['schema']) is int and plan['schema'] == 1)
+                          'baselines', 'hooks', 'persistent'} and type(plan['schema']) is int and plan['schema'] == 2)
     require(re.fullmatch('[a-z0-9][a-z0-9-]{0,63}', plan['operationId']) is not None)
     _, old = pair.package(plan['previous'], False)
     new_manifest, new = pair.package(plan['candidate'], True)
@@ -45,7 +75,8 @@ def validate_plan(plan, server, config):
     before, after = [pair.reference(plan['baselines'][key]) for key in ('previous', 'candidate')]
     old_receipt = pair.receipt(plan['previous']['sha256'], {p: pair.digest(v) for p, v in old.items()})
     new_receipt = pair.receipt(plan['candidate']['sha256'], {p: pair.digest(v) for p, v in new.items()}, True)
-    require(pair.transition(before, server, config, old, new, old_receipt, new_receipt) == after,
+    guard, marker, _ = persistent_files(plan, config, guard_path, backup_guard_path, new)
+    require(pair.transition(before, server, config, old, new, old_receipt, new_receipt, (guard, marker)) == after,
             'Candidate baseline is not the exact reviewed transition.')
     require(set(plan['hooks']) == set(HOOKS))
     for hook in plan['hooks'].values():
@@ -104,6 +135,8 @@ class Host(base.Host):
     def __init__(self, plan, journal):
         super().__init__(plan, journal)
         self.server, self.config_root = base.SERVER, base.CONFIG
+        self.persistent_guard = PERSISTENT_GUARD
+        self.installed_backup_guard = BACKUP_GUARD
         self.initialize()
 
     def initialize(self):
@@ -115,7 +148,10 @@ class Host(base.Host):
         self.old_receipt = pair.receipt(self.plan['previous']['sha256'], {p: pair.digest(v) for p, v in self.previous.items()})
         self.new_receipt = pair.receipt(self.plan['candidate']['sha256'], {p: pair.digest(v) for p, v in self.candidate.items()}, True)
         self.changes = [(self.server / p, self.previous[p], self.candidate[p]) for p in (pair.MODULE, pair.PLUGIN)]
-        self.changes += [(self.receipt_path, self.old_receipt, self.new_receipt), (self.base, self.before, self.after)]
+        guard, marker, backup_guard = persistent_files(self.plan, self.config_root, self.persistent_guard,
+                                                      self.installed_backup_guard, self.candidate)
+        self.changes += [(self.receipt_path, self.old_receipt, self.new_receipt), backup_guard, guard,
+                         (self.base, self.before, self.after), marker]
         self.metadata = {}
 
     def hook(self, kind, phase, directory, manifest_hash):
@@ -173,6 +209,8 @@ class Host(base.Host):
         policy.write_json(self.journal.directory / 'static-metadata.json', self.metadata)
 
     def consumers(self):
+        overlay = base.run(['bash', str(DIRECTORY / 'addon-upgrade-guard.sh'), 'storage-overlay']).strip()
+        require(overlay == self.plan['previousModule']['sha256'], 'Pilot overlay does not pin the frozen stock module.')
         root = self.server / pair.AMXX
         plugins = sorted((root / 'plugins').rglob('*.amxx'))
         require(len(plugins) <= 200)
@@ -203,7 +241,7 @@ class Host(base.Host):
             require(info.st_size <= (4 if path.suffix == '.journal' else 16) * 1024 * 1024)
 
     def snapshot(self):
-        self.guard('quiescent')
+        self.guard('closed')
         self.data_layout()
         files = base.bundle.inventory(self.vault)
         return files, pair.semantic(files)
@@ -240,9 +278,14 @@ class Host(base.Host):
         base.run(['bash', str(DIRECTORY / 'player-data-schedule-guard.sh'), 'quiescent'])
 
     def install(self, which, closed):
-        self.guard('quiescent')
         self.validate_static()
-        for index, (path, old, new) in enumerate(self.changes):
+        indices = range(len(self.changes))
+        if which == 'previous':
+            indices = reversed(indices)
+        for index in indices:
+            path, old, new = self.changes[index]
+            # The stock overlay and its successor both reject partial pairs.
+            # Only the closed-state check is valid between individual writes.
             if self.snapshot()[0] != closed:
                 raise Uncertain('Unexpected closed data change during installation.')
             actual = pair.read(path, 16 * 1024 * 1024)
@@ -253,6 +296,7 @@ class Host(base.Host):
         if self.snapshot()[0] != closed:
             raise Uncertain('Unexpected closed data change after installation.')
         self.validate_static(which)
+        self.guard('quiescent')
 
     def mapped(self):
         group = base.run(['systemctl', 'show', GAME, '--property=ControlGroup', '--value']).strip()
@@ -284,6 +328,8 @@ class Host(base.Host):
         before = self.unit(GAME)
         require(before['ActiveState'] == 'active' and before['NRestarts'] == '0')
         self.mapped()
+        installed_schedule = self.installed_backup_guard.with_name('player-data-schedule-guard.sh')
+        base.run(['bash', str(installed_schedule), 'preflight'])
         item = self.plan['candidate' if which == 'candidate' else 'previous']
         result = self.hook('runtime', phase, self.journal.directory, item['sha256'])
         require(result.get('manifestSha256') == item['sha256'] and result.get('storageHealthy') is True
@@ -313,7 +359,7 @@ def execute(plan, journal, host):
         closed, semantic = host.backup('backup-before', plan['previous']['sha256'])
         # Revalidate frozen packages/scripts after the potentially long backup.
         require(policy.read_json(journal.directory / 'plan.json') == plan)
-        validate_plan(plan, host.server, host.config_root)
+        validate_plan(plan, host.server, host.config_root, host.persistent_guard, host.installed_backup_guard)
         host.install('candidate', closed)
         journal.step('starting-candidate')
         host.start()

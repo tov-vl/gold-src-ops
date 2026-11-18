@@ -18,7 +18,7 @@ FILES = ['ops/gameserver/' + name for name in (
     'player-data-baseline.py', 'player-data-bundle.py', 'player_data_schedule.py',
     'player_data_manual.py', 'player_data_reconciliation.py', 'player-data-schedule-guard.sh',
     'player-data-scheduled-capture.py',
-    'game-event-persistent.sh')]
+    'addon-upgrade-guard.sh', 'game-event-persistent.sh', 'fast-reentry-v1.cfg')]
 FILES += ['tools/smoke/paired-addon-upgrade.py', 'tools/smoke/paired-storage-runtime.json']
 
 
@@ -55,6 +55,9 @@ def main():
     image = engine.ensure_image(reference)
     engine_image = engine.ensure_image(engine_reference)
     output.mkdir(exist_ok=False)
+    tooling = output / 'tooling'
+    tooling.mkdir()
+    engine.download(runtime['jq'], tooling).chmod(0o755)
     sources = {name: sha(REPO / name) for name in FILES}
     snapshot = output / 'source-snapshot'
     for name in FILES:
@@ -99,9 +102,11 @@ def main():
         '--mount', f'type=bind,source={snapshot},target=/repo,readonly',
         '--mount', f'type=bind,source={probe_snapshot},target=/probes,readonly',
         '--mount', f'type=bind,source={runtime32},target=/runtime32,readonly',
+        '--mount', f'type=bind,source={tooling},target=/tooling,readonly',
         '--mount', f'type=bind,source={receipts},target=/evidence',
         '--env', 'PAIR_READER_DIR=/probes', '--env', 'PAIR_I386_LOADER=/runtime32/ld-linux.so.2',
         '--env', 'PAIR_EVIDENCE=/evidence',
+        '--env', 'PATH=/tooling:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
         '--entrypoint', 'python3', reference,
         '-B', '/repo/tools/smoke/paired-addon-upgrade.py']
     try:
@@ -126,6 +131,7 @@ def main():
         raise ValueError('Missing accepted native probe measurements')
     report = dict(schema=1, state='verified', tests=int(match[1]), sources=sources, image=image,
         imageReference=reference, probeManifestSha256=sha(probe_snapshot / 'manifest.json'),
+        jqSha256=sha(tooling / 'jq'),
         i386Image=engine_image, i386ImageReference=engine_reference,
         isolation=dict(network='none', publishedPorts=0),
         backupTransport='local encrypted off-host-directory emulation; no provider claim',
