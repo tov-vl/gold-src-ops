@@ -6,7 +6,7 @@ release steps.
 ## Next Priorities
 
 Planning baseline: 2026-11-18, after accepted trigger rc.4, automated native
-gameplay/telemetry and downloaded player-data durability acceptance. The
+gameplay/telemetry and stable player storage 0.40.0. The
 [current roadmap](roadmap.md) owns scope, dependencies and completion criteria;
 the records below retain historical release evidence.
 
@@ -15,21 +15,13 @@ the records below retain historical release evidence.
    The external timer owns automatic Archive; hourly `:53`, the 24-hour export
    window and warning thresholds remain unchanged. Candidate acceptance is proved;
    the three-hour age objective and source completeness are not yet established.
-2. Publish and accept the locally implemented
-   [paired addon/module delivery tooling](paired-player-storage-installer.md)
-   through full PR/main CI, then prepare the concrete immutable R3 bundle from
-   the [rollout plan](player-data-durability-rollout-plan.md).
-   The [durability fix](player-data-durability-implementation.md) has full PR/main
-   CI and independent downloaded-artifact acceptance. Read-only host inventory
-   and exact predecessor verification passed; signed paired publication,
-   target-storage and production acceptance remain separate gates.
-3. When two independent human participants/accounts are available: run one
+2. When two independent human participants/accounts are available: run one
    controlled gameplay pilot, then select at most one map/spawn or mechanic
    improvement from its findings. The [session protocol](gameplay-pilot.md) and
    [result template](templates/gameplay-pilot-result.md) and
    [Russian participant brief](gameplay-pilot-participants-ru.md) are prepared; no human
    acceptance is claimed until a session is actually recorded.
-4. Keep the accepted client lab as a regression tool. Further monitoring UI,
+3. Keep the accepted client lab as a regression tool. Further monitoring UI,
    plugins and infrastructure need a concrete operator or player problem.
    Bots and 24-hour human activity aggregation remain deferred.
 
@@ -39,19 +31,14 @@ change is implied.
 
 ## Current Status
 
-Implementation and downloaded artifacts accepted:
-[player-data process durability](player-data-durability-implementation.md).
-The original seven-assertion loss remains historical evidence. The separate
-Linux i386 module and source-only addon 0.40.0 pass checked commit/checkpoint,
-actual SIGKILL recovery with reversed slots and a second reopen, missing-journal
-negative control, five save-path failures and the existing 26-case regression.
-Standalone production installation remains blocked. The dedicated paired
-installer and backup baseline/rollback contract are implemented locally.
-Full PR/main CI and independent downloaded checks/replay passed after PR #566.
-The [paired R3 plan](player-data-durability-rollout-plan.md) records verified
-predecessor inputs and read-only preflight. Full CI for the new tooling, an
-immutable candidate, frozen owner hooks and host acceptance remain pending. No production,
-backup-policy, Archive or human-acceptance change.
+[Player storage 0.40.0](player-storage-0.40.0-release.md) completed production
+R3 acceptance and same-byte stable promotion. The paired addon and i386
+nVault passed full PR/main CI, a host storage probe, independent runtime
+acceptance and independent Recover of both closed backups. The
+[process durability implementation](player-data-durability-implementation.md)
+retains the original seven-assertion failure and SIGKILL recovery evidence.
+The weekly backup policy, Archive observation and human gameplay pilot have
+their own scope and acceptance gates.
 
 Prepared: [two-player gameplay pilot](gameplay-pilot.md), with a
 30-45 minute sequence, fresh installed-baseline gate, seventeen scenarios,

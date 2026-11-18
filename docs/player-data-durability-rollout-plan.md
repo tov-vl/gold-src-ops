@@ -1,12 +1,10 @@
 # Paired Player Data Durability Rollout Plan
 
-Status: R3 preparation, 2026-11-18. Read-only host inventory and local input
-verification are complete. This is a design for the next delivery slice, not an
-executable rollout bundle or production acceptance. No game restart, data write,
-backup, publication or installation was performed during preparation.
-The [paired installer](paired-player-storage-installer.md) now implements the
-local tooling boundary; concrete hooks, publication and host acceptance remain
-separate execution gates.
+This document preserves the original R3 design and read-only findings of
+2026-11-18. The [paired installer](paired-player-storage-installer.md)
+describes the schema-2 tooling. The completed production rollout, rc.1
+rollback and stable promotion are recorded in the
+[0.40.0 release evidence](player-storage-0.40.0-release.md).
 
 The [implementation](player-data-durability-implementation.md) has full PR/main
 CI and independently downloaded-artifact evidence. The

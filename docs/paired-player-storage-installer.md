@@ -4,7 +4,8 @@ The [R3 plan](player-data-durability-rollout-plan.md) owns the rollout boundary.
 The first candidate was rolled back after the persistent guard refused a module
 whose SHA-256 differed from the stock pin in the pilot overlay. The second
 candidate pairs storage with the guard and its persistent marker in one plan.
-Its production acceptance remains pending.
+[Stable 0.40.0](player-storage-0.40.0-release.md) records production acceptance
+and same-byte promotion of rc.2.
 
 ## Package And Frozen Plan
 
@@ -179,6 +180,7 @@ production baseline. For the second candidate, the new guard and marker
 account for two additional changed rows. The separately frozen backup guard
 library is outside that baseline's inventory.
 
-Before production: green PR/main CI, independent immutable publication,
-reviewed concrete hooks, refreshed host inputs, the approved R3 execution freeze
-and host acceptance from the plan remain required.
+For rc.2, full PR/main CI, signed ZIP verification, the schema-2 execution
+freeze and independent production acceptance passed. The published
+[release evidence](player-storage-0.40.0-release.md) records both rollout
+attempts and stable verification.
