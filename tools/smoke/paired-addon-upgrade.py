@@ -123,9 +123,14 @@ class FixtureHost(u.Host):
     def hook(self, kind, phase, directory, manifest_hash):
         result = u.Host.hook(self, kind, phase, directory, manifest_hash)
         if os.environ.get('PAIR_EVIDENCE'):
-            target = Path(os.environ['PAIR_EVIDENCE']) / (uuid.uuid4().hex + '.json')
+            evidence = Path(os.environ['PAIR_EVIDENCE'])
+            owner = evidence.stat()
+            target = evidence / (uuid.uuid4().hex + '.json')
             with target.open('x', encoding='utf-8') as stream:
                 json.dump(dict(case=self.case_name, kind=kind, receipt=result), stream)
+                # Export only the sanitized receipt to the runner that owns the mount.
+                if (owner.st_uid, owner.st_gid) != (os.geteuid(), os.getegid()):
+                    os.fchown(stream.fileno(), owner.st_uid, owner.st_gid)
         return result
 
     def backup_guard(self):
