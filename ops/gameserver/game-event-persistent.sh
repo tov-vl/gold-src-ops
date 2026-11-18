@@ -89,6 +89,8 @@ pilot_activation_present=false
 
 marker_backup_name=""
 marker_guard_sha256=""
+marker_storage_module_sha256=""
+marker_storage_plugin_sha256=""
 marker_game_drop_in_sha256=""
 marker_agent_drop_in_sha256=""
 marker_pilot_marker_sha256=""
@@ -250,7 +252,7 @@ read_pilot_marker() {
 }
 
 read_persistent_marker() {
-    local key value digest
+    local key value digest pair_fields=0
     local schema_version="" policy_id=""
     declare -A seen=()
 
@@ -263,6 +265,8 @@ read_persistent_marker() {
     marker_mapcycle_sha256=""
     marker_backup_name=""
     marker_guard_sha256=""
+    marker_storage_module_sha256=""
+    marker_storage_plugin_sha256=""
     marker_game_drop_in_sha256=""
     marker_agent_drop_in_sha256=""
     marker_pilot_marker_sha256=""
@@ -284,6 +288,8 @@ read_persistent_marker() {
             policy_id) policy_id="$value" ;;
             backup_name) marker_backup_name="$value" ;;
             guard_sha256) marker_guard_sha256="$value" ;;
+            storage_module_sha256) marker_storage_module_sha256="$value" ;;
+            storage_plugin_sha256) marker_storage_plugin_sha256="$value" ;;
             game_drop_in_sha256) marker_game_drop_in_sha256="$value" ;;
             agent_drop_in_sha256) marker_agent_drop_in_sha256="$value" ;;
             pilot_marker_sha256) marker_pilot_marker_sha256="$value" ;;
@@ -305,14 +311,19 @@ read_persistent_marker() {
         esac
     done < "$persistent_marker"
 
+    if [[ -n "$marker_storage_module_sha256" || -n "$marker_storage_plugin_sha256" ]]; then
+        validate_sha256 "$marker_storage_module_sha256"
+        validate_sha256 "$marker_storage_plugin_sha256"
+        pair_fields=2
+    fi
     [[ "$policy_id" == "$POLICY_ID" ]] || fail "The persistent marker contract is invalid."
     case "$schema_version" in
         1)
-            [[ "${#seen[@]}" -eq 15 && -z "$marker_profile_id" ]] ||
+            [[ "${#seen[@]}" -eq $((15 + pair_fields)) && -z "$marker_profile_id" ]] ||
                 fail "The persistent marker contract is invalid."
             ;;
         2)
-            [[ "${#seen[@]}" -eq 21 && "$marker_profile_id" == "$FAST_PROFILE_ID" ]] ||
+            [[ "${#seen[@]}" -eq $((21 + pair_fields)) && "$marker_profile_id" == "$FAST_PROFILE_ID" ]] ||
                 fail "The fast-reentry persistent marker contract is invalid."
             for digest in "$marker_public_sha256" "$marker_runtime_enabled_sha256" \
                 "$marker_active_profile_sha256" "$marker_profile_sha256" \
@@ -479,16 +490,25 @@ EOF
 
 verify_overlay_payload() {
     local payload_path payload_sha payload_mode destination expected_sha expected_mode
+    local module_pins=0
     while IFS=$'\t' read -r payload_path payload_sha payload_mode; do
         destination="$game_root/${payload_path#gameserver/}"
         expected_sha="$payload_sha"
         if [[ "$destination" == "$producer_configuration" ]]; then
             expected_sha="$marker_producer_sha256"
+        elif [[ "$destination" == "$live_amxx_root/modules/nvault_amxx_i386.so" &&
+                -n "$marker_storage_module_sha256" ]]; then
+            expected_sha="$marker_storage_module_sha256"
+            module_pins=$((module_pins + 1))
         fi
         expected_mode="${payload_mode#0}"
         verify_sha256 "$destination" "$expected_sha"
         validate_file_metadata "$destination" root "$service_group" "$expected_mode"
     done < <(jq -r '.payload[] | select(.path | startswith("gameserver/")) | [.path, .sha256, .mode] | @tsv' "$pilot_manifest_file")
+    if [[ -n "$marker_storage_module_sha256" ]]; then
+        [[ "$module_pins" -eq 1 ]] || fail "The paired storage module has no unique pilot overlay entry."
+        verify_sha256 "$live_amxx_root/plugins/goldsrcops_weapon_selection.amxx" "$marker_storage_plugin_sha256"
+    fi
 }
 
 verify_agent_payload() {

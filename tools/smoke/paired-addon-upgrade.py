@@ -5,7 +5,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
-import shutil
+import pwd
 import stat
 import struct
 import subprocess
@@ -133,19 +133,6 @@ class FixtureHost(u.Host):
                     os.fchown(stream.fileno(), owner.st_uid, owner.st_gid)
         return result
 
-    def backup_guard(self):
-        # Exercise the real baseline/quiescence shell guard. Only service and
-        # persistent-profile dependencies belong to this disposable adapter.
-        u.Host.backup_guard(self)
-
-    def guard(self, phase):
-        if phase == 'quiescent':
-            p.require(self.active is False)
-        elif phase in ('preflight', 'running', 'baseline'):
-            p.require(self.active is True)
-        else:
-            p.require(phase == 'identity')
-
     def unit(self, name):
         agent = name == u.AGENT
         return dict(ActiveState='active' if agent or self.active else 'inactive',
@@ -160,6 +147,7 @@ class FixtureHost(u.Host):
         if (self.root / 'start-uncertain').exists():
             raise u.Uncertain('Interrupted start')
         self.validate_static('candidate' if p.read(self.base) == self.after else 'previous')
+        u.base.run(['bash', str(self.persistent_guard), '--guard-game'])
         self.active = True
         put(self.root / 'service-active', 'active')
         self.generation += 1
@@ -170,6 +158,7 @@ class FixtureHost(u.Host):
             raise u.Uncertain('Interrupted stop')
         self.active = False
         put(self.root / 'service-active', 'inactive')
+        self.guard('quiescent')
 
     def mapped(self):
         # Unit fixture replaces only the OS service/process adapter.
@@ -183,13 +172,22 @@ class PairTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.root.chmod(0o711)
+        scripts = self.root / 'staged-scripts'
+        for name in ('game-event-persistent.sh', 'addon-upgrade-guard.sh', 'player-data-schedule-guard.sh'):
+            put(scripts / name, (SOURCE / name).read_bytes())
+        directory = patch.object(u, 'DIRECTORY', scripts)
+        directory.start()
+        self.addCleanup(directory.stop)
         self.server, self.config, self.state = [self.root / x for x in ('server', 'config', 'state')]
         for directory in (self.server, self.config, self.state):
             directory.mkdir(mode=0o700)
         self.vault = self.server / p.AMXX / 'data/vault'
         self.vault.mkdir(parents=True, mode=0o700)
+        service = pwd.getpwnam('nobody')
+        os.chown(self.vault, service.pw_uid, service.pw_gid)
         for name in u.base.bundle.NAMES:
             put(self.vault / name, b'' if name.endswith('.journal') else vault(), 0o640)
+            os.chown(self.vault / name, service.pw_uid, service.pw_gid)
         self.original_data = u.base.bundle.inventory(self.vault)
         self.old_module = b'\x7fELF\x01\x01\x01' + bytes(11) + b'\x03\0old-GetVaultMngr'
         self.new_module = b'\x7fELF\x01\x01\x01' + bytes(11) + b'\x03\0new-GetVaultMngr'
@@ -230,11 +228,14 @@ class PairTests(unittest.TestCase):
         for k, v in self.old.items():
             put(self.server / k, v, 0o640)
         put(self.receipt, self.old_receipt, 0o640)
+        persistent, guard_changes = self.persistent_profile()
         put(self.root / 'unrelated', 'preserve')
         rows = [(p.digest(v), str(self.server / k)) for k,v in self.old.items()]
         rows += [(p.digest(self.old_receipt), str(self.receipt)), (p.digest(b'preserve'), str(self.root / 'unrelated'))]
+        rows += [(p.digest(old), str(path)) for path, old, _ in guard_changes]
         self.before = ''.join(h + '  ' + name + '\n' for h,name in rows).encode()
-        self.after = p.transition(self.before, self.server, self.config, self.old, self.new, self.old_receipt, self.new_receipt)
+        self.after = p.transition(self.before, self.server, self.config, self.old, self.new,
+                                  self.old_receipt, self.new_receipt, guard_changes)
         self.base = self.config / 'player-data-backup-baseline.sha256'
         put(self.base, self.before)
         put(self.root / 'baseline-before', self.before)
@@ -242,34 +243,117 @@ class PairTests(unittest.TestCase):
         self.hook = self.root / 'hook.sh'
         put(self.hook, '#!/bin/sh\nexec python3 -B '+str(Path(__file__).resolve())+' --fixture-hook "$@"\n')
         ref = lambda x: dict(path=str(x), sha256=p.digest(p.read(x)))
-        self.plan = dict(schema=1, operationId='fixture', previous=self.previous, candidate=self.candidate,
+        self.plan = dict(schema=2, operationId='fixture', previous=self.previous, candidate=self.candidate,
             previousModule=ref(self.root / 'stock.so'),
             baselines=dict(previous=ref(self.root / 'baseline-before'), candidate=ref(self.root / 'baseline-after')),
-            hooks={key: ref(self.hook) for key in u.HOOKS})
+            hooks={key: ref(self.hook) for key in u.HOOKS}, persistent=persistent)
         put(self.root / 'candidate-hash', self.candidate['sha256'])
-        scripts, commands = self.root / 'scripts', self.root / 'bin'
-        scripts.mkdir(mode=0o700); commands.mkdir(mode=0o700)
-        shutil.copyfile(SOURCE / 'player-data-schedule-guard.sh', scripts / 'player-data-schedule-guard.sh')
-        put(scripts / 'game-event-persistent.sh', 'source "$REPO_SOURCE/game-event-persistent.sh"\n'
-            'configuration_directory="$PAIR_FIXTURE/config"\n'
-            'live_amxx_root="$PAIR_FIXTURE/server/cstrike/addons/amxmodx"\n'
-            'service_user=root; service_group=root\nverify_persistent_files() { :; }\n')
-        put(commands / 'systemctl', '#!/bin/sh\ncase "$*" in *MainPID*) echo 0;; *) cat "$PAIR_FIXTURE/service-active";; esac\n', 0o700)
+        commands = self.root / 'bin'
+        commands.mkdir(mode=0o700)
+        put(commands / 'systemctl', '#!/bin/sh\ncase "$*" in\n'
+            '*MainPID*) echo 0;;\nis-enabled*) echo enabled;;\n'
+            '*goldsrcops-game-event-agent.service*) echo active;;\n'
+            '*) cat "$PAIR_FIXTURE/service-active";;\nesac\n', 0o700)
         put(commands / 'pgrep', '#!/bin/sh\nexit 1\n', 0o700)
         put(self.root / 'service-active', 'active')
-        self.environment = patch.dict(os.environ, {'PAIR_FIXTURE': str(self.root), 'REPO_SOURCE': str(SOURCE),
-                                                   'PATH': str(commands) + ':' + os.environ['PATH']})
+        self.environment = patch.dict(os.environ, {'PAIR_FIXTURE': str(self.root), 'SUDO_USER': 'operator',
+            'SSH_CONNECTION': 'fixture', 'PATH': str(commands) + ':' + os.environ['PATH'],
+            'GOLDSRCOPS_SERVICE_HOME': str(self.root), 'GOLDSRCOPS_CONFIGURATION_DIRECTORY': str(self.config),
+            'GOLDSRCOPS_LIBEXEC_DIRECTORY': str(self.root / 'libexec'),
+            'GOLDSRCOPS_INSTALLATION_DIRECTORY': str(self.root / 'install'),
+            'GOLDSRCOPS_SYSTEMD_DIRECTORY': str(self.root / 'systemd')})
         self.environment.start()
         self.addCleanup(self.environment.stop)
-        original_directory = patch.object(u, 'DIRECTORY', scripts)
-        original_directory.start()
-        self.addCleanup(original_directory.stop)
         if os.environ.get('PAIR_READER_DIR'):
             put(self.root / 'probe-new', (Path(os.environ['PAIR_READER_DIR']) / 'player-storage-new').read_bytes(), 0o755)
             scratch = self.root / 'scratch-base'
             scratch.mkdir(mode=0o700)
             os.chown(scratch, 65534, 65534)
         self.refresh()
+
+    def persistent_profile(self):
+        config, root = self.config, self.root
+        release = root / 'install/game-event-pilot/releases' / ('a' * 64)
+        activation = root / 'install/game-event-pilot/activation/state'
+        self.persistent_guard = root / 'libexec/goldsrcops-game-event-persistent'
+        self.installed_backup_guard = root / 'backup/ops/gameserver/game-event-persistent.sh'
+        guard_source = u.DIRECTORY / 'game-event-persistent.sh'
+        old_guard = guard_source.read_bytes() + b'\n# Legacy fixture identity.\n'
+        put(self.persistent_guard, old_guard, 0o755)
+        put(self.installed_backup_guard, old_guard + b'# Backup source identity.\n', 0o644)
+        for name in ('player-data-schedule-guard.sh', 'addon-upgrade-guard.sh'):
+            put(self.installed_backup_guard.with_name(name), (SOURCE / name).read_bytes())
+        producer = self.server / p.AMXX / 'configs/amxx.cfg'
+        put(producer, 'goldsrcops_events_enabled 1\ngoldsrcops_spool_max_pending 1000\n', 0o640)
+        put(self.server / 'cstrike/liblist.gam', 'fixture')
+        self.overlay = release / 'manifest.json'
+        payload = [{'path': 'gameserver/' + p.MODULE, 'sha256': p.digest(self.old_module), 'mode': '0640'},
+                   {'path': 'gameserver/' + str(producer.relative_to(self.server)),
+                    'sha256': p.digest(b'disabled producer'), 'mode': '0640'}]
+        put(self.overlay, json.dumps({'payload': payload}), 0o640)
+        put(config / 'host-prepared', 'schema_version=1\noperator_user=operator\nservice_user=nobody\n', 0o640)
+        pilot = config / 'game-event-pilot-installed'
+        put(pilot, f'schema_version=1\nbundle_sha256={"a" * 64}\nmanifest_sha256={p.digest(p.read(self.overlay))}\n', 0o640)
+        gate = config / 'game-event-pilot-enabled'
+        put(gate, 'fixture', 0o640)
+        put(activation, 'fixture')
+        put(config / 'secrets/game-event-agent-client-secret', 'fixture')
+        environment = config / 'game-event-agent.env'
+        put(environment, 'GameEventAgent__Spool__Enabled=true\nGameEventAgent__Delivery__Enabled=true\n', 0o640)
+        stats = dict(schemaVersion=1, deliveryEnabled=True, queue=dict(pending=0,inFlight=0,deadLetter=0),
+                     spool=dict(ready=0,processing=0,rejected=0))
+        executable = release / 'agent/GoldSrcOps.GameEventAgent'
+        put(executable, "#!/bin/sh\nprintf '%s\\n' '" + json.dumps(stats) + "'\n", 0o750)
+        gid = pwd.getpwnam('nobody').pw_gid
+        for directory in executable.parents:
+            if directory == root:
+                break
+            directory.chmod(0o750)
+            os.chown(directory, 0, gid)
+        os.chown(executable, 0, gid)
+        game_unit = root / 'systemd' / u.GAME
+        agent_unit = root / 'systemd' / u.AGENT
+        game_dropin = game_unit.with_name(game_unit.name + '.d') / '30-game-event-persistent.conf'
+        agent_dropin = agent_unit.with_name(agent_unit.name + '.d') / '30-game-event-persistent.conf'
+        put(game_unit, '[Service]\n', 0o644)
+        put(agent_unit, '[Service]\n', 0o644)
+        put(game_dropin, f'ExecCondition={self.persistent_guard} --guard-game\n', 0o644)
+        put(agent_dropin, f'ExecCondition=!{self.persistent_guard} --guard-agent\n', 0o644)
+        pins = dict(guard=self.persistent_guard, game_drop_in=game_dropin, agent_drop_in=agent_dropin,
+                    pilot_marker=pilot, pilot_gate=gate, activation_state=activation, manifest=self.overlay,
+                    liblist=self.server / 'cstrike/liblist.gam', environment=environment, producer=producer,
+                    game_unit=game_unit, agent_unit=agent_unit)
+        public = config / 'server-public.cfg'
+        runtime = config / 'runtime-enabled'
+        profile = self.server / 'cstrike/goldsrcops-fast-reentry-v1.cfg'
+        rotation = self.server / 'cstrike/goldsrcops-mapcycle.txt'
+        selected = config / 'managed-profile-active'
+        put(public, 'exec goldsrcops-fast-reentry-v1.cfg\n', 0o640)
+        put(profile, (SOURCE / 'fast-reentry-v1.cfg').read_bytes(), 0o640)
+        put(rotation, 'de_dust2\n', 0o640)
+        public_hash = p.digest(p.read(public))
+        put(runtime, f'public_config_sha256={public_hash}\n', 0o640)
+        profile_pins = dict(public=public, runtime_enabled=runtime, profile=profile, mapcycle=rotation)
+        put(selected, 'schema_version=1\nprofile_id=fast-reentry-v1\n'
+                      'backup_name=managed-profile-20261118T000000Z-000001\n'
+                      f'baseline_public_sha256={public_hash}\nbaseline_runtime_enabled_sha256={p.digest(p.read(runtime))}\n' +
+                      ''.join(f'{name}_sha256={p.digest(p.read(path))}\n' for name, path in profile_pins.items()), 0o640)
+        pins.update(profile_pins, active_profile=selected)
+        marker = config / 'game-event-persistent-active'
+        put(marker, 'schema_version=2\npolicy_id=persistent-gameplay-v1\nprofile_id=fast-reentry-v1\n'
+                    'backup_name=persistent-gameplay-20261118T000000Z-000001\n' +
+                    ''.join(f'{name}_sha256={p.digest(p.read(path))}\n' for name, path in pins.items()), 0o640)
+        for path in (self.server / p.MODULE, producer, pilot, gate, environment, marker, selected,
+                     public, runtime, profile, rotation):
+            os.chown(path, 0, gid)
+        put(root / 'guard-before', old_guard)
+        put(root / 'marker-before', p.read(marker))
+        inputs = dict(previousGuard=root / 'guard-before', previousMarker=root / 'marker-before',
+                      previousBackupGuard=root / 'backup-guard-before', candidateGuard=guard_source)
+        put(inputs['previousBackupGuard'], p.read(self.installed_backup_guard))
+        plan = {'persistent': {k: dict(path=str(v), sha256=p.digest(p.read(v))) for k, v in inputs.items()}}
+        files = u.persistent_files(plan, config, self.persistent_guard, self.installed_backup_guard, self.new)
+        return plan['persistent'], files[:2]
 
     def refresh(self):
         put(self.root / 'plan.json', json.dumps(self.plan))
@@ -279,11 +363,14 @@ class PairTests(unittest.TestCase):
         self.host.root, self.host.plan, self.host.journal = self.root, self.plan, self.journal
         self.host.case_name = self._testMethodName
         self.host.server, self.host.config_root, self.host.base, self.host.vault = self.server, self.config, self.base, self.vault
+        self.host.persistent_guard = self.persistent_guard
+        self.host.installed_backup_guard = self.installed_backup_guard
         self.host.active, self.host.generation, self.host.calls = True, 1, []
         self.host.initialize()
 
     def execute(self):
-        u.read_plan(self.root / 'plan.json', self.identity, self.server, self.config)
+        u.read_plan(self.root / 'plan.json', self.identity, self.server, self.config,
+                    self.persistent_guard, self.installed_backup_guard)
         return u.execute(self.plan, self.journal, self.host)
 
     def terminal(self, expected, which):
@@ -296,9 +383,39 @@ class PairTests(unittest.TestCase):
             self.execute()
 
     def test_forward_pair_baseline_receipt_and_no_replay(self):
+        overlay = self.overlay.read_bytes()
         self.terminal('accepted', 'candidate')
         self.assertEqual(['stop', 'start', 'stop', 'start'], self.host.calls)
-        self.assertEqual(3, sum(a != b for a,b in zip(self.before.splitlines(), self.after.splitlines())))
+        self.assertEqual(5, sum(a != b for a,b in zip(self.before.splitlines(), self.after.splitlines())))
+        self.assertEqual(overlay, self.overlay.read_bytes())
+        self.assertEqual(p.read(self.persistent_guard), p.read(self.installed_backup_guard))
+        u.base.run(['bash', str(self.installed_backup_guard.with_name('addon-upgrade-guard.sh')), 'baseline'])
+
+    def test_stock_overlay_and_guard_pass_preflight(self):
+        script = SOURCE / 'addon-upgrade-guard.sh'
+        for phase in ('identity', 'preflight', 'storage-overlay'):
+            proc = subprocess.run(['bash', str(script), phase], capture_output=True, text=True, timeout=15)
+            self.assertEqual(0, proc.returncode, (phase, proc.stderr))
+        self.assertEqual(p.digest(self.old_module), proc.stdout.strip())
+
+    def test_installed_guard_rejects_mixed_pair_and_partial_marker(self):
+        self.terminal('accepted', 'candidate')
+        guard = ['bash', str(self.persistent_guard), '--guard-game']
+        marker = self.config / 'game-event-persistent-active'
+        original = marker.read_bytes()
+        plugin = self.server / p.PLUGIN
+        with self.subTest('predecessor addon with candidate module'):
+            put(plugin, self.old[p.PLUGIN], 0o640)
+            with self.assertRaises(ValueError):
+                u.base.run(guard)
+            put(plugin, self.new[p.PLUGIN], 0o640)
+        with self.subTest('single storage pin'):
+            put(marker, b''.join(line for line in original.splitlines(keepends=True)
+                                 if not line.startswith(b'storage_plugin_sha256=')), 0o640)
+            with self.assertRaises(ValueError):
+                u.base.run(guard)
+            put(marker, original, 0o640)
+        self.assertIn('PERSISTENT_GAME_EVENT_GUARD=passed', u.base.run(guard))
 
     def test_capture_and_transition_locks_stay_held_without_reacquiring(self):
         paths = (self.state / 'schedule.lock', self.config / 'player-data-backup.lock',
@@ -311,9 +428,13 @@ class PairTests(unittest.TestCase):
                         pass
 
     def test_identical_repeated_invariants_keep_inventory_shape(self):
-        self.before += self.before.splitlines(keepends=True)[-1]
+        invariant = next(line for line in self.before.splitlines(keepends=True)
+                         if line.endswith(b'/unrelated\n'))
+        self.before += invariant * 2
+        guard, marker, _ = u.persistent_files(self.plan, self.config, self.persistent_guard,
+                                              self.installed_backup_guard, self.new)
         self.after = p.transition(self.before, self.server, self.config, self.old, self.new,
-                                  self.old_receipt, self.new_receipt)
+                                  self.old_receipt, self.new_receipt, (guard, marker))
         put(self.base, self.before)
         for kind, raw in (('before', self.before), ('after', self.after)):
             put(self.root / ('baseline-' + kind), raw)
@@ -361,7 +482,7 @@ class PairTests(unittest.TestCase):
 
     def test_completed_failure_after_each_replace_rolls_back(self):
         original = u.replace_exact
-        for index in range(4):
+        for index in range(7):
             with self.subTest(index=index):
                 self.setUp()
                 def fail(path, expected, target, metadata, journal, phase):
@@ -543,6 +664,11 @@ class PairTests(unittest.TestCase):
 
     def test_baseline_and_unrelated_drift_refuse_before_stop(self):
         put(self.root / 'unrelated', 'changed')
+        self.assertEqual('refused', self.execute())
+        self.assertEqual([], self.host.calls)
+
+    def test_installed_backup_guard_drift_refuses_before_stop(self):
+        put(self.installed_backup_guard, b'# Drift\n', 0o644)
         self.assertEqual('refused', self.execute())
         self.assertEqual([], self.host.calls)
 

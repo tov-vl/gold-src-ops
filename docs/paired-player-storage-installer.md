@@ -1,10 +1,10 @@
 # Paired Player Storage Installer
 
-Status: local tooling implementation, 2026-11-18. The
-[R3 plan](player-data-durability-rollout-plan.md) owns the rollout boundary.
-This slice adds package assembly/verification, a claimed coordinator, a frozen
-baseline transition and isolated failure/rollback acceptance. Publication and
-production execution are separate gates. The game and player data are unchanged.
+The [R3 plan](player-data-durability-rollout-plan.md) owns the rollout boundary.
+The first candidate was rolled back after the persistent guard refused a module
+whose SHA-256 differed from the stock pin in the pilot overlay. The second
+candidate pairs storage with the guard and its persistent marker in one plan.
+Its production acceptance remains pending.
 
 ## Package And Frozen Plan
 
@@ -28,7 +28,7 @@ The independent release checker accepts schema 3 only when its five payload
 hashes match the frozen baseline and its process contract is 1; existing schema-2
 acceptance remains supported.
 
-The operation plan has schema 1 and these fields:
+The operation plan has schema 2 and these fields:
 
 | Field | Required meaning |
 | --- | --- |
@@ -37,13 +37,27 @@ The operation plan has schema 1 and these fields:
 | `previousModule` | Absolute retained stock-module path and SHA-256 |
 | `baselines.previous`, `baselines.candidate` | Absolute frozen files and SHA-256 for the exact old/new baseline bytes |
 | `hooks.probe`, `hooks.backup`, `hooks.runtime` | Absolute reviewed root-script paths and SHA-256 |
+| `persistent.previousGuard`, `persistent.previousMarker`, `persistent.previousBackupGuard` | Absolute retained startup guard, marker and installed backup guard library from the preflight, with SHA-256 |
+| `persistent.candidateGuard` | Absolute staged candidate guard and SHA-256. The bytes must equal the reviewed persistent workflow shipped beside the coordinator. |
 
 The library `ops/gameserver/player_storage_pair.py` computes the baseline from
-the reviewed old rows and package/receipt bytes, never current live drift. Only
-module, plugin and receipt rows change. Identical repeated invariant rows are
-preserved; conflicting duplicates are rejected. It neither discovers new
-baseline entries nor normalizes the inventory. Every unrelated row must match
-the host before replacement, acceptance and rollback.
+the reviewed old rows and frozen package, receipt, guard and marker bytes. Exactly
+the module, plugin, receipt, guard and persistent marker rows can change.
+Identical repeated rows and their ordering are preserved. Conflicting duplicates
+are rejected. Every unrelated row must match the host before replacement,
+acceptance and rollback.
+
+The coordinator derives the candidate marker by changing `guard_sha256` and
+adding `storage_module_sha256` and `storage_plugin_sha256`. It verifies that
+the current pilot overlay has exactly one standard nVault entry pinned to the
+frozen stock binary. The overlay manifest and its hash chain stay intact.
+The installed game guard uses the new marker only for the exact nVault entry,
+checks the addon hash as well, and retains the overlay checks for all other
+entries. A marker with no storage pins retains the stock behavior.
+The coordinator installs the same guard library in the existing backup tool
+directory and validates its exact bytes as part of the pair. This keeps the
+scheduled backup and independent acceptance readers compatible with the
+selected marker. The old library bytes are retained for rollback.
 
 Stage tools/packages/hooks root-owned without group/other write access. The
 Linux root entry point is `ops/gameserver/paired-addon-upgrade.py`, with required
@@ -67,17 +81,20 @@ backup hook. It invokes the real baseline/quiescence shell guard under the
 already-held locks; it does not reacquire them through the standalone capture
 command. A target backup gate cannot be replaced by a live inventory hash.
 
-Both binaries, receipt and baseline have separate compare-before-replace
-operations with fsynced intent, exact metadata and a private exclusive temporary
-file. Replacing two files is not one atomic transaction. The durable phases
-make each known partial pair identifiable. The game starts only with the whole
-selected pair and exact frozen baseline. Closed player bytes must remain
-unchanged throughout installation; unexplained changes retain pending without
-restarting or restoring data.
+Both binaries, receipt, both guard copies, baseline and persistent marker have separate
+compare-before-replace operations with fsynced intent and exact metadata.
+While those writes are in progress, the coordinator checks quiescence, vault
+bytes and the recognized static set. The startup guard refuses a partial
+transition. The coordinator writes the candidate marker last, then runs the
+full quiescent guard before the candidate start. It restores components in
+reverse order and runs the full guard again before a predecessor start.
+Closed player bytes must remain unchanged throughout installation. Unexplained
+changes retain pending and require reconciliation.
 
 Runtime acceptance requires the actual engine process from its service cgroup,
 the verified mapped module inode/device, no restart and a frozen read-only
-version/storage probe. The service MainPID may be a wrapper and is insufficient.
+version/storage probe. It also evaluates the installed backup preflight.
+The service MainPID may be a wrapper and is insufficient.
 A second empty-server stop/capture/reopen compares private semantic digests
 of sorted records and timestamps. This permits checkpoint ordering changes
 without claiming equality from record counts or rewriting player data.
@@ -132,19 +149,20 @@ fault controls. Closed copies must be parsed and compared privately around
 each reopen, not applied to live vaults.
 
 `tools/smoke/paired-storage-rehearsal.py` freezes source and probe inputs, uses
-digest-pinned Python and i386 runtime images, and runs without network or ports.
-No apt installation is required. It retains per-phase receipts, measured probe
+digest-pinned Python and i386 runtime images and a SHA-256-pinned jq binary.
+The fixture runs without network or ports. It retains per-phase receipts, measured probe
 p99/maximum, source hashes and the test log. The root fixture exercises actual
-file replacement, baseline/quiescence guards, encryption in a separate local
-directory, and real old/new native readers. Only service/process and owner
-transport are adapters. It does not prove provider availability, a real engine
-rollout, target-host performance or production off-host Recovery.
+file replacement, baseline/quiescence checks and the installed guard with a
+stock-pinned pilot overlay and fast-reentry profile. It also checks encrypted
+readback in a separate local directory with the actual old/new readers. Service
+state, process identity and owner transport are fixtures. Provider availability,
+engine startup and target-host acceptance are separate checks.
 
 CI builds and retains the probe/source artifact and runs the frozen rehearsal
 on the full path. Documentation/stable fast paths and the existing addon-only
 path remain bounded. New paired tooling changes require full CI.
 
-Local acceptance passed 35 paired-workflow/contract cases with the real i386
+The first candidate's local acceptance passed 35 paired-workflow/contract cases with the real i386
 readers/probe, actual backup guards and frozen source inputs. It includes partial
 pair replacement, uncertainty and no replay, new-progress retention, metadata,
 occupancy, conflicting/identical baseline repeats, mapped engine identity and
@@ -154,10 +172,12 @@ checks passed separately. Python/shell/YAML syntax and documentation checks
 are separate from hosted CI. No C# changed; the .NET suite and InspectCode were
 not run. No remote publication, game restart or deployment was performed.
 
-Local package assembly also matched the preserved installed receipt and
+The first candidate's local assembly also matched the preserved installed receipt and
 computed the exact 26-row baseline transition: three changed rows, unchanged
 inventory order and identical repeats. This is a proposal, not an applied
-production baseline.
+production baseline. For the second candidate, the new guard and marker
+account for two additional changed rows. The separately frozen backup guard
+library is outside that baseline's inventory.
 
 Before production: green PR/main CI, independent immutable publication,
 reviewed concrete hooks, refreshed host inputs, the approved R3 execution freeze

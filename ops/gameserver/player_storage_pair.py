@@ -186,11 +186,14 @@ def baseline_rows(raw):
     return rows
 
 
-def transition(old, server, config, previous, candidate, old_receipt, new_receipt):
+def transition(old, server, config, previous, candidate, old_receipt, new_receipt, persistent_changes=()):
     before = {str(server / path): digest(raw) for path, raw in previous.items()}
     after = {str(server / path): digest(raw) for path, raw in candidate.items()}
     receipt_path = str(config / 'weapon-selection-installed')
     before[receipt_path], after[receipt_path] = digest(old_receipt), digest(new_receipt)
+    for path, previous_bytes, candidate_bytes in persistent_changes:
+        require(str(path) not in before)
+        before[str(path)], after[str(path)] = digest(previous_bytes), digest(candidate_bytes)
     rows = baseline_rows(old)
     require(set(before) <= {name for _, name in rows}, 'Baseline must already cover the whole pair.')
     for expected, name in rows:
