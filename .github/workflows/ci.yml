@@ -204,6 +204,7 @@ jobs:
       contents: read
     outputs:
       module_artifact: ${{ steps.module-artifact.outputs.name }}
+      probe_artifact: ${{ steps.module-artifact.outputs.probe_name }}
     steps:
       - name: Confirm native storage checks unnecessary
         if: needs.change-scope.outputs.docs_only == 'true' || needs.change-scope.outputs.stable_promotion == 'true'
@@ -222,7 +223,9 @@ jobs:
       - name: Identify module artifact
         id: module-artifact
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
-        run: echo "name=nvault-process-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "name=nvault-process-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+          echo "probe_name=nvault-storage-probe-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
 
       - name: Verify both closed-vault backup compatibility directions
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
@@ -236,6 +239,21 @@ jobs:
         with:
           name: ${{ steps.module-artifact.outputs.name }}
           path: ${{ runner.temp }}/nvault-build/package/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Build source-bound target storage probe and predecessor reader
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        run: |
+          builder=$(python3 -c 'import json,os; print(json.load(open(os.environ["RUNNER_TEMP"]+"/nvault-build/package/manifest.json"))["builder"])')
+          python3 -B tools/native/build-player-storage-probe.py --cache "$RUNNER_TEMP/nvault-cache" --output "$RUNNER_TEMP/nvault-probe" --builder-image "$builder"
+
+      - name: Retain target storage probe and corresponding source
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.module-artifact.outputs.probe_name }}
+          path: ${{ runner.temp }}/nvault-probe/package/
           if-no-files-found: error
           retention-days: 7
 
@@ -645,6 +663,31 @@ jobs:
           sudo bash ./tools/smoke/player-data-schedule.sh
           pwsh -NoProfile -File ./tools/smoke/player-data-backup.ps1
           bash -n ./tools/smoke/game-player-data-recovery-runtime.sh
+
+      - name: Accept paired addon and nVault transition and rollback
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.nvault-process.outputs.probe_artifact }}
+          path: ${{ runner.temp }}/paired-storage-probe
+
+      - name: Rehearse paired storage with frozen inputs and no network
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        run: >-
+          python3 -B tools/smoke/paired-storage-rehearsal.py
+          --probe-package "$RUNNER_TEMP/paired-storage-probe" --output "$RUNNER_TEMP/paired-storage-rehearsal"
+
+      - name: Retain paired storage rehearsal evidence
+        if: always() && needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: paired-storage-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/paired-storage-rehearsal/result.json
+            ${{ runner.temp }}/paired-storage-rehearsal/rehearsal.log
+            ${{ runner.temp }}/paired-storage-rehearsal/receipts/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Validate availability evidence schedule
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'

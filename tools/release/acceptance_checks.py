@@ -92,6 +92,23 @@ def baseline_entries(raw):
     return entries
 
 
+def addon_receipt(receipt, profile, entries):
+    require(receipt.get('schema_version') in ('2', '3') and receipt.get('state') == 'enabled'
+            and receipt.get('manifest_sha256') == profile['manifestSha256'])
+    if receipt['schema_version'] == '3':
+        require(set(receipt) == {'schema_version', 'state', 'manifest_sha256', 'plugin_sha256',
+                                'config_sha256', 'loader_sha256', 'dictionary_sha256',
+                                'nvault_sha256', 'nvault_process_contract'})
+        require(receipt['nvault_process_contract'] == '1')
+        relatives = {'plugin': 'plugins/goldsrcops_weapon_selection.amxx',
+            'config': 'configs/plugins/goldsrcops-weapon-selection.cfg',
+            'loader': 'configs/plugins-goldsrcops-weapons.ini',
+            'dictionary': 'data/lang/goldsrcops-player-menu.txt', 'nvault': 'modules/nvault_amxx_i386.so'}
+        for kind, relative in relatives.items():
+            target = '/var/lib/goldsrc/server/cstrike/addons/amxmodx/' + relative
+            require(target in entries and receipt[kind + '_sha256'] == entries[target])
+
+
 def game_host(profile):
     configuration = Path('/etc/goldsrcops/gameserver')
     state = Path('/var/lib/goldsrcops-player-backup')
@@ -104,8 +121,7 @@ def game_host(profile):
         # The frozen baseline, not operator-supplied path overrides, selects files.
         require(sha(trusted(Path(path), 16 * 1024 * 1024)) == expected)
     receipt = dict(line.split('=', 1) for line in trusted(configuration / 'weapon-selection-installed').decode().splitlines())
-    require(receipt.get('schema_version') == '2' and receipt.get('state') == 'enabled'
-            and receipt.get('manifest_sha256') == profile['manifestSha256'])
+    addon_receipt(receipt, profile, entries)
     for name in ('pending.json', 'addon-upgrade-pending.json'):
         require(not (state / name).exists() and not (state / name).is_symlink())
     config = json.loads(trusted(configuration / 'player-data-backup.json'))

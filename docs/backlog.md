@@ -5,8 +5,8 @@ release steps.
 
 ## Next Priorities
 
-Planning baseline: 2026-11-17, after accepted trigger rc.4 and automated native
-gameplay/telemetry acceptance. The
+Planning baseline: 2026-11-18, after accepted trigger rc.4, automated native
+gameplay/telemetry and downloaded player-data durability acceptance. The
 [current roadmap](roadmap.md) owns scope, dependencies and completion criteria;
 the records below retain historical release evidence.
 
@@ -15,11 +15,14 @@ the records below retain historical release evidence.
    The external timer owns automatic Archive; hourly `:53`, the 24-hour export
    window and warning thresholds remain unchanged. Candidate acceptance is proved;
    the three-hour age objective and source completeness are not yet established.
-2. Complete hosted CI and independently downloaded-artifact acceptance for the
-   locally implemented [player-data durability fix](player-data-durability-implementation.md),
-   then prepare a separate paired addon/module R3 rollout. Checked commit,
-   safe checkpoint and isolated SIGKILL recovery pass locally; production and
-   backup policy remain unchanged.
+2. Publish and accept the locally implemented
+   [paired addon/module delivery tooling](paired-player-storage-installer.md)
+   through full PR/main CI, then prepare the concrete immutable R3 bundle from
+   the [rollout plan](player-data-durability-rollout-plan.md).
+   The [durability fix](player-data-durability-implementation.md) has full PR/main
+   CI and independent downloaded-artifact acceptance. Read-only host inventory
+   and exact predecessor verification passed; signed paired publication,
+   target-storage and production acceptance remain separate gates.
 3. When two independent human participants/accounts are available: run one
    controlled gameplay pilot, then select at most one map/spawn or mechanic
    improvement from its findings. The [session protocol](gameplay-pilot.md) and
@@ -36,13 +39,18 @@ change is implied.
 
 ## Current Status
 
-Local implementation accepted: [player-data process durability](player-data-durability-implementation.md).
+Implementation and downloaded artifacts accepted:
+[player-data process durability](player-data-durability-implementation.md).
 The original seven-assertion loss remains historical evidence. The separate
 Linux i386 module and source-only addon 0.40.0 pass checked commit/checkpoint,
 actual SIGKILL recovery with reversed slots and a second reopen, missing-journal
 negative control, five save-path failures and the existing 26-case regression.
-Standalone production installation is blocked until paired rollout tooling exists.
-Hosted full CI and independent downloaded artifacts remain pending. No production,
+Standalone production installation remains blocked. The dedicated paired
+installer and backup baseline/rollback contract are implemented locally.
+Full PR/main CI and independent downloaded checks/replay passed after PR #566.
+The [paired R3 plan](player-data-durability-rollout-plan.md) records verified
+predecessor inputs and read-only preflight. Full CI for the new tooling, an
+immutable candidate, frozen owner hooks and host acceptance remain pending. No production,
 backup-policy, Archive or human-acceptance change.
 
 Prepared: [two-player gameplay pilot](gameplay-pilot.md), with a
