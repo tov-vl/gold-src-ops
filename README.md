@@ -972,6 +972,10 @@ The installed Web remains the accepted
 [v2.79.0](https://github.com/tov-vl/gold-src-ops/releases/tag/v2.79.0) image;
 AlertReceiver and gameplay runtimes were not upgraded by v2.94.
 
+The separate [player storage 0.40.0 release](https://github.com/tov-vl/gold-src-ops/releases/tag/player-storage-v0.40.0)
+promotes the accepted addon and i386 nVault pair after production rollout and
+independent recovery checks. See [release evidence](docs/player-storage-0.40.0-release.md).
+
 ## License
 
 GoldSrcOps is licensed under the [MIT License](LICENSE).

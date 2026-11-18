@@ -1,7 +1,7 @@
 # GoldSrcOps Roadmap
 
 Updated on 2026-11-18 after Archive trigger rc.4 R3 acceptance, the accepted
-automated gameplay/telemetry checks and downloaded durability acceptance.
+automated gameplay/telemetry checks and stable player storage 0.40.0.
 The earlier repository planning baseline
 is `2b33081022ad54061fa8c8e1f4efef4a3f3ad1e0`; runtime identities remain in their
 own release and acceptance records.
@@ -56,7 +56,7 @@ roadmap owns future priorities; it is not a live production health report.
 | Technical baseline accepted | Native gameplay and real agent/API/PostgreSQL/Reader telemetry acceptance | Pinned isolated engine fixtures | Full PR/main CI and independent downloaded-artifact verification passed; human acceptance remains separate |
 | Technical acceptance completed | Queue capacity, concurrent import/delivery and restart acceptance | Existing telemetry harness and verified native inputs | Full PR/main CI, independent artifacts and separate replays passed: deferred bytes and identity preserved, drain without duplicates, permanent failure retained without automatic replay |
 | Technical acceptance completed | Parallel telemetry server isolation | Existing harness, two actual agents and synthetic machine credentials | Healthy server progresses during another server's outage; cross-server ingest is denied without a write; retained backlog drains without duplicates and Reader history stays separated |
-| Durability CI/artifacts accepted; paired tooling implemented locally | Player-data process-crash recovery | Full CI and immutable publication for the new coordinator/probe, then concrete owner hooks and R3 freeze | Isolated pair/baseline/rollback acceptance; production closed backup/off-host readback and host acceptance remain pending |
+| Stable and production accepted | [Player-data process-crash recovery](player-storage-0.40.0-release.md) | Paired addon and i386 nVault, schema-2 guard transition | Full CI, production A2S/RCON, both independent Recover checks, same-byte stable ZIP verification |
 | Protocol prepared; session pending | Validate the existing mode with two human players | Two independent participants/accounts and a controlled session | Use the prepared protocol/result form; a bounded pilot records observed results, failures and at most one evidenced follow-up |
 | After the pilot | Improve one evidenced gameplay problem | Pilot findings | One map/spawn adjustment or mechanic passes technical and player acceptance |
 | Later | Human activity analysis and community growth | Real visits and an agreed observation window | Decisions use actual human activity with explicit coverage limits |
@@ -195,18 +195,12 @@ built Linux i386 module. Addon 0.40.0 acknowledges only committed saves. Strict
 recovery with reversed slots, a second reopen, missing-journal rejection,
 save-path failures and the existing regression passed locally and in full hosted
 CI. Independently downloaded artifacts and separate replay passed after PR #566.
-The [paired R3 plan](player-data-durability-rollout-plan.md) now records read-only
-host inventory, exact predecessor inputs and the required tooling contract.
-The [coordinator and storage probe](paired-player-storage-installer.md) are now
-implemented locally with isolated file/backup/rollback acceptance. Full CI for
-the new tooling, signed paired publication and a concrete production execution
-decision remain separate gates.
-
-Implementation is verified in a disposable isolated engine. Production addon,
-backup policy, real player data and Archive remain unchanged. It does not prove
-power-loss/fsync durability or replace the human pilot. Record local results,
-full hosted CI and independently downloaded evidence separately before calling
-this technical acceptance complete.
+The [paired installer](paired-player-storage-installer.md) passed the
+schema-2 R3 rollout and independent host acceptance. The
+[stable 0.40.0 record](player-storage-0.40.0-release.md) covers the rc.1
+rollback, both off-host Recover checks and the independently verified stable
+ZIP. Power-loss protection, the human pilot and Archive observation remain
+separate.
 
 ## Gameplay Pilot And Follow-up
 
