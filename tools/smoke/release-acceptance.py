@@ -77,6 +77,26 @@ def control_fixture(version='0.26.0', after=None, lookup=None, env=None):
 
 
 class AcceptanceTests(unittest.TestCase):
+    def test_existing_addon_receipt_remains_supported(self):
+        checks.addon_receipt(dict(schema_version='2', state='enabled', manifest_sha256='a' * 64),
+                             dict(manifestSha256='a' * 64), {})
+
+    def test_paired_receipt_requires_exact_frozen_module_and_contract(self):
+        receipt = dict(schema_version='3', state='enabled', manifest_sha256='a' * 64, nvault_process_contract='1')
+        relatives = dict(plugin='plugins/goldsrcops_weapon_selection.amxx',
+            config='configs/plugins/goldsrcops-weapon-selection.cfg', loader='configs/plugins-goldsrcops-weapons.ini',
+            dictionary='data/lang/goldsrcops-player-menu.txt', nvault='modules/nvault_amxx_i386.so')
+        entries = {'/var/lib/goldsrc/server/cstrike/addons/amxmodx/' + path: 'b' * 64 for path in relatives.values()}
+        receipt.update({kind + '_sha256': 'b' * 64 for kind in relatives})
+        target = dict(manifestSha256='a' * 64)
+        checks.addon_receipt(receipt, target, entries)
+        for changed in (dict(receipt, nvault_sha256='c' * 64), dict(receipt, nvault_process_contract='0'),
+                        dict(receipt, extra='unexpected'), dict(receipt, schema_version='4')):
+            with self.assertRaises(ValueError):
+                checks.addon_receipt(changed, target, entries)
+        with self.assertRaises(ValueError):
+            checks.addon_receipt(receipt, target, {})
+
     def test_restart_poll_lag_blocks_final_acceptance_but_not_live_hook(self):
         # The same offline public projection spans both candidate and rollback hooks.
         for version in ('0.25.0', '0.26.0'):

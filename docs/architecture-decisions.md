@@ -2064,3 +2064,24 @@ is deferred until the measured API/runner behavior or required failure boundary
 justifies new hosting and secret distribution. See the
 [assessment](archive-trigger-decision.md) and
 [implementation/rollback plan](archive-trigger-implementation-plan.md).
+
+## Decision 52: Install Process-Durable Player Storage As A Verified Pair
+
+Selected on 2026-11-18 from the approved
+[R3 plan](player-data-durability-rollout-plan.md). Addon 0.40.0 requires native
+process contract 1, so its production delivery unit includes the exact addon
+and nVault binaries, corresponding source and predecessor hashes. Keep the old
+standalone installer blocked rather than weakening its dependency guard.
+
+Freeze the receipt and full before/after backup baseline from reviewed inputs.
+Change only the module, plugin and paired receipt rows; preserve identical
+repeated invariants and reject conflicting duplicates or unrelated drift.
+Use one claimed operation under the established locks and matching pending
+marker. Never start a mixed pair or replay an uncertain side effect.
+
+Rollback returns exact predecessor binaries/static metadata while retaining
+latest valid player data. Restoring an older data snapshot is a separate
+decision. Closed-byte identity, private semantic equality after checkpoint,
+independent backup readback and runtime/module identity are separate gates.
+Keep the ordinary backup format and process-only durability boundary unchanged.
+See the [installer contract and local verification](paired-player-storage-installer.md).
