@@ -69,7 +69,147 @@ function Move-LabRendererRecoveryFile([string]$Source,[string]$Destination) {
     [IO.File]::Move($Source,$Destination)
 }
 
-function Invoke-LabRendererRecovery([string]$Root,$Policy,[string]$PlanBase64) {
+function Test-LabRendererPrelaunchRejection($Result) {
+    if ($Result.status -isnot [string] -or $Result.status -cne 'rejected_preflight') { return $false }
+    foreach ($name in @('launchRequested','launchCommandDispatched','gamePid','gameStartedUtc','images','launcher','cleanup')) {
+        if (-not $Result.PSObject.Properties[$name]) { return $false }
+    }
+    return ($Result.launchRequested -is [bool] -and -not $Result.launchRequested -and
+        $Result.launchCommandDispatched -is [bool] -and -not $Result.launchCommandDispatched -and
+        $null -eq $Result.gamePid -and $null -eq $Result.gameStartedUtc -and
+        $Result.images -is [array] -and $Result.images.Count -eq 0 -and
+        $Result.launcher -is [pscustomobject] -and $Result.launcher.PSObject.Properties['processCreated'] -and
+        $Result.launcher.processCreated -is [bool] -and -not $Result.launcher.processCreated -and
+        $Result.cleanup -is [pscustomobject] -and $Result.cleanup.PSObject.Properties['game'] -and
+        $Result.cleanup.game -is [string] -and $Result.cleanup.game -ceq 'not_required' -and
+        $Result.cleanup.PSObject.Properties['config'] -and
+        $Result.cleanup.config -is [string] -and $Result.cleanup.config -ceq 'not_created')
+}
+
+function Get-LabRendererPreflight($Policy) {
+    $report = @{schema=1;status='unavailable';gameClosed=$false;files=@()}
+    try {
+        $report.host = $Policy.targetName
+        if (@(Get-Process -Name hl -ErrorAction SilentlyContinue).Count) {
+            $report.status = 'client_busy'
+            return $report
+        }
+        $paths = @(Get-LabRendererPaths $Policy.gameRoot)
+        if ($paths.Count -ne 4) { throw 'Unexpected renderer path set.' }
+        $roles = @('root-qconsole','root-console','cstrike-qconsole','cstrike-console')
+        $files = foreach ($i in 0..3) {
+            try {
+                $item = Get-Item -LiteralPath $paths[$i] -Force -ErrorAction Stop
+            } catch [System.Management.Automation.ItemNotFoundException] {
+                @{role=$roles[$i];exists=$false}
+                continue
+            }
+            if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $item.Length -gt 4MB) {
+                throw 'Unsafe renderer preflight file.'
+            }
+            $stream = [IO.File]::Open($item.FullName, 'Open', 'Read', 'Read')
+            try {
+                if ($stream.Length -ne $item.Length) { throw 'Renderer file length changed.' }
+                $sha = [Security.Cryptography.SHA256]::Create()
+                try { $hash = [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }
+                finally { $sha.Dispose() }
+            } finally { $stream.Dispose() }
+            $after = Get-Item -LiteralPath $item.FullName -Force -ErrorAction Stop
+            if ($after.Length -ne $item.Length -or $after.CreationTimeUtc -ne $item.CreationTimeUtc -or
+                $after.LastWriteTimeUtc -ne $item.LastWriteTimeUtc -or $after.Attributes -ne $item.Attributes) {
+                throw 'Renderer file metadata changed.'
+            }
+            @{
+                role=$roles[$i];exists=$true;bytes=$item.Length;sha256=$hash
+                createdUtc=$item.CreationTimeUtc.ToString('o');modifiedUtc=$item.LastWriteTimeUtc.ToString('o')
+            }
+        }
+        if (@(Get-Process -Name hl -ErrorAction SilentlyContinue).Count) {
+            $report.status = 'client_busy'
+            return $report
+        }
+        $report.gameClosed = $true
+        $report.files = @($files)
+        $report.utc = [DateTime]::UtcNow.ToString('o')
+        $report.status = 'observed'
+    } catch { }
+    return $report
+}
+
+function Get-LabRendererRecoveryPreflight([string]$Root,$Policy,$Plan,[string[]]$Paths,[string]$Archive,[hashtable]$Inspection) {
+    $Inspection.status='blocked'
+    $Inspection.utc=[DateTime]::UtcNow.ToString('o')
+    $resultRoot=Join-Path $Root 'results'
+    $source=$Paths[0]
+    $Inspection.firstFailed='idle_client'
+    $observation=Get-LabClientObservation $Policy
+    if($observation.query -cne 'ok' -or $observation.truncated -or @($observation.game).Count){throw 'Recovery requires a proven idle client.'}
+    $Inspection.firstFailed='queue_inventory'
+    $requests=@(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') -Filter '*.json' -File)
+    if($requests.Count -gt 8){throw 'Queue exceeds recovery limit.'}
+    $Inspection.queueCount=$requests.Count
+    foreach($request in $requests){
+        $Inspection.firstFailed='queue_result_read'
+        Assert-LabId $request.BaseName
+        $Inspection.blockingJobId=$request.BaseName
+        $terminal=Read-LabJson (Join-Path $resultRoot ($request.BaseName+'\result.json'))
+        $Inspection.firstFailed='queue_terminal_state'
+        if($terminal.id -cne $request.BaseName -or -not $terminal.completedUtc -or
+            $terminal.status -cnotin @('captured_unreviewed','interaction_captured_unreviewed','autonomous_captured_unreviewed','uncertain_timeout','uncertain_launch','uncertain_capture','uncertain_error','rejected_preflight','uncertain_cleanup')){throw 'A request is not terminal.'}
+        if($terminal.cleanupVerified -isnot [bool] -or $terminal.configCleanupVerified -isnot [bool]){throw 'A request is not terminal.'}
+        $cleanupVerified=$terminal.cleanupVerified -and $terminal.configCleanupVerified
+        $cleanupNotRequired=-not $terminal.cleanupVerified -and -not $terminal.configCleanupVerified -and
+            (Test-LabRendererPrelaunchRejection $terminal)
+        if(-not $cleanupVerified -and -not $cleanupNotRequired){throw 'A request is not terminal.'}
+    }
+    $Inspection.Remove('blockingJobId')
+    $Inspection.firstFailed='retained_result'
+    $resultPath=Join-Path $resultRoot ($plan.jobId+'\result.json')
+    $resultItem=Get-Item -LiteralPath $resultPath -Force
+    if($resultItem.PSIsContainer -or ($resultItem.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Linked renderer result.'}
+    $parent=$resultItem.Directory
+    while($parent){if($parent.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked renderer result.'};$parent=$parent.Parent}
+    $result=Read-LabJson $resultPath
+    $resultHash=(Get-FileHash -LiteralPath $resultPath).Hash
+    if($result.id -cne $plan.jobId -or $result.status -cne 'uncertain_cleanup' -or $result.rendererEvidence.schema -ne 1 -or $result.rendererEvidence.jobId -cne $plan.jobId -or
+        $result.rendererEvidence.status -cne 'unconfirmed' -or $result.rendererEvidence.probeEnabled -ne $true -or
+        $result.rendererEvidence.probeEnabled -isnot [bool] -or $result.rendererEvidence.cleanupVerified -isnot [bool] -or
+        $result.cleanupVerified -isnot [bool] -or $result.configCleanupVerified -isnot [bool] -or
+        $result.rendererEvidence.cleanupVerified -ne $false -or -not $result.cleanupVerified -or -not $result.configCleanupVerified -or
+        $result.gamePid -ne $plan.gamePid -or (ConvertTo-LabUtc $result.gameStartedUtc) -ne (ConvertTo-LabUtc $plan.gameStartedUtc) -or
+        (ConvertTo-LabUtc $result.completedUtc) -ne (ConvertTo-LabUtc $plan.completedUtc)){throw 'Failed renderer binding differs.'}
+    $Inspection.firstFailed='alternate_log_paths'
+    foreach($path in $paths[1..3]){if(Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue){throw 'Ambiguous renderer logs.'}}
+    $Inspection.firstFailed='archive_destination'
+    if(Test-Path -LiteralPath $archive){throw 'Recovery destination already exists.'}
+    $Inspection.firstFailed='source_metadata'
+    $file=Get-Item -LiteralPath $source -Force
+    if($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $file.Length -ne $plan.bytes -or
+        $file.CreationTimeUtc -ne (ConvertTo-LabUtc $plan.createdUtc) -or $file.LastWriteTimeUtc -ne (ConvertTo-LabUtc $plan.modifiedUtc)){throw 'Recovery source identity differs.'}
+    $Inspection.firstFailed='source_read'
+    $stream=[IO.File]::Open($source,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+    try{
+        if($stream.Length -ne $plan.bytes){throw 'Recovery source changed.'}
+        $raw=New-Object byte[] ([int]$stream.Length);$offset=0
+        while($offset -lt $raw.Length){$read=$stream.Read($raw,$offset,$raw.Length-$offset);if(-not $read){throw 'Recovery source shortened.'};$offset+=$read}
+        $Inspection.firstFailed='source_sha256'
+        if((Get-LabRendererHash $raw) -cne $plan.sha256){throw 'Recovery source hash differs.'}
+        $text=[Text.Encoding]::GetEncoding(28591).GetString($raw);$nonce=([guid]$plan.jobId).ToString('N')
+        $begin='GSO_RENDERER_BEGIN_'+$nonce;$end='GSO_RENDERER_END_'+$nonce
+        $Inspection.firstFailed='marker_count'
+        if([regex]::Matches($text,[regex]::Escape($begin)).Count -ne 1 -or [regex]::Matches($text,[regex]::Escape($end)).Count -ne 1){throw 'Recovery markers differ.'}
+        $first=$text.IndexOf($begin,[StringComparison]::Ordinal);$last=$text.IndexOf($end,[StringComparison]::Ordinal)
+        $Inspection.firstFailed='marker_layout'
+        if($last -le $first -or ($first -gt 0 -and $text[$first-1] -ne "`n")){throw 'Recovery marker layout differs.'}
+        $Inspection.firstFailed='marker_frame'
+        [void](ConvertFrom-LabRendererFrame $text.Substring($first,$last+$end.Length-$first) $plan.jobId)
+    }finally{$stream.Dispose()}
+    $Inspection.status='preflight_passed'
+    $Inspection.firstFailed=$null
+    return @{resultPath=$resultPath;resultHash=$resultHash}
+}
+
+function Invoke-LabRendererRecovery([string]$Root,$Policy,[string]$PlanBase64,[hashtable]$Inspection=@{}) {
     $report=@{schema=1;status='not_requested';gameLaunched=$false;automaticRetryAllowed=$false}
     if(-not $PlanBase64){return $report}
     $stage='review';$attempted=$false;$claimed=$false;$receipt=$null
@@ -89,6 +229,8 @@ function Invoke-LabRendererRecovery([string]$Root,$Policy,[string]$PlanBase64) {
         $parent=Get-Item -LiteralPath $resultRoot
         while($parent){if($parent.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked recovery directory.'};$parent=$parent.Parent}
         $report.operationId=$plan.operationId;$report.jobId=$plan.jobId;$report.planSha256=Get-LabRendererHash $bytes
+        $Inspection.operationId=$report.operationId;$Inspection.jobId=$report.jobId
+        $Inspection.planSha256=$report.planSha256
         $claim=Join-Path $resultRoot ($plan.operationId+'.renderer-recovery.claim')
         $receipt=Join-Path $resultRoot ($plan.operationId+'.renderer-recovery.json')
         if(Test-Path -LiteralPath $receipt){
@@ -99,55 +241,18 @@ function Invoke-LabRendererRecovery([string]$Root,$Policy,[string]$PlanBase64) {
                 if($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $file.Length -ne $plan.bytes -or
                     (Get-FileHash -LiteralPath $archive).Hash.ToLowerInvariant() -cne $plan.sha256){throw 'Recovery archive changed.'}
             }
+            if($saved.status -ceq 'blocked_recovery' -and $saved.PSObject.Properties['failureStage'] -and
+                $saved.failureStage -ceq 'preflight'){
+                try{[void](Get-LabRendererRecoveryPreflight $Root $Policy $plan $paths $archive $Inspection)}catch{}
+            }
             return $saved
         }
         if(Test-Path -LiteralPath $claim){throw 'Recovery outcome requires reconciliation; no retry.'}
         $stream=[IO.File]::Open($claim,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
         try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
         $claimed=$true;$stage='preflight'
-        $observation=Get-LabClientObservation $Policy
-        if($observation.query -cne 'ok' -or $observation.truncated -or @($observation.game).Count){throw 'Recovery requires a proven idle client.'}
-        $requests=@(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') -Filter '*.json' -File)
-        if($requests.Count -gt 8){throw 'Queue exceeds recovery limit.'}
-        foreach($request in $requests){
-            Assert-LabId $request.BaseName
-            $terminal=Read-LabJson (Join-Path $resultRoot ($request.BaseName+'\result.json'))
-            if($terminal.id -cne $request.BaseName -or -not $terminal.completedUtc -or $terminal.cleanupVerified -isnot [bool] -or
-                -not $terminal.cleanupVerified -or $terminal.configCleanupVerified -isnot [bool] -or -not $terminal.configCleanupVerified -or
-                $terminal.status -cnotin @('captured_unreviewed','interaction_captured_unreviewed','autonomous_captured_unreviewed','uncertain_timeout','uncertain_launch','uncertain_capture','uncertain_error','rejected_preflight','uncertain_cleanup')){throw 'A request is not terminal.'}
-        }
-        $resultPath=Join-Path $resultRoot ($plan.jobId+'\result.json')
-        $resultItem=Get-Item -LiteralPath $resultPath -Force
-        if($resultItem.PSIsContainer -or ($resultItem.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Linked renderer result.'}
-        $parent=$resultItem.Directory
-        while($parent){if($parent.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked renderer result.'};$parent=$parent.Parent}
-        $result=Read-LabJson $resultPath
-        $resultHash=(Get-FileHash -LiteralPath $resultPath).Hash
-        if($result.id -cne $plan.jobId -or $result.status -cne 'uncertain_cleanup' -or $result.rendererEvidence.schema -ne 1 -or $result.rendererEvidence.jobId -cne $plan.jobId -or
-            $result.rendererEvidence.status -cne 'unconfirmed' -or $result.rendererEvidence.probeEnabled -ne $true -or
-            $result.rendererEvidence.probeEnabled -isnot [bool] -or $result.rendererEvidence.cleanupVerified -isnot [bool] -or
-            $result.cleanupVerified -isnot [bool] -or $result.configCleanupVerified -isnot [bool] -or
-            $result.rendererEvidence.cleanupVerified -ne $false -or -not $result.cleanupVerified -or -not $result.configCleanupVerified -or
-            $result.gamePid -ne $plan.gamePid -or (ConvertTo-LabUtc $result.gameStartedUtc) -ne (ConvertTo-LabUtc $plan.gameStartedUtc) -or
-            (ConvertTo-LabUtc $result.completedUtc) -ne (ConvertTo-LabUtc $plan.completedUtc)){throw 'Failed renderer binding differs.'}
-        foreach($path in $paths[1..3]){if(Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue){throw 'Ambiguous renderer logs.'}}
-        if(Test-Path -LiteralPath $archive){throw 'Recovery destination already exists.'}
-        $file=Get-Item -LiteralPath $source -Force
-        if($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $file.Length -ne $plan.bytes -or
-            $file.CreationTimeUtc -ne (ConvertTo-LabUtc $plan.createdUtc) -or $file.LastWriteTimeUtc -ne (ConvertTo-LabUtc $plan.modifiedUtc)){throw 'Recovery source identity differs.'}
-        $stream=[IO.File]::Open($source,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
-        try{
-            if($stream.Length -ne $plan.bytes){throw 'Recovery source changed.'}
-            $raw=New-Object byte[] ([int]$stream.Length);$offset=0
-            while($offset -lt $raw.Length){$read=$stream.Read($raw,$offset,$raw.Length-$offset);if(-not $read){throw 'Recovery source shortened.'};$offset+=$read}
-            if((Get-LabRendererHash $raw) -cne $plan.sha256){throw 'Recovery source hash differs.'}
-            $text=[Text.Encoding]::GetEncoding(28591).GetString($raw);$nonce=([guid]$plan.jobId).ToString('N')
-            $begin='GSO_RENDERER_BEGIN_'+$nonce;$end='GSO_RENDERER_END_'+$nonce
-            if([regex]::Matches($text,[regex]::Escape($begin)).Count -ne 1 -or [regex]::Matches($text,[regex]::Escape($end)).Count -ne 1){throw 'Recovery markers differ.'}
-            $first=$text.IndexOf($begin,[StringComparison]::Ordinal);$last=$text.IndexOf($end,[StringComparison]::Ordinal)
-            if($last -le $first -or ($first -gt 0 -and $text[$first-1] -ne "`n")){throw 'Recovery marker layout differs.'}
-            [void](ConvertFrom-LabRendererFrame $text.Substring($first,$last+$end.Length-$first) $plan.jobId)
-        }finally{$stream.Dispose()}
+        $proof=Get-LabRendererRecoveryPreflight $Root $Policy $plan $paths $archive $Inspection
+        $resultPath=$proof.resultPath;$resultHash=$proof.resultHash
         $stage='move'
         if((Get-FileHash -LiteralPath $source).Hash.ToLowerInvariant() -cne $plan.sha256 -or
             (Get-FileHash -LiteralPath $resultPath).Hash -cne $resultHash){throw 'Recovery inputs changed before move.'}
@@ -158,7 +263,13 @@ function Invoke-LabRendererRecovery([string]$Root,$Policy,[string]$PlanBase64) {
             (Get-FileHash -LiteralPath $archive).Hash.ToLowerInvariant() -cne $plan.sha256 -or
             (Get-FileHash -LiteralPath $resultPath).Hash -cne $resultHash){throw 'Recovery move was not confirmed.'}
         $report.status='archived';$report.sha256=$plan.sha256;$report.bytes=$plan.bytes;$report.resultPreserved=$true
-    }catch{$report.status=$(if($attempted){'uncertain_move'}else{'blocked_recovery'});$report.failureStage=$stage}
+    }catch{
+        $report.status=$(if($attempted){'uncertain_move'}else{'blocked_recovery'})
+        $report.failureStage=$stage
+        if($stage -ceq 'preflight' -and $Inspection.ContainsKey('firstFailed')){
+            $report.failureCheck=$Inspection.firstFailed
+        }
+    }
     $report.utc=[DateTime]::UtcNow.ToString('o')
     if($claimed){
         $saved=[Text.Encoding]::UTF8.GetBytes(($report|ConvertTo-Json -Depth 5 -Compress))
