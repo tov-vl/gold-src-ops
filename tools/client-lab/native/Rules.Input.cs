@@ -8,9 +8,114 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
+using NativeFileTime = System.Runtime.InteropServices.ComTypes.FILETIME;
+using System.Security.Principal;
+using Microsoft.Win32.SafeHandles;
 
 namespace GsoLab.Interaction
 {
+    public sealed class ProcessOwnerObservation
+    {
+        internal ProcessOwnerObservation(string code, int? nativeError = null)
+        {
+            Code = code;
+            NativeError = nativeError;
+        }
+
+        public string Code { get; private set; }
+        public int? NativeError { get; private set; }
+    }
+
+    public static class ProcessTokenOwner
+    {
+        private const uint ProcessQueryLimitedInformation = 0x1000;
+        private const uint Synchronize = 0x100000;
+        private const uint TokenQuery = 0x0008;
+        private const int TokenUser = 1;
+        private const int InsufficientBuffer = 122;
+        private const uint WaitObject0 = 0;
+        private const uint WaitTimeout = 258;
+
+        public static ProcessOwnerObservation Check(int processId, long startedUtcTicks, string expectedSid)
+        {
+            using (var process = NativeMethods.OpenProcess(ProcessQueryLimitedInformation | Synchronize, inherit: false, processId: processId))
+            {
+                if (process.IsInvalid)
+                {
+                    return new ProcessOwnerObservation("game_process_open_failed", Marshal.GetLastWin32Error());
+                }
+
+                // Use the same process handle for the start identity and the token.
+                NativeFileTime created, exited, kernel, user;
+                if (!NativeMethods.GetProcessTimes(process, out created, out exited, out kernel, out user))
+                {
+                    return new ProcessOwnerObservation("game_process_time_query_failed", Marshal.GetLastWin32Error());
+                }
+
+                var creationTime = ((long)created.dwHighDateTime << 32) | (uint)created.dwLowDateTime;
+                if (DateTime.FromFileTimeUtc(creationTime).Ticks != startedUtcTicks)
+                {
+                    return new ProcessOwnerObservation("game_identity_changed");
+                }
+
+                var owner = ReadOwner(process, expectedSid);
+                if (!string.Equals(owner.Code, "verified", StringComparison.Ordinal)) { return owner; }
+
+                switch (NativeMethods.WaitForSingleObject(process, 0))
+                {
+                    case WaitTimeout: return owner;
+                    case WaitObject0: return new ProcessOwnerObservation("game_identity_changed");
+                    default: return new ProcessOwnerObservation("game_process_state_query_failed", Marshal.GetLastWin32Error());
+                }
+            }
+        }
+
+        private static ProcessOwnerObservation ReadOwner(SafeProcessHandle process, string expectedSid)
+        {
+            SafeAccessTokenHandle token;
+            var opened = NativeMethods.OpenProcessToken(process, TokenQuery, out token);
+            var openError = opened ? 0 : Marshal.GetLastWin32Error();
+            using (token)
+            {
+                if (!opened) { return new ProcessOwnerObservation("game_owner_token_open_failed", openError); }
+
+                int bytes;
+                var queried = NativeMethods.GetTokenInformation(token, TokenUser, IntPtr.Zero, 0, out bytes);
+                var sizeError = queried ? 0 : Marshal.GetLastWin32Error();
+                if (sizeError != InsufficientBuffer || bytes < IntPtr.Size || bytes > 4096)
+                {
+                    return new ProcessOwnerObservation("game_owner_token_query_failed", sizeError);
+                }
+
+                var buffer = Marshal.AllocHGlobal(bytes);
+                try
+                {
+                    int written;
+                    if (!NativeMethods.GetTokenInformation(token, TokenUser, buffer, bytes, out written))
+                    {
+                        return new ProcessOwnerObservation("game_owner_token_query_failed", Marshal.GetLastWin32Error());
+                    }
+
+                    if (written < IntPtr.Size || written > bytes) { return new ProcessOwnerObservation("game_owner_token_query_failed"); }
+
+                    // TOKEN_USER begins with SID_AND_ATTRIBUTES, whose first member is PSID.
+                    var sid = Marshal.ReadIntPtr(buffer);
+                    if (sid == IntPtr.Zero)
+                    {
+                        return new ProcessOwnerObservation("game_owner_token_query_failed");
+                    }
+
+                    return new ProcessOwnerObservation(string.Equals(new SecurityIdentifier(sid).Value, expectedSid,
+                        StringComparison.Ordinal) ? "verified" : "game_owner_sid_unverified");
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(buffer);
+                }
+            }
+        }
+    }
+
     internal sealed class WindowState
     {
         internal IntPtr Handle;
@@ -473,6 +578,31 @@ namespace GsoLab.Interaction
     internal static class NativeMethods
     {
         internal delegate bool WindowCallback(IntPtr window, IntPtr parameter);
+
+        [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        internal static extern SafeProcessHandle OpenProcess(uint desiredAccess, [MarshalAs(UnmanagedType.Bool)] bool inherit, int processId);
+
+        [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool GetProcessTimes(SafeProcessHandle process, out NativeFileTime creation, out NativeFileTime exit,
+            out NativeFileTime kernel, out NativeFileTime user);
+
+        [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        internal static extern uint WaitForSingleObject(SafeProcessHandle process, uint milliseconds);
+
+        [DllImport("advapi32.dll", ExactSpelling = true, SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool OpenProcessToken(SafeProcessHandle process, uint desiredAccess, out SafeAccessTokenHandle token);
+
+        [DllImport("advapi32.dll", ExactSpelling = true, SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool GetTokenInformation(SafeAccessTokenHandle token, int informationClass, IntPtr information,
+            int length, out int returnedLength);
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct Rect

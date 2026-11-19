@@ -46,7 +46,7 @@ public SetupNativeFilter(const name[], index, trap)
 
 public plugin_init()
 {
-    register_plugin("Fixture interaction evidence", "1.6.2", "");
+    register_plugin("Fixture interaction evidence", "1.6.3", "");
     g_readiness = register_cvar("gso_lab_readiness", "0");
     register_message(get_user_msgid("VGUIMenu"), "OnVguiMenu");
     register_clcmd("rules", "ObserveRules");
@@ -76,7 +76,10 @@ public client_putinserver(player)
     g_setupAck[player] = false;
     g_setupFailed[player] = false;
     g_setupStep[player] = 0;
-    if (get_pcvar_num(g_readiness)) { set_task(0.2, "ReadinessJoin", player + 100); }
+    if (get_pcvar_num(g_readiness) && !is_user_bot(player) && !is_user_hltv(player))
+    {
+        set_task(0.2, "ReadinessJoin", player + 100);
+    }
 }
 
 public ReadinessJoin(task)
@@ -192,7 +195,16 @@ public ObserveMovement(player)
 }
 
 new g_guns[33], g_guns_step[33], g_guns_menu[33], g_guns_inventory[33][6];
-new bool:g_guns_failed[33], bool:g_guns_respawn[33], bool:g_guns_movement[33];
+enum GunsRespawnPhase
+{
+    GunsRespawnIdle,
+    GunsRespawnQueued,
+    GunsRespawnRequested,
+    GunsRespawnSpawned,
+    GunsRespawnChecked
+};
+new GunsRespawnPhase:g_guns_respawn[33];
+new bool:g_guns_failed[33], bool:g_guns_movement[33], bool:g_guns_inventory_verified[33];
 new Float:g_guns_origin[33][3], g_guns_buttons[33];
 new g_guns_resource[33];
 new bool:g_guns_backdrop[33];
@@ -238,7 +250,8 @@ public ObserveGuns(player)
         g_guns[player] = 1;
         g_guns_step[player] = 0;
         g_guns_failed[player] = false;
-        g_guns_respawn[player] = false;
+        g_guns_respawn[player] = GunsRespawnIdle;
+        g_guns_inventory_verified[player] = false;
         g_guns_resource[player] = -2;
         GunsInventory(player, g_guns_inventory[player]);
         log_amx("FIXTURE_GUNS_START mp5=%d usp=%d", user_has_weapon(player, CSW_MP5NAVY), user_has_weapon(player, CSW_USP));
@@ -323,7 +336,11 @@ public ObserveGunsInventory(player)
     for (new i = 0; i < sizeof values; i++) { if (values[i] != g_guns_inventory[player][i]) { unchanged = 0; } }
     if (!unchanged) { g_guns_failed[player] = true; }
     log_amx("FIXTURE_GUNS_SELECT step=%d inventory_unchanged=%d", g_guns_step[player], unchanged);
-    if (g_guns_step[player] == 5 && !g_guns_failed[player]) { set_task(3.0, "GunsRespawnRequest", player); }
+    if (g_guns_step[player] == 5)
+    {
+        g_guns_inventory_verified[player] = !g_guns_failed[player];
+        QueueGunsRespawn(player);
+    }
 }
 
 ObserveGunsMovement(player)
@@ -335,33 +352,51 @@ ObserveGunsMovement(player)
     if (dx * dx + dy * dy > 64.0 && g_guns_buttons[player] == (IN_BACK | IN_MOVELEFT))
     {
         g_guns_movement[player] = true;
-        log_amx("FIXTURE_GUNS_CONTROL step=%d respawn=%d movement=1", g_guns_step[player], g_guns_respawn[player]);
+        log_amx("FIXTURE_GUNS_CONTROL step=%d respawn=%d movement=1", g_guns_step[player], g_guns_respawn[player] >= GunsRespawnRequested);
+        QueueGunsRespawn(player);
     }
+}
+
+QueueGunsRespawn(player)
+{
+    if (g_guns_respawn[player] != GunsRespawnIdle || g_guns_step[player] != 5 || g_guns_failed[player]
+        || !g_guns_inventory_verified[player] || !g_guns_movement[player]) { return; }
+
+    // Wait for both observations in either order. Leave PostThink before killing.
+    g_guns_respawn[player] = GunsRespawnQueued;
+    set_task(0.1, "GunsRespawnRequest", player);
 }
 
 public GunsRespawnRequest(player)
 {
-    if (!is_user_alive(player) || g_guns_step[player] != 5 || g_guns_failed[player] || !g_guns_movement[player]) { return; }
+    if (g_guns_respawn[player] != GunsRespawnQueued || !is_user_alive(player)
+        || g_guns_step[player] != 5 || g_guns_failed[player]) { return; }
     // One real death in this disposable fixture only. Never grant or replace items.
-    g_guns_respawn[player] = true;
+    g_guns_respawn[player] = GunsRespawnRequested;
     user_kill(player, 1);
     log_amx("FIXTURE_GUNS_DEATH requested=1");
 }
 
 public ObserveGunsSpawn(player)
 {
-    if (get_pcvar_num(g_readiness) && is_user_alive(player) && !g_spawnReady[player])
+    if (get_pcvar_num(g_readiness) && is_user_alive(player) && !g_spawnReady[player]
+        && !is_user_bot(player) && !is_user_hltv(player))
     {
         g_spawnReady[player] = true;
         set_task(0.2, "ReadinessSpawn", player + 200);
     }
-    if (g_guns_respawn[player] && is_user_alive(player)) { set_task(0.2, "ObserveGunsLoadout", player); }
+    if (g_guns_respawn[player] == GunsRespawnRequested && is_user_alive(player))
+    {
+        g_guns_respawn[player] = GunsRespawnSpawned;
+        set_task(0.2, "ObserveGunsLoadout", player);
+    }
     return HC_CONTINUE;
 }
 
 public ObserveGunsLoadout(player)
 {
-    if (!is_user_alive(player) || !g_guns_respawn[player]) { return; }
+    if (!is_user_alive(player) || g_guns_respawn[player] != GunsRespawnSpawned) { return; }
+    g_guns_respawn[player] = GunsRespawnChecked;
     new cached_ak_clip, cached_ak_reserve, cached_de_clip, cached_de_reserve;
     new ak_cached = get_user_ammo(player, CSW_AK47, cached_ak_clip, cached_ak_reserve);
     new de_cached = get_user_ammo(player, CSW_DEAGLE, cached_de_clip, cached_de_reserve);
@@ -378,6 +413,11 @@ public ObserveGunsLoadout(player)
         ak_cached, cached_ak_clip, cached_ak_reserve, de_cached, cached_de_clip, cached_de_reserve);
     log_amx("FIXTURE_GUNS_RESPAWN selected_loadout=%d", valid);
     GunsMovementStart(player);
+    if (valid && g_setupAck[player] && get_pcvar_num(g_readiness))
+    {
+        log_amx("FIXTURE_GUNS_CAPTURE phase=respawn-confirmed");
+        client_cmd(player, "gso_lab_respawn");
+    }
 }
 
 public client_disconnected(player)
@@ -392,7 +432,8 @@ public client_disconnected(player)
     g_setupStep[player] = 0;
     g_guns[player] = 0;
     g_guns_menu[player] = 0;
-    g_guns_respawn[player] = false;
+    g_guns_respawn[player] = GunsRespawnIdle;
+    g_guns_inventory_verified[player] = false;
     g_guns_resource[player] = -2;
     g_guns_backdrop[player] = false;
 }

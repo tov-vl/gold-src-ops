@@ -142,7 +142,7 @@ RunLoadoutChecks()
             g_cached_ammo[0] = 30; g_cached_ammo[1] = 90; g_cached_ammo[2] = 7; g_cached_ammo[3] = 35;
         }
         g_loadout_logs = 0; g_cache_logs = 0; g_respawn_logs = 0; g_origin_reads = 0;
-        g_guns_respawn[1] = true;
+        g_guns_respawn[1] = GunsRespawnSpawned;
         ObserveGunsLoadout(1);
         new expected[256];
         formatex(expected, charsmax(expected), "FIXTURE_GUNS_LOADOUT ak47=%d deagle=%d mp5=%d usp=%d ak_clip=%d ak_reserve=%d de_clip=%d de_reserve=%d",
@@ -164,7 +164,7 @@ RunLoadoutChecks()
     }
     g_loadout_logs = 0; g_cache_logs = 0; g_respawn_logs = 0; g_origin_reads = 0;
     g_alive = false; ObserveGunsLoadout(1); g_alive = true;
-    g_guns_respawn[1] = false; ObserveGunsLoadout(1);
+    g_guns_respawn[1] = GunsRespawnIdle; ObserveGunsLoadout(1);
     Check(!g_loadout_logs && !g_cache_logs && !g_respawn_logs && !g_origin_reads, "dead or non-respawn observation is inert");
 }
 

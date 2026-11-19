@@ -18,13 +18,29 @@ function Assert-LabInteractionBindings([string]$GameRoot) {
     }
 }
 
-function Assert-LabInteractionOwner($Policy,$Result) {
+function Get-LabGameOwnerCheck($Policy,$Result) {
+    if(-not ('GsoLab.Interaction.ProcessTokenOwner' -as [type])){
+        Initialize-LabInteractionTypes (Join-Path $PSScriptRoot 'Rules.Input.cs')
+    }
+    return [GsoLab.Interaction.ProcessTokenOwner]::Check([int]$Result.gamePid,(ConvertTo-LabUtc $Result.gameStartedUtc).Ticks,$Policy.gameUserSid)
+}
+
+function Assert-LabInteractionOwner($Policy,$Result,[hashtable]$Diagnostic) {
+    if($Diagnostic){$Diagnostic.code='game_identity_read_failed'}
     $matches=@(Get-LabProcess $Policy ([int]$Result.gamePid)|Where-Object {$_.SessionId -eq $Policy.gameSessionId -and $_.StartTime.ToUniversalTime().ToString('o') -ceq $Result.gameStartedUtc})
-    if($matches.Count -ne 1){throw 'Owned game process changed.'}
-    $items=@(Get-CimInstance -ClassName Win32_Process -Filter ('ProcessId='+[int]$Result.gamePid) -Property ProcessId,SessionId,ExecutablePath -OperationTimeoutSec 3)
-    if($items.Count -ne 1 -or $items[0].SessionId -ne $Policy.gameSessionId -or $items[0].ExecutablePath -ine (Join-Path $Policy.gameRoot 'hl.exe')){throw 'Game process ownership is unavailable.'}
-    $owner=Invoke-CimMethod -InputObject $items[0] -MethodName GetOwnerSid -OperationTimeoutSec 5
-    if($owner.ReturnValue -ne 0 -or $owner.Sid -cne $Policy.gameUserSid){throw 'Game process owner differs.'}
+    if($matches.Count -ne 1){
+        if($Diagnostic){$Diagnostic.code='game_identity_changed'}
+        throw 'Owned game process changed.'
+    }
+    if($Diagnostic){$Diagnostic.code='game_owner_token_check_failed'}
+    $owner=Get-LabGameOwnerCheck $Policy $Result
+    if($owner.Code -cne 'verified'){
+        if($Diagnostic){
+            $Diagnostic.code=$owner.Code
+            $Diagnostic.nativeError=$owner.NativeError
+        }
+        throw 'Game process owner could not be verified.'
+    }
 }
 
 function Get-LabInteractionPhase([int]$ImageCount) {
@@ -52,15 +68,21 @@ function Assert-LabStepReady($Job,$Result,$Request) {
     if($Request.phase -ceq 'reopen' -and ($null -eq $Result.interaction.reopenNotBeforeUtc -or [DateTime]::UtcNow -lt (ConvertTo-LabUtc $Result.interaction.reopenNotBeforeUtc))){throw 'Alias cooldown is still active.'}
 }
 
-function Receive-LabInteractionFrame($Policy,$Result,[hashtable]$Baseline,[string]$Destination) {
+function Receive-LabInteractionFrame($Policy,$Result,[hashtable]$Baseline,[string]$Destination,[hashtable]$Diagnostic) {
+    if($Diagnostic){$Diagnostic.code=$Diagnostic.snapshot+'_snapshot_read_failed'}
     $files=@(Get-LabSnapshots $Policy.gameRoot|Where-Object {-not $Baseline.ContainsKey($_.FullName)}|Sort-Object LastWriteTimeUtc,Name)
-    if($files.Count -gt 1){throw 'Ambiguous native interaction frames.'}
+    if($files.Count -gt 1){
+        if($Diagnostic){$Diagnostic.code=$Diagnostic.snapshot+'_snapshot_ambiguous'}
+        throw 'Ambiguous native interaction frames.'
+    }
     if(-not $files.Count){return $false}
     $file=$files[0]
     try {$inputStream=[IO.File]::Open($file.FullName,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)} catch [IO.IOException] {return $false}
     try {
+        if($Diagnostic){$Diagnostic.code=$Diagnostic.snapshot+'_snapshot_invalid'}
         if($file.Extension -ine '.bmp'){throw 'Expected native Windows BMP.'}
         $bitmap=Read-LabBitmapInfo $inputStream 1920 1200
+        if($Diagnostic){$Diagnostic.code=$Diagnostic.snapshot+'_snapshot_store_failed'}
         $number=@($Result.images).Count+1
         if($number -gt 5){throw 'Interaction frame limit exceeded.'}
         $path=Join-Path $Destination ('image-'+$number+'.bin')
@@ -261,7 +283,7 @@ function Get-LabInteractionPanel($Job) {
 function Get-LabAutonomousProfile($Job) {
     $panel=Get-LabInteractionPanel $Job
     if($Job.action -ceq 'capture-guns'){return 'guns-baseline-v299-1920x1200-v4'}
-    if($panel -ceq 'guns'){return 'guns-v299-1920x1200-v3'}
+    if($panel -ceq 'guns'){return 'guns-v299-1920x1200-v4'}
     if($panel -ceq 'rules'){return 'rules-v299-1920x1200-v1'}
     return ('motd-v299-'+$panel+'-1920x1200-v1')
 }
@@ -361,11 +383,19 @@ function Initialize-LabInteractionTypes([string]$Source) {
 function Get-LabAutoElapsed($Clock){return $Clock.Elapsed.TotalSeconds}
 function Wait-LabAutoTick([int]$Milliseconds){Start-Sleep -Milliseconds $Milliseconds}
 
-function Assert-LabAutoContext([string]$Root,$Policy,$Job,$Clock,[switch]$BeforeInput) {
+function Assert-LabAutoContext([string]$Root,$Policy,$Job,$Clock,[switch]$BeforeInput,[hashtable]$Diagnostic) {
+    if($Diagnostic){$Diagnostic.code='lease_unverified'}
     Assert-LabLease $Policy
-    if(Test-Path -LiteralPath (Get-LabPaths $Root $Job.id).cancel){throw 'Autonomous interaction cancelled.'}
+    if($Diagnostic){$Diagnostic.code='cancellation_check_failed'}
+    if(Test-Path -LiteralPath (Get-LabPaths $Root $Job.id).cancel){
+        if($Diagnostic){$Diagnostic.code='cancelled'}
+        throw 'Autonomous interaction cancelled.'
+    }
     $limit=if($BeforeInput){(Get-LabInteractionLimits).actionStartSeconds}else{(Get-LabInteractionLimits).jobSeconds}
-    if((Get-LabAutoElapsed $Clock) -ge $limit){throw 'Autonomous monotonic deadline elapsed.'}
+    if((Get-LabAutoElapsed $Clock) -ge $limit){
+        if($Diagnostic){$Diagnostic.code='interaction_deadline_elapsed'}
+        throw 'Autonomous monotonic deadline elapsed.'
+    }
 }
 
 function Get-LabAutoFrameAssessment($Result,[string]$Destination,[string]$Language,[string]$Panel='rules') {
@@ -514,33 +544,45 @@ function New-LabGunsProgram($Job) {
     # One-shot native acknowledgements only; no stage file or server-triggered exec.
     return (@('alias gso_lab_join "alias gso_lab_join; jointeam 1; wait; joinclass 1"',
         'alias gso_lab_spawn "alias gso_lab_spawn; snapshot"',
-        'alias gso_lab_ack "alias gso_lab_ack; snapshot"') -join "`r`n")+"`r`n"
+        'alias gso_lab_ack "alias gso_lab_ack; snapshot"',
+        'alias gso_lab_respawn "alias gso_lab_respawn; snapshot"') -join "`r`n")+"`r`n"
 }
 
-function Invoke-LabGunsSetup([string]$Root,$Policy,$Job,$Result,$Clock,$Window,[hashtable]$Baseline,[string]$ResultPath) {
+function Invoke-LabGunsSetup([string]$Root,$Policy,$Job,$Result,$Clock,$Window,[hashtable]$Baseline,[string]$ResultPath,[hashtable]$Diagnostic=@{}) {
+    $Diagnostic.snapshot='setup'
     $destination=Split-Path -Parent $ResultPath
     $hash=$Result.readiness.spawnSnapshot.sha256
     $observed=Get-LabAutoElapsed $Clock
     foreach($phase in @('open-settings','open-languages',('language-'+$Job.language),'close-player-menu',('ack-'+$Job.language))){
-        Assert-LabAutoContext $Root $Policy $Job $Clock -BeforeInput
-        Assert-LabInteractionOwner $Policy $Result
+        $Diagnostic.phase=$phase
+        Assert-LabAutoContext $Root $Policy $Job $Clock -BeforeInput -Diagnostic $Diagnostic
+        Assert-LabInteractionOwner $Policy $Result $Diagnostic
+        $Diagnostic.code='window_guard_failed'
         $Window.CheckReady()
+        $Diagnostic.code='setup_snapshot_stale'
         if((Get-LabAutoElapsed $Clock)-$observed -ge (Get-LabInteractionLimits).frameSeconds){throw 'Setup acknowledgement became stale.'}
+        $Diagnostic.code='setup_claim_failed'
         $null=New-LabAutoPhaseClaim $destination $Job ('guns-setup-'+$phase) $hash
         $Result.readiness.setupActions+=@{phase=$phase;inputQueued=$false;frameSha256=$hash}
+        $Diagnostic.code='readiness_report_write_failed'
         Write-LabJson $ResultPath $Result
+        $Diagnostic.code='setup_input_failed'
         $Window.GunsSetupAction($phase)
         $Result.readiness.setupActions[-1].inputQueued=$true
         # This is an opportunity for UI processing, not an acknowledgement or retry.
+        $Diagnostic.code='readiness_wait_failed'
         Wait-LabAutoTick 500
     }
+    $Diagnostic.phase='await-setup-snapshot'
     $deadline=(Get-LabAutoElapsed $Clock)+20
     while((Get-LabAutoElapsed $Clock) -lt $deadline){
-        Assert-LabAutoContext $Root $Policy $Job $Clock
-        Assert-LabInteractionOwner $Policy $Result
+        Assert-LabAutoContext $Root $Policy $Job $Clock -Diagnostic $Diagnostic
+        Assert-LabInteractionOwner $Policy $Result $Diagnostic
+        $Diagnostic.code='window_guard_failed'
         $Window.CheckReady()
         $ack=@{images=@()}
-        if(Receive-LabInteractionFrame $Policy $ack $Baseline $destination){
+        if(Receive-LabInteractionFrame $Policy $ack $Baseline $destination $Diagnostic){
+            $Diagnostic.code='setup_snapshot_store_failed'
             $path=Join-Path $destination 'readiness-setup.bmp'
             if(Test-Path -LiteralPath $path){throw 'Existing setup evidence; no replay.'}
             [IO.File]::Move((Join-Path $destination 'image-1.bin'),$path)
@@ -549,9 +591,10 @@ function Invoke-LabGunsSetup([string]$Root,$Policy,$Job,$Result,$Clock,$Window,[
             $Result.readiness.setupObservedElapsed=Get-LabAutoElapsed $Clock
             return
         }
+        $Diagnostic.code='readiness_wait_failed'
         Wait-LabAutoTick 200
     }
-    $Result.readiness.failureCode='setup_snapshot_missing'
+    $Diagnostic.code='setup_snapshot_missing'
     throw 'Client language/setup acknowledgement missing; no menu input.'
 }
 
@@ -632,44 +675,68 @@ function Invoke-LabGunsBaseline([string]$Root,$Policy,$Job,$Result,$Readiness,[h
 function Wait-LabGunsReady([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseline,[DateTime]$LaunchUtc,[string]$ResultPath) {
     $clock=[Diagnostics.Stopwatch]::StartNew();$window=$null
     $destination=Split-Path -Parent $ResultPath
-    $Result['readiness']=[ordered]@{schema=2;mode='native-fixed-v2';callback='gso_lab_ack';status='waiting-spawn';spawnSnapshot=$null;windowPreparation=$null;setupSnapshot=$null;setupActions=@();setupAcknowledged=$false;language=$Job.language;failureCode=$null;automaticRetryAllowed=$false}
-    Initialize-LabInteractionTypes (Join-Path $Root 'code/Rules.Input.cs')
+    $Result['readiness']=[ordered]@{schema=2;mode='native-fixed-v2';callback='gso_lab_ack';status='waiting-spawn';spawnSnapshot=$null;windowPreparation=$null;setupSnapshot=$null;setupActions=@();setupAcknowledged=$false;language=$Job.language;failureCode=$null;failurePhase=$null;failureElapsedSeconds=$null;failureNativeError=$null;automaticRetryAllowed=$false}
+    $diagnostic=@{phase='initialize';code='bridge_initialization_failed';snapshot='spawn';nativeError=$null}
     try{
+        Initialize-LabInteractionTypes (Join-Path $Root 'code/Rules.Input.cs')
         while((Get-LabAutoElapsed $clock) -lt 90){
-            Assert-LabAutoContext $Root $Policy $Job $clock
+            $diagnostic.phase='await-spawn-snapshot'
+            Assert-LabAutoContext $Root $Policy $Job $clock -Diagnostic $diagnostic
             if(-not $window){
+                $diagnostic.phase='bind-game-process'
+                $diagnostic.code='game_process_scan_failed'
                 $candidates=@(Get-LabProcess $Policy|Where-Object {$_.StartTime.ToUniversalTime() -ge $LaunchUtc -and $_.SessionId -eq $Policy.gameSessionId})
-                if($candidates.Count -gt 1){throw 'Ambiguous weapons readiness process.'}
+                if($candidates.Count -gt 1){
+                    $diagnostic.code='game_process_ambiguous'
+                    throw 'Ambiguous weapons readiness process.'
+                }
                 if($candidates.Count -eq 1){
                     $Result.gamePid=$candidates[0].Id;$Result.gameStartedUtc=$candidates[0].StartTime.ToUniversalTime().ToString('o')
-                    Assert-LabInteractionOwner $Policy $Result
+                    Assert-LabInteractionOwner $Policy $Result $diagnostic
+                    $diagnostic.code='game_window_binding_failed'
                     $window=New-Object GsoLab.Interaction.GameWindow -ArgumentList @([int]$Result.gamePid,(ConvertTo-LabUtc $Result.gameStartedUtc).Ticks,(Join-Path $Policy.gameRoot 'hl.exe'),[int]$Policy.gameSessionId)
                 }
             }
             # Bootstrap has exactly one snapshot producer, called by the fixture's first spawn.
+            $diagnostic.phase='await-spawn-snapshot'
             $bootstrap=@{images=@()}
-            if($window -and (Receive-LabInteractionFrame $Policy $bootstrap $Baseline $destination)){
+            if($window -and (Receive-LabInteractionFrame $Policy $bootstrap $Baseline $destination $diagnostic)){
+                $diagnostic.code='spawn_snapshot_store_failed'
                 $image=Join-Path $destination 'image-1.bin'
                 $path=Join-Path $destination 'readiness-spawn.bmp'
                 if(Test-Path -LiteralPath $path){throw 'Existing readiness evidence; do not retry.'}
                 [IO.File]::Move($image,$path)
                 $Result.readiness.spawnSnapshot=$bootstrap.images[0]
+                $diagnostic.phase='prepare-window'
+                $diagnostic.code='window_preparation_failed'
                 try{$window.PrepareOwnWindow()}finally{$Result.readiness.windowPreparation=Get-LabWindowGuardObservation $window}
-                Assert-LabAutoContext $Root $Policy $Job $clock -BeforeInput
-                Assert-LabInteractionOwner $Policy $Result
+                Assert-LabAutoContext $Root $Policy $Job $clock -BeforeInput -Diagnostic $diagnostic
+                Assert-LabInteractionOwner $Policy $Result $diagnostic
+                $diagnostic.code='window_guard_failed'
                 $window.CheckReady()
                 $Result.readiness.status='spawn-ready'
+                $diagnostic.code='readiness_report_write_failed'
                 Write-LabJson $ResultPath $Result
-                Invoke-LabGunsSetup $Root $Policy $Job $Result $clock $window $Baseline $ResultPath
+                $diagnostic.phase='setup'
+                $diagnostic.code='setup_preparation_failed'
+                Invoke-LabGunsSetup $Root $Policy $Job $Result $clock $window $Baseline $ResultPath $diagnostic
                 $Result.readiness.status='ready'
+                $diagnostic.code='readiness_report_write_failed'
                 Write-LabJson $ResultPath $Result
                 return @{window=$window;clock=$clock}
             }
+            $diagnostic.code='readiness_wait_failed'
             Wait-LabAutoTick 200
         }
+        $diagnostic.code=if($window){'spawn_snapshot_missing'}else{'game_process_not_observed'}
         throw 'Spawn acknowledgement deadline; no weapons program started.'
     }catch{
-        $Result.readiness.status='failed';$Result.readiness.windowPreparation=Get-LabWindowGuardObservation $window
+        $Result.readiness.status='failed'
+        $Result.readiness.failureCode=$diagnostic.code
+        $Result.readiness.failurePhase=$diagnostic.phase
+        $Result.readiness.failureNativeError=$diagnostic.nativeError
+        $Result.readiness.failureElapsedSeconds=[Math]::Round((Get-LabAutoElapsed $clock),3)
+        $Result.readiness.windowPreparation=Get-LabWindowGuardObservation $window
         throw
     }
 }
@@ -741,6 +808,24 @@ function Invoke-LabGunsEffect([string]$Root,$Policy,$Job,$Result,$Clock,$Window,
     }
 }
 
+function Receive-LabGunsRespawnFrame([string]$Root,$Policy,$Job,$Result,$Clock,$Window,[hashtable]$Baseline,[string]$Destination) {
+    if(@($Result.images).Count -ne 4){throw 'Respawn snapshot must be frame five.'}
+    $deadline=(Get-LabAutoElapsed $Clock)+20
+    while((Get-LabAutoElapsed $Clock) -lt $deadline){
+        Assert-LabAutoContext $Root $Policy $Job $Clock
+        Assert-LabInteractionOwner $Policy $Result
+        $Window.CheckReady()
+        if(Receive-LabInteractionFrame $Policy $Result $Baseline $Destination){
+            $Result.interaction.respawnSnapshotSha256=$Result.images[-1].sha256
+            $Result.interaction.frameObservedElapsed=Get-LabAutoElapsed $Clock
+            return
+        }
+        Wait-LabAutoTick 200
+    }
+    $Result.failureCode='guns_respawn_snapshot_missing'
+    throw 'Server respawn snapshot missing.'
+}
+
 function Invoke-LabAutonomousGunsInteraction([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseline,[DateTime]$LaunchUtc,[string]$ResultPath,$Readiness) {
     Assert-LabRunnerJob $Job
     Assert-LabGunsBindings $Policy.gameRoot
@@ -785,14 +870,14 @@ function Invoke-LabAutonomousGunsInteraction([string]$Root,$Policy,$Job,$Result,
                     Invoke-LabGunsEffect $Root $Policy $Job $Result $clock $window reopen $phase
                     Wait-LabAutoTick 500
                 }else{
-                    Wait-LabAutoTick 6000
+                    Receive-LabGunsRespawnFrame $Root $Policy $Job $Result $clock $window $Baseline $destination
                     Invoke-LabGunsEffect $Root $Policy $Job $Result $clock $window move $phase
                 }
             }
             Assert-LabAutoContext $Root $Policy $Job $clock
             Assert-LabInteractionOwner $Policy $Result
             if($index -eq 0){$hash=Save-LabGunsCheckpoint $window $Result $destination primary-reopened primary-default}
-            else{Save-LabOwnedWindowFrame $window $Result $destination}
+            elseif($index -ne 4){Save-LabOwnedWindowFrame $window $Result $destination}
             $Result.interaction.frameObservedElapsed=Get-LabAutoElapsed $clock
             Write-LabJson $ResultPath $Result
         }
@@ -803,7 +888,8 @@ function Invoke-LabAutonomousGunsInteraction([string]$Root,$Policy,$Job,$Result,
         Write-LabJson $ResultPath $Result
     }catch{
         $Result.interaction.windowGuard=Get-LabWindowGuardObservation $window
-        $Result.failureCode='guns_interaction_failed';throw
+        if(-not $Result.failureCode){$Result.failureCode='guns_interaction_failed'}
+        throw
     }
 }
 

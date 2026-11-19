@@ -25,6 +25,13 @@ function Get-LabAutoElapsed($Clock){return $script:now}
 function Wait-LabAutoTick([int]$Milliseconds){$script:now+=$Milliseconds/1000.0}
 function Assert-LabAutoContext($Root,$Policy,$Job,$Clock,[switch]$BeforeInput){}
 function Assert-LabInteractionOwner($Policy,$Result){}
+$frameFailureCodes=@{
+    missing='setup_snapshot_missing'
+    malformed='setup_snapshot_invalid'
+    ambiguous='setup_snapshot_ambiguous'
+    collision='setup_snapshot_store_failed'
+    focus='window_guard_failed'
+}
 foreach($language in @('ru','en')){
     foreach($case in @('complete','missing','malformed','ambiguous','collision','focus')){
         $script:case=$case;$script:now=0;$script:inputs=0
@@ -55,7 +62,8 @@ foreach($language in @('ru','en')){
         }
         if($case -ceq 'collision'){[IO.File]::WriteAllText((Join-Path $output 'image-1.bin'),'retained evidence')}
         $failed=$false
-        try{Invoke-LabGunsSetup $area $policy $job $result ([Diagnostics.Stopwatch]::StartNew()) $window $baseline (Join-Path $output 'result.json')}catch{$failed=$true}
+        $diagnostic=@{code='setup_preparation_failed'}
+        try{Invoke-LabGunsSetup $area $policy $job $result ([Diagnostics.Stopwatch]::StartNew()) $window $baseline (Join-Path $output 'result.json') $diagnostic}catch{$failed=$true}
         Check ((Get-FileHash $old).Hash -ceq $oldHash)
         Check ($result.images.Count -eq 0)
         if($case -ceq 'complete'){
@@ -69,7 +77,7 @@ foreach($language in @('ru','en')){
         }else{
             Check ($failed -and -not $result.readiness.setupAcknowledged)
             Check ($script:inputs -eq $(if($case -ceq 'focus'){0}else{5}))
-            if($case -ceq 'missing'){Check ($result.readiness.failureCode -ceq 'setup_snapshot_missing')}
+            Check ($diagnostic.code -ceq $frameFailureCodes[$case])
             if($case -ceq 'collision'){Check ([IO.File]::ReadAllText((Join-Path $output 'image-1.bin')) -ceq 'retained evidence')}
         }
     }
@@ -79,7 +87,7 @@ $script:case='callback-contract'
 $source=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '../fixture_vgui_guard.sma'))
 $callbacks=[regex]::Matches($source,'client_cmd\(player, "(gso_lab_[a-z_]+)"\)')
 $program=New-LabGunsProgram $job
-Check ($callbacks.Count -eq 3)
+Check ((@($callbacks|ForEach-Object {$_.Groups[1].Value}) -join ',') -ceq 'gso_lab_join,gso_lab_spawn,gso_lab_ack,gso_lab_respawn')
 foreach($callback in $callbacks){
     $name=$callback.Groups[1].Value
     Check ($program.Contains('alias '+$name+' "') -and -not $name.Contains('_set'))

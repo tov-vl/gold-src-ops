@@ -26,5 +26,5 @@ $source = Join-Path $PSScriptRoot $(if ($MenuTest) { 'tests/fixture-menu-smoke.s
 & (Join-Path $scripting 'amxxpc.exe') $source ('-i'+$includes) ('-i'+$reapi) ('-i'+$PSScriptRoot) ('-o'+$output) -d0 -E | Out-Host
 if($LASTEXITCODE -ne 0){throw 'Fixture helper compilation failed.'}
 $hash=(Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash
-if(-not ($MenuTest -or $AmmoTest) -and $hash -cne 'A35470A8499ED36950D699D01FC23354050504DD04A87E32E51CD70EC1C1E2AE'){throw 'Fixture helper differs from the reviewed source pin; do not use the output.'}
+if(-not ($MenuTest -or $AmmoTest) -and $hash -cne '05CCFB65A9ABC9C5B65C429C7FA7F928E1595E138D3885C2F7E08CA46B3F5095'){throw 'Fixture helper differs from the reviewed source pin; do not use the output.'}
 @{status='compiled-not-installed';sha256=$hash;runtimeChanged=$false;downloaded=$false}|ConvertTo-Json
