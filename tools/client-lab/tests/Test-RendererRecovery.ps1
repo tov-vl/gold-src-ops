@@ -19,7 +19,11 @@ function Move-LabRendererRecoveryFile([string]$Source,[string]$Destination){
 $sandbox=Join-Path $Workspace ('checks/renderer-recovery-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $sandbox|Out-Null
 Check ((Invoke-LabRendererRecovery 'absent' @{} '').status -ceq 'not_requested') 'Disabled recovery touched state.'
-foreach($case in @('success','hash','created','modified','nonce','extra-log','destination','busy','query','active-request','cleanup','pid','start','completed','move-before','move-after','claim-only','receipt-tamper')){
+$cases=@('success','hash','created','modified','nonce','extra-log','destination','busy','query','active-request','cleanup','pid','start','completed','move-before','move-after','claim-only','receipt-tamper',
+    'prelaunch-clean','prelaunch-bad-hash','prelaunch-launch-requested','prelaunch-launch-dispatched','prelaunch-launcher-created','prelaunch-pid','prelaunch-start-time',
+    'prelaunch-images','prelaunch-config-unverified','prelaunch-game-unverified','prelaunch-missing-launch-field','prelaunch-nonboolean-launch',
+    'prelaunch-nonboolean-cleanup','prelaunch-cleanup-array','prelaunch-partial-cleanup','prelaunch-no-completion','prelaunch-wrong-id','prelaunch-other-status')
+foreach($case in $cases){
     $root=Join-Path $sandbox $case;$game=Join-Path $root 'game'
     $id=[guid]::NewGuid().ToString('D');$op=[guid]::NewGuid().ToString('D');$nonce=([guid]$id).ToString('N')
     foreach($d in @('queue',('results/'+$id),'game/cstrike')){New-Item -ItemType Directory -Path (Join-Path $root $d) -Force|Out-Null}
@@ -69,15 +73,61 @@ foreach($case in @('success','hash','created','modified','nonce','extra-log','de
         move-before {$script:moveFailure='before'}
         move-after {$script:moveFailure='after'}
     }
+    if($case.StartsWith('prelaunch-',[StringComparison]::Ordinal)){
+        $queuedId=[guid]::NewGuid().ToString('D')
+        $queuedResult=@{
+            id=$queuedId; status='rejected_preflight'; completedUtc=$end.ToString('o')
+            launchRequested=$false; launchCommandDispatched=$false
+            gamePid=$null; gameStartedUtc=$null; images=@()
+            launcher=@{processCreated=$false}
+            cleanup=@{game='not_required';config='not_created'}
+            cleanupVerified=$false; configCleanupVerified=$false
+        }
+        switch($case){
+            'prelaunch-bad-hash' {$plan.sha256='a'*64}
+            'prelaunch-launch-requested' {$queuedResult.launchRequested=$true}
+            'prelaunch-launch-dispatched' {$queuedResult.launchCommandDispatched=$true}
+            'prelaunch-launcher-created' {$queuedResult.launcher.processCreated=$true}
+            'prelaunch-pid' {$queuedResult.gamePid=1234}
+            'prelaunch-start-time' {$queuedResult.gameStartedUtc=$start.ToString('o')}
+            'prelaunch-images' {$queuedResult.images=@(@{number=1})}
+            'prelaunch-config-unverified' {$queuedResult.cleanup.config='unverified'}
+            'prelaunch-game-unverified' {$queuedResult.cleanup.game='unverified_no_owned_process'}
+            'prelaunch-missing-launch-field' {$queuedResult.Remove('launchRequested')}
+            'prelaunch-nonboolean-launch' {$queuedResult.launchCommandDispatched='false'}
+            'prelaunch-nonboolean-cleanup' {$queuedResult.configCleanupVerified='false'}
+            'prelaunch-cleanup-array' {$queuedResult.cleanup.config=@('not_created','unverified')}
+            'prelaunch-partial-cleanup' {$queuedResult.configCleanupVerified=$true}
+            'prelaunch-no-completion' {$queuedResult.completedUtc=$null}
+            'prelaunch-wrong-id' {$queuedResult.id=[guid]::NewGuid().ToString('D')}
+            'prelaunch-other-status' {$queuedResult.status='uncertain_error'}
+        }
+        $queuedDirectory=Join-Path $root ('results/'+$queuedId)
+        New-Item -ItemType Directory -Path $queuedDirectory|Out-Null
+        $queuedResultPath=Join-Path $queuedDirectory 'result.json'
+        Write-LabJson $queuedResultPath $queuedResult
+        Write-LabJson (Join-Path $root ('queue/'+$queuedId+'.json')) @{id=$queuedId;action='verify-panel'}
+        $queuedResultHash=(Get-FileHash -LiteralPath $queuedResultPath).Hash
+    }
     [IO.File]::WriteAllText($resultPath,($result|ConvertTo-Json -Depth 5))
     $resultHash=(Get-FileHash -LiteralPath $resultPath).Hash
     $originalHash=(Get-FileHash -LiteralPath $source).Hash
     $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($plan|ConvertTo-Json -Compress)))
     $policy=[pscustomobject]@{gameRoot=$game;gameUserSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;gameSessionId=7}
     if($case -ceq 'claim-only'){[IO.File]::WriteAllText((Join-Path $root ('results/'+$op+'.renderer-recovery.claim')),'preserved claim')}
-    $report=Invoke-LabRendererRecovery $root $policy $encoded
+    $inspection=@{}
+    $report=Invoke-LabRendererRecovery $root $policy $encoded $inspection
+    $expectedCheck=@{busy='idle_client';'active-request'='queue_terminal_state';nonce='marker_count';
+        'prelaunch-bad-hash'='source_sha256';'prelaunch-config-unverified'='queue_terminal_state'}
+    if($expectedCheck.ContainsKey($case)){
+        Check ($inspection.status -ceq 'blocked' -and $inspection.firstFailed -ceq $expectedCheck[$case] -and
+            $report.failureCheck -ceq $expectedCheck[$case]) ('Detailed preflight code differs: '+$case)
+    }
     Check ((Get-FileHash -LiteralPath $resultPath).Hash -ceq $resultHash) ('Old result changed: '+$case)
-    if($case -cin @('success','receipt-tamper')){
+    if($case.StartsWith('prelaunch-',[StringComparison]::Ordinal)){
+        Check ((Get-FileHash -LiteralPath $queuedResultPath).Hash -ceq $queuedResultHash) ('Queued result changed: '+$case)
+    }
+    if($case -cin @('success','receipt-tamper','prelaunch-clean')){
         Check ($report.status -ceq 'archived' -and $script:moves -eq 1 -and -not (Test-Path -LiteralPath $source)) ('Archive was not confirmed: '+$case)
         Check ((Get-FileHash -LiteralPath $archive).Hash -ceq $originalHash) 'Archive bytes changed.'
         if($case -ceq 'receipt-tamper'){
@@ -93,9 +143,28 @@ foreach($case in @('success','hash','created','modified','nonce','extra-log','de
         Check ($report.status -ceq 'uncertain_move' -and $script:moves -eq 1 -and (Get-FileHash -LiteralPath $archive).Hash -ceq $originalHash) 'Uncertain move lost bytes.'
     }else{
         Check ($report.status -cin @('blocked_recovery','uncertain_move') -and (Get-FileHash -LiteralPath $source).Hash -ceq $originalHash) ('Recovery altered a refused source: '+$case)
+        if($case.StartsWith('prelaunch-',[StringComparison]::Ordinal)){
+            Check ($report.status -ceq 'blocked_recovery' -and $report.failureStage -ceq 'preflight' -and $script:moves -eq 0) ('Preflight guard failed: '+$case)
+        }
     }
     $count=$script:moves
+    if($case -ceq 'prelaunch-config-unverified'){
+        $receiptPath=Join-Path $root ('results/'+$op+'.renderer-recovery.json')
+        $claimPath=Join-Path $root ('results/'+$op+'.renderer-recovery.claim')
+        $receiptHash=(Get-FileHash -LiteralPath $receiptPath).Hash
+        $claimHash=(Get-FileHash -LiteralPath $claimPath).Hash
+        Check ($inspection.blockingJobId -ceq $queuedId) 'Failed queue item differs.'
+        $queuedResult.cleanup.config='not_created'
+        Write-LabJson $queuedResultPath $queuedResult
+        $freshInspection=@{}
+        $saved=Invoke-LabRendererRecovery $root $policy $encoded $freshInspection
+        Check ($saved.status -ceq 'blocked_recovery' -and $freshInspection.status -ceq 'preflight_passed' -and
+            $null -eq $freshInspection.firstFailed -and -not (Test-Path -LiteralPath $archive)) 'Read-only recheck replayed or replaced the failure.'
+        Check ((Get-FileHash -LiteralPath $receiptPath).Hash -ceq $receiptHash -and
+            (Get-FileHash -LiteralPath $claimPath).Hash -ceq $claimHash -and
+            (Get-FileHash -LiteralPath $source).Hash -ceq $originalHash) 'Read-only recheck changed retained input.'
+    }
     [void](Invoke-LabRendererRecovery $root $policy $encoded)
     Check ($script:moves -eq $count) ('Recovery was retried: '+$case)
 }
-@{passed=$true;checks=$checks;cases=18;targetChanged=$false;gameLaunched=$false;runtime=$PSVersionTable.PSVersion.ToString()}|ConvertTo-Json
+@{passed=$true;checks=$checks;cases=$cases.Count;targetChanged=$false;gameLaunched=$false;runtime=$PSVersionTable.PSVersion.ToString()}|ConvertTo-Json

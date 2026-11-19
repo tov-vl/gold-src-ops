@@ -77,3 +77,43 @@ and unchanged; historical acceptance flags remain false. This closes only the
 approved EN renderer gate, not a new RU matrix, real Windows-session transition,
 saved-data/loadout expansion, two-player test or activity observation window.
 Production services and the addon were unchanged.
+
+
+## Automatic log inspection and EN weapons acceptance
+
+The worker reports `rendererPreflight` through the existing SSH status while
+its Windows session is valid. The report covers the four fixed `qconsole.log`
+and `console.log` paths in the game root and `cstrike`. It includes presence,
+size, timestamps and SHA-256 for regular files up to 4 MiB. Active games or
+unavailable metadata block a clear-path conclusion. This report contains no
+console text and works when historical renderer results are ambiguous.
+
+The queue guard accepts a completed `rejected_preflight` result with false
+cleanup confirmations only when the result proves that no launch was requested
+or dispatched, no launcher or game process was created, no frames were captured,
+and the temporary configuration was never created. Existing identity,
+completion, cleanup and log checks still apply. The same preflight checks
+drive recovery and its read-only diagnostic status. A blocked receipt stays
+immutable. Its preflight can be observed again through status without moving a
+file or reusing the claim.
+
+On 2026-11-19, signed client-lab maintenance updates passed installed-file
+readback. The read-only report identified a completed preflight rejection with
+no process or configuration to clean up. After the narrow queue fix, all seven
+queue entries passed. The authorized retained log was saved to a sibling
+archive whose SHA-256 matched the source on a later worker cycle. All four
+renderer log paths were clear before the game and after cleanup.
+
+One EN `/guns` run on the isolated 0.40.0 addon and nVault fixture passed.
+Two bots joined after the menu opened. Movement before the test death, respawn
+with AK-47 and Desert Eagle, return of movement, and the server acknowledgement
+bound to the fifth frame were confirmed. Five frames and four checkpoints
+matched their recorded hashes, and the fixture reported zero AMXX errors.
+A separate receipt bound to the same client result identified engine-reported
+OpenGL. The game, temporary config, new console logs, fixture, network and
+relay were cleaned up. Raw screenshots, logs and operational identifiers
+remain in the private evidence record.
+
+This run exercised the signed lab payload. Repository source and CI cover the
+portable implementation. The evidence covers one EN client with bots and the
+engine-reported renderer.

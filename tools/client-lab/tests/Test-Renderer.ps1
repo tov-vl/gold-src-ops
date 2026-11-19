@@ -29,7 +29,7 @@ Check ((Add-LabRendererLaunchArguments '-applaunch 10 -gl -windowed' $true) -ceq
 Refused {Add-LabRendererLaunchArguments '-applaunch 10 -gl -condebug' $true}
 $sandbox=Join-Path $Workspace ('checks\renderer-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path (Join-Path $sandbox 'cstrike')|Out-Null
-$policy=@{gameRoot=$sandbox}
+$policy=@{gameRoot=$sandbox;targetName='fixture'}
 $probe=New-LabRendererProbe $policy $id
 Check ($probe.enabled -and $probe.paths.Count -eq 4) 'Clean renderer preflight failed.'
 $path=Join-Path $sandbox 'qconsole.log'
@@ -127,6 +127,8 @@ $roundtrip=$wire|ConvertFrom-Json
 Check ($roundtrip.worker.rendererDiagnostics.files[0].markerContextsBase64[0] -ceq $diagnostic.files[0].markerContextsBase64[0] -and [Text.Encoding]::UTF8.GetByteCount($wire) -lt 65536) 'Status protocol lost or overflowed diagnostics.'
 $script:diagnosticBusy=$true
 Check ((Get-LabRetainedRendererDiagnostics $diagnosticRoot $policy).status -ceq 'client_busy') 'Busy diagnostic read was allowed.'
+$busyMetadata=Get-LabRendererPreflight $policy
+Check ($busyMetadata.status -ceq 'client_busy' -and $busyMetadata.files.Count -eq 0) 'Busy metadata read was allowed.'
 $script:diagnosticBusy=$false
 $retained.gameStartedUtc=(Get-Item -LiteralPath $path).CreationTimeUtc.AddSeconds(1).ToString('o')
 $retained.completedUtc=[DateTime]::UtcNow.AddSeconds(2).ToString('o')
@@ -141,9 +143,19 @@ $duplicate=Read-LabJson (Join-Path $diagnosticRoot ('results\'+$id+'\result.json
 $duplicate.id=$other;$duplicate.rendererEvidence.jobId=$other
 Write-LabJson (Join-Path $diagnosticRoot ('results\'+$other+'\result.json')) $duplicate
 Check ((Get-LabRetainedRendererDiagnostics $diagnosticRoot $policy).status -ceq 'ambiguous') 'Ambiguous retained requests were read.'
+$metadata=Get-LabRendererPreflight $policy
+$wire=@{worker=@{rendererPreflight=$metadata}}|ConvertTo-Json -Depth 5
+$observed=($wire|ConvertFrom-Json).worker.rendererPreflight
+Check ($observed.status -ceq 'observed' -and $observed.host -ceq 'fixture' -and $observed.gameClosed -and
+    ($observed.files.role -join ',') -ceq 'root-qconsole,root-console,cstrike-qconsole,cstrike-console') 'Fixed renderer paths were not observed.'
+Check ($observed.files[0].sha256 -ceq $originalLogHash -and @($observed.files|Where-Object exists).Count -eq 1) 'Renderer file identity differs.'
+Check (-not $wire.Contains('PRIVATE_STARTUP_SENTINEL') -and -not $wire.Contains('GSO_RENDERER') -and
+    -not $wire.Contains('Base64') -and (Get-FileHash -LiteralPath $path).Hash -ceq $originalLogHash) 'Metadata included log text or changed its bytes.'
 [IO.File]::Delete((Join-Path $diagnosticRoot ('queue\'+$other+'.json')))
 [IO.File]::WriteAllText($path,('x'*(4MB+1)))
 Check (-not (Get-LabRetainedRendererDiagnostics $diagnosticRoot $policy).files[0].read) 'Oversized diagnostic log was read.'
+$oversizedMetadata=Get-LabRendererPreflight $policy
+Check ($oversizedMetadata.status -ceq 'unavailable' -and $oversizedMetadata.files.Count -eq 0) 'Oversized metadata input was accepted.'
 $linkedRoot=Join-Path $sandbox 'linked-diagnostic'
 New-Item -ItemType Directory -Path $linkedRoot|Out-Null
 $queueLink=Join-Path $linkedRoot 'queue'
@@ -154,5 +166,8 @@ $retained.rendererEvidence.probeEnabled=$false
 Write-LabJson (Join-Path $diagnosticRoot ('results\'+$id+'\result.json')) $retained
 Check ((Get-LabRetainedRendererDiagnostics $diagnosticRoot $policy).status -ceq 'not_required') 'Unrelated retained result was read.'
 [IO.File]::Delete($path)
+$clearMetadata=Get-LabRendererPreflight $policy
+Check ($clearMetadata.status -ceq 'observed' -and $clearMetadata.files.Count -eq 4 -and
+    @($clearMetadata.files|Where-Object exists).Count -eq 0) 'Empty path set was not reported.'
 Write-LabJson (Join-Path $Workspace ('checks\renderer-ps'+$PSVersionTable.PSVersion.Major+'.json')) @{passed=$true;checks=$checks;targetNetworkUsed=$false;runtime=$PSVersionTable.PSVersion.ToString()}
 'Renderer policy checks passed: '+$checks

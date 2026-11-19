@@ -4833,6 +4833,10 @@ manual window selection. The engine reported Intel Iris Xe OpenGL; hardware
 acceleration/performance are not attested. A later companion trial separately
 accepted a real same-user Windows-session transition.
 The bounded renderer gate is accepted. Production is unchanged.
+On 2026-11-19, one isolated EN `/guns` run on 0.40.0 with two bots
+passed gameplay and independent OpenGL review. The client-lab follow-up
+reports four fixed renderer-log paths via SSH and accepts a completed
+pre-launch rejection when no cleanup was required.
 See [recovery scope and evidence](client-renderer-recovery.md).
 See [scope and evidence](v2.108-client-renderer-evidence.md) and
 [release notes](release-notes-v2.108.md).
