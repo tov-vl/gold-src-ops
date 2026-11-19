@@ -33,7 +33,7 @@ try{
     }
     $expected=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'expected.json'))|ConvertFrom-Json
     if((@($expected.trustedFiles.name|Sort-Object)-join ',') -cne 'Gateway.Input.ps1,Gateway.ps1,Task-Budget.ps1,Update.Common.ps1,Update.Engine.ps1,Updater.ps1'){throw 'Unexpected installed trust file set.'}
-    if($env:COMPUTERNAME -cne $expected.targetName -or $GameSessionId -ne $expected.gameSessionId -or $GameSessionId -ne (Get-Process -Id $PID).SessionId){throw 'Target or interactive session differs.'}
+    if($env:COMPUTERNAME -cne $expected.targetName -or $GameSessionId -ne (Get-Process -Id $PID).SessionId){throw 'Target or interactive session differs.'}
     foreach($path in @($root,(Join-Path $root 'bin'),(Join-Path $root 'bin\config.json'))){Assert-MigrationTrustedPath $path}
     foreach($entry in $expected.trustedFiles){
         $path=Join-Path $root ('bin\'+$entry.name)
@@ -46,7 +46,7 @@ try{
     . (Join-Path $PSScriptRoot 'Verify-Task.ps1')
     . (Join-Path $PSScriptRoot 'Migration.Core.ps1')
     $policy=Read-UpdateJson $lab (Join-Path $lab 'policy.json')
-    if($policy.gameUserSid -cne $GameUserSid -or $policy.gameSessionId -ne $GameSessionId -or $policy.targetName -cne $expected.targetName -or
+    if(-not (Test-MigrationGameSession $policy $expected $GameUserSid $GameSessionId) -or $policy.targetName -cne $expected.targetName -or
        $policy.sessionId -cne $expected.sessionId -or $policy.leaseMode -cne 'manual' -or $null -ne $policy.expiresUtc -or
        $policy.sourceAddress -cne $expected.sourceAddress -or $policy.targetAddress -cne $expected.targetAddress -or $policy.port -ne 2222){throw 'Installed manual authorization differs.'}
     function Assert-MigrationUpdaterInactive {

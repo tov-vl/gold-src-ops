@@ -15,6 +15,7 @@ $bootstrap=New-LabGunsProgram $job
 Check (@($bootstrap -split "`r`n"|Where-Object {$_ -ceq 'snapshot' -or $_ -ceq 'guns' -or $_ -like 'jointeam *'}).Count -eq 0)
 Check ($bootstrap.Contains('alias gso_lab_spawn "alias gso_lab_spawn; snapshot"'))
 Check ($bootstrap.Contains('alias gso_lab_ack "alias gso_lab_ack; snapshot"'))
+Check ($bootstrap.Contains('alias gso_lab_respawn "alias gso_lab_respawn; snapshot"'))
 Check (-not $bootstrap.Contains('_set'))
 Check (-not $bootstrap.Contains('exec ') -and -not $bootstrap.Contains('_stage'))
 $arguments=Get-LabRunnerLaunchArguments $job ('gso_lan_'+([guid]$job.id).ToString('N')+'.cfg')
@@ -26,22 +27,31 @@ Check (Get-LabAutonomousMode $root $job)
 $job.language='en'
 Reject {Get-LabAutonomousMode $root $job}
 $job.language='ru'
-$policy=@{gameRoot=$root;gameSessionId=7}
+$policy=@{gameRoot=$root;gameSessionId=7;gameUserSid='fixture-sid'}
 Reject {Assert-LabGunsBaseline @{images=@(@{sha256=('A'*64)},@{sha256=('A'*64)},@{sha256=('A'*64)},@{sha256=('A'*64)})} $root}
-function Initialize-LabInteractionTypes([string]$Source){}
+function Initialize-LabInteractionTypes([string]$Source){if($script:case -ceq 'bridge'){throw 'Private bridge details.'}}
 function Assert-LabLease($Policy){if($script:case -ceq 'revoked'){throw 'Revoked.'}}
 function Get-LabAutoElapsed($Clock){return $script:now}
 function Wait-LabAutoTick([int]$Milliseconds){$script:now+=$(if($script:case -ceq 'setup-stale'){130}else{10})}
-function Get-LabProcess($Policy){
-    if($script:case -ceq 'no-process'){return @()}
-    $p=[pscustomobject]@{Id=123;SessionId=7;StartTime=[DateTime]::UtcNow}
+function Get-LabProcess($Policy,[int]$ProcessId){
+    if($script:case -ceq 'no-process' -or ($script:case -ceq 'owner-changed' -and $ProcessId)){return}
+    $p=[pscustomobject]@{Id=123;SessionId=7;StartTime=$script:gameStartedUtc}
     if($script:case -ceq 'ambiguous-process'){return @($p,$p)}
     return $p
 }
-function Assert-LabInteractionOwner($Policy,$Result){if($script:case -ceq 'owner'){throw 'Changed owner.'}}
+function Get-LabGameOwnerCheck($Policy,$Result){
+    if($Result.gamePid -ne 123 -or $Policy.gameUserSid -cne 'fixture-sid'){throw 'Owner check received the wrong process or SID.'}
+    switch($script:case){
+        'process-access' {return @{Code='game_process_open_failed';NativeError=5}}
+        'reused-pid' {return @{Code='game_identity_changed';NativeError=$null}}
+        'owner-access' {return @{Code='game_owner_token_open_failed';NativeError=5}}
+        'owner-query' {return @{Code='game_owner_token_query_failed';NativeError=31}}
+        'owner' {return @{Code='game_owner_sid_unverified';NativeError=$null}}
+        default {return @{Code='verified';NativeError=$null}}
+    }
+}
 function Receive-LabInteractionFrame($Policy,$Result,$Baseline,$Destination){
     if($script:case -ceq 'missing-spawn' -or ($script:case -ceq 'missing-setup-ack' -and $script:received -ge 1)){return $false}
-    if($script:case -ceq 'ambiguous-frame'){throw 'Ambiguous frames.'}
     # Setup has not been triggered while waiting for this fixture acknowledgement.
     Check ($script:inputs -eq $(if($script:received -eq 0){0}else{5}))
     $path=Join-Path $Destination 'image-1.bin'
@@ -54,7 +64,10 @@ function New-Object([string]$TypeName,[object[]]$ArgumentList){
     if($TypeName -ceq 'Text.UTF8Encoding'){return [Text.UTF8Encoding]::new($false)}
     if($TypeName -cne 'GsoLab.Interaction.GameWindow'){throw 'Unexpected type.'}
     $window=[pscustomobject]@{}
-    $window|Add-Member ScriptMethod PrepareOwnWindow {$script:prepared=$true}
+    $window|Add-Member ScriptMethod PrepareOwnWindow {
+        if($script:case -ceq 'prepare'){throw 'Window preparation refused.'}
+        $script:prepared=$true
+    }
     $window|Add-Member ScriptMethod CheckReady {if($script:case -ceq 'focus'){throw 'Focus unavailable.'};$script:guarded=$true}
     $window|Add-Member ScriptMethod GunsSetupAction {
         param($Phase)
@@ -65,8 +78,29 @@ function New-Object([string]$TypeName,[object[]]$ArgumentList){
     }
     return $window
 }
-foreach($case in @('ready','setup-stale','missing-setup-ack','missing-spawn','no-process','ambiguous-process','ambiguous-frame','owner','focus','revoked','cancelled','claimed','uncertain')){
+$expectedFailures=[ordered]@{
+    'bridge'=@('bridge_initialization_failed','initialize')
+    'owner-changed'=@('game_identity_changed','bind-game-process')
+    'process-access'=@('game_process_open_failed','bind-game-process',5)
+    'reused-pid'=@('game_identity_changed','bind-game-process')
+    'owner-access'=@('game_owner_token_open_failed','bind-game-process',5)
+    'owner-query'=@('game_owner_token_query_failed','bind-game-process',31)
+    'owner'=@('game_owner_sid_unverified','bind-game-process')
+    'ambiguous-process'=@('game_process_ambiguous','bind-game-process')
+    'no-process'=@('game_process_not_observed','await-spawn-snapshot')
+    'missing-spawn'=@('spawn_snapshot_missing','await-spawn-snapshot')
+    'revoked'=@('lease_unverified','await-spawn-snapshot')
+    'cancelled'=@('cancelled','await-spawn-snapshot')
+    'prepare'=@('window_preparation_failed','prepare-window')
+    'focus'=@('window_guard_failed','prepare-window')
+    'claimed'=@('setup_claim_failed','open-settings')
+    'uncertain'=@('setup_input_failed','open-settings')
+    'setup-stale'=@('setup_snapshot_stale','open-languages')
+    'missing-setup-ack'=@('setup_snapshot_missing','await-setup-snapshot')
+}
+foreach($case in (@('ready')+@($expectedFailures.Keys))){
     $script:case=$case;$script:now=0;$script:inputs=0;$script:received=0;$script:prepared=$false;$script:guarded=$false
+    $script:gameStartedUtc=[DateTime]::UtcNow
     $script:destination=Join-Path $root $case
     New-Item -ItemType Directory -Path (Join-Path $destination 'queue') -Force|Out-Null
     if($case -ceq 'cancelled'){[IO.File]::WriteAllText((Get-LabPaths $destination $job.id).cancel,'cancelled')}
@@ -78,11 +112,42 @@ foreach($case in @('ready','setup-stale','missing-setup-ack','missing-spawn','no
         Check (-not $failed -and $result.readiness.status -ceq 'ready' -and $result.readiness.setupAcknowledged)
         Check ($script:inputs -eq 5 -and $result.images.Count -eq 0)
         Check ($null -ne $ready.window -and (Test-Path (Join-Path $destination 'readiness-spawn.bmp')))
+        Check ($null -eq $result.readiness.failureCode -and $null -eq $result.readiness.failurePhase -and $null -eq $result.readiness.failureElapsedSeconds -and $null -eq $result.readiness.failureNativeError)
     }else{
         Check $failed
         Check ($script:inputs -eq $(if($case -cin @('uncertain','setup-stale')){1}elseif($case -ceq 'missing-setup-ack'){5}else{0}))
         Check ($result.readiness.status -ceq 'failed')
-        if($case -ceq 'missing-setup-ack'){Check ($result.readiness.failureCode -ceq 'setup_snapshot_missing')}
+        Check ($result.readiness.failureCode -ceq $expectedFailures[$case][0])
+        Check ($result.readiness.failurePhase -ceq $expectedFailures[$case][1])
+        Check ($result.readiness.failureElapsedSeconds -eq $script:now)
+        $expectedNativeError=if($expectedFailures[$case].Count -eq 3){$expectedFailures[$case][2]}
+        Check ($result.readiness.failureNativeError -eq $expectedNativeError)
+        Check (-not ($result.readiness | ConvertTo-Json -Depth 8).Contains('Private '))
+        Check (-not $result.readiness.automaticRetryAllowed)
     }
 }
+$script:case='respawn-frame'
+$script:destination=Join-Path $root 'ready'
+$script:now=0
+$script:ackAt=7
+function Wait-LabAutoTick([int]$Milliseconds){$script:now+=$Milliseconds/1000}
+function Receive-LabInteractionFrame($Policy,$Result,$Baseline,$Destination){
+    if(@($Result.images).Count -ne 4){throw 'Frame accepted before callback.'}
+    if($script:now -lt $script:ackAt){return $false}
+    $Result.images+=@{number=5;sha256=('A'*64)}
+    return $true
+}
+$window=[pscustomobject]@{}
+$window|Add-Member ScriptMethod CheckReady {}
+$frames=@(1..4|ForEach-Object {@{number=$_}})
+$result=@{images=$frames;interaction=@{};failureCode=$null;gamePid=123;gameStartedUtc=$script:gameStartedUtc.ToString('o')}
+Receive-LabGunsRespawnFrame $script:destination $policy $job $result $null $window @{} $script:destination
+Check ($script:now -ge 7 -and $result.images.Count -eq 5 -and $result.interaction.respawnSnapshotSha256 -ceq ('A'*64))
+
+$script:case='missing-respawn-frame'
+$script:now=0
+$script:ackAt=21
+$result=@{images=$frames;interaction=@{};failureCode=$null;gamePid=123;gameStartedUtc=$script:gameStartedUtc.ToString('o')}
+Reject {Receive-LabGunsRespawnFrame $script:destination $policy $job $result $null $window @{} $script:destination}
+Check ($result.images.Count -eq 4 -and -not $result.interaction.ContainsKey('respawnSnapshotSha256') -and $result.failureCode -ceq 'guns_respawn_snapshot_missing')
 Write-Output ('Weapons readiness checks passed: '+$checks+'. No target, game or native input.')

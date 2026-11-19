@@ -89,19 +89,61 @@ try{
     try{Reject {Assert-UpdatePath $sandbox $link} 'linked path rejected'}finally{Remove-Item -LiteralPath $link -Force}
 
     # The engine receives disposable roots and mocked task/process functions only.
+    $script:productionWait=(Get-Item Function:\Wait-UpdateWorkerPoll).ScriptBlock
+    function Wait-UpdateWorkerPoll($Clock) {
+        if($script:pollFixture){return (& $script:productionWait $script:pollClock)}
+        return $false
+    }
+    function Start-Sleep([int]$Milliseconds) {
+        $target=$script:pollFixture
+        $id=$script:pollManifest.id
+        if(-not $target -or -not $script:task.Settings.Enabled -or
+           (Test-Path -LiteralPath (Join-Path $target.lab 'maintenance-revision-06.json')) -or
+           (Test-Path -LiteralPath (Join-Path $target.root 'private\active.json')) -or
+           (Test-Path -LiteralPath (Join-Path $target.root ('private\'+$id))) -or
+           (Test-Path -LiteralPath (Join-Path $target.root ('public\'+$id+'.json')))){
+            throw 'Polling must leave the worker enabled and the package unclaimed.'
+        }
+        if($Milliseconds -lt 1 -or $Milliseconds -gt 1000){throw 'Unexpected idle poll interval.'}
+        $script:pollClock.ElapsedMilliseconds+=$Milliseconds
+        $script:pollCalls++
+        if($script:pollAction){& $script:pollAction}
+    }
     function Assert-UpdateWritableOnlyByAdmin([string]$Path) { if(-not (Test-Path -LiteralPath $Path)){throw 'Mock trust path missing.'} }
     function Assert-UpdateTrust([string]$Root,[string]$Lab,$Config) {
         if($script:trustFailure){throw 'Injected trust drift.'}
         if((Get-UpdateHash (Read-UpdateBytes $Lab (Join-Path $Lab 'policy.json'))) -cne $Config.policySha256){throw 'Policy drift.'}
     }
-    function Assert-UpdateWorkerIdle { if($script:busy){throw 'Mock worker busy.'} }
+    function Get-UpdateWorkerActivity {
+        if($script:gameRunning){return 'game_running'}
+        if($script:busy){return 'worker_running'}
+    }
     function Get-ScheduledTask {
         param($TaskName,$TaskPath)
         if($TaskName -ceq 'GsoClientLab-Expire'){return [pscustomobject]@{State='Disabled'}}
+        if($script:startOnMarker -and (Test-Path -LiteralPath (Join-Path $script:pollFixture.lab 'maintenance-revision-06.json'))){
+            $script:startOnMarker=$false
+            $script:task.State='Running'
+            $script:busy=$true
+        }
         return ($script:task|ConvertTo-Json -Depth 10|ConvertFrom-Json)
     }
-    function Disable-ScheduledTask {param($TaskName,$TaskPath,$ErrorAction);$script:task.State='Disabled';$script:task.Settings.Enabled=$false}
-    function Enable-ScheduledTask {param($TaskName,$TaskPath);$script:task.State='Ready';$script:task.Settings.Enabled=$true}
+    function Disable-ScheduledTask {
+        param($TaskName,$TaskPath,$ErrorAction)
+        $script:disables++
+        $script:task.Settings.Enabled=$false
+        $script:task.State='Disabled'
+        if($script:busyAfterDisable){
+            $script:busy=$true
+            $script:task.State='Running'
+        }
+    }
+    function Enable-ScheduledTask {
+        param($TaskName,$TaskPath)
+        if($script:failEnable){throw 'Injected enablement failure.'}
+        $script:task.State=$(if($script:busy){'Running'}else{'Ready'})
+        $script:task.Settings.Enabled=$true
+    }
     function Set-ScheduledTask {
         param($TaskName,$TaskPath,$Action,$Settings)
         if($script:failEveryBudget){throw 'Injected persistent task update failure.'}
@@ -121,7 +163,12 @@ try{
         $localConfig|Add-Member -NotePropertyName policySha256 -NotePropertyValue (Get-UpdateHash (Read-UpdateBytes $lab (Join-Path $lab 'policy.json')))
         Write-UpdateJson (Join-Path $root 'bin\config.json') $localConfig
         Write-UpdateJson (Join-Path $root 'private\state.json') $state
-        $script:trustFailure=$false;$script:busy=$false;$script:failBudget=$false;$script:failEveryBudget=$false
+        $script:trustFailure=$false;$script:busy=$false;$script:gameRunning=$false
+        $script:busyAfterDisable=$false;$script:disables=0;$script:failEnable=$false
+        $script:failBudget=$false;$script:failEveryBudget=$false
+        $script:pollFixture=$null;$script:pollManifest=$null;$script:pollAction=$null
+        $script:pollClock=[pscustomobject]@{ElapsedMilliseconds=0L}
+        $script:pollCalls=0;$script:startOnMarker=$false
         return @{root=$root;lab=$lab;config=$localConfig}
     }
     function Stage-Test($Fixture,$Manifest){$data=New-TestEnvelope $Manifest;[IO.File]::WriteAllBytes((Join-Path $Fixture.root ('inbox\'+$Manifest.id+'.json')),$data)}
@@ -208,11 +255,125 @@ try{
     $blockedHash=Get-UpdateHash (Read-UpdateBytes $fixture.root (Join-Path $fixture.root 'private\inbox-retirement-blocked.json'))
     Invoke-UpdateTick $fixture.root $fixture.lab
     Check ((Get-UpdateHash (Read-UpdateBytes $fixture.root (Join-Path $fixture.root 'private\inbox-retirement-blocked.json'))) -ceq $blockedHash) 'blocked retirement is not retried'
-    $fixture=New-EngineFixture 'busy'
-    $script:busy=$true;$test=New-TestManifest;Stage-Test $fixture $test
+    function Check-Waiting($Fixture,$Manifest,[string]$Reason) {
+        $public=Read-UpdateJson $Fixture.root (Join-Path $Fixture.root 'public\state.json')
+        Check ($public.pendingUpdate.status -ceq 'waiting_worker_idle' -and $public.pendingUpdate.id -ceq $Manifest.id -and $public.pendingUpdate.reason -ceq $Reason) ('wait reason '+$Reason)
+        Check (-not $public.blocked -and $public.sequence -eq 0 -and $script:task.Settings.Enabled) 'waiting leaves worker enabled and sequence unchanged'
+        foreach($path in @('private\active.json',('private\'+$Manifest.id),('public\'+$Manifest.id+'.json'))){
+            Check (-not (Test-Path -LiteralPath (Join-Path $Fixture.root $path))) ('waiting did not create '+$path)
+        }
+        Check (-not (Test-Path -LiteralPath (Join-Path $Fixture.lab 'maintenance-revision-06.json'))) 'waiting released maintenance marker'
+    }
+    foreach($case in @('task-running','task-queued','active-instance','game','idle-race','incomplete-job')){
+        $fixture=New-EngineFixture $case
+        $test=New-TestManifest;Stage-Test $fixture $test
+        $signedPath=Join-Path $fixture.root ('inbox\'+$test.id+'.json')
+        $signedHash=Get-UpdateHash (Read-UpdateBytes $fixture.root $signedPath)
+        $reason='worker_running'
+        switch($case){
+            'task-running' {$script:task.State='Running'}
+            'task-queued' {$script:task.State='Queued'}
+            'active-instance' {$script:busy=$true}
+            'game' {$script:gameRunning=$true;$reason='game_running'}
+            'idle-race' {$script:busyAfterDisable=$true}
+            'incomplete-job' {
+                $reason='queued_job_unfinished'
+                $jobId=[guid]::NewGuid().ToString('D')
+                Write-UpdateJson (Join-Path $fixture.lab ('queue\'+$jobId+'.json')) @{id=$jobId;action='verify-rules'}
+            }
+        }
+        Invoke-UpdateTick $fixture.root $fixture.lab
+        Check-Waiting $fixture $test $reason
+        Check ((Get-UpdateHash (Read-UpdateBytes $fixture.root $signedPath)) -ceq $signedHash) 'waiting preserves original signed bytes'
+        Check ($script:disables -eq $(if($case -ceq 'idle-race'){1}else{0})) 'occupied worker not disabled except the simulated race'
+        if($case -ceq 'incomplete-job'){
+            New-Item -ItemType Directory (Join-Path $fixture.lab ('results\'+$jobId))|Out-Null
+            $jobResult=Join-Path $fixture.lab ('results\'+$jobId+'\result.json')
+            Write-UpdateJson $jobResult @{id=$jobId;status='claimed'}
+            Invoke-UpdateTick $fixture.root $fixture.lab
+            Check-Waiting $fixture $test $reason
+            Write-UpdateJson $jobResult @{id=$jobId;status='captured_unreviewed';completedUtc=[DateTime]::UtcNow.ToString('o')}
+        }
+        $script:task.State='Ready';$script:busy=$false;$script:gameRunning=$false;$script:busyAfterDisable=$false
+        Invoke-UpdateTick $fixture.root $fixture.lab
+        $receipt=Read-UpdateJson $fixture.root (Join-Path $fixture.root ('public\'+$test.id+'.json'))
+        Check ($receipt.status -ceq 'installed' -and $receipt.sha256 -ceq $signedHash -and $receipt.sequence -eq 1) 'same signed package installed automatically after idle'
+        Check (-not (Read-UpdateJson $fixture.root (Join-Path $fixture.root 'public\state.json')).PSObject.Properties['pendingUpdate']) 'installed package no longer waiting'
+        $beforeDisables=$script:disables
+        Invoke-UpdateTick $fixture.root $fixture.lab
+        Check ($script:disables -eq $beforeDisables) 'subsequent tick does not replay install'
+    }
+    foreach($case in @('same-start','pre-disable-race','post-disable-race','busy-past-budget','game-during-wait','changed-package')){
+        $fixture=New-EngineFixture $case
+        $test=New-TestManifest;Stage-Test $fixture $test
+        $script:pollFixture=$fixture
+        $script:pollManifest=$test
+        $path=Join-Path $fixture.root ('inbox\'+$test.id+'.json')
+        $sha=Get-UpdateHash (Read-UpdateBytes $fixture.root $path)
+        $reportPath=Join-Path $fixture.root ('public\'+$test.id+'.json')
+        if($case -ceq 'pre-disable-race'){$script:startOnMarker=$true}
+        elseif($case -ceq 'post-disable-race'){$script:busyAfterDisable=$true}
+        else{$script:task.State='Running';$script:busy=$true}
+
+        $script:pollAction={
+            if($script:pollCalls -ne 3 -or $case -ceq 'busy-past-budget'){return}
+            $script:task.State='Ready'
+            $script:busy=$false
+            $script:busyAfterDisable=$false
+            if($case -ceq 'game-during-wait'){$script:gameRunning=$true}
+            if($case -ceq 'changed-package'){[IO.File]::AppendAllText($path,' ')}
+        }
+        Invoke-UpdateTick $fixture.root $fixture.lab
+
+        if($case -ceq 'busy-past-budget'){
+            Check-Waiting $fixture $test 'worker_running'
+            Check ($script:pollClock.ElapsedMilliseconds -eq 20000 -and $script:disables -eq 0) 'long worker stays unclaimed at the 20-second deadline'
+            continue
+        }
+        Check ($script:pollCalls -eq 3) 'three observations within the same tick'
+        if($case -ceq 'game-during-wait'){
+            Check-Waiting $fixture $test 'game_running'
+            Check ($script:disables -eq 0) 'idle worker with running game remains enabled'
+            continue
+        }
+        $receipt=Read-UpdateJson $fixture.root $reportPath
+        if($case -ceq 'changed-package'){
+            Check ($receipt.status -ceq 'rejected_preflight' -and $script:task.Settings.Enabled) 'changed bytes are rejected before claiming'
+            Check (-not (Test-Path -LiteralPath (Join-Path $fixture.root ('private\'+$test.id)))) 'changed package transaction was not created'
+            continue
+        }
+        Check ($receipt.status -ceq 'installed' -and $receipt.sha256 -ceq $sha -and $receipt.sequence -eq 1) ('installed during original tick: '+$case)
+        Check ($script:task.State -ceq 'Ready' -and -not (Test-Path -LiteralPath (Join-Path $fixture.root 'private\active.json'))) 'worker resumed and claim released after commit'
+        Check ($script:disables -eq $(if($case -ceq 'post-disable-race'){2}else{1})) 'only the known safe handoff is reattempted'
+        $beforeDisables=$script:disables
+        Invoke-UpdateTick $fixture.root $fixture.lab
+        Check ($script:disables -eq $beforeDisables) 'subsequent tick cannot repeat the commit'
+    }
+    $fixture=New-EngineFixture 'upload-open'
+    $test=New-TestManifest;Stage-Test $fixture $test
+    $path=Join-Path $fixture.root ('inbox\'+$test.id+'.json')
+    $reportPath=Join-Path $fixture.root ('public\'+$test.id+'.json')
+    $exclusive=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{
+        Invoke-UpdateTick $fixture.root $fixture.lab
+        Check (-not (Test-Path -LiteralPath $reportPath) -and $script:disables -eq 0) 'upload open for writing has no terminal receipt or worker change'
+    }finally{$exclusive.Dispose()}
     Invoke-UpdateTick $fixture.root $fixture.lab
-    Check ((Read-UpdateJson $fixture.root (Join-Path $fixture.root ('public\'+$test.id+'.json'))).status -ceq 'rejected_preflight') 'busy worker preflight'
-    Check ($script:task.State -ceq 'Ready') 'busy worker untouched'
+    Check ((Read-UpdateJson $fixture.root $reportPath).status -ceq 'installed') 'closed upload installs on the next idle tick'
+    $fixture=New-EngineFixture 'unrestored-idle-race'
+    $test=New-TestManifest;Stage-Test $fixture $test
+    $script:busyAfterDisable=$true;$script:failEnable=$true
+    Invoke-UpdateTick $fixture.root $fixture.lab
+    $result=Read-UpdateJson $fixture.root (Join-Path $fixture.root ('public\'+$test.id+'.json'))
+    Check ($result.status -ceq 'blocked_reconciliation' -and -not $result.automaticRetryAllowed) 'failed idle handoff restoration is terminal'
+    Check (Test-Path -LiteralPath (Join-Path $fixture.root 'private\active.json')) 'uncertain handoff keeps reconciliation record'
+    $fixture=New-EngineFixture 'migration-interrupted'
+    $test=New-TestManifest;Stage-Test $fixture $test
+    $marker=Join-Path $fixture.lab 'maintenance-revision-06.json'
+    Write-UpdateJson $marker @{id=$test.id;revision='signed-update'}
+    Invoke-UpdateTick $fixture.root $fixture.lab
+    Check ((Read-UpdateJson $fixture.root (Join-Path $fixture.root 'public\state.json')).blocked) 'orphan maintenance marker blocks execution'
+    Check ($script:disables -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $fixture.root ('public\'+$test.id+'.json')))) 'orphan marker retains a pristine staged package'
     $fixture=New-EngineFixture 'rollback'
     $test=New-TestManifest
     $script:bytesByName['Worker.ps1']=[Text.Encoding]::UTF8.GetBytes('# Updated limited worker')

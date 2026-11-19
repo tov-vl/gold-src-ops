@@ -82,7 +82,9 @@ function MakeResult($Context) {
             actions = @(@{phase='ok-first';inputQueued=$true},@{phase='controls';inputQueued=$true},@{phase='reopen';inputQueued=$true},@{phase='ok-last';inputQueued=$true}) }
     }
     if($Context.case.panel -ceq 'guns'){
-        $result.interaction.profile='guns-v299-1920x1200-v3'
+        $result.interaction.profile='guns-v299-1920x1200-v4'
+        $result.interaction.respawnSnapshotSha256=$bitmapHash
+        if($script:mode -ceq 'unbound-respawn-frame'){$result.interaction.respawnSnapshotSha256=('F'*64)}
         $result.readiness=@{status='ready';setupAcknowledged=$true;spawnSnapshot=@{sha256=$bitmapHash};setupSnapshot=@{sha256=$bitmapHash};setupActions=@()}
         foreach($phase in @('open-settings','open-languages',('language-'+$Context.case.language),'close-player-menu',('ack-'+$Context.case.language))){$result.readiness.setupActions+=@{phase=$phase;inputQueued=$true;frameSha256=$bitmapHash}}
         $result.readiness.mode='native-fixed-v2';$result.readiness.callback='gso_lab_ack'
@@ -176,9 +178,13 @@ $port = {
                 $log += "FIXTURE_PANEL_CONTROL panel=$($context.case.panel) epoch=$epoch back_observed=1 left_observed=1 horizontal_distance_over_8=1"
             }
             if($context.case.panel -ceq 'guns'){
-                $log=@('FIXTURE_GUNS_READY phase=connected','FIXTURE_GUNS_READY phase=spawn',('FIXTURE_GUNS_READY phase=setup-ack language='+$context.case.language),'FIXTURE_GUNS_START mp5=1 usp=1','FIXTURE_GUNS_DEATH requested=1','FIXTURE_GUNS_RESPAWN selected_loadout=1',
+                $log=@('FIXTURE_GUNS_READY phase=connected','FIXTURE_GUNS_READY phase=spawn',('FIXTURE_GUNS_READY phase=setup-ack language='+$context.case.language),'FIXTURE_GUNS_START mp5=1 usp=1',
                     'FIXTURE_GUNS_CONTROL step=1 respawn=0 movement=1','FIXTURE_GUNS_CONTROL step=3 respawn=0 movement=1',
-                    'FIXTURE_GUNS_CONTROL step=5 respawn=0 movement=1','FIXTURE_GUNS_CONTROL step=5 respawn=1 movement=1')
+                    'FIXTURE_GUNS_CONTROL step=5 respawn=0 movement=1','FIXTURE_GUNS_DEATH requested=1',
+                    'FIXTURE_GUNS_RESPAWN selected_loadout=1','FIXTURE_GUNS_CAPTURE phase=respawn-confirmed','FIXTURE_GUNS_CONTROL step=5 respawn=1 movement=1')
+                if($script:mode -ceq 'missing-respawn-capture'){$log[9]='FIXTURE_GUNS_CAPTURE phase=missing'}
+                if($script:mode -ceq 'early-respawn-capture'){$log[9]=$log[8];$log[8]='FIXTURE_GUNS_CAPTURE phase=respawn-confirmed'}
+                if($script:mode -ceq 'duplicate-respawn-capture'){$log+='FIXTURE_GUNS_CAPTURE phase=respawn-confirmed'}
                 foreach($step in 1..3){$log+="L 01/01/2026 - 00:00:00: [fixture_vgui_guard.amxx] FIXTURE_GUNS_SETUP step=$step valid=1"}
                 if($script:mode -ceq 'wrong-setup-language'){$log[2]='FIXTURE_GUNS_READY phase=setup-ack language=invalid'}
                 if($script:mode -ceq 'ack-language-prefix'){$log[2]+='extra'}
@@ -350,7 +356,7 @@ foreach($language in @('ru','en')){
     $accepted=Approve-LabCampaignCase $root guns $language $state.evidenceSha256 $true
     Check ($accepted.phase -ceq 'accepted' -and $accepted.acceptancePassed)
 }
-foreach($failureMode in @('legacy-readiness','wrong-callback','ack-language-prefix','malformed-setup-flag','zero-setup-flag','extra-setup-field','missing-setup-step','duplicate-setup-step','reordered-setup','wrong-setup-language','missing-readiness','missing-marker','missing-checkpoint','unbound-action','wrong-baseline','stale-heartbeat','bad-cleanup')){
+foreach($failureMode in @('legacy-readiness','wrong-callback','ack-language-prefix','malformed-setup-flag','zero-setup-flag','extra-setup-field','missing-setup-step','duplicate-setup-step','reordered-setup','wrong-setup-language','missing-readiness','missing-marker','missing-checkpoint','unbound-action','unbound-respawn-frame','missing-respawn-capture','early-respawn-capture','duplicate-respawn-capture','wrong-baseline','stale-heartbeat','bad-cleanup')){
     $root=NewCase -Guns;Set-LabCampaignSteam $root $true;$script:mode=$failureMode
     $state=Invoke-LabCampaignCase $root guns en run $port
     Check ($state.phase -ceq 'needs_reconciliation' -and -not $state.acceptancePassed)

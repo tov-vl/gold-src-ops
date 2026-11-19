@@ -22,7 +22,7 @@ foreach($language in @('ru','en')){
     $job.action='verify-panel';$job|Add-Member NoteProperty panel guns
     Assert-LabRunnerJob $job
     Check ((New-LabGunsProgram $job).Contains('gso_lab_ack'))
-    Check ((Get-LabAutonomousProfile $job) -ceq 'guns-v299-1920x1200-v3')
+    Check ((Get-LabAutonomousProfile $job) -ceq 'guns-v299-1920x1200-v4')
 }
 foreach($command in @('capture-guns x en','capture-guns '+[guid]::NewGuid().ToString()+' de','checkpoint '+[guid]::NewGuid().ToString()+' ../policy')){Reject {ConvertFrom-LabRunnerCommand $command}}
 function Initialize-LabInteractionTypes([string]$Source){}

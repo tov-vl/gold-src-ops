@@ -51,6 +51,16 @@ function New-RecoveryFixture([string]$Name){
         gatewayAfterSha256=(Get-UpdateHash (Read-UpdateBytes $package (Join-Path $package 'Gateway.ps1')))}
     return @{root=$root;lab=$lab;package=$package;expected=$expected;stateHash=(Get-UpdateHash (Read-UpdateBytes $root (Join-Path $root 'private/state.json')));policyHash=(Get-UpdateHash (Read-UpdateBytes $lab (Join-Path $lab 'policy.json')))}
 }
+$policy=[pscustomobject]@{gameUserSid='same-user';gameSessionId=8}
+$expected=[pscustomobject]@{gameSessionId=8}
+Check (Test-MigrationGameSession $policy $expected 'same-user' 8)
+Check (-not (Test-MigrationGameSession $policy $expected 'same-user' 10))
+$policy|Add-Member -NotePropertyName gameSessionMode -NotePropertyValue 'current-user-interactive'
+Check (Test-MigrationGameSession $policy $expected 'same-user' 10)
+Check (-not (Test-MigrationGameSession $policy $expected 'other-user' 10))
+Check (-not (Test-MigrationGameSession $policy $expected 'same-user' 0))
+$expected.gameSessionId=9
+Check (-not (Test-MigrationGameSession $policy $expected 'same-user' 10))
 $fixture=New-RecoveryFixture 'success'
 $result=Invoke-LabEngineMigration $fixture.root $fixture.lab $fixture.package $fixture.expected
 Check ($result.status -ceq 'engine_migrated' -and -not $result.newPermissions -and -not $result.gameLaunched)

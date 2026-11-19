@@ -6,6 +6,20 @@ $ErrorActionPreference='Stop'
 . (Join-Path $Workspace 'kit/code/Interaction.ps1')
 Initialize-LabInteractionTypes (Join-Path $Workspace 'kit/code/Rules.Input.cs')
 if(-not ('GsoLab.Interaction.RulesFrameGate' -as [type])){throw 'Native bridge type missing.'}
+$self=Get-Process -Id $PID
+$identity=[Security.Principal.WindowsIdentity]::GetCurrent()
+try{$sid=$identity.User.Value}finally{$identity.Dispose()}
+$started=$self.StartTime.ToUniversalTime().Ticks
+$verified=[GsoLab.Interaction.ProcessTokenOwner]::Check($PID,$started,$sid)
+if($verified.Code -cne 'verified' -or $null -ne $verified.NativeError){throw 'Own process token was rejected.'}
+$wrongSid=[GsoLab.Interaction.ProcessTokenOwner]::Check($PID,$started,'S-1-5-32-544')
+if($wrongSid.Code -cne 'game_owner_sid_unverified'){throw 'Foreign SID was not rejected.'}
+$wrongStart=[GsoLab.Interaction.ProcessTokenOwner]::Check($PID,$started-1,$sid)
+if($wrongStart.Code -cne 'game_identity_changed'){throw 'Different process generation was not rejected.'}
+$system=Get-Process -Name System
+$denied=[GsoLab.Interaction.ProcessTokenOwner]::Check($system.Id,$started,$sid)
+if($denied.Code -cne 'game_process_open_failed' -or $denied.NativeError -ne 5){throw 'Restricted process did not report access denied.'}
+Write-Host 'Native process owner checks passed: matching SID, foreign SID, mismatched creation time and denied access.'
 # Exercise the real baseline gate with synthetic BMPs, without any window APIs.
 $directory=Join-Path $Workspace ('checks/baseline-pixels-'+$PSVersionTable.PSVersion.Major+'-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $directory|Out-Null

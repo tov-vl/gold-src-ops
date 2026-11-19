@@ -49,7 +49,10 @@ function Assert-LabInteractionBindings([string]$GameRoot){}
 function Assert-LabGunsBindings([string]$GameRoot){}
 function Wait-LabGunsReady([string]$Root,$Policy,$Job,$Result){
     $Result.gamePid=1234;$Result.gameStartedUtc=[DateTime]::UtcNow.ToString('o')
-    if($Policy.testCase -cne 'success'){throw 'Injected readiness failure.'}
+    if($Policy.testCase -cne 'success'){
+        $Result.readiness=@{status='failed';failureCode='game_owner_token_open_failed';failurePhase='bind-game-process';failureElapsedSeconds=6.8;failureNativeError=5;automaticRetryAllowed=$false}
+        throw 'Private injected readiness failure.'
+    }
     return @{clock=$null;window=$null}
 }
 function Invoke-LabAutonomousGunsInteraction([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseline,[DateTime]$LaunchUtc,[string]$ResultPath,$Readiness){Invoke-LabAutonomousRulesInteraction $Root $Policy $Job $Result $Baseline $LaunchUtc $ResultPath}
@@ -82,7 +85,7 @@ foreach($scenario in @('rules-current-session','rules-foreign-user','rules-succe
     $job=@{id=$id;action='verify-rules';language='en';createdUtc=[DateTime]::UtcNow.ToString('o')}
     $mode=@{id=$id;language='en';profile='rules-v299-1920x1200-v1'}
     if($panel -cne 'rules'){$job.action='verify-panel';$job.panel=$panel;$mode.panel=$panel;$mode.profile='motd-v299-'+$panel+'-1920x1200-v1'}
-    if($panel -ceq 'guns'){$mode.profile='guns-v299-1920x1200-v3'}
+    if($panel -ceq 'guns'){$mode.profile='guns-v299-1920x1200-v4'}
     if($panel -ceq 'guns-capture'){$job.Remove('panel');$job.action='capture-guns';$mode.Remove('panel');$mode.profile='guns-baseline-v299-1920x1200-v4'}
     Write-LabJson (Join-Path $root ('queue\'+$id+'.json')) $job
     Write-LabJson (Join-Path $root ('queue\steps\'+$id+'.autonomous.json')) $mode
@@ -104,6 +107,11 @@ foreach($scenario in @('rules-current-session','rules-foreign-user','rules-succe
         if([IO.File]::ReadAllText((Join-Path $root 'launch-count.json')) -cne '1'){throw 'Unexpected launch count.'}
         & (Join-Path $Workspace 'kit\code\Worker.ps1') -Root $root
         if([IO.File]::ReadAllText((Join-Path $root 'launch-count.json')) -cne '1'){throw 'Worker replayed a claimed job.'}
+    }
+    if($result.failureStage -ceq 'spawn_readiness'){
+        if($result.failureCode -cne 'spawn_readiness_failed' -or $result.readiness.failureCode -cne 'game_owner_token_open_failed' -or $result.readiness.failureNativeError -ne 5 -or
+            $result.readiness.failurePhase -cne 'bind-game-process' -or $result.readiness.failureElapsedSeconds -ne 6.8 -or
+            $result.readiness.automaticRetryAllowed -or ($result|ConvertTo-Json -Depth 12).Contains('Private injected')){throw 'Readiness failure report differs.'}
     }
     if($result.acceptancePassed -or $result.rendererVerified){throw 'Worker asserted visual acceptance.'}
     $cases++

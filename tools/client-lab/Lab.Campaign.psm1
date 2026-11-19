@@ -232,7 +232,7 @@ function Get-CampaignEvidence($Context) {
         $result.acceptancePassed -isnot [bool] -or $result.acceptancePassed -or $result.rendererVerified -isnot [bool] -or $result.rendererVerified -or
         @($result.images).Count -ne 5) { throw 'Unaccepted client evidence.' }
     $interaction = $result.interaction
-    $profile=if($guns){'guns-v299-1920x1200-v3'}else{'motd-v299-' + $Context.case.panel + '-1920x1200-v1'}
+    $profile=if($guns){'guns-v299-1920x1200-v4'}else{'motd-v299-' + $Context.case.panel + '-1920x1200-v1'}
     $phases=if($guns){'exit-primary,select-primary,select-pistol,repeat-primary,exit-pistol-respawn'}else{'ok-first,controls,reopen,ok-last'}
     if ($interaction.profile -cne $profile -or
         ($interaction.actions.phase -join ',') -cne $phases -or
@@ -302,10 +302,17 @@ function Get-CampaignEvidence($Context) {
             $position=$next
         }
         foreach($step in 1..5){if(-not $log.Contains("FIXTURE_GUNS_SELECT step=$step inventory_unchanged=1")){throw 'Inventory continuity missing.'}}
-        foreach($marker in @('FIXTURE_GUNS_START mp5=1 usp=1','FIXTURE_GUNS_DEATH requested=1','FIXTURE_GUNS_RESPAWN selected_loadout=1',
-            'FIXTURE_GUNS_CONTROL step=1 respawn=0 movement=1','FIXTURE_GUNS_CONTROL step=3 respawn=0 movement=1',
-            'FIXTURE_GUNS_CONTROL step=5 respawn=0 movement=1','FIXTURE_GUNS_CONTROL step=5 respawn=1 movement=1')){
+        foreach($marker in @('FIXTURE_GUNS_START mp5=1 usp=1','FIXTURE_GUNS_CONTROL step=1 respawn=0 movement=1',
+            'FIXTURE_GUNS_CONTROL step=3 respawn=0 movement=1')){
             if(-not $log.Contains($marker)){throw 'Independent weapons marker missing.'}
+        }
+        if($interaction.respawnSnapshotSha256 -cne $result.images[4].sha256){throw 'Final frame is not bound to the respawn snapshot.'}
+        $position=-1
+        foreach($marker in @('FIXTURE_GUNS_CONTROL step=5 respawn=0 movement=1','FIXTURE_GUNS_DEATH requested=1',
+            'FIXTURE_GUNS_RESPAWN selected_loadout=1','FIXTURE_GUNS_CAPTURE phase=respawn-confirmed','FIXTURE_GUNS_CONTROL step=5 respawn=1 movement=1')){
+            $markers=[regex]::Matches($log,([regex]::Escape($marker)+'(?=\r?$)'),[Text.RegularExpressions.RegexOptions]::Multiline)
+            if($markers.Count -ne 1 -or $markers[0].Index -le $position){throw 'Ordered one-shot weapons respawn evidence missing.'}
+            $position=$markers[0].Index
         }
         if(@($interaction.checkpoints).Count -ne 4 -or ($interaction.checkpoints.name -join ',') -cne 'primary-exit,primary-reopened,pistol-selected-close,pistol-exit'){throw 'Weapons checkpoints differ.'}
         foreach($checkpoint in $interaction.checkpoints){

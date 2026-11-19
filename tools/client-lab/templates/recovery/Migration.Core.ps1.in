@@ -21,6 +21,14 @@ function Assert-MigrationUnchanged([string]$Root,[string]$Lab,[string]$StateHash
        (Get-UpdateHash (Read-UpdateBytes $Lab (Join-Path $Lab 'policy.json'))) -cne $PolicyHash){throw 'State or policy changed during maintenance.'}
     Assert-MigrationPendingAbsent $Root
 }
+function Test-MigrationGameSession($Policy,$Expected,[string]$GameUserSid,[int]$GameSessionId) {
+    if($Policy.gameUserSid -cne $GameUserSid -or $Policy.gameSessionId -ne $Expected.gameSessionId -or $GameSessionId -le 0){return $false}
+    if($Policy.PSObject.Properties['gameSessionMode']){
+        if($Policy.gameSessionMode -ceq 'current-user-interactive'){return $true}
+        if($Policy.gameSessionMode -cne 'exact-session'){return $false}
+    }
+    return $Policy.gameSessionId -eq $GameSessionId
+}
 function Set-MigrationBytes([string]$Path,[byte[]]$Bytes){[IO.File]::WriteAllBytes($Path,$Bytes)}
 function Invoke-LabEngineMigration([string]$Root,[string]$Lab,[string]$Package,$Expected) {
     $configPath=Join-Path $Root 'bin\config.json'
@@ -82,7 +90,7 @@ function Invoke-LabEngineMigration([string]$Root,[string]$Lab,[string]$Package,$
         Set-MigrationBytes $configPath ([Text.Encoding]::UTF8.GetBytes(($config|ConvertTo-Json -Depth 12 -Compress)))
         Publish-UpdateState $Root $config $state
         Set-MigrationBytes $enginePath $engineAfter
-        Set-MigrationBytes $gatewayPath $gatewayAfter
+        if($Expected.gatewayBeforeSha256 -cne $Expected.gatewayAfterSha256){Set-MigrationBytes $gatewayPath $gatewayAfter}
         foreach($entry in $config.trustedFiles){
             if($entry.name -ceq 'Update.Engine.ps1'){$entry.sha256=$Expected.engineAfterSha256}
             if($entry.name -ceq 'Gateway.ps1'){$entry.sha256=$Expected.gatewayAfterSha256}
