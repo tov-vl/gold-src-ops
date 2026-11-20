@@ -17,6 +17,7 @@ Entry points:
 | `New-LabRun.ps1` | Prepare a fresh RU or EN fixture from hash-pinned local assets and matching activation |
 | `New-GunsBaselines.ps1` | Bind eight reviewed native weapon-menu baseline frames for signed adoption |
 | `Invoke-LabCampaign.ps1` | Prepare and manage a six-case matrix with Steam hold, one-attempt dispatch, same-ID reconciliation and separate review |
+| `Invoke-LabLanRejoin.ps1` | Run or independently verify the two-launch EN LAN acceptance on the pinned 0.40.0 fixture |
 | `Build-FixtureHelper.ps1` | Rebuild and hash-check the fixture-only helper with the pinned offline AMXX toolchain |
 | `lab_fixture.py` | Explicit plan/start/relay/stop lifecycle, with no client dispatch |
 | `New-ArchivePlan.ps1` | Select exact completed requests for signed queue maintenance without deleting evidence |
@@ -48,6 +49,8 @@ For the unified controller workflow and its explicit live gate, see
 [readiness](../../docs/client-controller-readiness.md).
 The separate [weapon-menu scope](../../docs/client-guns-acceptance.md) defines
 its two-case matrix, required baselines and nine retained frames per trial.
+The [LAN rejoin scenario](../../docs/client-lab.md#two-launch-lan-rejoin) checks
+round transition and a new LAN connection without F5 or F8.
 
 To check the fixture's active-menu observer without a client, compile its test
 binary and use the existing isolated server harness:
@@ -55,7 +58,8 @@ binary and use the existing isolated server harness:
 ```powershell
 ./tools/client-lab/Build-FixtureHelper.ps1 -CacheDirectory <compiler-cache> -OutputPath <new-test.amxx> -MenuTest
 ./tools/client-lab/Build-FixtureHelper.ps1 -CacheDirectory <compiler-cache> -OutputPath <new-ammo-test.amxx> -AmmoTest
-python -B tools/client-lab/tests/run_fixture_menu.py --compiled <new-test.amxx> --ammo-compiled <new-ammo-test.amxx> --cache <engine-assets> --output <new-output>
+./tools/client-lab/Build-FixtureHelper.ps1 -CacheDirectory <compiler-cache> -OutputPath <new-continuity-test.amxx> -ContinuityTest
+python -B tools/client-lab/tests/run_fixture_menu.py --compiled <new-test.amxx> --ammo-compiled <new-ammo-test.amxx> --continuity-compiled <new-continuity-test.amxx> --cache <engine-assets> --output <new-output>
 ```
 
 The compiler cache is the pinned Windows AMXX/ReAPI toolchain. The engine asset
@@ -66,7 +70,9 @@ are substituted in the menu test binary. The optional ammo test runs the include
 observer with real inventory/ammo natives and carried weapon entities. Its fresh
 synthetic player has a full inactive pistol, then an explicitly emptied magazine
 as a negative control. No ammo or inventory change is allowed during either
-observation; the product plugin is not loaded. The disposable server has no
+observation. The optional continuity test exercises the server state machine
+against synthetic identities, expired receipts and duplicate events. The
+product plugin is not loaded by these observer tests. The disposable server has no
 network or published ports;
 no Steam login, game client, second laptop or native input is used. The test
 binary does not match the helper pin and cannot be used by `New-LabRun.ps1`.
@@ -77,5 +83,5 @@ check and its eight-field `FIXTURE_GUNS_LOADOUT` report. One separate fixed
 Weapon-presence terms and required AK-47 30/90 and Desert Eagle 7/35 counts are
 unchanged. The read-only observer never repairs state or retries. The isolated
 harness covers every single-term mismatch, stale-cache independence, exact
-ordered reports and dead/non-respawn refusal. Both test switches are mutually
+ordered reports and dead/non-respawn refusal. The test switches are mutually
 exclusive; their binaries cannot satisfy the ordinary helper pin.

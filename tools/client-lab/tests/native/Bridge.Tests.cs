@@ -141,6 +141,58 @@ namespace GsoLab.Checks
             Require(window.GuardObservationComplete && window.ClientWidth == port.State.Width && window.ClientHeight == port.State.Height && window.VisibleWindowCount == port.State.WindowCount, "Bounded observation matches the rejected state.");
         }
 
+        private static void CheckDesktopForeground(string executable, string code, string ownerCategory, bool stable = true,
+            bool shellDesktop = false, string explorerRole = null, bool idleTaskbar = false)
+        {
+            var observed = DesktopLaunchAdmission.ClassifyForeground(stable, shellDesktop, executable, @"C:\FixtureSteam\steam.exe",
+                explorerRole, idleTaskbar);
+            Require(string.Equals(observed.Code, code, StringComparison.Ordinal) &&
+                string.Equals(observed.OwnerCategory, ownerCategory, StringComparison.Ordinal),
+                "Launch verdict and foreground category must match the same observation: " + ownerCategory);
+        }
+
+        private static void CheckTaskbarAdmission()
+        {
+            var taskbar = new IntPtr(1);
+            var other = new IntPtr(2);
+            var quiet = new NativeMethods.GuiThreadInfo { Active = taskbar };
+            Require(DesktopLaunchAdmission.IsTaskbarThreadQuiet(taskbar, quiet), "An active taskbar without GUI activity can be idle.");
+            CheckTaskbarBusy(taskbar,
+                new NativeMethods.GuiThreadInfo { Active = other },
+                new NativeMethods.GuiThreadInfo { Active = taskbar, Flags = 2 },
+                new NativeMethods.GuiThreadInfo { Active = taskbar, Flags = 4 },
+                new NativeMethods.GuiThreadInfo { Active = taskbar, Flags = 8 },
+                new NativeMethods.GuiThreadInfo { Active = taskbar, Flags = 16 },
+                new NativeMethods.GuiThreadInfo { Active = taskbar, Capture = other },
+                new NativeMethods.GuiThreadInfo { Active = taskbar, MenuOwner = other },
+                new NativeMethods.GuiThreadInfo { Active = taskbar, MoveSize = other },
+                new NativeMethods.GuiThreadInfo { Active = taskbar, Caret = other });
+
+            Require(DesktopLaunchAdmission.HasTaskbarInputIdle(100, 100, 30100), "Thirty seconds is sufficient.");
+            Require(!DesktopLaunchAdmission.HasTaskbarInputIdle(100, 100, 30099), "Recent input blocks launch.");
+            Require(!DesktopLaunchAdmission.HasTaskbarInputIdle(100, 200, 50000), "Input during observation invalidates it.");
+            Require(!DesktopLaunchAdmission.HasTaskbarInputIdle(101, 101, 100), "A future tick is not idle evidence.");
+            Require(DesktopLaunchAdmission.HasTaskbarInputIdle(uint.MaxValue - 999, uint.MaxValue - 999, 29000),
+                "Forward idle duration survives wraparound.");
+
+            const string explorer = @"C:\FixtureWindows\explorer.exe";
+            CheckDesktopForeground(explorer, "ready", "idle_taskbar", explorerRole: "explorer_taskbar", idleTaskbar: true);
+            CheckDesktopForeground(explorer, "desktop_busy", "explorer_taskbar", explorerRole: "explorer_taskbar");
+            CheckDesktopForeground(explorer, "desktop_busy", "explorer_folder", explorerRole: "explorer_folder", idleTaskbar: true);
+            CheckDesktopForeground(explorer, "desktop_busy", "explorer_desktop_host", explorerRole: "explorer_desktop_host", idleTaskbar: true);
+            CheckDesktopForeground(@"C:\Other\app.exe", "desktop_busy", "other_application", explorerRole: "explorer_taskbar", idleTaskbar: true);
+            CheckDesktopForeground(explorer, "desktop_foreground_unverified", "unverified", stable: false,
+                explorerRole: "explorer_taskbar", idleTaskbar: true);
+        }
+
+        private static void CheckTaskbarBusy(IntPtr taskbar, params NativeMethods.GuiThreadInfo[] observations)
+        {
+            foreach (var gui in observations)
+            {
+                Require(!DesktopLaunchAdmission.IsTaskbarThreadQuiet(taskbar, gui), "The taskbar must remain blocked during GUI activity.");
+            }
+        }
+
         private static void Main()
         {
             var port = new FakeWindowPort();
@@ -213,6 +265,38 @@ namespace GsoLab.Checks
             try { window.Snapshot(); } catch (Win32Exception) { nativeFailure = true; }
             Require(nativeFailure && window.NativeErrorCode == 5 && window.GuardObservationComplete && string.Equals(window.GuardCode, "input_delivery_uncertain", StringComparison.Ordinal) && port.Reads == 1, "Native queue failure is reported without retry.");
 
+            CheckDesktopForeground(@"C:\FixtureWindows\WindowsTerminal.exe", "desktop_busy", "windows_terminal");
+            CheckDesktopForeground(@"C:\FixtureWindows\explorer.exe", "desktop_busy", "explorer_process");
+            var desktopSurface = DesktopLaunchAdmission.ClassifyExplorerRole("WorkerW", shellOwned: true, shellRoot: false, desktopView: true);
+            Require(string.Equals(desktopSurface, "explorer_desktop_surface", StringComparison.Ordinal), "The confirmed desktop view has its own diagnostic category.");
+            CheckDesktopForeground(@"C:\FixtureWindows\explorer.exe", "desktop_busy", "explorer_desktop_surface", explorerRole: desktopSurface);
+            CheckDesktopForeground(@"C:\FixtureWindows\explorer.exe", "desktop_foreground_unverified", "unverified", stable: false, explorerRole: desktopSurface);
+            Require(string.Equals(DesktopLaunchAdmission.ClassifyExplorerRole("Progman", shellOwned: true, shellRoot: true, desktopView: false),
+                "explorer_desktop_surface", StringComparison.Ordinal), "A descendant of the shell desktop is diagnosed as a desktop surface.");
+            Require(string.Equals(DesktopLaunchAdmission.ClassifyExplorerRole("WorkerW", shellOwned: true, shellRoot: false, desktopView: false),
+                "explorer_desktop_host", StringComparison.Ordinal), "A host without a desktop view has a distinct category.");
+            Require(string.Equals(DesktopLaunchAdmission.ClassifyExplorerRole("WorkerW", shellOwned: false, shellRoot: false, desktopView: true),
+                "explorer_process", StringComparison.Ordinal), "Window class alone must not prove desktop ownership.");
+            Require(string.Equals(DesktopLaunchAdmission.ClassifyExplorerRole("Shell_SecondaryTrayWnd", shellOwned: true, shellRoot: false, desktopView: false),
+                "explorer_taskbar", StringComparison.Ordinal), "The taskbar has its own diagnostic category.");
+            Require(string.Equals(DesktopLaunchAdmission.ClassifyExplorerRole("CabinetWClass", shellOwned: false, shellRoot: false, desktopView: true),
+                "explorer_folder", StringComparison.Ordinal), "An Explorer folder stays distinct even with a shell view.");
+            CheckDesktopForeground(@"C:\Other\steam.exe", "desktop_busy", "other_steam");
+            CheckDesktopForeground(@"C:\FixtureSteam\bin\SteamWebHelper.exe", "desktop_busy", "steam_web_helper");
+            CheckDesktopForeground(@"C:\FixtureSteamCopy\bin\steamwebhelper.exe", "desktop_busy", "other_application");
+            CheckDesktopForeground(@"C:\Other\editor.exe", "desktop_busy", "other_application");
+            CheckDesktopForeground(@"c:\fixturesteam\Steam.exe", "ready", "configured_steam");
+            CheckDesktopForeground(executable: null, code: "ready", ownerCategory: "shell_desktop", shellDesktop: true);
+            CheckDesktopForeground(executable: null, code: "desktop_foreground_unverified", ownerCategory: "unverified", stable: false, shellDesktop: true);
+            CheckDesktopForeground(executable: null, code: "desktop_foreground_unverified", ownerCategory: "unverified");
+            CheckTaskbarAdmission();
+            const string steamExecutable = @"C:\FixtureSteam\steam.exe";
+            var inactive = DesktopLaunchAdmission.Observe(0, steamExecutable);
+            Require(string.Equals(inactive.Code, "desktop_session_inactive", StringComparison.Ordinal) &&
+                string.Equals(inactive.OwnerCategory, "not_observed", StringComparison.Ordinal) &&
+                string.Equals(DesktopLaunchAdmission.Check(0, steamExecutable), inactive.Code, StringComparison.Ordinal),
+                "An inactive session must not report any foreground owner, and the legacy verdict must match.");
+
             port = new FakeWindowPort { State = { Foreground = false } }; window = new GameWindow(port);
             window.PrepareOwnWindow();
             Require(port.Activations == 1 && window.ActivationAttempted && window.ActivationAccepted == true && port.Messages.Count == 0, "One owned-window activation, no input.");
@@ -225,6 +309,23 @@ namespace GsoLab.Checks
             port = new FakeWindowPort { ActivationAllowed = false, State = { Foreground = false } }; window = new GameWindow(port);
             Refused(window.PrepareOwnWindow, "Windows activation refusal.");
             Require(string.Equals(window.GuardCode, "window_activation_denied", StringComparison.Ordinal) && window.ActivationAccepted == false && port.Activations == 1 && port.Messages.Count == 0, "Refusal is preserved without fallback.");
+            Require(port.Delays.Count == 5 && port.Delays.TrueForAll(delay => delay == 200), "Foreground observation must have a fixed wait budget.");
+            port = new FakeWindowPort { ActivationAllowed = false, State = { Foreground = false } }; window = new GameWindow(port);
+            port.BeforeRead = candidate => { candidate.State.Foreground = candidate.Delays.Count >= 3; };
+            window.PrepareOwnWindow();
+            Require(window.ActivationAccepted == false && port.Activations == 1 && port.Delays.Count == 3 && port.Messages.Count == 0, "A late foreground change may satisfy the guard without a retry or input.");
+            window.Snapshot();
+            Require(port.Messages.Count == 2, "The confirmed window can receive the expected input.");
+            port = new FakeWindowPort { ActivationAllowed = false, State = { Foreground = false } }; window = new GameWindow(port);
+            port.BeforeRead = candidate =>
+            {
+                if (candidate.Delays.Count != 2) { return; }
+                candidate.State.Handle = new IntPtr(124);
+                candidate.State.Foreground = true;
+            };
+            Refused(window.PrepareOwnWindow, "A different foreground HWND must fail during observation.");
+            Refused(window.Snapshot, "A different foreground HWND must also fail the input guard.");
+            Require(string.Equals(window.GuardCode, "window_identity_changed", StringComparison.Ordinal) && port.Activations == 1 && port.Messages.Count == 0, "Foreground wait must keep the pinned HWND.");
             port = new FakeWindowPort { ActivationChangesFocus = false, State = { Foreground = false } }; window = new GameWindow(port);
             Refused(window.PrepareOwnWindow, "Recheck actual foreground after accepted activation.");
             Require(window.ActivationAccepted == true && string.Equals(window.GuardCode, "window_not_foreground", StringComparison.Ordinal) && port.Messages.Count == 0, "API acceptance does not permit background input.");

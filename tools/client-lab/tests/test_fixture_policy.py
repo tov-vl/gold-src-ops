@@ -1,4 +1,5 @@
 """Offline fixture/tunnel policy tests. No Docker process, socket or game is started."""
+import ast
 import base64
 import importlib.util
 import json
@@ -13,6 +14,14 @@ fixture = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fixture)
 tunnel = {"__name__": "policy_test"}
 exec(compile((ROOT / "templates/fixture/udp_tunnel.py.in").read_text(), "udp_tunnel.py", "exec"), tunnel)
+runner_source = (ROOT / "templates/fixture/run_fixture.py.in").read_text(encoding="utf-8")
+runner_tree = ast.parse(runner_source.replace("{{LAN_REJOIN}}", "1").replace("{{GUNS_READINESS}}", "1"))
+vacancy = {}
+vacancy_function = next(node for node in runner_tree.body if isinstance(node, ast.FunctionDef) and node.name == "vacant_info")
+exec(compile(ast.Module(body=[vacancy_function], type_ignores=[]), "run_fixture.py", "exec"), vacancy)
+spec = importlib.util.spec_from_file_location("verify_lan_rejoin", ROOT / "verify_lan_rejoin.py")
+rejoin = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(rejoin)
 
 
 class FixturePolicyTests(unittest.TestCase):
@@ -33,6 +42,28 @@ class FixturePolicyTests(unittest.TestCase):
 
     def test_exact_local_plan(self):
         self.assertEqual(self.read()["container"], self.name)
+
+    def test_lan_rejoin_requires_empty_matching_a2s_info(self):
+        header = b"\xff\xff\xff\xffI0"
+        fields = b"FixtureName\0de_dust2\0cstrike\0Counter-Strike\0"
+        tail = b"\x0a\0\0\x04\0dle\0"
+        empty = header + fields + tail
+        vacant = vacancy["vacant_info"]
+        self.assertTrue(vacant(empty, "FixtureName"))
+        for packet in (empty.replace(b"de_dust2", b"cs_office"), empty[:-1],
+                       header + fields + b"\x0a\0\x01\x04\0" + tail[5:],
+                       header + fields + b"\x0a\0\0\x04\x02" + tail[5:],
+                       b"\xff\xff\xff\xffA1234"):
+            with self.subTest(packet=packet):
+                self.assertFalse(vacant(packet, "FixtureName"))
+        self.assertFalse(vacant(empty, "OtherFixture"))
+
+    def test_lan_rejoin_evidence_requires_unique_ordered_events(self):
+        expected = ("round", "disconnect", "rejoin", "spawn")
+        self.assertTrue(rejoin.one_ordered_sequence(expected, expected))
+        for events in (("round", "rejoin", "spawn"), ("round", "rejoin", "disconnect", "spawn"),
+                       ("round", "disconnect", "rejoin", "rejoin", "spawn")):
+            self.assertFalse(rejoin.one_ordered_sequence(events, expected))
 
     def test_rejects_mutated_image_target_and_extra_fields(self):
         for field, replacement in (("image", "latest"), ("container", "unrelated-service"), ("network", "bridge"), ("language", "de"), ("id", "--all")):

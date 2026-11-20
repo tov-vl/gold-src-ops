@@ -513,6 +513,18 @@ function Get-LabClientReadiness($Observation) {
     return [pscustomobject]@{schema=1;utc=$Observation.utc;code=$code;ready=($code -ceq 'local_prerequisites_ready');steamProcessCount=@($Observation.steam).Count;gameProcessCount=@($Observation.game).Count;accountLogin='not_proven';otherComputerUsage='unknown'}
 }
 
+function Get-LabDesktopLaunchObservation([string]$Root,$Policy) {
+    try {
+        Initialize-LabInteractionTypes (Join-Path $Root 'code/Rules.Input.cs')
+        return [GsoLab.Interaction.DesktopLaunchAdmission]::Observe(
+            [int]$Policy.gameSessionId, (Join-Path $Policy.steamRoot 'steam.exe'))
+    } catch { return @{code='desktop_unavailable';ownerCategory='not_observed'} }
+}
+
+function Get-LabDesktopLaunchState([string]$Root,$Policy) {
+    return (Get-LabDesktopLaunchObservation $Root $Policy).code
+}
+
 function Get-LabLogCheckpoint([string]$SteamRoot) {
     $items=@()
     foreach ($name in @('gameprocess_log.txt','console_log.txt')) {
@@ -656,6 +668,7 @@ function Assert-LabDesktopRequest([string]$Root,$Policy,[string]$Id) {
     }
     Assert-LabInteractionBindings $Policy.gameRoot
     if(-not (Get-LabClientReadiness (Get-LabClientObservation $Policy)).ready){throw 'Desktop launch prerequisites differ.'}
+    if((Get-LabDesktopLaunchState $Root $Policy) -cne 'ready'){throw 'Desktop is no longer available for launch.'}
     return @{job=$job;directory=$paths.result;arguments=(Add-LabRendererLaunchArguments (Get-LabRunnerLaunchArguments $job $configName) $rendererEnabled)}
 }
 

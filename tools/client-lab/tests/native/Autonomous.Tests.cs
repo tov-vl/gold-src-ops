@@ -21,11 +21,12 @@ namespace GsoLab.Checks
             ForegroundCalls++;
             return ForegroundAccepted;
         }
-        public void FocusOwnedElement(IntPtr window)
+        public bool FocusOwnedElement(IntPtr window)
         {
             if (window != new IntPtr(123)) { throw new InvalidOperationException("Wrong provider target."); }
             ProviderCalls++;
             if (ProviderFails) { throw new InvalidOperationException("Provider denied focus."); }
+            return true;
         }
     }
 

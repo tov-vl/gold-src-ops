@@ -7,6 +7,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using System.Threading;
 using NativeFileTime = System.Runtime.InteropServices.ComTypes.FILETIME;
 using System.Security.Principal;
@@ -28,7 +29,6 @@ namespace GsoLab.Interaction
 
     public static class ProcessTokenOwner
     {
-        private const uint ProcessQueryLimitedInformation = 0x1000;
         private const uint Synchronize = 0x100000;
         private const uint TokenQuery = 0x0008;
         private const int TokenUser = 1;
@@ -38,7 +38,7 @@ namespace GsoLab.Interaction
 
         public static ProcessOwnerObservation Check(int processId, long startedUtcTicks, string expectedSid)
         {
-            using (var process = NativeMethods.OpenProcess(ProcessQueryLimitedInformation | Synchronize, inherit: false, processId: processId))
+            using (var process = NativeMethods.OpenProcess(NativeMethods.ProcessQueryLimitedInformation | Synchronize, inherit: false, processId: processId))
             {
                 if (process.IsInvalid)
                 {
@@ -379,13 +379,15 @@ namespace GsoLab.Interaction
                 var diagnostics = _port as IFocusDiagnosticsPort;
                 FocusAttempt = diagnostics == null ? null : diagnostics.ReadFocusObservation();
             }
-            if (!ActivationAccepted.Value)
+            // Observe delayed foreground changes without another activation request.
+            for (var sample = 0; sample < 5; sample++)
             {
-                GuardCode = "window_activation_denied";
-                throw new InvalidOperationException("Windows did not activate the owned game window; no fallback or retry.");
+                _port.Delay(200);
+                Check(requireForeground: false);
+                if ((GuardFlags & 8) != 0) { return; }
             }
-            _port.Delay(200);
-            Check(); // The API result alone never permits input to a background window.
+            GuardCode = ActivationAccepted.Value ? "window_not_foreground" : "window_activation_denied";
+            throw new InvalidOperationException("The owned game window did not reach the foreground.");
         }
 
         public void ClickOk()
@@ -520,21 +522,21 @@ namespace GsoLab.Interaction
                 state.Height = rectangle.Bottom - rectangle.Top;
                 state.PhysicalGeometry = true;
                 state.DesktopUnlocked = IsInputDesktopDefault();
-                state.SessionActive = IsSessionActive();
+                state.SessionActive = IsSessionActive(_sessionId);
                 return state;
             }
         }
 
-        private bool IsSessionActive()
+        internal static bool IsSessionActive(int sessionId)
         {
             IntPtr buffer;
             uint size;
-            if (!NativeMethods.WTSQuerySessionInformationW(IntPtr.Zero, _sessionId, 8, out buffer, out size)) { return false; }
+            if (!NativeMethods.WTSQuerySessionInformationW(IntPtr.Zero, sessionId, 8, out buffer, out size)) { return false; }
             try { return size == 4 && buffer != IntPtr.Zero && Marshal.ReadInt32(buffer) == 0; }
             finally { NativeMethods.WTSFreeMemory(buffer); }
         }
 
-        private static bool IsInputDesktopDefault()
+        internal static bool IsInputDesktopDefault()
         {
             var desktop = NativeMethods.OpenInputDesktop(flags: 0, inherit: false, access: 1);
             if (desktop == IntPtr.Zero) { return false; }
@@ -577,11 +579,25 @@ namespace GsoLab.Interaction
 
     internal static class NativeMethods
     {
+        internal const uint ProcessQueryLimitedInformation = 0x1000;
+
+        internal static string ReadExecutablePath(SafeProcessHandle process)
+        {
+            var executable = new char[1024];
+            var length = (uint)executable.Length;
+            var found = QueryFullProcessImageNameW(process, flags: 0, executable: executable, length: ref length);
+            return found && length > 0 && length <= executable.Length ? new string(executable, 0, (int)length) : null;
+        }
         internal delegate bool WindowCallback(IntPtr window, IntPtr parameter);
 
         [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         internal static extern SafeProcessHandle OpenProcess(uint desiredAccess, [MarshalAs(UnmanagedType.Bool)] bool inherit, int processId);
+
+        [DllImport("kernel32.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool QueryFullProcessImageNameW(SafeProcessHandle process, uint flags, [Out] char[] executable, ref uint length);
 
         [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
@@ -635,6 +651,50 @@ namespace GsoLab.Interaction
         [DllImport("user32.dll", ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         internal static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll", ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        internal static extern IntPtr GetShellWindow();
+
+        [DllImport("user32.dll", ExactSpelling = true)]
+        internal static extern IntPtr GetAncestor(IntPtr window, uint flags);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        internal static extern int GetClassNameW(IntPtr window, [Out] char[] className, int capacity);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        internal static extern IntPtr FindWindowExW(IntPtr parent, IntPtr after, string className, string windowName);
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct LastInputInfo
+        {
+            public uint Size;
+            public uint Tick;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct GuiThreadInfo
+        {
+            public uint Size;
+            public uint Flags;
+            public IntPtr Active;
+            public IntPtr Focus;
+            public IntPtr Capture;
+            public IntPtr MenuOwner;
+            public IntPtr MoveSize;
+            public IntPtr Caret;
+            public Rect CaretRectangle;
+        }
+
+        [DllImport("user32.dll", ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool GetLastInputInfo(ref LastInputInfo info);
+
+        [DllImport("user32.dll", ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool GetGUIThreadInfo(uint threadId, ref GuiThreadInfo info);
 
         [DllImport("user32.dll", ExactSpelling = true, SetLastError = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
@@ -858,7 +918,7 @@ namespace GsoLab.Interaction
     internal interface IFocusPort
     {
         bool TryForeground(IntPtr window);
-        void FocusOwnedElement(IntPtr window);
+        bool FocusOwnedElement(IntPtr window);
     }
 
     internal static class OwnedFocus
@@ -870,9 +930,8 @@ namespace GsoLab.Interaction
             { throw new InvalidOperationException("A fixed owned HWND is required."); }
             if (port.TryForeground(window)) { return true; }
             // One scoped provider call, never an Alt key, desktop click, or global input.
-            port.FocusOwnedElement(window);
             // The caller must independently recheck foreground, identity, desktop and dimensions.
-            return true;
+            return port.FocusOwnedElement(window);
         }
     }
 
@@ -880,12 +939,214 @@ namespace GsoLab.Interaction
 
 namespace GsoLab.Interaction
 {
+    public sealed class DesktopLaunchObservation
+    {
+        internal DesktopLaunchObservation(string code, string ownerCategory)
+        {
+            Code = code;
+            OwnerCategory = ownerCategory;
+        }
+
+        public string Code { get; private set; }
+        public string OwnerCategory { get; private set; }
+    }
+
+    public static class DesktopLaunchAdmission
+    {
+        private const uint RootAncestor = 2;
+        private const uint RootOwnerAncestor = 3;
+        private const uint MinimumTaskbarIdleMs = 30000;
+        private const string ExplorerTaskbar = "explorer_taskbar";
+
+        public static string Check(int sessionId, string steamExecutable)
+        {
+            return Observe(sessionId, steamExecutable).Code;
+        }
+
+        public static DesktopLaunchObservation Observe(int sessionId, string steamExecutable)
+        {
+            if (sessionId <= 0 || !NativeWindowPort.IsSessionActive(sessionId))
+            { return new DesktopLaunchObservation("desktop_session_inactive", "not_observed"); }
+            if (!NativeWindowPort.IsInputDesktopDefault())
+            { return new DesktopLaunchObservation("desktop_unavailable", "not_observed"); }
+
+            var window = NativeMethods.GetForegroundWindow();
+            if (window == IntPtr.Zero) { return new DesktopLaunchObservation("desktop_foreground_unverified", "unverified"); }
+            var shellWindow = NativeMethods.GetShellWindow();
+            if (window == shellWindow)
+            {
+                return ClassifyForeground(NativeMethods.GetForegroundWindow() == window, shellDesktop: true, executable: null, steamExecutable: steamExecutable);
+            }
+
+            uint processId;
+            var threadId = NativeMethods.GetWindowThreadProcessId(window, out processId);
+            if (threadId == 0 || processId == 0 || processId > int.MaxValue)
+            { return new DesktopLaunchObservation("desktop_foreground_unverified", "unverified"); }
+
+            using (var process = NativeMethods.OpenProcess(NativeMethods.ProcessQueryLimitedInformation, inherit: false, processId: (int)processId))
+            {
+                if (process.IsInvalid) { return new DesktopLaunchObservation("desktop_foreground_unverified", "unverified"); }
+                var executable = NativeMethods.ReadExecutablePath(process);
+                var explorerRole = HasExecutableName(executable, "explorer.exe")
+                    ? ObserveExplorerRole(window, shellWindow, processId)
+                    : null;
+                var idleTaskbar = string.Equals(explorerRole, ExplorerTaskbar, StringComparison.Ordinal) &&
+                    NativeMethods.GetAncestor(window, RootAncestor) == window &&
+                    IsTaskbarIdle(window, threadId, sessionId);
+                if (idleTaskbar && (!NativeWindowPort.IsSessionActive(sessionId) || !NativeWindowPort.IsInputDesktopDefault()))
+                { return new DesktopLaunchObservation("desktop_unavailable", "not_observed"); }
+                uint owner;
+                var stable = NativeMethods.GetWindowThreadProcessId(window, out owner) == threadId && owner == processId &&
+                    (!idleTaskbar || NativeMethods.GetShellWindow() == shellWindow) && NativeMethods.GetForegroundWindow() == window;
+                return ClassifyForeground(stable, shellDesktop: false, executable: executable, steamExecutable: steamExecutable,
+                    explorerRole: explorerRole, idleTaskbar: idleTaskbar);
+            }
+        }
+
+        internal static DesktopLaunchObservation ClassifyForeground(bool stable, bool shellDesktop, string executable, string steamExecutable,
+            string explorerRole = null, bool idleTaskbar = false)
+        {
+            if (!stable) { return new DesktopLaunchObservation("desktop_foreground_unverified", "unverified"); }
+            if (shellDesktop) { return new DesktopLaunchObservation("ready", "shell_desktop"); }
+            if (string.IsNullOrEmpty(executable))
+            { return new DesktopLaunchObservation("desktop_foreground_unverified", "unverified"); }
+            if (idleTaskbar && string.Equals(explorerRole, ExplorerTaskbar, StringComparison.Ordinal) && HasExecutableName(executable, "explorer.exe"))
+            { return new DesktopLaunchObservation("ready", "idle_taskbar"); }
+            return string.Equals(executable, steamExecutable, StringComparison.OrdinalIgnoreCase)
+                ? new DesktopLaunchObservation("ready", "configured_steam")
+                : new DesktopLaunchObservation("desktop_busy", ClassifyBusyForeground(executable, steamExecutable, explorerRole));
+        }
+
+        private static bool IsTaskbarIdle(IntPtr taskbar, uint threadId, int sessionId)
+        {
+            using (var process = Process.GetCurrentProcess())
+            {
+                if (process.SessionId != sessionId) { return false; }
+            }
+
+            var input = new NativeMethods.LastInputInfo { Size = (uint)Marshal.SizeOf<NativeMethods.LastInputInfo>() };
+            if (!NativeMethods.GetLastInputInfo(ref input)) { return false; }
+            var firstInputTick = input.Tick;
+            var gui = new NativeMethods.GuiThreadInfo { Size = (uint)Marshal.SizeOf<NativeMethods.GuiThreadInfo>() };
+            if (!NativeMethods.GetGUIThreadInfo(threadId, ref gui) || !IsTaskbarThreadQuiet(taskbar, gui))
+            { return false; }
+
+            return HasNoVisibleTaskbarPopup(taskbar) &&
+                NativeMethods.GetGUIThreadInfo(threadId, ref gui) && IsTaskbarThreadQuiet(taskbar, gui) &&
+                NativeMethods.GetLastInputInfo(ref input) &&
+                HasTaskbarInputIdle(firstInputTick, input.Tick, unchecked((uint)Environment.TickCount));
+        }
+
+        private static bool HasNoVisibleTaskbarPopup(IntPtr taskbar)
+        {
+            // Disallow an owned visible popup or an incomplete enumeration.
+            NativeMethods.WindowCallback withoutPopup = (window, parameter) =>
+            {
+                if (window == taskbar || !NativeMethods.IsWindowVisible(window)) { return true; }
+                var rootOwner = NativeMethods.GetAncestor(window, RootOwnerAncestor);
+                return rootOwner != IntPtr.Zero && rootOwner != taskbar;
+            };
+            return NativeMethods.EnumWindows(withoutPopup, IntPtr.Zero);
+        }
+
+        internal static bool IsTaskbarThreadQuiet(IntPtr taskbar, NativeMethods.GuiThreadInfo gui)
+        {
+            return taskbar != IntPtr.Zero && gui.Active == taskbar && gui.Flags == 0 && gui.Capture == IntPtr.Zero &&
+                gui.MenuOwner == IntPtr.Zero && gui.MoveSize == IntPtr.Zero && gui.Caret == IntPtr.Zero;
+        }
+
+        internal static bool HasTaskbarInputIdle(uint firstTick, uint lastTick, uint now)
+        {
+            // The 32-bit input timestamp can wrap. Reject a future timestamp or an ambiguous interval.
+            var elapsed = unchecked(now - lastTick);
+            return firstTick == lastTick && elapsed >= MinimumTaskbarIdleMs && elapsed <= int.MaxValue;
+        }
+
+        private static string ObserveExplorerRole(IntPtr window, IntPtr shellWindow, uint processId)
+        {
+            var root = NativeMethods.GetAncestor(window, RootAncestor);
+            uint rootOwner;
+            if (root == IntPtr.Zero || NativeMethods.GetWindowThreadProcessId(root, out rootOwner) == 0 || rootOwner != processId)
+            { return "explorer_process"; }
+
+            var className = new char[128];
+            var count = NativeMethods.GetClassNameW(root, className, className.Length);
+            if (count <= 0 || count >= className.Length - 1) { return "explorer_process"; }
+
+            uint shellOwner;
+            var shellOwned = shellWindow != IntPtr.Zero && NativeMethods.GetWindowThreadProcessId(shellWindow, out shellOwner) != 0 &&
+                shellOwner == processId && NativeMethods.GetShellWindow() == shellWindow;
+            var rootClass = new string(className, 0, count);
+            var desktopView = shellOwned && IsDesktopHostClass(rootClass) &&
+                NativeMethods.FindWindowExW(root, IntPtr.Zero, "SHELLDLL_DefView", windowName: null) != IntPtr.Zero;
+            return ClassifyExplorerRole(rootClass, shellOwned, root == shellWindow, desktopView);
+        }
+
+        internal static string ClassifyExplorerRole(string rootClass, bool shellOwned, bool shellRoot, bool desktopView)
+        {
+            if (string.Equals(rootClass, "CabinetWClass", StringComparison.Ordinal) ||
+                string.Equals(rootClass, "ExploreWClass", StringComparison.Ordinal))
+            { return "explorer_folder"; }
+            if (!shellOwned) { return "explorer_process"; }
+            if (string.Equals(rootClass, "Shell_TrayWnd", StringComparison.Ordinal) ||
+                string.Equals(rootClass, "Shell_SecondaryTrayWnd", StringComparison.Ordinal))
+            { return ExplorerTaskbar; }
+            if (shellRoot || (desktopView && IsDesktopHostClass(rootClass))) { return "explorer_desktop_surface"; }
+            return IsDesktopHostClass(rootClass) ? "explorer_desktop_host" : "explorer_process";
+        }
+
+        private static bool IsDesktopHostClass(string rootClass)
+        {
+            return string.Equals(rootClass, "Progman", StringComparison.Ordinal) || string.Equals(rootClass, "WorkerW", StringComparison.Ordinal);
+        }
+
+        private static bool HasExecutableName(string executable, string expected)
+        {
+            return !string.IsNullOrEmpty(executable) &&
+                string.Equals(executable.Substring(executable.LastIndexOf('\\') + 1), expected, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ClassifyBusyForeground(string executable, string steamExecutable, string explorerRole)
+        {
+            var name = executable.Substring(executable.LastIndexOf('\\') + 1);
+            if (name.Equals("explorer.exe", StringComparison.OrdinalIgnoreCase)) { return explorerRole ?? "explorer_process"; }
+            if (name.Equals("WindowsTerminal.exe", StringComparison.OrdinalIgnoreCase)) { return "windows_terminal"; }
+            if (name.Equals("steam.exe", StringComparison.OrdinalIgnoreCase)) { return "other_steam"; }
+            if (!name.Equals("steamwebhelper.exe", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(steamExecutable))
+            { return "other_application"; }
+
+            var separator = steamExecutable.LastIndexOf('\\');
+            return separator >= 0 && executable.StartsWith(steamExecutable.Substring(0, separator + 1), StringComparison.OrdinalIgnoreCase)
+                ? "steam_web_helper"
+                : "other_application";
+        }
+    }
+
+    public sealed class ForegroundOwnerObservation
+    {
+        internal ForegroundOwnerObservation(int processId, string executablePath = null)
+        {
+            ProcessId = processId;
+            if (string.IsNullOrEmpty(executablePath)) { return; }
+            var name = executablePath.Substring(executablePath.LastIndexOf('\\') + 1);
+            if (Regex.IsMatch(name, @"\A[A-Za-z0-9_. -]{1,96}\.[Ee][Xx][Ee]\z", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50)))
+            {
+                Executable = name;
+            }
+        }
+
+        public int ProcessId { get; private set; }
+        public string Executable { get; private set; }
+    }
+
     public sealed class FocusObservation
     {
         public string Outcome { get; internal set; }
         public string Stage { get; internal set; }
         public bool ForegroundAttempted { get; internal set; }
         public bool? ForegroundAccepted { get; internal set; }
+        public ForegroundOwnerObservation ForegroundBefore { get; internal set; }
+        public ForegroundOwnerObservation ForegroundAfter { get; internal set; }
         public bool ProviderAttempted { get; internal set; }
         public string FailureCategory { get; internal set; }
         public int? FailureHResult { get; internal set; }
@@ -913,6 +1174,8 @@ namespace GsoLab.Interaction
         private string _stage = "none";
         private bool _foregroundAttempted;
         private bool? _foregroundAccepted;
+        private ForegroundOwnerObservation _foregroundBefore;
+        private ForegroundOwnerObservation _foregroundAfter;
         private bool _providerAttempted;
         private string _failureCategory = "none";
         private int? _hresult;
@@ -921,10 +1184,12 @@ namespace GsoLab.Interaction
         private FocusCapabilities _capabilities;
         private string _method = "none";
 
-        internal void ForegroundStarted()
-        { lock (_sync) { if (_sealed != null) { return; } _foregroundAttempted = true; _stage = "foreground"; } }
+        internal void ForegroundStarted(ForegroundOwnerObservation owner)
+        { lock (_sync) { if (_sealed != null) { return; } _foregroundBefore = owner; _foregroundAttempted = true; _stage = "foreground"; } }
         internal void ForegroundReturned(bool accepted)
         { lock (_sync) { if (_sealed != null) { return; } _foregroundAccepted = accepted; _outcome = accepted ? "foreground_accepted" : "foreground_denied"; } }
+        internal void ForegroundFinished(ForegroundOwnerObservation owner)
+        { lock (_sync) { if (_sealed != null) { return; } _foregroundAfter = owner; } }
         internal void ProviderStarted()
         { lock (_sync) { if (_sealed != null) { return; } _providerAttempted = true; _stage = "provider_dispatch"; _outcome = "provider_running"; } }
         internal void Stage(string stage)
@@ -937,8 +1202,16 @@ namespace GsoLab.Interaction
         { lock (_sync) { if (_sealed != null) { return; } _outcome = "provider_timeout"; Seal(); } }
         internal void Capabilities(FocusCapabilities capabilities)
         { lock (_sync) { if (_sealed != null) { return; } _capabilities = capabilities; } }
-        internal void Method(string method)
-        { lock (_sync) { if (_sealed != null) { return; } _method = method; } }
+        internal bool TryStartSetFocus()
+        {
+            lock (_sync)
+            {
+                if (_sealed != null) { return false; }
+                _method = "uia_set_focus";
+                _stage = "set_focus";
+                return true;
+            }
+        }
         internal void NotActivatable()
         { lock (_sync) { if (_sealed != null) { return; } _outcome = "provider_not_activatable"; } }
 
@@ -969,6 +1242,8 @@ namespace GsoLab.Interaction
                     Stage = _stage,
                     ForegroundAttempted = _foregroundAttempted,
                     ForegroundAccepted = _foregroundAccepted,
+                    ForegroundBefore = _foregroundBefore,
+                    ForegroundAfter = _foregroundAfter,
                     ProviderAttempted = _providerAttempted,
                     FailureCategory = _failureCategory,
                     FailureHResult = _hresult,
@@ -1011,7 +1286,6 @@ namespace GsoLab.Interaction
         IntPtr Window { get; }
         void SetFocus();
         FocusCapabilities Inspect();
-        void Restore();
     }
 
     internal sealed class FocusCapabilities
@@ -1027,6 +1301,7 @@ namespace GsoLab.Interaction
     internal interface IFocusPlatform
     {
         bool TryForeground(IntPtr window);
+        ForegroundOwnerObservation ReadForegroundOwner();
         IFocusElement Find(IntPtr window);
     }
 
@@ -1047,7 +1322,7 @@ namespace GsoLab.Interaction
 
         public bool TryForeground(IntPtr window)
         {
-            _recorder.ForegroundStarted();
+            _recorder.ForegroundStarted(ReadForegroundOwner());
             try
             {
                 var accepted = _platform.TryForeground(window);
@@ -1055,57 +1330,56 @@ namespace GsoLab.Interaction
                 return accepted;
             }
             catch (Exception error) { _recorder.Failure(error); throw; }
+            finally { _recorder.ForegroundFinished(ReadForegroundOwner()); }
         }
 
-        public void FocusOwnedElement(IntPtr window)
+        private ForegroundOwnerObservation ReadForegroundOwner()
+        {
+            try { return _platform.ReadForegroundOwner(); }
+            catch (Exception) { return null; } // Optional diagnostics must not alter the activation or its error.
+        }
+
+        public bool FocusOwnedElement(IntPtr window)
         {
             _recorder.ProviderStarted();
             Exception error;
             bool completed;
+            var focusRequested = false;
             try
             {
                 completed = BoundedFocus.Observe(delegate
-            {
-                _recorder.Stage("element_lookup");
-                var element = _platform.Find(window);
-                _recorder.Stage("identity_check");
-                if (element == null || element.ProcessId != _processId || element.Window != window)
                 {
-                    _recorder.IdentityMismatch();
-                    throw new InvalidOperationException("Focus provider identity differs.");
-                }
-                _recorder.Stage("capabilities");
-                var capabilities = element.Inspect();
-                if (capabilities == null) { throw new InvalidOperationException("Focus capabilities unavailable."); }
-                _recorder.Capabilities(capabilities);
-                if (element.ProcessId != _processId || element.Window != window)
-                {
-                    _recorder.IdentityMismatch();
-                    throw new InvalidOperationException("Focus provider identity changed during inspection.");
-                }
-                if (!capabilities.Enabled || capabilities.Offscreen)
-                {
-                    _recorder.NotActivatable();
-                    throw new InvalidOperationException("Owned UI element is disabled or offscreen.");
-                }
-                if (capabilities.WindowPattern && capabilities.WindowReady && capabilities.VisualState == 0)
-                {
-                    _recorder.Method("uia_window_restore");
-                    _recorder.Stage("window_restore");
-                    element.Restore();
-                }
-                else if (capabilities.KeyboardFocusable)
-                {
-                    _recorder.Method("uia_set_focus");
-                    _recorder.Stage("set_focus");
+                    _recorder.Stage("element_lookup");
+                    var element = _platform.Find(window);
+                    _recorder.Stage("identity_check");
+                    if (element == null || element.ProcessId != _processId || element.Window != window)
+                    {
+                        _recorder.IdentityMismatch();
+                        throw new InvalidOperationException("Focus provider identity differs.");
+                    }
+                    _recorder.Stage("capabilities");
+                    var capabilities = element.Inspect();
+                    if (capabilities == null) { throw new InvalidOperationException("Focus capabilities unavailable."); }
+                    _recorder.Capabilities(capabilities);
+                    if (element.ProcessId != _processId || element.Window != window)
+                    {
+                        _recorder.IdentityMismatch();
+                        throw new InvalidOperationException("Focus provider identity changed during inspection.");
+                    }
+                    if (!capabilities.Enabled || capabilities.Offscreen)
+                    {
+                        _recorder.NotActivatable();
+                        throw new InvalidOperationException("Owned UI element is disabled or offscreen.");
+                    }
+                    if (!capabilities.KeyboardFocusable)
+                    {
+                        _recorder.NotActivatable();
+                        return;
+                    }
+                    if (!_recorder.TryStartSetFocus()) { return; }
                     element.SetFocus();
-                }
-                else
-                {
-                    _recorder.NotActivatable();
-                    throw new InvalidOperationException("Owned UI element has no supported activation method.");
-                }
-            }, _waitMilliseconds, out error);
+                    focusRequested = true;
+                }, _waitMilliseconds, out error);
             }
             catch (Exception infrastructureError) { _recorder.Failure(infrastructureError); throw; }
             if (!completed)
@@ -1118,7 +1392,8 @@ namespace GsoLab.Interaction
                 _recorder.Failure(error);
                 throw new InvalidOperationException("Owned focus provider failed.", error);
             }
-            _recorder.ProviderReturned();
+            if (focusRequested) { _recorder.ProviderReturned(); }
+            return focusRequested;
         }
 
         public FocusObservation ReadFocusObservation() { return _recorder.Seal(); }
@@ -1127,6 +1402,24 @@ namespace GsoLab.Interaction
     internal sealed class NativeFocusPlatform : IFocusPlatform
     {
         public bool TryForeground(IntPtr window) { return NativeMethods.SetForegroundWindow(window); }
+
+        public ForegroundOwnerObservation ReadForegroundOwner()
+        {
+            var window = NativeMethods.GetForegroundWindow();
+            uint processId;
+            if (window == IntPtr.Zero || NativeMethods.GetWindowThreadProcessId(window, out processId) == 0 ||
+                processId == 0 || processId > int.MaxValue) { return null; }
+
+            using (var process = NativeMethods.OpenProcess(NativeMethods.ProcessQueryLimitedInformation, inherit: false, processId: (int)processId))
+            {
+                if (process.IsInvalid) { return new ForegroundOwnerObservation((int)processId); }
+                var path = NativeMethods.ReadExecutablePath(process);
+                uint currentOwner;
+                if (NativeMethods.GetWindowThreadProcessId(window, out currentOwner) == 0 || currentOwner != processId) { return null; }
+                return new ForegroundOwnerObservation((int)processId, path);
+            }
+        }
+
         public IFocusElement Find(IntPtr window)
         {
             var element = System.Windows.Automation.AutomationElement.FromHandle(window);
@@ -1137,7 +1430,6 @@ namespace GsoLab.Interaction
     internal sealed class NativeFocusElement : IFocusElement
     {
         private readonly System.Windows.Automation.AutomationElement _element;
-        private System.Windows.Automation.WindowPattern _windowPattern;
         internal NativeFocusElement(System.Windows.Automation.AutomationElement element) { _element = element; }
         public int ProcessId { get { return _element.Current.ProcessId; } }
         public IntPtr Window { get { return new IntPtr(_element.Current.NativeWindowHandle); } }
@@ -1147,21 +1439,16 @@ namespace GsoLab.Interaction
             var current = _element.Current;
             object pattern;
             var available = _element.TryGetCurrentPattern(System.Windows.Automation.WindowPattern.Pattern, out pattern);
-            _windowPattern = available ? pattern as System.Windows.Automation.WindowPattern : null;
+            var windowPattern = available ? pattern as System.Windows.Automation.WindowPattern : null;
             return new FocusCapabilities
             {
                 Enabled = current.IsEnabled,
                 KeyboardFocusable = current.IsKeyboardFocusable,
                 Offscreen = current.IsOffscreen,
-                WindowPattern = _windowPattern != null,
-                WindowReady = _windowPattern != null && _windowPattern.Current.WindowInteractionState == System.Windows.Automation.WindowInteractionState.ReadyForUserInteraction,
-                VisualState = _windowPattern == null ? (int?)null : (int)_windowPattern.Current.WindowVisualState
+                WindowPattern = windowPattern != null,
+                WindowReady = windowPattern != null && windowPattern.Current.WindowInteractionState == System.Windows.Automation.WindowInteractionState.ReadyForUserInteraction,
+                VisualState = windowPattern == null ? (int?)null : (int)windowPattern.Current.WindowVisualState
             };
-        }
-        public void Restore()
-        {
-            if (_windowPattern == null) { throw new InvalidOperationException("Owned window pattern is unavailable."); }
-            _windowPattern.SetWindowVisualState(System.Windows.Automation.WindowVisualState.Normal);
         }
     }
 

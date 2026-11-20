@@ -85,11 +85,17 @@ foreach($language in @('ru','en')){
 # Match the compiled fixture's fixed callbacks to the generated local bootstrap.
 $script:case='callback-contract'
 $source=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '../fixture_vgui_guard.sma'))
-$callbacks=[regex]::Matches($source,'client_cmd\(player, "(gso_lab_[a-z_]+)"\)')
+$callbacks=[regex]::Matches($source,'client_cmd\(player, "(gso_lab_[a-z_]+)"\)')|ForEach-Object {$_.Groups[1].Value}
 $program=New-LabGunsProgram $job
-Check ((@($callbacks|ForEach-Object {$_.Groups[1].Value}) -join ',') -ceq 'gso_lab_join,gso_lab_spawn,gso_lab_ack,gso_lab_respawn')
-foreach($callback in $callbacks){
-    $name=$callback.Groups[1].Value
+Check (($callbacks -join ',') -ceq 'gso_lab_join,gso_lab_spawn,gso_lab_ack,gso_lab_round_ready,gso_lab_respawn')
+foreach($name in @($callbacks|Where-Object {$_ -cne 'gso_lab_round_ready'})){
     Check ($program.Contains('alias '+$name+' "') -and -not $name.Contains('_set'))
 }
+Check (-not $program.Contains('gso_lab_round_ready'))
+$round=[pscustomobject]@{id=$job.id;action='verify-panel';panel='guns';language='en';createdUtc=$job.createdUtc;rejoinPhase='round'}
+$roundProgram=New-LabGunsProgram $round
+$observer=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '../fixture_continuity.sma'))
+$request=[regex]::Matches($observer,'client_cmd\(g_player, "(gso_lab_[a-z_]+)"\)')
+Check ($request.Count -eq 1 -and $request[0].Groups[1].Value -ceq 'gso_lab_continuity_request')
+Check ($roundProgram.Contains('alias gso_lab_round_ready "') -and $roundProgram.Contains('alias gso_lab_continuity_request "'))
 Write-Output ('Readiness BMP receiver checks passed: '+$checks+'. Real file receiver; synthetic BMPs, no native input or network.')

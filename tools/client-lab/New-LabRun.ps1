@@ -6,7 +6,10 @@ param(
     [Parameter(Mandatory = $true)][string]$AddonDirectory,
     [Parameter(Mandatory = $true)][string]$HelperBinaryPath,
     [Parameter(Mandatory = $true)][ValidateSet('ru','en')][string]$Language,
-    [ValidateSet('motd','guns')][string]$Scenario='motd',
+    [ValidateSet('motd','guns','guns-rejoin')][string]$Scenario='motd',
+    [string]$ContinuityHelperPath,
+    [string]$NVaultPath,
+    [string]$NavPath,
     [Parameter(Mandatory = $true)][string]$OutputDirectory
 )
 $ErrorActionPreference = 'Stop'
@@ -26,11 +29,29 @@ foreach ($entry in $manifest.files) {
     $file = Get-Item -LiteralPath (Join-Path $BundleDirectory ('kit/code/' + $entry.name))
     if (($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash -cne $entry.sha256) { throw 'Prepared runner was modified.' }
 }
+$rejoin=$Scenario -ceq 'guns-rejoin'
+if($rejoin -and ($Language -cne 'en' -or -not $ContinuityHelperPath -or -not $NVaultPath -or -not $NavPath)){
+    throw 'LAN rejoin requires EN and the three pinned local fixture inputs.'
+}
+if(-not $rejoin -and ($ContinuityHelperPath -or $NVaultPath -or $NavPath)){throw 'Additional fixture inputs require guns-rejoin.'}
+$addonPin=if($rejoin){'71AEF4EC88C1F97528B749AB9D0E3111C28FE8DB981E0742B2313F06D9741848'}else{'257F90BA56199D36ED3699D5299B482771D1BD550204946792BDB7276DBCB40D'}
+$guardPin=(Get-FileHash -LiteralPath $HelperBinaryPath).Hash
+$currentGuard='C69BF148B9BC9924C512084DC49983513F1565A068A0AD8EDBEFE1C492FD0B6D'
+if($guardPin -cne $currentGuard -and ($rejoin -or $guardPin -cne '05CCFB65A9ABC9C5B65C429C7FA7F928E1595E138D3885C2F7E08CA46B3F5095')){
+    throw 'Pinned fixture helper differs.'
+}
 $inputs = @(
-    @{name='goldsrcops.amxx';path=(Join-Path $AddonDirectory 'goldsrcops.amxx');hash='257F90BA56199D36ED3699D5299B482771D1BD550204946792BDB7276DBCB40D'},
+    @{name='goldsrcops.amxx';path=(Join-Path $AddonDirectory 'goldsrcops.amxx');hash=$addonPin},
     @{name='goldsrcops.txt';path=(Join-Path $AddonDirectory 'goldsrcops.txt');hash='71B1EA3A49331E16E1383817849F04D702EE559C1BE11C3E825172F0C5C939B7'},
-    @{name='fixture_vgui_guard.amxx';path=$HelperBinaryPath;hash='05CCFB65A9ABC9C5B65C429C7FA7F928E1595E138D3885C2F7E08CA46B3F5095'}
+    @{name='fixture_vgui_guard.amxx';path=$HelperBinaryPath;hash=$guardPin}
 )
+$continuityPin='8ED394B7E437F4A484A5F48DF180E7B1F20F4D136B79A429D0E5BDF7832D6A84'
+if($rejoin){
+    $inputs+=@(
+        @{name='fixture_continuity.amxx';path=$ContinuityHelperPath;hash=$continuityPin},
+        @{name='nvault_amxx_i386.so';path=$NVaultPath;hash='E6A24A81B205410E9B5EB62CA3B1E2BB8F49A0480D5E84B177D7A57C512A0AF6'},
+        @{name='de_dust2.nav';path=$NavPath;hash='9A44381363572F05D42FA4F82B293F54E49C93D60A4471D2FE8396ECCEB77753'})
+}
 foreach ($inputFile in $inputs) {
     $item = Get-Item -LiteralPath $inputFile.path
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $item.Length -gt 1MB -or
@@ -38,7 +59,9 @@ foreach ($inputFile in $inputs) {
 }
 $id = [guid]::NewGuid().ToString('D')
 $container = 'gso-client-lab-' + ([guid]$id).ToString('N')
-$tokens = @{SOURCE_IPV4=$profile.sourceAddress;TARGET_IPV4=$profile.targetAddress;TARGET_NAME=$profile.targetName;FIXTURE_NAME=$profile.fixtureName;CONTAINER_NAME=$container;GUNS_READINESS=$(if($Scenario -ceq 'guns'){'1'}else{'0'})}
+$tokens = @{SOURCE_IPV4=$profile.sourceAddress;TARGET_IPV4=$profile.targetAddress;TARGET_NAME=$profile.targetName;FIXTURE_NAME=$profile.fixtureName;CONTAINER_NAME=$container;
+    GUNS_READINESS=[int]($Scenario -cne 'motd');LAN_REJOIN=[int]$rejoin;PLUGIN_SHA256=$addonPin.ToLowerInvariant();
+    GUARD_SHA256=$guardPin.ToLowerInvariant();CONTINUITY_SHA256=$continuityPin.ToLowerInvariant()}
 foreach ($directory in @($output,(Join-Path $output 'inputs'),(Join-Path $output 'evidence'))) { New-Item -ItemType Directory -Path $directory | Out-Null }
 Copy-Item -LiteralPath (Join-Path $BundleDirectory 'kit/code') -Destination $output -Recurse
 foreach ($name in @('Invoke-Panel.ps1','Collect-Autonomous.ps1')) { Copy-Item -LiteralPath (Join-Path $BundleDirectory ('kit/' + $name)) -Destination $output }
@@ -51,4 +74,12 @@ foreach ($source in @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'templ
 $plan = @{schema=1;id=$id;language=$Language;container=$container;network=($container+'-net');
     image='sha256:9bffd1d5a9dbecceaee569911ffba6bd5e28326be7879dd7cbeed90b6d7f4574';assets=$profile.assets}
 [IO.File]::WriteAllText((Join-Path $output 'plan.json'), ($plan | ConvertTo-Json -Depth 5))
+if($rejoin){
+    $engine=Join-Path $output 'engine'
+    New-Item -ItemType Directory -Path $engine|Out-Null
+    Copy-Item -LiteralPath (Join-Path $BundleDirectory 'kit/Invoke-FramedUpdate.ps1') -Destination $engine
+    Copy-Item -LiteralPath (Join-Path $BundleDirectory 'kit/updater') -Destination $engine -Recurse
+    $pair=@{schema=1;runId=$id;first=[guid]::NewGuid().ToString('D');second=[guid]::NewGuid().ToString('D')}
+    [IO.File]::WriteAllText((Join-Path $output 'rejoin-plan.json'),($pair|ConvertTo-Json))
+}
 @{id=$id;language=$Language;directory=$output;status='prepared-not-started';networkUsed=$false;runtimeChanged=$false} | ConvertTo-Json
