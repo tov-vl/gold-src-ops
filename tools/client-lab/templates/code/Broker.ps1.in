@@ -14,14 +14,19 @@ try {
         $state.autonomousPanels=@('rules','ranks','profile','topall')
         if(@($script:LabGunsBaselines.PSObject.Properties).Count -eq 8){$state.autonomousPanels+=@('guns')}
         $state.gunsBaselineCapture=$true
+        $state.gunsLanRejoin='guns' -cin $state.autonomousPanels
         $state.terminalArchiveCandidates=@(Get-LabTerminalArchiveCandidates $Root)
+        if($state.gunsLanRejoin){
+            $state.retainedPrelaunchIds=@(Get-LabTerminalArchiveCandidates $Root -RetainedPrelaunch)
+            $state.queueAudit=@(Get-LabQueueAudit $Root)
+        }
         $heartbeat = Join-Path $Root 'results\worker.json'
         if (Test-Path -LiteralPath $heartbeat) { $state.worker = Read-LabJson $heartbeat }
         $state | ConvertTo-Json -Depth 5 -Compress
         exit 0
     }
     $paths = Get-LabPaths $Root $request.id
-    if ($request.operation -in @('run','capture','verify-rules','auto-rules','auto-panel','capture-guns')) {
+    if ($request.operation -in @('run','capture','verify-rules','auto-rules','auto-panel','capture-guns','guns-round','guns-rejoin')) {
         if ((Test-Path -LiteralPath (Join-Path $Root 'maintenance-revision-06.json')) -or (Test-Path -LiteralPath (Join-Path $Root 'maintenance-revision-07.json'))) { throw 'Maintenance in progress.' }
         if (@(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') -Filter '*.json' -File).Count -ge 8) { throw 'Session job limit reached.' }
         if ((Test-Path -LiteralPath $paths.request) -or (Test-Path -LiteralPath $paths.result) -or (Test-Path -LiteralPath $paths.archivedRequest)) { throw 'Existing job id; do not retry.' }
@@ -41,11 +46,19 @@ try {
             Assert-LabRunnerJob ([pscustomobject]$job)
             if($request.panel -ceq 'guns' -and @($script:LabGunsBaselines.PSObject.Properties).Count -ne 8){throw 'Weapons baselines are not installed.'}
         }
+        if($request.operation -cin @('guns-round','guns-rejoin')){
+            Assert-LabPanelPolicy $policy
+            if(@($script:LabGunsBaselines.PSObject.Properties).Count -ne 8){throw 'Weapons baselines are not installed.'}
+            $job.language='en'
+            if($request.operation -ceq 'guns-round'){$job.action='verify-panel';$job.panel='guns';$job.rejoinPhase='round'}
+            else{$job.action='capture-guns';$job.rejoinPhase='rejoin'}
+            Assert-LabRunnerJob ([pscustomobject]$job)
+        }
         # Keep a permanent one-attempt claim; publish complete JSON atomically for the worker.
         $stream = [IO.File]::Open(($paths.request+'.claim'), [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
         $stream.Dispose()
         if(Test-Path -LiteralPath $paths.request){throw 'Existing request; do not retry.'}
-        if($request.operation -cin @('auto-rules','auto-panel','capture-guns')){New-LabAutonomousMode $Root $job}
+        if($request.operation -cin @('auto-rules','auto-panel','capture-guns','guns-round','guns-rejoin')){New-LabAutonomousMode $Root $job}
         Write-LabJson $paths.request $job
         @{ id = $request.id; status = 'queued' } | ConvertTo-Json -Compress
         exit 0

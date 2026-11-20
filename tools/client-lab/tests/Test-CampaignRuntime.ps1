@@ -38,6 +38,9 @@ $calls = [Collections.Generic.List[object]]::new()
         if ($File -cne 'inert-pwsh' -or $Arguments[0] -cne '-NoLogo' -or $Arguments -notcontains '-NonInteractive') { throw 'Unexpected process.' }
         if (($Arguments -join ',') -cmatch 'Invoke-FramedUpdate.ps1,-Operation,status') { return $script:testUpdate | ConvertTo-Json -Depth 10 }
         if(($Arguments -join ',') -cmatch 'Invoke-Panel.ps1,-Operation,result'){return $script:testRetained|ConvertTo-Json -Depth 10}
+        if(($Arguments -join ',') -cmatch 'Invoke-Panel.ps1,-Operation,guns-(round|rejoin),-JobId,([0-9a-f-]+)$'){
+            return @{id=$Matches[2];status='queued'}|ConvertTo-Json
+        }
         return $script:testStatus | ConvertTo-Json -Depth 10
     }
 } $calls $status $update
@@ -50,6 +53,33 @@ $null = Invoke-LabCampaignRuntime dispatch $context
 Check (($calls[-1].arguments -join ',').EndsWith('-Operation,auto-panel,-JobId,' + $context.case.jobId + ',-Panel,ranks,-Language,en'))
 $null = Invoke-LabCampaignRuntime cancel $context
 Check (($calls[-1].arguments -join ',').EndsWith('-Operation,cancel,-JobId,' + $context.case.jobId))
+$context.case.lanRejoin=$true
+$context.case.panel='guns'
+$status.autonomousPanels+=@('guns')
+Reject {Invoke-LabCampaignRuntime preflight $context}
+$status.gunsLanRejoin=$true
+Reject {Invoke-LabCampaignRuntime preflight $context}
+$status.worker.desktopPreflight=@{ready=$true;code='ready';utc=[DateTime]::UtcNow.ToString('o')}
+$status.worker.rendererPreflight=@{gameClosed=$true;status='observed';files=@(
+    'root-qconsole','root-console','cstrike-qconsole','cstrike-console'|ForEach-Object {@{role=$_;exists=$false}})}
+Check ((Invoke-LabCampaignRuntime preflight $context).pending -eq 0)
+$status.pending=2
+$terminalId=[guid]::NewGuid().ToString('D')
+$status.terminalArchiveCandidates=@(@{id=$terminalId;sha256=('A'*64)})
+Reject {Invoke-LabCampaignRuntime preflight $context}
+$status.retainedPrelaunchIds=@($terminalId)
+Reject {Invoke-LabCampaignRuntime preflight $context}
+$status.retainedPrelaunchIds=@([guid]::NewGuid().ToString('D'))
+Check ((Invoke-LabCampaignRuntime preflight $context).pending -eq 2)
+$status.Remove('retainedPrelaunchIds')
+$status.pending=0
+$status.terminalArchiveCandidates=@()
+foreach($operation in @('guns-round','guns-rejoin')){
+    $null=Invoke-LabCampaignRuntime $operation $context
+    Check (($calls[-1].arguments -join ',').EndsWith("-Operation,$operation,-JobId,"+$context.case.jobId))
+}
+$context.case.panel='ranks'
+$context.case.Remove('lanRejoin')
 Reject { Invoke-LabCampaignRuntime arbitrary $context }
 & $module { $script:testEndpoint = 'tcp://remote.invalid:2376' }
 Reject { Invoke-LabCampaignRuntime preflight $context }
@@ -107,6 +137,23 @@ Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status
 $status.pending=2;$status.terminalArchiveCandidates=@(@{id=$retainedId;sha256=('A'*64)})
 Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
 $status.pending=2;$status.terminalArchiveCandidates=@(@{id=$retainedId;sha256=('A'*64)},@{id=$retainedId;sha256=('A'*64)})
+Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
+$status.terminalArchiveCandidates=@()
+$status.pending=1
+$status.queueAudit=@(@{id=$retainedId;expired=$true;state='cleanup_uncertain'})
+$resultDir=Join-Path $run "controller-results/$retainedId"
+$null=New-Item -ItemType Directory -Path $resultDir
+$resultFile=Join-Path $resultDir 'result.json'
+$retained|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $resultFile
+$receipt=$status.worker.rendererRecovery.Clone()
+$receipt.resultSha256=(Get-FileHash -LiteralPath $resultFile).Hash
+$context.case.retainedRendererReceipts=@($receipt)
+& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status
+$checks++
+$status.queueAudit[0].expired=$false
+Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
+$status.queueAudit[0].expired=$true
+$receipt.resultSha256='C'*64
 Reject {& $module {param($Context,$Status) Assert-CampaignQueue $Context $Status} $context $status}
 $summary = @{ passed=$true; checks=$checks; targetNetworkUsed=$false; runtimeChanged=$false; nativeInputSent=$false }
 [IO.File]::WriteAllText((Join-Path $Workspace 'campaign-runtime-summary.json'),($summary | ConvertTo-Json))

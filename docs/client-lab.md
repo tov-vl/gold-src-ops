@@ -101,6 +101,36 @@ Keep Steam logged in and free of another game session, the target awake and
 unlocked, and CS closed before a run. The worker can attempt supported activation
 of its own window, but cannot guarantee activation under every desktop policy.
 
+Before claiming a launch, the worker checks that its interactive session is
+active and the default input desktop is available. The shell desktop window,
+the configured `steam.exe` executable and a confirmed idle taskbar can admit a
+launch. Taskbar admission requires the shell-owned taskbar itself in the
+foreground, at least 30 seconds without input in the same session, and
+no GUI menu, capture, move or resize, caret, or visible owned popup. Other or
+unverified foreground windows leave the request untouched. Broker `status` also
+reports the same check on idle worker cycles in `worker.desktopPreflight`.
+Use its own `utc` and require a fresh `ready=true` before freeing queue capacity
+or staging a request. `desktop_busy` means the foreground does not meet the
+launch conditions.
+`desktop_unavailable` means the default input desktop could not be confirmed,
+including on a locked or secure desktop. `desktop_session_inactive`,
+`desktop_foreground_unverified` and `worker_blocked` describe the other refusals.
+`ownerCategory` reports a fixed label from the same foreground observation.
+`shell_desktop`, `configured_steam` and `idle_taskbar` can be ready.
+`explorer_taskbar`, `explorer_folder`, `explorer_desktop_surface`,
+`explorer_desktop_host`, `explorer_process`,
+`steam_web_helper`, `other_steam`, `windows_terminal` and `other_application`
+describe busy windows. `unverified` and `not_observed` cover unavailable
+observations. The sample contains no process identifiers, paths, arbitrary
+process names or window titles.
+`worker.launchAdmission` reports the waiting request and its reason. The next
+worker cycle rechecks it within the existing three-minute request lifetime.
+Expiry or cancellation produces a terminal preflight result without launching
+Steam or CS. These results can be archived through the existing signed flow.
+The worker rechecks the desktop immediately before dispatch. A
+change after the claim rejects that attempt and removes its temporary config.
+Game input still requires the owned game window to be in the foreground.
+
 ## Local preparation
 
 Controller prerequisites: Windows, PowerShell 7, Python 3.12, Docker Desktop in
@@ -239,3 +269,52 @@ The reviewed engine can retire at most eight receipt-bound successful packages
 per idle tick into protected retention while preserving used IDs and all evidence.
 Older installations require the separately reviewed local administrator migration;
 increasing gateway limits or resending a refused package is not a recovery.
+
+## Two-launch LAN rejoin
+
+The fixed EN scenario uses the signed 0.40.0 player-storage addon and its
+matching Linux i386 nVault module. The first CS process opens `/guns`, checks
+the selected loadout through a round transition with two bots, then closes
+through the worker's normal cleanup. The fixture observes the disconnect,
+removes its bots and verifies zero players and bots through A2S. Only then can
+the controller queue the second normal CS launch on the same server. Menu
+frames come from the owned game window. Engine callbacks supply the spawn and
+round acknowledgements. The scenario uses neither F5 nor F8.
+
+Prepare a fresh runner bundle with eight reviewed guns baselines. Install its
+reviewed runner hashes through the existing signed update procedure once for
+this version. Every run uses two fresh job IDs and requires two free queue
+slots. Use the signed queue maintenance procedure above if space is needed.
+Leave Steam available and the target desktop ready for both launches.
+
+If renderer recoveries already preserved failed requests that still occupy
+queue slots, pass their reviewed receipts in a private JSON array via
+`-RetainedRendererReceiptsPath`. Use the archived recovery fields and add
+`resultSha256` from each previously preserved `result.json`. The controller
+matches the exact expired queue entries and verifies the downloaded reports
+before allowing either launch. Keep these receipts outside Git.
+
+```powershell
+$tool = './tools/client-lab'
+& "$tool/Build-FixtureHelper.ps1" -CacheDirectory $compilerCache -OutputPath $guard
+& "$tool/Build-FixtureHelper.ps1" -CacheDirectory $compilerCache -OutputPath $observer -Continuity
+& "$tool/New-LabRun.ps1" -BundleDirectory $bundle -ActivationPath $activation `
+    -AddonDirectory $addon0400 -HelperBinaryPath $guard -ContinuityHelperPath $observer `
+    -NVaultPath $nvault0400 -NavPath $dust2Nav -Scenario guns-rejoin -Language en -OutputDirectory $run
+& "$tool/Invoke-LabLanRejoin.ps1" -RunDirectory $run -PythonPath $python -Execute
+& "$tool/Invoke-LabLanRejoin.ps1" -RunDirectory $run -PythonPath $python -VerifyEvidence
+```
+
+The addon directory supplies `goldsrcops.amxx` and `goldsrcops.txt` from the
+accepted release. `$dust2Nav` is the matching local `de_dust2.nav`; the harness
+checks its hash before starting Docker. Use fresh private paths for `$guard`,
+`$observer` and `$run`. Running the controller without `-Execute` shows the
+prepared job identities without starting anything.
+
+Success requires two distinct owned processes in the same Windows session,
+verified OpenGL for each, matching downloaded frames, and the ordered server
+records of round transition, disconnect, new connection and spawn. The
+`REJOIN-ACCEPTANCE.json` receipt records that a LAN identity starts with MP5 and
+USP after rejoin. Steam-identity persistence is a separate acceptance case.
+Each new launch has a single dispatch claim. On interrupted execution, reconcile
+those IDs and the fixture status from the retained run directory.

@@ -73,17 +73,40 @@ function Assert-CampaignQueue($Context,$Status) {
         @($ids|Select-Object -Unique).Count -ne $candidates.Count){throw 'Invalid bounded queue inventory.'}
     foreach($candidate in $candidates){if($candidate.id -cnotmatch '\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z' -or
         $candidate.id -ceq [guid]::Empty.ToString('D') -or $candidate.sha256 -cnotmatch '\A[0-9A-F]{64}\z'){throw 'Invalid terminal candidate.'}}
-    if($Status.pending -eq $candidates.Count){return}
+    if($Context.case.ContainsKey('lanRejoin') -and $Context.case.lanRejoin -and $Status.ContainsKey('retainedPrelaunchIds')){
+        if($Status.retainedPrelaunchIds -isnot [array]){throw 'Invalid retained prelaunch inventory.'}
+        foreach($id in $Status.retainedPrelaunchIds){
+            if($id -isnot [string] -or $id -cnotmatch '\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z' -or
+                $id -ceq [guid]::Empty.ToString('D') -or $id -cin $ids){throw 'Invalid retained prelaunch id.'}
+            $ids+=@($id)
+        }
+    }
+    if($Context.case.ContainsKey('retainedRendererReceipts')){
+        foreach($receipt in $Context.case.retainedRendererReceipts){
+            $rows=@($Status['queueAudit']|Where-Object {$_.id -ceq $receipt.jobId})
+            if($rows.Count -ne 1 -or $rows[0].state -cne 'cleanup_uncertain' -or
+                $rows[0].expired -isnot [bool] -or -not $rows[0].expired -or
+                $receipt.resultSha256 -cnotmatch '\A[0-9A-F]{64}\z'){throw 'Retained renderer queue entry differs.'}
+            Assert-CampaignRetainedRenderer $Context $receipt $ids
+            $ids+=@($receipt.jobId)
+        }
+        if($Status.pending -ne $ids.Count){throw 'Unknown queued request.'}
+        return
+    }
+    if($Status.pending -eq $ids.Count){return}
     # One preserved failed renderer result is terminal but intentionally not archivable.
-    if($Status.pending -ne ($candidates.Count+1) -or -not $Status.worker.ContainsKey('rendererRecovery')){throw 'Unknown queued request.'}
-    $recovery=$Status.worker.rendererRecovery
+    if($Status.pending -ne ($ids.Count+1) -or -not $Status.worker.ContainsKey('rendererRecovery')){throw 'Unknown queued request.'}
+    Assert-CampaignRetainedRenderer $Context $Status.worker.rendererRecovery $ids
+}
+
+function Assert-CampaignRetainedRenderer($Context,$Recovery,[string[]]$KnownIds) {
     if($recovery.schema -ne 1 -or $recovery.status -cne 'archived' -or $recovery.resultPreserved -isnot [bool] -or -not $recovery.resultPreserved -or
         $recovery.gameLaunched -isnot [bool] -or $recovery.gameLaunched -or $recovery.automaticRetryAllowed -isnot [bool] -or $recovery.automaticRetryAllowed -or
         $recovery.jobId -cnotmatch '\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z' -or $recovery.jobId -ceq [guid]::Empty.ToString('D') -or
         $recovery.operationId -cnotmatch '\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z' -or $recovery.planSha256 -cnotmatch '\A[0-9a-f]{64}\z' -or
         $recovery.sha256 -cnotmatch '\A[0-9a-f]{64}\z' -or ($recovery.bytes -isnot [int] -and $recovery.bytes -isnot [long]) -or
         $recovery.bytes -lt 1 -or $recovery.bytes -gt 4MB -or
-        $recovery.jobId -cin $ids){throw 'Retained renderer recovery is not confirmed.'}
+        $recovery.jobId -cin $KnownIds){throw 'Retained renderer recovery is not confirmed.'}
     $retainedContext=@{run=$Context.run;campaign=$Context.campaign;case=@{jobId=$recovery.jobId}}
     $result=(Invoke-CampaignPanel $retainedContext 'result')|ConvertFrom-Json -AsHashtable
     if($result.id -cne $recovery.jobId -or $result.status -cne 'uncertain_cleanup' -or -not $result.completedUtc -or
@@ -94,6 +117,11 @@ function Assert-CampaignQueue($Context,$Status) {
         $result.rendererEvidence.cleanupVerified -isnot [bool] -or $result.rendererEvidence.cleanupVerified){throw 'Retained renderer request is not terminal.'}
     $started=ConvertTo-CampaignRuntimeUtc $result.gameStartedUtc;$completed=ConvertTo-CampaignRuntimeUtc $result.completedUtc
     if($completed -lt $started -or $completed -gt [DateTime]::UtcNow.AddSeconds(5)){throw 'Retained result lifetime differs.'}
+    if($Recovery.ContainsKey('resultSha256')){
+        $file=Get-Item -LiteralPath (Join-Path $Context.run "controller-results/$($Recovery.jobId)/result.json")
+        if(($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or
+            (Get-FileHash -LiteralPath $file.FullName).Hash -cne $Recovery.resultSha256){throw 'Retained report bytes differ.'}
+    }
 }
 
 function Invoke-LabCampaignRuntime([string]$Operation, $Context) {
@@ -119,7 +147,28 @@ function Invoke-LabCampaignRuntime([string]$Operation, $Context) {
                 if ($entry.Key -notmatch '\A[A-Za-z][A-Za-z0-9.-]+\z' -or (Get-FileHash -LiteralPath $code).Hash -cne $entry.Value) { throw 'Installed runner hash differs.' }
             }
             Assert-CampaignQueue $Context $status
-            return @{ ready = $true }
+            if($Context.case.ContainsKey('lanRejoin') -and $Context.case.lanRejoin){
+                if(-not $status.ContainsKey('gunsLanRejoin') -or $status.gunsLanRejoin -isnot [bool] -or
+                   -not $status.gunsLanRejoin -or $status.pending -gt 6){throw 'LAN rejoin requires two free slots and the installed capability.'}
+                if($update.ContainsKey('pendingUpdate') -and $update.pendingUpdate){throw 'Runner update is pending.'}
+                $desktop=$status.worker['desktopPreflight']
+                $renderer=$status.worker['rendererPreflight']
+                $roles=@('root-qconsole','root-console','cstrike-qconsole','cstrike-console')
+                if(-not $desktop -or $desktop.ready -isnot [bool] -or -not $desktop.ready -or
+                   $desktop.code -cne 'ready' -or -not $desktop.utc){throw 'Ready interactive desktop required.'}
+                $observed=ConvertTo-CampaignRuntimeUtc $desktop.utc
+                if($observed -lt [DateTime]::UtcNow.AddSeconds(-75) -or $observed -gt [DateTime]::UtcNow.AddSeconds(5)){
+                    throw 'Stale desktop readiness.'
+                }
+                if(-not $renderer -or $renderer.status -cne 'observed' -or $renderer.gameClosed -isnot [bool] -or
+                   -not $renderer.gameClosed -or @($renderer.files).Count -ne $roles.Count){throw 'Renderer log readiness missing.'}
+                foreach($role in $roles){
+                    $rows=@($renderer.files|Where-Object role -CEQ $role)
+                    if($rows.Count -ne 1 -or $rows[0].exists -isnot [bool] -or $rows[0].exists){throw 'Renderer log path is occupied or unverified.'}
+                }
+                return @{ready=$true;pending=$status.pending;target=$status.target}
+            }
+            return @{ready=$true}
         }
         { $_ -cin @('start','relay','stop') } {
             Assert-CampaignDocker
@@ -132,6 +181,10 @@ function Invoke-LabCampaignRuntime([string]$Operation, $Context) {
                     if ($runtime -and $runtime.status -ceq 'failed') { throw 'Fixture failed.' }
                     if ($runtime -and $runtime.status -ceq 'ready' -and $runtime.runtimeVerified -is [bool] -and $runtime.runtimeVerified) {
                         Assert-CampaignWeaponsReadiness $runtime $Context.case.panel
+                        if($Context.case.ContainsKey('lanRejoin') -and $Context.case.lanRejoin -and
+                           ($runtime['lanRejoin'] -ne $true -or $runtime['emptyAtStart'] -ne $true)){
+                            throw 'Verified vacant LAN rejoin fixture required.'
+                        }
                         return
                     }
                     Start-Sleep -Milliseconds 500
@@ -153,6 +206,12 @@ function Invoke-LabCampaignRuntime([string]$Operation, $Context) {
             $null = Invoke-CampaignPanel $Context 'auto-panel' @('-Panel',$Context.case.panel,'-Language',$Context.case.language)
             return
         }
+        { $_ -cin @('guns-round','guns-rejoin') } {
+            $ack=(Invoke-CampaignPanel $Context $Operation)|ConvertFrom-Json -AsHashtable
+            if($ack.id -cne $Context.case.jobId -or $ack.status -cne 'queued'){throw 'LAN dispatch receipt differs.'}
+            return
+        }
+        status { return (Invoke-CampaignPanel $Context 'status')|ConvertFrom-Json -AsHashtable }
         cancel { $null = Invoke-CampaignPanel $Context 'cancel'; return }
         result { return (Invoke-CampaignPanel $Context 'result') | ConvertFrom-Json -AsHashtable }
         images {

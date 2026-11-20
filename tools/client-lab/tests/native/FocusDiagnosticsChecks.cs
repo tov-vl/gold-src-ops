@@ -15,10 +15,8 @@ namespace GsoLab.Checks
         public IntPtr Window { get; set; }
         internal Action Focus;
         internal int Calls;
-        internal int Restores;
         internal FocusCapabilities Capabilities = new FocusCapabilities { Enabled = true, KeyboardFocusable = true };
         public FocusCapabilities Inspect() { return Capabilities; }
-        public void Restore() { Restores++; if (Focus != null) { Focus(); } }
         public void SetFocus() { Calls++; if (Focus != null) { Focus(); } }
     }
 
@@ -29,6 +27,8 @@ namespace GsoLab.Checks
         internal Func<IFocusElement> Lookup;
         internal int ForegroundCalls;
         internal int Lookups;
+        internal Func<ForegroundOwnerObservation> ReadOwner = () => null;
+        internal int OwnerReads;
         public bool TryForeground(IntPtr window)
         {
             if (window != new IntPtr(123)) { throw new InvalidOperationException("Wrong test HWND."); }
@@ -36,6 +36,7 @@ namespace GsoLab.Checks
             if (ForegroundError != null) { throw ForegroundError; }
             return Foreground;
         }
+        public ForegroundOwnerObservation ReadForegroundOwner() { OwnerReads++; return ReadOwner(); }
         public IFocusElement Find(IntPtr window) { Lookups++; return Lookup(); }
     }
 
@@ -56,9 +57,9 @@ namespace GsoLab.Checks
             Require(succeeded == expectedSuccess, "Focus outcome changed.");
             Require(platform.ForegroundCalls == 1 && platform.Lookups <= 1, "Focus was retried.");
             var observation = port.ReadFocusObservation();
-            var allowed = new[] { "Outcome", "Stage", "ForegroundAttempted", "ForegroundAccepted", "ProviderAttempted", "FailureCategory", "FailureHResult", "NativeFailureCode", "ElapsedMilliseconds", "Enabled", "KeyboardFocusable", "Offscreen", "WindowPatternAvailable", "WindowVisualState", "WindowReady", "Method" };
+            var allowed = new[] { "Outcome", "Stage", "ForegroundAttempted", "ForegroundAccepted", "ForegroundBefore", "ForegroundAfter", "ProviderAttempted", "FailureCategory", "FailureHResult", "NativeFailureCode", "ElapsedMilliseconds", "Enabled", "KeyboardFocusable", "Offscreen", "WindowPatternAvailable", "WindowVisualState", "WindowReady", "Method" };
             Require(new HashSet<string>(allowed, StringComparer.Ordinal).SetEquals(typeof(FocusObservation).GetProperties().Select(p => p.Name)), "Unexpected diagnostic property.");
-            Require(observation.ForegroundAttempted && observation.ElapsedMilliseconds >= 0, "Attempt timing was not recorded.");
+            Require(observation.ForegroundAttempted && observation.ElapsedMilliseconds >= 0 && platform.OwnerReads == 2, "Attempt timing or the two owner samples were not recorded.");
             foreach (var property in typeof(FocusObservation).GetProperties())
             {
                 var value = property.GetValue(observation, index: null) as string;
@@ -76,9 +77,22 @@ namespace GsoLab.Checks
             value = Attempt(platform, expectedSuccess: false);
             Require(Is(value.Outcome, "foreground_exception") && Is(value.FailureCategory, "win32") && value.NativeFailureCode == 5, "Native failure code was lost.");
             var acceptedElement = new FakeFocusElement { ProcessId = 456, Window = new IntPtr(123) };
-            platform = new FakeFocusPlatform { Lookup = () => acceptedElement };
-            value = Attempt(platform, expectedSuccess: true);
+            var observedPlatform = new FakeFocusPlatform { Lookup = () => acceptedElement };
+            observedPlatform.ReadOwner = () => observedPlatform.ForegroundCalls == 0
+                ? new ForegroundOwnerObservation(888, @"C:\private-sentinel\explorer.exe")
+                : new ForegroundOwnerObservation(999);
+            value = Attempt(observedPlatform, expectedSuccess: true);
             Require(Is(value.Outcome, "provider_returned") && Is(value.Stage, "provider_completed") && acceptedElement.Calls == 1 && value.ForegroundAccepted == false, "Provider success is distinct from actual foreground.");
+            Require(value.ForegroundBefore.ProcessId == 888 && Is(value.ForegroundBefore.Executable, "explorer.exe") &&
+                value.ForegroundAfter.ProcessId == 999 && value.ForegroundAfter.Executable == null, "Owner samples must contain only independently observed PIDs and executable names.");
+            var ownerFields = new[] { "ProcessId", "Executable" };
+            Require(new HashSet<string>(ownerFields, StringComparer.Ordinal)
+                .SetEquals(typeof(ForegroundOwnerObservation).GetProperties().Select(p => p.Name)), "Owner observation exposes more than PID and executable name.");
+            Require(new ForegroundOwnerObservation(123, "bad\rname.exe").Executable == null &&
+                new ForegroundOwnerObservation(123, new string('a', 97) + ".exe").Executable == null, "Unbounded or unsafe executable name was retained.");
+            platform = new FakeFocusPlatform { Foreground = true, ReadOwner = delegate { throw new Win32Exception("private-sentinel"); } };
+            value = Attempt(platform, expectedSuccess: true);
+            Require(value.ForegroundAccepted == true && value.ForegroundBefore == null && value.ForegroundAfter == null, "Owner lookup failure must not change activation.");
             foreach (var wrong in new IFocusElement[] { null, new FakeFocusElement { ProcessId = 999, Window = new IntPtr(123) }, new FakeFocusElement { ProcessId = 456, Window = new IntPtr(124) } })
             {
                 var candidate = wrong;
@@ -107,11 +121,11 @@ namespace GsoLab.Checks
                 var timedOut = false;
                 try { OwnedFocus.TryFocus(port, new IntPtr(123)); } catch (InvalidOperationException) { timedOut = true; }
                 value = port.ReadFocusObservation();
-                Require(timedOut && Is(value.Outcome, "provider_timeout") && Is(value.Stage, "element_lookup") && !value.FailureHResult.HasValue, "Timeout was conflated with a provider exception.");
+                Require(timedOut && Is(value.Outcome, "provider_timeout") && Is(value.Stage, "set_focus") && !value.FailureHResult.HasValue, "SetFocus timeout was conflated with a provider exception.");
                 delayed.Release();
                 Require(delayed.WaitFinished(), "Inert late provider did not finish.");
                 var after = port.ReadFocusObservation();
-                Require(ReferenceEquals(value, after) && Is(after.Stage, "element_lookup") && Is(after.Outcome, "provider_timeout"), "Late provider changed the sealed diagnostic.");
+                Require(ReferenceEquals(value, after) && Is(after.Stage, "set_focus") && Is(after.Outcome, "provider_timeout"), "Late provider changed the sealed diagnostic.");
                 Require(platform.ForegroundCalls == 1 && platform.Lookups == 1 && delayed.Element.Calls == 1, "Timeout caused a retry.");
             }
             var trace = new FocusObservation { Outcome = "provider_exception", Stage = "set_focus", FailureCategory = "invalid_operation" };
@@ -136,9 +150,9 @@ namespace GsoLab.Checks
         internal readonly FakeFocusElement Element;
         internal DelayedFocusFixture()
         { Element = new FakeFocusElement { ProcessId = 456, Window = new IntPtr(123), Focus = Finish }; }
-        private void Finish() { _finished = true; }
+        private void Finish() { _release.Wait(millisecondsTimeout: 5000); _finished = true; }
         private bool IsFinished() { return _finished; }
-        internal IFocusElement Find() { _release.Wait(millisecondsTimeout: 5000); return Element; }
+        internal IFocusElement Find() { return Element; }
         internal void Release() { _release.Set(); }
         internal bool WaitFinished() { return SpinWait.SpinUntil(IsFinished, millisecondsTimeout: 2000); }
         public void Dispose()

@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 function Assert-LabInteractionBindings([string]$GameRoot) {
     $path=Join-Path $GameRoot 'cstrike\config.cfg'
     foreach($item in @($GameRoot,(Join-Path $GameRoot 'cstrike'),$path)) {
@@ -251,6 +251,8 @@ function Invoke-LabRulesInteraction([string]$Root,$Policy,$Job,$Result,[hashtabl
 #requires -Version 5.1
 $script:LabGunsBaselines = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{{GUNS_BASELINES}}')) | ConvertFrom-Json
 function ConvertFrom-LabRunnerCommand([string]$Command) {
+    $rejoin=[regex]::Match($Command,'\A(guns-round|guns-rejoin) ([0-9a-f-]{36})\z')
+    if($rejoin.Success){Assert-LabId $rejoin.Groups[2].Value;return @{operation=$rejoin.Groups[1].Value;id=$rejoin.Groups[2].Value;language='en'}}
     $checkpoint=[regex]::Match($Command,'\Acheckpoint ([0-9a-f-]{36}) (primary-exit|primary-reopened|pistol-selected-close|pistol-exit)\z')
     if($checkpoint.Success){Assert-LabId $checkpoint.Groups[1].Value;return @{operation='checkpoint';id=$checkpoint.Groups[1].Value;checkpoint=$checkpoint.Groups[2].Value}}
     $guns=[regex]::Match($Command,'\Acapture-guns ([0-9a-f-]{36}) (ru|en)\z')
@@ -262,13 +264,26 @@ function ConvertFrom-LabRunnerCommand([string]$Command) {
     return ConvertFrom-LabCommand $Command
 }
 
+function Get-LabRejoinPhase($Job) {
+    if($Job -is [Collections.IDictionary]){return $Job['rejoinPhase']}
+    if($Job.PSObject.Properties['rejoinPhase']){return $Job.rejoinPhase}
+}
+
 function Assert-LabRunnerJob($Job) {
+    $fields=@($Job.PSObject.Properties.Name|Sort-Object)
+    if('rejoinPhase' -cin $fields){
+        $phase=Get-LabRejoinPhase $Job
+        if($Job.language -cne 'en' -or $phase -isnot [string] -or
+           -not (($phase -ceq 'round' -and $Job.action -ceq 'verify-panel' -and $Job.panel -ceq 'guns') -or
+                 ($phase -ceq 'rejoin' -and $Job.action -ceq 'capture-guns'))){throw 'Invalid LAN rejoin job.'}
+        $fields=@($fields|Where-Object {$_ -cne 'rejoinPhase'})
+    }
     if($Job.action -ceq 'capture-guns'){
-        if((@($Job.PSObject.Properties.Name|Sort-Object)-join ',') -cne 'action,createdUtc,id,language'){throw 'Invalid weapons capture record.'}
+        if(($fields -join ',') -cne 'action,createdUtc,id,language'){throw 'Invalid weapons capture record.'}
         Assert-LabJob ([pscustomobject]@{id=$Job.id;action='verify-rules';createdUtc=$Job.createdUtc;language=$Job.language});return
     }
     if($Job.action -cne 'verify-panel'){Assert-LabJob $Job;return}
-    if((@($Job.PSObject.Properties.Name|Sort-Object)-join ',') -cne 'action,createdUtc,id,language,panel' -or
+    if(($fields -join ',') -cne 'action,createdUtc,id,language,panel' -or
         $Job.panel -isnot [string] -or $Job.panel -cnotin @('ranks','profile','topall','guns')){throw 'Invalid fixed panel interaction record.'}
     Assert-LabJob ([pscustomobject]@{id=$Job.id;action='verify-rules';createdUtc=$Job.createdUtc;language=$Job.language})
 }
@@ -282,6 +297,8 @@ function Get-LabInteractionPanel($Job) {
 
 function Get-LabAutonomousProfile($Job) {
     $panel=Get-LabInteractionPanel $Job
+    $phase=Get-LabRejoinPhase $Job
+    if($phase){return 'guns-lan-'+$phase+'-1920x1200-v1'}
     if($Job.action -ceq 'capture-guns'){return 'guns-baseline-v299-1920x1200-v4'}
     if($panel -ceq 'guns'){return 'guns-v299-1920x1200-v4'}
     if($panel -ceq 'rules'){return 'rules-v299-1920x1200-v1'}
@@ -355,6 +372,7 @@ function New-LabAutonomousMode([string]$Root,$Job) {
 }
 
 function Initialize-LabInteractionTypes([string]$Source) {
+    if('GsoLab.Interaction.GameWindow' -as [type]){return}
     if($PSVersionTable.PSVersion.Major -ge 7){
         $desktop=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) ('dotnet\shared\Microsoft.WindowsDesktop.App\'+[Environment]::Version.ToString())
         $references=@(Get-ChildItem -LiteralPath (Join-Path $PSHOME 'ref') -Filter '*.dll' -File|Select-Object -ExpandProperty FullName)
@@ -421,7 +439,9 @@ function Assert-LabAutoVisual($Assessment,[int]$FrameNumber) {
 }
 
 function New-LabAutoPhaseClaim([string]$Destination,$Job,[string]$Phase,[string]$Hash) {
-    if($Phase -cnotin @('ok-first','controls','reopen','ok-last','guns-menu-open','guns-setup-open-settings','guns-setup-open-languages','guns-setup-language-ru','guns-setup-language-en','guns-setup-close-player-menu','guns-setup-ack-ru','guns-setup-ack-en','guns-capture-primary-default','guns-capture-pistol-default','guns-capture-primary-selected','guns-capture-pistol-selected','guns-baseline-select-primary','guns-baseline-select-pistol','guns-baseline-repeat-primary','guns-baseline-reopen') -or $Hash -cnotmatch '\A[0-9A-F]{64}\z'){throw 'Invalid fixed phase claim.'}
+    $allowed=@('ok-first','controls','reopen','ok-last','guns-menu-open','guns-setup-open-settings','guns-setup-open-languages','guns-setup-language-ru','guns-setup-language-en','guns-setup-close-player-menu','guns-setup-ack-ru','guns-setup-ack-en','guns-capture-primary-default','guns-capture-pistol-default','guns-capture-primary-selected','guns-capture-pistol-selected','guns-baseline-select-primary','guns-baseline-select-pistol','guns-baseline-repeat-primary','guns-baseline-reopen')
+    if((Get-LabRejoinPhase $Job) -ceq 'round'){$allowed+=@('guns-warmup-open','guns-warmup-close')}
+    if($Phase -cnotin $allowed -or $Hash -cnotmatch '\A[0-9A-F]{64}\z'){throw 'Invalid fixed phase claim.'}
     if((Get-Item -LiteralPath $Destination).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked phase destination.'}
     $path=Join-Path $Destination ('auto-phase-'+$Phase+'.json')
     $stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
@@ -529,11 +549,22 @@ function Invoke-LabAutonomousRulesInteraction([string]$Root,$Policy,$Job,$Result
 }
 
 
+function Get-LabForegroundOwnerProjection($Owner) {
+    if(-not $Owner -or -not $Owner.PSObject.Properties['ProcessId'] -or $Owner.ProcessId -isnot [int] -or $Owner.ProcessId -le 0){return $null}
+    $executable=$null
+    if($Owner.PSObject.Properties['Executable'] -and $Owner.Executable -is [string] -and $Owner.Executable -cmatch '\A[A-Za-z0-9_. -]{1,96}\.[Ee][Xx][Ee]\z'){
+        $executable=$Owner.Executable
+    }
+    return @{processId=$Owner.ProcessId;executable=$executable}
+}
+
 function Get-LabFocusProjection($Window) {
     if(-not $Window -or -not $Window.PSObject.Properties['FocusAttempt'] -or -not $Window.FocusAttempt){return $null}
     $raw=$Window.FocusAttempt
     return @{outcome=[string]$raw.Outcome;stage=[string]$raw.Stage;foregroundAttempted=[bool]$raw.ForegroundAttempted;
         foregroundAccepted=$raw.ForegroundAccepted;providerAttempted=[bool]$raw.ProviderAttempted;
+        foregroundBefore=$(if($raw.PSObject.Properties['ForegroundBefore']){Get-LabForegroundOwnerProjection $raw.ForegroundBefore});
+        foregroundAfter=$(if($raw.PSObject.Properties['ForegroundAfter']){Get-LabForegroundOwnerProjection $raw.ForegroundAfter});
         failureCategory=[string]$raw.FailureCategory;hresult=$raw.FailureHResult;nativeCode=$raw.NativeFailureCode;
         elapsedMilliseconds=[int]$raw.ElapsedMilliseconds;enabled=$raw.Enabled;keyboardFocusable=$raw.KeyboardFocusable;offscreen=$raw.Offscreen;windowPatternAvailable=$raw.WindowPatternAvailable;windowVisualState=$raw.WindowVisualState;windowReady=$raw.WindowReady;method=[string]$raw.Method}
 }
@@ -542,10 +573,16 @@ function New-LabGunsProgram($Job) {
     Assert-LabRunnerJob $Job
     if((Get-LabInteractionPanel $Job) -cne 'guns'){throw 'Weapons bootstrap required.'}
     # One-shot native acknowledgements only; no stage file or server-triggered exec.
-    return (@('alias gso_lab_join "alias gso_lab_join; jointeam 1; wait; joinclass 1"',
+    $program=@('alias gso_lab_join "alias gso_lab_join; jointeam 1; wait; joinclass 1"',
         'alias gso_lab_spawn "alias gso_lab_spawn; snapshot"',
         'alias gso_lab_ack "alias gso_lab_ack; snapshot"',
-        'alias gso_lab_respawn "alias gso_lab_respawn; snapshot"') -join "`r`n")+"`r`n"
+        'alias gso_lab_respawn "alias gso_lab_respawn; snapshot"')
+    if((Get-LabRejoinPhase $Job) -ceq 'round'){
+        $program+=@(
+            'alias gso_lab_continuity_request "alias gso_lab_continuity_request; say_team /gso_lab_continuity_received; snapshot"',
+            'alias gso_lab_round_ready "alias gso_lab_round_ready; snapshot"')
+    }
+    return ($program -join "`r`n")+"`r`n"
 }
 
 function Invoke-LabGunsSetup([string]$Root,$Policy,$Job,$Result,$Clock,$Window,[hashtable]$Baseline,[string]$ResultPath,[hashtable]$Diagnostic=@{}) {
@@ -605,8 +642,16 @@ function Receive-LabGunsMenu([string]$Root,$Policy,$Job,$Result,$Readiness,[hash
     $window.CheckReady()
     $number=@($Result.images).Count+1
     $label=(Get-LabRunnerCaptureLabels $Job)[$number-1]
-    $hash=if($number -eq 1){$Result.readiness.setupSnapshot.sha256}else{$Result.images[-1].sha256}
+    $hash=if($number -ne 1){$Result.images[-1].sha256}elseif((Get-LabRejoinPhase $Job) -ceq 'round' -and $Result.interaction.warmup.acknowledged){
+        $Result.interaction.warmup.roundSha256
+    }else{$Result.readiness.setupSnapshot.sha256}
     $null=New-LabAutoPhaseClaim $destination $Job ('guns-capture-'+$label) $hash
+    if(Get-LabRejoinPhase $Job){
+        Save-LabOwnedWindowFrame $window $Result $destination
+        $Result['frameObservedElapsed']=Get-LabAutoElapsed $clock
+        Write-LabJson $ResultPath $Result
+        return
+    }
     $window.Snapshot()
     $deadline=(Get-LabAutoElapsed $clock)+10
     while((Get-LabAutoElapsed $clock) -lt $deadline){
@@ -623,13 +668,19 @@ function Receive-LabGunsMenu([string]$Root,$Policy,$Job,$Result,$Readiness,[hash
     throw 'Native menu snapshot missing; do not repeat the key.'
 }
 
-function Open-LabGunsMenu([string]$Root,$Policy,$Job,$Result,$Readiness,[string]$ResultPath){
+function Open-LabGunsMenu([string]$Root,$Policy,$Job,$Result,$Readiness,[string]$ResultPath,[switch]$Preview){
     Assert-LabAutoContext $Root $Policy $Job $Readiness.clock -BeforeInput
     Assert-LabInteractionOwner $Policy $Result
     $Readiness.window.CheckReady()
     $hash=$Result.readiness.setupSnapshot.sha256
-    if((Get-LabAutoElapsed $Readiness.clock)-$Result.readiness.setupObservedElapsed -ge (Get-LabInteractionLimits).frameSeconds){throw 'Ready setup became stale.'}
-    $null=New-LabAutoPhaseClaim (Split-Path -Parent $ResultPath) $Job 'guns-menu-open' $hash
+    $observed=$Result.readiness.setupObservedElapsed
+    $phase=if($Preview){'guns-warmup-open'}else{'guns-menu-open'}
+    if(-not $Preview -and (Get-LabRejoinPhase $Job) -ceq 'round' -and $Result.interaction.warmup.acknowledged){
+        $hash=$Result.interaction.warmup.roundSha256
+        $observed=$Result.interaction.warmup.observedElapsed
+    }
+    if((Get-LabAutoElapsed $Readiness.clock)-$observed -ge (Get-LabInteractionLimits).frameSeconds){throw 'Ready setup became stale.'}
+    $null=New-LabAutoPhaseClaim (Split-Path -Parent $ResultPath) $Job $phase $hash
     $Readiness.window.ReopenGuns()
     Wait-LabAutoTick 500
 }
@@ -826,6 +877,69 @@ function Receive-LabGunsRespawnFrame([string]$Root,$Policy,$Job,$Result,$Clock,$
     throw 'Server respawn snapshot missing.'
 }
 
+function Wait-LabGunsWarmup([string]$Root,$Policy,$Job,$Result,$Readiness,[hashtable]$Baseline,[string]$ResultPath) {
+    $clock=$Readiness.clock
+    $window=$Readiness.window
+    $destination=Split-Path -Parent $ResultPath
+    $private=Join-Path $destination 'round-warmup'
+    New-Item -ItemType Directory -Path $private -ErrorAction Stop|Out-Null
+    $Result.interaction.warmup=@{acknowledged=$false;previewSha256=$null;roundSha256=$null}
+    $Result.failureCode='guns_warmup_preview_failed'
+    Open-LabGunsMenu $Root $Policy $Job $Result $Readiness $ResultPath -Preview
+    Assert-LabAutoContext $Root $Policy $Job $clock -BeforeInput
+    Assert-LabInteractionOwner $Policy $Result
+    $window.CheckReady()
+    $preview=$window.CaptureFrame()
+    $null=Get-LabGunsAssessment $preview primary-default $Job.language
+    $sha=[Security.Cryptography.SHA256]::Create()
+    try{$hash=[BitConverter]::ToString($sha.ComputeHash($preview)).Replace('-','')}finally{$sha.Dispose()}
+    $null=New-LabAutoPhaseClaim $destination $Job 'guns-warmup-close' $hash
+    $Result.interaction.warmup.previewSha256=$hash
+    Write-LabJson $ResultPath $Result
+    $window.SelectGunsItem('exit-primary')
+    $Result.failureCode='guns_warmup_round_missing'
+    $deadline=(Get-LabAutoElapsed $clock)+25
+    while((Get-LabAutoElapsed $clock) -lt $deadline){
+        Assert-LabAutoContext $Root $Policy $Job $clock
+        Assert-LabInteractionOwner $Policy $Result
+        $window.CheckReady()
+        $ack=@{images=@()}
+        if(Receive-LabInteractionFrame $Policy $ack $Baseline $private){
+            $Result.interaction.warmup.roundSha256=$ack.images[0].sha256
+            $Result.interaction.warmup.observedElapsed=Get-LabAutoElapsed $clock
+            $Result.interaction.warmup.acknowledged=$true
+            $Result.failureCode=$null
+            Write-LabJson $ResultPath $Result
+            return
+        }
+        Wait-LabAutoTick 200
+    }
+    throw 'The fixture did not acknowledge the first round with both bots.'
+}
+
+function Wait-LabOwnedRelaunchReceipt([string]$Root,$Policy,$Job,$Result,$Clock,$Window,[hashtable]$Baseline,[string]$Destination) {
+    if((Get-LabRejoinPhase $Job) -cne 'round'){throw 'Fixed rejoin scenario required.'}
+    $directory=Join-Path $Destination 'continuity-close'
+    New-Item -ItemType Directory -Path $directory -ErrorAction Stop|Out-Null
+    $Result.interaction.continuity=@{phase='await-next-round-snapshot';roundReadySha256=$null}
+    $Result.failureCode='continuity_close_receipt_missing'
+    $deadline=(Get-LabAutoElapsed $Clock)+100
+    while((Get-LabAutoElapsed $Clock) -lt $deadline){
+        Assert-LabAutoContext $Root $Policy $Job $Clock
+        Assert-LabInteractionOwner $Policy $Result
+        $Window.CheckReady()
+        $ack=@{images=@()}
+        if(Receive-LabInteractionFrame $Policy $ack $Baseline $directory){
+            $Result.interaction.continuity.roundReadySha256=$ack.images[0].sha256
+            $Result.interaction.continuity.phase='ready-for-owned-close'
+            $Result.failureCode=$null
+            return
+        }
+        Wait-LabAutoTick 200
+    }
+    throw 'The fixture did not acknowledge the next round.'
+}
+
 function Invoke-LabAutonomousGunsInteraction([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseline,[DateTime]$LaunchUtc,[string]$ResultPath,$Readiness) {
     Assert-LabRunnerJob $Job
     Assert-LabGunsBindings $Policy.gameRoot
@@ -836,6 +950,9 @@ function Invoke-LabAutonomousGunsInteraction([string]$Root,$Policy,$Job,$Result,
     $Result.labels=@(Get-LabRunnerCaptureLabels $Job)
     $clock=$Readiness.clock;$window=$Readiness.window;$destination=Split-Path -Parent $ResultPath
     try{
+        if((Get-LabRejoinPhase $Job) -ceq 'round'){
+            Wait-LabGunsWarmup $Root $Policy $Job $Result $Readiness $Baseline $ResultPath
+        }
         Open-LabGunsMenu $Root $Policy $Job $Result $Readiness $ResultPath
         Receive-LabGunsMenu $Root $Policy $Job $Result $Readiness $Baseline $ResultPath
         $Result.interaction.frameObservedElapsed=Get-LabAutoElapsed $clock
@@ -884,6 +1001,9 @@ function Invoke-LabAutonomousGunsInteraction([string]$Root,$Policy,$Job,$Result,
         $frame=$Result.images[-1]
         $observation=Get-LabGunsAssessment ([IO.File]::ReadAllBytes((Join-Path $destination 'image-5.bin'))) scene $Job.language
         $Result.interaction.assessments+=@{number=5;observation=$observation}
+        if((Get-LabRejoinPhase $Job) -ceq 'round'){
+            Wait-LabOwnedRelaunchReceipt $Root $Policy $Job $Result $clock $window $Baseline $destination
+        }
         $Result.status='autonomous_captured_unreviewed'
         Write-LabJson $ResultPath $Result
     }catch{
@@ -893,7 +1013,44 @@ function Invoke-LabAutonomousGunsInteraction([string]$Root,$Policy,$Job,$Result,
     }
 }
 
-function Get-LabTerminalArchiveCandidates([string]$Root) {
+function Get-LabQueueAudit([string]$Root) {
+    $queue=Join-Path $Root 'queue'
+    if((Get-Item -LiteralPath $queue).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked queue.'}
+    $files=@(Get-ChildItem -LiteralPath $queue -Filter '*.json' -File)
+    if($files.Count -gt 8){throw 'Queue inventory limit exceeded.'}
+    foreach($file in $files){
+        $job=Read-LabJson $file.FullName
+        Assert-LabId $file.BaseName
+        if($job.id -cne $file.BaseName){throw 'Queue identity differs.'}
+        $paths=Get-LabPaths $Root $job.id
+        $row=@{id=$job.id;state='unclaimed';expired=[DateTime]::UtcNow -ge (ConvertTo-LabUtc $job.createdUtc).AddMinutes(3)}
+        if(Test-Path -LiteralPath $paths.result){
+            $dir=Get-Item -LiteralPath $paths.result
+            if(-not $dir.PSIsContainer -or ($dir.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Invalid result directory.'}
+            $row.state='claim_without_report'
+            $path=Join-Path $dir.FullName 'result.json'
+            if(Test-Path -LiteralPath $path){
+                $result=Read-LabJson $path
+                if($result.id -cne $job.id){throw 'Result identity differs.'}
+                $row.state='report_incomplete'
+                if($result.PSObject.Properties['completedUtc'] -and $result.completedUtc){
+                    $completed=ConvertTo-LabUtc $result.completedUtc
+                    if($completed -lt (ConvertTo-LabUtc $job.createdUtc) -or $completed -gt [DateTime]::UtcNow.AddSeconds(10)){
+                        throw 'Queue report lifetime differs.'
+                    }
+                    $row.state=switch -CaseSensitive ($result.status){
+                        rejected_preflight {'preflight_rejected'}
+                        uncertain_cleanup {'cleanup_uncertain'}
+                        default {'completed'}
+                    }
+                }
+            }
+        }
+        $row
+    }
+}
+
+function Get-LabTerminalArchiveCandidates([string]$Root, [switch]$RetainedPrelaunch) {
     $queue=Join-Path $Root 'queue'
     if((Get-Item -LiteralPath $queue).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked queue.'}
     $files=@(Get-ChildItem -LiteralPath $queue -Filter '*.json' -File)
@@ -907,7 +1064,27 @@ function Get-LabTerminalArchiveCandidates([string]$Root) {
         $result=Read-LabJson $path
         if($result.id -cne $job.id){throw 'Result identity differs.'}
         if(-not $result.PSObject.Properties['completedUtc'] -or -not $result.completedUtc){continue}
-        if($result.cleanupVerified -isnot [bool] -or -not $result.cleanupVerified -or $result.configCleanupVerified -isnot [bool] -or -not $result.configCleanupVerified){continue}
+        $cleanupVerified=$result.cleanupVerified -is [bool] -and $result.cleanupVerified -and
+            $result.configCleanupVerified -is [bool] -and $result.configCleanupVerified
+        if($RetainedPrelaunch){
+            # Older workers did not set the cleanup flags when neither the game nor its config was created.
+            $fields=@('launchRequested','launchCommandDispatched','gamePid','gameStartedUtc','cleanup')
+            if($cleanupVerified -or $result.status -cne 'rejected_preflight' -or
+                @($fields|Where-Object {-not $result.PSObject.Properties[$_]}).Count){continue}
+            if($result.launchRequested -isnot [bool] -or $result.launchRequested -or
+                $result.launchCommandDispatched -isnot [bool] -or $result.launchCommandDispatched -or
+                $null -ne $result.gamePid -or $null -ne $result.gameStartedUtc -or
+                -not $result.cleanup -or -not $result.cleanup.PSObject.Properties['game'] -or
+                -not $result.cleanup.PSObject.Properties['config'] -or
+                $result.cleanup.game -cne 'not_required' -or $result.cleanup.config -cne 'not_created'){continue}
+            $completed=ConvertTo-LabUtc $result.completedUtc
+            if($completed -lt (ConvertTo-LabUtc $job.createdUtc) -or $completed -gt [DateTime]::UtcNow.AddSeconds(10)){
+                throw 'Retained queue result lifetime differs.'
+            }
+            $job.id
+            continue
+        }
+        if(-not $cleanupVerified){continue}
         if($result.status -cnotin @('captured_unreviewed','interaction_captured_unreviewed','autonomous_captured_unreviewed','uncertain_timeout','uncertain_launch','uncertain_capture','uncertain_error','rejected_preflight')){continue}
         if((ConvertTo-LabUtc $result.completedUtc) -gt [DateTime]::UtcNow.AddSeconds(10)){throw 'Future terminal result.'}
         # Metadata for the existing signed archive operation only. Nothing is moved or deleted here.

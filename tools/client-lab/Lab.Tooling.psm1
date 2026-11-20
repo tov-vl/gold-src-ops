@@ -74,4 +74,4 @@ function Expand-LabTemplate([string]$Text, [hashtable]$Tokens) {
     return $result
 }
 
-Export-ModuleMember -Function Read-LabProfile, Assert-LabOutputPath, Expand-LabTemplate
+Export-ModuleMember -Function Read-LabProfile, Assert-LabOutputPath, Assert-LabShape, Expand-LabTemplate

@@ -1,9 +1,8 @@
 """One disposable HLDS instance from existing local inputs; no downloader or credentials."""
-import hashlib
+import socket
 import json
 import os
 from pathlib import Path
-import re
 import shutil
 import signal
 import subprocess
@@ -13,7 +12,9 @@ import time
 
 import fixture_base as base
 
-PLUGIN = '257f90ba56199d36ed3699d5299b482771d1bd550204946792bdb7276dbcb40d'
+PLUGIN = '{{PLUGIN_SHA256}}'
+LAN_REJOIN = {{LAN_REJOIN}} == 1
+CONTINUITY = '{{CONTINUITY_SHA256}}'
 DICTIONARY = '71b1ea3a49331e16e1383817849f04d702ee559c1be11c3e825172f0c5c939b7'
 SDK = '47163830cbb9888e1a8162b7b5054c7118159ec05001059a9cf1d0fec466a43c'
 
@@ -21,6 +22,33 @@ SDK = '47163830cbb9888e1a8162b7b5054c7118159ec05001059a9cf1d0fec466a43c'
 def check(path, expected):
     if base.digest(path) != expected:
         raise RuntimeError('Pinned local input differs: ' + Path(path).name)
+
+
+def vacant_info(reply, name):
+    if not reply.startswith(b'\xff\xff\xff\xffI') or not 6 < len(reply) <= 4096:
+        return False
+    fields = reply[6:].split(b'\0', 4)
+    if len(fields) != 5:
+        return False
+    server, map_name, folder, _, tail = fields
+    return ((server, map_name, folder) == (name.encode('ascii'), b'de_dust2', b'cstrike')
+            and len(tail) >= 9 and tail[0:2] == b'\x0a\0' and tail[2] == tail[4] == 0)
+
+
+def fixture_is_vacant(name):
+    query = b'\xff\xff\xff\xffTSource Engine Query\0'
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
+            udp.settimeout(0.5)
+            udp.connect(('127.0.0.1', 27025))
+            udp.send(query)
+            reply = udp.recv(4097)
+            if reply.startswith(b'\xff\xff\xff\xffA') and len(reply) == 9:
+                udp.send(query + reply[5:9])
+                reply = udp.recv(4097)
+            return vacant_info(reply, name)
+    except OSError:
+        return False
 
 
 def main():
@@ -77,12 +105,34 @@ def main():
         base.HOST = '0.0.0.0'
         base.CONFIGS['cstrike/server.cfg'] = base.CONFIGS['cstrike/server.cfg'].replace('Isolated client acceptance', status['name'])
         base.CONFIGS['cstrike/server.cfg'] += 'mp_forcerespawn 1\nmp_respawn_immunitytime 2\nmp_respawn_immunity_force_unset 2\n'
-        check('/inputs/fixture_vgui_guard.amxx', '05ccfb65a9abc9c5b65c429c7fa7f928e1595e138d3885c2f7e08ca46b3f5095')
+        check('/inputs/fixture_vgui_guard.amxx', '{{GUARD_SHA256}}')
         base.CONFIGS['cstrike/server.cfg'] += 'gso_lab_readiness {{GUNS_READINESS}}\n'
+        if LAN_REJOIN:
+            base.CONFIGS['cstrike/server.cfg'] += 'gso_lab_guns_round_warmup 1\n'
         helper = 'cstrike/addons/amxmodx/plugins/fixture_vgui_guard.amxx'
         shutil.copyfile('/inputs/fixture_vgui_guard.amxx', source / helper)
         base.REQUIRED += (helper,)
         base.CONFIGS['cstrike/addons/amxmodx/configs/plugins.ini'] = 'fixture_vgui_guard.amxx\n' + base.CONFIGS['cstrike/addons/amxmodx/configs/plugins.ini']
+        if LAN_REJOIN:
+            continuity = 'cstrike/addons/amxmodx/plugins/fixture_continuity.amxx'
+            check('/inputs/fixture_continuity.amxx', CONTINUITY)
+            shutil.copyfile('/inputs/fixture_continuity.amxx', source / continuity)
+            base.REQUIRED += (continuity,)
+            base.CONFIGS['cstrike/addons/amxmodx/configs/plugins.ini'] += 'fixture_continuity.amxx\n'
+            base.CONFIGS['cstrike/server.cfg'] += 'mp_round_infinite 0\nsv_timeout 12\n'
+            module = 'cstrike/addons/amxmodx/modules/nvault_amxx_i386.so'
+            check('/inputs/nvault_amxx_i386.so', 'e6a24a81b205410e9b5eb62ca3b1e2bb8f49a0480d5e84b177d7a57c512a0af6')
+            shutil.copyfile('/inputs/nvault_amxx_i386.so', source / module)
+            base.CONFIGS['cstrike/game_init.cfg'] = 'bot_enable 1\n'
+            base.CONFIGS['cstrike/BotProfile.db'] = 'Default\n    Skill = 45\n    Aggression = 60\n    ReactionTime = 0.35\n    AttackDelay = 0\n    Difficulty = EASY+NORMAL+HARD+EXPERT\nEnd\nTemplate Lab\n    WeaponPreference = ak47\n    WeaponPreference = m4a1\n    WeaponPreference = deagle\nEnd\nLab LabAlpha\nEnd\nLab LabBravo\nEnd\n'
+            base.CONFIGS['cstrike/server.cfg'] += (
+                'bot_chatter off\nbot_join_after_player 0\nbot_quota_mode normal\n'
+                'bot_quota 0\nbot_difficulty 0\nbot_stop 1\nmp_roundtime 1\n'
+            )
+            nav_path = source / 'cstrike/maps/de_dust2.nav'
+            check('/inputs/de_dust2.nav', '9a44381363572f05d42fa4f82b293f54e49c93d60a4471d2fe8396ecceb77753')
+            shutil.copyfile('/inputs/de_dust2.nav', nav_path)
+            base.ASSET_SUFFIXES.add('.nav')
         fixture = Path('/tmp/fixture')
         manifest = base.prepare(source, fixture, '/inputs/goldsrcops.amxx', PLUGIN, '/inputs/goldsrcops.txt', DICTIONARY)
         private = Path('/tmp/private')
@@ -90,7 +140,7 @@ def main():
         def arguments(root):
             return ['timeout', '--signal=TERM', '--kill-after=5', '2400', str(Path(root) / 'hlds_linux'),
                     '-norestart', '-nobreakpad', '-insecure', '-game', 'cstrike', '-console', '-strictportbind',
-                    '+ip', '0.0.0.0', '-port', '27025', '+map', 'de_dust2', '+servercfgfile', 'server.cfg', '-maxplayers', '2']
+                    '+ip', '0.0.0.0', '-port', '27025', '+map', 'de_dust2', '+servercfgfile', 'server.cfg', '-maxplayers', '4' if LAN_REJOIN else '2']
         base.launch_args = arguments
         # Drop only this container's process to the image's existing non-root steam identity.
         subprocess.run(['chown', '-R', 'steam:steam', '/tmp/fixture', '/tmp/private', '/evidence'], check=True)
@@ -105,10 +155,16 @@ def main():
         server.process.stdin.flush()
         time.sleep(1)
         log = server.read_private_log()
-        if b'WEAPON_SELECTION_STATUS version=0.39.0 enabled=1 choices=3 pistol_choices=3 ' not in log:
+        version = b'0.40.0' if LAN_REJOIN else b'0.39.0'
+        if b'WEAPON_SELECTION_STATUS version=' + version + b' enabled=1 choices=3 pistol_choices=3 ' not in log:
             raise RuntimeError('Pinned addon did not report ready')
         if any(p.name.startswith('error_') for p in (fixture / 'cstrike/addons/amxmodx/logs').glob('*')):
             raise RuntimeError('AMXX error file exists')
+        if LAN_REJOIN and not fixture_is_vacant(status['name']):
+            raise RuntimeError('LAN rejoin requires a vacant fixture at start')
+        if LAN_REJOIN:
+            status.update(lanRejoin=True, emptyAtStart=True)
+        trial_log_offset = len(log)
         status.update(status='ready', runtimeVerified=True, uid=os.getuid(), files=len(manifest['files']),
                       maxRuntimeSeconds=2400, readyUnix=time.time(), fixtureManifestSha256=base.digest(fixture / 'fixture.json'))
         # Retain a bounded operator-only startup log, never a game account or production payload.
@@ -118,9 +174,50 @@ def main():
         def request_stop(_signum, _frame):
             raise SystemExit(0)
         signal.signal(signal.SIGTERM, request_stop)
+        trial_bots_added = False
+        continuity_armed = False
+        reconnect_window = None
         while time.time() - started < 2400:
-            server.read_private_log()
-            time.sleep(2)
+            log = server.read_private_log()
+            if not LAN_REJOIN:
+                time.sleep(2)
+                continue
+            trial_log = log[trial_log_offset:]
+            if not trial_bots_added and b'FIXTURE_GUNS_WARMUP phase=preview-closed' in trial_log:
+                server.process.stdin.write(b'bot_quota 2\n')
+                server.process.stdin.flush()
+                trial_bots_added = True
+                status['trialBotsAddedAfterPreviewClosed'] = True
+                report()
+            if (trial_bots_added and not continuity_armed
+                    and b'FIXTURE_GUNS_CONTROL step=5 respawn=1 movement=1' in trial_log
+                    and b'"LabAlpha<' in trial_log and b'"LabBravo<' in trial_log):
+                server.process.stdin.write(b'gso_fixture_continuity_begin\n')
+                server.process.stdin.flush()
+                continuity_armed = True
+                status['continuityRequested'] = True
+                report()
+            if continuity_armed:
+                events = tuple(line.split(b'FIXTURE_CONTINUITY_', 1)[1]
+                               for line in trial_log.splitlines() if b'FIXTURE_CONTINUITY_' in line)
+                good_close = (b'CLIENT_CLOSE_ARMED observed=1', b'DISCONNECT observed=1')
+                good_round = b'NEXT_ROUND spawn=1 selected=1'
+                if (len(events) >= 6 and events[-2:] == good_close
+                        and all(events.count(event) == 1 for event in (*good_close, good_round))
+                        and reconnect_window is None):
+                    reconnect_window = time.time() - 1.0
+                    server.process.stdin.write(b'bot_quota 0\n')
+                    server.process.stdin.flush()
+                if (reconnect_window is not None and 'rejoinOpenedUnix' not in status
+                        and time.time() - reconnect_window < 25 and fixture_is_vacant(status['name'])):
+                    status['rejoinOpenedUnix'] = reconnect_window
+                    status['vacantForRejoin'] = True
+                    report()
+                if reconnect_window is not None and 'rejoinClosed' not in status:
+                    if any(event.startswith((b'RECONNECT ', b'TIMEOUT ')) for event in events):
+                        status['rejoinClosed'] = True
+                        report()
+            time.sleep(1)
         status['status'] = 'expired'
     except SystemExit:
         status['status'] = 'stopped'

@@ -1,4 +1,4 @@
-"""Run menu and optional real-ammo observer tests in the isolated engine harness."""
+"""Run fixture observer tests in the isolated engine harness."""
 import argparse
 import importlib.util
 import json
@@ -15,6 +15,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--compiled", required=True, type=Path)
     parser.add_argument("--ammo-compiled", type=Path)
+    parser.add_argument("--continuity-compiled", type=Path)
     parser.add_argument("--cache", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
@@ -33,12 +34,18 @@ def main():
     if args.ammo_compiled is not None:
         shutil.copyfile(args.ammo_compiled, compiled / "fixture_ammo_smoke.amxx")
         engine.FIXTURES["fixture_ammo_smoke.amxx"] = "tools/client-lab/tests/fixture-ammo-smoke.sma"
+    if args.continuity_compiled is not None:
+        shutil.copyfile(args.continuity_compiled, compiled / "fixture_continuity_smoke.amxx")
+        engine.FIXTURES["fixture_continuity_smoke.amxx"] = "tools/client-lab/tests/fixture_continuity_smoke.sma"
     original_identity = engine.source_identity
 
     def identity():
         sources = original_identity()
         path = "tools/client-lab/fixture_vgui_guard.sma"
         sources[path] = engine.digest(ROOT / path)
+        if args.continuity_compiled is not None:
+            path = "tools/client-lab/fixture_continuity.sma"
+            sources[path] = engine.digest(ROOT / path)
         return sources
 
     engine.source_identity = identity
@@ -49,6 +56,9 @@ def main():
     if args.ammo_compiled is not None:
         lock["cases"].append({"plugin": "fixture_ammo_smoke", "command": "gso_fixture_ammo_smoke",
                               "map": "de_dust2", "markers": ["FIXTURE_AMMO_SMOKE"]})
+    if args.continuity_compiled is not None:
+        lock["cases"].append({"plugin": "fixture_continuity_smoke", "command": "gso_fixture_continuity_smoke",
+                              "map": "de_dust2", "markers": ["FIXTURE_CONTINUITY_SMOKE"]})
     engine.LOCK = output / "test-lock.json"
     engine.LOCK.write_text(json.dumps(lock, indent=2) + "\n", encoding="utf-8")
     engine.execute(args.cache.resolve(), output / "runtime", bundle)

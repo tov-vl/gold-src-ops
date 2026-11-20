@@ -11,7 +11,7 @@ new bool:g_moved[33];
 new bool:g_reported[33];
 new Float:g_firstRules[33];
 new g_panel[33];
-new g_readiness;
+new g_readiness, g_roundWarmup;
 new bool:g_spawnReady[33], bool:g_setupSeen[33], bool:g_setupAck[33], bool:g_setupFailed[33];
 new g_setupStep[33], g_setupLanguage[33];
 new const PANELS[][] = { "rules", "ranks", "profile", "topall" };
@@ -48,7 +48,11 @@ public plugin_init()
 {
     register_plugin("Fixture interaction evidence", "1.6.3", "");
     g_readiness = register_cvar("gso_lab_readiness", "0");
+    g_roundWarmup = register_cvar("gso_lab_guns_round_warmup", "0");
+    register_logevent("GunsWarmupRoundStart", 2, "1=Round_Start");
+    RegisterHookChain(RG_CSGameRules_RestartRound, "GunsWarmupRestart");
     register_message(get_user_msgid("VGUIMenu"), "OnVguiMenu");
+    register_message(get_user_msgid("StatusIcon"), "ObserveGunsStatusIcon");
     register_clcmd("rules", "ObserveRules");
     register_clcmd("say_team /rules", "ObserveRulesAlias");
     register_clcmd("ranks", "ObserveRanks");
@@ -209,6 +213,74 @@ new Float:g_guns_origin[33][3], g_guns_buttons[33];
 new g_guns_resource[33];
 new bool:g_guns_backdrop[33];
 
+enum GunsWarmupPhase
+{
+    WarmupWaitingForPreview,
+    WarmupPreview,
+    WarmupClosingPreview,
+    WarmupWaitingForRound,
+    WarmupReady
+};
+new GunsWarmupPhase:g_warmup_phase[33];
+new bool:g_warmup_restarting[33], bool:g_warmup_spawned[33];
+
+bool:GunsWarmupApplies()
+{
+    return g_roundWarmup && get_pcvar_num(g_roundWarmup);
+}
+
+public ObserveGunsStatusIcon(message_id, destination, player)
+{
+    #pragma unused message_id
+    if (!GunsWarmupApplies() || destination != MSG_ONE || player < 1 || player > MaxClients
+        || is_user_bot(player) || is_user_hltv(player) || get_msg_args() < 2) { return PLUGIN_CONTINUE; }
+    new iconState = get_msg_arg_int(1);
+    if (iconState != 1 && iconState != 2) { return PLUGIN_CONTINUE; }
+    new icon[24];
+    get_msg_arg_string(2, icon, charsmax(icon));
+    // Keep the fixture menu hash independent of the spawn's buy-zone HUD.
+    // Let hide messages and other icons through, including the bomb indicator.
+    return equal(icon, "buyzone") ? PLUGIN_HANDLED : PLUGIN_CONTINUE;
+}
+
+public GunsWarmupRestart()
+{
+    if (!GunsWarmupApplies()) { return HC_CONTINUE; }
+    for (new player = 1; player <= MaxClients; player++)
+    {
+        if (g_warmup_phase[player] != WarmupWaitingForRound) { continue; }
+        g_warmup_restarting[player] = true;
+        g_warmup_spawned[player] = false;
+    }
+    return HC_CONTINUE;
+}
+
+public GunsWarmupRoundStart()
+{
+    if (!GunsWarmupApplies()) { return; }
+    new ct, terrorist;
+    for (new player = 1; player <= MaxClients; player++)
+    {
+        if (!is_user_connected(player) || !is_user_bot(player) || is_user_hltv(player)) { continue; }
+        switch (get_member(player, m_iTeam))
+        {
+            case TEAM_CT: ct++;
+            case TEAM_TERRORIST: terrorist++;
+        }
+    }
+    if (ct + terrorist != 2) { return; }
+    for (new player = 1; player <= MaxClients; player++)
+    {
+        if (g_warmup_phase[player] != WarmupWaitingForRound || !g_warmup_spawned[player]
+            || !is_user_alive(player) || !g_setupAck[player]) { continue; }
+        new TeamName:team = get_member(player, m_iTeam);
+        if (!((team == TEAM_CT && terrorist > 0) || (team == TEAM_TERRORIST && ct > 0))) { continue; }
+        g_warmup_phase[player] = WarmupReady;
+        log_amx("FIXTURE_GUNS_WARMUP phase=ready restart=1 spawn=1 bots=2");
+        client_cmd(player, "gso_lab_round_ready");
+    }
+}
+
 GunsInventory(player, values[6])
 {
     values[0] = get_entvar(player, var_weapons);
@@ -245,6 +317,15 @@ public ObserveGuns(player)
 {
     if (!is_user_alive(player)) { return PLUGIN_CONTINUE; }
     if (get_pcvar_num(g_readiness) && !g_setupAck[player]) { return PLUGIN_CONTINUE; }
+    if (GunsWarmupApplies() && g_warmup_phase[player] != WarmupReady)
+    {
+        if (g_warmup_phase[player] == WarmupWaitingForPreview)
+        {
+            g_warmup_phase[player] = WarmupPreview;
+            g_guns_resource[player] = -2;
+        }
+        return PLUGIN_CONTINUE;
+    }
     if (!g_guns[player])
     {
         g_guns[player] = 1;
@@ -287,7 +368,10 @@ GunsMenuKind(menu)
 
 ObserveGunsMenu(player)
 {
-    if (player < 1 || player > 32 || !g_guns[player] || !is_user_alive(player)) { return; }
+    if (player < 1 || player > 32 || !is_user_alive(player)) { return; }
+    new bool:preview = GunsWarmupApplies() && g_warmup_phase[player] == WarmupPreview;
+    new bool:closing = GunsWarmupApplies() && g_warmup_phase[player] == WarmupClosingPreview;
+    if (!g_guns[player] && !preview && !closing) { return; }
     // AMXX menu_display bypasses register_message hooks. Read the active resource
     // after command dispatch; never redraw, replace or invoke a menu callback.
     new oldmenu, menu = -1, page;
@@ -299,6 +383,11 @@ ObserveGunsMenu(player)
     log_amx("FIXTURE_GUNS_MENU kind=%d source=active-resource", g_guns_menu[player]);
     if (g_guns_menu[player]) { GunsBackdrop(player, true); }
     else if (g_guns_backdrop[player]) { GunsBackdrop(player, false); }
+    if (closing && menu < 0)
+    {
+        g_warmup_phase[player] = WarmupWaitingForRound;
+        log_amx("FIXTURE_GUNS_WARMUP phase=preview-closed");
+    }
 }
 
 public ObserveGunsSelection(player)
@@ -315,7 +404,15 @@ public ObserveGunsSelection(player)
         log_amx("FIXTURE_GUNS_SETUP step=%d valid=%d", step + 1, valid);
         return PLUGIN_CONTINUE;
     }
-    if (player < 1 || player > 32 || !g_guns[player] || !g_guns_menu[player] || !is_user_alive(player)) { return PLUGIN_CONTINUE; }
+    if (player < 1 || player > 32 || !g_guns_menu[player] || !is_user_alive(player)) { return PLUGIN_CONTINUE; }
+    if (GunsWarmupApplies() && g_warmup_phase[player] == WarmupPreview)
+    {
+        new key[8]; read_argv(1, key, charsmax(key));
+        if (g_guns_menu[player] == 1 && str_to_num(key) == 10)
+            g_warmup_phase[player] = WarmupClosingPreview;
+        return PLUGIN_CONTINUE;
+    }
+    if (!g_guns[player]) { return PLUGIN_CONTINUE; }
     new argument[8]; read_argv(1, argument, charsmax(argument));
     new key = str_to_num(argument), step = ++g_guns_step[player];
     new const KEYS[] = { 10, 2, 3, 2, 10 };
@@ -379,6 +476,9 @@ public GunsRespawnRequest(player)
 
 public ObserveGunsSpawn(player)
 {
+    if (GunsWarmupApplies() && g_warmup_phase[player] == WarmupWaitingForRound
+        && g_warmup_restarting[player] && is_user_alive(player))
+        g_warmup_spawned[player] = true;
     if (get_pcvar_num(g_readiness) && is_user_alive(player) && !g_spawnReady[player]
         && !is_user_bot(player) && !is_user_hltv(player))
     {
@@ -436,6 +536,9 @@ public client_disconnected(player)
     g_guns_inventory_verified[player] = false;
     g_guns_resource[player] = -2;
     g_guns_backdrop[player] = false;
+    g_warmup_phase[player] = WarmupWaitingForPreview;
+    g_warmup_restarting[player] = false;
+    g_warmup_spawned[player] = false;
 }
 
 public ObserveMotd(message_id, destination, player)

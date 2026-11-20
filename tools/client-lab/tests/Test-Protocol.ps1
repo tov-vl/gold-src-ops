@@ -111,6 +111,21 @@ Broker ('verify-rules '+$id+' ru') $true|Out-Null
 Broker ('verify-rules '+$id+' ru') $false|Out-Null
 $saved=Read-LabJson (Join-Path $sandbox ('queue\'+$id+'.json'))
 Check ($saved.action -ceq 'verify-rules' -and $saved.language -ceq 'ru' -and -not $saved.PSObject.Properties['panel']) 'Broker job shape changed.'
+$expires=(ConvertTo-LabUtc $saved.createdUtc).AddMinutes(3)
+$sampleUtc=[DateTime]::UtcNow.ToString('o')
+Write-LabJson (Join-Path $sandbox 'results\worker.json') @{state='ready';launchAdmission=$null;desktopPreflight=@{schema=1;utc=$sampleUtc;code='desktop_busy';ready=$false;ownerCategory='steam_web_helper'}}
+$requestDigest=(Get-FileHash -LiteralPath (Join-Path $sandbox ('queue\'+$id+'.json'))).Hash
+$desktop=Broker 'status' $true
+Check ($desktop.pending -eq 1 -and $null -eq $desktop.worker.launchAdmission -and $desktop.worker.desktopPreflight.schema -eq 1 -and
+    $desktop.worker.desktopPreflight.code -ceq 'desktop_busy' -and $desktop.worker.desktopPreflight.ready -eq $false -and
+    $desktop.worker.desktopPreflight.ownerCategory -ceq 'steam_web_helper' -and
+    (ConvertTo-LabUtc $desktop.worker.desktopPreflight.utc) -eq (ConvertTo-LabUtc $sampleUtc) -and
+    (Get-FileHash -LiteralPath (Join-Path $sandbox ('queue\'+$id+'.json'))).Hash -ceq $requestDigest) 'Broker did not expose the idle desktop observation without changing the request.'
+Write-LabJson (Join-Path $sandbox 'results\worker.json') @{state='ready';launchAdmission=@{status='waiting';code='desktop_busy';jobId=$id;expiresUtc=$expires.ToString('o')}}
+$waiting=Broker 'status' $true
+Check ($waiting.pending -eq 1 -and $waiting.worker.state -ceq 'ready' -and $waiting.worker.launchAdmission.status -ceq 'waiting' -and
+    $waiting.worker.launchAdmission.code -ceq 'desktop_busy' -and $waiting.worker.launchAdmission.jobId -ceq $id -and
+    (ConvertTo-LabUtc $waiting.worker.launchAdmission.expiresUtc) -eq $expires) 'Broker did not expose the waiting launch before its claim.'
 New-Item -ItemType Directory -Path (Join-Path $sandbox ('results\'+$id))|Out-Null
 $result=[pscustomobject]@{id=$id;action='verify-rules';status='awaiting_action';nextAction='ok-first';images=@(@{number=1;sha256=$hash});frameCapturedUtc=[DateTime]::UtcNow.ToString('o');interaction=@{reopenNotBeforeUtc=$null}}
 Write-LabJson (Join-Path $sandbox ('results\'+$id+'\result.json')) $result

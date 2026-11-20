@@ -23,7 +23,12 @@ if($workerValid){
 if($rendererRecovery.status -cnotin @('not_requested','archived')){$workerValid=$false}
 $client=Get-LabClientReadiness (Get-LabClientObservation $policy)
 $rendererDiagnostics=$(if($workerValid){Get-LabRetainedRendererDiagnostics $Root $policy}else{@{schema=1;status='worker_blocked';rendererAccepted=$false;files=@()}})
-Write-LabJson (Join-Path $Root 'results\worker.json') @{ utc = [DateTime]::UtcNow.ToString('o'); state = $(if($workerValid){'ready'}else{'blocked'}); session = (Get-Process -Id $PID).SessionId; configuredSession=$configuredSession; sessionMode=$(if($policy.PSObject.Properties['gameSessionMode']){$policy.gameSessionMode}else{'exact-session'}); client=$client; rendererDiagnostics=$rendererDiagnostics; rendererRecovery=$rendererRecovery; rendererRecoveryDiagnosis=$rendererRecoveryDiagnosis; rendererPreflight=$rendererPreflight }
+$heartbeatPath = Join-Path $Root 'results\worker.json'
+$desktop=if($workerValid){Get-LabDesktopLaunchObservation $Root $policy}else{@{code='worker_blocked';ownerCategory='not_observed'}}
+$observedUtc=[DateTime]::UtcNow.ToString('o')
+$desktopPreflight=@{schema=1;utc=$observedUtc;code=$desktop.code;ready=($desktop.code -ceq 'ready');ownerCategory=$desktop.ownerCategory}
+$heartbeat = @{ utc = $observedUtc; state = $(if($workerValid){'ready'}else{'blocked'}); session = (Get-Process -Id $PID).SessionId; configuredSession=$configuredSession; sessionMode=$(if($policy.PSObject.Properties['gameSessionMode']){$policy.gameSessionMode}else{'exact-session'}); client=$client; rendererDiagnostics=$rendererDiagnostics; rendererRecovery=$rendererRecovery; rendererRecoveryDiagnosis=$rendererRecoveryDiagnosis; rendererPreflight=$rendererPreflight; desktopPreflight=$desktopPreflight; launchAdmission=$null }
+Write-LabJson $heartbeatPath $heartbeat
 if (-not $workerValid) { return }
 foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') -Filter '*.json' -File | Sort-Object Name | Select-Object -First 8)) {
     Assert-LabLease $policy
@@ -32,11 +37,22 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
     if ($requestFile.Name -cne ($job.id + '.json')) { continue }
     $paths = Get-LabPaths $Root $job.id
     if (Test-Path -LiteralPath $paths.result) { continue }
-    # Completed claims can be older than the request freshness window.
-    Assert-LabRunnerJob $job
+    $expiresUtc = (ConvertTo-LabUtc $job.createdUtc).AddMinutes(3)
+    $expired = [DateTime]::UtcNow -ge $expiresUtc
+    if(-not $expired){Assert-LabRunnerJob $job}
+    if(-not $expired -and -not (Test-Path -LiteralPath $paths.cancel)){
+        $desktop=Get-LabDesktopLaunchObservation $Root $policy
+        if($desktop.code -cne 'ready'){
+            $heartbeat.utc=[DateTime]::UtcNow.ToString('o')
+            $heartbeat.desktopPreflight=@{schema=1;utc=$heartbeat.utc;code=$desktop.code;ready=$false;ownerCategory=$desktop.ownerCategory}
+            $heartbeat.launchAdmission=@{status='waiting';code=$desktop.code;jobId=$job.id;expiresUtc=$expiresUtc.ToString('o')}
+            Write-LabJson $heartbeatPath $heartbeat
+            return
+        }
+    }
     New-Item -ItemType Directory -Path $paths.result -ErrorAction Stop | Out-Null
     $result = [ordered]@{ id = $job.id; action = $job.action; status = 'claimed'; stage = 'preflight'; launchRequested = $false; gamePid = $null; gameStartedUtc = $null; images = @(); rendererVerified = $false; acceptancePassed = $false; panelVerified = $false; languageVerified = $false; fixture = $null; cleanupVerified = $false; failureStage = $null; labels = @('scene','scene') }
-    $result.labels = @(Get-LabRunnerCaptureLabels $job)
+    if(-not $expired){$result.labels = @(Get-LabRunnerCaptureLabels $job)}
     $result.gameSessionId=$policy.gameSessionId
     $result.expectedWidth = $(if ($job.action -cin @('capture-panel','capture-guns','verify-rules','verify-panel')) { 1920 } else { 1280 })
     $result.expectedHeight = $(if ($job.action -cin @('capture-panel','capture-guns','verify-rules','verify-panel')) { 1200 } else { 800 })
@@ -61,7 +77,8 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
     $autonomous=$false
     $rendererProbe=@{enabled=$false;reason='not_launched';paths=@()}
     try {
-        if ((Test-Path -LiteralPath $paths.cancel) -or [DateTime]::UtcNow -gt (ConvertTo-LabUtc $job.createdUtc).AddMinutes(3)) { throw 'Cancelled or stale request.' }
+        if (Test-Path -LiteralPath $paths.cancel) { $result.failureCode='cancelled'; throw 'Cancelled request.' }
+        if ([DateTime]::UtcNow -ge $expiresUtc) { $result.failureCode='request_expired'; throw 'Expired request.' }
         $autonomous=Get-LabAutonomousMode $Root $job
         if($job.action -cin @('verify-panel','capture-guns') -and -not $autonomous){throw 'Panel interaction requires its fixed autonomous profile.'}
         $result.stage = 'client_preflight'
@@ -98,9 +115,16 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
         try { $bytes = [Text.Encoding]::ASCII.GetBytes($program); $stream.Write($bytes, 0, $bytes.Length) } finally { $stream.Dispose() }
         $isGuns=$job.action -ceq 'capture-guns' -or ($job.action -ceq 'verify-panel' -and $job.panel -ceq 'guns')
         if($isGuns){Assert-LabGunsBindings $policy.gameRoot}
-        $launchUtc = [DateTime]::UtcNow
         $logCheckpoint=Get-LabLogCheckpoint $policy.steamRoot
         Assert-LabLease $policy
+        $desktop=Get-LabDesktopLaunchState $Root $policy
+        if($desktop -cne 'ready'){
+            $result.stage='desktop_preflight';$result.failureCode=$desktop
+            throw 'Desktop became unavailable before game launch.'
+        }
+        if (Test-Path -LiteralPath $paths.cancel) { $result.failureCode='cancelled'; throw 'Cancelled request.' }
+        if ([DateTime]::UtcNow -ge $expiresUtc) { $result.failureCode='request_expired'; throw 'Expired request.' }
+        $launchUtc = [DateTime]::UtcNow
         $result.stage = 'launch'
         $result.launchRequested = $true
         $result.cleanup.game='unverified_no_owned_process'
@@ -207,14 +231,22 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
             }
         } catch { $result.status = 'uncertain_cleanup';$result.cleanup.game='unverified_cleanup_error' }
         try {
-            if($launchUtc){$result.rendererEvidence.cleanupVerified=Remove-LabRendererLogs $policy $result $rendererProbe $launchUtc}
-            if($rendererProbe.enabled -and -not $result.rendererEvidence.cleanupVerified){$result.status='uncertain_cleanup'}
+            if($launchUtc){
+                $result.rendererEvidence.cleanupVerified=Remove-LabRendererLogs $policy $result $rendererProbe $launchUtc
+                if($rendererProbe.enabled -and -not $result.rendererEvidence.cleanupVerified){$result.status='uncertain_cleanup'}
+            }
         } catch {$result.status='uncertain_cleanup';$result.rendererEvidence.cleanupVerified=$false}
         try {
             if ($ownsConfig) { $result.configCleanupVerified = Remove-LabOwnedConfig $policy.gameRoot $job.id $program }
             if ($ownsConfig) { $result.cleanup.config=$(if($result.configCleanupVerified){'verified'}else{'unverified'}) }
             if ($ownsConfig -and -not $result.configCleanupVerified) { $result.status = 'uncertain_cleanup' }
         } catch { $result.status = 'uncertain_cleanup';$result.cleanup.config='unverified' }
+        if($result.status -ceq 'rejected_preflight' -and
+           ($result.failureStage -ceq 'desktop_preflight' -or $result.failureCode -cin @('cancelled','request_expired'))){
+            # No game was started. A config created for this request still needs verified cleanup.
+            $result.cleanupVerified=$true
+            if(-not $ownsConfig){$result.configCleanupVerified=$true}
+        }
         if ($launcher) {
             try { $result.launcher.exited=$launcher.HasExited;if($launcher.HasExited){$result.launcher.exitCode=$launcher.ExitCode} } catch { }
             finally { $launcher.Dispose() }
