@@ -1,7 +1,7 @@
 # GoldSrcOps Roadmap
 
-Updated on 2026-11-18 after Archive trigger rc.4 R3 acceptance, the accepted
-automated gameplay/telemetry checks and stable player storage 0.40.0.
+Updated on 2026-11-22 after stable publication of Archive trigger 2.132.0
+and private Steam rejoin acceptance.
 The earlier repository planning baseline
 is `2b33081022ad54061fa8c8e1f4efef4a3f3ad1e0`; runtime identities remain in their
 own release and acceptance records.
@@ -33,10 +33,10 @@ Development should advance a concrete operator or player outcome.
   passed with process-bound OpenGL evidence. This is evidence for those
   scenarios, not arbitrary gameplay, performance or two-player balance.
 - The [external Archive trigger rc.4](archive-trigger-progress.md#rc4-candidate-and-r3-acceptance)
-  has accepted candidate and R3 evidence, including two natural slots and
-  independent Recovery. Its separate seven-day age/window-coverage assessment
-  and stable promotion remain pending. Missing source minutes remain a separate
-  limitation that a scheduler cannot repair.
+  has accepted candidate and R3 evidence. Its [seven-day assessment](archive-trigger-progress.md#seven-day-assessment-on-2026-11-22)
+  verified 168 of 168 hourly slots and independent Recovery.
+  [Stable 2.132.0](archive-trigger-publication.md#stable-release-on-2026-11-22)
+  promotes the accepted candidate bytes.
 - [Multiplayer technical checks](automated-multiplayer-acceptance.md),
   [native producer checks](round-ended-producer-engine-acceptance.md),
   [natural objectives](round-objectives-engine-acceptance.md) and
@@ -52,7 +52,8 @@ roadmap owns future priorities; it is not a live production health report.
 | Order | Outcome | Dependency | Completion criterion |
 | --- | --- | --- | --- |
 | Completed | v2.131 command dispatcher health across Operator views | Accepted v2.130 observation contract | Independent API/Web and authenticated eight-source UI/report acceptance passed |
-| Candidate/R3 accepted; assessment pending | Assess the external Archive trigger over seven days | Accepted rc.4, single automatic owner and independent observer | Assess the three-hour age target, receipt-window coverage and source completeness separately; stable promotion remains a separate gate |
+| Assessment completed | Assess the external Archive trigger over seven days | Accepted rc.4, single automatic owner and independent observer | 168 slots verified, maximum success age 1h 2m 9s, zero closed coverage gaps and fresh independent Recovery |
+| Stable published | Archive trigger 2.132.0 | Accepted rc.4 and seven-day assessment | Signed stable tag at the candidate revision and independently verified byte-identical assets |
 | Technical baseline accepted | Native gameplay and real agent/API/PostgreSQL/Reader telemetry acceptance | Pinned isolated engine fixtures | Full PR/main CI and independent downloaded-artifact verification passed; human acceptance remains separate |
 | Technical acceptance completed | Queue capacity, concurrent import/delivery and restart acceptance | Existing telemetry harness and verified native inputs | Full PR/main CI, independent artifacts and separate replays passed: deferred bytes and identity preserved, drain without duplicates, permanent failure retained without automatic replay |
 | Technical acceptance completed | Parallel telemetry server isolation | Existing harness, two actual agents and synthetic machine credentials | Healthy server progresses during another server's outage; cross-server ingest is denied without a write; retained backlog drains without duplicates and Reader history stays separated |
@@ -98,7 +99,7 @@ Add monitoring surfaces only for an observed failure
 or an unanswered operator question. Another panel or report section is not a
 milestone by itself.
 
-## Accepted Archive Trigger And Pending Observation
+## Accepted Archive Trigger And Seven-Day Assessment
 
 The [earlier seven-day assessment](archive-trigger-decision.md) found 25 scheduled
 Archives against 168 nominal hourly ticks. All 25 jobs/receipts passed, but the
@@ -122,20 +123,18 @@ and no closed requested-window gaps during a prospective seven-day trial, not
 a hard SLA. Keep successful execution, receipt, independent Recovery and source
 completeness as separate evidence.
 
-The [R3 record](archive-trigger-progress.md#rc4-candidate-and-r3-acceptance)
-already records external-owner cutover, retained-history acceptance and
-independent Recovery. Keep the separate seven-day assessment open: two natural
-slots do not establish the three-hour objective over that window. Preserve
-hourly `53 * * * *`, the 1,440-minute window, independent observer and existing
-warnings from [v2.117](v2.117-archive-reliability.md).
-[v2.119](v2.119-archive-completeness.md) continues to define the distinction
-between receipt-window coverage and source missing minutes.
+The [seven-day assessment](archive-trigger-progress.md#seven-day-assessment-on-2026-11-22)
+verified 168 of 168 slots. Maximum success age was 1h 2m 9s, time above three
+hours was zero and the union of requested windows had no closed gap. Independent
+Recovery matched the SHA-256 and reproduced the report for the last slot in the
+trial. That recovered window contained 1,440 evaluated source minutes, including
+one bad minute and zero missing minutes. Source completeness was measured for
+that exact 24-hour window. [v2.119](v2.119-archive-completeness.md) defines the
+receipt-window and source metrics.
 
-The [2026-11-17 interim read-only checkpoint](archive-trigger-progress.md#interim-read-only-checkpoint-on-2026-11-17)
-matched 41/41 natural slots, jobs and receipts through 08:52 UTC, with no closed
-requested-window gap or three-hour-age breach in that partial window. It does
-not close the seven-day assessment or establish source completeness or fresh
-independent object Recovery. Scheduling, thresholds and runtime remain unchanged.
+The [stable release](archive-trigger-publication.md#stable-release-on-2026-11-22)
+promoted the exact accepted component assets. Hourly `53 * * * *`, the 1,440-minute export window,
+independent observer and warning policy are the accepted baseline.
 
 The 24-hour export window is unrelated to the deferred 24-hour human activity
 aggregation. Neither scheduling changes nor successful Recovery can reconstruct

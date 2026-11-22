@@ -1,12 +1,13 @@
 # Archive Trigger Implementation Progress
 
-Updated on 2026-11-15. Status: signed component rc.4 is published, independently
+Updated on 2026-11-22. Signed component rc.4 is published, independently
 verified and accepted on the control plane with the reused API/Web candidates.
 The controlled Archive, two natural hourly slots and independent reader Recovery
 of every acceptance object passed. The external timer is the single automatic
 owner. The prior verified claim/history and packages remain preserved. The
-seven-day age/coverage assessment and stable promotion are separate, unfinished
-gates. The owning boundary is the
+[seven-day age/coverage assessment](#seven-day-assessment-on-2026-11-22)
+passed. [Stable publication](archive-trigger-publication.md#stable-release-on-2026-11-22)
+is independently verified. The owning boundary is the
 [implementation plan](archive-trigger-implementation-plan.md).
 
 ## Completed Offline Unit
@@ -342,3 +343,30 @@ No new independent Recovery was run; prior R3 object-Recovery evidence remains
 separate. Receipt-window coverage does not prove complete source measurements.
 Observations after the frozen cutoff, the remaining seven-day window and source
 completeness are not accepted by this record.
+
+## Seven-Day Assessment On 2026-11-22
+
+The trial covered 2026-11-15 15:51:11 UTC to 2026-11-22 15:51:11 UTC.
+All 168 expected hourly slots matched one Verified claim, one successful
+first-attempt Archive job and one matching receipt. No uncertain claim
+remained at cutoff. The external timer was active, and the primary Archive
+job was skipped in all 23 legacy schedule runs during the trial.
+
+Maximum accepted automatic success age was 3,729 seconds (1h 2m 9s), with
+zero seconds above three hours. The requested windows had no closed gap.
+An independent minute-grid check matched 11,460 consecutive requested
+minute positions. The last window ended at 14:48 UTC, leaving an open tail
+of 1h 3m 11s at the cutoff. The independent observer was fresh and all
+four Archive warning rules were inactive in the cutoff snapshot.
+
+Independent [Recovery](https://github.com/tov-vl/gold-src-ops/actions/runs/45040685338)
+read the exact object from the final [Archive slot](https://github.com/tov-vl/gold-src-ops/actions/runs/45035224760).
+The 539,241-byte segment matched its SHA-256 and reproduced the evaluator
+report. The recovered 24-hour window had 1,440 evaluated source minutes,
+with 1,439 good, one bad and zero missing. That source result covers the
+recovered window. The earlier [Recovery](https://github.com/tov-vl/gold-src-ops/actions/runs/44892046699)
+found one missing source minute in its own 24-hour window.
+
+The trial met its age and requested-window objectives. The accepted rc.4
+ZIP and checksum were promoted to stable. See the independent
+[release verification](archive-trigger-publication.md#stable-release-on-2026-11-22).

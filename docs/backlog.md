@@ -5,23 +5,18 @@ release steps.
 
 ## Next Priorities
 
-Planning baseline: 2026-11-18, after accepted trigger rc.4, automated native
-gameplay/telemetry and stable player storage 0.40.0. The
+Planning baseline: 2026-11-22, after Archive trigger stable publication,
+private Steam rejoin acceptance and stable player storage 0.40.0. The
 [current roadmap](roadmap.md) owns scope, dependencies and completion criteria;
 the records below retain historical release evidence.
 
-1. Complete the separate seven-day age/window-coverage assessment of the accepted
-   [external Archive trigger](archive-trigger-progress.md#rc4-candidate-and-r3-acceptance).
-   The external timer owns automatic Archive; hourly `:53`, the 24-hour export
-   window and warning thresholds remain unchanged. Candidate acceptance is proved;
-   the three-hour age objective and source completeness are not yet established.
-2. When two independent human participants/accounts are available: run one
+1. When two independent human participants/accounts are available: run one
    controlled gameplay pilot, then select at most one map/spawn or mechanic
    improvement from its findings. The [session protocol](gameplay-pilot.md) and
    [result template](templates/gameplay-pilot-result.md) and
    [Russian participant brief](gameplay-pilot-participants-ru.md) are prepared; no human
    acceptance is claimed until a session is actually recorded.
-3. Keep the accepted client lab as a regression tool. Further monitoring UI,
+2. Keep the accepted client lab as a regression tool. Further monitoring UI,
    plugins and infrastructure need a concrete operator or player problem.
    Bots and 24-hour human activity aggregation remain deferred.
 
@@ -50,11 +45,9 @@ their own scope and acceptance gates.
 Prepared: [two-player gameplay pilot](gameplay-pilot.md), with a
 30-45 minute sequence, fresh installed-baseline gate, seventeen scenarios,
 explicit conditional cases, result form and one-follow-up decision rule.
-No session, client launch or gameplay change was performed. The separate
-[Archive interim check](archive-trigger-progress.md#interim-read-only-checkpoint-on-2026-11-17)
-passed for 41 natural slots over the frozen 41-hour observation; the full
-seven-day assessment, source completeness and new independent Recovery remain
-separate. Publishing these documents does not close either acceptance gate.
+This preparation is ready for two independent players. The
+[Archive observation](archive-trigger-progress.md#seven-day-assessment-on-2026-11-22)
+and stable publication are complete.
 
 Accepted: [parallel server telemetry acceptance](telemetry-server-isolation-acceptance.md)
 through [PR #561](https://github.com/tov-vl/gold-src-ops/pull/561). Full PR/main CI,
@@ -121,8 +114,10 @@ hourly slots with independent Recovery of each exact object. Observer metrics,
 Operator overview/detail/eight-source report and final runtime acceptance passed.
 The external timer is enabled; legacy scheduling is disabled. Thirteen other
 containers, the existing credential/identity, prior packages and the earlier
-Verified claim/history were preserved. Stable promotion was not requested; the
-separate seven-day three-hour-age/window-coverage assessment remains pending.
+Verified claim/history were preserved. The
+[follow-up seven-day assessment](archive-trigger-progress.md#seven-day-assessment-on-2026-11-22)
+passed. [Stable publication](archive-trigger-publication.md#stable-release-on-2026-11-22)
+verified the signed tag and byte-identical assets independently.
 
 Prepared: [Archive reliability decision](archive-trigger-decision.md) and
 [implementation plan](archive-trigger-implementation-plan.md). A read-only

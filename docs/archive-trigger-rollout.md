@@ -1,12 +1,13 @@
 # Archive External Trigger R3 Delivery Preparation
 
-Updated on 2026-11-15. Component version: 2.132.0; accepted candidate:
-`archive-trigger-v2.132.0-rc.4`; stable target: `archive-trigger-v2.132.0`.
+Updated on 2026-11-22. Component 2.132.0 is stable from accepted candidate
+`archive-trigger-v2.132.0-rc.4`.
 The approved retained-ledger R3 passed controlled and two natural Archive slots
 with independent Recovery, observer/Operator acceptance and final runtime proof.
 The external timer is enabled and legacy scheduling is disabled. Prior rc.2/rc.3,
 the previous Verified claim/history and all acceptance objects remain preserved.
-Stable promotion and the seven-day freshness/coverage assessment are separate.
+The [seven-day assessment](archive-trigger-progress.md#seven-day-assessment-on-2026-11-22)
+and [stable publication](archive-trigger-publication.md#stable-release-on-2026-11-22) passed.
 This document does not authorize new access.
 The [design](archive-trigger-decision.md), [implementation boundary](archive-trigger-implementation-plan.md)
 and [verification progress](archive-trigger-progress.md) remain applicable.
@@ -189,7 +190,7 @@ own exact decision. No rollback deletes B2 objects or rewrites claim history.
 If an unknown attempt cannot be reconciled, leave admission paused and report
 the incomplete rollback rather than enabling cron beside it.
 
-## Accepted Candidate And Remaining Gates
+## Accepted Candidate And Stable Publication
 
 The signed rc.4 package passed required PR/main/candidate CI, independent ZIP and
 isolated extracted-package verification. The approved R3 accepted the real
@@ -200,7 +201,7 @@ than initialized again. See the [acceptance record](archive-trigger-progress.md#
 
 The external timer is the sole automatic owner; legacy scheduling remains off.
 The previous packages, credential/identity, Verified history and objects remain
-preserved. No stable tag was requested or published. Byte-preserving stable
-promotion requires its own applicable release boundary; the seven-day age and
-window-coverage assessment remains pending and does not block unrelated work.
-Do not replace published candidates or claim that two slots establish an SLO.
+preserved. The seven-day assessment verified 168 of 168 expected slots.
+[Stable publication](archive-trigger-publication.md#stable-release-on-2026-11-22)
+used the same source revision and the accepted candidate assets. The full
+observation establishes the age and coverage results over the trial interval.
