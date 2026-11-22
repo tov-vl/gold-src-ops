@@ -1,7 +1,7 @@
 ﻿#requires -Version 7.0
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('status', 'capture', 'capture-guns', 'verify-rules', 'auto-rules', 'auto-panel', 'guns-round', 'guns-rejoin', 'step', 'result', 'image', 'checkpoint', 'cancel')][string]$Operation,
+    [Parameter(Mandatory=$true)][ValidateSet('status', 'capture', 'capture-guns', 'verify-rules', 'auto-rules', 'auto-panel', 'guns-round', 'guns-rejoin', 'guns-steam-round', 'guns-observe', 'step', 'result', 'image', 'checkpoint', 'cancel')][string]$Operation,
     [string]$JobId,
     [ValidateSet(1, 2, 3, 4, 5)][int]$ImageNumber = 1,
     [ValidateSet('ranks','profile','topall','rules','primary','pistol','guns')][string]$Panel,
@@ -19,9 +19,9 @@ $pairing = Read-LabJson (Join-Path $privateRoot 'pairing.json')
 if (-not (Test-LabManualLease $pairing) -and [DateTime]::UtcNow -ge (ConvertTo-LabUtc $pairing.expiresUtc)) { throw 'Pairing lease expired.' }
 $command = $Operation
 if(($Operation -ceq 'checkpoint') -ne [bool]$Checkpoint){throw 'Fixed checkpoint selection required.'}
-$launch='capture','capture-guns','verify-rules','auto-rules','auto-panel','guns-round','guns-rejoin'
+$launch='capture','capture-guns','verify-rules','auto-rules','auto-panel','guns-round','guns-rejoin','guns-steam-round','guns-observe'
 if($Operation -cin ($launch+@('step'))) {
-    if($Operation -cin @('guns-round','guns-rejoin') -and ($Panel -or $Language -or -not $JobId)){throw 'LAN rejoin requires a fixed job identity only.'}
+    if($Operation -cin @('guns-round','guns-rejoin','guns-steam-round','guns-observe') -and ($Panel -or $Language -or -not $JobId)){throw 'Paired launch requires a fixed job identity only.'}
     if($Operation -ceq 'auto-panel' -and ($Panel -cnotin @('ranks','profile','topall','guns') -or -not $Language)){throw 'Fixed panel and language required.'}
     if($Operation -ceq 'capture-guns' -and (-not $Language -or $Panel)){throw 'Only language is accepted for weapons baseline capture.'}
     if($Operation -ceq 'capture' -and ($Panel -cnotin @('ranks','profile','topall','rules','primary','pistol') -or -not $Language)){throw 'Panel and language required.'}
@@ -54,7 +54,7 @@ if($Operation -cin $launch) {
     $claim = Join-Path $resultRoot $JobId
     New-Item -ItemType Directory -Path $claim -ErrorAction Stop | Out-Null
     Write-LabJson (Join-Path $claim 'dispatch.json') @{ id = $JobId; status = 'dispatch_claimed'; utc = [DateTime]::UtcNow.ToString('o') }
-    if($Operation -cnotin @('guns-round','guns-rejoin')){Write-Host ('One dispatch attempt. Job ID: ' + $JobId)}
+    if($Operation -cnotin @('guns-round','guns-rejoin','guns-steam-round','guns-observe')){Write-Host ('One dispatch attempt. Job ID: ' + $JobId)}
 }
 if($Operation -cne 'step' -and ($Phase -or $FrameSha256)){throw 'Step parameters require step operation.'}
 if($Operation -ceq 'step') {

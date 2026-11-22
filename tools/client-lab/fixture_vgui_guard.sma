@@ -11,7 +11,8 @@ new bool:g_moved[33];
 new bool:g_reported[33];
 new Float:g_firstRules[33];
 new g_panel[33];
-new g_readiness, g_roundWarmup;
+new g_readiness, g_roundWarmup, g_steamAdmission;
+new g_joinedSteamUser[33];
 new bool:g_spawnReady[33], bool:g_setupSeen[33], bool:g_setupAck[33], bool:g_setupFailed[33];
 new g_setupStep[33], g_setupLanguage[33];
 new const PANELS[][] = { "rules", "ranks", "profile", "topall" };
@@ -48,6 +49,8 @@ public plugin_init()
 {
     register_plugin("Fixture interaction evidence", "1.6.3", "");
     g_readiness = register_cvar("gso_lab_readiness", "0");
+    g_steamAdmission = register_cvar("gso_lab_steam_admission", "0");
+    register_srvcmd("gso_fixture_steam_allow_join", "AllowSteamJoin");
     g_roundWarmup = register_cvar("gso_lab_guns_round_warmup", "0");
     register_logevent("GunsWarmupRoundStart", 2, "1=Round_Start");
     RegisterHookChain(RG_CSGameRules_RestartRound, "GunsWarmupRestart");
@@ -80,10 +83,33 @@ public client_putinserver(player)
     g_setupAck[player] = false;
     g_setupFailed[player] = false;
     g_setupStep[player] = 0;
-    if (get_pcvar_num(g_readiness) && !is_user_bot(player) && !is_user_hltv(player))
+    if (get_pcvar_num(g_readiness) && !get_pcvar_num(g_steamAdmission) && !is_user_bot(player) && !is_user_hltv(player))
     {
         set_task(0.2, "ReadinessJoin", player + 100);
     }
+}
+
+// The Steam fixture supervisor passes only a userid from the engine approval log.
+public AllowSteamJoin()
+{
+    if (!get_pcvar_num(g_readiness) || !get_pcvar_num(g_steamAdmission)
+        || get_cvar_num("sv_lan") || read_argc() != 2)
+    {
+        return PLUGIN_HANDLED;
+    }
+    new userId = read_argv_int(1);
+    if (userId <= 0) { return PLUGIN_HANDLED; }
+    for (new player = 1; player <= MaxClients; player++)
+    {
+        if (is_user_connected(player) && !is_user_bot(player) && !is_user_hltv(player)
+            && get_user_userid(player) == userId && g_joinedSteamUser[player] != userId)
+        {
+            g_joinedSteamUser[player] = userId;
+            ReadinessJoin(player + 100);
+            break;
+        }
+    }
+    return PLUGIN_HANDLED;
 }
 
 public ReadinessJoin(task)

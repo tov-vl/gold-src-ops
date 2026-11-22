@@ -251,7 +251,7 @@ function Invoke-LabRulesInteraction([string]$Root,$Policy,$Job,$Result,[hashtabl
 #requires -Version 5.1
 $script:LabGunsBaselines = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{{GUNS_BASELINES}}')) | ConvertFrom-Json
 function ConvertFrom-LabRunnerCommand([string]$Command) {
-    $rejoin=[regex]::Match($Command,'\A(guns-round|guns-rejoin) ([0-9a-f-]{36})\z')
+    $rejoin=[regex]::Match($Command,'\A(guns-round|guns-rejoin|guns-steam-round|guns-observe) ([0-9a-f-]{36})\z')
     if($rejoin.Success){Assert-LabId $rejoin.Groups[2].Value;return @{operation=$rejoin.Groups[1].Value;id=$rejoin.Groups[2].Value;language='en'}}
     $checkpoint=[regex]::Match($Command,'\Acheckpoint ([0-9a-f-]{36}) (primary-exit|primary-reopened|pistol-selected-close|pistol-exit)\z')
     if($checkpoint.Success){Assert-LabId $checkpoint.Groups[1].Value;return @{operation='checkpoint';id=$checkpoint.Groups[1].Value;checkpoint=$checkpoint.Groups[2].Value}}
@@ -274,8 +274,8 @@ function Assert-LabRunnerJob($Job) {
     if('rejoinPhase' -cin $fields){
         $phase=Get-LabRejoinPhase $Job
         if($Job.language -cne 'en' -or $phase -isnot [string] -or
-           -not (($phase -ceq 'round' -and $Job.action -ceq 'verify-panel' -and $Job.panel -ceq 'guns') -or
-                 ($phase -ceq 'rejoin' -and $Job.action -ceq 'capture-guns'))){throw 'Invalid LAN rejoin job.'}
+           -not (($phase -cin @('round','steam-round') -and $Job.action -ceq 'verify-panel' -and $Job.panel -ceq 'guns') -or
+                 ($phase -cin @('rejoin','observe') -and $Job.action -ceq 'capture-guns'))){throw 'Invalid paired launch job.'}
         $fields=@($fields|Where-Object {$_ -cne 'rejoinPhase'})
     }
     if($Job.action -ceq 'capture-guns'){
@@ -298,6 +298,7 @@ function Get-LabInteractionPanel($Job) {
 function Get-LabAutonomousProfile($Job) {
     $panel=Get-LabInteractionPanel $Job
     $phase=Get-LabRejoinPhase $Job
+    if($phase -ceq 'observe'){return 'guns-steam-observe-1920x1200-v1'}
     if($phase){return 'guns-lan-'+$phase+'-1920x1200-v1'}
     if($Job.action -ceq 'capture-guns'){return 'guns-baseline-v299-1920x1200-v4'}
     if($panel -ceq 'guns'){return 'guns-v299-1920x1200-v4'}
@@ -317,6 +318,30 @@ function New-LabRunnerInteractionProgram($Job) {
     return ($lines -join "`r`n")
 }
 
+function Get-LabRunnerFixtureReady($Policy,$Job) {
+    if((Get-LabRejoinPhase $Job) -cnotin @('steam-round','observe')){return Get-LabFixtureReady $Policy}
+    Assert-LabPanelPolicy $Policy
+    $local=New-Object Net.IPEndPoint([Net.IPAddress]::Parse('{{TARGET_IPV4}}'),0)
+    $udp=New-Object Net.Sockets.UdpClient($local)
+    try{
+        $udp.Client.ReceiveTimeout=2000
+        $udp.Client.SendTimeout=2000
+        $udp.Connect([Net.IPAddress]::Parse('{{SOURCE_IPV4}}'),27025)
+        [byte[]]$query=@(255,255,255,255)+[Text.Encoding]::ASCII.GetBytes("getchallenge steam`n`0")
+        $null=$udp.Send($query,$query.Length)
+        $remote=New-Object Net.IPEndPoint([Net.IPAddress]::Any,0)
+        [byte[]]$reply=$udp.Receive([ref]$remote)
+        if($reply.Length -lt 22 -or $reply.Length -gt 128 -or [BitConverter]::ToInt32($reply,0) -ne -1){
+            throw 'Invalid private Steam challenge response.'
+        }
+        $body=[Text.Encoding]::ASCII.GetString($reply,4,$reply.Length-4)
+        if($body -cnotmatch '\AA00000000 [0-9]+ 3 [1-9][0-9]{15,19} [01]\n\x00\z'){
+            throw 'Private endpoint did not return a Steam server challenge.'
+        }
+        return @{queriedUtc=[DateTime]::UtcNow.ToString('o');kind='private-steam-challenge'}
+    }finally{$udp.Close()}
+}
+
 function Get-LabRunnerLaunchArguments($Job,[string]$ConfigName) {
     if($Job.action -cin @('verify-panel','capture-guns')){
         Assert-LabRunnerJob $Job
@@ -331,13 +356,19 @@ function Get-LabRunnerLaunchArguments($Job,[string]$ConfigName) {
 }
 
 function Get-LabRunnerImageLimit($Job) {
-    if($Job.action -ceq 'capture-guns'){return 4}
+    if($Job.action -ceq 'capture-guns'){
+        if((Get-LabRejoinPhase $Job) -ceq 'observe'){return 1}
+        return 4
+    }
     if($Job.action -ceq 'verify-panel'){return 5}
     return Get-LabImageLimit $Job
 }
 
 function Get-LabRunnerCaptureLabels($Job) {
-    if($Job.action -ceq 'capture-guns'){return @('primary-default','pistol-default','primary-selected','pistol-selected')}
+    if($Job.action -ceq 'capture-guns'){
+        if((Get-LabRejoinPhase $Job) -ceq 'observe'){return @('authorized-spawn')}
+        return @('primary-default','pistol-default','primary-selected','pistol-selected')
+    }
     if($Job.action -ceq 'verify-panel' -and $Job.panel -ceq 'guns'){return @('primary-default','pistol-default','primary-selected','pistol-selected','after-respawn')}
     if($Job.action -ceq 'verify-panel'){$panel=Get-LabInteractionPanel $Job;return @(($panel+'-first'),'after-first-ok','after-controls',($panel+'-alias'),'after-last-ok')}
     return Get-LabCaptureLabels $Job
@@ -440,7 +471,7 @@ function Assert-LabAutoVisual($Assessment,[int]$FrameNumber) {
 
 function New-LabAutoPhaseClaim([string]$Destination,$Job,[string]$Phase,[string]$Hash) {
     $allowed=@('ok-first','controls','reopen','ok-last','guns-menu-open','guns-setup-open-settings','guns-setup-open-languages','guns-setup-language-ru','guns-setup-language-en','guns-setup-close-player-menu','guns-setup-ack-ru','guns-setup-ack-en','guns-capture-primary-default','guns-capture-pistol-default','guns-capture-primary-selected','guns-capture-pistol-selected','guns-baseline-select-primary','guns-baseline-select-pistol','guns-baseline-repeat-primary','guns-baseline-reopen')
-    if((Get-LabRejoinPhase $Job) -ceq 'round'){$allowed+=@('guns-warmup-open','guns-warmup-close')}
+    if((Get-LabRejoinPhase $Job) -cin @('round','steam-round')){$allowed+=@('guns-warmup-open','guns-warmup-close')}
     if($Phase -cnotin $allowed -or $Hash -cnotmatch '\A[0-9A-F]{64}\z'){throw 'Invalid fixed phase claim.'}
     if((Get-Item -LiteralPath $Destination).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Linked phase destination.'}
     $path=Join-Path $Destination ('auto-phase-'+$Phase+'.json')
@@ -573,11 +604,15 @@ function New-LabGunsProgram($Job) {
     Assert-LabRunnerJob $Job
     if((Get-LabInteractionPanel $Job) -cne 'guns'){throw 'Weapons bootstrap required.'}
     # One-shot native acknowledgements only; no stage file or server-triggered exec.
-    $program=@('alias gso_lab_join "alias gso_lab_join; jointeam 1; wait; joinclass 1"',
+    $join='alias gso_lab_join "alias gso_lab_join; jointeam 1; wait; joinclass 1"'
+    if((Get-LabRejoinPhase $Job) -ceq 'observe'){
+        return (@($join,'alias gso_lab_steam_observed "alias gso_lab_steam_observed; snapshot"') -join "`r`n")+"`r`n"
+    }
+    $program=@($join,
         'alias gso_lab_spawn "alias gso_lab_spawn; snapshot"',
         'alias gso_lab_ack "alias gso_lab_ack; snapshot"',
         'alias gso_lab_respawn "alias gso_lab_respawn; snapshot"')
-    if((Get-LabRejoinPhase $Job) -ceq 'round'){
+    if((Get-LabRejoinPhase $Job) -cin @('round','steam-round')){
         $program+=@(
             'alias gso_lab_continuity_request "alias gso_lab_continuity_request; say_team /gso_lab_continuity_received; snapshot"',
             'alias gso_lab_round_ready "alias gso_lab_round_ready; snapshot"')
@@ -642,7 +677,7 @@ function Receive-LabGunsMenu([string]$Root,$Policy,$Job,$Result,$Readiness,[hash
     $window.CheckReady()
     $number=@($Result.images).Count+1
     $label=(Get-LabRunnerCaptureLabels $Job)[$number-1]
-    $hash=if($number -ne 1){$Result.images[-1].sha256}elseif((Get-LabRejoinPhase $Job) -ceq 'round' -and $Result.interaction.warmup.acknowledged){
+    $hash=if($number -ne 1){$Result.images[-1].sha256}elseif((Get-LabRejoinPhase $Job) -cin @('round','steam-round') -and $Result.interaction.warmup.acknowledged){
         $Result.interaction.warmup.roundSha256
     }else{$Result.readiness.setupSnapshot.sha256}
     $null=New-LabAutoPhaseClaim $destination $Job ('guns-capture-'+$label) $hash
@@ -675,7 +710,7 @@ function Open-LabGunsMenu([string]$Root,$Policy,$Job,$Result,$Readiness,[string]
     $hash=$Result.readiness.setupSnapshot.sha256
     $observed=$Result.readiness.setupObservedElapsed
     $phase=if($Preview){'guns-warmup-open'}else{'guns-menu-open'}
-    if(-not $Preview -and (Get-LabRejoinPhase $Job) -ceq 'round' -and $Result.interaction.warmup.acknowledged){
+    if(-not $Preview -and (Get-LabRejoinPhase $Job) -cin @('round','steam-round') -and $Result.interaction.warmup.acknowledged){
         $hash=$Result.interaction.warmup.roundSha256
         $observed=$Result.interaction.warmup.observedElapsed
     }
@@ -726,7 +761,12 @@ function Invoke-LabGunsBaseline([string]$Root,$Policy,$Job,$Result,$Readiness,[h
 function Wait-LabGunsReady([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseline,[DateTime]$LaunchUtc,[string]$ResultPath) {
     $clock=[Diagnostics.Stopwatch]::StartNew();$window=$null
     $destination=Split-Path -Parent $ResultPath
+    $observe=(Get-LabRejoinPhase $Job) -ceq 'observe'
     $Result['readiness']=[ordered]@{schema=2;mode='native-fixed-v2';callback='gso_lab_ack';status='waiting-spawn';spawnSnapshot=$null;windowPreparation=$null;setupSnapshot=$null;setupActions=@();setupAcknowledged=$false;language=$Job.language;failureCode=$null;failurePhase=$null;failureElapsedSeconds=$null;failureNativeError=$null;automaticRetryAllowed=$false}
+    if($observe){
+        $Result.readiness.mode='steam-spawn-observe-v1'
+        $Result.readiness.callback='gso_lab_steam_observed'
+    }
     $diagnostic=@{phase='initialize';code='bridge_initialization_failed';snapshot='spawn';nativeError=$null}
     try{
         Initialize-LabInteractionTypes (Join-Path $Root 'code/Rules.Input.cs')
@@ -748,11 +788,19 @@ function Wait-LabGunsReady([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseli
                     $window=New-Object GsoLab.Interaction.GameWindow -ArgumentList @([int]$Result.gamePid,(ConvertTo-LabUtc $Result.gameStartedUtc).Ticks,(Join-Path $Policy.gameRoot 'hl.exe'),[int]$Policy.gameSessionId)
                 }
             }
-            # Bootstrap has exactly one snapshot producer, called by the fixture's first spawn.
+            # The selected profile has one fixture snapshot producer.
             $diagnostic.phase='await-spawn-snapshot'
             $bootstrap=@{images=@()}
             if($window -and (Receive-LabInteractionFrame $Policy $bootstrap $Baseline $destination $diagnostic)){
                 $diagnostic.code='spawn_snapshot_store_failed'
+                if($observe){
+                    Assert-LabInteractionOwner $Policy $Result $diagnostic
+                    $Result.readiness.spawnSnapshot=$bootstrap.images[0]
+                    $Result.readiness.status='snapshot-received'
+                    $Result.images=$bootstrap.images
+                    Write-LabJson $ResultPath $Result
+                    return
+                }
                 $image=Join-Path $destination 'image-1.bin'
                 $path=Join-Path $destination 'readiness-spawn.bmp'
                 if(Test-Path -LiteralPath $path){throw 'Existing readiness evidence; do not retry.'}
@@ -779,7 +827,9 @@ function Wait-LabGunsReady([string]$Root,$Policy,$Job,$Result,[hashtable]$Baseli
             $diagnostic.code='readiness_wait_failed'
             Wait-LabAutoTick 200
         }
-        $diagnostic.code=if($window){'spawn_snapshot_missing'}else{'game_process_not_observed'}
+        if(-not $window){$diagnostic.code='game_process_not_observed'}
+        elseif($observe){$diagnostic.code='authorized_spawn_snapshot_missing'}
+        else{$diagnostic.code='spawn_snapshot_missing'}
         throw 'Spawn acknowledgement deadline; no weapons program started.'
     }catch{
         $Result.readiness.status='failed'
@@ -918,7 +968,7 @@ function Wait-LabGunsWarmup([string]$Root,$Policy,$Job,$Result,$Readiness,[hasht
 }
 
 function Wait-LabOwnedRelaunchReceipt([string]$Root,$Policy,$Job,$Result,$Clock,$Window,[hashtable]$Baseline,[string]$Destination) {
-    if((Get-LabRejoinPhase $Job) -cne 'round'){throw 'Fixed rejoin scenario required.'}
+    if((Get-LabRejoinPhase $Job) -cnotin @('round','steam-round')){throw 'Fixed rejoin scenario required.'}
     $directory=Join-Path $Destination 'continuity-close'
     New-Item -ItemType Directory -Path $directory -ErrorAction Stop|Out-Null
     $Result.interaction.continuity=@{phase='await-next-round-snapshot';roundReadySha256=$null}
@@ -950,7 +1000,7 @@ function Invoke-LabAutonomousGunsInteraction([string]$Root,$Policy,$Job,$Result,
     $Result.labels=@(Get-LabRunnerCaptureLabels $Job)
     $clock=$Readiness.clock;$window=$Readiness.window;$destination=Split-Path -Parent $ResultPath
     try{
-        if((Get-LabRejoinPhase $Job) -ceq 'round'){
+        if((Get-LabRejoinPhase $Job) -cin @('round','steam-round')){
             Wait-LabGunsWarmup $Root $Policy $Job $Result $Readiness $Baseline $ResultPath
         }
         Open-LabGunsMenu $Root $Policy $Job $Result $Readiness $ResultPath
@@ -1001,7 +1051,7 @@ function Invoke-LabAutonomousGunsInteraction([string]$Root,$Policy,$Job,$Result,
         $frame=$Result.images[-1]
         $observation=Get-LabGunsAssessment ([IO.File]::ReadAllBytes((Join-Path $destination 'image-5.bin'))) scene $Job.language
         $Result.interaction.assessments+=@{number=5;observation=$observation}
-        if((Get-LabRejoinPhase $Job) -ceq 'round'){
+        if((Get-LabRejoinPhase $Job) -cin @('round','steam-round')){
             Wait-LabOwnedRelaunchReceipt $Root $Policy $Job $Result $clock $window $Baseline $destination
         }
         $Result.status='autonomous_captured_unreviewed'

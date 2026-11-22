@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--compiled", required=True, type=Path)
     parser.add_argument("--ammo-compiled", type=Path)
     parser.add_argument("--continuity-compiled", type=Path)
+    parser.add_argument("--steam-observer-compiled", type=Path)
     parser.add_argument("--cache", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
@@ -37,6 +38,9 @@ def main():
     if args.continuity_compiled is not None:
         shutil.copyfile(args.continuity_compiled, compiled / "fixture_continuity_smoke.amxx")
         engine.FIXTURES["fixture_continuity_smoke.amxx"] = "tools/client-lab/tests/fixture_continuity_smoke.sma"
+    if args.steam_observer_compiled is not None:
+        shutil.copyfile(args.steam_observer_compiled, compiled / "fixture_steam_observer_smoke.amxx")
+        engine.FIXTURES["fixture_steam_observer_smoke.amxx"] = "tools/client-lab/tests/fixture_steam_observer_smoke.sma"
     original_identity = engine.source_identity
 
     def identity():
@@ -45,6 +49,9 @@ def main():
         sources[path] = engine.digest(ROOT / path)
         if args.continuity_compiled is not None:
             path = "tools/client-lab/fixture_continuity.sma"
+            sources[path] = engine.digest(ROOT / path)
+        if args.steam_observer_compiled is not None:
+            path = "tools/client-lab/fixture_steam_observer.sma"
             sources[path] = engine.digest(ROOT / path)
         return sources
 
@@ -59,6 +66,9 @@ def main():
     if args.continuity_compiled is not None:
         lock["cases"].append({"plugin": "fixture_continuity_smoke", "command": "gso_fixture_continuity_smoke",
                               "map": "de_dust2", "markers": ["FIXTURE_CONTINUITY_SMOKE"]})
+    if args.steam_observer_compiled is not None:
+        lock["cases"].append({"plugin": "fixture_steam_observer_smoke", "command": "gso_fixture_steam_observer_smoke",
+                              "map": "de_dust2", "markers": ["FIXTURE_STEAM_OBSERVER_SMOKE"]})
     engine.LOCK = output / "test-lock.json"
     engine.LOCK.write_text(json.dumps(lock, indent=2) + "\n", encoding="utf-8")
     engine.execute(args.cache.resolve(), output / "runtime", bundle)

@@ -15,6 +15,7 @@ foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $output 'kit') -Recurs
 & (Join-Path $PSScriptRoot 'tests/Test-Campaign.ps1') -Workspace $output -ToolRoot $PSScriptRoot
 & (Join-Path $PSScriptRoot 'tests/Test-CampaignRuntime.ps1') -Workspace $output -ToolRoot $PSScriptRoot
 & (Join-Path $PSScriptRoot 'tests/Test-LanRejoinController.ps1') -Workspace $output -ToolRoot $PSScriptRoot
+& (Join-Path $PSScriptRoot 'tests/Test-SteamRejoinController.ps1') -Workspace $output
 & (Join-Path $PSScriptRoot 'tests/Test-RendererReview.ps1') -Workspace $output -ToolRoot $PSScriptRoot
 $tests = @('Test-SessionBootstrap.ps1','Test-SessionPolicy.ps1','Test-Protocol.ps1','Test-Autonomous.ps1','Test-Guns.ps1','Test-GunsReadiness.ps1','Test-ReadinessFrames.ps1','Test-GunsBaseline.ps1','Test-LanRejoinRunner.ps1','Test-Workflow.ps1','Test-WorkerCleanup.ps1','Test-ShellLaunch.ps1','Test-Renderer.ps1','Test-RendererRecovery.ps1','Test-FocusProjection.ps1','Test-QueueInventory.ps1','Test-Updater.ps1','Test-Recovery.ps1')
 foreach ($name in $tests) { & (Join-Path $PSScriptRoot ('tests/' + $name)) -Workspace $output }
@@ -32,6 +33,6 @@ else { Write-Host 'Optional PowerShell 7 native compilation skipped: matching Wi
 if ($LASTEXITCODE -ne 0) { throw 'Native policy harness failed.' }
 & dotnet format whitespace (Join-Path $PSScriptRoot 'Native.Checks.csproj') --verify-no-changes --no-restore --verbosity minimal
 if ($LASTEXITCODE -ne 0) { throw 'Native source formatting differs.' }
-$summary = @{passed=$true;runtimeChanges=$false;targetNetworkUsed=$false;nativeInputSent=$false;targetNativeCompilation=$true;modernNativeCompilation=$modernCompilation;tests=$tests;controllerTests=@('Test-Campaign.ps1','Test-CampaignRuntime.ps1','Test-LanRejoinController.ps1');utc=[DateTime]::UtcNow.ToString('o')}
+$summary = @{passed=$true;runtimeChanges=$false;targetNetworkUsed=$false;nativeInputSent=$false;targetNativeCompilation=$true;modernNativeCompilation=$modernCompilation;tests=$tests;controllerTests=@('Test-Campaign.ps1','Test-CampaignRuntime.ps1','Test-LanRejoinController.ps1','Test-SteamRejoinController.ps1');utc=[DateTime]::UtcNow.ToString('o')}
 [IO.File]::WriteAllText((Join-Path $output 'checks/summary.json'), ($summary | ConvertTo-Json -Depth 4))
 $summary | ConvertTo-Json
