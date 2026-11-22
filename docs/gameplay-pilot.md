@@ -32,12 +32,36 @@ evidence, separate from the observations recorded here.
 
 ## Freeze Immediately Before Playing
 
-The operator fills the result header from fresh read-only status, existing
-installation receipts and the two clients. Repository source and old release
-notes do not prove the installed version on the day of the pilot. Keep exact
-host endpoints, Steam IDs, installation paths and unsanitized screenshots in
-the owner-controlled record outside Git; public results use actors A/B and
-sanitized evidence references.
+Run the [server preflight](../tools/release/check-gameplay-pilot.py) immediately
+before connecting the two clients. Add its `pilotHeader` to the owner-controlled
+session record, then fill in the participant and client fields. Keep exact host
+endpoints, Steam IDs, installation paths and unsanitized screenshots in that
+private record. Public results use actors A/B and sanitized references.
+
+```powershell
+python -B ./tools/release/check-gameplay-pilot.py --profile $Profile --profile-sha256 $ProfileSha --execute --output $Report
+```
+
+Use a reviewed private JSON profile and its independently retained SHA-256.
+The profile has `schema` equal to `1`, the existing [game acceptance profile](release-acceptance.md#game-and-control-plane-boundary)
+in `acceptance`, the pinned `sshConfigSha256`, `mapAddon` with `version`,
+`manifestSha256` and the four `payload` hashes (`plugin`, `config`, `loader`,
+`dictionary`), and `engine` with `protocol`, `rehlds` and `build`. Freeze
+those values from accepted install evidence. Omitting `--execute` validates
+the two local files. `--output` creates a fresh JSON file, with Markdown in
+`pilotHeader` for copying into the result template.
+
+The command checks protected receipts and installed hashes, then uses the
+existing control-plane RCON path with fixed read-only status, version and CVAR
+queries. A2S_INFO supplies the map and player/bot counts before and after those
+queries. Finish this check before the players join. The profile, service
+invocation and map must agree throughout the sample. The returned `ready`,
+`drift` or `unavailable` result identifies the observed differences and missing
+fields. Drift or unavailable evidence returns a nonzero exit status. The
+engine's [`mp_timeleft`](https://github.com/rehlds/ReGameDLL_CS/blob/master/README.md)
+is recorded at the time of the server sample. An unavailable collection also
+returns a bounded reason for the failed stage, such as an SSH timeout or an
+invalid response.
 
 Record UTC start/end, server/profile identifier, current map and `/timeleft`,
 installed weapon/map-addon versions and receipt/payload hashes, engine version,
@@ -70,6 +94,21 @@ The exact map set remains `de_dust2`, `de_inferno`, `de_nuke`, `de_train`,
 unavailable through the existing cycle/native vote, record those cases as
 `Not tested`. Do not change mapcycle or introduce a test map. Check remaining
 map time, do objective cases early and record any natural map transition.
+
+### Server Preflight Evidence On 2026-11-22
+
+The read-only sample completed at 16:48 UTC with `ready` and 77 matched
+checks. It verified the accepted weapon addon 0.40.0, map addon 0.2.0,
+their installed hashes, the nVault storage contract and the live gameplay
+settings. The game service invocation and map stayed consistent across the
+sample. Both A2S snapshots showed `de_inferno`, zero players and zero bots.
+The observed map time remaining was `07:55`.
+
+An initial attempt ended at the first SSH collection before A2S evidence or
+any RCON request. The completed sample followed a transport check. The
+fixture suite passed 28 acceptance tests and eight transport tests, including
+drift, incomplete replies and a map change between snapshots. Player
+scenarios remain pending until the two participants are available.
 
 ## Session Order
 

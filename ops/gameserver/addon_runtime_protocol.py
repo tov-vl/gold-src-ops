@@ -5,6 +5,12 @@ import time
 
 HEADER = b'\xff' * 4
 COMMANDS = ('goldsrcops_weapons_status', 'goldsrcops_stats_status')
+PILOT_CVARS = (
+    'mp_forcerespawn', 'mp_respawn_immunitytime', 'mp_respawn_immunity_force_unset',
+    'mp_freezetime', 'mp_friendlyfire', 'mp_roundtime', 'mp_c4timer', 'mp_timelimit',
+    'mp_autoteambalance', 'mp_limitteams', 'mapchangecfgfile', 'mp_timeleft',
+)
+PILOT_COMMANDS = (*COMMANDS, 'goldsrcops_maps_status', 'version', *PILOT_CVARS)
 
 
 def require(value):
@@ -14,6 +20,15 @@ def require(value):
 
 def query(address, password, command):
     require(command in COMMANDS or re.fullmatch(r'goldsrcops_player_lookup [a-f0-9]{16} (?:[A-F0-9]{2}){1,31}', command))
+    return _query(address, password, command)
+
+
+def query_pilot(address, password, command):
+    require(command in PILOT_COMMANDS)
+    return _query(address, password, command)
+
+
+def _query(address, password, command):
     deadline = time.monotonic() + 4
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client:
         client.connect(address)
