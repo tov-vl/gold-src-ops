@@ -65,8 +65,11 @@ roadmap owns future priorities; it is not a live production health report.
 Archive investigation and player availability do not block unrelated bounded
 development. A useful two-player pilot can proceed when participants become
 available. The [pilot protocol](gameplay-pilot.md) and
-[result form](templates/gameplay-pilot-result.md) are prepared while waiting;
-solo or bot checks do not complete the human gate.
+[result form](templates/gameplay-pilot-result.md) are prepared while waiting.
+The [server preflight](gameplay-pilot.md#freeze-immediately-before-playing)
+provides a repeatable read-only snapshot immediately before the session.
+Its [first completed sample](gameplay-pilot.md#server-preflight-evidence-on-2026-11-22)
+matched all 77 checks with zero players and bots.
 
 ## Accepted v2.131 Operator Command Dispatcher Health
 
