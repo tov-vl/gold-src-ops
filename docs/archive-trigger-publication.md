@@ -107,5 +107,25 @@ hashes, 23 entries and 21 source files. Observer/service imports also passed fro
 the exact extracted ZIP in isolated offline Python without checkout fallback.
 The approved retained-ledger R3 and two natural slots with independent reader
 Recovery are [accepted separately](archive-trigger-progress.md#rc4-candidate-and-r3-acceptance).
-No stable tag or promotion was requested. The provider remains mutable; the
-existing no-replacement publication rules and signed checksum still apply.
+
+## Stable Release On 2026-11-22
+
+[Archive trigger 2.132.0](https://github.com/tov-vl/gold-src-ops/releases/tag/archive-trigger-v2.132.0)
+was published at candidate revision `09d37fe9e1c9dfc5d8ce385727b1b56ec18b8e15`.
+[Full tag CI and component publication](https://github.com/tov-vl/gold-src-ops/actions/runs/45041482933)
+passed. The signed stable tag names rc.4 and its accepted ZIP SHA-256. The
+publication receipt records promotion of the existing assets.
+
+Independent download matched both stable assets byte for byte with rc.4.
+The 191,944-byte ZIP has SHA-256
+`03ac873480136d857d6c64e3a7a3ff3e7cc19373dae6155e0bfba9e099bde55b`.
+All 23 ZIP entries passed validation. The manifest's 21 source files
+matched the exact Git blobs and the included configuration template
+remained paused. GitHub verified the annotated stable tag signature.
+The provider reported the release as mutable, so the signed tag and
+verified hashes provide the artifact identity.
+
+The release uses the accepted [R3 runtime evidence](archive-trigger-progress.md#rc4-candidate-and-r3-acceptance)
+and the [seven-day assessment](archive-trigger-progress.md#seven-day-assessment-on-2026-11-22).
+A fresh readback matched the installed package manifest, all 22 payload
+files and the accepted service unit. The timer was active.
