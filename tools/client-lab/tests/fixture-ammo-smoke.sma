@@ -31,6 +31,7 @@ public plugin_init()
 {
     register_plugin("Fixture ammo observer checks", "1.0.0", "");
     g_readiness = register_cvar("gso_lab_readiness", "0");
+    g_steamAdmission = register_cvar("gso_lab_steam_admission", "0");
     register_srvcmd("gso_fixture_ammo_smoke", "StartAmmoSmoke");
     RegisterHookChain(RG_CBasePlayer_Killed, "ObserveTestDeath", true);
     RegisterHookChain(RG_CBasePlayer_Spawn, "ObserveTestSpawn", true);
