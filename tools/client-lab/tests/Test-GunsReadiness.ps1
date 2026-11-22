@@ -126,6 +126,46 @@ foreach($case in (@('ready')+@($expectedFailures.Keys))){
         Check (-not $result.readiness.automaticRetryAllowed)
     }
 }
+$observe=[pscustomobject]@{id=[guid]::NewGuid().ToString('D');action='capture-guns';language='en';
+    createdUtc=$job.createdUtc;rejoinPhase='observe'}
+$script:case='observe-protocol'
+$request=ConvertFrom-LabRunnerCommand ('guns-observe '+$observe.id)
+Check ($request.operation -ceq 'guns-observe' -and $request.language -ceq 'en')
+Reject {ConvertFrom-LabRunnerCommand ('guns-observe '+$observe.id+' en')}
+Assert-LabRunnerJob $observe
+New-LabAutonomousMode $root $observe
+Check (Get-LabAutonomousMode $root $observe)
+$observe.rejoinPhase='rejoin'
+Reject {Get-LabAutonomousMode $root $observe}
+$observe.rejoinPhase='observe'
+Check ((Get-LabRunnerImageLimit $observe) -eq 1 -and (Get-LabRunnerCaptureLabels $observe) -ceq 'authorized-spawn')
+$program=New-LabGunsProgram $observe
+$lines=@($program.TrimEnd() -split '\r\n')
+Check ($lines.Count -eq 2 -and $lines[0] -ceq 'alias gso_lab_join "alias gso_lab_join; jointeam 1; wait; joinclass 1"')
+Check ($lines[1] -ceq 'alias gso_lab_steam_observed "alias gso_lab_steam_observed; snapshot"')
+$server=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '../fixture_steam_observer.sma'))
+$callbacks=[regex]::Matches($server,'client_cmd\(player, "(gso_lab_[a-z_]+)"\)')
+Check ($callbacks.Count -eq 1 -and $program.Contains('alias '+$callbacks[0].Groups[1].Value+' "'))
+
+foreach($case in @('observe-ready','missing-spawn')){
+    $script:case=$case;$script:now=0;$script:inputs=0;$script:received=0;$script:prepared=$false;$script:guarded=$false
+    $script:gameStartedUtc=[DateTime]::UtcNow
+    $script:destination=Join-Path $root ('observe-'+$case)
+    New-Item -ItemType Directory -Path (Join-Path $destination 'queue') -Force|Out-Null
+    $result=@{images=@();gamePid=$null;gameStartedUtc=$null}
+    $failed=$false
+    try{Wait-LabGunsReady $destination $policy $observe $result @{} ([DateTime]::UtcNow.AddSeconds(-1)) (Join-Path $destination 'result.json')|Out-Null}
+    catch{$failed=$true;if($case -ceq 'observe-ready'){throw}}
+    Check ($result.readiness.callback -ceq 'gso_lab_steam_observed' -and $result.readiness.mode -ceq 'steam-spawn-observe-v1')
+    Check ($script:inputs -eq 0 -and -not $script:prepared -and -not $script:guarded -and -not $result.readiness.setupAcknowledged)
+    Check (-not @(Get-ChildItem -LiteralPath $destination -Filter 'auto-phase-*.json').Count)
+    if($case -ceq 'observe-ready'){
+        Check (-not $failed -and $result.readiness.status -ceq 'snapshot-received' -and $result.images.Count -eq 1)
+        Check ((Get-FileHash (Join-Path $destination 'image-1.bin')).Hash -ceq $result.readiness.spawnSnapshot.sha256)
+    }else{
+        Check ($failed -and $result.readiness.failureCode -ceq 'authorized_spawn_snapshot_missing' -and $result.images.Count -eq 0)
+    }
+}
 $script:case='respawn-frame'
 $script:destination=Join-Path $root 'ready'
 $script:now=0
@@ -150,4 +190,5 @@ $script:ackAt=21
 $result=@{images=$frames;interaction=@{};failureCode=$null;gamePid=123;gameStartedUtc=$script:gameStartedUtc.ToString('o')}
 Reject {Receive-LabGunsRespawnFrame $script:destination $policy $job $result $null $window @{} $script:destination}
 Check ($result.images.Count -eq 4 -and -not $result.interaction.ContainsKey('respawnSnapshotSha256') -and $result.failureCode -ceq 'guns_respawn_snapshot_missing')
+
 Write-Output ('Weapons readiness checks passed: '+$checks+'. No target, game or native input.')

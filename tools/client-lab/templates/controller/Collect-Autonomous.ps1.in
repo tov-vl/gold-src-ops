@@ -46,7 +46,10 @@ if($finished){
             (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $frame.sha256){throw 'Collected image differs from target metadata.'}
         $receipt.images+=@{number=$frame.number;sha256=$frame.sha256;bytes=$frame.bytes}
     }}catch{$receipt.failureCode='image_collection_failed'}
-    $expected=if($last.action -ceq 'capture-guns'){4}else{5}
+    $observe=$last.action -ceq 'capture-guns' -and $last.PSObject.Properties['readiness'] -and
+        $last.readiness -and $last.readiness.PSObject.Properties['mode'] -and
+        $last.readiness.mode -ceq 'steam-spawn-observe-v1'
+    $expected=if($observe){1}elseif($last.action -ceq 'capture-guns'){4}else{5}
     $expectedStatus=if($last.action -ceq 'capture-guns'){'captured_unreviewed'}else{'autonomous_captured_unreviewed'}
     $receipt.evidenceComplete=$last.status -ceq $expectedStatus -and @($receipt.images).Count -eq $expected -and
         $last.cleanupVerified -and $last.configCleanupVerified -and -not $receipt.failureCode

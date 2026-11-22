@@ -11,9 +11,11 @@ import tarfile
 import time
 
 import fixture_base as base
+import steam_admission
 
 PLUGIN = '{{PLUGIN_SHA256}}'
 LAN_REJOIN = {{LAN_REJOIN}} == 1
+STEAM_REJOIN = {{STEAM_REJOIN}} == 1
 CONTINUITY = '{{CONTINUITY_SHA256}}'
 DICTIONARY = '71b1ea3a49331e16e1383817849f04d702ee559c1be11c3e825172f0c5c939b7'
 SDK = '47163830cbb9888e1a8162b7b5054c7118159ec05001059a9cf1d0fec466a43c'
@@ -133,13 +135,21 @@ def main():
             check('/inputs/de_dust2.nav', '9a44381363572f05d42fa4f82b293f54e49c93d60a4471d2fe8396ecceb77753')
             shutil.copyfile('/inputs/de_dust2.nav', nav_path)
             base.ASSET_SUFFIXES.add('.nav')
+        if STEAM_REJOIN:
+            observer = 'cstrike/addons/amxmodx/plugins/fixture_steam_observer.amxx'
+            check('/inputs/fixture_steam_observer.amxx', '{{STEAM_OBSERVER_SHA256}}')
+            shutil.copyfile('/inputs/fixture_steam_observer.amxx', source / observer)
+            base.REQUIRED += (observer,)
+            base.CONFIGS['cstrike/addons/amxmodx/configs/plugins.ini'] += 'fixture_steam_observer.amxx\n'
+            base.CONFIGS['cstrike/server.cfg'] = base.CONFIGS['cstrike/server.cfg'].replace('sv_lan 1\n', 'sv_lan 0\ngso_lab_steam_admission 1\nsv_logrelay 0\n')
         fixture = Path('/tmp/fixture')
         manifest = base.prepare(source, fixture, '/inputs/goldsrcops.amxx', PLUGIN, '/inputs/goldsrcops.txt', DICTIONARY)
         private = Path('/tmp/private')
         private.mkdir(mode=0o700)
         def arguments(root):
+            steam_args = ['-nomaster', '+sv_lan', '0'] if STEAM_REJOIN else []
             return ['timeout', '--signal=TERM', '--kill-after=5', '2400', str(Path(root) / 'hlds_linux'),
-                    '-norestart', '-nobreakpad', '-insecure', '-game', 'cstrike', '-console', '-strictportbind',
+                    '-norestart', '-nobreakpad', '-insecure', *steam_args, '-game', 'cstrike', '-console', '-strictportbind',
                     '+ip', '0.0.0.0', '-port', '27025', '+map', 'de_dust2', '+servercfgfile', 'server.cfg', '-maxplayers', '4' if LAN_REJOIN else '2']
         base.launch_args = arguments
         # Drop only this container's process to the image's existing non-root steam identity.
@@ -154,14 +164,31 @@ def main():
         server.process.stdin.write(b'goldsrcops_player_menu_status\ngoldsrcops_weapons_status\ngoldsrcops_stats_status\nmp_forcerespawn\nmp_respawn_immunitytime\nmp_respawn_immunity_force_unset\nstatus\n')
         server.process.stdin.flush()
         time.sleep(1)
+        if STEAM_REJOIN:
+            deadline = time.monotonic() + 75
+            while time.monotonic() < deadline:
+                log = server.read_private_log()
+                if b'Connection to Steam servers successful.' in log:
+                    break
+                time.sleep(0.5)
+            else:
+                raise RuntimeError('Steam anonymous server logon was not confirmed')
+            status['steamAnonymousLogon'] = True
         log = server.read_private_log()
         version = b'0.40.0' if LAN_REJOIN else b'0.39.0'
         if b'WEAPON_SELECTION_STATUS version=' + version + b' enabled=1 choices=3 pistol_choices=3 ' not in log:
             raise RuntimeError('Pinned addon did not report ready')
         if any(p.name.startswith('error_') for p in (fixture / 'cstrike/addons/amxmodx/logs').glob('*')):
             raise RuntimeError('AMXX error file exists')
-        if LAN_REJOIN and not fixture_is_vacant(status['name']):
-            raise RuntimeError('LAN rejoin requires a vacant fixture at start')
+        def is_vacant():
+            if STEAM_REJOIN:
+                return steam_admission.is_vacant(server, status['name'])
+            return fixture_is_vacant(status['name'])
+
+        if LAN_REJOIN and not is_vacant():
+            raise RuntimeError('Rejoin requires a vacant fixture at start')
+        if STEAM_REJOIN:
+            status.update(steamRejoin=True, steamAdmissions=0, observerDisconnected=False)
         if LAN_REJOIN:
             status.update(lanRejoin=True, emptyAtStart=True)
         trial_log_offset = len(log)
@@ -177,12 +204,15 @@ def main():
         trial_bots_added = False
         continuity_armed = False
         reconnect_window = None
+        admitted = set()
         while time.time() - started < 2400:
             log = server.read_private_log()
             if not LAN_REJOIN:
                 time.sleep(2)
                 continue
             trial_log = log[trial_log_offset:]
+            if STEAM_REJOIN:
+                steam_admission.observe(server, trial_log, admitted, status, report)
             if not trial_bots_added and b'FIXTURE_GUNS_WARMUP phase=preview-closed' in trial_log:
                 server.process.stdin.write(b'bot_quota 2\n')
                 server.process.stdin.flush()
@@ -192,6 +222,10 @@ def main():
             if (trial_bots_added and not continuity_armed
                     and b'FIXTURE_GUNS_CONTROL step=5 respawn=1 movement=1' in trial_log
                     and b'"LabAlpha<' in trial_log and b'"LabBravo<' in trial_log):
+                if STEAM_REJOIN:
+                    if len(admitted) != 1:
+                        raise RuntimeError('First Steam approval required before arming')
+                    steam_admission.console(server, b'gso_fixture_steam_observe_arm')
                 server.process.stdin.write(b'gso_fixture_continuity_begin\n')
                 server.process.stdin.flush()
                 continuity_armed = True
@@ -209,7 +243,7 @@ def main():
                     server.process.stdin.write(b'bot_quota 0\n')
                     server.process.stdin.flush()
                 if (reconnect_window is not None and 'rejoinOpenedUnix' not in status
-                        and time.time() - reconnect_window < 25 and fixture_is_vacant(status['name'])):
+                        and time.time() - reconnect_window < 25 and is_vacant()):
                     status['rejoinOpenedUnix'] = reconnect_window
                     status['vacantForRejoin'] = True
                     report()

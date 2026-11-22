@@ -31,6 +31,13 @@ change is implied.
 
 ## Current Status
 
+Accepted: [private Steam rejoin in the client lab](client-lab.md#live-steam-acceptance-on-2026-11-22).
+Two owned client launches had server-confirmed Steam authorization for one
+account and independently verified OpenGL. The first authorized spawn after
+reconnect restored AK-47 and Desert Eagle before any repeat selection.
+The paired run used the isolated 0.40.0 addon and nVault. The two-player
+gameplay pilot remains a separate milestone.
+
 [Player storage 0.40.0](player-storage-0.40.0-release.md) completed production
 R3 acceptance and same-byte stable promotion. The paired addon and i386
 nVault passed full PR/main CI, a host storage probe, independent runtime

@@ -69,6 +69,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
     Write-LabJson $resultPath $result
     $ownsConfig = $false
     $isGuns = $false
+    $observe = (Get-LabRejoinPhase $job) -ceq 'observe'
     $readiness = $null
     $configPath = $null
     $launcher=$null
@@ -87,7 +88,7 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
         if (-not $client.ready) { $result.failureCode=$client.code;throw 'Client prerequisites are not ready.' }
         if ($job.action -cin @('capture-panel','capture-guns','verify-rules','verify-panel')) {
             $result.stage = 'fixture_readiness'
-            $result.fixture = Get-LabFixtureReady $policy
+            $result.fixture = Get-LabRunnerFixtureReady $policy $job
         }
         $result.stage='prerequisites'
         foreach ($folder in @($policy.gameRoot, (Join-Path $policy.gameRoot 'cstrike'))) {
@@ -150,7 +151,9 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath (Join-Path $Root 'queue') 
             $readiness=Wait-LabGunsReady $Root $policy $job $result $baseline $launchUtc $resultPath
         }
         $result.stage = 'capture'
-        if($job.action -ceq 'capture-guns'){
+        if($observe){
+            $result.status='captured_unreviewed'
+        }elseif($job.action -ceq 'capture-guns'){
             Invoke-LabGunsBaseline $Root $policy $job $result $readiness $baseline $resultPath
         }elseif($job.action -cin @('verify-rules','verify-panel')) {
             $result.stage='interaction'

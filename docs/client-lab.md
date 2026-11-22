@@ -318,3 +318,80 @@ records of round transition, disconnect, new connection and spawn. The
 USP after rejoin. Steam-identity persistence is a separate acceptance case.
 Each new launch has a single dispatch claim. On interrupted execution, reconcile
 those IDs and the fixture status from the retained run directory.
+
+## Steam post-authorization inventory observation
+
+Use the fixed second-launch operation **guns-observe** on the isolated Steam
+fixture with the 0.40.0 weapon addon. Keep the first launch on the same map
+and server. After selecting the initial loadout, arm the observer from the
+fixture's server console with the human client still connected and alive.
+
+    gso_fixture_steam_observe_arm
+
+Require one **FIXTURE_STEAM_OBSERVE_ARMED** and then one
+**FIXTURE_STEAM_OBSERVE_DISCONNECT** in that server's private log. After the
+first CS process closes and the fixture is vacant, dispatch the second launch
+with a fresh job ID.
+
+    ./Invoke-Panel.ps1 -Operation guns-observe -JobId $secondJobId
+
+The generated client program has only a team/class join alias and a one-shot
+snapshot alias. It sends no weapons menu input. The server-hook post callback
+runs after the weapon addon. On the first live spawn after authorization, it
+requires the same normalized Steam account and a new server userid. It
+records the full weapon bitmask before requesting the native frame. Bit N
+means CS weapon ID N. For example, AK-47 and Desert Eagle are bits 28 and 26.
+A different inventory is recorded as observed. Raw Steam IDs and userids are
+excluded from the observer receipt. With delayed authorization, spawns before
+the authorization callback are skipped. If no eligible spawn occurs within
+the armed window, the observer expires without a spawn receipt.
+
+Build the observer with **Build-FixtureHelper.ps1 -SteamObserver**.
+Prepare the arena with **New-LabRun.ps1 -Scenario guns-steam-rejoin**
+and pass the compiled observer via **-SteamObserverPath**. The profile uses
+a disposable Docker bridge for anonymous Steam server logon, zero Docker
+port publications, and **-nomaster**. The existing bounded UDP relay admits
+the fixed test client. The local console proves server identity and vacancy.
+The worker checks the native Steam challenge on the pinned relay address.
+Team join is released only after a genuine ReHLDS validation record and the
+corresponding connection entering the game. The fixture tracks the account
+and userid in memory and publishes only counts and inventory.
+
+After verifying the signed runner through the existing updater, start the
+fixture and use **Invoke-LabSteamRejoin.ps1 -Execute** to launch the two
+jobs. The fixed first job selects the weapon pair and verifies its next
+round. The second uses **guns-observe**. The acceptance receipt requires both
+OpenGL results, both validated connections, the server's inventory record,
+and verified client cleanup.
+
+For offline verification, compile **-MenuTest** and **-SteamObserverTest**
+with the pinned toolchain and pass their paths to **run_fixture_menu.py**
+as **--compiled** and **--steam-observer-compiled**. Provide **--cache**
+with the locked engine assets and **--output** with a fresh directory.
+The Docker test uses synthetic authorization and exercises the first-spawn
+hook with real inventory in the engine, with no Steam account or open ports.
+
+### Live Steam acceptance on 2026-11-22
+
+The isolated 0.40.0 addon and its paired i386 nVault passed the EN two-launch
+scenario. ReHLDS validated the same Steam account on two distinct server
+connections. The first client selected AK-47 and Desert Eagle and verified
+the pair on the next round. The first eligible spawn after the second
+validation carried AK-47, Desert Eagle and the knife (mask 0x34000000).
+The server's inventory record preceded the passive snapshot. The server log
+contained no new weapon-selection event between disconnect and that record.
+
+An independent readback bound OpenGL to both owned client processes and
+verified the SHA-256 of all five first-launch frames and the single
+observation frame. Both client processes and their temporary configs were
+cleaned up. The owned container, network and relay were removed.
+
+An earlier attempt had stopped after the first launch because the
+controller reused an aged desktop heartbeat. The accepted retry delegated
+the second launch's immediate desktop check to the worker. The original
+collector expected four frames for the observation job. The six downloaded
+frames, renderer receipts and server sequence were independently reconciled.
+The collector now expects one frame for the Steam observation mode.
+
+This acceptance covers one Steam account on one isolated server. The
+[two-player gameplay pilot](gameplay-pilot.md) has its own protocol.

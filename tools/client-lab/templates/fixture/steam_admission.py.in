@@ -1,0 +1,74 @@
+"""Server-only admission for one paired run through the private Steam fixture."""
+import re
+import time
+
+LOG_PREFIX = rb'^L [0-9]{2}/[0-9]{2}/[0-9]{4} - [0-9]{2}:[0-9]{2}:[0-9]{2}: '
+APPROVAL = re.compile(LOG_PREFIX
+    + rb'"[^\r\n]{1,80}<([1-9][0-9]{0,9})><STEAM_[01]:([01]):(0|[1-9][0-9]{0,9})><>" STEAM USERID validated\r?$',
+    re.MULTILINE)
+ENTERED = re.compile(LOG_PREFIX
+    + rb'"[^\r\n]{1,80}<([1-9][0-9]{0,9})><[^<>\r\n]{1,32}><[^<>\r\n]{0,32}>" entered the game\r?$',
+    re.MULTILINE)
+SPAWN = re.compile(
+    rb'FIXTURE_STEAM_OBSERVE_SPAWN authorized=1 same_account=1 new_userid=1 inventory=0x([0-9A-Fa-f]{8})\r?$',
+    re.MULTILINE)
+
+
+def console(server, command):
+    server.process.stdin.write(command + b'\n')
+    server.process.stdin.flush()
+
+
+def is_vacant(server, name):
+    cursor = server.log_checkpoint()
+    console(server, b'echo GSO_PRIVATE_STEAM_STATUS; status; echo GSO_PRIVATE_STEAM_END')
+    deadline = time.monotonic() + 1.5
+    while time.monotonic() < deadline:
+        new = server.read_private_log()[cursor:]
+        match = re.search(rb'^GSO_PRIVATE_STEAM_STATUS[ \t]*\r?\n(.*?)^GSO_PRIVATE_STEAM_END[ \t]*\r?$',
+                          new, re.MULTILINE | re.DOTALL)
+        if match:
+            lines = [line.strip(b' \r') for line in match.group(1).splitlines()]
+            hostname = any(line.startswith(b'hostname:') and line[9:].strip() == name.encode('ascii') for line in lines)
+            game_map = any(re.fullmatch(rb'map\s*:\s*de_dust2(?:\s+at:.*)?', line) for line in lines)
+            empty = any(re.fullmatch(rb'players\s*:\s*0\s+active\s+\(4 max\)', line) for line in lines)
+            return hostname and game_map and empty
+        time.sleep(0.1)
+    return False
+
+
+def approved_players(log):
+    approvals = {}
+    for match in APPROVAL.finditer(log):
+        userid, side, number = (int(value) for value in match.groups())
+        account = (side, number)
+        if (userid > 2147483647 or number > 2147483647 or account == (0, 0)
+                or userid in approvals and approvals[userid] != account):
+            raise RuntimeError('Invalid or ambiguous Steam approval')
+        approvals[userid] = account
+    return approvals
+
+
+def observe(server, trial_log, admitted, status, report):
+    # The private ReHLDS validation log is authoritative. No names or IDs enter the receipt.
+    approvals = approved_players(trial_log)
+    if len(approvals) > 2 or (len(approvals) == 2 and len(set(approvals.values())) != 1):
+        raise RuntimeError('Steam approval belongs to an unexpected account or connection')
+    entered = set(int(value) for value in ENTERED.findall(trial_log))
+    status['observerDisconnected'] = b'FIXTURE_STEAM_OBSERVE_DISCONNECT observed=1' in trial_log
+    for userid in approvals:
+        if userid in admitted or userid not in entered:
+            continue
+        if admitted and (status.get('vacantForRejoin') is not True or not status['observerDisconnected']):
+            raise RuntimeError('Second Steam approval preceded the rejoin window')
+        console(server, f'gso_fixture_steam_allow_join {userid}'.encode('ascii'))
+        admitted.add(userid)
+        status['steamAdmissions'] = len(admitted)
+        report()
+    observed = list(SPAWN.finditer(trial_log))
+    if observed and 'steamSpawnInventory' not in status:
+        if (len(admitted) != 2 or len(observed) != 1 or not status['observerDisconnected']
+                or approved_players(trial_log[:observed[0].start()]) != approvals):
+            raise RuntimeError('Unexpected Steam observation evidence')
+        status['steamSpawnInventory'] = int(observed[0].group(1), 16)
+        report()

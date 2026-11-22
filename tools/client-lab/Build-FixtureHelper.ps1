@@ -6,11 +6,13 @@ param(
     [switch]$MenuTest,
     [switch]$AmmoTest,
     [switch]$Continuity,
-    [switch]$ContinuityTest
+    [switch]$ContinuityTest,
+    [switch]$SteamObserver,
+    [switch]$SteamObserverTest
 )
 $ErrorActionPreference='Stop'
 if(-not $IsWindows){throw 'Use the pinned Windows AMXX toolchain.'}
-if(@($MenuTest,$AmmoTest,$Continuity,$ContinuityTest|Where-Object {$_}).Count -gt 1){throw 'Select one fixed fixture variant.'}
+if(@($MenuTest,$AmmoTest,$Continuity,$ContinuityTest,$SteamObserver,$SteamObserverTest|Where-Object {$_}).Count -gt 1){throw 'Select one fixed fixture variant.'}
 Import-Module (Join-Path $PSScriptRoot 'Lab.Tooling.psm1') -Force
 $output=Assert-LabOutputPath $OutputPath
 if(Test-Path -LiteralPath $output){throw 'Never overwrite a fixture helper.'}
@@ -28,11 +30,14 @@ $source = Join-Path $PSScriptRoot $(if ($MenuTest) { 'tests/fixture-menu-smoke.s
     elseif ($AmmoTest) { 'tests/fixture-ammo-smoke.sma' }
     elseif ($ContinuityTest) { 'tests/fixture_continuity_smoke.sma' }
     elseif ($Continuity) { 'fixture_continuity.sma' }
+    elseif ($SteamObserverTest) { 'tests/fixture_steam_observer_smoke.sma' }
+    elseif ($SteamObserver) { 'fixture_steam_observer.sma' }
     else { 'fixture_vgui_guard.sma' })
 & (Join-Path $scripting 'amxxpc.exe') $source ('-i'+$includes) ('-i'+$reapi) ('-i'+$PSScriptRoot) ('-o'+$output) -d0 -E | Out-Host
 if($LASTEXITCODE -ne 0){throw 'Fixture helper compilation failed.'}
 $hash=(Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash
 $expected=if($Continuity){'8ED394B7E437F4A484A5F48DF180E7B1F20F4D136B79A429D0E5BDF7832D6A84'}
-    elseif(-not ($MenuTest -or $AmmoTest -or $ContinuityTest)){'C69BF148B9BC9924C512084DC49983513F1565A068A0AD8EDBEFE1C492FD0B6D'}
+    elseif($SteamObserver){'7B4D6352450FF5854E82D3BE944709EAF3505121601B10F966B813C06A7FE94A'}
+    elseif(-not ($MenuTest -or $AmmoTest -or $ContinuityTest -or $SteamObserverTest)){'37EE8A8DD9BA1D6B36A7C172AF8ED4ECC0C2AEEBF84154CF44026D4C3E743612'}
 if($expected -and $hash -cne $expected){throw 'Fixture helper differs from the reviewed source pin; do not use the output.'}
 @{status='compiled-not-installed';sha256=$hash;runtimeChanged=$false;downloaded=$false}|ConvertTo-Json

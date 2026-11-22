@@ -21,7 +21,10 @@ def read_json(path):
 def read_plan(root):
     root = root.resolve(strict=True)
     plan = read_json(root / "plan.json")
-    if set(plan) != {"schema", "id", "language", "container", "network", "image", "assets"}:
+    fields = {"schema", "id", "language", "container", "network", "image", "assets"}
+    if set(plan) == fields | {"profile"} and plan["profile"] == "steam-rejoin" and plan["language"] == "en":
+        fields.add("profile")
+    if set(plan) != fields:
         raise ValueError("Unexpected plan shape")
     if plan["schema"] != 1 or plan["language"] not in ("ru", "en") or not re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", plan["id"]):
         raise ValueError("Unexpected run identity")
@@ -57,7 +60,8 @@ def start(root, plan):
     for source, _, _ in mounts:
         if not source.exists() or source.is_symlink() or "," in str(source):
             raise ValueError("Missing or linked local input")
-    network = docker("network", "create", "--internal", "--label", "purpose=client-lab", plan["network"])
+    network_args = ["--driver", "bridge"] if plan.get("profile") == "steam-rejoin" else ["--internal"]
+    network = docker("network", "create", *network_args, "--label", "purpose=client-lab", plan["network"])
     write_new(root / "network.json", {"id": network, "name": plan["network"]})
     args = ["run", "-d", "--name", plan["container"], "--network", plan["network"], "--cpus", "2", "--memory", "1536m", "--pids-limit", "128",
             "--security-opt", "no-new-privileges:true", "--restart", "no", "--no-healthcheck", "--label", "purpose=client-lab"]

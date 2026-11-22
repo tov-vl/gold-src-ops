@@ -6,8 +6,9 @@ param(
     [Parameter(Mandatory = $true)][string]$AddonDirectory,
     [Parameter(Mandatory = $true)][string]$HelperBinaryPath,
     [Parameter(Mandatory = $true)][ValidateSet('ru','en')][string]$Language,
-    [ValidateSet('motd','guns','guns-rejoin')][string]$Scenario='motd',
+    [ValidateSet('motd','guns','guns-rejoin','guns-steam-rejoin')][string]$Scenario='motd',
     [string]$ContinuityHelperPath,
+    [string]$SteamObserverPath,
     [string]$NVaultPath,
     [string]$NavPath,
     [Parameter(Mandatory = $true)][string]$OutputDirectory
@@ -29,15 +30,20 @@ foreach ($entry in $manifest.files) {
     $file = Get-Item -LiteralPath (Join-Path $BundleDirectory ('kit/code/' + $entry.name))
     if (($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash -cne $entry.sha256) { throw 'Prepared runner was modified.' }
 }
-$rejoin=$Scenario -ceq 'guns-rejoin'
+$steam=$Scenario -ceq 'guns-steam-rejoin'
+$rejoin=$steam -or $Scenario -ceq 'guns-rejoin'
+if($steam -ne [bool]$SteamObserverPath){throw 'Steam rejoin requires its pinned observer only for the Steam profile.'}
 if($rejoin -and ($Language -cne 'en' -or -not $ContinuityHelperPath -or -not $NVaultPath -or -not $NavPath)){
-    throw 'LAN rejoin requires EN and the three pinned local fixture inputs.'
+    throw 'Rejoin requires EN and the three pinned local fixture inputs.'
 }
-if(-not $rejoin -and ($ContinuityHelperPath -or $NVaultPath -or $NavPath)){throw 'Additional fixture inputs require guns-rejoin.'}
+if(-not $rejoin -and ($ContinuityHelperPath -or $NVaultPath -or $NavPath)){throw 'Additional fixture inputs require a rejoin profile.'}
 $addonPin=if($rejoin){'71AEF4EC88C1F97528B749AB9D0E3111C28FE8DB981E0742B2313F06D9741848'}else{'257F90BA56199D36ED3699D5299B482771D1BD550204946792BDB7276DBCB40D'}
 $guardPin=(Get-FileHash -LiteralPath $HelperBinaryPath).Hash
-$currentGuard='C69BF148B9BC9924C512084DC49983513F1565A068A0AD8EDBEFE1C492FD0B6D'
-if($guardPin -cne $currentGuard -and ($rejoin -or $guardPin -cne '05CCFB65A9ABC9C5B65C429C7FA7F928E1595E138D3885C2F7E08CA46B3F5095')){
+$currentGuard='37EE8A8DD9BA1D6B36A7C172AF8ED4ECC0C2AEEBF84154CF44026D4C3E743612'
+$allowedGuards=@($currentGuard)
+if(-not $steam){$allowedGuards+='C69BF148B9BC9924C512084DC49983513F1565A068A0AD8EDBEFE1C492FD0B6D'}
+if(-not $rejoin){$allowedGuards+='05CCFB65A9ABC9C5B65C429C7FA7F928E1595E138D3885C2F7E08CA46B3F5095'}
+if($guardPin -cnotin $allowedGuards){
     throw 'Pinned fixture helper differs.'
 }
 $inputs = @(
@@ -52,6 +58,8 @@ if($rejoin){
         @{name='nvault_amxx_i386.so';path=$NVaultPath;hash='E6A24A81B205410E9B5EB62CA3B1E2BB8F49A0480D5E84B177D7A57C512A0AF6'},
         @{name='de_dust2.nav';path=$NavPath;hash='9A44381363572F05D42FA4F82B293F54E49C93D60A4471D2FE8396ECCEB77753'})
 }
+$steamObserverPin='7B4D6352450FF5854E82D3BE944709EAF3505121601B10F966B813C06A7FE94A'
+if($steam){$inputs+=@{name='fixture_steam_observer.amxx';path=$SteamObserverPath;hash=$steamObserverPin}}
 foreach ($inputFile in $inputs) {
     $item = Get-Item -LiteralPath $inputFile.path
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $item.Length -gt 1MB -or
@@ -61,7 +69,7 @@ $id = [guid]::NewGuid().ToString('D')
 $container = 'gso-client-lab-' + ([guid]$id).ToString('N')
 $tokens = @{SOURCE_IPV4=$profile.sourceAddress;TARGET_IPV4=$profile.targetAddress;TARGET_NAME=$profile.targetName;FIXTURE_NAME=$profile.fixtureName;CONTAINER_NAME=$container;
     GUNS_READINESS=[int]($Scenario -cne 'motd');LAN_REJOIN=[int]$rejoin;PLUGIN_SHA256=$addonPin.ToLowerInvariant();
-    GUARD_SHA256=$guardPin.ToLowerInvariant();CONTINUITY_SHA256=$continuityPin.ToLowerInvariant()}
+    GUARD_SHA256=$guardPin.ToLowerInvariant();CONTINUITY_SHA256=$continuityPin.ToLowerInvariant();STEAM_REJOIN=[int]$steam;STEAM_OBSERVER_SHA256=$steamObserverPin.ToLowerInvariant()}
 foreach ($directory in @($output,(Join-Path $output 'inputs'),(Join-Path $output 'evidence'))) { New-Item -ItemType Directory -Path $directory | Out-Null }
 Copy-Item -LiteralPath (Join-Path $BundleDirectory 'kit/code') -Destination $output -Recurse
 foreach ($name in @('Invoke-Panel.ps1','Collect-Autonomous.ps1')) { Copy-Item -LiteralPath (Join-Path $BundleDirectory ('kit/' + $name)) -Destination $output }
@@ -73,6 +81,7 @@ foreach ($source in @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'templ
 }
 $plan = @{schema=1;id=$id;language=$Language;container=$container;network=($container+'-net');
     image='sha256:9bffd1d5a9dbecceaee569911ffba6bd5e28326be7879dd7cbeed90b6d7f4574';assets=$profile.assets}
+if($steam){$plan.profile='steam-rejoin'}
 [IO.File]::WriteAllText((Join-Path $output 'plan.json'), ($plan | ConvertTo-Json -Depth 5))
 if($rejoin){
     $engine=Join-Path $output 'engine'
