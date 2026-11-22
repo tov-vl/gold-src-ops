@@ -204,6 +204,12 @@ rollback, both off-host Recover checks and the independently verified stable
 ZIP. Power-loss protection, the human pilot and Archive observation remain
 separate.
 
+On 2026-11-22, the scheduled weekly slot completed as verified. Independent
+Recover matched the archived SHA-256, and the isolated stable 0.40.0 pair
+opened both restored vaults. Two instrumented engine starts verified the values
+and timestamps of all 78 records. See the
+[weekly recovery acceptance](game-player-data-backup.md#weekly-backup-и-recover-от-22-ноября-2026).
+
 ## Gameplay Pilot And Follow-up
 
 The [automated multiplayer technical checks](automated-multiplayer-acceptance.md)
