@@ -26,11 +26,17 @@ function Reject([scriptblock]$Action,[string]$Expected){
     try{& $Action}catch{if($_.Exception.Message -ceq $Expected){return};throw}
     throw 'Expected Steam client refusal.'
 }
-Assert-SteamClient 6
-$status.worker.desktopPreflight.utc=[DateTimeOffset]::UtcNow.AddSeconds(-120).ToString('o')
-Reject {Assert-SteamClient 6} 'Stale desktop evidence.'
+if((Assert-SteamClient) -ne 6){throw 'Initial queue count differs.'}
+$status.pending=0
+if((Assert-SteamClient) -ne 0){throw 'Empty queue refused.'}
 $status.pending=7
-Assert-SteamClient 7 -AfterVerifiedClose
+Reject {Assert-SteamClient} 'Client readiness or queue changed.'
+$status.pending=6
+$status.worker.desktopPreflight.utc=[DateTimeOffset]::UtcNow.AddSeconds(-120).ToString('o')
+Reject {Assert-SteamClient} 'Stale desktop evidence.'
+$status.pending=7
+if((Assert-SteamClient 7 -AfterVerifiedClose) -ne 7){throw 'Expected rejoin count refused.'}
+Reject {Assert-SteamClient 6 -AfterVerifiedClose} 'Client readiness or queue changed.'
 $status.worker.client.gameProcessCount=1
 Reject {Assert-SteamClient 7 -AfterVerifiedClose} 'Client readiness or queue changed.'
 $status.worker.client.gameProcessCount=0

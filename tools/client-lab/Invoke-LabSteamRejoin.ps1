@@ -34,8 +34,11 @@ function Read-Runtime {
 function Assert-SteamClient([int]$Slots,[switch]$AfterVerifiedClose) {
     $status=(& $panel -Operation status)|ConvertFrom-Json -AsHashtable
     $w=$status.worker
+    $pending=$status.pending
+    $queueReady=if($AfterVerifiedClose){$pending -eq $Slots}else{$pending -in (0..6)}
     if($status.target -cne $activation.targetName -or $status.protocol -ne 2 -or $status.revision -ne 16 -or
-        $status.pending -ne $Slots -or $w.state -cne 'ready' -or $w.client.ready -ne $true -or
+        ($pending -isnot [int] -and $pending -isnot [long]) -or -not $queueReady -or
+        $w.state -cne 'ready' -or $w.client.ready -ne $true -or
         $w.client.gameProcessCount -ne 0 -or $w.client.steamProcessCount -ne 1 -or
         $w.desktopPreflight.ready -ne $true -or $w.desktopPreflight.code -cne 'ready'){
         throw 'Client readiness or queue changed.'
@@ -49,6 +52,7 @@ function Assert-SteamClient([int]$Slots,[switch]$AfterVerifiedClose) {
     $renderer=$w.rendererPreflight
     if($renderer.status -cne 'observed' -or $renderer.gameClosed -ne $true -or @($renderer.files).Count -ne 4 -or
         @($renderer.files|Where-Object {$_.exists -ne $false}).Count){throw 'Renderer paths are occupied or unverified.'}
+    return [int]$pending
 }
 
 function Confirm-Runner {
@@ -92,7 +96,7 @@ if($fixture.status -cne 'ready' -or $fixture.steamAnonymousLogon -ne $true -or $
 $age=[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()-[double]$fixture.readyUnix
 if($age -lt -5 -or $age -gt 1800){throw 'Insufficient owned fixture lease remains.'}
 Confirm-Runner
-Assert-SteamClient 6
+$initialPending=Assert-SteamClient
 $claim=[IO.File]::Open((Join-Path $root 'steam-dispatch.claim'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
 $claim.Dispose()
 try{
@@ -108,7 +112,7 @@ try{
         if($fixture.status -cne 'ready' -or $fixture.rejoinClosed){throw 'Private rejoin closed before dispatch.'}
         Start-Sleep -Milliseconds 250
     }while([DateTimeOffset]::UtcNow -lt $deadline)
-    Assert-SteamClient 7 -AfterVerifiedClose
+    $null=Assert-SteamClient ($initialPending+1) -AfterVerifiedClose
     if(-not (Test-LabRejoinWindow (Read-Runtime) ([DateTimeOffset]::UtcNow))){throw 'No fresh vacant rejoin window.'}
     $second=Invoke-SteamClient 'guns-observe' $pair.second
     $fixture=Read-Runtime
