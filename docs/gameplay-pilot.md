@@ -172,6 +172,19 @@ not reclassified as untested. A blocked setup, insufficient time or unavailable
 precondition is untested with its reason. Do not replace a failed attempt with
 a later successful repeat; record both and explain the discrepancy.
 
+Use the [offline report check](../tools/release/check-gameplay-pilot-report.py)
+with the original preflight JSON and the filled Markdown record. Paste
+`pilotHeader` as its own `## Server Preflight` section. Enter the UTC start,
+end and elapsed minutes on the template line separated by ` / `.
+
+```powershell
+python -B ./tools/release/check-gameplay-pilot-report.py --preflight $PreflightJson --report $PilotMarkdown
+```
+
+The JSON result summarizes the record's completeness and preflight match.
+Complete the owner review of the underlying observations before accepting a
+human session.
+
 The core pilot requires P01-P06, P10-P16. P07-P09 and P17 are explicit
 conditional cases; their missing evidence limits exclusions/map-transition
 claims even if the core passes. Report `Core passed with limits`, `Partial`
