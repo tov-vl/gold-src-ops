@@ -42,6 +42,11 @@ retains the original seven-assertion failure and SIGKILL recovery evidence.
 The weekly backup policy, Archive observation and human gameplay pilot have
 their own scope and acceptance gates.
 
+The [local 0.40.0 recovery check](game-player-data-backup.md#проверка-восстановленного-tar-одной-командой)
+uses the stable addon and nVault to check a previously recovered TAR in an
+isolated engine. Synthetic engine acceptance covers a valid copy and a
+deliberate mismatch. Fast CI tests cover TAR admission and closed-vault bounds.
+
 Prepared: [two-player gameplay pilot](gameplay-pilot.md), with a
 30-45 minute sequence, fresh installed-baseline gate, seventeen scenarios,
 explicit conditional cases, result form and one-follow-up decision rule.

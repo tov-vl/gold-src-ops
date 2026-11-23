@@ -122,6 +122,53 @@ restic получает доступ только к новому readback-ка�
 `PersistentStatsFixture` и `PlayerPreferencesFixture` из
 [`amxx-weapon-selection.ps1`](../tools/smoke/amxx-weapon-selection.ps1).
 
+### Проверка восстановленного TAR одной командой
+
+[`check.py`](../tools/player-data-recovery/check.py) принимает уже
+восстановленный TAR и ожидаемый SHA-256 из проверенной квитанции. Для запуска
+нужны Python 3.12+, локальный Git с ревизией stable 0.40.0, проверенный stable
+ZIP пары addon и nVault, каталог архивов из
+[`engine-ci-lock.json`](../tools/smoke/engine-ci-lock.json) и проверенный
+`steamclient.so` из того же lock. Используйте подготовленный локальный образ
+Linux amd64 с базовыми файлами HLDS в `/opt/cs16/serverfiles-base`, Python 3,
+Bash, `timeout` и `runuser`. Образ передается по неизменяемому ID.
+
+```powershell
+$runtime = @(
+  '--stable-zip', $VerifiedStableZip,
+  '--assets', $ReviewedEngineAssets,
+  '--steam-client', $ReviewedSteamClient,
+  '--engine-image-id', $ReviewedEngineImageId,
+  '--docker-context', $LocalDockerContext
+)
+python -B ./tools/player-data-recovery/check.py --bundle $RecoveredTar `
+  --expected-sha256 $ReviewedBundleSha256 @runtime
+```
+
+Команда сверяет TAR и хеши его файлов до запуска контейнера. Затем штатный
+addon открывает оба vault, а диагностическая сборка из исходников той же
+ревизии сверяет записи и их метки времени в двух запусках движка. Проверка
+рассчитана на закрытые vault с пустыми или отсутствующими journal и максимум
+4096 записей суммарно. Она принимает корректные пустые vault.
+
+Контейнер создается в локальном Docker без сети, доступа к Docker socket и
+публикации портов. TAR и данные движка передаются через память и tmpfs.
+Стандартный вывод содержит JSON с результатом, счетчиками и кодом ошибки при
+отказе. Код завершения 0 означает успешную проверку и удаление контейнера.
+Используйте результат как отдельную запись приемки конкретной копии.
+
+Код `input_hash_mismatch` означает отказ до запуска контейнера.
+`nonempty_journal` и `vault_record_limit_exceeded` останавливают проверку
+до запуска движка. `engine_mismatch` означает несовпадение при чтении движком.
+После таймаута проверка удаления отражается в поле `containerRemoved`.
+
+[`test-check.py`](../tools/player-data-recovery/test-check.py) принимает те
+же параметры окружения (`@runtime`) и создает синтетическую копию для трех
+проверок. Корректный TAR проходит два запуска. Неверный SHA-256 блокирует
+запуск контейнера. Подмена ожидаемого значения вызывает отказ в движке.
+Быстрые проверки формата и отказов выполняются командой
+`python -B ./tools/player-data-recovery/test-inputs.py` и входят в полный CI.
+
 ## Weekly backup и Recover от 22 ноября 2026
 
 - Штатный weekly начался в 04:00:00 МСК и завершился в 04:01:02 МСК со

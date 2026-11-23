@@ -633,6 +633,8 @@ jobs:
       - name: Validate player-data capture and encrypted recovery
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
         run: |
+          python3 -B ./tools/player-data-recovery/test-inputs.py
+          bash -n ./tools/player-data-recovery/run.sh
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-bundle.py
           sudo bash ./tools/smoke/player-data-capture.sh
           PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-schedule.py
