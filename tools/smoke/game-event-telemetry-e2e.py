@@ -225,21 +225,32 @@ def validate_isolation(result, records):
         raise ValueError('Initial Reader histories do not distinguish the servers')
 
 
-def validate_postgres_recovery(result, records):
+def validate_postgres_recovery(result, records, point_in_time=False):
     snapshot = result['snapshot']
     entries = result['events']
+    status = 'native-telemetry-postgres-pitr-accepted' if point_in_time else 'native-telemetry-postgres-recovery-accepted'
+    row_counts = (2, 2, 3) if point_in_time else (2, 1, 2)
     expected = (
         ('in-snapshot', 'ordinary', (True, True, False)),
-        ('acknowledged-after-snapshot', 'lost-ack', (False, False, False)),
+        ('acknowledged-after-snapshot', 'lost-ack', (point_in_time, point_in_time, False)),
         ('pending-at-cutover', 'unavailable-restart', (True, True, True)),
     )
-    if (result['status'] != 'native-telemetry-postgres-recovery-accepted'
+    if (result['status'] != status
             or result['queueDrained'] is not True
-            or (result['rowsBeforeCutover'], result['rowsAfterRestore'], result['rowsAfterDelivery']) != (2, 1, 2)
-            or snapshot['freshContainer'] is not True or not 0 < snapshot['bytes'] <= 1024 * 1024
-            or len(snapshot['sha256']) != 64 or len(bytes.fromhex(snapshot['sha256'])) != 32
+            or (result['rowsBeforeCutover'], result['rowsAfterRestore'], result['rowsAfterDelivery']) != row_counts
+            or snapshot['freshContainer'] is not True
             or len(entries) != len(expected)):
         raise ValueError('Invalid PostgreSQL recovery boundary')
+    if point_in_time:
+        if (snapshot['earlyTarget'] != 'before-late-ack' or snapshot['lateTarget'] != 'after-late-ack'
+                or snapshot['rowsAtEarlyTarget'] != 1 or snapshot['missingWalRejected'] is not True
+                or not all(type(snapshot[key]) is int and snapshot[key] > 0 for key in
+                           ('earlyRestoreMilliseconds', 'lateRestoreMilliseconds', 'forcedArchiveMilliseconds'))):
+            raise ValueError('Invalid PITR target evidence')
+        for prefix in ('base', 'wal'):
+            validate_archive(snapshot[prefix + 'Bytes'], snapshot[prefix + 'Sha256'], 32 * 1024 * 1024)
+    else:
+        validate_archive(snapshot['bytes'], snapshot['sha256'], 1024 * 1024)
     identities = set()
     sources = set()
     for sequence, (entry, (position, record, outcomes)) in enumerate(zip(entries, expected, strict=True), start=1):
@@ -254,8 +265,13 @@ def validate_postgres_recovery(result, records):
         raise ValueError('PostgreSQL recovery changed source or reused an event identity')
 
 
-def execute(evidence, compiled, output, queue_recovery=False, server_isolation=False, postgres_recovery=False):
-    if sum((queue_recovery, server_isolation, postgres_recovery)) > 1:
+def validate_archive(size, sha256, maximum):
+    if type(size) is not int or not 0 < size <= maximum or len(sha256) != 64 or len(bytes.fromhex(sha256)) != 32:
+        raise ValueError('Invalid PostgreSQL archive identity')
+
+
+def execute(evidence, compiled, output, queue_recovery=False, server_isolation=False, postgres_recovery=False, postgres_pitr=False):
+    if sum((queue_recovery, server_isolation, postgres_recovery, postgres_pitr)) > 1:
         raise ValueError('Telemetry modes are mutually exclusive')
     records, binding = read_records(evidence, compiled)
     output.mkdir(parents=True, exist_ok=False)
@@ -277,10 +293,12 @@ def execute(evidence, compiled, output, queue_recovery=False, server_isolation=F
                 arguments.append('server-isolation')
             if postgres_recovery:
                 arguments.append('postgres-recovery')
+            if postgres_pitr:
+                arguments.append('postgres-pitr')
             command(arguments, log)
             result = json.loads((root / 'result.json').read_bytes())
-            if postgres_recovery:
-                validate_postgres_recovery(result, records)
+            if postgres_recovery or postgres_pitr:
+                validate_postgres_recovery(result, records, point_in_time=postgres_pitr)
             else:
                 validate_result(result, records, queue_recovery, server_isolation)
             result['nativeEngine'] = binding
@@ -291,7 +309,8 @@ def execute(evidence, compiled, output, queue_recovery=False, server_isolation=F
                 ('api', harness.parent / 'GoldSrcOps.Api.dll'), ('agent', agent), ('acceptance', harness))}
         result['cleanup'] = 'temporary queues, synthetic credentials and database removed'
         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
-        print('NATIVE_TELEMETRY_POSTGRES_RECOVERY=passed restored=1 replayed=1 acknowledged_missing=1' if postgres_recovery else
+        print('NATIVE_TELEMETRY_POSTGRES_PITR=passed early=1 late=2 final=3 missing_wal=rejected' if postgres_pitr else
+              'NATIVE_TELEMETRY_POSTGRES_RECOVERY=passed restored=1 replayed=1 acknowledged_missing=1' if postgres_recovery else
               'NATIVE_TELEMETRY_SERVER_ISOLATION=passed scenarios=4 rows=6' if server_isolation else
               'NATIVE_TELEMETRY_QUEUE_RECOVERY=passed scenarios=3 rows=5' if queue_recovery else 'NATIVE_TELEMETRY_E2E=passed scenarios=3 rows=3')
     finally:
@@ -307,9 +326,10 @@ def main():
     modes.add_argument('--queue-recovery', action='store_true')
     modes.add_argument('--server-isolation', action='store_true')
     modes.add_argument('--postgres-recovery', action='store_true')
+    modes.add_argument('--postgres-pitr', action='store_true')
     args = parser.parse_args()
     execute(args.evidence.resolve(), args.compiled.resolve(), args.output.resolve(),
-            args.queue_recovery, args.server_isolation, args.postgres_recovery)
+            args.queue_recovery, args.server_isolation, args.postgres_recovery, args.postgres_pitr)
 
 
 if __name__ == '__main__':

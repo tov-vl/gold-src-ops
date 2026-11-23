@@ -95,6 +95,31 @@ the agent can redeliver retained events. Recovering an event acknowledged
 after the dump requires an independent source that retained it, such as
 PostgreSQL WAL available for point-in-time recovery.
 
+## PostgreSQL Point-in-Time Recovery
+
+Run the same command with `--postgres-pitr` and a new output directory.
+The scenario uses a PostgreSQL 16 physical base backup and a separate local
+WAL archive. It verifies the SHA-256 of both files inside each restore
+container before extracting them. The original container is stopped before
+any restore starts.
+
+- The early restore reaches a named point before the second event is
+  acknowledged. The database and Reader return only the first event.
+- The late restore reaches a named point after the second event is
+  acknowledged. The database and Reader return both events before delivery
+  resumes. The preserved outbox then delivers the third event once, with
+  the original identity and payload.
+- The negative restore removes the segment containing the late target from
+  its own copy of the archive. PostgreSQL must report that the target was
+  unreachable. The scenario only accepts this specific database failure.
+
+Full Container Smoke runs the scenario against its compiled native fixtures
+and retains the result and bounded runner diagnostics with the engine
+artifact. The report records the two restore durations and the wait for the
+forced WAL switch and archive. Those timings describe the local synthetic
+fixture. Production recovery objectives require measurement with representative
+data and the intended archive storage.
+
 ## Local Verification
 
 On 2026-11-16 the three runtime scenarios passed using independently accepted

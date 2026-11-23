@@ -385,6 +385,11 @@ $serverIsolation = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -e
 Assert-Condition -Condition ($serverIsolation.Condition.Contains("needs.change-scope.outputs.addon_only != 'true'")) -Message "Server isolation requires the full CI path."
 Assert-Condition -Condition ($serverIsolation.Body.Contains('--server-isolation')) -Message "Server isolation must explicitly select its runtime scenarios."
 Assert-Condition -Condition ($serverIsolation.Body.Contains('--compiled "$RUNNER_TEMP/gameplay-fixtures"')) -Message "Server isolation must use this run's fixture identity."
+Assert-Condition -Condition ($diagnostics.Body.Contains('gameplay-engine/telemetry-postgres-pitr/')) -Message "PostgreSQL point-in-time recovery evidence must be retained."
+$postgresPitr = @(Get-WorkflowSteps -Job $containerJob | Where-Object Name -eq 'Accept telemetry PostgreSQL point-in-time recovery')[0]
+Assert-Condition -Condition ($postgresPitr.Condition -ceq $serverIsolation.Condition) -Message "PostgreSQL point-in-time recovery requires the full CI path."
+Assert-Condition -Condition ($postgresPitr.Body.Contains('--postgres-pitr')) -Message "PostgreSQL point-in-time recovery must explicitly select its runtime scenario."
+Assert-Condition -Condition ($postgresPitr.Body.Contains('--compiled "$RUNNER_TEMP/gameplay-fixtures"')) -Message "PostgreSQL point-in-time recovery must use this run's fixture identity."
 Assert-Condition -Condition ($containerJob -notmatch 'needs\.quality|(?m)^      - quality$') -Message "Container Smoke must run independently of Quality Gate."
 # Parallel execution must not turn successful container checks into permission
 # to publish after a failed, cancelled or skipped Quality Gate.
