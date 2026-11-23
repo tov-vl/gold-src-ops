@@ -115,7 +115,8 @@ internal sealed class PitrPostgres
         var connection = new NpgsqlConnection(original.ConnectionString);
         await using var connectionLifetime = connection.ConfigureAwait(false);
         await connection.OpenAsync(token).ConfigureAwait(false);
-        using var command = new NpgsqlCommand("SELECT pg_is_in_recovery()", connection);
+        var command = new NpgsqlCommand("SELECT pg_is_in_recovery()", connection);
+        await using var commandLifetime = command.ConfigureAwait(false);
         EntryPoint.Require(await command.ExecuteScalarAsync(token).ConfigureAwait(false) is false, "Restored target did not become writable.");
         return original.ConnectionString;
     }
