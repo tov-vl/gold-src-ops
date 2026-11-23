@@ -173,6 +173,24 @@ addon открывает оба vault, а диагностическая сбо�
 до запуска движка. `engine_mismatch` означает несовпадение при чтении движком.
 После таймаута проверка удаления отражается в поле `containerRemoved`.
 
+### Проверка weekly по квитанциям
+
+[`check-weekly.py`](../tools/player-data-recovery/check-weekly.py)
+принимает дату воскресенья, сохраненный `result.json` нужного слота и
+`operation.json` выполненного Recover. Оставьте
+`readback/player-data.tar` рядом с квитанцией в каталоге Recover.
+
+```powershell
+python -B ./tools/player-data-recovery/check-weekly.py --slot $WeeklyDate `
+  --weekly-result $WeeklyResult --recover-receipt $RecoverOperation @runtime
+```
+
+Команда сверяет статус, снимок, SHA-256 и последовательность времен в обеих
+квитанциях. Затем она проверяет SHA-256 самого TAR и время захвата в его
+manifest. При несовпадении движок не запускается. Отчет содержит дату
+выбранного слота, `receiptBindingVerified` и агрегаты проверки.
+Файлы для проверки берутся из локальной копии квитанций и readback.
+
 [`test-check.py`](../tools/player-data-recovery/test-check.py) принимает те
 же параметры окружения (`@runtime`) и создает синтетическую копию для трех
 проверок. Корректный TAR проходит два запуска. Неверный SHA-256 блокирует
