@@ -21,6 +21,11 @@ on:
         required: false
         type: boolean
         default: false
+      player_recovery_rehearsal:
+        description: Build the isolated engine image and rehearse synthetic Archive and Recover
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -35,6 +40,37 @@ env:
   DOTNET_NOLOGO: true
 
 jobs:
+  player-recovery-rehearsal:
+    name: Synthetic Player Recovery Rehearsal
+    if: github.event_name == 'workflow_dispatch' && inputs.player_recovery_rehearsal && inputs.release_tag == ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build the lab from pinned public inputs
+        run: |
+          python3 -B tools/player-data-recovery/prepare.py --output "$RUNNER_TEMP/recovery-public" --docker-context default
+      - name: Rehearse Archive, independent Recover and two engine starts
+        shell: pwsh
+        run: |
+          $public = Join-Path $env:RUNNER_TEMP 'recovery-public'
+          $id = (Get-Content -Raw -LiteralPath (Join-Path $public 'engine-image-id')).Trim()
+          $report = & ./tools/player-data-recovery/test-restic.ps1 `
+            -StableZip (Join-Path $public 'stable.zip') -Assets (Join-Path $public 'assets') `
+            -SteamClient (Join-Path $public 'steamclient.so') -EngineImageId $id -DockerContext default
+          $parsed = $report | Out-String | ConvertFrom-Json
+          if ($parsed.result -cne 'passed') { throw 'Synthetic recovery rehearsal did not pass.' }
+          $report | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'synthetic-recovery.json') -Encoding utf8NoBOM
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-player-recovery-report
+          path: ${{ runner.temp }}/synthetic-recovery.json
+          if-no-files-found: error
+          retention-days: 14
+
   change-scope:
     name: Change Scope
     runs-on: ubuntu-24.04

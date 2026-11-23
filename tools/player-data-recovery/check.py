@@ -194,10 +194,13 @@ def run_engine(args, kit, raw, digest, result, *, mismatch=False):
         require(attached.returncode == 0 and state["ExitCode"] == 0 and result["stockPairOpened"]
                 and lines.count("RECOVERY_CHECK=passed") == 1, "engine_check_failed")
         rows = result["epochs"]
+        timing = [match[1] for line in lines if (match := re.fullmatch(r"RECOVERY_ENGINE_MS=([0-9]+)", line))]
         require([e["epoch"] for e in rows] == [1, 2]
                 and all(e["result"] == "passed" and e["writes"] == e["failures"] == 0
                         and e["rows"] == sum(e[k] for k in COUNTS[1:6]) for e in rows)
                 and all(rows[0][key] == rows[1][key] for key in COUNTS), "engine_evidence_rejected")
+        require(len(timing) == 1 and 0 < int(timing[0]) <= RUN_TIMEOUT * 1000, "engine_timing_rejected")
+        result["engineSeconds"] = int(timing[0]) / 1000
     finally:
         command(docker + ["rm", "-fv", name], "container_cleanup_failed")
         require(not command(list_container, "container_cleanup_unverified").strip(),
@@ -222,6 +225,7 @@ def check(args, *, mismatch=False):
         with tempfile.TemporaryDirectory(prefix="player-recovery-") as directory:
             kit = Path(directory).resolve()
             stage_inputs(args, kit)
+            result["preparationSeconds"] = round(time.monotonic() - started, 3)
             run_engine(args, kit, raw, args.expected_sha256, result, mismatch=mismatch)
         result["result"] = "passed"
     except CheckError as error:

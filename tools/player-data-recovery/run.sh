@@ -6,6 +6,7 @@ ulimit -c 0
 digest=$1
 mode=$2
 phase=input
+engine_ms=0
 trap 'printf "RECOVERY_PHASE_FAILED=%s\n" "$phase"' ERR
 if ! python3 -B /kit/load.py receive "$digest" "$mode" 2>/dev/null; then
     exit 1
@@ -57,8 +58,13 @@ restore_vault() {
     chown -R steam:steam "$vault"
 }
 
+monotonic_ms() {
+    python3 -B -c 'import time; print(time.monotonic_ns() // 1000000)'
+}
+
 run_instance() {
-    local log=$1 commands=$2 expected=$3 pid
+    local log=$1 commands=$2 expected=$3 pid started
+    started=$(monotonic_ms)
     HOME=/server runuser -u steam -m -- timeout --signal=TERM --kill-after=3 40 \
         ./hlds_run -norestart -insecure -game cstrike -strictportbind \
         +ip 127.0.0.1 -port 27025 +map de_dust2 +servercfgfile server.cfg -maxplayers 8 \
@@ -73,6 +79,7 @@ run_instance() {
     done
     printf 'quit\n' >&3
     wait "$pid"
+    engine_ms=$((engine_ms + $(monotonic_ms) - started))
     if grep -Eq 'Run time error|Load fails|bad load|ML_NOTFOUND|Host_Error|FATAL ERROR' "$log"; then
         return 1
     fi
@@ -107,4 +114,5 @@ for epoch in 1 2; do
     fi
     python3 -B /kit/load.py compare "$digest" "$mode" 2>/dev/null
 done
+printf 'RECOVERY_ENGINE_MS=%d\n' "$engine_ms"
 echo RECOVERY_CHECK=passed
