@@ -160,6 +160,13 @@ jobs:
           Write-Host
           "Full repository gates already passed for the matching release candidate; publication jobs will verify and promote its immutable digests."
 
+      - name: Run offline recovery and pilot checks
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        run: |
+          python3 -B ./tools/player-data-recovery/test-weekly.py
+          python3 -B ./tools/release/test-gameplay-pilot-report.py
+          python3 -B ./tools/player-data-recovery/test-prepare-failures.py
+
       - name: Setup .NET
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
         uses: actions/setup-dotnet@v5
