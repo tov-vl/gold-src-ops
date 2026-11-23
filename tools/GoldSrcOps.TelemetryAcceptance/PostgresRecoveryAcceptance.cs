@@ -115,7 +115,7 @@ internal sealed class PostgresRecoveryAcceptance
         }
 
         var observations = proxy.Observations[offset..];
-        EntryPoint.Require(observations is [ { Status: 202, Receipt.Duplicate: false } ], "Expected exactly one fresh API acceptance.");
+        EntryPoint.Require(observations is [{ Status: 202, Receipt.Duplicate: false }], "Expected exactly one fresh API acceptance.");
         var observation = observations.Single();
         var receipt = observation.Receipt!;
         EntryPoint.Require(receipt.ServerId == serverId && receipt.SequenceNumber == identity.Sequence &&
