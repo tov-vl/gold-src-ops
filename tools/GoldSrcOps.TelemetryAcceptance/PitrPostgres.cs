@@ -67,7 +67,7 @@ internal sealed class PitrPostgres
         var token = deadline.Token;
         await ExecAsync(source,
             ["pg_basebackup", "-h", "/var/run/postgresql", "-U", AcceptancePostgres.Username, "-D", "/tmp/pitr-base",
-                "--format=tar", "--gzip", "--wal-method=none", "--checkpoint=fast"], token).ConfigureAwait(false);
+                "--format=tar", "--gzip", "--wal-method=none", "--checkpoint=fast",], token).ConfigureAwait(false);
         var backup = await ReadArchiveAsync(source, BasePath, token).ConfigureAwait(false);
         await MarkAndArchiveAsync(source, Before, token).ConfigureAwait(false);
         return backup;
@@ -112,9 +112,10 @@ internal sealed class PitrPostgres
             Host = restored.Hostname,
             Port = restored.GetMappedPublicPort(5432),
         };
-        await using var connection = new NpgsqlConnection(original.ConnectionString);
+        var connection = new NpgsqlConnection(original.ConnectionString);
+        await using var connectionLifetime = connection.ConfigureAwait(false);
         await connection.OpenAsync(token).ConfigureAwait(false);
-        await using var command = new NpgsqlCommand("SELECT pg_is_in_recovery()", connection);
+        using var command = new NpgsqlCommand("SELECT pg_is_in_recovery()", connection);
         EntryPoint.Require(await command.ExecuteScalarAsync(token).ConfigureAwait(false) is false, "Restored target did not become writable.");
         return original.ConnectionString;
     }
@@ -160,7 +161,7 @@ internal sealed class PitrPostgres
 
     private static Task<string> SqlAsync(IContainer source, string sql, CancellationToken token) =>
         ExecAsync(source, ["psql", "-XAt", "-v", "ON_ERROR_STOP=1", "-U", AcceptancePostgres.Username,
-            "-d", AcceptancePostgres.DatabaseName, "-c", sql], token);
+            "-d", AcceptancePostgres.DatabaseName, "-c", sql,], token);
 
     private static async Task<string> ExecAsync(IContainer source, string[] command, CancellationToken token)
     {
