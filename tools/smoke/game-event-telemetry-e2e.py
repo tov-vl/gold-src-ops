@@ -10,6 +10,7 @@ import signal
 import subprocess
 import tempfile
 from datetime import datetime
+from uuid import UUID
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('engine_ci', Path(__file__).with_name('engine-ci.py'))
@@ -224,8 +225,37 @@ def validate_isolation(result, records):
         raise ValueError('Initial Reader histories do not distinguish the servers')
 
 
-def execute(evidence, compiled, output, queue_recovery=False, server_isolation=False):
-    if queue_recovery and server_isolation:
+def validate_postgres_recovery(result, records):
+    snapshot = result['snapshot']
+    entries = result['events']
+    expected = (
+        ('in-snapshot', 'ordinary', (True, True, False)),
+        ('acknowledged-after-snapshot', 'lost-ack', (False, False, False)),
+        ('pending-at-cutover', 'unavailable-restart', (True, True, True)),
+    )
+    if (result['status'] != 'native-telemetry-postgres-recovery-accepted'
+            or result['queueDrained'] is not True
+            or (result['rowsBeforeCutover'], result['rowsAfterRestore'], result['rowsAfterDelivery']) != (2, 1, 2)
+            or snapshot['freshContainer'] is not True or not 0 < snapshot['bytes'] <= 1024 * 1024
+            or len(snapshot['sha256']) != 64 or len(bytes.fromhex(snapshot['sha256'])) != 32
+            or len(entries) != len(expected)):
+        raise ValueError('Invalid PostgreSQL recovery boundary')
+    identities = set()
+    sources = set()
+    for sequence, (entry, (position, record, outcomes)) in enumerate(zip(entries, expected, strict=True), start=1):
+        actual = tuple(entry[name] for name in ('database', 'reader', 'replayed'))
+        if (entry['position'] != position or entry['sequence'] != sequence
+                or entry['nativeSha256'].lower() != hashlib.sha256(records[record]).hexdigest()
+                or any(observed is not wanted for observed, wanted in zip(actual, outcomes, strict=True))):
+            raise ValueError('PostgreSQL recovery outcome differs from its event boundary')
+        identities.add(UUID(entry['eventId']))
+        sources.add(UUID(entry['source']))
+    if len(identities) != len(expected) or len(sources) != 1:
+        raise ValueError('PostgreSQL recovery changed source or reused an event identity')
+
+
+def execute(evidence, compiled, output, queue_recovery=False, server_isolation=False, postgres_recovery=False):
+    if sum((queue_recovery, server_isolation, postgres_recovery)) > 1:
         raise ValueError('Telemetry modes are mutually exclusive')
     records, binding = read_records(evidence, compiled)
     output.mkdir(parents=True, exist_ok=False)
@@ -245,9 +275,14 @@ def execute(evidence, compiled, output, queue_recovery=False, server_isolation=F
                 arguments.append('queue-recovery')
             if server_isolation:
                 arguments.append('server-isolation')
+            if postgres_recovery:
+                arguments.append('postgres-recovery')
             command(arguments, log)
             result = json.loads((root / 'result.json').read_bytes())
-            validate_result(result, records, queue_recovery, server_isolation)
+            if postgres_recovery:
+                validate_postgres_recovery(result, records)
+            else:
+                validate_result(result, records, queue_recovery, server_isolation)
             result['nativeEngine'] = binding
             sources = [PROJECT, Path(__file__).resolve(), Path(__file__).with_name('test-game-event-telemetry-e2e.py')]
             sources.extend(sorted(PROJECT.parent.glob('*.cs')))
@@ -256,7 +291,8 @@ def execute(evidence, compiled, output, queue_recovery=False, server_isolation=F
                 ('api', harness.parent / 'GoldSrcOps.Api.dll'), ('agent', agent), ('acceptance', harness))}
         result['cleanup'] = 'temporary queues, synthetic credentials and database removed'
         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
-        print('NATIVE_TELEMETRY_SERVER_ISOLATION=passed scenarios=4 rows=6' if server_isolation else
+        print('NATIVE_TELEMETRY_POSTGRES_RECOVERY=passed restored=1 replayed=1 acknowledged_missing=1' if postgres_recovery else
+              'NATIVE_TELEMETRY_SERVER_ISOLATION=passed scenarios=4 rows=6' if server_isolation else
               'NATIVE_TELEMETRY_QUEUE_RECOVERY=passed scenarios=3 rows=5' if queue_recovery else 'NATIVE_TELEMETRY_E2E=passed scenarios=3 rows=3')
     finally:
         (output / 'runner.log').write_text('\n'.join(log), encoding='utf-8')
@@ -270,8 +306,10 @@ def main():
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument('--queue-recovery', action='store_true')
     modes.add_argument('--server-isolation', action='store_true')
+    modes.add_argument('--postgres-recovery', action='store_true')
     args = parser.parse_args()
-    execute(args.evidence.resolve(), args.compiled.resolve(), args.output.resolve(), args.queue_recovery, args.server_isolation)
+    execute(args.evidence.resolve(), args.compiled.resolve(), args.output.resolve(),
+            args.queue_recovery, args.server_isolation, args.postgres_recovery)
 
 
 if __name__ == '__main__':

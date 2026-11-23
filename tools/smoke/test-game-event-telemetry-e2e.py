@@ -264,5 +264,44 @@ class ServerIsolationReceiptTests(unittest.TestCase):
                     acceptance.validate_result(receipt, records, server_isolation=True)
 
 
+class PostgresRecoveryReceiptTests(unittest.TestCase):
+    def prepare(self):
+        records = {name: name.encode() for name in acceptance.SCENARIOS}
+        source = str(uuid.UUID(int=10, version=4))
+        events = []
+        for sequence, (position, record, visible, replayed) in enumerate((
+                ('in-snapshot', 'ordinary', True, False),
+                ('acknowledged-after-snapshot', 'lost-ack', False, False),
+                ('pending-at-cutover', 'unavailable-restart', True, True)), start=1):
+            events.append(dict(position=position, nativeSha256=hashlib.sha256(records[record]).hexdigest(),
+                               eventId=str(uuid.UUID(int=sequence, version=4)), source=source,
+                               sequence=sequence, database=visible, reader=visible, replayed=replayed))
+        receipt = dict(status='native-telemetry-postgres-recovery-accepted', queueDrained=True,
+                       rowsBeforeCutover=2, rowsAfterRestore=1, rowsAfterDelivery=2, events=events,
+                       snapshot=dict(freshContainer=True, bytes=1024, sha256='a' * 64))
+        return records, receipt
+
+    def test_recognizes_the_three_distinct_recovery_outcomes(self):
+        records, receipt = self.prepare()
+        acceptance.validate_postgres_recovery(receipt, records)
+
+    def test_rejects_incorrect_recovery_outcomes(self):
+        for path, replacement in (
+                (('snapshot', 'freshContainer'), False), (('snapshot', 'sha256'), 'g' * 64),
+                (('rowsAfterRestore',), 2), (('rowsAfterDelivery',), 3), (('queueDrained',), False),
+                (('events', 1, 'database'), True), (('events', 1, 'reader'), True),
+                (('events', 2, 'replayed'), False), (('events', 2, 'nativeSha256'), '0' * 64),
+                (('events', 2, 'eventId'), str(uuid.UUID(int=1, version=4))),
+                (('events', 2, 'source'), str(uuid.UUID(int=11, version=4)))):
+            with self.subTest(path=path):
+                records, receipt = self.prepare()
+                section = receipt
+                for key in path[:-1]:
+                    section = section[key]
+                section[path[-1]] = replacement
+                with self.assertRaises(ValueError):
+                    acceptance.validate_postgres_recovery(receipt, records)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
