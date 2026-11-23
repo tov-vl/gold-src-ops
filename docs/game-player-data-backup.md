@@ -133,6 +133,17 @@ ZIP пары addon и nVault, каталог архивов из
 Linux amd64 с базовыми файлами HLDS в `/opt/cs16/serverfiles-base`, Python 3,
 Bash, `timeout` и `runuser`. Образ передается по неизменяемому ID.
 
+На чистом стенде [`prepare.py`](../tools/player-data-recovery/prepare.py)
+скачивает публичные входы по закрепленным хешам и собирает проверочный
+образ по [Dockerfile](../tools/player-data-recovery/Dockerfile). Файлы
+`stable.zip`, `assets`, `steamclient.so` и `engine-image-id` появляются
+в новом каталоге. Сеть нужна на этапе подготовки публичных входов.
+
+```powershell
+python -B ./tools/player-data-recovery/prepare.py --output $NewLabDirectory `
+  --docker-context $LocalDockerContext
+```
+
 ```powershell
 $runtime = @(
   '--stable-zip', $VerifiedStableZip,
@@ -189,6 +200,17 @@ python -B ./tools/player-data-recovery/test-runtime-rejections.py @runtime
 проверяет в локальном контейнере отказы для непустого journal, превышения
 лимита записей и искусственной задержки при проверке в движке. Каждый отчет
 подтверждает удаление созданного контейнера.
+
+[`measure.py`](../tools/player-data-recovery/measure.py) с параметрами
+`@runtime` прогоняет синтетические копии с 78, 1 024, 4 096 и 4 097 записями.
+Он выводит по одному JSON-отчету на размер. `preparationSeconds` включает
+проверку и подготовку входов на хосте. `engineSeconds` измеряет три запуска
+HLDS, включая ожидание готовности, и появляется при успешной проверке.
+
+В ручном запуске workflow `CI` параметр `player_recovery_rehearsal`
+добавляет задачу сборки на GitHub runner и сквозную синтетическую репетицию.
+Задача сохраняет только итоговый JSON в артефакт
+`synthetic-player-recovery-report`.
 
 ## Weekly backup и Recover от 22 ноября 2026
 
