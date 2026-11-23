@@ -1,37 +1,45 @@
 using System.Net;
 using System.Security.Cryptography;
+using Docker.DotNet.Models;
+using DotNet.Testcontainers.Containers;
 using Testcontainers.PostgreSql;
 
 namespace GoldSrcOps.TelemetryAcceptance;
 
 internal static class AcceptancePostgres
 {
-    private const string DatabaseName = "telemetry_acceptance";
-    private const string Username = "acceptance";
+    internal const string Image = "postgres:16-alpine";
+    internal const string DatabaseName = "telemetry_acceptance";
+    internal const string Username = "acceptance";
     private const string DumpPath = "/tmp/telemetry-acceptance.dump";
 
-    public static PostgreSqlContainer Build() => new PostgreSqlBuilder("postgres:16-alpine")
-        .WithDatabase(DatabaseName)
-        .WithUsername(Username)
-        .WithPassword(Convert.ToHexString(RandomNumberGenerator.GetBytes(32)))
-        .WithCreateParameterModifier(parameters =>
+    public static PostgreSqlContainer Build(bool archiveWal = false)
+    {
+        var builder = new PostgreSqlBuilder(Image)
+            .WithDatabase(DatabaseName)
+            .WithUsername(Username)
+            .WithPassword(Convert.ToHexString(RandomNumberGenerator.GetBytes(32)))
+            .WithCreateParameterModifier(BindLoopback);
+        return (archiveWal ? builder.WithCommand("-c", "archive_mode=on", "-c", PitrPostgres.ArchiveCommand) : builder).Build();
+    }
+
+    internal static void BindLoopback(CreateContainerParameters parameters)
+    {
+        var hostConfig = parameters.HostConfig ?? throw new InvalidOperationException("Missing PostgreSQL host configuration.");
+        var portBindings = hostConfig.PortBindings ?? throw new InvalidOperationException("Missing PostgreSQL port binding.");
+        foreach (var bindings in portBindings.Values)
         {
-            var hostConfig = parameters.HostConfig ?? throw new InvalidOperationException("Missing PostgreSQL host configuration.");
-            var portBindings = hostConfig.PortBindings ?? throw new InvalidOperationException("Missing PostgreSQL port binding.");
-            foreach (var bindings in portBindings.Values)
+            foreach (var binding in bindings)
             {
-                foreach (var binding in bindings)
-                {
-                    binding.HostIP = "127.0.0.1";
-                }
+                binding.HostIP = "127.0.0.1";
             }
+        }
 
-            hostConfig.Memory = 512 * 1024 * 1024;
-            hostConfig.NanoCPUs = 1_000_000_000;
-        })
-        .Build();
+        hostConfig.Memory = 512 * 1024 * 1024;
+        hostConfig.NanoCPUs = 1_000_000_000;
+    }
 
-    public static void RequireLocal(PostgreSqlContainer database) =>
+    public static void RequireLocal(IContainer database) =>
         EntryPoint.Require(string.Equals(database.Hostname, "localhost", StringComparison.OrdinalIgnoreCase) ||
             (IPAddress.TryParse(database.Hostname, out var hostAddress) && IPAddress.IsLoopback(hostAddress)),
             "Acceptance requires a local Docker host.");

@@ -17,8 +17,9 @@ internal static class EntryPoint
 
     public static async Task<int> Main(string[] args)
     {
-        Require(args is [_, _, _, _, _] or [_, _, _, _, _, "queue-recovery" or "server-isolation" or "postgres-recovery"],
-            "Expected repository, agent, inputs, scratch and result paths, optionally queue-recovery, server-isolation or postgres-recovery.");
+        Require(args is [_, _, _, _, _] or [_, _, _, _, _, "queue-recovery" or "server-isolation" or "postgres-recovery" or "postgres-pitr"],
+            "Expected repository, agent, inputs, scratch and result paths, with an optional acceptance mode.");
+        var mode = args.Length == 6 ? args[5] : null;
         var repository = Path.GetFullPath(args[0]);
         var agent = Path.GetFullPath(args[1]);
         var inputs = Path.GetFullPath(args[2]);
@@ -26,7 +27,7 @@ internal static class EntryPoint
         var resultPath = Path.GetFullPath(args[4]);
         Require(!Directory.Exists(scratch) && !File.Exists(resultPath), "Acceptance output must be fresh.");
         Directory.CreateDirectory(scratch);
-        var database = AcceptancePostgres.Build();
+        var database = AcceptancePostgres.Build(archiveWal: string.Equals(mode, "postgres-pitr", StringComparison.Ordinal));
         await using var databaseLifetime = database.ConfigureAwait(false);
         using var startupDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var startupToken = startupDeadline.Token;
@@ -50,12 +51,14 @@ internal static class EntryPoint
         var secret = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var proxy = await FaultProxy.StartAsync(api, server.Id, writerToken, secret).ConfigureAwait(false);
         await using var proxyLifetime = proxy.ConfigureAwait(false);
-        switch (args.Length == 6 ? args[5] : null)
+        switch (mode)
         {
             case "postgres-recovery":
+            case "postgres-pitr":
                 {
                     var acceptance = new PostgresRecoveryAcceptance(repository, agent, inputs, scratch);
-                    var result = await acceptance.RunAsync(database, factory, api, readerToken, server.Id, proxy, secret).ConfigureAwait(false);
+                    var result = await acceptance.RunAsync(database, factory, api, readerToken, server.Id, proxy, secret,
+                        pointInTime: string.Equals(mode, "postgres-pitr", StringComparison.Ordinal)).ConfigureAwait(false);
                     await WriteResultAsync(resultPath, result).ConfigureAwait(false);
                     return 0;
                 }

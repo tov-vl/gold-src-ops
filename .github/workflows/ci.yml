@@ -625,6 +625,15 @@ jobs:
           --compiled "$RUNNER_TEMP/gameplay-fixtures"
           --output "$RUNNER_TEMP/gameplay-engine/telemetry-server-isolation"
 
+      - name: Accept telemetry PostgreSQL point-in-time recovery
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        timeout-minutes: 5
+        run: >-
+          python3 -B tools/smoke/game-event-telemetry-e2e.py --postgres-pitr
+          --evidence "$RUNNER_TEMP/gameplay-engine/positive/evidence"
+          --compiled "$RUNNER_TEMP/gameplay-fixtures"
+          --output "$RUNNER_TEMP/gameplay-engine/telemetry-postgres-pitr"
+
       - name: Retain gameplay engine diagnostics
         if: always() && needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true'
         uses: actions/upload-artifact@v4
@@ -640,6 +649,7 @@ jobs:
             ${{ runner.temp }}/gameplay-engine/telemetry-contract/
             ${{ runner.temp }}/gameplay-engine/telemetry-queue-contract/
             ${{ runner.temp }}/gameplay-engine/telemetry-server-isolation/
+            ${{ runner.temp }}/gameplay-engine/telemetry-postgres-pitr/
             ${{ runner.temp }}/gameplay-engine/positive/evidence/
             ${{ runner.temp }}/gameplay-engine/player-data-crash/positive/evidence/
             ${{ runner.temp }}/gameplay-engine/player-data-crash/negative-journals/evidence/

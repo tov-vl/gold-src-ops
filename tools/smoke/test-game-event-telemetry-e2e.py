@@ -281,6 +281,33 @@ class PostgresRecoveryReceiptTests(unittest.TestCase):
                        snapshot=dict(freshContainer=True, bytes=1024, sha256='a' * 64))
         return records, receipt
 
+    def prepare_pitr(self):
+        records, receipt = self.prepare()
+        receipt.update(status='native-telemetry-postgres-pitr-accepted', rowsAfterRestore=2, rowsAfterDelivery=3)
+        receipt['events'][1].update(database=True, reader=True)
+        receipt['snapshot'] = dict(freshContainer=True, baseBytes=1024, baseSha256='a' * 64, walBytes=4096,
+                                   walSha256='b' * 64, earlyTarget='before-late-ack', lateTarget='after-late-ack',
+                                   rowsAtEarlyTarget=1, missingWalRejected=True, earlyRestoreMilliseconds=1024,
+                                   lateRestoreMilliseconds=2048, forcedArchiveMilliseconds=100)
+        return records, receipt
+
+    def test_pitr_requires_correct_targets_and_wal_failure_evidence(self):
+        records, receipt = self.prepare_pitr()
+        acceptance.validate_postgres_recovery(receipt, records, point_in_time=True)
+        with self.assertRaises(ValueError):
+            acceptance.validate_postgres_recovery(receipt, records)
+        for field, value in (('earlyTarget', 'after-late-ack'), ('rowsAtEarlyTarget', 2), ('missingWalRejected', False),
+                             ('walSha256', 'g' * 64), ('baseBytes', 0), ('earlyRestoreMilliseconds', True)):
+            with self.subTest(field=field):
+                records, receipt = self.prepare_pitr()
+                receipt['snapshot'][field] = value
+                with self.assertRaises(ValueError):
+                    acceptance.validate_postgres_recovery(receipt, records, point_in_time=True)
+        records, receipt = self.prepare_pitr()
+        receipt['events'][1]['reader'] = False
+        with self.assertRaises(ValueError):
+            acceptance.validate_postgres_recovery(receipt, records, point_in_time=True)
+
     def test_recognizes_the_three_distinct_recovery_outcomes(self):
         records, receipt = self.prepare()
         acceptance.validate_postgres_recovery(receipt, records)
