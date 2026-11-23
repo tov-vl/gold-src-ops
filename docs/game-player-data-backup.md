@@ -169,6 +169,27 @@ addon открывает оба vault, а диагностическая сбо�
 Быстрые проверки формата и отказов выполняются командой
 `python -B ./tools/player-data-recovery/test-inputs.py` и входят в полный CI.
 
+### Сквозная репетиция с синтетическими данными
+
+[`test-restic.ps1`](../tools/player-data-recovery/test-restic.ps1) связывает
+штатные `Archive`, отдельный `Recover` и проверку движком. Нужен
+предварительно загруженный образ restic из сценария и то же локальное
+окружение. Скрипт создает синтетические vault, одноразовый зашифрованный
+репозиторий и новый каталог для Recover. Отчет показывает совпадение снимка
+и SHA-256, результат движка и длительность Recover.
+
+```powershell
+./tools/player-data-recovery/test-restic.ps1 -StableZip $VerifiedStableZip `
+  -Assets $ReviewedEngineAssets -SteamClient $ReviewedSteamClient `
+  -EngineImageId $ReviewedEngineImageId -DockerContext $LocalDockerContext
+python -B ./tools/player-data-recovery/test-runtime-rejections.py @runtime
+```
+
+[`test-runtime-rejections.py`](../tools/player-data-recovery/test-runtime-rejections.py)
+проверяет в локальном контейнере отказы для непустого journal, превышения
+лимита записей и искусственной задержки при проверке в движке. Каждый отчет
+подтверждает удаление созданного контейнера.
+
 ## Weekly backup и Recover от 22 ноября 2026
 
 - Штатный weekly начался в 04:00:00 МСК и завершился в 04:01:02 МСК со
