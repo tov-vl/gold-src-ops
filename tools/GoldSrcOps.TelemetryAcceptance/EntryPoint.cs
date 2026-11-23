@@ -8,7 +8,6 @@ using GoldSrcOps.Domain.GameEvents;
 using GoldSrcOps.Domain.Servers;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
 
 namespace GoldSrcOps.TelemetryAcceptance;
 
@@ -18,8 +17,8 @@ internal static class EntryPoint
 
     public static async Task<int> Main(string[] args)
     {
-        Require(args.Length == 5 || (args.Length == 6 && (string.Equals(args[5], "queue-recovery", StringComparison.Ordinal) || string.Equals(args[5], "server-isolation", StringComparison.Ordinal))),
-            "Expected repository, agent, inputs, scratch and result paths, optionally queue-recovery or server-isolation.");
+        Require(args is [_, _, _, _, _] or [_, _, _, _, _, "queue-recovery" or "server-isolation" or "postgres-recovery"],
+            "Expected repository, agent, inputs, scratch and result paths, optionally queue-recovery, server-isolation or postgres-recovery.");
         var repository = Path.GetFullPath(args[0]);
         var agent = Path.GetFullPath(args[1]);
         var inputs = Path.GetFullPath(args[2]);
@@ -27,33 +26,12 @@ internal static class EntryPoint
         var resultPath = Path.GetFullPath(args[4]);
         Require(!Directory.Exists(scratch) && !File.Exists(resultPath), "Acceptance output must be fresh.");
         Directory.CreateDirectory(scratch);
-        var database = new PostgreSqlBuilder("postgres:16-alpine")
-            .WithDatabase("telemetry_acceptance")
-            .WithUsername("acceptance")
-            .WithPassword(Convert.ToHexString(RandomNumberGenerator.GetBytes(32)))
-            .WithCreateParameterModifier(parameters =>
-            {
-                var hostConfig = parameters.HostConfig ?? throw new InvalidOperationException("Missing PostgreSQL host configuration.");
-                var portBindings = hostConfig.PortBindings ?? throw new InvalidOperationException("Missing PostgreSQL port binding.");
-                foreach (var bindings in portBindings.Values)
-                {
-                    foreach (var binding in bindings)
-                    {
-                        binding.HostIP = "127.0.0.1";
-                    }
-                }
-
-                hostConfig.Memory = 512 * 1024 * 1024;
-                hostConfig.NanoCPUs = 1_000_000_000;
-            })
-            .Build();
+        var database = AcceptancePostgres.Build();
         await using var databaseLifetime = database.ConfigureAwait(false);
         using var startupDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var startupToken = startupDeadline.Token;
         await database.StartAsync(startupToken).ConfigureAwait(false);
-        Require(string.Equals(database.Hostname, "localhost", StringComparison.OrdinalIgnoreCase) ||
-            (IPAddress.TryParse(database.Hostname, out var hostAddress) && IPAddress.IsLoopback(hostAddress)),
-            "Acceptance requires a local Docker host.");
+        AcceptancePostgres.RequireLocal(database);
         var factory = new AcceptanceApi(repository, database.GetConnectionString());
         await using var factoryLifetime = factory.ConfigureAwait(false);
         using var api = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, BaseAddress = factory.Address });
@@ -74,6 +52,13 @@ internal static class EntryPoint
         await using var proxyLifetime = proxy.ConfigureAwait(false);
         switch (args.Length == 6 ? args[5] : null)
         {
+            case "postgres-recovery":
+                {
+                    var acceptance = new PostgresRecoveryAcceptance(repository, agent, inputs, scratch);
+                    var result = await acceptance.RunAsync(database, factory, api, readerToken, server.Id, proxy, secret).ConfigureAwait(false);
+                    await WriteResultAsync(resultPath, result).ConfigureAwait(false);
+                    return 0;
+                }
             case "server-isolation":
                 {
                     var isolation = new ServerIsolationAcceptance(factory, api, readerToken, agent, inputs, scratch);

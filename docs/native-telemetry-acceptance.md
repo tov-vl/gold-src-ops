@@ -69,6 +69,32 @@ three outcomes, exact receipts and observed status sequences. Temporary queues,
 synthetic secret files and the disposable database are removed before success.
 The acceptance result and bounded log remain available for review.
 
+## PostgreSQL Snapshot Recovery
+
+Run the same command with `--postgres-recovery` and a new output directory.
+Use a matching, recent engine artifact within the agent's event age limit.
+The runner binds the three native inputs to one SQLite queue and one server.
+It takes a custom PostgreSQL dump after sequence 1 is accepted. Sequence 2 then
+receives its own HTTP 202 and leaves the outbox. Sequence 3 stays in the outbox
+at cutover. The runner stops the original PostgreSQL container, checks the dump
+bytes after transfer and restores them into a second disposable container. A
+fresh API host serves the restored database, then the agent resumes from
+its existing queue.
+
+| Event | State at cutover | PostgreSQL and Reader after delivery |
+| --- | --- | --- |
+| Sequence 1 | Present in the dump | Present once |
+| Sequence 2 | Acknowledged after the dump and removed from the outbox | Absent |
+| Sequence 3 | Still pending in the outbox | Present once, with matching identity and payload |
+
+The runner checks two rows before cutover, one immediately after restore and
+two after delivery. The Reader check compares the same counts and native
+round fields against the real HTTP endpoint. The receipt includes the dump
+SHA-256 and the three event outcomes. In this dump-only recovery scenario,
+the agent can redeliver retained events. Recovering an event acknowledged
+after the dump requires an independent source that retained it, such as
+PostgreSQL WAL available for point-in-time recovery.
+
 ## Local Verification
 
 On 2026-11-16 the three runtime scenarios passed using independently accepted
