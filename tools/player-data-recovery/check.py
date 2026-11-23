@@ -208,7 +208,7 @@ def run_engine(args, kit, raw, digest, result, *, mismatch=False):
         result["containerRemoved"] = True
 
 
-def check(args, *, mismatch=False):
+def check(args, *, mismatch=False, match_manifest=None):
     started = time.monotonic()
     result = {"schema": 1, "result": "failed", "addonVersion": "0.40.0",
               "inputHashVerified": False, "vaultHashesVerified": False,
@@ -219,8 +219,10 @@ def check(args, *, mismatch=False):
         raw = bundle.read_regular(args.bundle, bundle.MAX_ARCHIVE)
         require(bundle.digest(raw) == args.expected_sha256, "input_hash_mismatch")
         result["inputHashVerified"] = True
-        bundle.inspect(raw)
+        manifest, _ = bundle.inspect(raw)
         result["vaultHashesVerified"] = True
+        if match_manifest is not None:
+            match_manifest(manifest)
         require(re.fullmatch(r"sha256:[a-f0-9]{64}", args.engine_image_id), "engine_image_id_invalid")
         with tempfile.TemporaryDirectory(prefix="player-recovery-") as directory:
             kit = Path(directory).resolve()
