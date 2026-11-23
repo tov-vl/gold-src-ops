@@ -8,7 +8,7 @@ The [participant brief](../gameplay-pilot-participants-ru.md) is available in Ru
 ## Session And Baseline
 
 - Session reference: <neutral identifier>
-- UTC start/end and elapsed minutes: <not started>
+- UTC start/end and elapsed minutes: <UTC-start / UTC-end / elapsed minutes>
 - Result: <Not run / Core passed with limits / Partial / Failed>
 - Actor A / B: <pseudonyms; separate accounts confirmed, no Steam IDs here>
 - Consent/readiness and account availability: <not checked>
@@ -23,6 +23,9 @@ The [participant brief](../gameplay-pilot-participants-ru.md) is available in Ru
 - Saved stats/preferences availability and initial state: <not checked>
 - Private baseline/evidence reference: <owner-only record; no endpoint/credentials>
 - Baseline matches accepted target: <not checked; mismatch blocks start>
+
+Paste the saved preflight's `pilotHeader` here as its own `## Server Preflight`
+section. The report checker compares that section to the original JSON.
 
 ## Scenario Results
 
