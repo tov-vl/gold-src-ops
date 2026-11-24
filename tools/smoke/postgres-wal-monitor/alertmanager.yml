@@ -1,0 +1,11 @@
+route:
+  receiver: lab-collector
+  group_by: ['alertname', 'instance']
+  group_wait: 0s
+  group_interval: 1s
+  repeat_interval: 5m
+receivers:
+  - name: lab-collector
+    webhook_configs:
+      - url: http://observer:8182/hook
+        send_resolved: true

@@ -1,0 +1,35 @@
+groups:
+  - name: wal-archive-lab
+    interval: 1s
+    rules:
+      - alert: PostgresWalArchiveAgeWarning
+        expr: |
+          (goldsrcops_postgres_wal_oldest_ready_age_seconds >= 120
+            and goldsrcops_postgres_wal_oldest_ready_age_seconds < 240)
+          and on (job, instance) (goldsrcops_postgres_wal_ready_segments > 0)
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL WAL archive is delayed"
+      - alert: PostgresWalArchiveAgeCritical
+        expr: |
+          (goldsrcops_postgres_wal_oldest_ready_age_seconds >= 240)
+          and on (job, instance) (goldsrcops_postgres_wal_ready_segments > 0)
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL WAL archive delay is critical"
+      - alert: PostgresWalDiskSpaceWarning
+        expr: |
+          goldsrcops_postgres_wal_filesystem_available_bytes <= 3774873600
+          and goldsrcops_postgres_wal_filesystem_available_bytes > 1258291200
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL WAL filesystem has 15 minutes of space"
+      - alert: PostgresWalDiskSpaceCritical
+        expr: goldsrcops_postgres_wal_filesystem_available_bytes <= 1258291200
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL WAL filesystem has 5 minutes of space"

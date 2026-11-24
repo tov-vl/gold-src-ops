@@ -167,6 +167,22 @@ jobs:
           python3 -B ./tools/release/test-gameplay-pilot-report.py
           python3 -B ./tools/player-data-recovery/test-prepare-failures.py
 
+      - name: Rehearse live PostgreSQL WAL monitoring
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        timeout-minutes: 8
+        run: >-
+          python3 -B tools/smoke/postgres-wal-monitor/rehearse.py
+          --pull --output "$RUNNER_TEMP/postgres-wal-monitor"
+
+      - name: Retain live PostgreSQL WAL monitor evidence
+        if: always() && needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-wal-monitor-WORKFLOW_EXPRESSION github.run_id }}-WORKFLOW_EXPRESSION github.run_attempt }}
+          path: WORKFLOW_EXPRESSION runner.temp }}/postgres-wal-monitor/
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Setup .NET
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
         uses: actions/setup-dotnet@v5
