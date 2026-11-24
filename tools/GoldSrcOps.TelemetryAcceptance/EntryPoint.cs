@@ -17,7 +17,7 @@ internal static class EntryPoint
 
     public static async Task<int> Main(string[] args)
     {
-        Require(args is [_, _, _, _, _] or [_, _, _, _, _, "queue-recovery" or "server-isolation" or "postgres-recovery" or "postgres-pitr"],
+        Require(args is [_, _, _, _, _] or [_, _, _, _, _, "queue-recovery" or "server-isolation" or "postgres-recovery" or "postgres-pitr" or "slow-ack"],
             "Expected repository, agent, inputs, scratch and result paths, with an optional acceptance mode.");
         var mode = args.Length == 6 ? args[5] : null;
         var repository = Path.GetFullPath(args[0]);
@@ -112,8 +112,13 @@ internal static class EntryPoint
 
             var before = AgentProcess.ReadQueue(directory) ?? throw new InvalidOperationException("Native record was not imported.");
             var observationStart = proxy.Observations.Length;
-            proxy.Mode = index switch { 1 => DeliveryMode.LoseAcknowledgement, 2 => DeliveryMode.Unavailable, _ => DeliveryMode.Healthy };
-            var first = AgentProcess.Start(agent, directory, server.Id, proxy.Address, delivery: true, "run");
+            var delayAcknowledgement = index == 0 && string.Equals(mode, "slow-ack", StringComparison.Ordinal);
+            proxy.Mode = delayAcknowledgement
+                ? DeliveryMode.DelayAcknowledgement
+                : index switch { 1 => DeliveryMode.LoseAcknowledgement, 2 => DeliveryMode.Unavailable, _ => DeliveryMode.Healthy };
+            var first = delayAcknowledgement
+                ? AgentProcess.StartWithDelayedAcknowledgement(agent, directory, server.Id, proxy.Address)
+                : AgentProcess.Start(agent, directory, server.Id, proxy.Address, delivery: true, "run");
             await using (first.ConfigureAwait(false))
             {
                 if (index == 0)
@@ -142,13 +147,20 @@ internal static class EntryPoint
             Require(observations.Length >= (index == 0 ? 1 : 2) &&
                 observations.All(item => string.Equals(item.PayloadSha256, before.PayloadSha256, StringComparison.Ordinal)), "Retry changed the exact HTTP payload.");
             var accepted = observations.Where(static item => item.Receipt is not null).ToArray();
-            Require(accepted.Length == (index == 1 ? 2 : 1) && accepted[0].Status == 202 && !accepted[0].Receipt!.Duplicate,
-                "Expected exactly one fresh acceptance.");
+            if (index != 0)
+            {
+                Require(accepted.Length == (index == 1 ? 2 : 1) && accepted[0] is { Status: 202, Receipt.Duplicate: false },
+                    "Expected exactly one fresh acceptance.");
+            }
             switch (index)
             {
+                case 0:
+                    Require(delayAcknowledgement ? IsFreshThenDuplicate(accepted) :
+                        accepted is [{ Status: 202, Receipt.Duplicate: false }] or [{ Status: 200, Receipt.Duplicate: true }] ||
+                        IsFreshThenDuplicate(accepted), "Ordinary delivery did not return a fresh or matching replay receipt.");
+                    break;
                 case 1:
-                    Require(accepted[1].Status == 200 && accepted[1].Receipt!.Duplicate &&
-                        accepted[1].Receipt == accepted[0].Receipt! with { Duplicate = true }, "Replay did not return the original receipt.");
+                    Require(IsFreshThenDuplicate(accepted), "Replay did not return the original receipt.");
                     break;
                 case 2:
                     Require(observations[0].Status == 503, "Unavailable scenario was not exercised.");
@@ -184,6 +196,10 @@ internal static class EntryPoint
         Console.WriteLine("NATIVE_TELEMETRY_E2E=passed scenarios=3 rows=3");
         return 0;
     }
+
+    private static bool IsFreshThenDuplicate(DeliveryObservation[] accepted) =>
+        accepted is [{ Status: 202, Receipt: { Duplicate: false } fresh }, { Status: 200, Receipt.Duplicate: true } replay] &&
+        replay.Receipt == fresh with { Duplicate = true };
 
     public static void Require(bool condition, string message)
     {

@@ -4,5 +4,6 @@ internal enum DeliveryMode
 {
     Healthy,
     LoseAcknowledgement,
+    DelayAcknowledgement,
     Unavailable,
 }

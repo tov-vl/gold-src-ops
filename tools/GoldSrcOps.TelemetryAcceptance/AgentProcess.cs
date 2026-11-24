@@ -23,8 +23,11 @@ internal sealed class AgentProcess : IAsyncDisposable
     public static AgentProcess StartCombined(string agent, string scratch, Guid serverId, Uri proxy, int capacity)
         => StartConfigured(agent, scratch, serverId, proxy, delivery: true, importSpool: true, capacity, ["run"]);
 
+    public static AgentProcess StartWithDelayedAcknowledgement(string agent, string scratch, Guid serverId, Uri proxy)
+        => StartConfigured(agent, scratch, serverId, proxy, delivery: true, importSpool: false, capacity: 10_000, ["run"], requestTimeoutSeconds: 2);
+
     private static AgentProcess StartConfigured(string agent, string scratch, Guid serverId, Uri proxy,
-        bool delivery, bool importSpool, int capacity, string[] command)
+        bool delivery, bool importSpool, int capacity, string[] command, int? requestTimeoutSeconds = null)
     {
         var start = new ProcessStartInfo("dotnet")
         {
@@ -60,7 +63,7 @@ internal sealed class AgentProcess : IAsyncDisposable
             ["GameEventAgent__Delivery__ApiBaseUrl"] = proxy.AbsoluteUri,
             ["GameEventAgent__Delivery__DispatchIntervalSeconds"] = "1",
             ["GameEventAgent__Delivery__LeaseSeconds"] = "5",
-            ["GameEventAgent__Delivery__RequestTimeoutSeconds"] = delivery && importSpool ? "2" : "1",
+            ["GameEventAgent__Delivery__RequestTimeoutSeconds"] = (requestTimeoutSeconds ?? (delivery && importSpool ? 2 : 1)).ToString(CultureInfo.InvariantCulture),
             ["GameEventAgent__Delivery__RetryBaseSeconds"] = "1",
             ["GameEventAgent__Delivery__RetryMaximumSeconds"] = "2",
             ["GameEventAgent__Delivery__MaximumAttempts"] = "30",
