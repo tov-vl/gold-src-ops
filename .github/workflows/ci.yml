@@ -400,8 +400,81 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  player-data-smoke:
+    name: Player data backup and recovery checks
+    needs: change-scope
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DOCKER_BUILDKIT: 1
+    steps:
+      - name: Require resolved change scope
+        if: needs.change-scope.result != 'success'
+        run: exit 1
+
+      - name: Checkout
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Validate player-data capture and encrypted recovery
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        run: |
+          python3 -B ./tools/player-data-recovery/test-inputs.py
+          bash -n ./tools/player-data-recovery/run.sh
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-bundle.py
+          sudo bash ./tools/smoke/player-data-capture.sh
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-schedule.py
+          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-maintenance.py
+          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-uncertain.py
+          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/addon-upgrade.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/addon-runtime-probe.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/release-acceptance.py
+          node --test ./tools/smoke/release-acceptance.test.cjs
+          bash -n ./tools/smoke/game-addon-upgrade-runtime.sh
+          bash -n ./ops/gameserver/addon-upgrade-guard.sh
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/storage-monitor.py
+            PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/resource-monitor.py
+          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py
+          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py --alerts
+          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py --storage
+          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py --overview
+            sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py --resources
+          systemd-analyze verify ./ops/production/systemd/goldsrcops-player-data-monitor.service ./ops/production/systemd/goldsrcops-player-data-monitor.timer
+          systemd-analyze verify ./ops/production/systemd/goldsrcops-game-event-agent-monitor.service ./ops/production/systemd/goldsrcops-game-event-agent-monitor.timer
+          systemd-analyze verify ./ops/production/systemd/goldsrcops-game-host-storage-monitor.service ./ops/production/systemd/goldsrcops-game-host-storage-monitor.timer
+            systemd-analyze verify ./ops/production/systemd/goldsrcops-game-host-resource-monitor.service ./ops/production/systemd/goldsrcops-game-host-resource-monitor.timer
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor-stack.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/owner-notifications.py
+          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/monitoring-watchdog.py
+          sudo bash ./tools/smoke/player-data-schedule.sh
+          pwsh -NoProfile -File ./tools/smoke/player-data-backup.ps1
+          bash -n ./tools/smoke/game-player-data-recovery-runtime.sh
+
   container-smoke:
     name: Container Smoke
+    needs:
+      - container-runtime
+      - player-data-smoke
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require both container check groups
+        env:
+          CONTAINER_RUNTIME: ${{ needs.container-runtime.result }}
+          PLAYER_DATA: ${{ needs.player-data-smoke.result }}
+        run: test "$CONTAINER_RUNTIME" = success && test "$PLAYER_DATA" = success
+
+  container-runtime:
+    name: Container and engine checks
     needs:
       - change-scope
       - map-menu-compile
@@ -698,42 +771,6 @@ jobs:
       - name: Validate independent public player-search flags
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
         run: pwsh -NoProfile -File ./tools/smoke/player-search-compose.ps1
-
-      - name: Validate player-data capture and encrypted recovery
-        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
-        run: |
-          python3 -B ./tools/player-data-recovery/test-inputs.py
-          bash -n ./tools/player-data-recovery/run.sh
-          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-bundle.py
-          sudo bash ./tools/smoke/player-data-capture.sh
-          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-schedule.py
-          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-maintenance.py
-          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-uncertain.py
-          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/addon-upgrade.py
-          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/addon-runtime-probe.py
-          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/release-acceptance.py
-          node --test ./tools/smoke/release-acceptance.test.cjs
-          bash -n ./tools/smoke/game-addon-upgrade-runtime.sh
-          bash -n ./ops/gameserver/addon-upgrade-guard.sh
-          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor.py
-          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor.py
-          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/storage-monitor.py
-            PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/resource-monitor.py
-          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py
-          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py --alerts
-          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py --storage
-          sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py --overview
-            sudo env PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/agent-monitor-dashboard.py --resources
-          systemd-analyze verify ./ops/production/systemd/goldsrcops-player-data-monitor.service ./ops/production/systemd/goldsrcops-player-data-monitor.timer
-          systemd-analyze verify ./ops/production/systemd/goldsrcops-game-event-agent-monitor.service ./ops/production/systemd/goldsrcops-game-event-agent-monitor.timer
-          systemd-analyze verify ./ops/production/systemd/goldsrcops-game-host-storage-monitor.service ./ops/production/systemd/goldsrcops-game-host-storage-monitor.timer
-            systemd-analyze verify ./ops/production/systemd/goldsrcops-game-host-resource-monitor.service ./ops/production/systemd/goldsrcops-game-host-resource-monitor.timer
-          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/player-data-monitor-stack.py
-          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/owner-notifications.py
-          PYTHONDONTWRITEBYTECODE=1 python3 ./tools/smoke/monitoring-watchdog.py
-          sudo bash ./tools/smoke/player-data-schedule.sh
-          pwsh -NoProfile -File ./tools/smoke/player-data-backup.ps1
-          bash -n ./tools/smoke/game-player-data-recovery-runtime.sh
 
       - name: Accept paired addon and nVault transition and rollback
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
