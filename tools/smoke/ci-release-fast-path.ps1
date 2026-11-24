@@ -220,7 +220,7 @@ Assert-Condition `
 
 $scopeJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "change-scope"
 $qualityJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "quality"
-$containerJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "container-smoke"
+$containerJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "container-runtime"
 $browserJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "browser-smoke"
 $compileJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "map-menu-compile"
 $nativeJob = Get-WorkflowJobBlock -Workflow $workflow -JobName "nvault-process"
