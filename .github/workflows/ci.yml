@@ -183,6 +183,22 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Rehearse verified PostgreSQL PITR chains
+        if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        timeout-minutes: 8
+        run: |
+          python3 -B tools/smoke/postgres-pitr-chain/rehearse_chain.py --pull --output "$RUNNER_TEMP/postgres-pitr-chain"
+          sha256sum tools/smoke/postgres-pitr-chain/*.py tools/smoke/postgres-pitr-chain/*.sh > "$RUNNER_TEMP/postgres-pitr-chain/source.sha256"
+
+      - name: Retain verified PostgreSQL PITR evidence
+        if: always() && needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-pitr-chain-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/postgres-pitr-chain/
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Setup .NET
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
         uses: actions/setup-dotnet@v5
