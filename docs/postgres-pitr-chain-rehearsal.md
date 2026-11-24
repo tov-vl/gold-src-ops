@@ -31,3 +31,17 @@ python -B tools/smoke/postgres-pitr-chain/pitr_chain.py --archive "$STAGED_ARCHI
 
 [PostgreSQL base backup verification](https://www.postgresql.org/docs/16/app-pgverifybackup.html)
 [PostgreSQL manifest WAL range](https://www.postgresql.org/docs/16/backup-manifest-wal-ranges.html)
+
+## Exact object versions
+
+The rehearsal now stages the older base through a disk-backed versioned
+archive fixture. Its independently anchored inventory records the exact
+version, byte count and SHA-256 of each object. A newer wrong payload under
+the same key leaves the requested older version available. Restore uses
+only the checked stage.
+
+Wrong bytes, an absent pinned version and a changed inventory digest all
+fail admission. A single committed upload with a lost acknowledgment is
+reconciled by exact lookup and content verification. Multiple versions
+leave the upload unresolved. Full CI retains the synthetic version catalog
+with the result.
