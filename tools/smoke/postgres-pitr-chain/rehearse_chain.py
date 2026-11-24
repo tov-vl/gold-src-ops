@@ -164,15 +164,18 @@ def native_verify(lab, folder):
     return result.stdout.strip()
 
 
-def restore_from_stage(lab, base_name, folder, catalog, scratch):
+def restore_from_stage(lab, base_name, folder, catalog, scratch, expected=(1, 2, 3)):
     flat = scratch / f'verified-for-restore-{base_name}'
     flat.mkdir()
     shutil.copyfile(folder / 'base.tar.gz', flat / 'base.tar.gz')
     (flat / 'base.tar.gz.sha256').write_bytes(catalog['base']['archive']['sha256'].encode('ascii') + b'\n')
-    for name, identity in catalog['wal'].items():
+    objects = dict(catalog['wal'])
+    if 'history' in catalog:
+        objects[catalog['history']['name']] = catalog['history']
+    for name, identity in objects.items():
         path = flat / name
         shutil.copyfile(folder / 'wal' / name, path)
-        assert describe(path) == identity
+        assert describe(path) == {key: identity[key] for key in ('bytes', 'sha256')}
         (flat / f'{name}.sha256').write_bytes(identity['sha256'].encode('ascii') + b'\n')
     assert describe(flat / 'base.tar.gz') == catalog['base']['archive']
     alias = lab.name + '-verified-' + base_name
@@ -181,7 +184,7 @@ def restore_from_stage(lab, base_name, folder, catalog, scratch):
     lab.wait_for_storage(alias)
     if lab.is_running(lab.primary):
         lab.stop_source()
-    return lab.restore(f'verified-{base_name}-restore', alias, TARGET, [1, 2, 3])
+    return lab.restore(f'verified-{base_name}-restore', alias, catalog['target']['name'], list(expected), catalog['timeline'])
 
 
 def run(lab, scratch):

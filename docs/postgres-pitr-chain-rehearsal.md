@@ -45,3 +45,26 @@ fail admission. A single committed upload with a lost acknowledgment is
 reconciled by exact lookup and content verification. Multiple versions
 leave the upload unresolved. Full CI retains the synthetic version catalog
 with the result.
+
+## One direct timeline fork
+
+The timeline rehearsal uses pg_promote on a paused restore and creates two
+child timelines from a shared parent. Its version 2 catalog binds the exact
+native history file. It checks the required parent range up to the recorded
+fork and the required child range after it. The first child segment can
+contain a prefix from its parent. Its digest remains anchored and the test
+checks independent PostgreSQL replay across that boundary.
+
+The rehearsal reaches named targets on both sides of the fork with all
+producers stopped. It excludes writes from the unselected branches. Missing
+history or a substituted sibling WAL segment fails admission. At the fork,
+pg_waldump checks the native END_OF_RECOVERY record. A substituted first
+segment from the sibling fails this check even when its inherited page
+header matches. The child restore stages both history and segment versions through the versioned
+archive fixture. Full CI retains the separate timeline result.
+
+```sh
+python -B tools/smoke/postgres-pitr-chain/rehearse_timeline.py --pull --output artifacts/pitr-timeline
+```
+
+[PostgreSQL timeline behavior](https://www.postgresql.org/docs/16/continuous-archiving.html#BACKUP-TIMELINES)

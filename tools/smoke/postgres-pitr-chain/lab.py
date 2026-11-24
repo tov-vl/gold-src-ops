@@ -42,16 +42,17 @@ def resolve_images(context, pull):
 RESTORE = r"""
 set -eu
 export LC_ALL=C
-sh /lab/wal_io.sh fetch "$1" /base /tmp/base.tar.gz
+archive="$1"
+shift
+sh /lab/wal_io.sh fetch "$archive" /base /tmp/base.tar.gz
 mkdir /tmp/recovery-data
 tar -xzf /tmp/base.tar.gz -C /tmp/recovery-data
 chmod 0700 /tmp/recovery-data
 chown -R postgres:postgres /tmp/recovery-data
 touch /tmp/recovery-data/recovery.signal
 exec gosu postgres postgres -D /tmp/recovery-data \
-    -c listen_addresses=127.0.0.1 -c archive_mode=off -c hot_standby=off \
-    -c "restore_command=sh /lab/wal_io.sh fetch $1 /wal/%f %p" \
-    -c "recovery_target_name=$2" -c recovery_target_action=promote
+    -c listen_addresses=127.0.0.1 \
+    -c "restore_command=sh /lab/wal_io.sh fetch $archive /wal/%f %p" "$@"
 """
 
 
@@ -138,10 +139,18 @@ class Lab:
     def is_running(self, name):
         return self.docker('inspect', '--format', '{{.State.Running}}', name).stdout.strip() == 'true'
 
-    def restore(self, suffix, archive, target, expected):
+    def start_recovery(self, name, archive, settings):
+        options = [part for setting in settings for part in ('-c', setting)]
+        self.create(name, self.images['postgres'], ['--entrypoint', '/bin/sh'],
+                    ['-ec', RESTORE, 'restore', archive, *options])
+
+    def restore(self, suffix, archive, target, expected, timeline):
         name = self.name + '-' + suffix
         began = self.stamp()
-        self.create(name, self.images['postgres'], ['--entrypoint', '/bin/sh'], ['-ec', RESTORE, 'restore', archive, target])
+        self.start_recovery(name, archive, [
+            'archive_mode=off', 'hot_standby=off', f'recovery_target_name={target}',
+            f'recovery_target_timeline={timeline}', 'recovery_target_action=promote',
+        ])
         status = wait_for('restore neither started nor exited',
                           lambda: 'ready' if self.ready(name) else ('exited' if not self.is_running(name) else None), 35)
         logs = self.docker('logs', name)
