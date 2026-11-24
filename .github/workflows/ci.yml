@@ -188,6 +188,7 @@ jobs:
         timeout-minutes: 8
         run: |
           python3 -B tools/smoke/postgres-pitr-chain/rehearse_chain.py --pull --output "$RUNNER_TEMP/postgres-pitr-chain"
+          python3 -B tools/smoke/postgres-pitr-chain/rehearse_timeline.py --output "$RUNNER_TEMP/postgres-pitr-chain/timeline"
           sha256sum tools/smoke/postgres-pitr-chain/*.py tools/smoke/postgres-pitr-chain/*.sh > "$RUNNER_TEMP/postgres-pitr-chain/source.sha256"
 
       - name: Retain verified PostgreSQL PITR evidence

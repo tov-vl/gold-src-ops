@@ -1,4 +1,4 @@
-"""Verify an anchored PostgreSQL 16 amd64 PITR catalog on one timeline before restore."""
+"""Verify an anchored PostgreSQL 16 amd64 PITR catalog before restore."""
 
 import argparse
 import hashlib
@@ -116,7 +116,7 @@ def verify_base(path, identity, system_id, timeline, first, manifest_start):
             and int(tli[1]) == timeline, 'base-manifest-mismatch', 'backup_label and manifest disagree')
 
 
-def verify_wal(path, identity, system_id, timeline, number):
+def verify_wal(path, identity, system_id, timeline, number, inherited_timeline=None):
     size = pinned_path(path, stat.S_ISREG, 'missing-wal').st_size
     require(size == SEGMENT_SIZE, 'wal-segment-size', path.name)
     with path.open('rb') as stream:
@@ -126,8 +126,42 @@ def verify_wal(path, identity, system_id, timeline, number):
     require(magic == WAL_MAGIC and flags & 2 and not flags & ~15 and segment_size == SEGMENT_SIZE
             and block_size == WAL_BLOCK_SIZE, 'unsupported-wal-header', path.name)
     require(actual_id == system_id, 'wal-cluster-mismatch', path.name)
-    require(actual_timeline == timeline, 'wal-timeline-mismatch', path.name)
+    require(actual_timeline in (timeline, inherited_timeline), 'wal-timeline-mismatch', path.name)
     require(address == number * SEGMENT_SIZE, 'wal-address-mismatch', path.name)
+
+
+def parse_history(content, base_timeline, timeline):
+    lines = [line.split(maxsplit=2) for line in content.decode('ascii').splitlines()
+             if line.strip() and not line.lstrip().startswith('#')]
+    require(len(lines) == 1 and len(lines[0]) >= 2 and base_timeline == 1 and timeline > base_timeline,
+            'unsupported-timeline-chain', 'expected one direct fork from timeline 1')
+    parent, switch = lines[0][:2]
+    require(parent == str(base_timeline), 'timeline-history-parent-mismatch', parent)
+    return lsn_value(switch)
+
+
+def read_history(wal_root, identity, base_timeline, timeline):
+    name = f'{timeline:08X}.history'
+    require(identity['name'] == name, 'timeline-history-name-mismatch', name)
+    path = wal_root / name
+    size = pinned_path(path, stat.S_ISREG, 'missing-timeline-history').st_size
+    require(size <= 4096, 'timeline-history-size', name)
+    with path.open('rb') as stream:
+        validate_object(stream, path, identity, size)
+        fork = parse_history(stream.read(), base_timeline, timeline)
+    return name, fork
+
+
+def wal_plan(first, last, base_timeline, timeline, fork=None):
+    if fork is None:
+        yield from ((timeline, number, None) for number in range(first, last + 1))
+        return
+    parent_last, child_first = (fork - 1) // SEGMENT_SIZE, fork // SEGMENT_SIZE
+    yield from ((base_timeline, number, None) for number in range(first, parent_last + 1))
+    for number in range(child_first, last + 1):
+        # When a fork occurs inside a segment, the first long page header can come from the parent.
+        inherited = base_timeline if number == child_first and fork % SEGMENT_SIZE else None
+        yield timeline, number, inherited
 
 
 def verify(root, anchor):
@@ -139,7 +173,9 @@ def verify(root, anchor):
     body = catalog_path.read_bytes()
     require(hashlib.sha256(body).hexdigest() == anchor, 'catalog-checksum-mismatch', 'chain.json')
     catalog = read_json(body)
-    for field, expected in (('version', 1), ('postgresql_major', 16), ('wal_segment_bytes', SEGMENT_SIZE)):
+    version = catalog.get('version')
+    require(type(version) is int and version in (1, 2), 'unsupported-catalog', 'version')
+    for field, expected in (('postgresql_major', 16), ('wal_segment_bytes', SEGMENT_SIZE)):
         require(type(catalog.get(field)) is int and catalog[field] == expected, 'unsupported-catalog', field)
     cluster = catalog['system_identifier']
     require(isinstance(cluster, str) and re.fullmatch(r'[1-9][0-9]{0,19}', cluster)
@@ -154,22 +190,34 @@ def verify(root, anchor):
     with manifest_path.open('rb') as stream:
         validate_object(stream, manifest_path, catalog['base']['manifest'], manifest_size)
         manifest = read_json(stream.read())
-    first, last, range_row = required_range(manifest, target['lsn'], timeline)
-    records = catalog['wal']
-    require(isinstance(records, dict) and len(records) == last - first + 1,
-            'catalog-wal-coverage', 'declared segments do not span the base through the target')
-    verify_base(root / 'base.tar.gz', catalog['base']['archive'], system_id, timeline, first, range_row['Start-LSN'])
+    base_timeline = timeline if version == 1 else catalog['base_timeline']
+    require(type(base_timeline) is int and 0 < base_timeline <= 0xffffffff, 'invalid-base-timeline', 'base_timeline')
+    first, last, range_row = required_range(manifest, target['lsn'], base_timeline)
     wal_root = root / 'wal'
     pinned_path(wal_root, stat.S_ISDIR, 'missing-wal-directory')
+    history = fork = None
+    if version == 2:
+        history, fork = read_history(wal_root, catalog['history'], base_timeline, timeline)
+        require(lsn_value(range_row['End-LSN']) <= fork < lsn_value(target['lsn']),
+                'unreachable-timeline-target', 'fork must follow the base WAL range and strictly precede the target')
+    plan = wal_plan(first, last, base_timeline, timeline, fork)
+    records = catalog['wal']
+    require(isinstance(records, dict), 'catalog-wal-coverage', 'invalid declared segment map')
+    verify_base(root / 'base.tar.gz', catalog['base']['archive'], system_id, base_timeline,
+                first, range_row['Start-LSN'])
     verified = []
-    for number in range(first, last + 1):
-        name = wal_name(timeline, number)
+    for segment_timeline, number, inherited_timeline in plan:
+        name = wal_name(segment_timeline, number)
         require(name in records, 'catalog-wal-gap', name)
-        verify_wal(wal_root / name, records[name], system_id, timeline, number)
+        verify_wal(wal_root / name, records[name], system_id, segment_timeline, number, inherited_timeline)
         verified.append(name)
-    return dict(status='verified', catalog_sha256=anchor, system_identifier=cluster, timeline=timeline,
-                target=target, base_sha256=catalog['base']['archive']['sha256'],
-                base_wal_start=range_row['Start-LSN'], base_wal_end=range_row['End-LSN'], segments=verified)
+    require(len(verified) == len(records), 'catalog-wal-coverage', 'declared WAL contains extra segments')
+    result = dict(status='verified', catalog_sha256=anchor, system_identifier=cluster, timeline=timeline,
+                  target=target, base_sha256=catalog['base']['archive']['sha256'],
+                  base_wal_start=range_row['Start-LSN'], base_wal_end=range_row['End-LSN'], segments=verified)
+    if history is not None:
+        result['timeline_history'] = history
+    return result
 
 
 def main():

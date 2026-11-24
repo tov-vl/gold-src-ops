@@ -9,7 +9,7 @@ import tempfile
 
 from pitr_chain import Rejected, SHA, read_json, require, verify
 
-STAGED_PATH = re.compile(r'(?:chain\.json|base\.tar\.gz|backup_manifest|wal/[0-9A-F]{24})')
+STAGED_PATH = re.compile(r'(?:chain\.json|base\.tar\.gz|backup_manifest|wal/(?:[0-9A-F]{24}|[0-9A-F]{8}\.history))')
 VERSION = re.compile(r'[A-Za-z0-9_-]{1,128}')
 BLOCK = 1024 * 1024
 
@@ -101,6 +101,8 @@ def stage_snapshot(archive, body, trusted_sha256, output):
                 copy_checked(archive, key, identity['object_version'], identity, target)
         result = verify(pending, snapshot['chain_catalog_sha256'])
         expected = {'chain.json', 'base.tar.gz', 'backup_manifest', *(f'wal/{name}' for name in result['segments'])}
+        if 'timeline_history' in result:
+            expected.add(f"wal/{result['timeline_history']}")
         require(objects.keys() == expected, 'version-catalog-wal-coverage', 'objects')
         pending.rename(output)
     return result
@@ -127,7 +129,10 @@ def expect_rejected(code, operation):
 
 def rehearse_versions(folder, stage, work, output, admitted):
     archive = ArchiveFixture(work / 'versioned-objects')
-    items = ['chain.json', 'base.tar.gz', 'backup_manifest', *(f'wal/{name}' for name in admitted['segments'])]
+    items = ['chain.json', 'base.tar.gz', 'backup_manifest']
+    if 'timeline_history' in admitted:
+        items.append(f"wal/{admitted['timeline_history']}")
+    items.extend(f'wal/{name}' for name in admitted['segments'])
     catalog = {key: {**describe(folder / key), 'object_version': archive.put(key, folder / key)} for key in items}
     snapshot = dict(version=1, chain_catalog_sha256=admitted['catalog_sha256'], objects=catalog)
     body, anchor = encode_snapshot(snapshot)
