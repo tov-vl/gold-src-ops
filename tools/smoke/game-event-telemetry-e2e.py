@@ -270,8 +270,9 @@ def validate_archive(size, sha256, maximum):
         raise ValueError('Invalid PostgreSQL archive identity')
 
 
-def execute(evidence, compiled, output, queue_recovery=False, server_isolation=False, postgres_recovery=False, postgres_pitr=False):
-    if sum((queue_recovery, server_isolation, postgres_recovery, postgres_pitr)) > 1:
+def execute(evidence, compiled, output, queue_recovery=False, server_isolation=False, postgres_recovery=False, postgres_pitr=False,
+            slow_ack=False):
+    if sum((queue_recovery, server_isolation, postgres_recovery, postgres_pitr, slow_ack)) > 1:
         raise ValueError('Telemetry modes are mutually exclusive')
     records, binding = read_records(evidence, compiled)
     output.mkdir(parents=True, exist_ok=False)
@@ -295,12 +296,18 @@ def execute(evidence, compiled, output, queue_recovery=False, server_isolation=F
                 arguments.append('postgres-recovery')
             if postgres_pitr:
                 arguments.append('postgres-pitr')
+            if slow_ack:
+                arguments.append('slow-ack')
             command(arguments, log)
             result = json.loads((root / 'result.json').read_bytes())
             if postgres_recovery or postgres_pitr:
                 validate_postgres_recovery(result, records, point_in_time=postgres_pitr)
             else:
                 validate_result(result, records, queue_recovery, server_isolation)
+            if slow_ack:
+                ordinary = next(item for item in result['scenarios'] if item['scenario'] == 'ordinary')
+                if ordinary['statuses'] != [202, 200] or ordinary['queueDrained'] is not True or ordinary['persistedRows'] != 1:
+                    raise ValueError('Delayed acknowledgement must yield a fresh receipt, one replay and one persisted row')
             result['nativeEngine'] = binding
             sources = [PROJECT, Path(__file__).resolve(), Path(__file__).with_name('test-game-event-telemetry-e2e.py')]
             sources.extend(sorted(PROJECT.parent.glob('*.cs')))
@@ -327,9 +334,10 @@ def main():
     modes.add_argument('--server-isolation', action='store_true')
     modes.add_argument('--postgres-recovery', action='store_true')
     modes.add_argument('--postgres-pitr', action='store_true')
+    modes.add_argument('--slow-ack', action='store_true')
     args = parser.parse_args()
     execute(args.evidence.resolve(), args.compiled.resolve(), args.output.resolve(),
-            args.queue_recovery, args.server_isolation, args.postgres_recovery, args.postgres_pitr)
+            args.queue_recovery, args.server_isolation, args.postgres_recovery, args.postgres_pitr, args.slow_ack)
 
 
 if __name__ == '__main__':

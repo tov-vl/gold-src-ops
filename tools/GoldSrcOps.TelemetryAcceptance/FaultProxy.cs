@@ -119,6 +119,11 @@ internal sealed class FaultProxy : IAsyncDisposable
             return;
         }
 
+        if (Mode == DeliveryMode.DelayAcknowledgement && response.StatusCode == HttpStatusCode.Accepted)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(3_500), context.RequestAborted).ConfigureAwait(false);
+        }
+
         context.Response.StatusCode = (int)response.StatusCode;
         context.Response.ContentType = "application/json";
         await context.Response.Body.WriteAsync(body, context.RequestAborted).ConfigureAwait(false);
