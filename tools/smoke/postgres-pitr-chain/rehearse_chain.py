@@ -1,7 +1,6 @@
 """Build independent PostgreSQL fixtures, exercise PITR preflight, and restore from verified bytes."""
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -12,15 +11,10 @@ import time
 
 from lab import Lab, resolve_images, wait_for
 from pitr_chain import SEGMENT_SIZE, required_range, wal_name
+from versioned_archive import describe, rehearse_versions
 
 HERE = Path(__file__).resolve().parent
 TARGET = 'chain-restore-point'
-
-
-def describe(path):
-    with path.open('rb') as stream:
-        digest = hashlib.file_digest(stream, 'sha256').hexdigest()
-    return dict(bytes=path.stat().st_size, sha256=digest)
 
 
 def publish_catalog(folder, document):
@@ -218,7 +212,9 @@ def run(lab, scratch):
     retention = retention_check(older, newer, anchor_a, anchor_b, admitted_a, admitted_b, scratch)
     native_check = {name: native_verify(lab, folder)
                     for name, folder in (('older', older), ('newer', newer))}
-    verified_restore = restore_from_stage(lab, 'older', older, catalog_a, scratch)
+    exact_stage = scratch / 'from-versioned-store'
+    versioned = rehearse_versions(older, exact_stage, scratch, lab.output, admitted_a)
+    verified_restore = restore_from_stage(lab, 'older', exact_stage, catalog_a, scratch)
     recent_only_restore = restore_from_stage(lab, 'newer', newer, catalog_b, scratch)
     retention['restore_without_older_wal'] = recent_only_restore
     lab.verify_network()
@@ -228,7 +224,8 @@ def run(lab, scratch):
     return (dict(status='passed', source_stopped_during_restore=True, later_row_excluded=True,
                  admitted_older=admitted_a, admitted_newer=admitted_b,
                  both_positive_preflights_seconds=preflight_seconds, negatives=negatives, native_verifybackup=native_check,
-                 restore=verified_restore, elapsed_seconds=round(time.monotonic()-started, 3)), retention)
+                 restore=verified_restore, versioned_restore=versioned,
+                 elapsed_seconds=round(time.monotonic()-started, 3)), retention)
 
 
 def main():
