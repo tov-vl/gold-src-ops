@@ -170,9 +170,10 @@ jobs:
       - name: Rehearse live PostgreSQL WAL monitoring
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
         timeout-minutes: 8
-        run: >-
-          python3 -B tools/smoke/postgres-wal-monitor/rehearse.py
-          --pull --output "$RUNNER_TEMP/postgres-wal-monitor"
+        run: |
+          python3 -B tools/smoke/postgres-wal-monitor/rehearse.py --pull --output "$RUNNER_TEMP/postgres-wal-monitor"
+          python3 -B tools/smoke/postgres-wal-monitor/rehearse_commit_rules.py --output "$RUNNER_TEMP/postgres-wal-monitor/commit-coverage"
+          sha256sum tools/smoke/postgres-wal-monitor/{commit_coverage.py,commit-coverage.rules.yml,commit-coverage.prometheus.yml,test_commit_coverage.py,rehearse_commit_rules.py} > "$RUNNER_TEMP/postgres-wal-monitor/commit-coverage/source.sha256"
 
       - name: Retain live PostgreSQL WAL monitor evidence
         if: always() && needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'

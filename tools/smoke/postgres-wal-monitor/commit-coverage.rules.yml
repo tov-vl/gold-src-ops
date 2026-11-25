@@ -1,0 +1,34 @@
+groups:
+  - name: wal-commit-coverage-lab
+    interval: 2s
+    rules:
+      - record: goldsrcops_postgres_wal_commit_unavailable
+        expr: |
+          up{job="wal-commit-coverage"}
+          unless on (job, instance) (goldsrcops_postgres_wal_commit_known == 1)
+      - alert: PostgresWalCommitCoverageUnknown
+        expr: goldsrcops_postgres_wal_commit_unavailable
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL commit coverage is unknown"
+      - alert: PostgresWalCommitCoverageWarning
+        expr: |
+          ((goldsrcops_postgres_wal_commit_oldest_uncovered_age_seconds >= 180)
+          and (goldsrcops_postgres_wal_commit_oldest_uncovered_age_seconds < 240))
+          and on (job, instance) (goldsrcops_postgres_wal_commit_known == 1)
+        labels:
+          severity: warning
+        annotations:
+          summary: "Observed PostgreSQL commits are waiting for verified WAL"
+      - alert: PostgresWalCommitCoverageCritical
+        expr: |
+          ((goldsrcops_postgres_wal_commit_oldest_uncovered_age_seconds >= 240)
+          and on (job, instance) (goldsrcops_postgres_wal_commit_known == 1))
+          or
+          ((last_over_time(goldsrcops_postgres_wal_commit_oldest_uncovered_age_seconds[30s]) >= 240)
+          and on (job, instance) goldsrcops_postgres_wal_commit_unavailable)
+        labels:
+          severity: critical
+        annotations:
+          summary: "Observed PostgreSQL commits approach the five-minute recovery objective"
