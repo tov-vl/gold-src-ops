@@ -69,13 +69,16 @@ def main():
     (path/'logic.log').write_text(logic.stdout + logic.stderr, encoding='utf-8')
     cases = dict(rule_files=['/lab/commit-coverage.rules.yml'], evaluation_interval='2s', tests=fixtures())
     with tempfile.TemporaryDirectory(prefix='wal-commit-rule-input-') as name:
-        (Path(name)/'cases.yml').write_text(json.dumps(cases), encoding='utf-8')
+        case_file = Path(name)/'cases.yml'
+        case_file.write_text(json.dumps(cases), encoding='utf-8')
         run = subprocess.run([*cli, 'run', '--rm', '--pull', 'never', '--network', 'none',
                               '--mount', f'type=bind,source={HERE},target=/lab,readonly',
-                              '--mount', f'type=bind,source={name},target=/tests,readonly',
+                              '--mount', f'type=bind,source={case_file},target=/tests/cases.yml,readonly',
                               '--entrypoint', '/bin/promtool', IMAGE, 'test', 'rules', '/tests/cases.yml'],
                              capture_output=True, text=True, timeout=90)
     (path/'promtool.log').write_text(run.stdout + run.stderr, encoding='utf-8')
+    if run.returncode:
+        print(run.stdout + run.stderr, file=sys.stderr, end='')
     run.check_returncode()
     receipt = dict(status='passed', fixtures=[test['name'] for test in cases['tests']],
                    rule_checks=sum(len(test['alert_rule_test']) for test in cases['tests']),
