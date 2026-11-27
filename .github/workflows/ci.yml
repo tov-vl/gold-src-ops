@@ -785,6 +785,7 @@ jobs:
         run: |
           pwsh -NoProfile -File ./tools/smoke/postgres-backup-schedule.ps1
           bash ./tools/smoke/postgres-backup-schedule.sh
+          python3 -B ./tools/smoke/test_postgres_backup_catch_up.py
 
       - name: Validate independent public player-search flags
         if: needs.change-scope.outputs.docs_only != 'true' && needs.change-scope.outputs.stable_promotion != 'true' && needs.change-scope.outputs.addon_only != 'true'
