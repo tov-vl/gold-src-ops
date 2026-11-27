@@ -253,6 +253,43 @@ Use `-ExpectedMinimumServerCount` when the target has a known lower bound that
 helps detect an unexpectedly old snapshot. The rehearsal does not modify the
 production database and never starts the API.
 
+## Logical Backup RPO Rehearsals
+
+On 2026-11-27, a disposable PostgreSQL source accepted synthetic telemetry
+through the HTTP API while a dedicated Backblaze B2 test repository received
+logical backups. The rehearsal skipped one 30-minute slot and started the
+catch-up when the previous verified copy reached 45 minutes of age. The
+catch-up completed and passed its full repository check in 20.056 seconds
+from dispatch.
+
+An independent read-only credential restored both snapshots after the source
+stopped. The checks recorded SHA-256 for each dump and matched the restored SQL
+prefix and the Reader's latest 20 events against the HTTP 202 ledger. The
+maximum age of the verified recovery point was **45m 48.477s**, with **14m
+11.523s** of margin against the one-hour target. At source shutdown, the newer
+snapshot restored 2,044 of 2,049 accepted events. The five remaining events
+arrived after that snapshot's data boundary.
+
+Two additional local PostgreSQL/restic rehearsals used the same real 30-minute
+slot and 45-minute catch-up thresholds. In both cases the backup process exited
+after writing the snapshot and before publishing the verified recovery point.
+
+| Case | Observed result |
+| --- | --- |
+| Exact candidate receipt available | Independent Recover matched the accepted event ledger and restored 2,040 of 2,043 events. `resolve` advanced the verified point at a prior-point age of 45m 52.061s. Replaying the same receipt left state intact, and the next scheduled backup published a third verified snapshot. |
+| Candidate receipt missing | The previous verified point remained active. The lab observed `warning` at 50m 0.086s and `breached` at 60m 1.089s. Both scheduled and catch-up retries were blocked. Independent Recover restored 1,500 events from the previous verified copy. |
+
+When rehearsing an interruption, preserve the previous verified point and the
+pending attempt. Use the lab's read-only `reconcile` check to identify an
+unambiguous candidate. Accept a resolution only after independent Recover binds
+the attempt, previous point, exact snapshot and dump hash. With a missing or
+ambiguous receipt, keep the attempt pending and continue measuring the age of
+the previous point.
+
+These results cover synthetic accepted telemetry, the measured dataset and one
+missed slot. Production backup and retention follow the separate schedule above.
+Keep detailed receipts, snapshot IDs and source ledgers in the operator record.
+
 ## AlertReceiver Workload
 
 The independent AlertReceiver database uses the same reviewed streaming and

@@ -1,7 +1,6 @@
 # GoldSrcOps Roadmap
 
-Updated on 2026-11-22 after stable publication of Archive trigger 2.132.0
-and private Steam rejoin acceptance.
+Updated on 2026-11-27 with the PostgreSQL logical-backup RPO rehearsal results.
 The earlier repository planning baseline
 is `2b33081022ad54061fa8c8e1f4efef4a3f3ad1e0`; runtime identities remain in their
 own release and acceptance records.
@@ -43,6 +42,11 @@ Development should advance a concrete operator or player outcome.
   [end-to-end telemetry](native-telemetry-acceptance.md) have full PR/main CI and
   independent artifact evidence. Their synthetic actors do not establish human
   gameplay quality, balance or demand.
+- The [PostgreSQL backup rehearsal](postgresql-backup.md#logical-backup-rpo-rehearsals)
+  met the one-hour RPO for synthetic accepted telemetry after one missed slot
+  in a dedicated Backblaze B2 test repository. Two local runs also verified
+  recovery of an interrupted attempt and preservation of the previous verified
+  copy when the receipt was missing.
 
 The [backlog](backlog.md) retains milestone status and acceptance links. This
 roadmap owns future priorities; it is not a live production health report.
@@ -58,6 +62,7 @@ roadmap owns future priorities; it is not a live production health report.
 | Technical acceptance completed | Queue capacity, concurrent import/delivery and restart acceptance | Existing telemetry harness and verified native inputs | Full PR/main CI, independent artifacts and separate replays passed: deferred bytes and identity preserved, drain without duplicates, permanent failure retained without automatic replay |
 | Technical acceptance completed | Parallel telemetry server isolation | Existing harness, two actual agents and synthetic machine credentials | Healthy server progresses during another server's outage; cross-server ingest is denied without a write; retained backlog drains without duplicates and Reader history stays separated |
 | Stable and production accepted | [Player-data process-crash recovery](player-storage-0.40.0-release.md) | Paired addon and i386 nVault, schema-2 guard transition | Full CI, production A2S/RCON, both independent Recover checks, same-byte stable ZIP verification |
+| Isolated acceptance completed | [One-hour logical-backup RPO for accepted telemetry](postgresql-backup.md#logical-backup-rpo-rehearsals) | Dedicated B2 test repository, separate reader and disposable PostgreSQL | After one missed 30-minute slot, the catch-up started at 45 minutes. Independent Recover measured a maximum verified recovery-point age of 45m 48.477s. Any production cadence change requires a separate decision. |
 | Protocol prepared; session pending | Validate the existing mode with two human players | Two independent participants/accounts and a controlled session | Use the prepared protocol/result form; a bounded pilot records observed results, failures and at most one evidenced follow-up |
 | After the pilot | Improve one evidenced gameplay problem | Pilot findings | One map/spawn adjustment or mechanic passes technical and player acceptance |
 | Later | Human activity analysis and community growth | Real visits and an agreed observation window | Decisions use actual human activity with explicit coverage limits |
