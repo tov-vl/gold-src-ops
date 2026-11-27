@@ -23,6 +23,8 @@ LAB_LABEL = 'goldsrcops.logical-backup-rpo'
 KEY = re.compile(r'gso-logical-([0-9a-f]{12})')
 SNAPSHOT = re.compile(r'[0-9a-f]{64}')
 STAMP = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})')
+ARCHIVE_NAME = 'goldsrcops-postgresql.dump'
+RECOVERABLE_TAG = 'goldsrcops-postgresql-recoverable'
 
 
 def utc_now():
@@ -57,14 +59,16 @@ def replace_json(path, value):
 
 
 @contextmanager
-def decision_lock(path):
-    with path.open('a+b') as stream:
+def decision_lock(path, *, read_only=False):
+    with path.open('rb' if read_only else 'a+b') as stream:
         stream.seek(0)
         try:
             if os.name == 'nt':
-                msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                mode = msvcrt.LK_NBRLCK if read_only else msvcrt.LK_NBLCK
+                msvcrt.locking(stream.fileno(), mode, 1)
             else:
-                fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                mode = fcntl.LOCK_SH if read_only else fcntl.LOCK_EX
+                fcntl.flock(stream.fileno(), mode | fcntl.LOCK_NB)
         except BlockingIOError:
             yield False
         except OSError as error:
@@ -146,6 +150,61 @@ class Scheduler:
         with decision_lock(self.lock) as acquired:
             return self.inspect(trigger)[1] if acquired else dict(decision='busy', rpo='unknown')
 
+    def validate_candidate(self, receipt, state, now):
+        snapshot = receipt['SnapshotId']
+        captured, completed = (instant(receipt[field]) for field in ('SnapshotTime', 'CompletedAtUtc'))
+        previous = state['lastVerified']
+        began = instant(state['attempt']['claimedAtUtc'])
+        if (receipt['Action'] != 'PostgreSQLBackup' or receipt['Workload'] != 'ControlPlane'
+                or receipt['BackupHost'] != self.identity or receipt['ArchiveName'] != ARCHIVE_NAME
+                or not SNAPSHOT.fullmatch(snapshot) or not began <= captured <= completed <= now
+                or (previous is not None and snapshot == previous['snapshotId'])):
+            raise ValueError('Candidate receipt differs from the owned backup attempt')
+        return snapshot, captured, completed
+
+    def reconcile(self, read_candidate, list_snapshots):
+        if not self.lock.is_file() or self.lock.resolve(strict=True) != self.lock:
+            return dict(decision='state-unavailable', rpo='unknown', reconciliation='not-assessed')
+        with decision_lock(self.lock, read_only=True) as acquired:
+            if not acquired:
+                return dict(decision='busy', rpo='unknown', reconciliation='not-assessed')
+            state, report = self.inspect('catch-up')
+            if state is None or state['attempt'] is None:
+                reason = 'not-assessed' if state is None else 'no-unresolved-attempt'
+                return {**report, 'reconciliation': reason}
+            attempt = state['attempt']
+            began, now = instant(attempt['claimedAtUtc']), self.clock()
+            try:
+                observed = {}
+                for entry in list_snapshots():
+                    if entry['hostname'] != self.identity or entry['paths'] != [f'/{ARCHIVE_NAME}']:
+                        continue
+                    captured = instant(entry['time'])
+                    snapshot = entry['id']
+                    if captured > now or not SNAPSHOT.fullmatch(snapshot) or snapshot in observed:
+                        raise ValueError('Invalid local snapshot inventory')
+                    if captured >= began:
+                        observed[snapshot] = entry
+            except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+                return {**report, 'reconciliation': 'uncertain', 'reason': 'inventory-unavailable'}
+
+            report = {**report, 'candidateCount': len(observed)}
+            if len(observed) > 1:
+                return {**report, 'reconciliation': 'uncertain', 'reason': 'multiple-candidates'}
+            try:
+                receipt = read_candidate(attempt['id'])
+                snapshot, captured, _ = self.validate_candidate(receipt, state, now)
+            except FileNotFoundError:
+                if observed:
+                    return {**report, 'reconciliation': 'uncertain', 'reason': 'missing-receipt'}
+                return {**report, 'reconciliation': 'no-candidate-observed', 'reason': 'missing-receipt'}
+            except (OSError, ValueError, KeyError, TypeError):
+                return {**report, 'reconciliation': 'uncertain', 'reason': 'invalid-receipt'}
+            entry = observed.get(snapshot)
+            if entry is None or entry.get('tags') != [RECOVERABLE_TAG] or instant(entry['time']) != captured:
+                return {**report, 'reconciliation': 'uncertain', 'reason': 'receipt-snapshot-mismatch'}
+            return {**report, 'reconciliation': 'recover-candidate', 'candidateSnapshotId': snapshot}
+
     def execute(self, trigger, backup, verify):
         with decision_lock(self.lock) as acquired:
             if not acquired:
@@ -160,14 +219,8 @@ class Scheduler:
             try:
                 receipt = backup(claim['id'])
                 phase = 'receipt'
-                snapshot = receipt['SnapshotId']
-                captured, completed = (instant(receipt[field]) for field in ('SnapshotTime', 'CompletedAtUtc'))
-                previous = state['lastVerified']
-                if (receipt['Action'] != 'PostgreSQLBackup' or receipt['Workload'] != 'ControlPlane'
-                        or receipt['BackupHost'] != self.identity or receipt['ArchiveName'] != 'goldsrcops-postgresql.dump'
-                        or not SNAPSHOT.fullmatch(snapshot) or not began <= captured <= completed <= self.clock()
-                        or (previous is not None and snapshot == previous['snapshotId'])):
-                    raise ValueError('Candidate receipt differs from the owned backup attempt')
+                snapshot, captured, completed = self.validate_candidate(
+                    receipt, {**state, 'attempt': claim}, self.clock())
                 phase = 'verification'
                 verify(receipt)
                 verified = self.clock()
@@ -221,13 +274,24 @@ class LocalBackup:
         if result.returncode:
             raise RuntimeError(f'Isolated {action} failed (exit code {result.returncode})')
 
-    def create(self, claim_id):
+    def assert_local_engine(self):
         if os.environ.get('DOCKER_HOST'):
             raise ValueError('Explicit Docker hosts are outside the isolated rehearsal')
         endpoint = subprocess.run(['docker', 'context', 'inspect', '--format', '{{.Endpoints.docker.Host}}'],
                                   capture_output=True, timeout=10, check=True).stdout.decode('utf-8').strip()
         if not endpoint.startswith(('unix:///', 'npipe:////./pipe/')):
             raise ValueError('The isolated rehearsal requires a local Docker engine')
+
+    def read_candidate(self, claim_id):
+        if not re.fullmatch(r'[0-9a-f]{32}', claim_id):
+            raise ValueError('Invalid candidate receipt identity')
+        path = self.root / f'candidate-{claim_id}.json'
+        if path.resolve(strict=True) != path:
+            raise ValueError('Candidate receipt must belong to the local lab')
+        return read_json(path)
+
+    def create(self, claim_id):
+        self.assert_local_engine()
         source = subprocess.run(
             ['docker', 'inspect', '--format', '{{json .Config.Labels}}', self.source],
             capture_output=True, timeout=10, check=True)
@@ -236,30 +300,42 @@ class LocalBackup:
         path = self.root / f'candidate-{claim_id}.json'
         self.invoke('Create', '-SourceContainer', self.source, '-EvidenceFile', str(path))
         try:
-            return read_json(path)
+            return self.read_candidate(claim_id)
         except (OSError, ValueError):
             return None
 
-    def verify(self, receipt):
-        self.invoke('Check', '-ReadDataSubset', '100%')
-        snapshot_id = receipt['SnapshotId']
+    def list_snapshots(self, snapshot_id=None):
+        self.assert_local_engine()
+        filter_args = ['--host', self.identity]
+        if snapshot_id is not None:
+            if not SNAPSHOT.fullmatch(snapshot_id):
+                raise ValueError('Expected a complete snapshot ID')
+            filter_args.append(snapshot_id)
         check = subprocess.run(
             ['docker', 'run', '--rm', '--pull', 'never', '--read-only', '--network', 'none',
              '--mount', f'type=bind,source={self.repository},target=/repository,readonly',
              '--mount', f'type=bind,source={self.root / "restic-password"},target=/password,readonly',
              self.restic_image, '--no-cache', '--no-lock', '-r', '/repository', '--password-file',
-             '/password', '--json', 'snapshots', snapshot_id],
+             '/password', '--json', 'snapshots', *filter_args],
             capture_output=True, timeout=60, check=True)
         matches = json.loads(check.stdout)
+        if not isinstance(matches, list):
+            raise ValueError('Unexpected restic snapshot inventory')
+        return matches
+
+    def verify(self, receipt):
+        self.invoke('Check', '-ReadDataSubset', '100%')
+        snapshot_id = receipt['SnapshotId']
+        matches = self.list_snapshots(snapshot_id)
         if (len(matches) != 1 or matches[0]['id'] != snapshot_id or matches[0]['hostname'] != self.identity
-                or matches[0]['tags'] != ['goldsrcops-postgresql-recoverable']
-                or matches[0]['paths'] != ['/goldsrcops-postgresql.dump']):
+                or matches[0]['tags'] != [RECOVERABLE_TAG]
+                or matches[0]['paths'] != [f'/{ARCHIVE_NAME}']):
             raise ValueError('Candidate was not present in the fully checked repository')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=('initialize', 'plan', 'execute'))
+    parser.add_argument('mode', choices=('initialize', 'plan', 'execute', 'reconcile'))
     parser.add_argument('--lab-root', type=Path, required=True)
     parser.add_argument('--trigger', choices=('scheduled', 'catch-up'), default='catch-up')
     parser.add_argument('--accelerated', action='store_true', help='Use short intervals for fixture acceptance')
@@ -272,6 +348,8 @@ def main():
         result = dict(decision='initialized', rpo='unknown')
     elif args.mode == 'plan':
         result = scheduler.plan(args.trigger)
+    elif args.mode == 'reconcile':
+        result = scheduler.reconcile(lab.read_candidate, lab.list_snapshots)
     else:
         result = scheduler.execute(args.trigger, lab.create, lab.verify)
     print(json.dumps(result, sort_keys=True))
