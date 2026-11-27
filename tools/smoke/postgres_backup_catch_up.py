@@ -3,6 +3,7 @@
 import argparse
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -22,9 +23,11 @@ ACCELERATED_POLICY = (8, 12, 50, 60)
 LAB_LABEL = 'goldsrcops.logical-backup-rpo'
 KEY = re.compile(r'gso-logical-([0-9a-f]{12})')
 SNAPSHOT = re.compile(r'[0-9a-f]{64}')
+CLAIM = re.compile(r'[0-9a-f]{32}')
 STAMP = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})')
 ARCHIVE_NAME = 'goldsrcops-postgresql.dump'
 RECOVERABLE_TAG = 'goldsrcops-postgresql-recoverable'
+RECOVERY_CHECKS = ('independentReader', 'readOnlyRepository', 'sourceStopped', 'sqlExactPrefix', 'readerLatest20')
 
 
 def utc_now():
@@ -37,12 +40,20 @@ def instant(value):
     return datetime.fromisoformat(value)
 
 
-def read_json(path):
+def read_json_bytes(path):
     with path.open('rb') as stream:
         data = stream.read(65537)
     if len(data) > 65536:
         raise ValueError('Oversized receipt')
-    return json.loads(data)
+    return data
+
+
+def read_json(path):
+    return json.loads(read_json_bytes(path))
+
+
+def candidate_digest(receipt):
+    return sha256(json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
 
 
 def replace_json(path, value):
@@ -114,10 +125,19 @@ class Scheduler:
                 raise ValueError('Invalid verified snapshot chronology')
         if attempt is not None:
             claimed = instant(attempt['claimedAtUtc'])
-            if (not re.fullmatch(r'[0-9a-f]{32}', attempt['id'])
+            if (not CLAIM.fullmatch(attempt['id'])
                     or attempt['trigger'] not in ('scheduled', 'catch-up')
                     or (point is not None and claimed < instant(point['verifiedAtUtc']))):
                 raise ValueError('Invalid backup claim')
+        if 'lastResolution' in state:
+            resolution = state['lastResolution']
+            prior = resolution['priorVerified']
+            if (point is None or not SNAPSHOT.fullmatch(prior['snapshotId'])
+                    or not CLAIM.fullmatch(resolution['claimId'])
+                    or not all(SNAPSHOT.fullmatch(resolution[key]) for key in (
+                        'snapshotId', 'recoverReceiptSha256', 'archiveSha256'))
+                    or instant(resolution['resolvedAtUtc']) > self.clock()):
+                raise ValueError('Invalid backup resolution')
         return state
 
     def inspect(self, trigger):
@@ -169,41 +189,111 @@ class Scheduler:
             if not acquired:
                 return dict(decision='busy', rpo='unknown', reconciliation='not-assessed')
             state, report = self.inspect('catch-up')
-            if state is None or state['attempt'] is None:
-                reason = 'not-assessed' if state is None else 'no-unresolved-attempt'
-                return {**report, 'reconciliation': reason}
-            attempt = state['attempt']
-            began, now = instant(attempt['claimedAtUtc']), self.clock()
-            try:
-                observed = {}
-                for entry in list_snapshots():
-                    if entry['hostname'] != self.identity or entry['paths'] != [f'/{ARCHIVE_NAME}']:
-                        continue
-                    captured = instant(entry['time'])
-                    snapshot = entry['id']
-                    if captured > now or not SNAPSHOT.fullmatch(snapshot) or snapshot in observed:
-                        raise ValueError('Invalid local snapshot inventory')
-                    if captured >= began:
-                        observed[snapshot] = entry
-            except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
-                return {**report, 'reconciliation': 'uncertain', 'reason': 'inventory-unavailable'}
+            return self.assess_candidate(state, report, read_candidate, list_snapshots)
 
-            report = {**report, 'candidateCount': len(observed)}
-            if len(observed) > 1:
-                return {**report, 'reconciliation': 'uncertain', 'reason': 'multiple-candidates'}
+    def assess_candidate(self, state, report, read_candidate, list_snapshots):
+        if state is None or state['attempt'] is None:
+            reason = 'not-assessed' if state is None else 'no-unresolved-attempt'
+            return {**report, 'reconciliation': reason}
+        attempt = state['attempt']
+        began, now = instant(attempt['claimedAtUtc']), self.clock()
+        try:
+            observed = {}
+            for entry in list_snapshots():
+                if entry['hostname'] != self.identity or entry['paths'] != [f'/{ARCHIVE_NAME}']:
+                    continue
+                captured = instant(entry['time'])
+                snapshot = entry['id']
+                if captured > now or not SNAPSHOT.fullmatch(snapshot) or snapshot in observed:
+                    raise ValueError('Invalid local snapshot inventory')
+                if captured >= began:
+                    observed[snapshot] = entry
+        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+            return {**report, 'reconciliation': 'uncertain', 'reason': 'inventory-unavailable'}
+
+        report = {**report, 'candidateCount': len(observed)}
+        if len(observed) > 1:
+            return {**report, 'reconciliation': 'uncertain', 'reason': 'multiple-candidates'}
+        try:
+            receipt = read_candidate(attempt['id'])
+            snapshot, captured, _ = self.validate_candidate(receipt, state, now)
+        except FileNotFoundError:
+            if observed:
+                return {**report, 'reconciliation': 'uncertain', 'reason': 'missing-receipt'}
+            return {**report, 'reconciliation': 'no-candidate-observed', 'reason': 'missing-receipt'}
+        except (OSError, ValueError, KeyError, TypeError):
+            return {**report, 'reconciliation': 'uncertain', 'reason': 'invalid-receipt'}
+        entry = observed.get(snapshot)
+        if entry is None or entry.get('tags') != [RECOVERABLE_TAG] or instant(entry['time']) != captured:
+            return {**report, 'reconciliation': 'uncertain', 'reason': 'receipt-snapshot-mismatch'}
+        return {**report, 'reconciliation': 'recover-candidate', 'candidateSnapshotId': snapshot}
+
+    def resolve(self, recovery_file, expected_sha256, read_candidate, list_snapshots, archive_digest):
+        if not self.lock.is_file() or self.lock.resolve(strict=True) != self.lock:
+            return dict(decision='state-unavailable', rpo='unknown', resolution='not-applied')
+        with decision_lock(self.lock) as acquired:
+            if not acquired:
+                return dict(decision='busy', rpo='unknown', resolution='not-applied')
+            state, plan = self.inspect('catch-up')
+            if state is None:
+                return {**plan, 'resolution': 'not-applied', 'reason': 'state-unavailable'}
             try:
-                receipt = read_candidate(attempt['id'])
-                snapshot, captured, _ = self.validate_candidate(receipt, state, now)
-            except FileNotFoundError:
-                if observed:
-                    return {**report, 'reconciliation': 'uncertain', 'reason': 'missing-receipt'}
-                return {**report, 'reconciliation': 'no-candidate-observed', 'reason': 'missing-receipt'}
-            except (OSError, ValueError, KeyError, TypeError):
-                return {**report, 'reconciliation': 'uncertain', 'reason': 'invalid-receipt'}
-            entry = observed.get(snapshot)
-            if entry is None or entry.get('tags') != [RECOVERABLE_TAG] or instant(entry['time']) != captured:
-                return {**report, 'reconciliation': 'uncertain', 'reason': 'receipt-snapshot-mismatch'}
-            return {**report, 'reconciliation': 'recover-candidate', 'candidateSnapshotId': snapshot}
+                data = read_json_bytes(recovery_file)
+                if sha256(data).hexdigest() != expected_sha256:
+                    raise ValueError('Recover receipt hash mismatch')
+                proof = json.loads(data)
+                claim, snapshot = proof['claimId'], proof['snapshotId']
+                recovered = instant(proof['recoveredAtUtc'])
+                prior = proof['priorVerified']
+                if (type(proof['version']) is not int or proof['version'] != 1
+                        or proof['action'] != 'PostgreSQLIndependentRecover'
+                        or proof['backupHost'] != self.identity or not CLAIM.fullmatch(claim)
+                        or not all(SNAPSHOT.fullmatch(proof[key]) for key in (
+                            'snapshotId', 'candidateReceiptSha256', 'archiveSha256', 'projectionSha256'))
+                        or not all(proof['checks'].get(check) is True for check in RECOVERY_CHECKS)
+                        or recovered > self.clock()):
+                    raise ValueError('Invalid independent Recover receipt')
+            except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                return {**plan, 'resolution': 'not-applied', 'reason': 'invalid-recover-receipt'}
+
+            resolved = state.get('lastResolution')
+            attempt = state['attempt']
+            if attempt is None and resolved and resolved['recoverReceiptSha256'] == expected_sha256:
+                return {**plan, 'resolution': 'already-resolved', 'resolvedClaimId': claim}
+            if attempt is None or claim != attempt['id'] or prior != state['lastVerified']:
+                return {**plan, 'resolution': 'not-applied', 'reason': 'stale-recover-receipt'}
+            if attempt['trigger'] != 'catch-up' or prior is None:
+                return {**plan, 'resolution': 'not-applied', 'reason': 'not-catch-up-with-baseline'}
+
+            receipt = None
+
+            def capture_candidate(claim_id):
+                nonlocal receipt
+                receipt = read_candidate(claim_id)
+                return receipt
+
+            assessment = self.assess_candidate(state, plan, capture_candidate, list_snapshots)
+            if assessment['reconciliation'] != 'recover-candidate' or assessment['candidateSnapshotId'] != snapshot:
+                return {**assessment, 'resolution': 'not-applied',
+                        'reason': assessment.get('reason', 'candidate-not-confirmed')}
+            try:
+                if (candidate_digest(receipt) != proof['candidateReceiptSha256']
+                        or instant(receipt['CompletedAtUtc']) > recovered
+                        or archive_digest(snapshot) != proof['archiveSha256']):
+                    raise ValueError('Recover receipt does not match the candidate')
+            except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.SubprocessError):
+                return {**assessment, 'resolution': 'not-applied', 'reason': 'recover-candidate-mismatch'}
+
+            applied = self.clock()
+            if applied < recovered:
+                return {**assessment, 'resolution': 'not-applied', 'reason': 'clock-moved'}
+            point = dict(snapshotId=snapshot, coverageFromUtc=attempt['claimedAtUtc'],
+                         snapshotAtUtc=receipt['SnapshotTime'], verifiedAtUtc=proof['recoveredAtUtc'])
+            resolution = dict(claimId=claim, snapshotId=snapshot, priorVerified=state['lastVerified'],
+                              recoverReceiptSha256=expected_sha256, archiveSha256=proof['archiveSha256'],
+                              resolvedAtUtc=applied.isoformat())
+            replace_json(self.state, {**state, 'lastVerified': point, 'attempt': None, 'lastResolution': resolution})
+            return {**self.inspect('catch-up')[1], 'resolution': 'resolved', 'resolvedClaimId': claim}
 
     def execute(self, trigger, backup, verify):
         with decision_lock(self.lock) as acquired:
@@ -283,7 +373,7 @@ class LocalBackup:
             raise ValueError('The isolated rehearsal requires a local Docker engine')
 
     def read_candidate(self, claim_id):
-        if not re.fullmatch(r'[0-9a-f]{32}', claim_id):
+        if not CLAIM.fullmatch(claim_id):
             raise ValueError('Invalid candidate receipt identity')
         path = self.root / f'candidate-{claim_id}.json'
         if path.resolve(strict=True) != path:
@@ -304,24 +394,35 @@ class LocalBackup:
         except (OSError, ValueError):
             return None
 
-    def list_snapshots(self, snapshot_id=None):
+    def restic_read(self, *arguments):
         self.assert_local_engine()
-        filter_args = ['--host', self.identity]
-        if snapshot_id is not None:
-            if not SNAPSHOT.fullmatch(snapshot_id):
-                raise ValueError('Expected a complete snapshot ID')
-            filter_args.append(snapshot_id)
         check = subprocess.run(
             ['docker', 'run', '--rm', '--pull', 'never', '--read-only', '--network', 'none',
              '--mount', f'type=bind,source={self.repository},target=/repository,readonly',
              '--mount', f'type=bind,source={self.root / "restic-password"},target=/password,readonly',
              self.restic_image, '--no-cache', '--no-lock', '-r', '/repository', '--password-file',
-             '/password', '--json', 'snapshots', *filter_args],
+             '/password', *arguments],
             capture_output=True, timeout=60, check=True)
-        matches = json.loads(check.stdout)
+        return check.stdout
+
+    def list_snapshots(self, snapshot_id=None):
+        filter_args = ['--host', self.identity]
+        if snapshot_id is not None:
+            if not SNAPSHOT.fullmatch(snapshot_id):
+                raise ValueError('Expected a complete snapshot ID')
+            filter_args.append(snapshot_id)
+        matches = json.loads(self.restic_read('--json', 'snapshots', *filter_args))
         if not isinstance(matches, list):
             raise ValueError('Unexpected restic snapshot inventory')
         return matches
+
+    def archive_digest(self, snapshot_id):
+        if not SNAPSHOT.fullmatch(snapshot_id):
+            raise ValueError('Expected a complete snapshot ID')
+        dump = self.restic_read('dump', snapshot_id, f'/{ARCHIVE_NAME}')
+        if not dump.startswith(b'PGDMP') or len(dump) > 64 * 1024 * 1024:
+            raise ValueError('Unexpected disposable PostgreSQL archive')
+        return sha256(dump).hexdigest()
 
     def verify(self, receipt):
         self.invoke('Check', '-ReadDataSubset', '100%')
@@ -335,11 +436,18 @@ class LocalBackup:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=('initialize', 'plan', 'execute', 'reconcile'))
+    parser.add_argument('mode', choices=('initialize', 'plan', 'execute', 'reconcile', 'resolve'))
     parser.add_argument('--lab-root', type=Path, required=True)
     parser.add_argument('--trigger', choices=('scheduled', 'catch-up'), default='catch-up')
     parser.add_argument('--accelerated', action='store_true', help='Use short intervals for fixture acceptance')
+    parser.add_argument('--recover-receipt', type=Path, help='Independent Recover receipt used by resolve')
+    parser.add_argument('--receipt-sha256', help='Exact SHA-256 of the reviewed Recover receipt')
     args = parser.parse_args()
+    if args.mode == 'resolve':
+        if args.recover_receipt is None or not SNAPSHOT.fullmatch(args.receipt_sha256 or ''):
+            parser.error('resolve requires --recover-receipt and --receipt-sha256')
+    elif args.recover_receipt is not None or args.receipt_sha256 is not None:
+        parser.error('Recover receipt arguments apply only to resolve')
     lab = LocalBackup(args.lab_root.resolve(strict=True))
     policy = ACCELERATED_POLICY if args.accelerated else DEFAULT_POLICY
     scheduler = Scheduler(lab.root, lab.identity, policy)
@@ -350,6 +458,9 @@ def main():
         result = scheduler.plan(args.trigger)
     elif args.mode == 'reconcile':
         result = scheduler.reconcile(lab.read_candidate, lab.list_snapshots)
+    elif args.mode == 'resolve':
+        result = scheduler.resolve(args.recover_receipt, args.receipt_sha256, lab.read_candidate,
+                                   lab.list_snapshots, lab.archive_digest)
     else:
         result = scheduler.execute(args.trigger, lab.create, lab.verify)
     print(json.dumps(result, sort_keys=True))
